@@ -28,6 +28,22 @@
 const { useState, useEffect, useRef } = React;
 
 const STORAGE_KEY = "babyTracker_v6";
+  // check for siri shortcut actions
+const params = new URLSearchParams(window.location.search);
+const quickAction = params.get("action");
+
+if (quickAction === "nap") {
+  setTimeout(() => {
+    const now = new Date();
+    const time = now.toTimeString().slice(0,5);
+    
+    addEntry({
+      id: Date.now().toString(),
+      type: "nap",
+      start: time
+    });
+  }, 500);
+}
 const SEED_DAYS = {
   "2025-04-03": [
     { id:"a1", type:"wake", time:"08:40", night:false, note:"" },
