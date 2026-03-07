@@ -16,6 +16,36 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getAnalytics, logEvent }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCdHzmheQRbtzP_JI1FuWcZLeW8yVja5-0",
+      authDomain: "obubba-d9ccc.firebaseapp.com",
+      projectId: "obubba-d9ccc",
+      storageBucket: "obubba-d9ccc.firebasestorage.app",
+      messagingSenderId: "1091432133381",
+      appId: "1:1091432133381:web:1cd4d0ce7397affeae7d6c",
+      measurementId: "G-Y7CHSL1YHZ"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+    const auth = getAuth(app);
+    const analytics = getAnalytics(app);
+
+    window._fb = { db, auth, analytics, doc, setDoc, getDoc, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged, logEvent };
+
+    signInAnonymously(auth).catch(e => console.warn("Auth error", e));
+    onAuthStateChanged(auth, user => { if (user) window._fbUid = user.uid; });
+  </script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
     html,body{height:100%;overscroll-behavior:none;}
@@ -339,6 +369,16 @@ function App(){
   const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
 
+  // ── Firebase sync state ──
+  const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
+  const[syncStatus,setSyncStatus]=useState("idle"); // idle | syncing | synced | error
+  const[showFamilyModal,setShowFamilyModal]=useState(false);
+  const[joinCodeInput,setJoinCodeInput]=useState("");
+  const[joinError,setJoinError]=useState("");
+  const[fbReady,setFbReady]=useState(false);
+  const syncRef = React.useRef(null);
+  const unsubscribeRef = React.useRef(null);
+
   const possessive = (n) => {
     if (!n) return "";
     return n.endsWith("s") ? `${n}'` : `${n}'s`;
@@ -352,6 +392,131 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("unborn_v1",babyUnborn?"1":"0");}catch{}},[babyUnborn]);
   useEffect(()=>{try{localStorage.setItem("sex_v1",babySex);}catch{}},[babySex]);
   useEffect(()=>{if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}},[onboarded]);
+
+  // ── Firebase: wait for SDK ready ──
+  useEffect(()=>{
+    const check = setInterval(()=>{
+      if(window._fb){ setFbReady(true); clearInterval(check); }
+    }, 200);
+    return ()=>clearInterval(check);
+  },[]);
+
+  // ── Firebase: push local data to cloud ──
+  const pushToCloud = React.useCallback(async(code, data) => {
+    if(!window._fb || !code) return;
+    const {db, doc, setDoc, serverTimestamp} = window._fb;
+    try {
+      setSyncStatus("syncing");
+      await setDoc(doc(db, "families", code), {
+        days: JSON.stringify(data.days),
+        weights: JSON.stringify(data.weights),
+        babyName: data.babyName||"",
+        babyDob: data.babyDob||"",
+        babySex: data.babySex||"",
+        babyUnborn: data.babyUnborn?1:0,
+        milestones: JSON.stringify(data.milestones),
+        updatedAt: serverTimestamp(),
+        updatedBy: window._fbUid||"unknown"
+      }, {merge:true});
+      setSyncStatus("synced");
+    } catch(e) {
+      console.warn("Sync error", e);
+      setSyncStatus("error");
+    }
+  },[]);
+
+  // ── Firebase: subscribe to real-time changes ──
+  const subscribeToFamily = React.useCallback((code) => {
+    if(!window._fb || !code) return;
+    if(unsubscribeRef.current) unsubscribeRef.current();
+    const {db, doc, onSnapshot} = window._fb;
+    unsubscribeRef.current = onSnapshot(doc(db,"families",code), (snap) => {
+      if(!snap.exists()) return;
+      const d = snap.data();
+      // Only apply if updated by someone else
+      if(d.updatedBy && d.updatedBy === window._fbUid) return;
+      try {
+        if(d.days)      setDays(JSON.parse(d.days));
+        if(d.weights)   setWeights(JSON.parse(d.weights));
+        if(d.babyName)  setBabyName(d.babyName);
+        if(d.babyDob)   setBabyDob(d.babyDob);
+        if(d.babySex)   setBabySex(d.babySex);
+        if(d.milestones) setMilestones(JSON.parse(d.milestones));
+        setBabyUnborn(d.babyUnborn===1);
+        setSyncStatus("synced");
+      } catch(e) { console.warn("Apply sync error", e); }
+    }, (e) => { console.warn("Snapshot error", e); setSyncStatus("error"); });
+  },[]);
+
+  // ── Firebase: subscribe when familyCode or fbReady changes ──
+  useEffect(()=>{
+    if(fbReady && familyCode) subscribeToFamily(familyCode);
+    return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
+  },[fbReady, familyCode]);
+
+  // ── Firebase: push whenever data changes (debounced 2s) ──
+  useEffect(()=>{
+    if(!fbReady || !familyCode) return;
+    clearTimeout(syncRef.current);
+    syncRef.current = setTimeout(()=>{
+      pushToCloud(familyCode, {days, weights, babyName, babyDob, babySex, babyUnborn, milestones});
+    }, 2000);
+    return ()=>clearTimeout(syncRef.current);
+  },[fbReady, familyCode, days, weights, babyName, babyDob, babySex, babyUnborn, milestones]);
+
+  // ── Firebase: generate a new family code ──
+  async function createFamilyCode() {
+    if(!window._fb) return;
+    const {db, doc, getDoc, setDoc, serverTimestamp, logEvent, analytics} = window._fb;
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code, exists = true;
+    while(exists) {
+      code = Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+      const snap = await getDoc(doc(db,"families",code));
+      exists = snap.exists();
+    }
+    // Save current data under new code
+    await pushToCloud(code, {days, weights, babyName, babyDob, babySex, babyUnborn, milestones});
+    setFamilyCode(code);
+    try{localStorage.setItem("family_code", code);}catch{}
+    subscribeToFamily(code);
+    try{ logEvent(analytics, "family_code_created"); }catch{}
+  }
+
+  // ── Firebase: join existing family ──
+  async function joinFamily(code) {
+    if(!window._fb) return;
+    const {db, doc, getDoc, logEvent, analytics} = window._fb;
+    const clean = code.trim().toUpperCase();
+    if(clean.length !== 6) { setJoinError("Code must be 6 characters"); return; }
+    try {
+      const snap = await getDoc(doc(db,"families",clean));
+      if(!snap.exists()) { setJoinError("Code not found — check with your partner"); return; }
+      const d = snap.data();
+      if(d.days)      setDays(JSON.parse(d.days));
+      if(d.weights)   setWeights(JSON.parse(d.weights));
+      if(d.babyName)  setBabyName(d.babyName);
+      if(d.babyDob)   setBabyDob(d.babyDob);
+      if(d.babySex)   setBabySex(d.babySex);
+      if(d.milestones) setMilestones(JSON.parse(d.milestones));
+      setBabyUnborn(d.babyUnborn===1);
+      setFamilyCode(clean);
+      try{localStorage.setItem("family_code", clean);}catch{}
+      subscribeToFamily(clean);
+      setJoinError("");
+      setShowFamilyModal(false);
+      try{ logEvent(analytics, "family_code_joined"); }catch{}
+    } catch(e) {
+      setJoinError("Something went wrong — please try again");
+    }
+  }
+
+  // ── Analytics: log key events ──
+  function trackEvent(name, params={}) {
+    try {
+      if(window._fb) window._fb.logEvent(window._fb.analytics, name, params);
+    } catch(e){}
+  }
   useEffect(()=>{
     if(napOn)timerRef.current=setInterval(()=>setNapSec(s=>s+1),1000);
     else clearInterval(timerRef.current);
@@ -1368,6 +1533,7 @@ function App(){
       setDays(d=>({...d,[selDay]:(d[selDay]||[]).map(x=>x.id===editEntry.id?e:x)}));
     } else {
       setDays(d=>({...d,[selDay]:[...(d[selDay]||[]),e]}));
+      trackEvent("entry_logged", {type: eType});
     }
     setModal(null);setEditEntry(null);
   }
@@ -1890,6 +2056,9 @@ function App(){
                         <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</span>
                       </div>
                       <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
+                      <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
+                        {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync":"🔗 "+familyCode) : "👨‍👩‍👧 Share"}
+                      </button>
                     </div>
                   );
                 }
@@ -1903,6 +2072,9 @@ function App(){
                       <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{parts.join(" & ")} · {age.totalWeeks} weeks</span>
                     </div>
                     <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
+                    <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
+                      {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync":"🔗 "+familyCode) : "👨‍👩‍👧 Share"}
+                    </button>
                   </div>
                 );
               })()}
@@ -3129,6 +3301,94 @@ function App(){
           </Sheet>
         );
       })()}
+
+      {/* ── FAMILY SYNC MODAL ── */}
+      {showFamilyModal && (
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowFamilyModal(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#faf6f0",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
+
+            {/* Handle */}
+            <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
+
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:6}}>Family Sync</div>
+            <div style={{fontSize:14,color:C.lt,marginBottom:24,lineHeight:1.5}}>Share a code with your partner so both phones stay in sync — every feed, nap and wake updates instantly.</div>
+
+            {familyCode ? (
+              <>
+                {/* Active code display */}
+                <div style={{background:"white",borderRadius:16,padding:"20px",marginBottom:16,textAlign:"center",border:`2px solid ${C.mint}30`}}>
+                  <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Your Family Code</div>
+                  <div style={{fontFamily:"monospace",fontSize:38,fontWeight:700,color:C.ter,letterSpacing:"0.15em",marginBottom:8}}>{familyCode}</div>
+                  <div style={{fontSize:13,color:C.lt,marginBottom:12}}>Share this with your partner — they tap "Join with code" and enter it</div>
+                  <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+                    <div style={{fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:99,background:
+                      syncStatus==="synced"?"#e8f7f0":
+                      syncStatus==="syncing"?"#fff8e8":
+                      syncStatus==="error"?"#fff0f0":"#f0f0f0",
+                      color:syncStatus==="synced"?C.mint:syncStatus==="syncing"?"#b88a20":syncStatus==="error"?C.ter:C.lt
+                    }}>
+                      {syncStatus==="synced"?"✓ Synced with partner":
+                       syncStatus==="syncing"?"⏳ Syncing…":
+                       syncStatus==="error"?"⚠️ Sync error — check connection":
+                       "○ Waiting for partner"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Share instructions */}
+                <div style={{background:"#f5f0ff",borderRadius:12,padding:"14px 16px",marginBottom:16,border:"1px solid #d4c8f8"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#6040c0",marginBottom:6}}>How to share</div>
+                  <div style={{fontSize:13,color:"#5030a0",lineHeight:1.7}}>
+                    1. Tell your partner your code: <strong>{familyCode}</strong><br/>
+                    2. They open OBubba → tap <strong>"👨‍👩‍👧 Share"</strong><br/>
+                    3. Tap <strong>"Join with code"</strong> and enter it<br/>
+                    4. Both phones sync instantly ✓
+                  </div>
+                </div>
+
+                <button onClick={()=>{
+                  setFamilyCode(null);
+                  try{localStorage.removeItem("family_code");}catch{}
+                  if(unsubscribeRef.current) unsubscribeRef.current();
+                  setSyncStatus("idle");
+                  setShowFamilyModal(false);
+                }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1px solid ${C.blush}`,background:"none",color:C.lt,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>
+                  Leave family sync
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Create new code */}
+                <button onClick={async()=>{
+                  setSyncStatus("syncing");
+                  await createFamilyCode();
+                  setSyncStatus("synced");
+                }} style={{width:"100%",padding:"15px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:12}}>
+                  {syncStatus==="syncing" ? "⏳ Creating…" : "✨ Create family code"}
+                </button>
+
+                <div style={{textAlign:"center",fontSize:13,color:C.lt,marginBottom:12}}>or</div>
+
+                {/* Join with code */}
+                <div style={{background:"white",borderRadius:16,padding:"16px",border:`1px solid ${C.blush}`}}>
+                  <div style={{fontSize:14,fontWeight:600,color:C.mid,marginBottom:10}}>Join with a code</div>
+                  <input
+                    value={joinCodeInput}
+                    onChange={e=>setJoinCodeInput(e.target.value.toUpperCase())}
+                    placeholder="e.g. AB3X7Y"
+                    maxLength={6}
+                    style={{width:"100%",fontSize:24,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.15em",textAlign:"center",padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}
+                  />
+                  {joinError && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{joinError}</div>}
+                  <button onClick={()=>joinFamily(joinCodeInput)} style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:C.mint,color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    Join family
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );
