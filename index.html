@@ -802,7 +802,21 @@ function App(){
   const tabSt=t=>({flex:1,padding:"10px 2px",border:"none",background:"none",fontSize:10,fontWeight:700,cursor:"pointer",color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.04em",textTransform:"uppercase"});
   
 {(() => {
-  const score = sleepScore();
+
+  if(!days || !selDay || !days[selDay]){
+    return null;
+  }
+
+  let score = 0;
+  let bed = null;
+  let advice = "";
+  let tired = "";
+
+  try { score = sleepScore(); } catch(e){}
+  try { bed = bedtimePrediction(); } catch(e){}
+  try { advice = sleepAdvice(); } catch(e){}
+  try { tired = tiredDetection(); } catch(e){}
+
   const bed = bedtimePrediction();
   const advice = sleepAdvice();
   const tired = tiredDetection();
@@ -1052,25 +1066,6 @@ const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"�
             </div>
           ):(
             <div>
-
-              {/* Sleep analytics card */}
-              {(() => {
-                const score = sleepScore();
-                const bed = bedtimePrediction();
-                const advice = sleepAdvice();
-                const tired = tiredDetection();
-                return (
-                  <div style={{background:"white",border:"1px solid #f2d9cc",borderRadius:20,padding:16,marginBottom:14}}>
-                    <div style={{fontSize:12,fontFamily:"monospace",color:"#7a5c52"}}>Sleep score</div>
-                    <div style={{fontSize:28,fontWeight:700}}>{score}/100</div>
-                    {bed && <div style={{marginTop:6}}>Suggested bedtime: {fmt12(bed)}</div>}
-                    {napCountdown() && <div style={{marginTop:6,color:"#c9705a"}}>⏱ {napCountdown()}</div>}
-                    <div style={{marginTop:6}}>{advice}</div>
-                    <div style={{fontSize:12,color:"#b89890",marginTop:4}}>{tired}</div>
-                  </div>
-                );
-              })()}
-
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[{big:totalMl,unit:"ml",label:"Total Feed",color:C.ter,bg:"#fdf0eb"},{big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},{big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"}].map((s,i)=>(
                   <div key={i} style={{background:s.bg,borderRadius:18,padding:"14px 6px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
