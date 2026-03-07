@@ -357,8 +357,8 @@ function App(){
     if(w<6)   return{stage:"newborn",label:"Newborn",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"4-6 naps",feedGoal:"8-12 feeds/day",nightNote:"Wake every 2-3h is normal",tip:"Tiny tummy — feed on demand, log every feed."};
     if(w<13)  return{stage:"infant",label:"Young Infant",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"4-5 naps",feedGoal:"6-8 feeds/day",nightNote:"Stretches of 3-4h emerging",tip:"Watch for wake windows of 45-60 min."};
     if(w<26)  return{stage:"3to6mo",label:"3–6 Months",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"3-4 naps",feedGoal:"5-6 feeds/day",nightNote:"Some babies sleep 5-6h stretches",tip:"Consolidation beginning — longer naps likely."};
-    if(w<39)  return{stage:"6to9mo",label:"6–9 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2-3 naps",feedGoal:"4-5 milk + solids 1-2×",nightNote:"Night feeds reducing",tip:"Starting solids! Log meals separately from milk."};
-    if(w<52)  return{stage:"9to12mo",label:"9–12 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2 naps",feedGoal:"3-4 milk + solids 3×",nightNote:"Most can sleep through",tip:"Nap consolidation to 2 naps likely."};
+    if(w<39)  return{stage:"6to9mo",label:"6–9 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2-3 naps",feedGoal:"4-5 milk + solids 1-2x",nightNote:"Night feeds reducing",tip:"Starting solids! Log meals separately from milk."};
+    if(w<52)  return{stage:"9to12mo",label:"9–12 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2 naps",feedGoal:"3-4 milk + solids 3x",nightNote:"Most can sleep through",tip:"Nap consolidation to 2 naps likely."};
     if(w<78)  return{stage:"1year",label:"1–1.5 Years",weeks:w,feedUnit:"g/portion",showSolids:true,napGoal:"1-2 naps",feedGoal:"3 meals + 2 snacks",nightNote:"One wake at most is common",tip:"Watch for 2→1 nap transition around 15-18 months."};
     return      {stage:"toddler",label:"Toddler",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"1 nap",feedGoal:"3 meals + snacks",nightNote:"Should sleep through",tip:"Nap may drop around 2.5–3 years."};
   }
@@ -367,7 +367,9 @@ function App(){
   const dayKeys=Object.keys(days).sort();
   const displayDayKeys=[...dayKeys].reverse();
   const entries=days[selDay]||[];
-  const dayE=entries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+  // dayE preserves stored array order (respects drag-and-drop reordering)
+  // but falls back to time-sort for entries added before drag support
+  const dayE=entries.filter(e=>!e.night);
   const nightE=entries.filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
   const totalMl=entries.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
   const naps=dayE.filter(e=>e.type==="nap");
@@ -526,7 +528,58 @@ function App(){
     const ww = getWakeWindow(age.totalWeeks);
     const lastNap = todayNaps[todayNaps.length - 1];
     if (!lastNap.end) return null;
-    return addMinutes(lastNap.end, ww.max);
+
+    // ── 1. Learn average bedtime from last 14 days of logged data ──
+    const pastDays = Object.keys(days).sort().filter(d => d !== selDay).slice(-14);
+    const loggedBedtimes = pastDays
+      .map(d => (days[d]||[]).find(e => e.type==="sleep" && !e.night))
+      .filter(Boolean)
+      .map(e => { const [h,m] = e.time.split(":").map(Number); return h*60+m; });
+
+    let baseBedMins;
+    let bedSource;
+    if (loggedBedtimes.length >= 3) {
+      // Use trimmed average (drop outliers)
+      const sorted = [...loggedBedtimes].sort((a,b)=>a-b);
+      const trim = Math.floor(sorted.length * 0.15);
+      const trimmed = sorted.slice(trim, sorted.length - trim);
+      baseBedMins = Math.round(trimmed.reduce((a,b)=>a+b,0) / trimmed.length);
+      bedSource = "avg";
+    } else {
+      // Fall back to last nap end + age wake window
+      const [lh,lm] = lastNap.end.split(":").map(Number);
+      baseBedMins = lh*60+lm + ww.max;
+      bedSource = "age";
+    }
+
+    // ── 2. Adjust for last nap quality ──
+    const lastNapMins = minDiff(lastNap.start, lastNap.end);
+    let adjustMins = 0;
+    let adjustReason = null;
+
+    if (lastNapMins < 20) {
+      // Very short nap — baby is likely overtired, pull bedtime earlier
+      adjustMins = -30;
+      adjustReason = `Last nap only ${lastNapMins}min — moved earlier to avoid overtiredness`;
+    } else if (lastNapMins < 40) {
+      adjustMins = -15;
+      adjustReason = `Short last nap (${lastNapMins}min) — slightly earlier bedtime`;
+    } else if (lastNapMins > 90) {
+      // Long late nap — baby may not be tired, push slightly later
+      adjustMins = +15;
+      adjustReason = `Long last nap (${lastNapMins}min) — bedtime shifted slightly later`;
+    }
+
+    // ── 3. Also check: last nap end + min wake window as a floor ──
+    const [lh2,lm2] = lastNap.end.split(":").map(Number);
+    const earliestBed = lh2*60+lm2 + ww.min;
+    const finalMins = Math.max(earliestBed, baseBedMins + adjustMins);
+
+    const hh = Math.floor(finalMins/60)%24;
+    const mm = finalMins%60;
+    const bedTime = `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+
+    return { time: bedTime, adjustReason, bedSource, baseBedMins, adjustMins };
   }
 
   function sleepAdvice() {
@@ -809,19 +862,27 @@ function App(){
     setModal(null); setParsedEntries(null); setPasteText("");
   }
 
-  function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:""});setModal("entry");}
+  function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});setModal("entry");}
   function openEdit(entry){
     setEditEntry(entry);
     setEType(entry.type);
     setFeedType(entry.feedType||"milk");
     setNightMode(!!entry.night);
-    setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||""});
+    setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||"",breastL:entry.breastL||"",breastR:entry.breastR||""});
     setModal("entry");
   }
   function delEntry(id){setDays(d=>({...d,[selDay]:(d[selDay]||[]).filter(e=>e.id!==id)}));}
   function saveEntry(){
     let e={id:editEntry?editEntry.id:uid(),note:form.note||""};
-    if(eType==="feed"){if(!form.time)return;e={...e,type:"feed",time:form.time,amount:parseInt(form.amount)||0,night:nightMode||form.night==="yes",feedType:feedType};}
+    if(eType==="feed"){
+      if(!form.time)return;
+      if(feedType==="breast"){
+        const bL=parseInt(form.breastL)||0, bR=parseInt(form.breastR)||0;
+        e={...e,type:"feed",time:form.time,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:nightMode||form.night==="yes"};
+      } else {
+        e={...e,type:"feed",time:form.time,amount:parseInt(form.amount)||0,night:nightMode||form.night==="yes",feedType:feedType};
+      }
+    }
     else if(eType==="nap"){if(!form.start||!form.end)return;e={...e,type:"nap",start:form.start,end:form.end,night:false};}
     else if(eType==="poop"){if(!form.time)return;e={...e,type:"poop",time:form.time,poopType:form.poopType||"",night:false};}
     else{if(!form.time)return;e={...e,type:eType,time:form.time,night:false};}
@@ -1244,23 +1305,40 @@ function App(){
                         </div>
                         {/* Suggested bedtime */}
                         {suggestedBed && (
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",padding:"10px 14px"}}>
-                            <div>
-                              <div style={{fontSize:10,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Suggested Bedtime</div>
-                              <div style={{fontSize:11,color:C.mid}}>Based on last nap + wake window</div>
+                          <div style={{background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",padding:"10px 14px"}}>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                              <div>
+                                <div style={{fontSize:10,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>
+                                  {suggestedBed.bedSource==="avg" ? "Predicted Bedtime" : "Suggested Bedtime"}
+                                </div>
+                                <div style={{fontSize:10,color:C.mid,lineHeight:1.4,maxWidth:160}}>
+                                  {suggestedBed.adjustReason || (suggestedBed.bedSource==="avg" ? "Based on your recent routine" : "Based on last nap + wake window")}
+                                </div>
+                              </div>
+                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
                             </div>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed)}</div>
                           </div>
                         )}
                       </div>
                     ) : suggestedBed ? (
-                      /* ── Has naps but no more nap prediction (last nap done): show bedtime ── */
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",borderRadius:14,padding:"10px 14px",marginTop:4}}>
-                        <div>
-                          <div style={{fontSize:10,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Suggested Bedtime</div>
-                          <div style={{fontSize:11,color:C.mid}}>Based on last nap + wake window</div>
+                      /* ── Has naps but no more nap prediction: show smart bedtime ── */
+                      <div style={{background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom: suggestedBed.adjustReason ? 6 : 0}}>
+                          <div>
+                            <div style={{fontSize:10,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>
+                              {suggestedBed.bedSource==="avg" ? "Predicted Bedtime" : "Suggested Bedtime"}
+                            </div>
+                            <div style={{fontSize:10,color:C.mid}}>
+                              {suggestedBed.bedSource==="avg" ? "Based on your recent routine" : "Based on last nap + wake window"}
+                            </div>
+                          </div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
                         </div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed)}</div>
+                        {suggestedBed.adjustReason && (
+                          <div style={{fontSize:11,color:C.sky,background:"rgba(122,171,196,0.15)",borderRadius:8,padding:"5px 9px",lineHeight:1.4}}>
+                            &#9888; {suggestedBed.adjustReason}
+                          </div>
+                        )}
                       </div>
                     ) : null}
                   </div>
@@ -1325,12 +1403,17 @@ function App(){
                       style={{background:isOver?"#f5ede8":C.warm,borderRadius:14,padding:"11px 12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${borderCol}`,opacity:isDragging?0.45:1,transition:"opacity 0.15s,background 0.15s",cursor:"grab"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                         <div style={{display:"flex",alignItems:"center",gap:9}}>
-                          <span style={{fontSize:16,cursor:"grab",color:C.lt}}>⠿</span>
+                          <span style={{fontSize:14,cursor:"grab",color:C.lt,letterSpacing:-1}}>&#x2261;</span>
                           <span style={{fontSize:17}}>{ICONS[e.type]}</span>
                           <div>
                             <div style={{fontSize:14,fontWeight:500}}>
-                              {e.type==="feed"?(e.feedType==="solids"?"Solids":"Milk Feed"):NAMES[e.type]}
+                              {e.type==="feed"?(e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":"Bottle Feed"):NAMES[e.type]}
                             </div>
+                            {e.type==="feed"&&e.feedType==="breast"&&(
+                              <div style={{fontSize:11,color:C.lt,fontFamily:"monospace"}}>
+                                {e.breastL>0?`L: ${e.breastL}m`:""}{e.breastL>0&&e.breastR>0?" · ":""}{e.breastR>0?`R: ${e.breastR}m`:""}
+                              </div>
+                            )}
                             {e.type==="nap"&&<div style={{fontSize:11,color:C.lt,fontFamily:"monospace"}}>{minDiff(e.start,e.end)} min</div>}
                             {e.type==="poop"&&e.poopType&&<div style={{fontSize:11,color:"#8a7060",fontFamily:"monospace"}}>{e.poopType}</div>}
                             {e.note&&e.type!=="feed"&&<div style={{fontSize:11,color:C.mid,fontStyle:"italic",marginTop:1}}>{e.note}</div>}
@@ -1339,7 +1422,15 @@ function App(){
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:7}}>
                           <Badge type={e.type}>
-                            {e.type==="feed"?(e.feedType==="solids"?fmt12(e.time):`${e.amount}ml`):e.type==="nap"?`${fmt12(e.start)}–${fmt12(e.end)}`:e.type==="poop"?fmt12(e.time):fmt12(e.time)}
+                            {e.type==="feed"
+                              ? (e.feedType==="breast"
+                                  ? `${(e.breastL||0)+(e.breastR||0)}m`
+                                  : e.feedType==="solids"
+                                    ? fmt12(e.time)
+                                    : `${e.amount}ml`)
+                              : e.type==="nap"
+                                ? `${fmt12(e.start)}-${fmt12(e.end)}`
+                                : fmt12(e.time)}
                           </Badge>
                           <button onClick={()=>openEdit(e)} style={{background:"#f0e8e0",border:"none",borderRadius:"50%",width:23,height:23,color:C.mid,cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>
                           <button onClick={()=>delEntry(e.id)} style={{background:"#f0e5e0",border:"none",borderRadius:"50%",width:23,height:23,color:C.lt,cursor:"pointer",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
@@ -1832,15 +1923,32 @@ function App(){
           </div>
 
           {eType==="feed"&&<>
-            {/* Milk / Solids toggle */}
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              {["milk","solids"].map(ft=>(
-                <button key={ft} onClick={()=>setFeedType(ft)} style={{flex:1,padding:"8px",borderRadius:12,border:`2px solid ${feedType===ft?C.ter:C.blush}`,background:feedType===ft?"#fdf0eb":C.warm,fontSize:13,fontWeight:600,color:feedType===ft?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
-                  {ft==="milk"?"🍼 Milk":"🥣 Solids"}
+            {/* Milk / Breast / Solids toggle */}
+            <div style={{display:"flex",gap:6,marginBottom:12}}>
+              {["milk","breast","solids"].map(ft=>(
+                <button key={ft} onClick={()=>setFeedType(ft)} style={{flex:1,padding:"7px 4px",borderRadius:12,border:`2px solid ${feedType===ft?C.ter:C.blush}`,background:feedType===ft?"#fdf0eb":C.warm,fontSize:12,fontWeight:600,color:feedType===ft?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
+                  {ft==="milk"?"🍼 Bottle":ft==="breast"?"🤱 Breast":"🥣 Solids"}
                 </button>
               ))}
             </div>
             {feedType==="milk"&&<Inp label="Amount (ml)" type="number" inputMode="numeric" placeholder="e.g. 180" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))}/>}
+            {feedType==="breast"&&(
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:11,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Minutes each side</label>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {[["breastL","Left (L)"],["breastR","Right (R)"]].map(([k,lbl])=>(
+                    <div key={k}>
+                      <label style={{fontSize:10,fontFamily:"monospace",color:C.lt,display:"block",marginBottom:3}}>{lbl}</label>
+                      <input type="number" inputMode="numeric" min="0" max="60" placeholder="mins" value={form[k]||""} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}
+                        style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
+                    </div>
+                  ))}
+                </div>
+                <div style={{fontSize:11,color:C.lt,fontFamily:"monospace",marginTop:6,textAlign:"center"}}>
+                  Total: {((parseInt(form.breastL)||0)+(parseInt(form.breastR)||0))} min
+                </div>
+              </div>
+            )}
             {feedType==="solids"&&<Inp label="Description / amount" type="text" placeholder="e.g. porridge, half jar" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
             <Inp label="Time" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/>
             {!nightMode&&(
@@ -1852,7 +1960,7 @@ function App(){
                 </select>
               </div>
             )}
-            {feedType==="milk"&&<Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
+            {(feedType==="milk"||feedType==="breast")&&<Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
           </>}
 
           {eType==="nap"&&(
@@ -2100,12 +2208,6 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script>
-
-<script>
-window.addEventListener('error', function(e) {
-  document.getElementById('root').innerHTML = '<div style="padding:20px;font-family:monospace;font-size:12px;background:#fff0f0;color:#c00;white-space:pre-wrap;border-radius:8px;margin:10px">' + (e.message||'') + '\n\nLine: ' + e.lineno + '\n\n' + (e.error&&e.error.stack ? e.error.stack : '') + '</div>';
-});
 </script>
 
 
