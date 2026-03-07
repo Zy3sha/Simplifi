@@ -286,6 +286,7 @@ function App(){
   const[wForm,setWForm]=useState({date:todayStr(),kg:""});
   const[milestones,setMilestones]=useState(()=>{try{return JSON.parse(localStorage.getItem("ms_v1")||"{}");}catch{return{};}});
   const[babyDob,setBabyDob]=useState(()=>{try{return localStorage.getItem("dob_v1")||"";}catch{return"";}});
+  const[babyUnborn,setBabyUnborn]=useState(()=>{try{return localStorage.getItem("unborn_v1")==="1";}catch{return false;}});
   const[babySex,setBabySex]=useState(()=>{try{return localStorage.getItem("sex_v1")||"";}catch{return"";}});
   const theme = babySex==="girl"
     ? {primary:"#fde7e4",secondary:"#f5ccc7"}
@@ -327,6 +328,7 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("bn_v2",babyName);}catch{}},[babyName]);
   useEffect(()=>{try{localStorage.setItem("ms_v1",JSON.stringify(milestones));}catch{}},[milestones]);
   useEffect(()=>{try{localStorage.setItem("dob_v1",babyDob);}catch{}},[babyDob]);
+  useEffect(()=>{try{localStorage.setItem("unborn_v1",babyUnborn?"1":"0");}catch{}},[babyUnborn]);
   useEffect(()=>{try{localStorage.setItem("sex_v1",babySex);}catch{}},[babySex]);
   useEffect(()=>{if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}},[onboarded]);
   useEffect(()=>{
@@ -1220,6 +1222,11 @@ function App(){
 
   function runParse() {
     if (!pasteText.trim()) return;
+    // Must have a day selected or a date in the text to paste into
+    if (!selDay && !pasteText.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/)) {
+      setParseError("Please select or create a day first before pasting entries.");
+      return;
+    }
     const result = smartParse(pasteText);
     if (result.entries.length === 0) {
       setParseError("Couldn't find any entries. Try including times like '9am', '11:15-12:35' and keywords like Feed, Nap, Wake.");
@@ -1233,6 +1240,10 @@ function App(){
   function confirmPaste() {
     if (!parsedEntries) return;
     const date = parsedEntries.detectedDate || selDay;
+    if (!date) {
+      setParseError("No day selected. Please create or select a day first.");
+      return;
+    }
     setDays(d => {
       const existing = d[date] || [];
       return { ...d, [date]: [...existing, ...parsedEntries.entries] };
@@ -1404,7 +1415,15 @@ function App(){
         sub:"We'll use this to show age, track growth percentiles, and highlight the right milestones.",
         action: (
           <div style={{width:"100%",marginTop:20}}>
-            <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)} max={todayStr()} style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:14,boxSizing:"border-box"}}/>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
+                <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"10px",borderRadius:14,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:13,fontWeight:600,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
+                  {l}
+                </div>
+              ))}
+            </div>
+            <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)} style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:6,boxSizing:"border-box"}}/>
+            <div style={{fontSize:12,color:C.lt,textAlign:"center",marginBottom:14}}>{babyUnborn ? "Enter your due date" : "Enter date of birth"}</div>
             <button onClick={()=>setObStep(3)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
               {obDob ? "Continue →" : "Skip for now"}
             </button>
@@ -1748,11 +1767,23 @@ function App(){
               </div>
               {(()=>{
                 const age = calcAge(babyDob);
-                if (!age) return (
+                if (!age && !babyUnborn) return (
                   <div onClick={e=>{e.stopPropagation();setTab("growth");}} style={{fontSize:13,color:C.lt,marginTop:8,fontFamily:"monospace",cursor:"pointer"}}>
                     Add date of birth in Growth tab →
                   </div>
                 );
+                if (babyUnborn && babyDob) {
+                  const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
+                  return (
+                    <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{background:"rgba(255,255,255,0.5)",borderRadius:20,padding:"6px 16px",display:"inline-flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:15}}>🤰</span>
+                        <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</span>
+                      </div>
+                      <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
+                    </div>
+                  );
+                }
                 const parts = [];
                 if (age.months > 0) parts.push(`${age.months} month${age.months!==1?"s":""}`);
                 if (age.weeksAfterMonths > 0) parts.push(`${age.weeksAfterMonths} week${age.weeksAfterMonths!==1?"s":""}`);
@@ -2400,8 +2431,15 @@ function App(){
                 <div style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Baby Info</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
                   <div>
-                    <label style={{fontSize:13,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Date of Birth</label>
+                    <label style={{fontSize:13,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>{babyUnborn ? "Due Date" : "Date of Birth"}</label>
                     <input type="date" value={babyDob} onChange={e=>setBabyDob(e.target.value)} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                    <div style={{display:"flex",gap:6,marginTop:6}}>
+                      {[["born","Born 🎉"],["unborn","Due 🤰"]].map(([v,l])=>(
+                        <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"5px 8px",borderRadius:10,border:`1.5px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:12,fontWeight:600,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
+                          {l}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <label style={{fontSize:13,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Sex</label>
@@ -2412,7 +2450,15 @@ function App(){
                   </div>
                 </div>
                 {ageMonths!==null&&<div style={{fontSize:12,color:C.mid,fontFamily:"monospace",textAlign:"center",marginTop:4}}>
-                  {babyName||"Baby"} is <strong style={{color:C.ter}}>{ageMonths} month{ageMonths!==1?"s":""}</strong> old
+                  {babyUnborn
+                    ? (()=>{
+                        const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
+                        return daysUntil > 0
+                          ? <span>{babyName||"Baby"} is due in <strong style={{color:C.ter}}>{daysUntil} day{daysUntil!==1?"s":""}</strong> 🤰</span>
+                          : <span>Due date has passed — update to date of birth!</span>;
+                      })()
+                    : <span>{babyName||"Baby"} is <strong style={{color:C.ter}}>{ageMonths} month{ageMonths!==1?"s":""}</strong> old</span>
+                  }
                 </div>}
               </div>
 
@@ -2493,7 +2539,7 @@ function App(){
         {tab==="milestones"&&(()=>{
           const age = calcAge(babyDob);
           const ageWeeks = age ? age.totalWeeks : null;
-          const currentMonth = age ? age.months : null;
+          const currentMonth = babyUnborn ? -1 : (age ? age.months : null);
           const doneCount = MILESTONES.filter(m=>milestones[m.id]&&milestones[m.id].date).length;
 
           if (!babyDob) return (
@@ -2504,6 +2550,47 @@ function App(){
               <button onClick={()=>setTab("growth")} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>Set Date of Birth →</button>
             </div>
           );
+
+          // Unborn baby — show all milestones greyed out with a banner
+          if (babyUnborn) {
+            const daysUntil = babyDob ? Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24)) : null;
+            return (
+              <div>
+                <div style={{background:"linear-gradient(135deg,#fdeee8,#fad8d0)",border:`1px solid ${C.rose}`,borderRadius:16,padding:"16px 18px",marginBottom:16,textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>🤰</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.deep,fontWeight:700,marginBottom:4}}>
+                    {daysUntil > 0 ? `Due in ${daysUntil} day${daysUntil!==1?"s":""}` : "Almost here!"}
+                  </div>
+                  <div style={{fontSize:13,color:C.mid,lineHeight:1.6}}>Milestones are ready and waiting. They'll unlock once {babyName||"your baby"} arrives!</div>
+                </div>
+                {[0,1,2,3,4,5,6].map(mo => {
+                  const ms = MILESTONES.filter(m => {
+                    const startMo = Math.floor(m.earliest / 4.33);
+                    const endMo = Math.floor(m.latest / 4.33);
+                    return mo >= startMo && mo <= endMo;
+                  });
+                  if (!ms.length) return null;
+                  const monthLabel = mo === 0 ? "Newborn" : `Month ${mo}`;
+                  return (
+                    <div key={mo} style={{...card, padding:0, overflow:"hidden", marginBottom:12, opacity:0.45}}>
+                      <div style={{background:"#f0ece8", padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+                        <div style={{fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:700, color:"#b0a8a4"}}>{monthLabel}</div>
+                        <span style={{fontSize:12,color:"#c0b8b4",fontFamily:"monospace"}}>🔒 {ms.length} milestones</span>
+                      </div>
+                      <div style={{padding:"4px 16px 6px"}}>
+                        {ms.map(m => (
+                          <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
+                            <div style={{width:22,height:22,borderRadius:"50%",border:"2px solid #ddd",background:"transparent",flexShrink:0}}/>
+                            <div style={{fontSize:13,color:"#c8bdb8"}}>{m.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          }
 
           const msMonths = (m) => {
             const startMo = Math.floor(m.earliest / 4.33);
