@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="O Baby"/>
-  <meta name="application-name" content="O Baby"/>
+  <meta name="apple-mobile-web-app-title" content="OBubba"/>
+  <meta name="application-name" content="OBubba"/>
   <meta name="theme-color" content="#faf6f0"/>
-  <title>O Baby</title>
-  <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;O Baby&quot;,&quot;short_name&quot;:&quot;O Baby&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23faf6f0&quot;,&quot;theme_color&quot;:&quot;%23faf6f0&quot;}"/>
+  <title>OBubba</title>
+  <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;OBubba&quot;,&quot;short_name&quot;:&quot;OBubba&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23faf6f0&quot;,&quot;theme_color&quot;:&quot;%23faf6f0&quot;}"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
@@ -361,36 +361,58 @@ function App(){
   const countdownRef = React.useRef(null);
   useEffect(()=>{
     function tick(){
-      const pred = predictNextNap();
-      if(pred){
+      const now = new Date();
+      const nowMins = now.getHours()*60 + now.getMinutes();
+      const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+
+      // ── Work out bedtime conditions ──
+      const bed = bedtimePrediction();
+      const ageWeeks = calcAge(babyDob) ? calcAge(babyDob).totalWeeks : null;
+      let expectedNaps = 4;
+      if (ageWeeks) {
+        if (ageWeeks < 6)  expectedNaps = 5;
+        else if (ageWeeks < 13) expectedNaps = 4;
+        else if (ageWeeks < 26) expectedNaps = 3;
+        else if (ageWeeks < 39) expectedNaps = 2;
+        else if (ageWeeks < 78) expectedNaps = 2;
+        else expectedNaps = 1;
+      }
+      const napsDone = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).length;
+      const napsComplete = napsDone >= expectedNaps;
+      const bedMins = bed ? (()=>{ const [bh,bm]=bed.time.split(":").map(Number); return bh*60+bm; })() : null;
+      const minsUntilBed = bedMins !== null ? bedMins - nowMins : null;
+      const within2hrs = minsUntilBed !== null && minsUntilBed > 0 && minsUntilBed <= 120;
+      const bedtimeConditionMet = (within2hrs || napsComplete) && !hasBedtime && bed;
+
+      if (hasBedtime) {
+        // Bedtime already logged — hide both
+        setNapCountdown(null);
         setBedCountdown(null);
-        const now = new Date();
+        return;
+      }
+
+      if (bedtimeConditionMet) {
+        // Switch to bedtime countdown
+        setNapCountdown(null);
+        let diff = Math.round(minsUntilBed * 60);
+        if (diff < 0) diff = 0;
+        setBedCountdown(diff);
+        return;
+      }
+
+      // ── Default: always show nap countdown ──
+      setBedCountdown(null);
+      const pred = predictNextNap();
+      if (pred) {
         const [h,m] = pred.napStart_min.split(":").map(Number);
         const target = new Date();
         target.setHours(h,m,0,0);
         let diff = Math.round((target - now)/1000);
-        if(diff < 0) diff = 0;
+        if (diff < 0) diff = 0;
         setNapCountdown(diff);
       } else {
-        setNapCountdown(null);
-        // Show bedtime countdown if bedtime not yet logged
-        const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
-        if(!hasBedtime){
-          const bed = bedtimePrediction();
-          if(bed){
-            const now = new Date();
-            const [h,m] = bed.time.split(":").map(Number);
-            const target = new Date();
-            target.setHours(h,m,0,0);
-            let diff = Math.round((target - now)/1000);
-            if(diff < 0) diff = 0;
-            setBedCountdown(diff);
-          } else {
-            setBedCountdown(null);
-          }
-        } else {
-          setBedCountdown(null);
-        }
+        // No active prediction — show a neutral "nap" state (no countdown number)
+        setNapCountdown(-1); // -1 = "nap mode but no window yet"
       }
     }
     tick();
@@ -1386,7 +1408,7 @@ function App(){
     };
     const steps = [
       {
-        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"Welcome to\nO Baby!",
+        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"Welcome to\nOBubba!",
         sub:"Let's make life easy.",
         action: (
           <div style={{width:"100%",marginTop:18}}>
@@ -1568,7 +1590,7 @@ function App(){
             body:null,
             bodyJSX: (
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.6}}>
-                <div style={{marginBottom:10}}>Get the best experience by saving O Baby as an app — no app store needed!</div>
+                <div style={{marginBottom:10}}>Get the best experience by saving OBubba as an app — no app store needed!</div>
                 <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8}}>
                   <div style={{fontWeight:700,marginBottom:6}}>🍎 iPhone (Safari)</div>
                   <div style={{display:"flex",flexDirection:"column",gap:3}}>
@@ -1754,10 +1776,11 @@ function App(){
 
         {/* ── NAP COUNTDOWN PILL (top-right corner) ── */}
         {(napCountdown !== null || bedCountdown !== null) && tab === "day" && (()=>{
-          const isBed = napCountdown === null && bedCountdown !== null;
+          const isBed = bedCountdown !== null;
           const countdown = isBed ? bedCountdown : napCountdown;
-          const isNow = countdown <= 0;
-          const isUrgent = countdown <= 300;
+          const isNeutral = napCountdown === -1; // nap mode but no active window
+          const isNow = !isNeutral && countdown <= 0;
+          const isUrgent = !isNeutral && countdown <= 300;
           return (
             <div style={{
               position:"absolute",top:14,right:16,zIndex:10,
@@ -1770,13 +1793,13 @@ function App(){
               border: isNow||isUrgent ? "none" : `1px solid rgba(255,255,255,0.6)`,
               minWidth:90,justifyContent:"center"
             }}>
-              <span style={{fontSize:14}}>{isNow ? (isBed ? "🌙" : "😴") : isBed ? "🌙" : "⏱️"}</span>
+              <span style={{fontSize:14}}>{isBed ? "🌙" : "⏱️"}</span>
               <div style={{textAlign:"center"}}>
                 <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1,marginBottom:1}}>
                   {isBed ? "Bedtime" : "Next Nap"}
                 </div>
                 <div style={{fontSize:15,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":isBed?C.sky:C.ter,lineHeight:1}}>
-                  {isNow ? "Now" : fmtCountdown(countdown)}
+                  {isNeutral ? "–" : isNow ? "Now" : fmtCountdown(countdown)}
                 </div>
               </div>
             </div>
