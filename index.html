@@ -270,6 +270,12 @@ function calcAge(dob) {
 }
 
 function App(){
+
+// Gender theme
+const theme = babySex === "girl"
+  ? {primary:"#ff9ecf",secondary:"#e66aa8"}
+  : {primary:"#7aa7ff",secondary:"#4c79d8"};
+
   const timerRef = React.useRef(null);
 
   const[days,setDays]=useState(()=>{try{const r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r);}catch{}return SEED_DAYS;});
@@ -795,9 +801,72 @@ function App(){
 
 
   const tabSt=t=>({flex:1,padding:"10px 2px",border:"none",background:"none",fontSize:10,fontWeight:700,cursor:"pointer",color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.04em",textTransform:"uppercase"});
-  const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
+  
+{(() => {
+  const score = sleepScore();
+  const bed = bedtimePrediction();
+  const advice = sleepAdvice();
+  const tired = tiredDetection();
+  return (
+    <div style={{background:"white",border:"1px solid #f2d9cc",borderRadius:20,padding:16,marginBottom:14}}>
+      <div style={{fontSize:12,fontFamily:"monospace",color:"#7a5c52"}}>Sleep score</div>
+      <div style={{fontSize:28,fontWeight:700}}>{score}/100</div>
+      {bed && <div style={{marginTop:6}}>Suggested bedtime: {fmt12(bed)}</div>}
+      <div style={{marginTop:6}}>{advice}</div>
+      <div style={{fontSize:12,color:"#b89890",marginTop:4}}>{tired}</div>
+    </div>
+  );
+})()}
 
-  const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
+const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
+
+  
+// Sleep analytics
+function sleepScore(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  const napMinutes = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+  const nightWakes = today.filter(e=>e.night).length;
+  let score = 100;
+  if(napMinutes < 90) score -= 20;
+  if(napMinutes > 240) score -= 10;
+  if(nightWakes > 3) score -= 20;
+  if(nightWakes === 0) score += 5;
+  return Math.max(0,Math.min(100,score));
+}
+
+function bedtimePrediction(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  if(!naps.length) return null;
+  const lastNap = naps[naps.length-1];
+  const wakeAfterNap = lastNap.end;
+  const age = calcAge(babyDob);
+  if(!age) return null;
+  const ww = getWakeWindow(age.totalWeeks);
+  return addMinutes(wakeAfterNap, ww.max);
+}
+
+function sleepAdvice(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  const napMinutes = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+  const hrs = (napMinutes/60).toFixed(1);
+  if(napMinutes < 120) return `Baby napped ${hrs} hours today. Consider an earlier bedtime.`;
+  if(napMinutes > 210) return `Baby napped ${hrs} hours today. A slightly later bedtime may help build sleep pressure.`;
+  return `Baby napped ${hrs} hours today. Sleep pressure looks well balanced.`;
+}
+
+function tiredDetection(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  const napMinutes = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+  if(napMinutes < 90) return "Baby may be overtired today.";
+  if(napMinutes > 240) return "Baby may be undertired today.";
+  return "Wake windows look appropriate today.";
+}
+
+const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
   const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
 
   // ONBOARDING
