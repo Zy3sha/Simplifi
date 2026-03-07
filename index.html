@@ -279,6 +279,7 @@ function App(){
   const[napStartT,setNapStartT]=useState(null);
   const[napSec,setNapSec]=useState(0);
   const[napCountdown,setNapCountdown]=useState(null); // seconds until next nap window opens
+  const[bedCountdown,setBedCountdown]=useState(null); // seconds until predicted bedtime
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
   const[nameIn,setNameIn]=useState("");
@@ -339,14 +340,36 @@ function App(){
   useEffect(()=>{
     function tick(){
       const pred = predictNextNap();
-      if(!pred){setNapCountdown(null);return;}
-      const now = new Date();
-      const [h,m] = pred.napStart_min.split(":").map(Number);
-      const target = new Date();
-      target.setHours(h,m,0,0);
-      let diff = Math.round((target - now)/1000);
-      if(diff < 0) diff = 0;
-      setNapCountdown(diff);
+      if(pred){
+        setBedCountdown(null);
+        const now = new Date();
+        const [h,m] = pred.napStart_min.split(":").map(Number);
+        const target = new Date();
+        target.setHours(h,m,0,0);
+        let diff = Math.round((target - now)/1000);
+        if(diff < 0) diff = 0;
+        setNapCountdown(diff);
+      } else {
+        setNapCountdown(null);
+        // Show bedtime countdown if bedtime not yet logged
+        const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+        if(!hasBedtime){
+          const bed = bedtimePrediction();
+          if(bed){
+            const now = new Date();
+            const [h,m] = bed.time.split(":").map(Number);
+            const target = new Date();
+            target.setHours(h,m,0,0);
+            let diff = Math.round((target - now)/1000);
+            if(diff < 0) diff = 0;
+            setBedCountdown(diff);
+          } else {
+            setBedCountdown(null);
+          }
+        } else {
+          setBedCountdown(null);
+        }
+      }
     }
     tick();
     countdownRef.current = setInterval(tick, 1000);
@@ -482,6 +505,24 @@ function App(){
 
     const napStart_min = addMinutes(lastAwakeStart, wakeWindowMin);
     const napStart_max = addMinutes(lastAwakeStart, wakeWindowMax);
+
+    // If the nap window max has already passed, don't show nap prediction
+    const now = new Date();
+    const nowMins = now.getHours()*60 + now.getMinutes();
+    const [maxH, maxM] = napStart_max.split(":").map(Number);
+    const napMaxMins = maxH*60 + maxM;
+    if (nowMins > napMaxMins) return null;
+
+    // If predicted bedtime is within 60 min of nap window start, suppress nap
+    const bed = bedtimePrediction();
+    if (bed) {
+      const [bh, bm] = bed.time.split(":").map(Number);
+      const bedMins = bh*60 + bm;
+      const [minH, minM] = napStart_min.split(":").map(Number);
+      const napMinMins = minH*60 + minM;
+      if (bedMins - napMinMins < 60) return null;
+    }
+
     return { napStart_min, napStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart };
   }
 
@@ -1519,13 +1560,15 @@ function App(){
       <div style={{background:theme.primary,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}>
 
         {/* ── NAP COUNTDOWN PILL (top-right corner) ── */}
-        {napCountdown !== null && tab === "day" && (()=>{
-          const isNow = napCountdown <= 0;
-          const isUrgent = napCountdown <= 300; // ≤5 mins
+        {(napCountdown !== null || bedCountdown !== null) && tab === "day" && (()=>{
+          const isBed = napCountdown === null && bedCountdown !== null;
+          const countdown = isBed ? bedCountdown : napCountdown;
+          const isNow = countdown <= 0;
+          const isUrgent = countdown <= 300;
           return (
             <div style={{
               position:"absolute",top:14,right:16,zIndex:10,
-              background: isNow ? C.mint : isUrgent ? C.ter : "rgba(255,255,255,0.85)",
+              background: isNow ? (isBed ? C.sky : C.mint) : isUrgent ? C.ter : "rgba(255,255,255,0.85)",
               borderRadius:99,
               padding:"6px 12px",
               boxShadow:"0 2px 12px rgba(44,31,26,0.15)",
@@ -1534,11 +1577,13 @@ function App(){
               border: isNow||isUrgent ? "none" : `1px solid rgba(255,255,255,0.6)`,
               minWidth:90,justifyContent:"center"
             }}>
-              <span style={{fontSize:12}}>{isNow?"😴":"⏱️"}</span>
+              <span style={{fontSize:12}}>{isNow ? (isBed ? "🌙" : "😴") : isBed ? "🌙" : "⏱️"}</span>
               <div style={{textAlign:"center"}}>
-                <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1,marginBottom:1}}>Next Nap</div>
-                <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":C.ter,lineHeight:1}}>
-                  {fmtCountdown(napCountdown)}
+                <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1,marginBottom:1}}>
+                  {isBed ? "Bedtime" : "Next Nap"}
+                </div>
+                <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":isBed?C.sky:C.ter,lineHeight:1}}>
+                  {isNow ? "Now" : fmtCountdown(countdown)}
                 </div>
               </div>
             </div>
