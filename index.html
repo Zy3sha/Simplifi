@@ -1791,7 +1791,7 @@ function App(){
                   <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                     <div style={{background:"rgba(255,255,255,0.5)",borderRadius:20,padding:"6px 16px",display:"inline-flex",alignItems:"center",gap:6}}>
                       <span style={{fontSize:15}}>🎂</span>
-                      <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{parts.join(", ")} old</span>
+                      <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{parts.join(" & ")} · {age.totalWeeks} weeks</span>
                     </div>
                     <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
                   </div>
