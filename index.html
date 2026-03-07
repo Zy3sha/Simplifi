@@ -263,10 +263,13 @@ function calcAge(dob) {
 function App(){
   const timerRef = React.useRef(null);
 
-  const[days,setDays]=useState(()=>{try{const r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r);}catch{}return SEED_DAYS;});
+  const[days,setDays]=useState(()=>{
+    try{const r=localStorage.getItem(STORAGE_KEY);if(r){const d=JSON.parse(r);if(!d[todayStr()])d[todayStr()]=[];return d;}}catch{}
+    const d={};d[todayStr()]=[];return d;
+  });
   const[weights,setWeights]=useState(()=>{try{return JSON.parse(localStorage.getItem("bw_v2")||"[]");}catch{return[];}});
   const[babyName,setBabyName]=useState(()=>{try{return localStorage.getItem("bn_v2")||"";}catch{return"";}});
-  const[selDay,setSelDay]=useState(()=>{try{const s=localStorage.getItem("selDay_v1");if(s)return s;}catch{}const k=Object.keys(SEED_DAYS).sort();return k[k.length-1];});
+  const[selDay,setSelDay]=useState(todayStr);
   const[tab,setTab]=useState("day");
   const[modal,setModal]=useState(null);
   const[eType,setEType]=useState("feed");
@@ -1109,6 +1112,7 @@ function App(){
     }
 
     let detectedDate = null;
+    // Check for explicit date first
     if (rawLines.length > 0) {
       const dateMatch = rawLines[0].match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
       if (dateMatch) {
@@ -1117,8 +1121,14 @@ function App(){
         detectedDate = yr+"-"+mo.padStart(2,"0")+"-"+d.padStart(2,"0");
       }
     }
+    // If someone says "today" anywhere in the text, use today's date
+    if (!detectedDate && rawLines.some(l => /\btoday\b/i.test(l))) {
+      detectedDate = todayStr();
+    }
+    // Strip "today" from lines before parsing so it doesn't confuse time detection
+    const processedLines = rawLines.map(l => l.replace(/\btoday\b/gi, "").trim()).filter(Boolean);
 
-    rawLines.forEach(function(raw) {
+    processedLines.forEach(function(raw) {
       const l = raw.toLowerCase().trim();
       if (/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.](\d{2,4})/.test(l)) return;
       if (/^(day|date)\s*:/.test(l)) return;
@@ -1323,20 +1333,23 @@ function App(){
   }
 
   // Auto-create the day after selDay — but only once selDay has at least one entry
+  // ── Ensure today always exists & create next day at midnight ──
   useEffect(()=>{
-    if (!selDay) return;
-    const entries = days[selDay] || [];
-    if (entries.length === 0) return; // don't generate until data is actually entered
-
-    const base = new Date(selDay + "T00:00:00");
-    const next = new Date(base);
-    next.setDate(next.getDate() + 1);
-    const nextStr = next.toISOString().split("T")[0];
-
-    if (!days[nextStr]) {
-      setDays(d => ({...d, [nextStr]: []}));
+    function ensureToday(){
+      const t = todayStr();
+      setDays(d => d[t] ? d : {...d, [t]: []});
+      setSelDay(s => s === t ? s : t); // jump to today at midnight
     }
-  },[selDay, (days[selDay]||[]).length]);
+    ensureToday();
+    // Schedule tick at next midnight
+    function scheduleMidnight(){
+      const now = new Date();
+      const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 1).getTime() - now.getTime();
+      return setTimeout(()=>{ ensureToday(); scheduleMidnight(); }, msUntilMidnight);
+    }
+    const t = scheduleMidnight();
+    return ()=>clearTimeout(t);
+  }, []);
   function saveEditDay(){
     if(!editDate||editDate===menuDay){setModal(null);return;}
     if(days[editDate]){alert("A day with that date already exists.");return;}
@@ -1812,7 +1825,9 @@ function App(){
 
         {/* Date strip */}
         <div style={{position:"relative",zIndex:1,marginTop:20,display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",paddingBottom:2}}>
-          <button onClick={()=>{setNewDate(todayStr());setModal("addDay");}} style={{flexShrink:0,background:"rgba(255,255,255,0.5)",border:`1px dashed ${C.lt}`,borderRadius:20,padding:"5px 12px",color:C.mid,fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>+ Day</button>
+          <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
+            <button onClick={()=>{setNewDate(todayStr());setModal("addDay");}} style={{background:"rgba(255,255,255,0.5)",border:`1px dashed ${C.lt}`,borderRadius:20,padding:"5px 12px",color:C.mid,fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>+ Past Date</button>
+          </div>
           {displayDayKeys.map(d=>(
             <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"white":"rgba(255,255,255,0.35)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?"none":`1px solid rgba(255,255,255,0.5)`}}>
               <button onClick={()=>setSelDay(d)} style={{background:"none",border:"none",color:d===selDay?C.ter:C.mid,fontSize:12,fontFamily:"monospace",cursor:"pointer",padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
@@ -1867,159 +1882,18 @@ function App(){
                 ))}
               </div>
 
-              {/* ── SLEEP ANALYTICS CARD ── */}
-              {(()=>{
-                const score = sleepScore();
-                const scoreColor = sleepScoreColor(score);
-                const scoreLabel = sleepScoreLabel(score);
-                const advice = sleepAdvice();
-                const tired = tiredDetection();
-                const suggestedBed = bedtimePrediction();
-                const hasNap = (days[selDay]||[]).some(e=>e.type==="nap");
-                const actualBedEntry = dayE.find(e=>e.type==="sleep");
-                const pred = predictNextNap();
-                const minsAway = pred ? minutesUntil(pred.napStart_min) : null;
+              {/* ══ FEEDS ══════════════════════════════════════════ */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <div style={{width:3,height:16,background:C.ter,borderRadius:99}}/>
+                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Feeds</div>
+              </div>
 
-                if (!hasNap) return null;
-
-                const radius = 22;
-                const circumference = 2 * Math.PI * radius;
-                const strokeDash = (score / 100) * circumference;
-
-                return (
-                  <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"}}>
-                    <div style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>🧠 Sleep Analytics</div>
-                    <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:12}}>
-                      {/* Score ring */}
-                      <div style={{position:"relative",flexShrink:0}}>
-                        <svg width={60} height={60} viewBox="0 0 60 60">
-                          <circle cx={30} cy={30} r={radius} fill="none" stroke={C.blush} strokeWidth={5}/>
-                          <circle
-                            cx={30} cy={30} r={radius}
-                            fill="none"
-                            stroke={scoreColor}
-                            strokeWidth={5}
-                            strokeDasharray={`${strokeDash} ${circumference}`}
-                            strokeLinecap="round"
-                            transform="rotate(-90 30 30)"
-                            style={{transition:"stroke-dasharray 0.6s ease"}}
-                          />
-                          <text x={30} y={34} textAnchor="middle" fontSize={13} fontWeight="700" fill={scoreColor} fontFamily="'DM Sans',sans-serif">{score}</text>
-                        </svg>
-                      </div>
-                      {/* Label + advice */}
-                      <div style={{flex:1}}>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:scoreColor,lineHeight:1,marginBottom:4}}>{scoreLabel}</div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{advice}</div>
-                      </div>
-                    </div>
-                    {/* Tired detection pill */}
-                    {tired && (
-                      <div style={{display:"inline-block",fontSize:13,fontFamily:"monospace",padding:"4px 12px",borderRadius:99,background:tired.startsWith("⚠️")||tired.startsWith("💤")?`${C.ter}18`:`${C.mint}18`,color:tired.startsWith("✓")?C.mint:C.ter,marginBottom:8}}>
-                        {tired}
-                      </div>
-                    )}
-                    {/* ── Bedtime logged: show confirmed tile ── */}
-                    {actualBedEntry ? (
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"linear-gradient(135deg,#1a1228,#231832)",borderRadius:14,padding:"10px 14px",marginTop:4}}>
-                        <div>
-                          <div style={{fontSize:12,fontFamily:"monospace",color:"#8878a8",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Bedtime Logged 🌙</div>
-                          <div style={{fontSize:13,color:"#a898c8"}}>Sleep tight!</div>
-                        </div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"#d8cce8"}}>{fmt12(actualBedEntry.time)}</div>
-                      </div>
-                    ) : pred ? (
-                      /* ── No bedtime yet: show next nap OR suggested bedtime ── */
-                      <div style={{borderRadius:14,overflow:"hidden",marginTop:4}}>
-                        {/* Next nap window */}
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"linear-gradient(135deg,#f0faf6,#e8f5f0)",padding:"10px 14px",borderBottom:"1px solid #b8e8d4"}}>
-                          <div>
-                            <div style={{fontSize:12,fontFamily:"monospace",color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>😴 Next Nap Window</div>
-                            <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:napCountdown===0?"#e05a3a":napCountdown!==null&&napCountdown<=300?C.ter:C.mint}}>
-                              {napCountdown !== null ? fmtCountdown(napCountdown) : "—"}
-                            </div>
-                            <div style={{fontSize:12,color:C.lt,marginTop:2}}>{pred.sourceLabel}</div>
-                          </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.mint}}>
-                              {fmt12(pred.napStart_min)}
-                            </div>
-                            <div style={{fontSize:13,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
-                          </div>
-                        </div>
-                        {/* Suggested bedtime */}
-                        {suggestedBed && (
-                          <div style={{background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",padding:"10px 14px"}}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                              <div>
-                                <div style={{fontSize:12,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>
-                                  {suggestedBed.bedSource==="avg" ? "Predicted Bedtime" : "Suggested Bedtime"}
-                                </div>
-                                <div style={{fontSize:12,color:C.mid,lineHeight:1.4,maxWidth:160}}>
-                                  {suggestedBed.adjustReason || (suggestedBed.bedSource==="avg" ? "Based on your recent routine" : "Based on last nap + wake window")}
-                                </div>
-                              </div>
-                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : suggestedBed ? (
-                      /* ── Has naps but no more nap prediction: show smart bedtime ── */
-                      <div style={{background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom: suggestedBed.adjustReason ? 6 : 0}}>
-                          <div>
-                            <div style={{fontSize:12,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>
-                              {suggestedBed.bedSource==="avg" ? "Predicted Bedtime" : "Suggested Bedtime"}
-                            </div>
-                            <div style={{fontSize:12,color:C.mid}}>
-                              {suggestedBed.bedSource==="avg" ? "Based on your recent routine" : "Based on last nap + wake window"}
-                            </div>
-                          </div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                        </div>
-                        {suggestedBed.adjustReason && (
-                          <div style={{fontSize:13,color:C.sky,background:"rgba(122,171,196,0.15)",borderRadius:8,padding:"5px 9px",lineHeight:1.4}}>
-                            &#9888; {suggestedBed.adjustReason}
-                          </div>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })()}
-
-              {/* ── FEATURE 1: Is This Normal? Sleep Comparison ── */}
-              {(()=>{
-                const sc = sleepNormalCard();
-                if (!sc) return null;
-                return (
-                  <div style={{background:sc.bg,border:`1px solid ${sc.color}30`,borderLeft:`4px solid ${sc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:14}}>
-                    <div style={{fontSize:12,fontFamily:"monospace",color:sc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Is This Normal? · Today's Sleep</div>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:sc.color}}>{hm(sc.totalMins)}</div>
-                        <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginTop:2}}>today's naps</div>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontSize:13,fontFamily:"monospace",color:C.mid}}>Typical for this age</div>
-                        <div style={{fontSize:13,fontWeight:600,color:C.mid}}>{sc.range.label}</div>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"white",borderRadius:10,padding:"9px 12px"}}>
-                      <span style={{fontSize:16,flexShrink:0}}>{sc.icon}</span>
-                      <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{sc.message}</div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── FEATURE 4: Feeding Intake Reassurance ── */}
+              {/* Feeding Intake Reassurance */}
               {(()=>{
                 const fc = feedIntakeCard();
                 if (!fc) return null;
                 return (
-                  <div style={{background:fc.bg,border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:14}}>
+                  <div style={{background:fc.bg,border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
                     <div style={{fontSize:12,fontFamily:"monospace",color:fc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Today's Milk Intake</div>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <div>
@@ -2039,12 +1913,12 @@ function App(){
                 );
               })()}
 
-              {/* ── FEATURE 5: Feed Suggestions ── */}
+              {/* Feed Suggestions */}
               {(()=>{
                 const suggs = feedSuggestions();
                 if (!suggs) return null;
                 return (
-                  <div style={{marginBottom:14}}>
+                  <div style={{marginBottom:10}}>
                     {suggs.map((s,i)=>(
                       <div key={i} style={{background:s.icon==="✓"?"#f0faf6":"#fff8f0",border:`1px solid ${s.icon==="✓"?"#a0d8c0":"#f0d8b0"}`,borderLeft:`4px solid ${s.icon==="✓"?C.mint:"#d4a855"}`,borderRadius:16,padding:"14px 16px",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
@@ -2058,12 +1932,140 @@ function App(){
                 );
               })()}
 
-              {/* ── FEATURE 2: Sleep Regression Detection ── */}
+              {/* ══ SLEEP ══════════════════════════════════════════ */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,marginTop:6}}>
+                <div style={{width:3,height:16,background:C.mint,borderRadius:99}}/>
+                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Sleep</div>
+              </div>
+
+              {/* Nap Timer */}
+              <div style={{...card,marginBottom:10}}>
+                <div style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:9}}>Nap Timer</div>
+                <div style={{display:"flex",alignItems:"center",gap:9}}>
+                  {!napOn?(
+                    <button onClick={startNap} style={{background:"#d4ede6",border:"none",borderRadius:99,padding:"9px 20px",fontSize:14,color:C.mint,cursor:"pointer",fontWeight:600}}>😴 Start Nap</button>
+                  ):(
+                    <>
+                      <div style={{background:"#d4ede6",borderRadius:99,padding:"9px 16px",fontSize:14,color:C.mint,fontFamily:"monospace",fontWeight:600}}>😴 {fmtSec(napSec)}</div>
+                      <button onClick={endNap} style={{background:C.mint,border:"none",borderRadius:99,padding:"9px 20px",fontSize:14,color:"white",cursor:"pointer",fontWeight:600}}>End & Save</button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Sleep Analytics */}
+              {(()=>{
+                const score = sleepScore();
+                const scoreColor = sleepScoreColor(score);
+                const scoreLabel = sleepScoreLabel(score);
+                const advice = sleepAdvice();
+                const tired = tiredDetection();
+                const suggestedBed = bedtimePrediction();
+                const hasNap = (days[selDay]||[]).some(e=>e.type==="nap");
+                const actualBedEntry = dayE.find(e=>e.type==="sleep");
+                const pred = predictNextNap();
+                const minsAway = pred ? minutesUntil(pred.napStart_min) : null;
+
+                if (!hasNap) return null;
+
+                const radius = 22;
+                const circumference = 2 * Math.PI * radius;
+                const strokeDash = (score / 100) * circumference;
+
+                return (
+                  <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:10,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"}}>
+                    <div style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>🧠 Sleep Analytics</div>
+                    <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:12}}>
+                      <div style={{position:"relative",flexShrink:0}}>
+                        <svg width={60} height={60} viewBox="0 0 60 60">
+                          <circle cx={30} cy={30} r={radius} fill="none" stroke={C.blush} strokeWidth={5}/>
+                          <circle cx={30} cy={30} r={radius} fill="none" stroke={scoreColor} strokeWidth={5} strokeDasharray={`${strokeDash} ${circumference}`} strokeLinecap="round" transform="rotate(-90 30 30)"/>
+                        </svg>
+                        <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontFamily:"monospace",fontSize:13,fontWeight:700,color:scoreColor}}>{score}</div>
+                      </div>
+                      <div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:scoreColor,marginBottom:4}}>{scoreLabel}</div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{advice}</div>
+                      </div>
+                    </div>
+                    {tired&&<div style={{display:"inline-block",fontSize:13,fontFamily:"monospace",padding:"4px 12px",borderRadius:99,background:tired.startsWith("⚠️")||tired.startsWith("💤")?`${C.ter}18`:`${C.mint}18`,color:tired.startsWith("✓")?C.mint:C.ter,marginBottom:12}}>{tired}</div>}
+                    {actualBedEntry ? (
+                      <div style={{background:"linear-gradient(135deg,#ede8f5,#f5f0fa)",borderRadius:14,padding:"12px 14px"}}>
+                        <div style={{fontSize:12,fontFamily:"monospace",color:"#8878a8",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Bedtime Logged 🌙</div>
+                        <div style={{fontSize:13,color:"#a898c8"}}>Sleep tight!</div>
+                      </div>
+                    ) : pred ? (
+                      <div style={{background:"linear-gradient(135deg,#e8f5ef,#f0faf6)",borderRadius:14,padding:"12px 14px"}}>
+                        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:suggestedBed?8:0}}>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:"monospace",color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>😴 Next Nap Window</div>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.mint}}>{minsAway!==null&&minsAway<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
+                            <div style={{fontSize:12,color:C.lt,marginTop:2}}>{pred.sourceLabel}</div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontFamily:"monospace",fontSize:15,fontWeight:700,color:C.mint}}>{fmt12(pred.napStart_min)}</div>
+                            <div style={{fontSize:13,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
+                          </div>
+                        </div>
+                        {suggestedBed&&(
+                          <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                              <div>
+                                <div style={{fontSize:12,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
+                                <div style={{fontSize:12,color:C.mid,lineHeight:1.4,maxWidth:160}}>{suggestedBed.adjustReason||(suggestedBed.bedSource==="avg"?"Based on your recent routine":"Based on last nap + wake window")}</div>
+                              </div>
+                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : suggestedBed ? (
+                      <div style={{background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:suggestedBed.adjustReason?6:0}}>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:"monospace",color:C.sky,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
+                            <div style={{fontSize:12,color:C.mid}}>{suggestedBed.bedSource==="avg"?"Based on your recent routine":"Based on last nap + wake window"}</div>
+                          </div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                        </div>
+                        {suggestedBed.adjustReason&&<div style={{fontSize:13,color:C.sky,background:"rgba(122,171,196,0.15)",borderRadius:8,padding:"5px 9px",lineHeight:1.4}}>&#9888; {suggestedBed.adjustReason}</div>}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
+
+              {/* Is This Normal — Sleep */}
+              {(()=>{
+                const sc = sleepNormalCard();
+                if (!sc) return null;
+                return (
+                  <div style={{background:sc.bg,border:`1px solid ${sc.color}30`,borderLeft:`4px solid ${sc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:sc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Is This Normal? · Today's Sleep</div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:sc.color}}>{hm(sc.totalMins)}</div>
+                        <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginTop:2}}>today's naps</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:13,fontFamily:"monospace",color:C.mid}}>Typical for this age</div>
+                        <div style={{fontSize:13,fontWeight:600,color:C.mid}}>{sc.range.label}</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"white",borderRadius:10,padding:"9px 12px"}}>
+                      <span style={{fontSize:16,flexShrink:0}}>{sc.icon}</span>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{sc.message}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Sleep Regression Detection */}
               {(()=>{
                 const alerts = regressionCheck();
                 if (!alerts) return null;
                 return (
-                  <div style={{marginBottom:14}}>
+                  <div style={{marginBottom:10}}>
                     {alerts.map((a,i)=>(
                       <div key={i} style={{background:"#fff8f0",border:"1px solid #f0d8b0",borderLeft:"4px solid #d4a855",borderRadius:16,padding:"14px 16px",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
@@ -2078,53 +2080,9 @@ function App(){
                 );
               })()}
 
-              {/* ── FEATURE 3: Suggested Tomorrow Schedule ── */}
-              {(()=>{
-                const sched = tomorrowSchedule();
-                if (!sched) return null;
-                return (
-                  <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"}}>
-                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>Suggested Tomorrow Schedule</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:0}}>
-                      {sched.map((item,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:0}}>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:28,flexShrink:0}}>
-                            <div style={{width:9,height:9,borderRadius:"50%",background:item.label==="Bedtime"?C.sky:item.label.startsWith("Nap")?C.mint:C.gold,flexShrink:0}}/>
-                            {i<sched.length-1&&<div style={{width:2,height:22,background:C.blush}}/>}
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flex:1,padding:"4px 0 4px 6px"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:6}}>
-                              <span style={{fontSize:14}}>{item.icon}</span>
-                              <span style={{fontSize:13,color:C.mid,fontWeight:500}}>{item.label}</span>
-                            </div>
-                            <span style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:C.deep}}>{fmt12(item.time.includes("–")?item.time.split("–")[0].trim():item.time)}{item.time.includes("–")?" – "+fmt12(item.time.split("–")[1].trim()):""}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginTop:10,borderTop:`1px solid ${C.blush}`,paddingTop:8}}>
-                      Based on recent sleep patterns and age-appropriate wake windows
-                    </div>
-                  </div>
-                );
-              })()}
-              <div style={{...card}}>
-                <div style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:9}}>Nap Timer</div>
-                <div style={{display:"flex",alignItems:"center",gap:9}}>
-                  {!napOn?(
-                    <button onClick={startNap} style={{background:"#d4ede6",border:"none",borderRadius:99,padding:"9px 20px",fontSize:14,color:C.mint,cursor:"pointer",fontWeight:600}}>😴 Start Nap</button>
-                  ):(
-                    <>
-                      <div style={{background:"#d4ede6",borderRadius:99,padding:"9px 16px",fontSize:14,color:C.mint,fontFamily:"monospace",fontWeight:600}}>😴 {fmtSec(napSec)}</div>
-                      <button onClick={endNap} style={{background:C.mint,border:"none",borderRadius:99,padding:"9px 20px",fontSize:14,color:"white",cursor:"pointer",fontWeight:600}}>End & Save</button>
-                    </>
-                  )}
-                </div>
-              </div>
-
               {/* Awake windows */}
               {wins.length>0&&(
-                <div style={{...card}}>
+                <div style={{...card,marginBottom:10}}>
                   <div style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Awake Windows</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                     {wins.map((w,i)=>(
@@ -2136,11 +2094,14 @@ function App(){
                 </div>
               )}
 
-              {/* Daytime entries */}
+              {/* ══ TIMELINE ═══════════════════════════════════════ */}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,marginTop:6}}>
+                <div style={{width:3,height:16,background:C.gold,borderRadius:99}}/>
+                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Today's Log</div>
+              </div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,marginTop:4}}>
                 <div style={{display:"flex",alignItems:"center",gap:7}}>
-                  <div style={{width:3,height:18,background:C.gold,borderRadius:99}}/>
-                  <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:16}}>Daytime</span>
+                  <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:15}}>Daytime</span>
                 </div>
                 <button onClick={()=>openEntry(false)} style={{background:C.ter,border:"none",borderRadius:99,padding:"5px 13px",fontSize:12,color:"white",cursor:"pointer",fontWeight:600}}>+ add</button>
               </div>
@@ -2244,7 +2205,39 @@ function App(){
                 })()}
               </div>
 
-
+              {/* ══ END OF DAY ══════════════════════════════════════ */}
+              {(()=>{
+                const sched = tomorrowSchedule();
+                if (!sched) return null;
+                return (
+                  <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:16,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                      <div style={{width:3,height:16,background:C.sky,borderRadius:99}}/>
+                      <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Tomorrow's Suggested Schedule</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:0}}>
+                      {sched.map((item,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:0}}>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:28,flexShrink:0}}>
+                            <div style={{width:9,height:9,borderRadius:"50%",background:item.label==="Bedtime"?C.sky:item.label.startsWith("Nap")?C.mint:C.gold,flexShrink:0}}/>
+                            {i<sched.length-1&&<div style={{width:2,height:24,background:C.blush}}/>}
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flex:1,padding:"5px 0 5px 6px"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{fontSize:15}}>{item.icon}</span>
+                              <span style={{fontSize:13,color:C.mid,fontWeight:500}}>{item.label}</span>
+                            </div>
+                            <span style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:C.deep}}>{fmt12(item.time.includes("–")?item.time.split("–")[0].trim():item.time)}{item.time.includes("–")?" – "+fmt12(item.time.split("–")[1].trim()):""}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:8}}>
+                      Based on recent sleep patterns and age-appropriate wake windows
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Insights prompt */}
               {Object.keys(days).length >= 7 && !insightDismissed && !showInsights && (
@@ -2819,9 +2812,10 @@ function App(){
       )}
 
       {modal==="addDay"&&(
-        <Sheet onClose={()=>setModal(null)} title="Add New Day">
-          <Inp label="Date" type="date" value={newDate} onChange={e=>setNewDate(e.target.value)}/>
-          <PBtn onClick={addDay}>Add Day</PBtn>
+        <Sheet onClose={()=>setModal(null)} title="Add Past Day">
+          <div style={{fontSize:13,color:C.lt,marginBottom:12,lineHeight:1.6}}>Today is created automatically. Use this to log a past day you missed.</div>
+          <Inp label="Date" type="date" value={newDate} onChange={e=>setNewDate(e.target.value)} max={(()=>{const y=new Date();y.setDate(y.getDate()-1);return y.toISOString().split("T")[0];})()}/>
+          <PBtn onClick={addDay}>Add Past Day</PBtn>
         </Sheet>
       )}
 
