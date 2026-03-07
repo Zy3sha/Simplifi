@@ -858,111 +858,172 @@ function App(){
     return schedule;
   }
 
-  // ── FEEDS: Time-aware combined intake + suggestions card ──
+  // ── FEEDS: Day vs total intake with NHS-aligned ranges + sleep-linked advice ──
   function feedCard() {
     const age = calcAge(babyDob);
     if (!age) return null;
     const w = age.totalWeeks;
     const today = days[selDay] || [];
-    const milkFeeds = today.filter(e => e.type==="feed" && e.feedType!=="solids" && !e.night);
-    const totalMl = milkFeeds.reduce((s,f) => s+(f.amount||0), 0);
+
+    const allMilkFeeds  = today.filter(e => e.type==="feed" && e.feedType!=="solids");
+    const dayMilkFeeds  = allMilkFeeds.filter(e => !e.night);
+    const nightMilkFeeds= allMilkFeeds.filter(e => e.night);
+    const totalMl   = allMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
+    const dayMl     = dayMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
+    const nightMl   = nightMilkFeeds.reduce((s,f)=> s+(f.amount||0), 0);
     if (!totalMl) return null;
 
-    // Age-based daily targets
-    let min, max, label, targetMl, targetFeeds;
-    if (w < 4)       { min=400;  max=700;  label="Typically 400–700ml/day";  targetMl=550;  targetFeeds=8; }
-    else if (w < 8)  { min=500;  max=800;  label="Typically 500–800ml/day";  targetMl=650;  targetFeeds=7; }
-    else if (w < 13) { min=600;  max=900;  label="Typically 600–900ml/day";  targetMl=750;  targetFeeds=6; }
-    else if (w < 26) { min=700;  max=1000; label="Typically 700–1000ml/day"; targetMl=850;  targetFeeds=5; }
-    else if (w < 39) { min=600;  max=900;  label="Typically 600–900ml/day (+ solids)"; targetMl=750; targetFeeds=4; }
-    else if (w < 52) { min=500;  max=800;  label="Typically 500–800ml/day (+ solids)"; targetMl=650; targetFeeds=4; }
-    else             { min=300;  max=500;  label="Typically 300–500ml/day";  targetMl=400;  targetFeeds=3; }
+    // ── NHS-aligned age-based targets ──
+    // Day target = portion of total expected during waking hours (typically ~70-80%)
+    // Total target = full 24h recommended intake
+    let totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin, targetFeeds, nhsNote;
+    if (w < 4) {
+      totalMin=400; totalMax=700; totalTarget=550; dayTarget=400; dayMin=280;
+      targetFeeds=8; totalLabel="400–700ml/day (NHS)";
+      nhsNote="Newborns feed 8–12 times in 24h. Frequent feeding builds your supply and helps baby regain birth weight.";
+    } else if (w < 8) {
+      totalMin=500; totalMax=800; totalTarget=650; dayTarget=480; dayMin=350;
+      targetFeeds=7; totalLabel="500–800ml/day (NHS)";
+      nhsNote="At this age babies typically feed every 2.5–3.5h. Consistent day feeds help night stretches extend naturally.";
+    } else if (w < 13) {
+      totalMin=600; totalMax=900; totalTarget=750; dayTarget=560; dayMin=400;
+      targetFeeds=6; totalLabel="600–900ml/day (NHS)";
+      nhsNote="NHS recommends ~150ml per kg/day. Stronger day feeds often reduce hunger-driven night waking.";
+    } else if (w < 26) {
+      totalMin=700; totalMax=1000; totalTarget=850; dayTarget=650; dayMin=480;
+      targetFeeds=5; totalLabel="700–1000ml/day (NHS)";
+      nhsNote="Babies 3–6 months benefit from full day feeds. Low day intake is a common cause of frequent night waking at this age.";
+    } else if (w < 39) {
+      totalMin=500; totalMax=800; totalTarget=700; dayTarget=560; dayMin=380;
+      targetFeeds=4; totalLabel="500–800ml/day + solids (NHS)";
+      nhsNote="With solids introduced, milk remains the main nutrition. Offering milk before solids helps maintain day intake.";
+    } else if (w < 52) {
+      totalMin=400; totalMax=700; totalTarget=600; dayTarget=480; dayMin=320;
+      targetFeeds=3; totalLabel="400–700ml/day + solids (NHS)";
+      nhsNote="At 9–12 months, 3 milk feeds per day alongside meals is typical. Solids shouldn't displace milk entirely.";
+    } else {
+      totalMin=300; totalMax=500; totalTarget=400; dayTarget=320; dayMin=200;
+      targetFeeds=2; totalLabel="300–500ml/day (NHS)";
+      nhsNote="After 12 months, cow's milk can replace formula. 300–400ml/day supports calcium needs alongside a varied diet.";
+    }
 
-    // ── Time-of-day pace analysis ──
-    // Work out what fraction of the day has elapsed between wake and bedtime (or now)
+    // ── Night wake context from recent history ──
+    const recentDays = Object.keys(days).sort().slice(-7);
+    const avgNightWakes = recentDays.length
+      ? Math.round((recentDays.reduce((s,d) => s+(days[d]||[]).filter(e=>e.night).length, 0) / recentDays.length)*10)/10
+      : null;
+    const hasFrequentNightWakes = avgNightWakes !== null && avgNightWakes >= 2;
+
+    // ── Time-of-day pace (for day feeds) ──
     const nowMins = new Date().getHours()*60 + new Date().getMinutes();
     const wakeEntry = today.find(e=>e.type==="wake"&&!e.night);
     const bedEntry  = today.find(e=>e.type==="sleep"&&!e.night);
     const sugBed    = bedtimePrediction();
-    const wakeMin   = wakeEntry ? timeVal(wakeEntry) : 7*60;  // default 7am
-    const bedMin    = bedEntry  ? timeVal(bedEntry)
-                    : sugBed    ? timeVal(sugBed.time)
-                    : 19*60;  // default 7pm
-
+    const wakeMin   = wakeEntry ? timeVal(wakeEntry) : 7*60;
+    const bedMin    = bedEntry  ? timeVal(bedEntry) : sugBed ? timeVal(sugBed.time) : 19*60;
     const dayLenMins = Math.max(bedMin - wakeMin, 60);
     const elapsedMins = Math.min(Math.max(nowMins - wakeMin, 0), dayLenMins);
-    const dayFraction = elapsedMins / dayLenMins; // 0 = just woken, 1 = bedtime
-
-    // Expected intake by this point in the day (roughly linear distribution)
-    const expectedByNow = targetMl * dayFraction;
-    const shortfall = targetMl - totalMl;
-    const remainingMins = bedMin - nowMins;
+    const dayFraction = elapsedMins / dayLenMins;
+    const remainingMins = Math.max(bedMin - nowMins, 0);
     const remainingFeeds = Math.max(Math.round(remainingMins / (dayLenMins / targetFeeds)), 0);
 
-    // ── Status: compare actual vs expected-by-now, not just vs daily total ──
-    let status, color, bg, icon, statusMsg;
+    // ── Classify total and day intake independently ──
+    const totalOk   = totalMl >= totalMin;
+    const totalHigh = totalMl > totalMax;
+    const dayOk     = dayMl >= dayMin;
+    const dayShortfall = Math.max(dayTarget - dayMl, 0);
+    const totalShortfall = Math.max(totalTarget - totalMl, 0);
 
-    if (dayFraction < 0.25) {
-      // Early in day — never flag low, it's expected to be low
-      status = "early"; color = C.mint; bg = "#f0faf6"; icon = "☀️";
-      statusMsg = `${totalMl}ml so far — the day is just getting started.`;
-    } else if (totalMl > max) {
-      status = "high"; color = "#b88a20"; bg = "#fffbf0"; icon = "📈";
-      statusMsg = "Intake is higher than average — very common during growth spurts and nothing to worry about.";
-    } else if (totalMl >= targetMl * 0.9) {
-      status = "ok"; color = C.mint; bg = "#f0faf6"; icon = "✓";
-      statusMsg = "Milk intake is on track for today.";
-    } else if (totalMl < expectedByNow * 0.7 && dayFraction > 0.4) {
-      // Running behind pace for time of day
-      status = "behind"; color = C.ter; bg = "#fff3f0"; icon = "⚠️";
-      const diff = Math.round(expectedByNow - totalMl);
-      statusMsg = remainingMins < 90
-        ? `Only ${remainingMins} mins until bedtime — baby has had ${totalMl}ml of a ~${targetMl}ml daily goal.`
-        : `Running a little behind pace. Baby has had ${totalMl}ml — around ${Math.round(expectedByNow)}ml would be expected by this time of day.`;
-    } else if (shortfall > 0 && remainingMins < 120 && remainingFeeds === 0) {
-      // Close to bedtime, significant shortfall, no feeds likely left
-      status = "low-late"; color = C.ter; bg = "#fff3f0"; icon = "⚠️";
-      statusMsg = `${shortfall}ml below target with bedtime approaching. If baby seems hungry, offer a top-up feed now.`;
+    // ── Determine primary status and messages ──
+    let status, color, bg, icon, statusMsg, sleepLink=null;
+
+    if (dayFraction < 0.2) {
+      status="early"; color=C.mint; bg="#f0faf6"; icon="☀️";
+      statusMsg=`${dayMl}ml so far today — the day is just getting started.`;
+
+    } else if (totalHigh) {
+      status="high"; color="#b88a20"; bg="#fffbf0"; icon="📈";
+      statusMsg=`Total intake is above average at ${totalMl}ml — common during growth spurts.`;
+
+    } else if (totalOk && dayOk) {
+      status="ok"; color=C.mint; bg="#f0faf6"; icon="✓";
+      statusMsg=`Feeds are well balanced — ${dayMl}ml during the day and ${nightMl}ml overnight.`;
+
+    } else if (totalOk && !dayOk && nightMl > 0) {
+      // KEY SCENARIO: total is fine but too much shifted to night
+      status="night-heavy"; color="#8a5cf6"; bg="#f5f0ff"; icon="🌙";
+      const shift = Math.round(nightMl * 0.4); // suggest shifting some night intake to day
+      statusMsg=`Total intake looks healthy (${totalMl}ml), but daytime feeds are lower than ideal — ${dayMl}ml of a ~${dayTarget}ml day target.`;
+      if (hasFrequentNightWakes) {
+        sleepLink = {
+          icon:"💤",
+          title:"May be linked to night waking",
+          body:`Baby is averaging ${avgNightWakes} night wake${avgNightWakes!==1?"s":""}/night. When day feeds are lower, babies often compensate by feeding more at night to meet their calorie needs. Gradually increasing daytime feed amounts — even by ${shift}ml spread across feeds — can help shift calories to the day and reduce hunger-driven waking.`
+        };
+      } else {
+        sleepLink = {
+          icon:"💡",
+          body:`Shifting more intake to daytime can help consolidate night sleep. Try offering slightly larger feeds earlier in the day when baby is most alert and hungry.`
+        };
+      }
+
+    } else if (!totalOk && !dayOk) {
+      // Both low
+      const diff = Math.round((dayFraction > 0.3 ? dayTarget * dayFraction : 0) - dayMl);
+      status="low"; color=C.ter; bg="#fff3f0"; icon="⚠️";
+      if (remainingMins < 90) {
+        statusMsg=`${totalShortfall}ml below daily target with bedtime approaching. If baby seems hungry, offer a feed now.`;
+      } else if (dayFraction > 0.5) {
+        statusMsg=`Day feeds are running low — ${dayMl}ml so far against a ~${dayTarget}ml daytime target.`;
+      } else {
+        statusMsg=`Intake is a little low (${totalMl}ml total). One quiet day isn't usually concerning — offer feeds when baby shows hunger cues.`;
+      }
+      if (hasFrequentNightWakes && totalShortfall > 100) {
+        sleepLink = {
+          icon:"💤",
+          title:"Could affect night sleep",
+          body:`With ${avgNightWakes} average night wakes and low day intake, hunger may be a factor. The NHS recommends ~${totalTarget}ml/day at this age — topping up during the day can help baby sleep longer stretches.`
+        };
+      }
+
     } else {
-      status = "ok"; color = C.mint; bg = "#f0faf6"; icon = "✓";
-      statusMsg = "Milk intake is within a healthy range for this age.";
+      status="ok"; color=C.mint; bg="#f0faf6"; icon="✓";
+      statusMsg=`Milk intake is within the NHS recommended range for this age.`;
     }
 
-    // ── Smart suggestions ──
+    // ── Smart suggestions (timing/distribution — daytime only) ──
     const suggestions = [];
-    const feedCount = milkFeeds.length;
-    if (feedCount >= 2) {
-      const sorted = [...milkFeeds].sort((a,b) => timeVal(a) - timeVal(b));
-      const amounts = sorted.map(f => f.amount||0);
-      const avgFeed = totalMl / feedCount;
+    if (dayMilkFeeds.length >= 2) {
+      const sorted = [...dayMilkFeeds].sort((a,b)=>timeVal(a)-timeVal(b));
+      const amounts = sorted.map(f=>f.amount||0);
+      const avgFeed = dayMl / dayMilkFeeds.length;
 
-      // Late-day shortfall: suggest specific next-feed top-up
-      if ((status === "behind" || status === "low-late") && remainingFeeds > 0) {
-        const topUp = Math.round(shortfall / remainingFeeds);
-        suggestions.push({ icon:"💡", body:`${remainingFeeds} feed${remainingFeeds!==1?"s":""} left today. Adding ~${topUp}ml to each could close the gap.` });
-      } else if (status === "behind" && remainingFeeds === 0 && shortfall > 0) {
-        suggestions.push({ icon:"💡", body:`Consider an extra feed before bed to top up — baby may show hunger cues.` });
+      // Top-up suggestion if behind and feeds remain
+      if ((status==="low" || status==="night-heavy") && remainingFeeds > 0 && dayShortfall > 80) {
+        const topUp = Math.round(dayShortfall / remainingFeeds);
+        suggestions.push({ icon:"🍼", body:`${remainingFeeds} day feed${remainingFeeds!==1?"s":""} left. Adding ~${topUp}ml to each could reach the daytime goal.` });
       }
 
       // Uneven distribution
-      const maxFeed = Math.max(...amounts), minFeed = Math.min(...amounts);
-      if (feedCount >= 3 && maxFeed > avgFeed * 1.5 && minFeed < avgFeed * 0.6) {
-        const even = Math.round(totalMl / feedCount / 10) * 10;
-        suggestions.push({ icon:"⚖️", body:`Feeds vary from ${minFeed}ml to ${maxFeed}ml. More even feeds of ~${even}ml can reduce wind and keep hunger steadier.` });
+      const maxF=Math.max(...amounts), minF=Math.min(...amounts);
+      if (dayMilkFeeds.length>=3 && maxF>avgFeed*1.5 && minF<avgFeed*0.6) {
+        const even = Math.round(dayMl/dayMilkFeeds.length/10)*10;
+        suggestions.push({ icon:"⚖️", body:`Day feeds range from ${minF}ml to ${maxF}ml. More consistent feeds of ~${even}ml reduce wind and keep hunger steady.` });
       }
 
       // Long gap
-      for (let i = 1; i < sorted.length; i++) {
-        const gap = timeVal(sorted[i]) - timeVal(sorted[i-1]);
-        if (gap > (w < 13 ? 210 : 270)) {
-          const gH = Math.floor(gap/60), gM = gap%60;
-          suggestions.push({ icon:"⏰", body:`${gH}h${gM>0?" "+gM+"m":""} gap between ${fmt12(sorted[i-1].time)} and ${fmt12(sorted[i].time)} — shorter gaps help keep intake steady.` });
+      for (let i=1;i<sorted.length;i++){
+        const gap=timeVal(sorted[i])-timeVal(sorted[i-1]);
+        if(gap>(w<13?210:270)){
+          const gH=Math.floor(gap/60),gM=gap%60;
+          suggestions.push({ icon:"⏰", body:`${gH}h${gM>0?" "+gM+"m":""} gap between ${fmt12(sorted[i-1].time)} and ${fmt12(sorted[i].time)} — shorter gaps help maintain day intake.` });
           break;
         }
       }
     }
 
-    return { totalMl, min, max, label, targetMl, status, color, bg, icon, statusMsg, suggestions, expectedByNow: Math.round(expectedByNow), dayFraction };
+    return { totalMl, dayMl, nightMl, totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin,
+             status, color, bg, icon, statusMsg, sleepLink, suggestions, nhsNote, dayFraction, hasFrequentNightWakes };
   }
 
   function analyseTrends() {
@@ -2036,26 +2097,60 @@ function App(){
                 return (
                   <div style={{background:fc.bg,border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
                     <div style={{fontSize:14,fontFamily:"monospace",color:fc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Today's Milk Intake</div>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                      <div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:fc.color,lineHeight:1}}>{fc.totalMl}ml</div>
-                        <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginTop:3}}>total today</div>
+
+                    {/* Day vs Night split */}
+                    <div style={{display:"flex",gap:10,marginBottom:12}}>
+                      <div style={{flex:1,background:"rgba(255,255,255,0.7)",borderRadius:12,padding:"10px 12px"}}>
+                        <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Daytime</div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:fc.color,lineHeight:1}}>{fc.dayMl}ml</div>
+                        <div style={{fontSize:12,color:C.lt,marginTop:2}}>goal ~{fc.dayTarget}ml</div>
                       </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontSize:15,color:C.mid}}>Typical for this age</div>
-                        <div style={{fontSize:15,fontWeight:600,color:C.mid}}>{fc.label}</div>
-                      </div>
+                      {fc.nightMl > 0 && (
+                        <div style={{flex:1,background:"rgba(42,31,58,0.07)",borderRadius:12,padding:"10px 12px"}}>
+                          <div style={{fontSize:12,fontFamily:"monospace",color:"#8878a8",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Night feeds</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:"#7a6898",lineHeight:1}}>{fc.nightMl}ml</div>
+                          <div style={{fontSize:12,color:"#9888b8",marginTop:2}}>total {fc.totalMl}ml</div>
+                        </div>
+                      )}
+                      {fc.nightMl === 0 && (
+                        <div style={{flex:1,background:"rgba(255,255,255,0.5)",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                          <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>NHS range</div>
+                          <div style={{fontSize:14,fontWeight:600,color:C.mid}}>{fc.totalLabel}</div>
+                        </div>
+                      )}
                     </div>
-                    <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"white",borderRadius:10,padding:"10px 12px",marginBottom:fc.suggestions.length?8:0}}>
+
+                    {/* Status message */}
+                    <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"white",borderRadius:10,padding:"10px 12px",marginBottom:(fc.sleepLink||fc.suggestions.length)?8:0}}>
                       <span style={{fontSize:16,flexShrink:0}}>{fc.icon}</span>
                       <div style={{fontSize:15,color:C.mid,lineHeight:1.6}}>{fc.statusMsg}</div>
                     </div>
+
+                    {/* Sleep link insight */}
+                    {fc.sleepLink && (
+                      <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"#f0ecff",border:"1px solid #d4c8f8",borderRadius:10,padding:"10px 12px",marginBottom:fc.suggestions.length?8:0}}>
+                        <span style={{fontSize:15,flexShrink:0}}>{fc.sleepLink.icon}</span>
+                        <div>
+                          {fc.sleepLink.title && <div style={{fontSize:14,fontWeight:700,color:"#6040c0",marginBottom:3}}>{fc.sleepLink.title}</div>}
+                          <div style={{fontSize:14,color:"#5030a0",lineHeight:1.6}}>{fc.sleepLink.body}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Timing suggestions */}
                     {fc.suggestions.map((s,i)=>(
                       <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"9px 12px",marginTop:6}}>
                         <span style={{fontSize:15,flexShrink:0}}>{s.icon}</span>
-                        <div style={{fontSize:15,color:C.mid,lineHeight:1.6}}>{s.body}</div>
+                        <div style={{fontSize:14,color:C.mid,lineHeight:1.6}}>{s.body}</div>
                       </div>
                     ))}
+
+                    {/* NHS note — shown when night-heavy or low */}
+                    {(fc.status==="night-heavy"||fc.status==="low") && (
+                      <div style={{fontSize:13,color:C.lt,marginTop:10,paddingTop:8,borderTop:`1px solid ${fc.color}20`,lineHeight:1.5}}>
+                        ℹ️ {fc.nhsNote}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
