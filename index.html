@@ -629,10 +629,13 @@ function App(){
       adjustReason = `Long last nap (${lastNapMins}min) — bedtime shifted slightly later`;
     }
 
-    // ── 3. Also check: last nap end + min wake window as a floor ──
+    // ── 3. Floor: no earlier than last nap end + min wake window
+    //    Cap:   no later than last nap end + max wake window (biology wins over history)
     const [lh2,lm2] = lastNap.end.split(":").map(Number);
-    const earliestBed = lh2*60+lm2 + ww.min;
-    const finalMins = Math.max(earliestBed, baseBedMins + adjustMins);
+    const lastNapEndMins = lh2*60+lm2;
+    const earliestBed = lastNapEndMins + ww.min;
+    const latestBed   = lastNapEndMins + ww.max;
+    const finalMins = Math.min(latestBed, Math.max(earliestBed, baseBedMins + adjustMins));
 
     const hh = Math.floor(finalMins/60)%24;
     const mm = finalMins%60;
