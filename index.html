@@ -11,9 +11,9 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
     html,body{height:100%;overscroll-behavior:none;}
@@ -23,8 +23,9 @@
   </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
+<div id="root"><div id="loading" style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:'DM Sans',sans-serif;color:#7a5c52;font-size:14px;">Loading…</div></div>
+<noscript><div style="padding:40px;text-align:center;font-family:sans-serif;color:#c9705a;">Please enable JavaScript to use Baby Tracker.</div></noscript>
+<script type="text/babel" data-presets="react,env">
 const { useState, useEffect, useRef } = React;
 
 const STORAGE_KEY = "babyTracker_v6";
@@ -310,6 +311,7 @@ function App(){
   const[pasteText,setPasteText]=useState("");
   const[parsedEntries,setParsedEntries]=useState(null);
   const[parseError,setParseError]=useState("");
+  const timerRef=useRef(null);
 
   // "Oliver" → "Oliver's" | "James" → "James'" | "Alice" → "Alice's"
   const possessive = (n) => {
@@ -1841,7 +1843,13 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+const loadingEl = document.getElementById('loading');
+if (loadingEl) loadingEl.remove();
+try {
+  ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+} catch(err) {
+  document.getElementById('root').innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;color:#c9705a;"><h2>Something went wrong</h2><p style="margin-top:10px;font-size:13px;color:#7a5c52;">'+err.message+'</p></div>';
+}
 </script>
 </body>
 </html>
