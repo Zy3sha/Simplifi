@@ -20,6 +20,8 @@
     body{background:#faf6f0;font-family:'DM Sans',sans-serif;}
     ::-webkit-scrollbar{display:none;}
     input,select,button{font-family:inherit;}
+    body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}
+    body.girl header,body.girl .gender-accent{background:#fde7e4!important;}
   </style>
 </head>
 <body>
@@ -37,11 +39,19 @@ const fmt12 = t => { if(!t)return""; const[h,m]=t.split(":").map(Number); return
 const minDiff = (s,e) => { if(!s||!e)return 0; const[sh,sm]=s.split(":").map(Number),[eh,em]=e.split(":").map(Number); return Math.max(0,eh*60+em-sh*60-sm); };
 const timeVal = e => { const t=e.time||e.start||"00:00"; const[h,m]=t.split(":").map(Number); return h*60+m; };
 const fmtDate = d => { const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
-const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
 const todayStr = () => new Date().toISOString().split("T")[0];
 const hm = m => m>=60?`${Math.floor(m/60)}h ${m%60}m`:m?`${m}m`:"—";
 const fmtSec = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+const fmtCountdown = s => {
+  if(s <= 0) return "Now!";
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  if(h > 0) return `${h}h ${String(m).padStart(2,"0")}m ${String(sec).padStart(2,"0")}s`;
+  return `${m}m ${String(sec).padStart(2,"0")}s`;
+};
 const avgArr = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
 
 function getAwakeWindows(entries) {
@@ -265,6 +275,7 @@ function App(){
   const[napOn,setNapOn]=useState(false);
   const[napStartT,setNapStartT]=useState(null);
   const[napSec,setNapSec]=useState(0);
+  const[napCountdown,setNapCountdown]=useState(null); // seconds until next nap window opens
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
   const[nameIn,setNameIn]=useState("");
@@ -314,6 +325,25 @@ function App(){
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
   },[napOn]);
+
+  // Live countdown to next nap window — ticks every second
+  const countdownRef = React.useRef(null);
+  useEffect(()=>{
+    function tick(){
+      const pred = predictNextNap();
+      if(!pred){setNapCountdown(null);return;}
+      const now = new Date();
+      const [h,m] = pred.napStart_min.split(":").map(Number);
+      const target = new Date();
+      target.setHours(h,m,0,0);
+      let diff = Math.round((target - now)/1000);
+      if(diff < 0) diff = 0;
+      setNapCountdown(diff);
+    }
+    tick();
+    countdownRef.current = setInterval(tick, 1000);
+    return()=>clearInterval(countdownRef.current);
+  },[selDay, days, babyDob]);
 
   const dayKeys=Object.keys(days).sort();
   const displayDayKeys=[...dayKeys].reverse();
@@ -389,6 +419,10 @@ function App(){
     const age = calcAge(babyDob);
     const ageWeeks = age ? age.totalWeeks : null;
     if (!ageWeeks || !selDay) return null;
+
+    // Don't predict next nap if bedtime has already been logged
+    const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+    if (hasBedtime) return null;
 
     let wakeWindowMin, wakeWindowMax, sourceLabel;
     const loggedDays = Object.keys(days).filter(d => (days[d]||[]).some(e=>!e.night)).sort();
@@ -963,6 +997,33 @@ function App(){
 
       {/* HERO HEADER */}
       <div style={{background:theme.primary,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}>
+
+        {/* ── NAP COUNTDOWN PILL (top-right corner) ── */}
+        {napCountdown !== null && tab === "day" && (()=>{
+          const isNow = napCountdown <= 0;
+          const isUrgent = napCountdown <= 300; // ≤5 mins
+          return (
+            <div style={{
+              position:"absolute",top:14,right:16,zIndex:10,
+              background: isNow ? C.mint : isUrgent ? C.ter : "rgba(255,255,255,0.85)",
+              borderRadius:99,
+              padding:"6px 12px",
+              boxShadow:"0 2px 12px rgba(44,31,26,0.15)",
+              display:"flex",alignItems:"center",gap:6,
+              backdropFilter:"blur(8px)",
+              border: isNow||isUrgent ? "none" : `1px solid rgba(255,255,255,0.6)`,
+              minWidth:90,justifyContent:"center"
+            }}>
+              <span style={{fontSize:12}}>{isNow?"😴":"⏱️"}</span>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1,marginBottom:1}}>Next Nap</div>
+                <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":C.ter,lineHeight:1}}>
+                  {fmtCountdown(napCountdown)}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         <div style={{position:"relative",zIndex:1}}>
           {!nameEdit?(
             <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}}>
@@ -1113,15 +1174,16 @@ function App(){
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"linear-gradient(135deg,#f0faf6,#e8f5f0)",padding:"10px 14px",borderBottom:"1px solid #b8e8d4"}}>
                           <div>
                             <div style={{fontSize:10,fontFamily:"monospace",color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>😴 Next Nap Window</div>
-                            <div style={{fontSize:11,color:C.mid}}>
-                              {minsAway != null && minsAway > 0
-                                ? `In about ${minsAway} min · `
-                                : "Now · "}
-                              <span style={{color:C.lt}}>{pred.sourceLabel}</span>
+                            <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:napCountdown===0?"#e05a3a":napCountdown!==null&&napCountdown<=300?C.ter:C.mint}}>
+                              {napCountdown !== null ? fmtCountdown(napCountdown) : "—"}
                             </div>
+                            <div style={{fontSize:10,color:C.lt,marginTop:2}}>{pred.sourceLabel}</div>
                           </div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mint,textAlign:"right"}}>
-                            {fmt12(pred.napStart_min)}<span style={{fontSize:13,fontWeight:400,color:C.lt}}>–{fmt12(pred.napStart_max)}</span>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.mint}}>
+                              {fmt12(pred.napStart_min)}
+                            </div>
+                            <div style={{fontSize:11,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
                           </div>
                         </div>
                         {/* Suggested bedtime */}
@@ -1927,10 +1989,7 @@ function App(){
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 
-<style>
-body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}
-body.girl header,body.girl .gender-accent{background:#fde7e4!important;}
-</style>
+
 <script>
 (function(){
   try{
