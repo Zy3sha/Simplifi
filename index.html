@@ -294,6 +294,9 @@ function App(){
   const[milestones,setMilestones]=useState(()=>{try{return JSON.parse(localStorage.getItem("ms_v1")||"{}");}catch{return{};}});
   const[babyDob,setBabyDob]=useState(()=>localStorage.getItem("dob_v1")||"");
   const[babySex,setBabySex]=useState(()=>localStorage.getItem("sex_v1")||"boy");
+  const theme = babySex==="girl"
+    ? {primary:"#ff9ecf",secondary:"#e66aa8"}
+    : {primary:"#7aa7ff",secondary:"#4c79d8"};
   const[growthForm,setGrowthForm]=useState({date:todayStr(),kg:""});
   const[onboarded,setOnboarded]=useState(()=>{
     // Show onboarding if never completed OR if name+dob both missing
@@ -795,9 +798,71 @@ function App(){
 
 
   const tabSt=t=>({flex:1,padding:"10px 2px",border:"none",background:"none",fontSize:10,fontWeight:700,cursor:"pointer",color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.04em",textTransform:"uppercase"});
-  const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
+  
+{(() => {
+  const score = sleepScore();
+  const bed = bedtimePrediction();
+  const advice = sleepAdvice();
+  const tired = tiredDetection();
+  return (
+    <div style={{background:"white",border:"1px solid #f2d9cc",borderRadius:20,padding:16,marginBottom:14}}>
+      <div style={{fontSize:12,fontFamily:"monospace",color:"#7a5c52"}}>Sleep score</div>
+      <div style={{fontSize:28,fontWeight:700}}>{score}/100</div>
+      {bed && <div style={{marginTop:6}}>Suggested bedtime: {fmt12(bed)}</div>}
+      <div style={{marginTop:6}}>{advice}</div>
+      <div style={{fontSize:12,color:"#b89890",marginTop:4}}>{tired}</div>
+    </div>
+  );
+})()}
 
-  const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
+const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
+
+  
+// --- Sleep analytics ---
+function sleepScore(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  const napMinutes = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+  const nightWakes = today.filter(e=>e.night).length;
+  let score = 100;
+  if(napMinutes < 90) score -= 20;
+  if(napMinutes > 240) score -= 10;
+  if(nightWakes > 3) score -= 20;
+  if(nightWakes === 0) score += 5;
+  return Math.max(0,Math.min(100,score));
+}
+
+function bedtimePrediction(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  if(!naps.length) return null;
+  const lastNap = naps[naps.length-1];
+  const age = calcAge(babyDob);
+  if(!age) return null;
+  const ww = getWakeWindow(age.totalWeeks);
+  return addMinutes(lastNap.end, ww.max);
+}
+
+function sleepAdvice(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  const napMinutes = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+  const hrs = (napMinutes/60).toFixed(1);
+  if(napMinutes < 120) return `Baby napped ${hrs} hours today. Consider an earlier bedtime.`;
+  if(napMinutes > 210) return `Baby napped ${hrs} hours today. A slightly later bedtime may help build sleep pressure.`;
+  return `Baby napped ${hrs} hours today. Sleep pressure looks balanced.`;
+}
+
+function tiredDetection(){
+  const today = days[selDay]||[];
+  const naps = today.filter(e=>e.type==="nap"&&!e.night);
+  const napMinutes = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+  if(napMinutes < 90) return "Baby may be overtired today.";
+  if(napMinutes > 240) return "Baby may be undertired today.";
+  return "Wake windows look appropriate today.";
+}
+
+const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
   const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
 
   // ONBOARDING
@@ -810,7 +875,7 @@ function App(){
     };
     const steps = [
       {
-        icon:<img src="Oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"Welcome to\nO Baby!",
+        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"Welcome to\nO Baby!",
         sub:"Let’s make life easy.",
         action: (
           <div style={{width:"100%",marginTop:18}}>
@@ -830,7 +895,7 @@ function App(){
         )
       },
       {
-        icon:<img src="Oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"What's your\nbaby's name?",
+        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"What's your\nbaby's name?",
         sub:"You can always change this later by tapping the title.",
         action: (
           <div style={{width:"100%",marginTop:20}}>
@@ -903,7 +968,7 @@ function App(){
       `}</style>
 
       {/* HERO HEADER */}
-      <div style={{background:`linear-gradient(135deg, #c9705a 0%, #a85a44 50%, #7a4535 100%)`,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}>
+      <div style={{background:`linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 60%, #7a4535 100%)`,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}>
         {/* decorative circles */}
         <div style={{position:"absolute",top:-40,right:-40,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
         <div style={{position:"absolute",bottom:-60,left:-30,width:220,height:220,borderRadius:"50%",background:"rgba(255,255,255,0.05)"}}/>
@@ -961,7 +1026,7 @@ function App(){
           <button onClick={()=>{setNewDate(todayStr());setModal("addDay");}} style={{flexShrink:0,background:"rgba(255,255,255,0.2)",border:"1px dashed rgba(255,255,255,0.4)",borderRadius:20,padding:"5px 12px",color:"white",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>+ Day</button>
           {displayDayKeys.map(d=>(
             <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"white":"rgba(255,255,255,0.15)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?"none":"1px solid rgba(255,255,255,0.2)"}}>
-              <button onClick={()=>setSelDay(d)} style={{background:"none",border:"none",color:d===selDay?C.ter:"rgba(255,255,255,0.9)",fontSize:12,fontFamily:"monospace",cursor:"pointer",padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}><div>{fmtDate(d)}</div>{(days[d]&&days[d].length)?<div style={{width:6,height:6,borderRadius:99,background:"#c9705a",margin:"4px auto 0"}}/>:null}</button>
+              <button onClick={()=>setSelDay(d)} style={{background:"none",border:"none",color:d===selDay?C.ter:"rgba(255,255,255,0.9)",fontSize:12,fontFamily:"monospace",cursor:"pointer",padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
               <button onClick={e=>{setMenuDay(d);setEditDate(d);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?"#f2d9cc":"rgba(255,255,255,0.2)",border:"none",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:d===selDay?C.mid:"rgba(255,255,255,0.8)"}}>✎</button>
             </div>
           ))}
