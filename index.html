@@ -474,23 +474,37 @@ function App(){
 
     let wakeWindowMin, wakeWindowMax, sourceLabel;
     const loggedDays = Object.keys(days).filter(d => (days[d]||[]).some(e=>!e.night)).sort();
+    // Only use personalised windows from days that actually have nap data
+    const napDays = loggedDays.filter(d => (days[d]||[]).some(e => e.type==="nap" && !e.night && e.start && e.end));
 
-    if (loggedDays.length < 7) {
+    if (napDays.length < 7) {
       const ww = getWakeWindow(ageWeeks);
       wakeWindowMin = ww.min;
       wakeWindowMax = ww.max;
       sourceLabel = `age-appropriate wake windows for ${age.months}mo`;
     } else {
-      const recent = loggedDays.slice(-7);
+      const recent = napDays.slice(-7);
       let windows = [];
       recent.forEach(d => {
         const ws = getAwakeWindows(days[d]||[]);
-        ws.forEach(w => { if (w.mins) windows.push(w.mins); });
+        ws.forEach(w => { if (w.mins && w.mins >= 20) windows.push(w.mins); }); // filter out junk <20min windows
       });
-      const avgWindow = windows.length ? Math.round(windows.reduce((a,b)=>a+b,0)/windows.length) : getWakeWindow(ageWeeks).min;
-      wakeWindowMin = Math.max(30, Math.round(avgWindow * 0.9));
-      wakeWindowMax = Math.max(wakeWindowMin + 10, Math.round(avgWindow * 1.1));
-      sourceLabel = `personalised sleep windows from the last ${recent.length} days`;
+      if (windows.length < 3) {
+        // Not enough real wake window data, fall back to age defaults
+        const ww = getWakeWindow(ageWeeks);
+        wakeWindowMin = ww.min;
+        wakeWindowMax = ww.max;
+        sourceLabel = `age-appropriate wake windows for ${age.months}mo`;
+      } else {
+        // Trim outliers (top & bottom 10%) for a clean average
+        const sorted2 = [...windows].sort((a,b)=>a-b);
+        const trim = Math.max(1, Math.floor(sorted2.length * 0.1));
+        const trimmed = sorted2.slice(trim, sorted2.length - trim);
+        const avgWindow = Math.round(trimmed.reduce((a,b)=>a+b,0) / trimmed.length);
+        wakeWindowMin = Math.max(30, Math.round(avgWindow * 0.88));
+        wakeWindowMax = Math.max(wakeWindowMin + 15, Math.round(avgWindow * 1.12));
+        sourceLabel = `your avg wake window (${avgWindow}min) · last 7 days`;
+      }
     }
 
     const sorted = [...(days[selDay]||[])].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -513,14 +527,14 @@ function App(){
     const napMaxMins = maxH*60 + maxM;
     if (nowMins > napMaxMins) return null;
 
-    // If predicted bedtime is within 60 min of nap window start, suppress nap
+    // Suppress nap if it's too close to bedtime — gap must be at least one full wake window max
     const bed = bedtimePrediction();
     if (bed) {
       const [bh, bm] = bed.time.split(":").map(Number);
       const bedMins = bh*60 + bm;
       const [minH, minM] = napStart_min.split(":").map(Number);
       const napMinMins = minH*60 + minM;
-      if (bedMins - napMinMins < 60) return null;
+      if (bedMins - napMinMins < wakeWindowMax) return null;
     }
 
     return { napStart_min, napStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart };
