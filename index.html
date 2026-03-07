@@ -57,15 +57,16 @@ const fmtCountdown = s => {
 const avgArr = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
 
 function getAwakeWindows(entries) {
-  // Daytime: nap-end → next-nap-start (or bedtime)
-  // Seed with morning wake if available
+  // Daytime wake windows: wake-up → nap1, nap1-end → nap2, nap2-end → bedtime etc.
   const sorted=[...entries].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
   const wins=[]; let last=null;
   sorted.forEach(e=>{
-    if(e.type==="wake" && last===null) last=e.time; // only use wake to seed if no nap yet
+    if(e.type==="wake") last=e.time; // morning wake always resets seed
     if(e.type==="nap"){
-      if(last) wins.push({from:last,to:e.start,mins:minDiff(last,e.start)});
-      last=e.end; // next window starts from nap END
+      if(last && e.start) wins.push({from:last,to:e.start,mins:minDiff(last,e.start)});
+      // Only advance last if this nap has an end — otherwise stop (nap still in progress)
+      if(e.end) last=e.end;
+      else last=null;
     }
     if(e.type==="sleep"&&last){wins.push({from:last,to:e.time,mins:minDiff(last,e.time),bed:true});last=null;}
   });
@@ -73,9 +74,9 @@ function getAwakeWindows(entries) {
 }
 
 function getNightWindows(entries) {
-  // Night: wake-to-wake stretches
+  // Night stretches: from one wake to the next
   const night=[...entries].filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
-  const wins=[]; 
+  const wins=[];
   for(let i=1;i<night.length;i++){
     let mins=minDiff(night[i-1].time,night[i].time);
     if(mins<=0) mins+=720; // cross-midnight
@@ -2271,10 +2272,10 @@ function App(){
                 if (wins.length === 0 && nightWins.length === 0) return null;
                 return (
                   <div style={{...card,marginBottom:10}}>
-                    <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Awake Windows</div>
+                    <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Wake Windows & Night Stretches</div>
                     {wins.length>0&&(
                       <div style={{marginBottom:nightWins.length?10:0}}>
-                        <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Daytime · nap to nap</div>
+                        <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Wake Windows</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                           {wins.map((w,i)=>(
                             <div key={i} style={{background:w.bed?"#d5e7f2":"#f5eccb",borderRadius:10,padding:"5px 10px",fontSize:14,color:w.bed?C.sky:"#b88a20",fontFamily:"monospace"}}>
@@ -2287,7 +2288,7 @@ function App(){
                     )}
                     {nightWins.length>0&&(
                       <div>
-                        <div style={{fontSize:12,fontFamily:"monospace",color:"#8878a8",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Night · wake to wake</div>
+                        <div style={{fontSize:12,fontFamily:"monospace",color:"#8878a8",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:5}}>Night Stretches</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                           {nightWins.map((w,i)=>(
                             <div key={i} style={{background:"#2a1f3a",borderRadius:10,padding:"5px 10px",fontSize:14,color:"#c8b8e8",fontFamily:"monospace"}}>
