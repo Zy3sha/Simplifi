@@ -270,12 +270,6 @@ function calcAge(dob) {
 }
 
 function App(){
-
-// Gender theme
-const theme = babySex === "girl"
-  ? {primary:"#ff9ecf",secondary:"#e66aa8"}
-  : {primary:"#7aa7ff",secondary:"#4c79d8"};
-
   const timerRef = React.useRef(null);
 
   const[days,setDays]=useState(()=>{try{const r=localStorage.getItem(STORAGE_KEY);if(r)return JSON.parse(r);}catch{}return SEED_DAYS;});
@@ -300,6 +294,9 @@ const theme = babySex === "girl"
   const[milestones,setMilestones]=useState(()=>{try{return JSON.parse(localStorage.getItem("ms_v1")||"{}");}catch{return{};}});
   const[babyDob,setBabyDob]=useState(()=>localStorage.getItem("dob_v1")||"");
   const[babySex,setBabySex]=useState(()=>localStorage.getItem("sex_v1")||"boy");
+  const theme = babySex==="girl"
+    ? {primary:"#ff9ecf",secondary:"#e66aa8"}
+    : {primary:"#7aa7ff",secondary:"#4c79d8"};
   const[growthForm,setGrowthForm]=useState({date:todayStr(),kg:""});
   const[onboarded,setOnboarded]=useState(()=>{
     // Show onboarding if never completed OR if name+dob both missing
@@ -821,7 +818,7 @@ const theme = babySex === "girl"
 const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
 
   
-// Sleep analytics
+// --- Sleep analytics ---
 function sleepScore(){
   const today = days[selDay]||[];
   const naps = today.filter(e=>e.type==="nap"&&!e.night);
@@ -840,11 +837,10 @@ function bedtimePrediction(){
   const naps = today.filter(e=>e.type==="nap"&&!e.night);
   if(!naps.length) return null;
   const lastNap = naps[naps.length-1];
-  const wakeAfterNap = lastNap.end;
   const age = calcAge(babyDob);
   if(!age) return null;
   const ww = getWakeWindow(age.totalWeeks);
-  return addMinutes(wakeAfterNap, ww.max);
+  return addMinutes(lastNap.end, ww.max);
 }
 
 function sleepAdvice(){
@@ -854,7 +850,7 @@ function sleepAdvice(){
   const hrs = (napMinutes/60).toFixed(1);
   if(napMinutes < 120) return `Baby napped ${hrs} hours today. Consider an earlier bedtime.`;
   if(napMinutes > 210) return `Baby napped ${hrs} hours today. A slightly later bedtime may help build sleep pressure.`;
-  return `Baby napped ${hrs} hours today. Sleep pressure looks well balanced.`;
+  return `Baby napped ${hrs} hours today. Sleep pressure looks balanced.`;
 }
 
 function tiredDetection(){
@@ -972,7 +968,7 @@ const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"�
       `}</style>
 
       {/* HERO HEADER */}
-      <div style={{background:`linear-gradient(135deg, #c9705a 0%, #a85a44 50%, #7a4535 100%)`,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}>
+      <div style={{background:`linear-gradient(135deg, ${theme.primary} 0%, ${theme.secondary} 60%, #7a4535 100%)`,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}>
         {/* decorative circles */}
         <div style={{position:"absolute",top:-40,right:-40,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.07)"}}/>
         <div style={{position:"absolute",bottom:-60,left:-30,width:220,height:220,borderRadius:"50%",background:"rgba(255,255,255,0.05)"}}/>
