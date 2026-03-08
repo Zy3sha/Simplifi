@@ -801,6 +801,7 @@ function App(){
     try {
       setSyncStatus("syncing");
       const myUid = window._fbUid || "anon";
+      const writeToken = writeTokenRef.current;
       // Strip blank placeholder children before writing — prevents phantom
       // "Unnamed child" entries from persisting in Firestore and syncing back.
       const hasAnyNamedChild = Object.values(allChildren).some(c => c.name);
@@ -816,7 +817,8 @@ function App(){
       await setDoc(doc(db,"families",code), {
         children: JSON.stringify(childrenToWrite),
         updatedAt: serverTimestamp(),
-        updatedBy: myUid
+        updatedBy: myUid,
+        writeToken
       }); // no {merge:true} — full replace so removals propagate
       // Also persist uid→backupCode mapping so we can recover if localStorage is wiped
       if(myUid && myUid !== "anon") {
@@ -840,8 +842,9 @@ function App(){
     unsubscribeRef.current = onSnapshot(doc(db,"families",code),(snap)=>{
       if(!snap.exists()) return;
       const d = snap.data();
-      // Only skip if we know our own uid and it matches — never skip if uid unknown
+      // Skip if this is our own write — check both uid and session writeToken
       const myUid = window._fbUid;
+      if(d.writeToken && d.writeToken === writeTokenRef.current) return;
       if(myUid && d.updatedBy === myUid) return;
       try{ if(d.children) setChildren(prev=>mergeChildren(prev,JSON.parse(d.children))); }
       catch(e){ console.warn("Sync apply error",e); }
@@ -1009,6 +1012,8 @@ function App(){
   // ── Firebase: push changes to backup (only after restore completes) ──
   // The 3s debounce prevents echoing the just-restored cloud data back immediately.
   const syncTimerRef = React.useRef(null);
+  // Stable session token — written to Firestore with every push so onSnapshot can skip our own writes
+  const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
   const justRestoredRef = React.useRef(false);
   useEffect(()=>{
     if(!fbReady || !restoreDone || !backupCode) return;
@@ -1386,7 +1391,8 @@ function App(){
         child: JSON.stringify(child),
         childName: child.name || "",
         updatedAt: serverTimestamp(),
-        updatedBy: window._fbUid || "anon"
+        updatedBy: window._fbUid || "anon",
+        writeToken: writeTokenRef.current
       }, {merge:true});
     } catch(e) { console.warn("pushChildSync error", e); }
   }
@@ -1400,7 +1406,9 @@ function App(){
     const unsub = onSnapshot(doc(db,"child_syncs",code), (snap) => {
       if(!snap.exists()) return;
       const d = snap.data();
-      if(d.updatedBy && window._fbUid && d.updatedBy === window._fbUid) return; // skip our own writes
+      // Skip our own writes — check session writeToken first, then uid fallback
+      if(d.writeToken && d.writeToken === writeTokenRef.current) return;
+      if(d.updatedBy && window._fbUid && d.updatedBy === window._fbUid) return;
       try {
         if(d.child) {
           const remoteChild = JSON.parse(d.child);
