@@ -1492,15 +1492,8 @@ function App(){
   const tickDataRef = React.useRef({});
   React.useEffect(()=>{
     const ageWeeks = age ? age.totalWeeks : null;
-    let expectedNaps = 4;
-    if (ageWeeks) {
-      if (ageWeeks < 6)       expectedNaps = 5;
-      else if (ageWeeks < 13) expectedNaps = 4;
-      else if (ageWeeks < 26) expectedNaps = 3;
-      else if (ageWeeks < 39) expectedNaps = 2;
-      else if (ageWeeks < 78) expectedNaps = 2;
-      else                    expectedNaps = 1;
-    }
+    const napProfileTick = getAgeNapProfile(ageWeeks);
+    const expectedNaps = napProfileTick.expectedNaps;
     const bed = bedtimePrediction();
     const pred = predictNextNap();
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
@@ -1519,8 +1512,8 @@ function App(){
 
       const napsComplete = napsDone >= expectedNaps;
       const minsUntilBed = bedMins !== null ? bedMins - nowMins : null;
-      const within2hrs = minsUntilBed !== null && minsUntilBed > 0 && minsUntilBed <= 120;
-      const bedtimeConditionMet = (within2hrs || napsComplete) && !hasBedtime && bed;
+      // Only switch to bedtime countdown once age-appropriate naps are all done
+      const bedtimeConditionMet = napsComplete && !hasBedtime && bed;
 
       if (hasBedtime) {
         setNapCountdown(null);
@@ -1620,6 +1613,18 @@ function App(){
     return { min:210, max:270, label:"3.5–4.5 hrs" };
   }
 
+
+  // Age-appropriate nap targets used for bedtime gating and sleep advice
+  function getAgeNapProfile(ageWeeks) {
+    if (!ageWeeks) return { expectedNaps:3, idealNapDurMin:30, idealNapDurMax:90, idealTotalMin:120, idealTotalMax:240 };
+    if (ageWeeks < 6)  return { expectedNaps:5, idealNapDurMin:20, idealNapDurMax:60,  idealTotalMin:240, idealTotalMax:360 };
+    if (ageWeeks < 13) return { expectedNaps:4, idealNapDurMin:30, idealNapDurMax:90,  idealTotalMin:180, idealTotalMax:300 };
+    if (ageWeeks < 26) return { expectedNaps:3, idealNapDurMin:40, idealNapDurMax:90,  idealTotalMin:150, idealTotalMax:240 };
+    if (ageWeeks < 39) return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:210 };
+    if (ageWeeks < 52) return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:180 };
+    if (ageWeeks < 78) return { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:60,  idealTotalMax:120 };
+    return               { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:90,  idealTotalMin:60,  idealTotalMax:90  };
+  }
   function addMinutes(time, mins) {
     const [h,m] = time.split(":").map(Number);
     const total = h*60 + m + mins;
@@ -1646,6 +1651,10 @@ function App(){
     // Don't predict next nap if bedtime has already been logged
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
     if (hasBedtime) return null;
+    // Don't predict another nap once age-appropriate nap count is reached
+    const napProfile2 = age ? getAgeNapProfile(ageWeeks) : null;
+    const napsDoneToday = (days[selDay]||[]).filter(e => e.type==="nap" && !e.night).length;
+    if (napProfile2 && napsDoneToday >= napProfile2.expectedNaps) return null;
 
     let wakeWindowMin, wakeWindowMax, sourceLabel;
     const loggedDays = Object.keys(days).filter(d => (days[d]||[]).some(e=>!e.night)).sort();
@@ -1757,6 +1766,9 @@ function App(){
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     if (!todayNaps.length) return null;
     if (!age) return null;
+    // Only predict bedtime when age-appropriate number of naps have been done
+    const napProfile = getAgeNapProfile(age.totalWeeks);
+    if (todayNaps.length < napProfile.expectedNaps) return null;
     const ww = getWakeWindow(age.totalWeeks);
     const lastNap = todayNaps[todayNaps.length - 1];
     if (!lastNap.end) return null;
@@ -1821,11 +1833,40 @@ function App(){
     const today = days[selDay] || [];
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     const napMinutes = todayNaps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
-    const hrs = (napMinutes / 60).toFixed(1);
     if (napMinutes === 0) return "No naps logged yet today.";
-    if (napMinutes < 90) return `Baby napped ${hrs}h today — consider an earlier bedtime to avoid overtiredness.`;
-    if (napMinutes > 210) return `Baby napped ${hrs}h today — a slightly later bedtime may help build sleep pressure.`;
-    return `Baby napped ${hrs}h today — sleep pressure looks well balanced. ✓`;
+    if (!age) {
+      const hrs = (napMinutes / 60).toFixed(1);
+      return `Baby napped ${hrs}h today.`;
+    }
+    const p = getAgeNapProfile(age.totalWeeks);
+    const hrs = (napMinutes / 60).toFixed(1);
+    const napsDone = todayNaps.length;
+    const napsComplete = napsDone >= p.expectedNaps;
+
+    // Check individual nap lengths
+    const shortNaps = todayNaps.filter(n => minDiff(n.start, n.end) < p.idealNapDurMin && minDiff(n.start, n.end) > 0);
+    const longNaps  = todayNaps.filter(n => minDiff(n.start, n.end) > p.idealNapDurMax);
+
+    if (!napsComplete) {
+      const remaining = p.expectedNaps - napsDone;
+      return `${napsDone} of ${p.expectedNaps} naps done (${hrs}h). ${remaining} more nap${remaining>1?"s":""} expected — keep going before bedtime.`;
+    }
+
+    // All naps done — advise on bedtime
+    if (napMinutes < p.idealTotalMin) {
+      const shortfall = Math.round(p.idealTotalMin - napMinutes);
+      if (shortNaps.length) {
+        return `Total nap time ${hrs}h — short of the ~${Math.round(p.idealTotalMin/60*10)/10}h ideal for this age. Short naps detected — consider an earlier bedtime tonight.`;
+      }
+      return `Total nap time ${hrs}h — a little under the ~${Math.round(p.idealTotalMin/60*10)/10}h ideal. Move bedtime earlier by 20–30 mins to avoid overtiredness.`;
+    }
+    if (napMinutes > p.idealTotalMax) {
+      return `Total nap time ${hrs}h — above the ~${Math.round(p.idealTotalMax/60*10)/10}h ideal for this age. Baby may not be tired at the usual time — push bedtime 15–30 mins later.`;
+    }
+    if (longNaps.length && napsDone === 1) {
+      return `${hrs}h nap — well within range for this age. Sleep pressure looks good. ✓`;
+    }
+    return `${hrs}h total nap time — right in the ideal range for this age. Bedtime should land well tonight. ✓`;
   }
 
   function tiredDetection() {
@@ -1833,8 +1874,9 @@ function App(){
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     const napMinutes = todayNaps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
     if (napMinutes === 0) return null;
-    if (napMinutes < 90) return "⚠️ May be overtired today";
-    if (napMinutes > 240) return "💤 May be undertired today";
+    const p = age ? getAgeNapProfile(age.totalWeeks) : { idealTotalMin:90, idealTotalMax:240 };
+    if (napMinutes < p.idealTotalMin * 0.75) return "⚠️ May be overtired today";
+    if (napMinutes > p.idealTotalMax * 1.15) return "💤 May be undertired today";
     return "✓ Wake windows look appropriate";
   }
 
