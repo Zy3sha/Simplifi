@@ -2398,23 +2398,44 @@ function App(){
     };
     const steps = [
       {
-        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"Welcome to\nOBubba!",
+        icon:"oliver", title:"Welcome to\nOBubba!",
         sub:"Let's make life easy.",
         action: (
-          <div style={{width:"100%",marginTop:18}}>
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:18,textAlign:"left"}}>
-              {[["🍼","Log feeds"],["😴","Track naps & sleep"],["📈","Look at trends"],["📏","Watch baby's growth"],["⭐","Track milestones"],["🧠","Sleep advice"]].map(function(item,i){
+          <div style={{width:"100%",marginTop:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+              {[["🍼","Feeds"],["😴","Sleep"],["📈","Trends"],["📏","Growth"],["⭐","Milestones"],["🧠","Insights"]].map(function(item,i){
                 return (
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:"white",border:`1px solid ${C.blush}`,borderRadius:14,padding:"10px 12px"}}>
-                    <div style={{fontSize:18}}>{item[0]}</div>
-                    <div style={{fontSize:14,color:C.mid}}>{item[1]}</div>
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"white",border:`1px solid ${C.blush}`,borderRadius:12,padding:"9px 10px"}}>
+                    <div style={{fontSize:16}}>{item[0]}</div>
+                    <div style={{fontSize:13,color:C.mid,fontWeight:500}}>{item[1]}</div>
                   </div>
                 );
               })}
             </div>
-            <div style={{fontSize:15,color:C.lt,marginBottom:14}}>All in one place.</div>
             <button onClick={()=>setObStep(1)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px 40px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10}}>Get Started →</button>
-            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"none",border:`2px solid ${C.blush}`,borderRadius:99,padding:"13px 40px",color:C.mid,fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>I already have an account</button>
+          </div>
+        )
+      },
+      {
+        icon:"🔑",
+        title:"Welcome back\nor new here?",
+        sub:"Sign in to sync your existing data, or create a new account to get started.",
+        action: (
+          <div style={{width:"100%",marginTop:24,display:"flex",flexDirection:"column",gap:12}}>
+            <button onClick={()=>setObStep(2)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:16,padding:"18px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
+              <span style={{fontSize:28}}>✨</span>
+              <div>
+                <div style={{fontSize:16,fontWeight:700}}>Create new account</div>
+                <div style={{fontSize:13,opacity:0.85,fontWeight:400,marginTop:2}}>Set up a username & PIN</div>
+              </div>
+            </button>
+            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"white",border:`2px solid ${C.blush}`,borderRadius:16,padding:"18px",color:C.deep,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
+              <span style={{fontSize:28}}>🔐</span>
+              <div>
+                <div style={{fontSize:16,fontWeight:700}}>I already have an account</div>
+                <div style={{fontSize:13,color:C.lt,fontWeight:400,marginTop:2}}>Sign in to restore your data</div>
+              </div>
+            </button>
           </div>
         )
       },
@@ -2454,7 +2475,7 @@ function App(){
                "Your partner will use this to sync with you"}
             </div>
             <button
-              onClick={()=>obUsernameStatus==="available"?setObStep(2):completeOnboarding()}
+              onClick={()=>obUsernameStatus==="available"?setObStep(3):completeOnboarding()}
               disabled={obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid"}
               style={{width:"100%",background:
                 (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
@@ -2497,12 +2518,12 @@ function App(){
         )
       },
       {
-        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"What's your\nbaby's name?",
+        icon:"oliver", title:"What's your\nbaby's name?",
         sub:"You can always change this later by tapping the title.",
         action: (
           <div style={{width:"100%",marginTop:20}}>
-            <input autoFocus value={obName} onChange={e=>setObName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setObStep(4)} placeholder="e.g. Oliver" style={{width:"100%",fontSize:22,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:14,boxSizing:"border-box"}}/>
-            <button onClick={()=>setObStep(4)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
+            <input autoFocus value={obName} onChange={e=>setObName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setObStep(5)} placeholder="e.g. Oliver" style={{width:"100%",fontSize:22,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:14,boxSizing:"border-box"}}/>
+            <button onClick={()=>setObStep(5)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
               {obName.trim() ? "Continue →" : "Skip for now"}
             </button>
           </div>
@@ -2523,7 +2544,7 @@ function App(){
             </div>
             <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)} style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:6,boxSizing:"border-box"}}/>
             <div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:14}}>{babyUnborn ? "Enter your due date" : "Enter date of birth"}</div>
-            <button onClick={()=>setObStep(5)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
+            <button onClick={()=>setObStep(6)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
               {obDob ? "Continue →" : "Skip for now"}
             </button>
           </div>
@@ -2554,23 +2575,25 @@ function App(){
     ];
     const step = steps[obStep];
     return (
-      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"30px 24px",fontFamily:"'DM Sans',sans-serif"}}>
+      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"env(safe-area-inset-top,24px) 24px env(safe-area-inset-bottom,24px)",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",overflowY:"auto"}}>
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
-        <div style={{display:"flex",gap:8,marginBottom:44}}>
+        <div style={{display:"flex",gap:8,paddingTop:16,marginBottom:8,flexShrink:0}}>
           {steps.map((_,i)=>(
             <div key={i} style={{width:i===obStep?24:8,height:8,borderRadius:99,background:i===obStep?C.ter:C.blush,transition:"all 0.3s"}}/>
           ))}
         </div>
-        <div key={obStep} style={{animation:"fadeUp 0.4s ease",textAlign:"center",width:"100%",maxWidth:360}}>
-          <div style={{marginBottom:20,lineHeight:1,display:"flex",justifyContent:"center"}}>
-            {typeof step.icon === "string"
-              ? <span style={{fontSize:64}}>{step.icon}</span>
+        <div key={obStep} style={{animation:"fadeUp 0.4s ease",textAlign:"center",width:"100%",maxWidth:360,flex:1,display:"flex",flexDirection:"column",justifyContent:"center",paddingTop:8,paddingBottom:8}}>
+          <div style={{marginBottom:12,lineHeight:1,display:"flex",justifyContent:"center"}}>
+            {step.icon === "oliver"
+              ? <img src="oliver.png" style={{width:90,height:90,borderRadius:20,boxShadow:"0 8px 24px rgba(0,0,0,0.12)"}}/>
+              : typeof step.icon === "string"
+              ? <span style={{fontSize:56}}>{step.icon}</span>
               : step.icon}
           </div>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:C.deep,lineHeight:1.25,whiteSpace:"pre-line",marginBottom:12}}>{step.title}</div>
-          <div style={{fontSize:14,color:C.lt,lineHeight:1.7,marginBottom:4}}>{step.sub}</div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1.25,whiteSpace:"pre-line",marginBottom:8}}>{step.title}</div>
+          <div style={{fontSize:13,color:C.lt,lineHeight:1.6,marginBottom:4}}>{step.sub}</div>
           {step.action}
-          {obStep>0&&<button onClick={()=>setObStep(s=>s-1)} style={{marginTop:16,background:"none",border:"none",color:C.lt,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>}
+          {obStep>0&&<button onClick={()=>setObStep(s=>s-1)} style={{marginTop:12,background:"none",border:"none",color:C.lt,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>}
         </div>
       </div>
     );
