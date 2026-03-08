@@ -2286,6 +2286,9 @@ function App(){
   const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
   const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
 
+  // DEBUG
+  console.log("RENDER STATE:", {authScreen, onboarded, obStep, familyUsername, lsOnboarded: typeof localStorage !== 'undefined' ? localStorage.getItem("onboarded_v2") : "n/a", lsAuthVerified: typeof localStorage !== 'undefined' ? localStorage.getItem("auth_verified") : "n/a"});
+
   // ── AUTH SCREEN (login / create — shown on new device or manual logout) ──
   if (authScreen) {
     const isLogin = authMode === "login";
