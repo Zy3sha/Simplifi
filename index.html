@@ -153,6 +153,40 @@ function Badge({type,children}){
   return <span style={{display:"inline-block",padding:"3px 9px",borderRadius:99,fontSize:15,fontFamily:"monospace",background:bg[type]||bg.feed,color:fg[type]||fg.feed}}>{children}</span>;
 }
 
+function PinPad({value, onChange, onComplete}){
+  const digits = [1,2,3,4,5,6,7,8,9,null,0,"⌫"];
+  function tap(d){
+    if(d==="⌫"){ onChange(value.slice(0,-1)); return; }
+    if(d===null) return;
+    const next = value + String(d);
+    if(next.length > 4) return;
+    onChange(next);
+    if(next.length===4 && onComplete) onComplete(next);
+  }
+  return (
+    <div>
+      <div style={{display:"flex",gap:12,justifyContent:"center",marginBottom:24}}>
+        {[0,1,2,3].map(i=>(
+          <div key={i} style={{width:18,height:18,borderRadius:"50%",background:value.length>i?C.ter:C.blush,transition:"background 0.15s"}}/>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,maxWidth:240,margin:"0 auto"}}>
+        {digits.map((d,i)=>(
+          <button key={i} onClick={()=>tap(d)}
+            disabled={d===null}
+            style={{height:56,borderRadius:16,border:`1.5px solid ${C.blush}`,
+              background:d===null?"transparent":d==="⌫"?"#f5e8e0":"white",
+              fontSize:d==="⌫"?20:22,fontWeight:600,color:C.deep,cursor:d===null?"default":"pointer",
+              fontFamily:"inherit",opacity:d===null?0:1,
+              boxShadow:d===null?"none":"0 1px 4px rgba(44,31,26,0.08)"}}>
+            {d}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TrendLine({vals,keys,color,unit=""}){
   const max=Math.max(...vals,1);
   const W=280,H=70;
@@ -450,6 +484,15 @@ function App(){
   const[obUsername,setObUsername]=useState("");
   const[obUsernameStatus,setObUsernameStatus]=useState("idle"); // idle | checking | available | taken | invalid
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
+  const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");return(u&&!v)?"login":null;}catch{return null;}});
+  const[authMode,setAuthMode]=useState("login");
+  const[authUsername,setAuthUsername]=useState(()=>{try{return localStorage.getItem("family_username")||"";}catch{return "";}});
+  const[authPin,setAuthPin]=useState("");
+  const[authPin2,setAuthPin2]=useState("");
+  const[authError,setAuthError]=useState("");
+  const[authLoading,setAuthLoading]=useState(false);
+  const[obPin,setObPin]=useState("");
+  const[obPin2,setObPin2]=useState("");
   const obUsernameCheckRef = React.useRef(null);
   const[editEntry,setEditEntry]=useState(null);
   const[insightDismissed,setInsightDismissed]=useState(()=>{try{return!!localStorage.getItem("ins_v1");}catch{return false;}});
@@ -633,6 +676,14 @@ function App(){
   }
 
   // ── Firebase: restore from backup code (data recovery) ──
+  function logout() {
+    try{ localStorage.removeItem("auth_verified"); }catch{}
+    setAuthScreen("login");
+    setAuthPin("");
+    setAuthPin2("");
+    setAuthError("");
+  }
+
   async function restoreFromBackup(code) {
     if(!window._fb) return false;
     const {db, doc, getDoc} = window._fb;
@@ -657,7 +708,38 @@ function App(){
   }
 
   // ── Username: normalise for storage (lowercase, trim) ──
-  const normaliseUsername = (u) => u.trim().toLowerCase();
+  const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
+  const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
+
+  // ── Auth: verify login (username + PIN) ──
+  async function verifyLogin(username, pin) {
+    if(!window._fb) { setAuthError("Not connected — check your internet"); return false; }
+    const {db, doc, getDoc} = window._fb;
+    const key = normaliseUsername(username);
+    if(!key) { setAuthError("Enter a username"); return false; }
+    if(pin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
+    try {
+      const snap = await getDoc(doc(db,"usernames",key));
+      if(!snap.exists()) { setAuthError("Username not found"); return false; }
+      const data = snap.data();
+      if(data.pinHash !== hashPin(pin)) { setAuthError("Incorrect PIN"); return false; }
+      // Restore data if we have a code
+      const code = data.familyCode || data.backupCode;
+      if(code) {
+        const fSnap = await getDoc(doc(db,"families",code));
+        if(fSnap.exists()) {
+          const d = fSnap.data();
+          if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
+          setFamilyCode(code);
+          try{ localStorage.setItem("family_code", code); }catch{}
+        }
+      }
+      setFamilyUsername(data.displayName || username.trim());
+      try{ localStorage.setItem("family_username", data.displayName || username.trim()); }catch{}
+      try{ localStorage.setItem("auth_verified","1"); }catch{}
+      return true;
+    } catch(e) { setAuthError("Something went wrong — try again"); return false; }
+  }
 
   // ── Username: check availability (debounced) ──
   function checkUsername(raw) {
@@ -678,16 +760,15 @@ function App(){
   }
 
   // ── Username: reserve in Firebase and link to backup code ──
-  async function reserveUsername(username) {
+  async function reserveUsername(username, pin) {
     if(!window._fb || !username.trim()) return false;
     const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const key = normaliseUsername(username);
     try {
-      // Double-check it's still available
       const snap = await getDoc(doc(db,"usernames",key));
       if(snap.exists()) return false;
-      // Reserve it — points to the backup code
       await setDoc(doc(db,"usernames",key), {
+        pinHash: hashPin(pin||"0000"),
         backupCode: backupCode,
         familyCode: familyCode || null,
         createdAt: serverTimestamp(),
@@ -695,6 +776,7 @@ function App(){
       });
       setFamilyUsername(username.trim());
       try{ localStorage.setItem("family_username", username.trim()); }catch{}
+      try{ localStorage.setItem("auth_verified","1"); }catch{}
       trackEvent("username_created");
       return true;
     } catch(e) { console.warn("Reserve username error", e); return false; }
@@ -2185,6 +2267,122 @@ function App(){
   const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
   const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
 
+  // ── Auto-trigger biometric when login screen opens ──
+  React.useEffect(()=>{
+    if(authScreen === "login" && familyUsername) {
+      (async()=>{
+        if(!window.PublicKeyCredential) return;
+        try {
+          const result = await navigator.credentials.get({
+            publicKey: { challenge: new Uint8Array(32), timeout: 60000, userVerification: "required" }
+          });
+          if(result) {
+            try{ localStorage.setItem("auth_verified","1"); }catch{}
+            setAuthScreen(null);
+          }
+        } catch(e) { /* biometric failed or cancelled — fall through to PIN */ }
+      })();
+    }
+  },[authScreen]);
+
+  // ── AUTH SCREEN (login / create — shown on new device or manual logout) ──
+  if (authScreen) {
+    const isLogin = authMode === "login";
+    const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin : true);
+
+    async function handleBiometricCheck() {
+      if(!window.PublicKeyCredential) return false;
+      try {
+        const result = await navigator.credentials.get({
+          publicKey: { challenge: new Uint8Array(32), timeout: 60000, userVerification: "required" }
+        });
+        return !!result;
+      } catch(e) { return false; }
+    }
+    async function handleAuth() {
+      setAuthError(""); setAuthLoading(true);
+      if(isLogin) {
+        // Try biometric first
+        const bio = await handleBiometricCheck().catch(()=>false);
+        if(!bio) {
+          // Fall back to PIN
+          if(authPin.length !== 4) { setAuthError("Enter your 4-digit PIN"); setAuthLoading(false); return; }
+        }
+        const ok = await verifyLogin(authUsername, authPin);
+        if(ok) { setAuthScreen(null); }
+      } else {
+        // Create account
+        if(authPin !== authPin2) { setAuthError("PINs don't match"); setAuthLoading(false); return; }
+        const ok = await reserveUsername(authUsername, authPin);
+        if(ok) { setAuthScreen(null); }
+        else { setAuthError("That username is taken — try another"); }
+      }
+      setAuthLoading(false);
+    }
+    return (
+      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"30px 24px",fontFamily:"'DM Sans',sans-serif"}}>
+        <img src="oliver.png" style={{width:72,height:72,borderRadius:16,marginBottom:20,boxShadow:"0 6px 20px rgba(0,0,0,0.1)"}}/>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.deep,marginBottom:6}}>OBubba</div>
+        <div style={{fontSize:15,color:C.lt,marginBottom:28}}>{isLogin?"Welcome back":"Create your account"}</div>
+
+        {/* Mode toggle */}
+        <div style={{display:"flex",background:C.warm,borderRadius:99,padding:4,marginBottom:24,gap:4}}>
+          {[["login","Sign In"],["create","Create Account"]].map(([m,l])=>(
+            <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");}}
+              style={{padding:"8px 18px",borderRadius:99,border:"none",background:authMode===m?"white":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div style={{width:"100%",maxWidth:320}}>
+          {/* Username input */}
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Username</label>
+            <input
+              value={authUsername}
+              onChange={e=>setAuthUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g,""))}
+              placeholder="e.g. TeamSmith"
+              autoCapitalize="none" autoCorrect="off" spellCheck="false"
+              style={{width:"100%",fontSize:18,padding:"13px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}
+            />
+          </div>
+
+          {/* PIN pad */}
+          <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:12}}>
+            {isLogin ? "PIN" : "Choose a PIN"}
+          </label>
+          <PinPad value={authPin} onChange={p=>{setAuthPin(p);setAuthError("");}} onComplete={isLogin?handleAuth:null}/>
+
+          {/* Confirm PIN for create */}
+          {!isLogin && authPin.length===4 && (
+            <div style={{marginTop:20}}>
+              <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:12}}>Confirm PIN</label>
+              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={handleAuth}/>
+            </div>
+          )}
+
+          {authError&&<div style={{fontSize:14,color:C.ter,textAlign:"center",marginTop:12,fontWeight:600}}>{authError}</div>}
+
+          <button onClick={handleAuth} disabled={!canSubmit||authLoading}
+            style={{width:"100%",marginTop:20,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+              border:"none",borderRadius:99,padding:"14px",color:canSubmit&&!authLoading?"white":"#b89890",
+              fontSize:16,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
+              boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
+            {authLoading?"⏳ Please wait…":isLogin?"Sign In":"Create Account"}
+          </button>
+
+          {isLogin&&(
+            <button onClick={()=>setAuthScreen(null)}
+              style={{width:"100%",marginTop:10,background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+              Continue without signing in
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ONBOARDING
   if (!onboarded) {
     const completeOnboarding = async () => {
@@ -2193,9 +2391,8 @@ function App(){
         dob: obDob || "",
         sex: obSex || "",
       });
-      // Reserve username in Firebase if provided and available
-      if(obUsername.trim() && obUsernameStatus === "available" && fbReady) {
-        await reserveUsername(obUsername);
+      if(obUsername.trim() && obUsernameStatus === "available" && fbReady && obPin.length===4) {
+        await reserveUsername(obUsername, obPin);
       }
       setOnboarded(true);
     };
@@ -2216,62 +2413,8 @@ function App(){
               })}
             </div>
             <div style={{fontSize:15,color:C.lt,marginBottom:14}}>All in one place.</div>
-            <button onClick={()=>setObStep(1)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px 40px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>Let's begin →</button>
-          </div>
-        )
-      },
-      {
-        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"What's your\nbaby's name?",
-        sub:"You can always change this later by tapping the title.",
-        action: (
-          <div style={{width:"100%",marginTop:20}}>
-            <input autoFocus value={obName} onChange={e=>setObName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setObStep(2)} placeholder="e.g. Oliver" style={{width:"100%",fontSize:22,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:14,boxSizing:"border-box"}}/>
-            <button onClick={()=>setObStep(2)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
-              {obName.trim() ? "Continue →" : "Skip for now"}
-            </button>
-          </div>
-        )
-      },
-      {
-        icon: babyUnborn ? "🤰" : "🎂",
-        title: babyUnborn ? `When is ${obName.trim()||"your baby"}\ndue?` : `When was ${obName.trim()||"your baby"}\nborn?`,
-        sub: babyUnborn ? "Enter your due date so we can prepare milestones and track development from birth." : "We'll use this to show age, track growth percentiles, and highlight the right milestones.",
-        action: (
-          <div style={{width:"100%",marginTop:16}}>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
-                <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"12px 8px",borderRadius:14,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:15,fontWeight:700,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
-                  {l}
-                </div>
-              ))}
-            </div>
-            <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)} style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:6,boxSizing:"border-box"}}/>
-            <div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:14}}>{babyUnborn ? "Enter your due date" : "Enter date of birth"}</div>
-            <button onClick={()=>setObStep(3)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
-              {obDob ? "Continue →" : "Skip for now"}
-            </button>
-          </div>
-        )
-      },
-      {
-        icon:"✨", title:`One last thing —\nis ${obName.trim()||"your baby"} a…`,
-        sub:"This helps us use the right WHO growth charts. You can skip this if you prefer.",
-        action: (
-          <div style={{width:"100%",marginTop:20}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-              {[["boy","👦","Boy","#d0e6f5"],["girl","👧","Girl","#f5ccc7"]].map(([v,emoji,l,accent])=>(
-                <div key={v} onClick={()=>setObSex(v)} style={{padding:"20px 10px",borderRadius:18,border:`2px solid ${obSex===v?accent:C.blush}`,background:obSex===v?`${accent}22`:"white",textAlign:"center",cursor:"pointer",transition:"all 0.2s"}}>
-                  <div style={{fontSize:28,marginBottom:4}}>{emoji}</div>
-                  <div style={{fontSize:15,fontWeight:700,color:obSex===v?accent:C.mid}}>{l}</div>
-                </div>
-              ))}
-            </div>
-            <button onClick={()=>setObSex("")} style={{width:"100%",padding:"12px",borderRadius:14,border:`2px solid ${obSex===""?C.ter:C.blush}`,background:obSex===""?"#fdf0eb":"white",color:obSex===""?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,fontFamily:"inherit",transition:"all 0.2s"}}>
-              Prefer not to say / skip
-            </button>
-            <button onClick={()=>setObStep(4)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>
-              Continue →
-            </button>
+            <button onClick={()=>setObStep(1)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px 40px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10}}>Get Started →</button>
+            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"none",border:`2px solid ${C.blush}`,borderRadius:99,padding:"13px 40px",color:C.mid,fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>I already have an account</button>
           </div>
         )
       },
@@ -2311,7 +2454,7 @@ function App(){
                "Your partner will use this to sync with you"}
             </div>
             <button
-              onClick={completeOnboarding}
+              onClick={()=>obUsernameStatus==="available"?setObStep(2):completeOnboarding()}
               disabled={obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid"}
               style={{width:"100%",background:
                 (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
@@ -2323,10 +2466,87 @@ function App(){
                 (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
                   ?"not-allowed":"pointer",
                 boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
-              {obUsernameStatus==="checking"?"Checking…":"Start Tracking 🌙"}
+              {obUsernameStatus==="checking"?"Checking…":"Continue →"}
             </button>
             <button onClick={completeOnboarding} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
               Skip for now
+            </button>
+          </div>
+        )
+      },
+      {
+        icon:"🔐",
+        title:"Create a PIN",
+        sub:"4 digits to protect your account. You'll only need this on new devices.",
+        action: (
+          <div style={{width:"100%",marginTop:20}}>
+            <PinPad value={obPin} onChange={setObPin} onComplete={()=>{}}/>
+            {obPin.length===4&&(
+              <div style={{marginTop:20}}>
+                {obPin2.length===0&&<div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:10}}>Confirm your PIN</div>}
+                {obPin2.length>0&&obPin2.length<4&&<div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:10}}>Confirm your PIN</div>}
+                {obPin2.length===4&&obPin2!==obPin&&<div style={{fontSize:14,color:C.ter,textAlign:"center",marginBottom:10}}>PINs don't match — try again</div>}
+                {obPin2.length===4&&obPin2!==obPin&&(()=>{setTimeout(()=>setObPin2(""),600);return null;})()}
+                <PinPad value={obPin2} onChange={setObPin2} onComplete={(p)=>{ if(p===obPin) completeOnboarding(); }}/>
+              </div>
+            )}
+            <button onClick={completeOnboarding} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>
+              Skip PIN
+            </button>
+          </div>
+        )
+      },
+      {
+        icon:<img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>, title:"What's your\nbaby's name?",
+        sub:"You can always change this later by tapping the title.",
+        action: (
+          <div style={{width:"100%",marginTop:20}}>
+            <input autoFocus value={obName} onChange={e=>setObName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&setObStep(4)} placeholder="e.g. Oliver" style={{width:"100%",fontSize:22,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:14,boxSizing:"border-box"}}/>
+            <button onClick={()=>setObStep(4)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
+              {obName.trim() ? "Continue →" : "Skip for now"}
+            </button>
+          </div>
+        )
+      },
+      {
+        icon: babyUnborn ? "🤰" : "🎂",
+        title: babyUnborn ? `When is ${obName.trim()||"your baby"}\ndue?` : `When was ${obName.trim()||"your baby"}\nborn?`,
+        sub: babyUnborn ? "Enter your due date so we can prepare milestones and track development from birth." : "We'll use this to show age, track growth percentiles, and highlight the right milestones.",
+        action: (
+          <div style={{width:"100%",marginTop:16}}>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
+                <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"12px 8px",borderRadius:14,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:15,fontWeight:700,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
+                  {l}
+                </div>
+              ))}
+            </div>
+            <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)} style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:6,boxSizing:"border-box"}}/>
+            <div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:14}}>{babyUnborn ? "Enter your due date" : "Enter date of birth"}</div>
+            <button onClick={()=>setObStep(5)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
+              {obDob ? "Continue →" : "Skip for now"}
+            </button>
+          </div>
+        )
+      },
+      {
+        icon:"✨", title:`One last thing —\nis ${obName.trim()||"your baby"} a…`,
+        sub:"This helps us use the right WHO growth charts. You can skip this if you prefer.",
+        action: (
+          <div style={{width:"100%",marginTop:20}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              {[["boy","👦","Boy","#d0e6f5"],["girl","👧","Girl","#f5ccc7"]].map(([v,emoji,l,accent])=>(
+                <div key={v} onClick={()=>setObSex(v)} style={{padding:"20px 10px",borderRadius:18,border:`2px solid ${obSex===v?accent:C.blush}`,background:obSex===v?`${accent}22`:"white",textAlign:"center",cursor:"pointer",transition:"all 0.2s"}}>
+                  <div style={{fontSize:28,marginBottom:4}}>{emoji}</div>
+                  <div style={{fontSize:15,fontWeight:700,color:obSex===v?accent:C.mid}}>{l}</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>setObSex("")} style={{width:"100%",padding:"12px",borderRadius:14,border:`2px solid ${obSex===""?C.ter:C.blush}`,background:obSex===""?"#fdf0eb":"white",color:obSex===""?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,fontFamily:"inherit",transition:"all 0.2s"}}>
+              Prefer not to say / skip
+            </button>
+            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>
+              Continue →
             </button>
           </div>
         )
@@ -4400,6 +4620,16 @@ function App(){
               )}
             </div>
 
+            {/* Sign out */}
+            {familyUsername && (
+              <div style={{borderTop:`1px solid ${C.blush}`,marginTop:16,paddingTop:16}}>
+                <button onClick={()=>{setShowFamilyModal(false);logout();}}
+                  style={{width:"100%",padding:"12px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"white",color:C.lt,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                  Sign out of {familyUsername}
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
         );
@@ -4413,6 +4643,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 
 <script>
+window.onerror = function(msg, src, line, col, err) {
+  document.getElementById('root').innerHTML = '<div style="padding:30px;font-family:monospace;font-size:13px;background:#fff;color:#333;word-break:break-all"><b>Error:</b> ' + msg + '<br><b>Line:</b> ' + line + '<br><b>Detail:</b> ' + (err&&err.stack?err.stack:'') + '</div>';
+};
 (function() {
   try {
     if (typeof Babel === 'undefined') throw new Error('Babel not loaded');
@@ -4427,7 +4660,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
     s.onerror = function(e) { console.error('JSX load error', e); };
     document.body.appendChild(s);
   } catch(e) {
-    console.error('OBubba loader error:', e);
+    document.getElementById('root').innerHTML = '<div style="padding:30px;font-family:monospace;font-size:13px;background:#fff;color:#333;word-break:break-all"><b>Loader error:</b> ' + e.message + '<br>' + e.stack + '</div>';
   }
 })();
 </script>
