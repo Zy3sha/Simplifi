@@ -658,6 +658,7 @@ function App(){
   const[feedType,setFeedType]=useState("milk"); // "milk" | "solids"
   const[dragId,setDragId]=useState(null); // id of entry being dragged
   const[dragOver,setDragOver]=useState(null); // id of entry being hovered over
+  const touchDragRef = React.useRef({active:false, id:null, startY:0, currentY:0, nodeMap:{}}); // touch drag state
   const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
@@ -3964,17 +3965,53 @@ function App(){
                   const isDragging=dragId===e.id;
                   const isOver=dragOver===e.id;
                   const borderCol=e.type==="feed"?(e.feedType==="solids"?"#b8860b":C.ter):e.type==="nap"?C.mint:e.type==="sleep"?C.sky:e.type==="poop"?"#8a7060":C.gold;
+
+                  // Touch handlers — only on the drag handle
+                  const handleTouchStart=(ev)=>{
+                    const touch=ev.touches[0];
+                    touchDragRef.current={active:true,id:e.id,startY:touch.clientY,currentY:touch.clientY,nodeMap:{}};
+                    setDragId(e.id);
+                    ev.stopPropagation();
+                  };
+                  const handleTouchMove=(ev)=>{
+                    if(!touchDragRef.current.active) return;
+                    ev.preventDefault();
+                    const touch=ev.touches[0];
+                    touchDragRef.current.currentY=touch.clientY;
+                    // Find which entry we're hovering over by checking element positions
+                    const map=touchDragRef.current.nodeMap;
+                    let overEntry=null;
+                    Object.entries(map).forEach(([eid,node])=>{
+                      if(!node) return;
+                      const rect=node.getBoundingClientRect();
+                      if(touch.clientY>=rect.top&&touch.clientY<=rect.bottom) overEntry=eid;
+                    });
+                    if(overEntry&&overEntry!==touchDragRef.current.id) setDragOver(overEntry);
+                    ev.stopPropagation();
+                  };
+                  const handleTouchEnd=()=>{
+                    const{id,active}=touchDragRef.current;
+                    if(active&&id&&dragOver&&id!==dragOver) reorderEntry(id,dragOver);
+                    touchDragRef.current={active:false,id:null,startY:0,currentY:0,nodeMap:{}};
+                    setDragId(null);setDragOver(null);
+                  };
+
                   return(
                     <div key={e.id}
+                      ref={node=>{touchDragRef.current.nodeMap[e.id]=node;}}
                       draggable
                       onDragStart={()=>setDragId(e.id)}
                       onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
                       onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
                       onDrop={ev=>{ev.preventDefault();}}
-                      style={{background:isOver?"#f5ede8":C.warm,borderRadius:14,padding:"11px 12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${borderCol}`,opacity:isDragging?0.45:1,transition:"opacity 0.15s,background 0.15s",cursor:"grab"}}>
+                      style={{background:isOver?"#f5ede8":C.warm,borderRadius:14,padding:"11px 12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${borderCol}`,opacity:isDragging?0.45:1,transition:"opacity 0.15s,background 0.15s"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                         <div style={{display:"flex",alignItems:"center",gap:9}}>
-                          <span style={{fontSize:14,cursor:"grab",color:C.lt,letterSpacing:-1}}>&#x2261;</span>
+                          <span
+                            onTouchStart={handleTouchStart}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            style={{fontSize:16,cursor:"grab",color:C.lt,letterSpacing:-1,touchAction:"none",padding:"4px 2px",userSelect:"none"}}>&#x2261;</span>
                           <span style={{fontSize:17}}>{ICONS[e.type]}</span>
                           <div>
                             <div style={{fontSize:14,fontWeight:500}}>
