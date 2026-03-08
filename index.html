@@ -637,6 +637,40 @@ function App(){
     return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
   },[fbReady, familyCode]);
 
+  // ── Firebase: restore from personal backup on first load ──
+  // Runs once when fbReady + backupCode are available.
+  // If localStorage has no meaningful data (no children with any days logged),
+  // pull from cloud and hydrate. This handles the "new deploy wipes localStorage" case.
+  const hasRestoredBackup = React.useRef(false);
+  useEffect(()=>{
+    if(!fbReady || !backupCode) return;
+    if(hasRestoredBackup.current) return;
+    hasRestoredBackup.current = true;
+
+    // Check if local data looks empty (no days logged in any child)
+    const localHasData = Object.values(children).some(c =>
+      Object.values(c.days||{}).some(d => d && d.length > 0) ||
+      (c.weights||[]).length > 0
+    );
+    if(localHasData) return; // already have data locally, don't overwrite
+
+    // Pull from backup
+    (async()=>{
+      try {
+        const {db, doc, getDoc} = window._fb;
+        const snap = await getDoc(doc(db, "families", backupCode));
+        if(!snap.exists()) return;
+        const d = snap.data();
+        if(d.children) {
+          const cloud = JSON.parse(d.children);
+          setChildren(prev => mergeChildren(prev, cloud));
+          setSyncStatus("synced");
+          console.log("Restored data from backup code", backupCode);
+        }
+      } catch(e) { console.warn("Backup restore error", e); }
+    })();
+  },[fbReady, backupCode]);
+
   // ── Firebase: push on every data change — always to personal backup ──
   useEffect(()=>{
     if(!fbReady) return;
@@ -648,6 +682,24 @@ function App(){
     }, 2000);
     return ()=>clearTimeout(syncRef.current);
   },[fbReady, backupCode, children]);
+
+  // ── Firebase: live-subscribe to personal backup code ──
+  // Keeps data in sync if same user opens on a second device
+  const backupUnsubRef = React.useRef(null);
+  useEffect(()=>{
+    if(!fbReady || !backupCode) return;
+    if(backupUnsubRef.current) return; // already subscribed
+    const {db, doc, onSnapshot} = window._fb;
+    backupUnsubRef.current = onSnapshot(doc(db,"families",backupCode),(snap)=>{
+      if(!snap.exists()) return;
+      const d = snap.data();
+      if(d.updatedBy && d.updatedBy === window._fbUid) return; // our own push
+      try {
+        if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
+      } catch(e) { console.warn("Backup sync error",e); }
+    });
+    return ()=>{ if(backupUnsubRef.current){ backupUnsubRef.current(); backupUnsubRef.current=null; } };
+  },[fbReady, backupCode]);
 
   // ── Firebase: generate a shared family code ──
   async function createFamilyCode() {
