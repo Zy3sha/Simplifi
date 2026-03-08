@@ -13,8 +13,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <!-- Firebase SDKs -->
   <script type="module">
@@ -64,7 +64,7 @@ const { useState, useEffect, useRef } = React;
 const STORAGE_KEY = "babyTracker_v6";
 const params = new URLSearchParams(window.location.search);
 const quickAction = params.get("action");
-const SEED_DAYS = {};
+
 
 const uid = () => Math.random().toString(36).slice(2,9);
 const fmt12 = t => { if(!t)return""; const[h,m]=t.split(":").map(Number); return`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`; };
@@ -343,6 +343,100 @@ function calcAge(dob) {
   return { months, weeksAfterMonths, remainingDays, totalWeeks, totalDays };
 }
 
+// ── Sub-components hoisted out of App to fix Rules-of-Hooks violations ──
+function UsernameSetForm({ normaliseUsername, reserveUsername, C }) {
+  const [u, setU] = React.useState("");
+  const [st, setSt] = React.useState("idle");
+  const ref = React.useRef(null);
+  return (
+    <div>
+      <div style={{position:"relative",marginBottom:6}}>
+        <input value={u} onChange={e=>{
+          setU(e.target.value); setSt("checking");
+          clearTimeout(ref.current);
+          if(e.target.value.trim().length<3){setSt("invalid");return;}
+          ref.current=setTimeout(async()=>{
+            if(!window._fb){setSt("idle");return;}
+            const {db,doc,getDoc}=window._fb;
+            const snap=await getDoc(doc(db,"usernames",normaliseUsername(e.target.value)));
+            setSt(snap.exists()?"taken":"available");
+          },600);
+        }} placeholder="e.g. TeamSmith"
+        style={{width:"100%",padding:"9px 36px 9px 12px",borderRadius:10,border:`1.5px solid ${st==="available"?"#50c878":st==="taken"?C.ter:C.blush}`,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+        <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>
+          {st==="checking"?"⏳":st==="available"?"✅":st==="taken"?"❌":""}
+        </span>
+      </div>
+      {st==="taken"&&<div style={{fontSize:12,color:C.ter,marginBottom:6}}>That username is taken — try another</div>}
+      <button onClick={async()=>{
+        if(st!=="available"||!u.trim()) return;
+        const ok = await reserveUsername(u);
+        if(!ok) setSt("taken");
+      }} disabled={st!=="available"} style={{width:"100%",padding:"9px",borderRadius:99,border:"none",background:st==="available"?C.ter:"#f2d9cc",color:st==="available"?"white":"#b89890",fontSize:14,fontWeight:700,cursor:st==="available"?"pointer":"not-allowed",fontFamily:"inherit"}}>
+        Save username
+      </button>
+    </div>
+  );
+}
+
+function LinkChildForm({ joinChildByCode, C }) {
+  const [linkCode, setLinkCode] = React.useState("");
+  const [linkStatus, setLinkStatus] = React.useState("");
+  const [linkError, setLinkError] = React.useState("");
+  const [linkName, setLinkName] = React.useState("");
+  return (
+    <div style={{background:"white",borderRadius:14,padding:"14px",border:`1px solid ${C.blush}`,marginBottom:16}}>
+      <div style={{fontSize:14,fontWeight:700,color:C.mid,marginBottom:4}}>Link a child</div>
+      <div style={{fontSize:13,color:C.lt,marginBottom:10}}>Enter a sync code from another parent to add their child to your app.</div>
+      <input value={linkCode} onChange={e=>setLinkCode(e.target.value.toUpperCase())}
+        placeholder="e.g. AB3X7Y" maxLength={6}
+        style={{width:"100%",fontSize:22,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.18em",textAlign:"center",padding:"11px",borderRadius:10,border:`1.5px solid ${linkStatus==="error"?C.ter:C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
+      {linkStatus==="error" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{linkError}</div>}
+      {linkStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ {linkName} added to your app!</div>}
+      <button onClick={async()=>{
+        setLinkStatus("loading");
+        const result = await joinChildByCode(linkCode);
+        if(result.ok) { setLinkStatus("ok"); setLinkName(result.childName); setLinkCode(""); setTimeout(()=>setLinkStatus(""),2500); }
+        else { setLinkStatus("error"); setLinkError(result.error); }
+      }} disabled={linkCode.length<6||linkStatus==="loading"} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:linkCode.length===6?C.mint:"#e0f0ea",color:linkCode.length===6?"white":"#a0c8b0",fontSize:15,fontWeight:700,cursor:linkCode.length===6?"pointer":"not-allowed",fontFamily:"inherit",transition:"all 0.2s"}}>
+        {linkStatus==="loading"?"⏳ Linking…":"Link child"}
+      </button>
+    </div>
+  );
+}
+
+function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, C }) {
+  const [restoreMode, setRestoreMode] = React.useState(false);
+  const [restoreInput, setRestoreInput] = React.useState("");
+  const [restoreStatus, setRestoreStatus] = React.useState("");
+  return (
+    <div style={{borderRadius:12,border:`1px dashed ${C.blush}`,overflow:"hidden"}}>
+      <button onClick={()=>setRestoreMode(m=>!m)} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.lt,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>🔄 Restore data from backup</span>
+        <span style={{fontSize:12}}>{restoreMode?"▲":"▼"}</span>
+      </button>
+      {restoreMode && (
+        <div style={{padding:"0 16px 16px"}}>
+          <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code or family code from another device to restore all data.</div>
+          <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
+            placeholder="Enter backup or family code"
+            style={{width:"100%",fontSize:16,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.1em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}/>
+          {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
+          {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
+          <button onClick={async()=>{
+            setRestoreStatus("loading");
+            const ok = await restoreFromBackup(restoreInput);
+            setRestoreStatus(ok?"ok":"fail");
+            if(ok) setTimeout(()=>setShowFamilyModal(false),1200);
+          }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+            {restoreStatus==="loading"?"⏳ Restoring…":"Restore data"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App(){
   const timerRef = React.useRef(null);
 
@@ -455,7 +549,6 @@ function App(){
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
   const[nameIn,setNameIn]=useState("");
-  const[wForm,setWForm]=useState({date:todayStr(),kg:""});
   const theme = babySex==="girl"
     ? {primary:"#fde7e4",secondary:"#f5ccc7",grad:"linear-gradient(135deg,#fde7e4,#f5ccc7)"}
     : babySex==="boy"
@@ -4736,11 +4829,7 @@ function App(){
       )}
 
       {/* ── FAMILY SYNC MODAL ── */}
-      {showFamilyModal && (()=>{
-        const[restoreMode,setRestoreMode]=React.useState(false);
-        const[restoreInput,setRestoreInput]=React.useState("");
-        const[restoreStatus,setRestoreStatus]=React.useState(""); // "" | "loading" | "ok" | "fail"
-        return (
+      {showFamilyModal && (
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowFamilyModal(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"#faf6f0",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
 
@@ -4769,40 +4858,7 @@ function App(){
               <div style={{background:"#fff8e8",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1px solid #f0d890"}}>
                 <div style={{fontSize:13,fontWeight:700,color:"#8a6a10",marginBottom:4}}>No username set</div>
                 <div style={{fontSize:13,color:"#9a7a20",marginBottom:8}}>Set a family username so your partner can find you easily.</div>
-                {(()=>{
-                  const[u,setU]=React.useState("");
-                  const[st,setSt]=React.useState("idle");
-                  const ref=React.useRef(null);
-                  return (
-                    <div>
-                      <div style={{position:"relative",marginBottom:6}}>
-                        <input value={u} onChange={e=>{
-                          setU(e.target.value); setSt("checking");
-                          clearTimeout(ref.current);
-                          if(e.target.value.trim().length<3){setSt("invalid");return;}
-                          ref.current=setTimeout(async()=>{
-                            if(!window._fb){setSt("idle");return;}
-                            const {db,doc,getDoc}=window._fb;
-                            const snap=await getDoc(doc(db,"usernames",normaliseUsername(e.target.value)));
-                            setSt(snap.exists()?"taken":"available");
-                          },600);
-                        }} placeholder="e.g. TeamSmith"
-                        style={{width:"100%",padding:"9px 36px 9px 12px",borderRadius:10,border:`1.5px solid ${st==="available"?"#50c878":st==="taken"?C.ter:C.blush}`,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
-                        <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>
-                          {st==="checking"?"⏳":st==="available"?"✅":st==="taken"?"❌":""}
-                        </span>
-                      </div>
-                      {st==="taken"&&<div style={{fontSize:12,color:C.ter,marginBottom:6}}>That username is taken — try another</div>}
-                      <button onClick={async()=>{
-                        if(st!=="available"||!u.trim()) return;
-                        const ok = await reserveUsername(u);
-                        if(!ok) setSt("taken");
-                      }} disabled={st!=="available"} style={{width:"100%",padding:"9px",borderRadius:99,border:"none",background:st==="available"?C.ter:"#f2d9cc",color:st==="available"?"white":"#b89890",fontSize:14,fontWeight:700,cursor:st==="available"?"pointer":"not-allowed",fontFamily:"inherit"}}>
-                        Save username
-                      </button>
-                    </div>
-                  );
-                })()}
+                <UsernameSetForm normaliseUsername={normaliseUsername} reserveUsername={reserveUsername} C={C} />
               </div>
             )}
 
@@ -4855,57 +4911,10 @@ function App(){
             </div>
 
             {/* Link a child from another parent */}
-            {(()=>{
-              const[linkCode,setLinkCode]=React.useState("");
-              const[linkStatus,setLinkStatus]=React.useState(""); // "" | "loading" | "ok" | "error"
-              const[linkError,setLinkError]=React.useState("");
-              const[linkName,setLinkName]=React.useState("");
-              return (
-                <div style={{background:"white",borderRadius:14,padding:"14px",border:`1px solid ${C.blush}`,marginBottom:16}}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.mid,marginBottom:4}}>Link a child</div>
-                  <div style={{fontSize:13,color:C.lt,marginBottom:10}}>Enter a sync code from another parent to add their child to your app.</div>
-                  <input value={linkCode} onChange={e=>setLinkCode(e.target.value.toUpperCase())}
-                    placeholder="e.g. AB3X7Y" maxLength={6}
-                    style={{width:"100%",fontSize:22,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.18em",textAlign:"center",padding:"11px",borderRadius:10,border:`1.5px solid ${linkStatus==="error"?C.ter:C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
-                  {linkStatus==="error" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{linkError}</div>}
-                  {linkStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ {linkName} added to your app!</div>}
-                  <button onClick={async()=>{
-                    setLinkStatus("loading");
-                    const result = await joinChildByCode(linkCode);
-                    if(result.ok) { setLinkStatus("ok"); setLinkName(result.childName); setLinkCode(""); setTimeout(()=>setLinkStatus(""),2500); }
-                    else { setLinkStatus("error"); setLinkError(result.error); }
-                  }} disabled={linkCode.length<6||linkStatus==="loading"} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:linkCode.length===6?C.mint:"#e0f0ea",color:linkCode.length===6?"white":"#a0c8b0",fontSize:15,fontWeight:700,cursor:linkCode.length===6?"pointer":"not-allowed",fontFamily:"inherit",transition:"all 0.2s"}}>
-                    {linkStatus==="loading"?"⏳ Linking…":"Link child"}
-                  </button>
-                </div>
-              );
-            })()}
+            <LinkChildForm joinChildByCode={joinChildByCode} C={C} />
 
             {/* Restore data section */}
-            <div style={{borderRadius:12,border:`1px dashed ${C.blush}`,overflow:"hidden"}}>
-              <button onClick={()=>setRestoreMode(m=>!m)} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.lt,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span>🔄 Restore data from backup</span>
-                <span style={{fontSize:12}}>{restoreMode?"▲":"▼"}</span>
-              </button>
-              {restoreMode && (
-                <div style={{padding:"0 16px 16px"}}>
-                  <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code or family code from another device to restore all data.</div>
-                  <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
-                    placeholder="Enter backup or family code"
-                    style={{width:"100%",fontSize:16,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.1em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}/>
-                  {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
-                  {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
-                  <button onClick={async()=>{
-                    setRestoreStatus("loading");
-                    const ok = await restoreFromBackup(restoreInput);
-                    setRestoreStatus(ok?"ok":"fail");
-                    if(ok) setTimeout(()=>setShowFamilyModal(false),1200);
-                  }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                    {restoreStatus==="loading"?"⏳ Restoring…":"Restore data"}
-                  </button>
-                </div>
-              )}
-            </div>
+            <RestoreDataForm restoreFromBackup={restoreFromBackup} setShowFamilyModal={setShowFamilyModal} C={C} />
 
             {/* Sign out */}
             {familyUsername && (
@@ -4919,8 +4928,7 @@ function App(){
 
           </div>
         </div>
-        );
-      })()}
+      )}
 
     </div>
   );
@@ -4956,7 +4964,17 @@ window.onerror = function(msg, src, line, col, err) {
 <script>
 (function(){
   try{
-    const sex=localStorage.getItem("sex_v1");
+    // Try legacy key first, then read from active child in children_v1
+    var sex=localStorage.getItem("sex_v1");
+    if(!sex){
+      var childrenRaw=localStorage.getItem("children_v1");
+      var activeId=localStorage.getItem("active_child");
+      if(childrenRaw){
+        var children=JSON.parse(childrenRaw);
+        var child=activeId?children[activeId]:Object.values(children)[0];
+        if(child) sex=child.sex||"";
+      }
+    }
     if(sex==="girl")document.body.classList.add("girl");
     else if(sex==="boy")document.body.classList.add("boy");
   }catch(e){}
