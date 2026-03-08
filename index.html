@@ -81,9 +81,8 @@ const fmtCountdown = s => {
   if(s <= 0) return "Now!";
   const h = Math.floor(s/3600);
   const m = Math.floor((s%3600)/60);
-  const sec = s%60;
-  if(h > 0) return `${h}h ${String(m).padStart(2,"0")}m ${String(sec).padStart(2,"0")}s`;
-  return `${m}m ${String(sec).padStart(2,"0")}s`;
+  if(h > 0) return `${h}h ${String(m).padStart(2,"0")}m`;
+  return `${m}m`;
 };
 const avgArr = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
 
@@ -2080,7 +2079,9 @@ function App(){
       // KEY SCENARIO: total is fine but too much shifted to night
       status="night-heavy"; color="#8a5cf6"; bg="#f5f0ff"; icon="🌙";
       const shift = Math.round(nightMl * 0.4); // suggest shifting some night intake to day
-      statusMsg=`Total intake looks healthy (${totalMl}ml), but daytime feeds are lower than ideal — ${dayMl}ml of a ~${dayTarget}ml day target.`;
+      const catchUpPerFeedNH = remainingFeeds > 0 ? Math.round((dayTarget - dayMl) / remainingFeeds) : (dayTarget - dayMl);
+      const catchUpNote = remainingMins > 90 && catchUpPerFeedNH > 0 ? ` Still time to catch up — try an extra ~${catchUpPerFeedNH}ml at the next feed.` : "";
+      statusMsg=`Total intake looks healthy (${totalMl}ml), but daytime feeds are lower than ideal — ${dayMl}ml of a ~${dayTarget}ml day target.${catchUpNote}`;
       if (hasFrequentNightWakes) {
         sleepLink = {
           icon:"💤",
@@ -2101,7 +2102,8 @@ function App(){
       if (remainingMins < 90) {
         statusMsg=`${totalShortfall}ml below daily target with bedtime approaching. If baby seems hungry, offer a feed now.`;
       } else if (dayFraction > 0.5) {
-        statusMsg=`Day feeds are running low — ${dayMl}ml so far against a ~${dayTarget}ml daytime target.`;
+        const catchUpPerFeed = remainingFeeds > 0 ? Math.round(dayShortfall / remainingFeeds) : dayShortfall;
+        statusMsg=`Day feeds are running low — ${dayMl}ml so far against a ~${dayTarget}ml daytime target. There's still time to catch up — try offering an extra ~${catchUpPerFeed}ml at the next feed.`;
       } else {
         statusMsg=`Intake is a little low (${totalMl}ml total). One quiet day isn't usually concerning — offer feeds when baby shows hunger cues.`;
       }
@@ -3617,7 +3619,7 @@ function App(){
                 <div style={{marginLeft:"auto",background:isNow?(isBed?C.sky:C.mint):isUrgent?C.ter:"rgba(255,255,255,0.6)",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,border:"none"}}>
                   <span style={{fontSize:13}}>{isBed?"🌙":"⏱️"}</span>
                   <div>
-                    <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{isBed?"Bedtime":"Next Nap"}</div>
+                    <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{isBed?"Next Sleep":"Next Nap"}</div>
                     <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":isBed?C.sky:C.ter,lineHeight:1.2}}>{isNeutral?"–":isNow?"Now":fmtCountdown(countdown)}</div>
                   </div>
                 </div>
@@ -3671,9 +3673,9 @@ function App(){
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:18}}>
                 {[
                   {big:totalMl||dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?"ml":"meals",label:totalMl?"Milk":"Solids",color:C.ter,bg:"#fdf0eb"},
+                  {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:"#8a7060",bg:"#f0ece6"},
                   {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},
                   {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"},
-                  {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:"#8a7060",bg:"#f0ece6"}
                 ].map((s,i)=>(
                   <div key={i} style={{background:s.bg,borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:s.color,lineHeight:1}}>{s.big}</div>
