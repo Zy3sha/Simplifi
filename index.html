@@ -1673,7 +1673,7 @@ function App(){
       if (pb && pb.personalWWMin && pb.personalWWMax) {
         wakeWindowMin = pb.personalWWMin;
         wakeWindowMax = pb.personalWWMax;
-        sourceLabel = `${possessive(babyName||"Baby")} personal avg wake window (${pb.personalAvgWW}min)`;
+        sourceLabel = `${possessive(babyName||"Baby")} personal avg wake window (${pb.personalAvgWW>=60?`${Math.floor(pb.personalAvgWW/60)}h ${pb.personalAvgWW%60}m`:pb.personalAvgWW+"min"})`;
       } else {
         const ww = getWakeWindow(ageWeeks);
         wakeWindowMin = ww.min; wakeWindowMax = ww.max;
@@ -1998,7 +1998,7 @@ function App(){
     if (usePersonalRecs === true) {
       const pb = computePersonalBaselines();
       if (pb && pb.personalWWMin && pb.personalWWMax) {
-        ww = { min: pb.personalWWMin, max: pb.personalWWMax, label: `${pb.personalAvgWW}min avg` };
+        ww = { min: pb.personalWWMin, max: pb.personalWWMax, label: `${pb.personalAvgWW>=60?`${Math.floor(pb.personalAvgWW/60)}h ${pb.personalAvgWW%60}m`:pb.personalAvgWW+"min"} avg` };
         scheduleSource = `${possessive(babyName||"Baby")} personal patterns`;
       }
     }
@@ -3884,7 +3884,7 @@ function App(){
                           <div style={{fontSize:13,fontWeight:700,color:"#4a8070"}}>Wake windows</div>
                           <div style={{fontSize:13,fontFamily:"monospace",textAlign:"right"}}>
                             <div style={{color:"#6a9090"}}>NHS: {pb.nhsWW.label}</div>
-                            <div style={{color:"#2a6050",fontWeight:700}}>{babyName||"Baby"}'s avg: ~{pb.personalAvgWW}min</div>
+                            <div style={{color:"#2a6050",fontWeight:700}}>{babyName||"Baby"}'s avg: ~{pb.personalAvgWW>=60?`${Math.floor(pb.personalAvgWW/60)}h ${pb.personalAvgWW%60}m`:pb.personalAvgWW+"min"}</div>
                           </div>
                         </div>
                       )}
@@ -4238,7 +4238,8 @@ function App(){
                         {usePersonalRecs===true&&(()=>{
                           const aw=age?getWakeWindow(age.totalWeeks):null;
                           if(!aw) return null;
-                          return <div style={{fontSize:12,color:C.lt,fontFamily:"monospace",marginBottom:suggestedBed?6:0}}>NHS for this age: {aw.label} · <span style={{color:C.mid}}>Your baby: {pred.wakeWindowMin}–{pred.wakeWindowMax}min</span></div>;
+                          const fmtWW = m => m>=60?`${Math.floor(m/60)}h ${m%60}m`:m+"min";
+                          return <div style={{fontSize:12,color:C.lt,fontFamily:"monospace",marginBottom:suggestedBed?6:0}}>NHS for this age: {aw.label} · <span style={{color:C.mid}}>Your baby: {fmtWW(pred.wakeWindowMin)}–{fmtWW(pred.wakeWindowMax)}</span></div>;
                         })()}
                         {suggestedBed&&(
                           <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
