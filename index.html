@@ -401,7 +401,7 @@ function App(){
   const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:""});
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
-  const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no"});
+  const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});
   const[newDate,setNewDate]=useState(todayStr());
   const[menuDay,setMenuDay]=useState(null);
   const[editDate,setEditDate]=useState("");
@@ -2898,15 +2898,15 @@ function App(){
               {/* ══ NEW LOG BAR ════════════════════════════════ */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:16}}>
                 {[
-                  {key:"feed",  icon:"🍼", label:"Feed"},
-                  {key:"nappy", icon:"💩", label:"Nappy"},
-                  {key:"sleep", icon:"😴", label:"Sleep"},
-                  {key:"paste", icon:"🗒️", label:"Paste"},
-                ].map(({key,icon,label})=>(
-                  <button key={key} onClick={()=>key==="paste"?openPaste():openLogPanel(key)}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 6px",borderRadius:16,border:`2px solid ${logPanel===key?C.ter:C.blush}`,background:logPanel===key?"#fdf0eb":C.warm,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                  {id:"feed",  icon:"🍼", label:"Feed"},
+                  {id:"nappy", icon:"💩", label:"Nappy"},
+                  {id:"sleep", icon:"😴", label:"Sleep"},
+                  {id:"paste", icon:"📋", label:"Notes"},
+                ].map(({id,icon,label})=>(
+                  <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 6px",borderRadius:16,border:`2px solid ${logPanel===id?C.ter:C.blush}`,background:logPanel===id?"#fdf0eb":C.warm,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                     <span style={{fontSize:24}}>{icon}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:logPanel===key?C.ter:C.mid,letterSpacing:"0.02em"}}>{label}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:logPanel===id?C.ter:C.mid,letterSpacing:"0.02em"}}>{label}</span>
                   </button>
                 ))}
               </div>
