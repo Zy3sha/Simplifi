@@ -538,7 +538,6 @@ function App(){
   const[joinError,setJoinError]=useState("");
   const[fbReady,setFbReady]=useState(false);
   const syncRef = React.useRef(null);
-  const unsubscribeRef = React.useRef(null);
 
   const possessive = (n) => {
     if (!n) return "";
@@ -566,172 +565,139 @@ function App(){
     return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
   },[]);
 
-  // ── Firebase: wait for SDK ready, then ensure backup code exists ──
+  // ── Firebase: wait for SDK, then kick off restore ──
   useEffect(()=>{
     const check = setInterval(()=>{
-      if(window._fb){
-        setFbReady(true);
-        clearInterval(check);
-      }
+      if(window._fb){ setFbReady(true); clearInterval(check); }
     }, 200);
     return ()=>clearInterval(check);
   },[]);
 
-  // ── Firebase: once ready, ensure every user has a silent backup code ──
-  useEffect(()=>{
-    if(!fbReady) return;
-    if(backupCode) return; // already have one
-    // Generate a backup code silently (prefixed with 'bk-' so we know it's personal)
-    (async()=>{
-      if(!window._fb) return;
-      const {db, doc, getDoc} = window._fb;
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      let code, exists = true;
-      while(exists){
-        code = "BK" + Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join("");
-        try{ const snap = await getDoc(doc(db,"families",code)); exists = snap.exists(); }
-        catch{ exists = false; }
-      }
-      setBackupCode(code);
-      try{localStorage.setItem("backup_code", code);}catch{}
-    })();
-  },[fbReady, backupCode]);
-
-  // ── Firebase: push to cloud (used for both backup and family codes) ──
-  const pushToCloud = React.useCallback(async(code, allChildren, silent=false) => {
+  // ── Firebase: push to cloud ──
+  const pushToCloud = React.useCallback(async(code, allChildren) => {
     if(!window._fb || !code) return;
     const {db, doc, setDoc, serverTimestamp} = window._fb;
     try {
-      if(!silent) setSyncStatus("syncing");
-      await setDoc(doc(db, "families", code), {
+      await setDoc(doc(db,"families",code), {
         children: JSON.stringify(allChildren),
         updatedAt: serverTimestamp(),
-        updatedBy: window._fbUid||"unknown"
-      }, {merge:true});
-      if(!silent) setSyncStatus("synced");
-    } catch(e) {
-      console.warn("Sync error", e);
-      if(!silent) setSyncStatus("error");
-    }
+        updatedBy: window._fbUid||"anon"
+      },{merge:true});
+      setSyncStatus("synced");
+    } catch(e) { setSyncStatus("error"); }
   },[]);
 
-  // ── Firebase: subscribe to real-time changes from family code ──
-  const subscribeToFamily = React.useCallback((code) => {
+  // ── Firebase: subscribe to family/partner code ──
+  const unsubscribeRef = React.useRef(null);
+  const subscribeToFamily = React.useCallback((code)=>{
     if(!window._fb || !code) return;
     if(unsubscribeRef.current) unsubscribeRef.current();
-    const {db, doc, onSnapshot} = window._fb;
-    unsubscribeRef.current = onSnapshot(doc(db,"families",code), (snap) => {
+    const {db,doc,onSnapshot} = window._fb;
+    unsubscribeRef.current = onSnapshot(doc(db,"families",code),(snap)=>{
       if(!snap.exists()) return;
       const d = snap.data();
-      if(d.updatedBy && d.updatedBy === window._fbUid) return;
-      try {
-        if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
-        setSyncStatus("synced");
-      } catch(e) { console.warn("Apply sync error", e); }
-    }, (e) => { console.warn("Snapshot error", e); setSyncStatus("error"); });
+      if(d.updatedBy === window._fbUid) return;
+      try{ if(d.children) setChildren(prev=>mergeChildren(prev,JSON.parse(d.children))); }
+      catch(e){ console.warn("Sync apply error",e); }
+    });
   },[]);
 
-  // ── Firebase: subscribe to family code when ready ──
   useEffect(()=>{
     if(fbReady && familyCode) subscribeToFamily(familyCode);
     return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
   },[fbReady, familyCode]);
 
-  // ── Firebase: restore from personal backup on first load ──
-  // Runs once when fbReady + backupCode are available.
-  // If localStorage has no meaningful data (no children with any days logged),
-  // pull from cloud and hydrate. This handles the "new deploy wipes localStorage" case.
-  // ── Restore from cloud on startup ──
-  // Always pulls from Firebase and does a full replace if local has no real data,
-  // or a merge if local has entries. Also fixes activeChildId to point at a real child.
-  const hasRestoredBackup = React.useRef(false);
-  const restoreCompleted = React.useRef(false); // true only after cloud data is applied
+  // ── Firebase: restore + start backup on ready ──
+  // Single effect handles everything in sequence:
+  // 1. Look up backupCode from Firestore if not in localStorage
+  // 2. Pull cloud data and replace local state
+  // 3. Start push-on-change subscription (only after restore)
+  // 4. Generate backupCode if brand new user
+  const [restoreDone, setRestoreDone] = React.useState(false);
+
   useEffect(()=>{
-    if(!fbReady || !backupCode) return;
-    if(hasRestoredBackup.current) return;
-    hasRestoredBackup.current = true;
+    if(!fbReady || restoreDone) return;
+    const {db, doc, getDoc} = window._fb;
+
     (async()=>{
       try {
-        console.log("OBubba: starting restore from", backupCode);
-        const {db, doc, getDoc} = window._fb;
-        const snap = await getDoc(doc(db, "families", backupCode));
-        console.log("OBubba: snap exists?", snap.exists());
-        if(!snap.exists()) { restoreCompleted.current = true; return; }
-        const d = snap.data();
-        console.log("OBubba: cloud data keys", Object.keys(d));
-        if(!d.children) { restoreCompleted.current = true; return; }
-        const cloud = JSON.parse(d.children);
-        const cloudIds = Object.keys(cloud);
-        console.log("OBubba: cloud children", cloudIds.length, cloudIds.map(id => cloud[id].name));
-        if(!cloud || !cloudIds.length) { restoreCompleted.current = true; return; }
+        // Step 1: resolve the backup code
+        let code = backupCode;
 
-        setChildren(prev => {
-          const localHasEntries = Object.values(prev).some(c =>
-            Object.values(c.days||{}).some(day => day && day.length > 0) ||
-            (c.weights||[]).length > 0
-          );
-          console.log("OBubba: localHasEntries?", localHasEntries);
-          const merged = localHasEntries ? mergeChildren(prev, cloud) : cloud;
-          console.log("OBubba: setting children", Object.keys(merged).length, "children");
-          try { localStorage.setItem("children_v1", JSON.stringify(merged)); } catch{}
-          return merged;
-        });
+        if(!code) {
+          // Try username lookup
+          const uname = familyUsername || localStorage.getItem("family_username");
+          if(uname) {
+            const key = uname.toLowerCase().replace(/[^a-z0-9_]/g,"");
+            const uSnap = await getDoc(doc(db,"usernames",key));
+            if(uSnap.exists()) {
+              const uData = uSnap.data();
+              code = uData.backupCode || uData.familyCode || null;
+              if(code) {
+                setBackupCode(code);
+                try{ localStorage.setItem("backup_code",code); }catch{}
+              }
+            }
+          }
+        }
 
-        setActiveChildId(prev => {
-          if(cloudIds.includes(prev)) { console.log("OBubba: activeChildId already valid", prev); return prev; }
-          const saved = localStorage.getItem("active_child");
-          if(saved && cloudIds.includes(saved)) { console.log("OBubba: restoring activeChildId from localStorage", saved); return saved; }
-          console.log("OBubba: resetting activeChildId to", cloudIds[0]);
-          return cloudIds[0];
-        });
+        // Step 2: pull cloud data
+        if(code) {
+          const snap = await getDoc(doc(db,"families",code));
+          if(snap.exists()) {
+            const d = snap.data();
+            if(d.children) {
+              const cloud = JSON.parse(d.children);
+              const cloudIds = Object.keys(cloud);
+              if(cloudIds.length) {
+                // Full replace — cloud is always the source of truth on startup
+                setChildren(cloud);
+                try{ localStorage.setItem("children_v1",JSON.stringify(cloud)); }catch{}
+                // Fix active child pointer
+                setActiveChildId(prev=>{
+                  if(cloudIds.includes(prev)) return prev;
+                  const lsSaved = localStorage.getItem("active_child");
+                  if(lsSaved && cloudIds.includes(lsSaved)) return lsSaved;
+                  return cloudIds[0];
+                });
+              }
+            }
+          }
+        } else {
+          // Brand new user — generate a backup code
+          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+          let newCode, exists = true;
+          while(exists){
+            newCode = "BK"+Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+            try{ const s = await getDoc(doc(db,"families",newCode)); exists = s.exists(); }
+            catch{ exists = false; }
+          }
+          setBackupCode(newCode);
+          try{ localStorage.setItem("backup_code",newCode); }catch{}
+        }
 
-        restoreCompleted.current = true;
-        setSyncStatus("synced");
-        console.log("OBubba: restore complete");
-      } catch(e) {
-        restoreCompleted.current = true;
-        console.warn("OBubba restore error", e);
-      }
+      } catch(e){ console.warn("OBubba restore error",e); }
+
+      // Step 3: mark done — this triggers the push effect below
+      setRestoreDone(true);
     })();
-  },[fbReady, backupCode]);
+  },[fbReady, restoreDone]);
 
-  // ── Firebase: push on every data change — always to personal backup ──
-  // IMPORTANT: never push until after the cloud restore has completed,
-  // otherwise we'd overwrite good Firebase data with the empty default state.
+  // ── Firebase: push changes to backup (only after restore completes) ──
+  const syncTimerRef = React.useRef(null);
   useEffect(()=>{
-    if(!fbReady) return;
-    if(!restoreCompleted.current) return; // wait until cloud restore finishes
-    clearTimeout(syncRef.current);
-    syncRef.current = setTimeout(()=>{
-      // Guard: don't push if children looks like a blank default (no real data)
-      const hasAnyData = Object.values(children).some(c =>
-        (c.name && c.name.trim()) || c.dob ||
-        Object.values(c.days||{}).some(d => d && d.length > 0) ||
-        (c.weights||[]).length > 0
+    if(!fbReady || !restoreDone || !backupCode) return;
+    clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(()=>{
+      const hasData = Object.values(children).some(c=>
+        (c.name&&c.name.trim()) || c.dob ||
+        Object.values(c.days||{}).some(d=>d&&d.length>0) ||
+        (c.weights||[]).length>0
       );
-      if(!hasAnyData) return; // refuse to push empty state
-      if(backupCode) pushToCloud(backupCode, children, true);
+      if(hasData) pushToCloud(backupCode, children);
     }, 2000);
-    return ()=>clearTimeout(syncRef.current);
-  },[fbReady, backupCode, children]);
-
-  // ── Firebase: live-subscribe to personal backup code ──
-  // Keeps data in sync if same user opens on a second device
-  const backupUnsubRef = React.useRef(null);
-  useEffect(()=>{
-    if(!fbReady || !backupCode) return;
-    if(backupUnsubRef.current) return; // already subscribed
-    const {db, doc, onSnapshot} = window._fb;
-    backupUnsubRef.current = onSnapshot(doc(db,"families",backupCode),(snap)=>{
-      if(!snap.exists()) return;
-      const d = snap.data();
-      if(d.updatedBy && d.updatedBy === window._fbUid) return; // our own push
-      try {
-        if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
-      } catch(e) { console.warn("Backup sync error",e); }
-    });
-    return ()=>{ if(backupUnsubRef.current){ backupUnsubRef.current(); backupUnsubRef.current=null; } };
-  },[fbReady, backupCode]);
+    return ()=>clearTimeout(syncTimerRef.current);
+  },[fbReady, restoreDone, backupCode, children]);
 
   // ── Firebase: generate a shared family code ──
   async function createFamilyCode() {
@@ -821,15 +787,32 @@ function App(){
       if(!snap.exists()) { setAuthError("Username not found"); return false; }
       const data = snap.data();
       if(data.pinHash !== hashPin(pin)) { setAuthError("Incorrect PIN"); return false; }
-      // Restore data if we have a code
-      const code = data.familyCode || data.backupCode;
+      // Restore backupCode — critical for auto-restore on next load
+      if(data.backupCode) {
+        setBackupCode(data.backupCode);
+        try{ localStorage.setItem("backup_code", data.backupCode); }catch{}
+      }
+      // Restore data from backup or family code
+      const code = data.backupCode || data.familyCode;
       if(code) {
         const fSnap = await getDoc(doc(db,"families",code));
         if(fSnap.exists()) {
           const d = fSnap.data();
-          if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
-          setFamilyCode(code);
-          try{ localStorage.setItem("family_code", code); }catch{}
+          if(d.children) {
+            const cloud = JSON.parse(d.children);
+            setChildren(cloud); // full replace on login
+            try{ localStorage.setItem("children_v1", JSON.stringify(cloud)); }catch{}
+            // Fix activeChildId to first cloud child
+            const cloudIds = Object.keys(cloud);
+            if(cloudIds.length) {
+              setActiveChildId(cloudIds[0]);
+              try{ localStorage.setItem("active_child", cloudIds[0]); }catch{}
+            }
+          }
+          if(data.familyCode) {
+            setFamilyCode(data.familyCode);
+            try{ localStorage.setItem("family_code", data.familyCode); }catch{}
+          }
         }
       }
       setFamilyUsername(data.displayName || username.trim());
@@ -4981,47 +4964,10 @@ window.onerror = function(msg, src, line, col, err) {
 </script>
 
 <script>
-// ── Service Worker — cache busted on every deploy via BUILD_TS ──
+// ── Remove any previously installed service workers ──
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    const BUILD_TS = '202603080955';
-    const CACHE_NAME = 'obubba-' + BUILD_TS;
-    const swCode = [
-      "const CACHE = '" + CACHE_NAME + "';",
-      "self.addEventListener('install', e => {",
-      "  self.skipWaiting();",
-      "  e.waitUntil(caches.open(CACHE).then(c => c.add(self.registration.scope).catch(()=>{})));",
-      "});",
-      "self.addEventListener('activate', e => {",
-      "  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));",
-      "});",
-      "self.addEventListener('message', e => { if(e.data && e.data.type==='SKIP_WAITING') self.skipWaiting(); });",
-      "self.addEventListener('fetch', e => {",
-      "  if (e.request.mode === 'navigate') {",
-      "    e.respondWith(fetch(e.request).then(r => { if(r&&r.status===200){const c=r.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));} return r; }).catch(()=>caches.match(e.request)));",
-      "    return;",
-      "  }",
-      "  e.respondWith(fetch(e.request).then(r => { if(r&&r.status===200&&r.type!=='opaque'){const c=r.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));} return r; }).catch(()=>caches.match(e.request)));",
-      "});"
-    ].join('\n');
-    const blob = new Blob([swCode], {type: 'application/javascript'});
-    const swUrl = URL.createObjectURL(blob);
-    navigator.serviceWorker.register(swUrl, {scope: '/'})
-      .then(reg => {
-        window._swReg = reg;
-        reg.update();
-        reg.addEventListener('updatefound', () => {
-          const newSW = reg.installing;
-          if (!newSW) return;
-          newSW.addEventListener('statechange', () => {
-            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-              newSW.postMessage({type:'SKIP_WAITING'});
-              window.location.reload();
-            }
-          });
-        });
-      })
-      .catch(e => console.warn('SW reg failed:', e));
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
   });
 }
 </script>
