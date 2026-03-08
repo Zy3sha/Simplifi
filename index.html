@@ -73,6 +73,7 @@ const timeVal = e => { const t=e.time||e.start||"00:00"; const[h,m]=t.split(":")
 const fmtDate = d => { const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
 const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
+const sleepDefault = () => { const h=new Date().getHours(); return (h>=6 && h<20) ? "nap" : "bed"; };
 const todayStr = () => new Date().toISOString().split("T")[0];
 const hm = m => m>=60?`${Math.floor(m/60)}h ${m%60}m`:m?`${m}m`:"—";
 const fmtSec = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
@@ -396,6 +397,8 @@ function App(){
   const[selDay,setSelDay]=useState(todayStr);
   const[tab,setTab]=useState("day");
   const[modal,setModal]=useState(null);
+  const[logPanel,setLogPanel]=useState(null); // 'feed'|'nappy'|'sleep'|null
+  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:""});
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
   const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no"});
@@ -1946,6 +1949,10 @@ function App(){
   }
 
   function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});setModal("entry");}
+  function openLogPanel(panel){
+    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime()});
+    setLogPanel(panel);
+  }
 
   // ── Auto-classify entries as night/day based on bedtime & morning wake ──
   // Any wake or feed logged after bedtime and before next morning's first wake → night:true
@@ -1998,6 +2005,38 @@ function App(){
       const updated=(d[selDay]||[]).filter(e=>e.id!==id);
       return {...d,[selDay]:autoClassifyNight(updated)};
     });
+  }
+
+  function quickAddLog(type, data){
+    setDays(d=>{
+      const u=[...(d[selDay]||[]),{id:uid(),night:false,...data}];
+      return{...d,[selDay]:autoClassifyNight(u)};
+    });
+    setLogPanel(null);
+  }
+
+  function saveLogFeed(){
+    const f=logForm;
+    if(f.feedType==="bottle"){
+      quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:parseInt(f.amount)||0,note:f.note||""});
+    } else if(f.feedType==="breast"){
+      quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"breast",breastL:parseInt(f.breastL)||0,breastR:parseInt(f.breastR)||0,amount:0,note:f.note||""});
+    } else {
+      quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"solids",amount:0,note:f.note||""});
+    }
+  }
+
+  function saveLogNappy(poopType){
+    quickAddLog("poop",{type:"poop",time:nowTime(),poopType,note:""});
+  }
+
+  function saveLogSleep(){
+    const f=logForm;
+    if(f.sleepType==="nap"){
+      quickAddLog("nap",{type:"nap",start:f.napStart,end:f.napEnd,night:false,note:""});
+    } else {
+      quickAddLog("sleep",{type:"sleep",time:f.bedTime,night:false,note:""});
+    }
   }
   function saveEntry(){
     let e={id:editEntry?editEntry.id:uid(),note:form.note||""};
@@ -2856,6 +2895,22 @@ function App(){
                 ))}
               </div>
 
+              {/* ══ NEW LOG BAR ════════════════════════════════ */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:16}}>
+                {[
+                  {key:"feed",  icon:"🍼", label:"Feed"},
+                  {key:"nappy", icon:"💩", label:"Nappy"},
+                  {key:"sleep", icon:"😴", label:"Sleep"},
+                  {key:"paste", icon:"🗒️", label:"Paste"},
+                ].map(({key,icon,label})=>(
+                  <button key={key} onClick={()=>key==="paste"?openPaste():openLogPanel(key)}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 6px",borderRadius:16,border:`2px solid ${logPanel===key?C.ter:C.blush}`,background:logPanel===key?"#fdf0eb":C.warm,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                    <span style={{fontSize:24}}>{icon}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:logPanel===key?C.ter:C.mid,letterSpacing:"0.02em"}}>{label}</span>
+                  </button>
+                ))}
+              </div>
+
               {/* ══ 3. TODAY'S LOG ════════════════════════════════ */}
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
                 <div style={{width:3,height:16,background:C.gold,borderRadius:99}}/>
@@ -2863,25 +2918,14 @@ function App(){
               </div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:15}}>Daytime</span>
-                <button onClick={()=>openEntry(false)} style={{background:C.ter,border:"none",borderRadius:99,padding:"5px 13px",fontSize:14,color:"white",cursor:"pointer",fontWeight:600}}>+ add</button>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
                 {dayE.length===0&&(
                   <div style={{textAlign:"center",padding:"22px 12px",background:C.warm,borderRadius:14,border:`1px dashed ${C.blush}`}}>
                     <div style={{fontSize:28,marginBottom:8}}>👆</div>
                     <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>Nothing logged yet today</div>
-                    <div style={{fontSize:13,color:C.lt,lineHeight:1.5,marginBottom:12}}>
-                      Tap <strong>+ add</strong> above or the <strong>+</strong> button to log a feed, nap, or wake.<br/>
-                      {Object.keys(days).filter(d=>(days[d]||[]).length>0).length===0
-                        ? "Log your first entry to unlock sleep insights and feed tracking."
-                        : "Quick-log buttons below the screen let you log in one tap."}
-                    </div>
-                    <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
-                      {[["🍼","Feed",()=>openEntry(false)],["😴","Nap",startNap],["⏰","Wake",()=>{setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"wake",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};});}]].map(([icon,label,action])=>(
-                        <button key={label} onClick={action} style={{padding:"7px 16px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>
-                          <span>{icon}</span><span>{label}</span>
-                        </button>
-                      ))}
+                    <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>
+                      Tap 🍼 Feed, 💩 Nappy or 😴 Sleep above to log an entry.
                     </div>
                   </div>
                 )}
@@ -2944,7 +2988,7 @@ function App(){
                     <div style={{width:3,height:18,background:"#8878a8",borderRadius:99}}/>
                     <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"#a898c8",fontSize:16}}>Night Wakes</span>
                   </div>
-                  <button onClick={()=>openEntry(true)} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:15,color:"#a898c8",cursor:"pointer",fontWeight:600}}>+ add</button>
+                  <button onClick={()=>{openLogPanel("feed");}} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:15,color:"#a898c8",cursor:"pointer",fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"#6a5880",fontSize:14,fontFamily:"monospace",padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -3738,34 +3782,105 @@ function App(){
         ))}
       </div>
 
-      {/* QUICK-LOG BAR — one-tap logging for common actions */}
-      {tab==="day" && (
-        <div style={{position:"fixed",bottom:62,left:0,right:0,zIndex:48,padding:"0 12px 8px",pointerEvents:"none"}}>
-          <div style={{display:"flex",gap:6,justifyContent:"flex-start",pointerEvents:"all",overflowX:"auto",paddingBottom:2,scrollbarWidth:"none"}}>
-            {[
-              {label:"💧 Wet",   action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
-              {label:"💩 Dirty", action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"poop",time:nowTime(),poopType:"dirty",night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
-              {label:"⏰ Wake",  action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"wake",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
-              {label:"🌙 Bed",   action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"sleep",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
-            ].map(({label,action})=>(
-              <button key={label} onClick={action} style={{
-                flexShrink:0,padding:"7px 13px",borderRadius:99,border:"none",
-                background:"rgba(255,255,255,0.92)",
-                color:C.mid,fontSize:13,fontWeight:700,cursor:"pointer",
-                boxShadow:"0 2px 10px rgba(44,31,26,0.12)",
-                backdropFilter:"blur(8px)",fontFamily:"inherit",
-                whiteSpace:"nowrap"
-              }}>{label}</button>
+      {/* LOG PANEL SHEETS */}
+      {logPanel==="feed"&&(
+        <Sheet onClose={()=>setLogPanel(null)} title="🍼 Log Feed">
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            {[{v:"bottle",label:"🍼 Bottle"},{v:"breast",label:"🤱 Breast"},{v:"solids",label:"🥣 Solids"}].map(({v,label})=>(
+              <button key={v} onClick={()=>setLogForm(f=>({...f,feedType:v}))}
+                style={{flex:1,padding:"9px 4px",borderRadius:12,border:`2px solid ${logForm.feedType===v?C.ter:C.blush}`,background:logForm.feedType===v?"#fdf0eb":C.warm,fontSize:13,fontWeight:700,color:logForm.feedType===v?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
+                {label}
+              </button>
             ))}
           </div>
-        </div>
+          {logForm.feedType==="bottle"&&(
+            <Inp label="Amount (ml)" type="number" inputMode="numeric" placeholder="e.g. 180" value={logForm.amount} onChange={e=>setLogForm(f=>({...f,amount:e.target.value}))}/>
+          )}
+          {logForm.feedType==="breast"&&(
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Minutes each side</label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {[["breastL","Left (L)"],["breastR","Right (R)"]].map(([k,lbl])=>(
+                  <div key={k}>
+                    <label style={{fontSize:14,fontFamily:"monospace",color:C.lt,display:"block",marginBottom:3}}>{lbl}</label>
+                    <input type="number" inputMode="numeric" min="0" max="60" placeholder="mins" value={logForm[k]||""} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
+                      style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:15,color:C.lt,fontFamily:"monospace",marginTop:6,textAlign:"center"}}>
+                Total: {((parseInt(logForm.breastL)||0)+(parseInt(logForm.breastR)||0))} min
+              </div>
+            </div>
+          )}
+          {logForm.feedType==="solids"&&(
+            <Inp label="What did they eat?" type="text" placeholder="e.g. porridge, half jar" value={logForm.note} onChange={e=>setLogForm(f=>({...f,note:e.target.value}))}/>
+          )}
+          {logForm.feedType!=="solids"&&(
+            <Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={logForm.note} onChange={e=>setLogForm(f=>({...f,note:e.target.value}))}/>
+          )}
+          <PBtn onClick={saveLogFeed}>✓ Log Feed</PBtn>
+        </Sheet>
       )}
 
-      {/* FABs */}
-      <div style={{position:"fixed",bottom:70,right:18,display:"flex",flexDirection:"column",gap:10,alignItems:"center",zIndex:49}}>
-        <button onClick={openPaste} style={{width:44,height:44,borderRadius:"50%",background:"white",border:`2px solid ${C.blush}`,color:C.ter,fontSize:20,cursor:"pointer",boxShadow:"0 2px 12px rgba(201,112,90,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}} title="Paste day notes">📋</button>
-        <button onClick={()=>openEntry(false)} style={{width:56,height:56,borderRadius:"50%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",color:"white",fontSize:28,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-      </div>
+      {logPanel==="nappy"&&(
+        <Sheet onClose={()=>setLogPanel(null)} title="💩 Log Nappy">
+          <div style={{fontSize:14,color:C.lt,marginBottom:12,fontFamily:"monospace"}}>Tap to log instantly</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
+            <button onClick={()=>saveLogNappy("wet")}
+              style={{padding:"18px 10px",borderRadius:16,border:`2px solid ${C.blush}`,background:C.warm,fontSize:32,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+              <span>💧</span>
+              <span style={{fontSize:14,fontWeight:700,color:C.mid}}>Wet</span>
+            </button>
+            <button onClick={()=>saveLogNappy("dirty")}
+              style={{padding:"18px 10px",borderRadius:16,border:`2px solid ${C.blush}`,background:C.warm,fontSize:32,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+              <span>💩</span>
+              <span style={{fontSize:14,fontWeight:700,color:C.mid}}>Dirty</span>
+            </button>
+          </div>
+          <div style={{fontSize:13,color:C.lt,marginBottom:10,fontFamily:"monospace",textAlign:"center"}}>Or specify poop type:</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+            {POOP_TYPES.map(pt=>(
+              <button key={pt} onClick={()=>saveLogNappy(pt)}
+                style={{padding:"6px 14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
+                {pt}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
+
+      {logPanel==="sleep"&&(
+        <Sheet onClose={()=>setLogPanel(null)} title="😴 Log Sleep">
+          <div style={{display:"flex",gap:8,marginBottom:16}}>
+            {[{v:"nap",label:"😴 Nap"},{v:"bed",label:"🌙 Bedtime"}].map(({v,label})=>(
+              <button key={v} onClick={()=>setLogForm(f=>({...f,sleepType:v}))}
+                style={{flex:1,padding:"9px 4px",borderRadius:12,border:`2px solid ${logForm.sleepType===v?C.ter:C.blush}`,background:logForm.sleepType===v?"#fdf0eb":C.warm,fontSize:13,fontWeight:700,color:logForm.sleepType===v?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {logForm.sleepType==="nap"&&(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              {[["napStart","Start"],["napEnd","End"]].map(([k,lbl])=>(
+                <div key={k}>
+                  <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>{lbl}</label>
+                  <input type="time" value={logForm[k]} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
+                    style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                </div>
+              ))}
+            </div>
+          )}
+          {logForm.sleepType==="bed"&&(
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Bedtime</label>
+              <input type="time" value={logForm.bedTime} onChange={e=>setLogForm(f=>({...f,bedTime:e.target.value}))}
+                style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+          )}
+          <PBtn onClick={saveLogSleep}>✓ Log Sleep</PBtn>
+        </Sheet>
+      )}
 
       {/* ENTRY MODAL */}
       {modal==="entry"&&(
