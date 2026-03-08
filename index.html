@@ -1410,12 +1410,14 @@ function App(){
               // New child — add it (partner linked this child to us)
               return {...prev, [childId]: {...remoteChild, id: childId}};
             }
-            // Merge days
+            // Merge days — union by entry id, never replace wholesale
             const mergedDays = {...(existing.days||{})};
             Object.entries(remoteChild.days||{}).forEach(([date, entries]) => {
-              if(!mergedDays[date] || entries.length > (mergedDays[date]||[]).length) {
-                mergedDays[date] = entries;
-              }
+              const local = mergedDays[date] || [];
+              if(!local.length){ mergedDays[date] = entries; return; }
+              const seen = new Set(local.map(e=>e.id));
+              const extra = (entries||[]).filter(e=>e.id && !seen.has(e.id));
+              if(extra.length) mergedDays[date] = [...local, ...extra];
             });
             return {...prev, [childId]: {...remoteChild, id:childId, days:mergedDays}};
           });
@@ -2846,7 +2848,13 @@ function App(){
     });
   }
 
+  const lastLogRef = React.useRef({time:0, key:""});
   function quickAddLog(type, data){
+    // Debounce: block identical log within 2 seconds (prevents double-tap / touch duplicates)
+    const key = type + JSON.stringify(data);
+    const now = Date.now();
+    if(key === lastLogRef.current.key && now - lastLogRef.current.time < 2000) return;
+    lastLogRef.current = {time: now, key};
     setDays(d=>{
       const u=[...(d[selDay]||[]),{id:uid(),night:false,...data}];
       return{...d,[selDay]:autoClassifyNight(u)};
@@ -2945,15 +2953,18 @@ function App(){
     setBreastSide(side);
   }
   function saveBreastFeed(){
+    if(!breastStartTime && breastSec.L===0 && breastSec.R===0) return;
     const lMins=Math.round(breastSec.L/60), rMins=Math.round(breastSec.R/60);
     if(lMins===0&&rMins===0)return;
     const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:false,note:""};
-    setDays(d=>{const updated=[...(d[selDay]||[]),entry];return{...d,[selDay]:autoClassifyNight(updated)};});
+    // Clear state first to prevent double-fire
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
+    setDays(d=>{const updated=[...(d[selDay]||[]),entry];return{...d,[selDay]:autoClassifyNight(updated)};});
     trackEvent("entry_logged",{type:"breast_feed"});
   }
   function cancelBreastTimer(){setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);}
   function endNap(){
+    if(!napOn) return; // guard against double-fire
     setNapOn(false);const end=nowTime();
     setDays(d=>{
       const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,night:false,note:""}];
