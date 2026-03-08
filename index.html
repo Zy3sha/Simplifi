@@ -658,7 +658,70 @@ function App(){
   const[feedType,setFeedType]=useState("milk"); // "milk" | "solids"
   const[dragId,setDragId]=useState(null); // id of entry being dragged
   const[dragOver,setDragOver]=useState(null); // id of entry being hovered over
-  const touchDragRef = React.useRef({active:false, id:null, startY:0, currentY:0, nodeMap:{}}); // touch drag state
+  const touchDragRef = React.useRef({active:false, id:null, nodeMap:{}, overEntry:null});
+  const logListRef = React.useRef(null);
+
+  // Attach non-passive touch listeners to log list so we can preventDefault
+  React.useEffect(()=>{
+    const el = logListRef.current;
+    if(!el) return;
+
+    function onTouchStart(ev){
+      const handle = ev.target.closest('[data-drag-handle]');
+      if(!handle) return;
+      const entryEl = handle.closest('[data-entry-id]');
+      if(!entryEl) return;
+      const id = entryEl.dataset.entryId;
+      touchDragRef.current.active = true;
+      touchDragRef.current.id = id;
+      touchDragRef.current.overEntry = null;
+      ev.preventDefault();
+    }
+
+    function onTouchMove(ev){
+      if(!touchDragRef.current.active) return;
+      ev.preventDefault();
+      const touch = ev.touches[0];
+      // Walk through all entry nodes to find which one we're over
+      const entries = el.querySelectorAll('[data-entry-id]');
+      let over = null;
+      entries.forEach(node=>{
+        const rect = node.getBoundingClientRect();
+        if(touch.clientY >= rect.top && touch.clientY <= rect.bottom){
+          over = node.dataset.entryId;
+        }
+      });
+      if(over && over !== touchDragRef.current.id){
+        if(over !== touchDragRef.current.overEntry){
+          touchDragRef.current.overEntry = over;
+          setDragOver(over);
+        }
+      } else if(!over){
+        touchDragRef.current.overEntry = null;
+        setDragOver(null);
+      }
+      setDragId(touchDragRef.current.id);
+    }
+
+    function onTouchEnd(){
+      if(!touchDragRef.current.active) return;
+      const {id, overEntry} = touchDragRef.current;
+      if(id && overEntry && id !== overEntry) reorderEntry(id, overEntry);
+      touchDragRef.current = {active:false, id:null, nodeMap:{}, overEntry:null};
+      setDragId(null);
+      setDragOver(null);
+    }
+
+    el.addEventListener('touchstart', onTouchStart, {passive:false});
+    el.addEventListener('touchmove', onTouchMove, {passive:false});
+    el.addEventListener('touchend', onTouchEnd, {passive:false});
+    return()=>{
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  // eslint-disable-next-line
+  },[selDay, days]);
   const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
@@ -3951,7 +4014,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:15}}>Daytime</span>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
+              <div ref={logListRef} style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
                 {dayE.length===0&&(
                   <div style={{textAlign:"center",padding:"22px 12px",background:C.warm,borderRadius:14,border:`1px dashed ${C.blush}`}}>
                     <div style={{fontSize:28,marginBottom:8}}>👆</div>
@@ -3965,40 +4028,9 @@ function App(){
                   const isDragging=dragId===e.id;
                   const isOver=dragOver===e.id;
                   const borderCol=e.type==="feed"?(e.feedType==="solids"?"#b8860b":C.ter):e.type==="nap"?C.mint:e.type==="sleep"?C.sky:e.type==="poop"?"#8a7060":C.gold;
-
-                  // Touch handlers — only on the drag handle
-                  const handleTouchStart=(ev)=>{
-                    const touch=ev.touches[0];
-                    touchDragRef.current={active:true,id:e.id,startY:touch.clientY,currentY:touch.clientY,nodeMap:{}};
-                    setDragId(e.id);
-                    ev.stopPropagation();
-                  };
-                  const handleTouchMove=(ev)=>{
-                    if(!touchDragRef.current.active) return;
-                    ev.preventDefault();
-                    const touch=ev.touches[0];
-                    touchDragRef.current.currentY=touch.clientY;
-                    // Find which entry we're hovering over by checking element positions
-                    const map=touchDragRef.current.nodeMap;
-                    let overEntry=null;
-                    Object.entries(map).forEach(([eid,node])=>{
-                      if(!node) return;
-                      const rect=node.getBoundingClientRect();
-                      if(touch.clientY>=rect.top&&touch.clientY<=rect.bottom) overEntry=eid;
-                    });
-                    if(overEntry&&overEntry!==touchDragRef.current.id) setDragOver(overEntry);
-                    ev.stopPropagation();
-                  };
-                  const handleTouchEnd=()=>{
-                    const{id,active}=touchDragRef.current;
-                    if(active&&id&&dragOver&&id!==dragOver) reorderEntry(id,dragOver);
-                    touchDragRef.current={active:false,id:null,startY:0,currentY:0,nodeMap:{}};
-                    setDragId(null);setDragOver(null);
-                  };
-
                   return(
                     <div key={e.id}
-                      ref={node=>{touchDragRef.current.nodeMap[e.id]=node;}}
+                      data-entry-id={e.id}
                       draggable
                       onDragStart={()=>setDragId(e.id)}
                       onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
@@ -4008,10 +4040,8 @@ function App(){
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                         <div style={{display:"flex",alignItems:"center",gap:9}}>
                           <span
-                            onTouchStart={handleTouchStart}
-                            onTouchMove={handleTouchMove}
-                            onTouchEnd={handleTouchEnd}
-                            style={{fontSize:16,cursor:"grab",color:C.lt,letterSpacing:-1,touchAction:"none",padding:"4px 2px",userSelect:"none"}}>&#x2261;</span>
+                            data-drag-handle="1"
+                            style={{fontSize:18,cursor:"grab",color:C.lt,letterSpacing:-1,touchAction:"none",padding:"6px 4px",userSelect:"none",WebkitUserSelect:"none"}}>&#x2261;</span>
                           <span style={{fontSize:17}}>{ICONS[e.type]}</span>
                           <div>
                             <div style={{fontSize:14,fontWeight:500}}>
