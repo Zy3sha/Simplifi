@@ -435,6 +435,8 @@ function App(){
   const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:""});
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
+  const[showNightWake,setShowNightWake]=useState(false);
+  const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
   const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});
   const[newDate,setNewDate]=useState(todayStr());
   const[menuDay,setMenuDay]=useState(null);
@@ -3291,7 +3293,7 @@ function App(){
                     <div style={{width:3,height:18,background:"#8878a8",borderRadius:99}}/>
                     <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"#a898c8",fontSize:16}}>Night Wakes</span>
                   </div>
-                  <button onClick={()=>{openLogPanel("feed");}} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:15,color:"#a898c8",cursor:"pointer",fontWeight:600}}>+ add</button>
+                  <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,note:""});setShowNightWake(true);}} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:15,color:"#a898c8",cursor:"pointer",fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"#6a5880",fontSize:14,fontFamily:"monospace",padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -4476,6 +4478,80 @@ function App(){
           </Sheet>
         );
       })()}
+
+      {/* ── NIGHT WAKE SHEET ── */}
+      {showNightWake&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(10,6,20,0.7)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNightWake(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#1a1228",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:"border-box"}}>
+            <div style={{width:36,height:4,background:"#3a2e50",borderRadius:99,margin:"0 auto 20px"}}/>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"#d8cce8",marginBottom:20}}>🌟 Log Night Wake</div>
+
+            {/* Wake time */}
+            <div style={{fontSize:13,fontFamily:"monospace",color:"#6a5880",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Wake time</div>
+            <input type="time" value={nwForm.time} onChange={e=>setNwForm(f=>({...f,time:e.target.value}))}
+              style={{width:"100%",fontSize:18,padding:"12px 14px",borderRadius:14,border:"1.5px solid #3a2e50",background:"#0f0a1a",color:"#d8cce8",outline:"none",fontFamily:"monospace",textAlign:"center",marginBottom:16,boxSizing:"border-box"}}/>
+
+            {/* Self settled toggle */}
+            <div onClick={()=>setNwForm(f=>({...f,selfSettled:!f.selfSettled,ml:f.selfSettled?f.ml:""}))}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.selfSettled?"#50c878":"#3a2e50"}`,background:nwForm.selfSettled?"rgba(80,200,120,0.1)":"rgba(255,255,255,0.03)",cursor:"pointer",marginBottom:16,transition:"all 0.2s"}}>
+              <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.selfSettled?"#50c878":"#3a2e50"}`,background:nwForm.selfSettled?"#50c878":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                {nwForm.selfSettled&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
+              </div>
+              <div>
+                <div style={{fontSize:15,fontWeight:600,color:nwForm.selfSettled?"#50c878":"#a898c8"}}>Self settled</div>
+                <div style={{fontSize:12,color:"#6a5880",marginTop:1}}>No feed needed</div>
+              </div>
+            </div>
+
+            {/* Feed amount — hidden if self settled */}
+            {!nwForm.selfSettled&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:13,fontFamily:"monospace",color:"#6a5880",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Feed amount</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <input type="number" inputMode="numeric" placeholder="ml" value={nwForm.ml}
+                    onChange={e=>setNwForm(f=>({...f,ml:e.target.value}))}
+                    style={{flex:1,fontSize:20,padding:"12px 14px",borderRadius:14,border:"1.5px solid #3a2e50",background:"#0f0a1a",color:"#d8cce8",outline:"none",fontFamily:"monospace",textAlign:"center",boxSizing:"border-box"}}/>
+                  <span style={{fontSize:16,color:"#6a5880",fontFamily:"monospace"}}>ml</span>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:8}}>
+                  {[60,90,120,150,180].map(ml=>(
+                    <button key={ml} onClick={()=>setNwForm(f=>({...f,ml:String(ml)}))}
+                      style={{flex:1,padding:"7px 2px",borderRadius:10,border:`1px solid ${nwForm.ml===String(ml)?"#a898c8":"#3a2e50"}`,background:nwForm.ml===String(ml)?"rgba(168,152,200,0.2)":"transparent",color:nwForm.ml===String(ml)?"#d8cce8":"#6a5880",fontSize:12,fontFamily:"monospace",cursor:"pointer"}}>
+                      {ml}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div style={{fontSize:13,fontFamily:"monospace",color:"#6a5880",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Notes</div>
+            <input placeholder="e.g. fussed, resettled easily…" value={nwForm.note}
+              onChange={e=>setNwForm(f=>({...f,note:e.target.value}))}
+              style={{width:"100%",fontSize:15,padding:"12px 14px",borderRadius:14,border:"1.5px solid #3a2e50",background:"#0f0a1a",color:"#d8cce8",outline:"none",fontFamily:"inherit",marginBottom:20,boxSizing:"border-box"}}/>
+
+            <button onClick={()=>{
+              if(!nwForm.time) return;
+              const entry = {
+                id: uid(),
+                type: nwForm.selfSettled ? "wake" : "feed",
+                time: nwForm.time,
+                amount: nwForm.selfSettled ? 0 : (parseInt(nwForm.ml)||0),
+                feedType: "milk",
+                night: true,
+                note: nwForm.selfSettled ? (nwForm.note||"Self settled") : (nwForm.note||""),
+              };
+              setDays(d=>{
+                const updated=[...(d[selDay]||[]),entry];
+                return{...d,[selDay]:autoClassifyNight(updated)};
+              });
+              setShowNightWake(false);
+            }} style={{width:"100%",padding:"15px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#8878a8,#6a5880)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+              Save Wake ✦
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── ADD CHILD MODAL ── */}
       {showAddChild && (
