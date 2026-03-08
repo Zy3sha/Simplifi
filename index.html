@@ -2646,113 +2646,76 @@ function App(){
           {
             icon:"📅",
             title:"Your Daily Log",
-            body:"The Day tab is your home base. Every feed, nap, wake and nappy gets logged here — all in one beautiful timeline.",
+            body:"The Day tab is your home base. Every feed, nap, and nappy change gets logged here. Tap a day in the header strip to view or edit it.",
             spot:"bottom-nav-day",
             arrow:"bottom",
           },
           {
-            icon:"➕",
-            title:"Add an Entry",
-            body:"Tap the big + button to log a feed, nap, wake up, bedtime, or nappy change. You can also tap + add next to Daytime for a shortcut.",
-            spot:"fab-add",
-            arrow:"bottom-right",
+            icon:"🍼",
+            title:"Log a Feed, Nap or Nappy",
+            body:"Use the four quick-log buttons — Feed, Nappy, Sleep, and Notes — to add entries to your day. Tap any one to expand it and fill in the details.",
+            spot:"center",
+            arrow:null,
           },
           {
             icon:"📋",
-            title:"On the Go? Just Type It",
-            body:"Busy mum? Tap the 📋 button above the + and drop in a messy note like \"fed 180ml at 9am, napped 12-1, bedtime 7pm\" — the app will read it and log everything for you automatically.",
-            spot:"fab-paste",
-            arrow:"bottom-right",
-          },
-          {
-            icon:"🍼",
-            title:"Bottle, Breast & Solids",
-            body:"Under Feed you can log bottle ml, breastfeed minutes per side (L/R), or solid food meals. The app tracks them separately.",
+            title:"Smart Paste — Log in Seconds",
+            body:'Tap the Notes button and drop in a rough note like "fed 180ml at 9am, napped 12-1, bedtime 7pm" — the app reads it and logs everything automatically.',
             spot:"center",
             arrow:null,
           },
           {
             icon:"😴",
-            title:"Nap Timer",
-            body:"Tap Start Nap when baby goes down. The timer runs live and saves the nap automatically when you tap End & Save.",
+            title:"Live Nap Timer",
+            body:"Tap Start Nap in the top-left of the header when baby goes down. The timer runs live and saves automatically when you tap End & Save.",
             spot:"center",
             arrow:null,
           },
           {
-            icon:"🧠",
-            title:"Sleep Analytics",
-            body:"Once naps are logged, the app gives you a sleep score, 'Is This Normal?' check, feeding reassurance, and a suggested schedule for tomorrow.",
+            icon:"🤱",
+            title:"Breastfeed Timer",
+            body:"Tap Start Feed in the header to start a live breastfeed timer. Switch between L and R mid-feed — each side is tracked separately. Tap Save ✓ when done.",
             spot:"center",
             arrow:null,
           },
           {
             icon:"⏱️",
             title:"Next Nap Countdown",
-            body:"A live countdown in the top corner shows when the next nap window opens based on wake windows for your baby's age.",
+            body:"The pill in the top-right of the header counts down to the next nap window based on wake windows for your baby's age. When it turns orange — it's time!",
             spot:"nap-countdown",
             arrow:"top-right",
           },
           {
             icon:"📊",
             title:"Week & Trends",
-            body:"The Week and Trends tabs give you averages, charts, and insights across the past 7 days. Great for spotting patterns.",
+            body:"The Week tab shows 7-day averages. Trends shows charts over time — great for spotting feeding and sleep patterns at a glance.",
             spot:"bottom-nav-week",
             arrow:"bottom",
           },
           {
-            icon:"⚙️",
-            title:"Edit Baby Details",
-            body:"Tap the ⚙️ gear icon in the top-right of the header to edit your baby's name, date of birth, or sex at any time. The Growth tab uses this info automatically — no need to enter it twice!",
-            spot:"center",
-            arrow:null,
-          },
-          {
-            icon:"🤱",
-            title:"Breast Feed Timer",
-            body:"Tap Start Feed to start a live breastfeed timer. Switch between L and R sides mid-feed — the app tracks each side separately. Tap Save ✓ when done and it logs straight to your day.",
-            spot:"center",
-            arrow:null,
-          },
-          {
             icon:"📏",
             title:"Growth & Percentiles",
-            body:"Head to the Growth tab to log weight check-ins. Once your baby's sex and date of birth are set via ⚙️, OBubba shows their WHO percentile — where they rank among babies their age.",
+            body:"Log weight check-ins in the Growth tab. OBubba shows your baby's WHO percentile — where they rank among babies their age — using the sex and DOB from Baby Settings.",
             spot:"bottom-nav-growth",
             arrow:"bottom",
           },
           {
-            icon:"📱",
-            title:"Add to Your Home Screen",
-            body:null,
-            bodyJSX: (
-              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.6}}>
-                <div style={{marginBottom:10}}>Get the best experience by saving OBubba as an app — no app store needed!</div>
-                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8}}>
-                  <div style={{fontWeight:700,marginBottom:6}}>🍎 iPhone (Safari)</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                    <div>1. Tap the <strong>Share</strong> button (□↑) at the bottom</div>
-                    <div>2. Scroll down and tap <strong>View More</strong></div>
-                    <div>3. Tap <strong>Add to Home Screen</strong></div>
-                    <div>4. Tap <strong>Add</strong> to confirm</div>
-                  </div>
-                </div>
-                <div style={{background:"#f0f5f0",borderRadius:12,padding:"10px 12px"}}>
-                  <div style={{fontWeight:700,marginBottom:6}}>🤖 Android (Chrome)</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                    <div>1. Tap the <strong>three-dot menu</strong> (⋮) top right</div>
-                    <div>2. Tap <strong>Add to Home Screen</strong></div>
-                    <div>3. Tap <strong>Add</strong> to confirm</div>
-                  </div>
-                </div>
-              </div>
-            ),
+            icon:"⭐",
+            title:"Milestones",
+            body:"The Miles tab shows age-appropriate milestones organised by month. Tap any milestone to mark it as done and record the date — a lovely keepsake!",
+            spot:"bottom-nav-miles",
+            arrow:"bottom",
+          },
+          {
+            icon:"⚙️",
+            title:"Baby Settings",
+            body:"Tap the ⚙️ gear in the top-right of the header to update your baby's name, date of birth, or sex. The Growth and Milestones tabs use this info automatically.",
             spot:"center",
             arrow:null,
           },
           {
             icon:"👶",
             title:"Multiple Children",
-            body:null,
             bodyJSX:(
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
                 <div style={{marginBottom:10}}>Tracking more than one child? OBubba handles it!</div>
@@ -2768,20 +2731,19 @@ function App(){
             arrow:null,
           },
           {
-            icon:"🛡️",
-            title:"Your Data is Always Safe",
-            body:null,
+            icon:"👨‍👩‍👧",
+            title:"Share with Your Partner",
             bodyJSX:(
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
-                <div style={{marginBottom:10}}>OBubba automatically backs up your data to the cloud — no setup needed.</div>
-                <div style={{background:"#e8f7f0",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6,border:"1px solid #b0e8cc"}}>
-                  <div>🔄 Every entry saves to Firebase within <strong>2 seconds</strong></div>
-                  <div>👤 Your data is tied to your <strong>family username</strong></div>
-                  <div>📲 New phone? Enter your <strong>exact username</strong> to restore everything</div>
+                <div style={{marginBottom:10}}>Keep both parents in sync — tap <strong>👨‍👩‍👧 Share</strong> in the header to open Data & Sync.</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
+                  <div>🔗 Tap <strong>"Get code"</strong> next to your child’s name to get a 6-digit sync code</div>
+                  <div>📲 Your partner opens Share and taps <strong>"Link a child"</strong></div>
+                  <div>They enter your <strong>6-digit code</strong> — your child appears on their phone ✔</div>
                 </div>
-                <div style={{background:"#fff3e0",borderRadius:12,padding:"10px 12px",border:"1px solid #f0c870",display:"flex",gap:8,alignItems:"flex-start"}}>
-                  <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
-                  <div style={{fontSize:13,color:"#8a5a10",lineHeight:1.5}}><strong>Important:</strong> your data is linked to your username. An incorrect or different username will not retrieve your data. Write it down somewhere safe!</div>
+                <div style={{background:"#e8f7f0",borderRadius:12,padding:"10px 12px",border:"1px solid #b0e8cc",display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:16,flexShrink:0}}>🛡️</span>
+                  <div style={{fontSize:13,color:"#2a7a50",lineHeight:1.5}}>Data saves to the cloud automatically — no setup needed. New phone? Use <strong>Restore data</strong> in the Share menu.</div>
                 </div>
               </div>
             ),
@@ -2789,23 +2751,47 @@ function App(){
             arrow:null,
           },
           {
-            icon:"👨‍👩‍👧",
-            title:"Share with Your Partner",
-            body:null,
+            icon:"🛡️",
+            title:"Your Data is Always Safe",
             bodyJSX:(
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
-                <div style={{marginBottom:10}}>Keep both parents in sync — every feed and nap updates on both phones instantly.</div>
-                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
-                  <div>1. Tap <strong>👨‍👩‍👧 Share</strong> in the header</div>
-                  <div>2. Tap <strong>"Start family sync"</strong> to generate a link</div>
-                  <div>3. Your partner taps Share, enters <strong>your username</strong></div>
-                  <div>4. <strong>Both phones sync in real time ✓</strong></div>
+                <div style={{marginBottom:10}}>OBubba automatically backs up your data to the cloud — no setup needed.</div>
+                <div style={{background:"#e8f7f0",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6,border:"1px solid #b0e8cc"}}>
+                  <div>🔄 Every entry syncs to Firebase within <strong>2 seconds</strong></div>
+                  <div>👤 Your data is tied to your <strong>family username</strong></div>
+                  <div>📲 New phone? Enter your <strong>exact username + PIN</strong> to restore everything</div>
                 </div>
                 <div style={{background:"#fff3e0",borderRadius:12,padding:"10px 12px",border:"1px solid #f0c870",display:"flex",gap:8,alignItems:"flex-start"}}>
                   <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
-                  <div style={{fontSize:13,color:"#8a5a10",lineHeight:1.5}}><strong>Username must be exact</strong> — a typo or wrong username will connect to the wrong family or show an error. Double-check spelling before sharing.</div>
+                  <div style={{fontSize:13,color:"#8a5a10",lineHeight:1.5}}><strong>Important:</strong> your data is linked to your username. Write it down somewhere safe!</div>
                 </div>
-                <div style={{fontSize:13,color:"#8a7a6a",marginTop:8}}>Works across Android and iPhone. Great for blended families — each parent's children merge together.</div>
+              </div>
+            ),
+            spot:"center",
+            arrow:null,
+          },
+          {
+            icon:"📱",
+            title:"Add to Your Home Screen",
+            bodyJSX:(
+              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.6}}>
+                <div style={{marginBottom:10}}>Get the full app experience — no app store needed!</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8}}>
+                  <div style={{fontWeight:700,marginBottom:6}}>🍎 iPhone (Safari)</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                    <div>1. Tap the <strong>Share</strong> button (□↑) at the bottom</div>
+                    <div>2. Tap <strong>Add to Home Screen</strong></div>
+                    <div>3. Tap <strong>Add</strong> to confirm</div>
+                  </div>
+                </div>
+                <div style={{background:"#f0f5f0",borderRadius:12,padding:"10px 12px"}}>
+                  <div style={{fontWeight:700,marginBottom:6}}>🤖 Android (Chrome)</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                    <div>1. Tap the <strong>three-dot menu</strong> (⋮)</div>
+                    <div>2. Tap <strong>Add to Home Screen</strong></div>
+                    <div>3. Tap <strong>Add</strong> to confirm</div>
+                  </div>
+                </div>
               </div>
             ),
             spot:"center",
@@ -2814,7 +2800,7 @@ function App(){
           {
             icon:"🎉",
             title:"You're all set!",
-            body:"That's everything! Tap ⚙️ in the header to update baby details, or '? Tour' anytime to revisit. Happy tracking!",
+            body:"That's everything! Tap ⚙️ in the header anytime to update baby details, or '? Tour' to revisit this guide. Happy tracking!",
             spot:"center",
             arrow:null,
           },
@@ -2838,8 +2824,7 @@ function App(){
           "bottom-nav-day":   { bottom:55, left:"10%",  width:"18%", height:56 },
           "bottom-nav-week":  { bottom:55, left:"28%",  width:"18%", height:56 },
           "bottom-nav-growth":{ bottom:55, left:"64%",  width:"18%", height:56 },
-          "fab-add":          { bottom:72, right:16,    width:58,    height:58 },
-          "fab-paste":        { bottom:138, right:18,   width:46,    height:46 },
+          "bottom-nav-miles": { bottom:55, left:"82%",  width:"18%", height:56 },
           "nap-countdown":    { top:8,     right:12,    width:110,   height:50 },
           "center": null,
         };
