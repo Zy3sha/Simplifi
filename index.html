@@ -311,7 +311,7 @@ const MILESTONES = [
   { id:"m19", cat:"language",  label:"Responds to own name",            weeks:[20, 28, 40] },
   { id:"m20", cat:"language",  label:"Imitates sounds and tones",       weeks:[24, 32, 44] },
   { id:"m21", cat:"language",  label:"Uses gestures (shaking head)",    weeks:[30, 38, 52] },
-  { id:"m22", cat:"language",  label:"Says 'mama' or 'dada' (meaning)", weeks:[36, 44, 60] },
+  { id:"m22", cat:"language",  label:"Says mama or dada (with meaning)", weeks:[36, 44, 60] },
   { id:"m23", cat:"language",  label:"First real word",                 weeks:[36, 48, 64] },
   { id:"m24", cat:"language",  label:"Points to things they want",      weeks:[36, 44, 56] },
   { id:"m25", cat:"language",  label:"Follows simple instructions",     weeks:[40, 52, 68] },
@@ -531,6 +531,45 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
           }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
             {restoreStatus==="loading"?"⏳ Restoring…":"Restore data"}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LeapBanner({ l, ageWeeks, C }) {
+  const isActive  = ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd;
+  const weeksAway = l.windowStart - ageWeeks;
+  const [open, setOpen] = React.useState(isActive);
+  return (
+    <div style={{borderRadius:14,overflow:"hidden",margin:"8px 0 6px",border:isActive?`2px solid #7b68ee`:`1px solid #e0dbf5`,background:isActive?"linear-gradient(135deg,#f0eeff,#e8e4ff)":"#f8f7ff"}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{padding:"11px 14px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+        <div style={{width:30,height:30,borderRadius:"50%",background:isActive?"#7b68ee":"#c5bef5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <span style={{fontSize:13,color:"white",fontWeight:700}}>{l.leap}</span>
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+            <span style={{fontSize:12,fontWeight:700,color:isActive?"#4a3cb5":"#7060c0",letterSpacing:"0.05em",textTransform:"uppercase"}}>Leap {l.leap}</span>
+            <span style={{fontSize:13,fontWeight:600,color:isActive?"#2d2060":"#5040a0"}}>{l.name}</span>
+            {isActive && <span style={{fontSize:10,background:"#7b68ee",color:"white",borderRadius:99,padding:"2px 7px",fontWeight:700}}>NOW</span>}
+            {!isActive && weeksAway > 0 && weeksAway <= 4 && <span style={{fontSize:10,background:"#e0dbf5",color:"#6050b0",borderRadius:99,padding:"2px 7px",fontWeight:700}}>in {weeksAway}w</span>}
+          </div>
+          <div style={{fontSize:11,color:"#9080c8",marginTop:1,fontFamily:"monospace"}}>{isActive?`wk ${l.windowStart}\u2013${l.windowEnd} \u00b7 happening now`:`around wk ${l.peakWeek}`}</div>
+        </div>
+        <span style={{fontSize:12,color:"#9080c8"}}>{open?"\u25b2":"\u25bc"}</span>
+      </div>
+      {open && (
+        <div style={{padding:"0 14px 12px",borderTop:"1px solid #d8d2f0"}}>
+          <div style={{fontSize:13,color:"#5040a0",background:"rgba(123,104,238,0.08)",borderRadius:10,padding:"8px 11px",marginBottom:9,lineHeight:1.5,marginTop:2}}>
+            <span style={{fontWeight:700}}>What to expect: </span>{l.fussy}
+          </div>
+          <div style={{fontSize:12,color:"#4a3cb5",fontWeight:700,marginBottom:5}}>Skills that emerge</div>
+          {l.skills.map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:7,marginBottom:4}}>
+              <span style={{color:"#7b68ee",flexShrink:0,marginTop:1}}>{"\u2192"}</span>
+              <span style={{fontSize:13,color:"#5040a0",lineHeight:1.4}}>{s}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -4869,13 +4908,15 @@ function App(){
           });
 
           const currentLeap  = WONDER_WEEKS.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
-          const upcomingLeap = WONDER_WEEKS.find(l => l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 6);
+          const upcomingLeap = WONDER_WEEKS.find(l => l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 3);
 
           const timelineItems = [];
           visibleMs.forEach(m => timelineItems.push({type:"milestone", data:m, sortWeek: m.weeks[1]}));
           if (msFilter === "all") {
             WONDER_WEEKS.forEach(l => {
-              if (l.peakWeek >= showFrom && l.peakWeek <= showTo) {
+              const isActive = ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd;
+              const comingSoon = l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 3;
+              if (isActive || comingSoon) {
                 timelineItems.push({type:"leap", data:l, sortWeek: l.peakWeek});
               }
             });
@@ -4919,44 +4960,7 @@ function App(){
             );
           };
 
-          const LeapBanner = ({l}) => {
-            const isActive  = ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd;
-            const weeksAway = l.windowStart - ageWeeks;
-            const [open, setOpen] = React.useState(isActive);
-            return (
-              <div style={{borderRadius:14,overflow:"hidden",margin:"8px -16px 6px",border:isActive?`2px solid #7b68ee`:`1px solid #e0dbf5`,background:isActive?"linear-gradient(135deg,#f0eeff,#e8e4ff)":"#f8f7ff"}}>
-                <div onClick={()=>setOpen(o=>!o)} style={{padding:"11px 14px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
-                  <div style={{width:30,height:30,borderRadius:"50%",background:isActive?"#7b68ee":"#c5bef5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span style={{fontSize:13,color:"white",fontWeight:700}}>{l.leap}</span>
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                      <span style={{fontSize:12,fontWeight:700,color:isActive?"#4a3cb5":"#7060c0",letterSpacing:"0.05em",textTransform:"uppercase"}}>Leap {l.leap}</span>
-                      <span style={{fontSize:13,fontWeight:600,color:isActive?"#2d2060":"#5040a0"}}>{l.name}</span>
-                      {isActive && <span style={{fontSize:10,background:"#7b68ee",color:"white",borderRadius:99,padding:"2px 7px",fontWeight:700}}>NOW</span>}
-                      {!isActive && weeksAway > 0 && weeksAway <= 4 && <span style={{fontSize:10,background:"#e0dbf5",color:"#6050b0",borderRadius:99,padding:"2px 7px",fontWeight:700}}>in {weeksAway}w</span>}
-                    </div>
-                    <div style={{fontSize:11,color:"#9080c8",marginTop:1,fontFamily:"monospace"}}>{isActive?`wk ${l.windowStart}–${l.windowEnd} · happening now`:`around wk ${l.peakWeek}`}</div>
-                  </div>
-                  <span style={{fontSize:12,color:"#9080c8"}}>{open?"▲":"▼"}</span>
-                </div>
-                {open && (
-                  <div style={{padding:"0 14px 12px",borderTop:"1px solid #d8d2f0"}}>
-                    <div style={{fontSize:13,color:"#5040a0",background:"rgba(123,104,238,0.08)",borderRadius:10,padding:"8px 11px",marginBottom:9,lineHeight:1.5,marginTop:2}}>
-                      <span style={{fontWeight:700}}>😮‍💨 What to expect: </span>{l.fussy}
-                    </div>
-                    <div style={{fontSize:12,color:"#4a3cb5",fontWeight:700,marginBottom:5}}>✨ Skills that emerge</div>
-                    {l.skills.map((s,i)=>(
-                      <div key={i} style={{display:"flex",gap:7,marginBottom:4}}>
-                        <span style={{color:"#7b68ee",flexShrink:0,marginTop:1}}>→</span>
-                        <span style={{fontSize:13,color:"#5040a0",lineHeight:1.4}}>{s}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          };
+          const LeapBanner_unused = null; // hoisted to top-level component
 
           return (
             <div>
@@ -5009,7 +5013,7 @@ function App(){
                 <div style={{...card,padding:"4px 16px 6px"}}>
                   {timelineItems.map(item=>
                     item.type==="leap"
-                      ? <LeapBanner key={`leap-${item.data.leap}`} l={item.data}/>
+                      ? <LeapBanner key={`leap-${item.data.leap}`} l={item.data} ageWeeks={ageWeeks} C={C}/>
                       : <MilestoneRow key={item.data.id} m={item.data}/>
                   )}
                 </div>
