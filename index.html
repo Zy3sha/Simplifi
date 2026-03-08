@@ -13,9 +13,31 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+  <script>
+  // Load scripts with fallback
+  function loadScript(urls, cb) {
+    var i = 0;
+    function next() {
+      if (i >= urls.length) { cb(new Error("All CDNs failed")); return; }
+      var s = document.createElement("script");
+      s.src = urls[i++];
+      s.onload = function() { cb(null); };
+      s.onerror = function() { next(); };
+      document.head.appendChild(s);
+    }
+    next();
+  }
+  window._scriptQueue = [];
+  window._scriptLoadOrder = function(name, fn) {
+    window._scriptQueue.push({name:name, fn:fn});
+  };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"
+    onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/react@18/umd/react.production.min.js';document.head.appendChild(s)"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"
+    onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js';document.head.appendChild(s)"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.10/babel.min.js"
+    onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/@babel/standalone@7.23.10/babel.min.js';document.head.appendChild(s)"></script>
   <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -58,7 +80,28 @@
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var d = document.getElementById('root');
+  d.style.background='#fff';
+  d.innerHTML = '<div style="background:#fff;color:#c00;padding:20px;font-family:monospace;white-space:pre-wrap;font-size:13px;border:2px solid #c00;margin:20px;border-radius:8px"><strong>JS ERROR:</strong>\n' + msg + '\nLine: ' + line + ' Col: ' + col + '\nFile: ' + (src||'').split('/').pop() + (err ? '\n\nStack: ' + err.stack : '') + '</div>';
+  return false;
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var d = document.getElementById('root');
+  d.style.background='#fff';
+  d.innerHTML += '<div style="background:#fff;color:#c00;padding:20px;font-family:monospace;white-space:pre-wrap;font-size:13px;border:2px solid #c00;margin:20px;border-radius:8px"><strong>PROMISE ERROR:</strong>\n' + (e.reason ? (e.reason.message || e.reason) : 'unknown') + '</div>';
+});
+// Fallback: if nothing renders after 6s, show diagnostic
+setTimeout(function() {
+  var root = document.getElementById('root');
+  if (!root || root.children.length === 0) {
+    root.style.background='#fff';
+    root.innerHTML = '<div style="padding:20px;font-family:monospace;font-size:14px;color:#c00;border:2px solid #c00;margin:20px;border-radius:8px"><strong>BLANK SCREEN DIAGNOSTIC</strong><br><br>React: ' + (typeof React !== 'undefined' ? 'loaded ✓' : 'MISSING ✗') + '<br>ReactDOM: ' + (typeof ReactDOM !== 'undefined' ? 'loaded ✓' : 'MISSING ✗') + '<br>Babel: ' + (typeof Babel !== 'undefined' ? 'loaded ✓' : 'MISSING ✗') + '<br>Firebase: ' + (typeof window._fb !== 'undefined' ? 'loaded ✓' : 'not yet') + '</div>';
+  }
+}, 6000);
+</script>
+<script type="text/plain" id="jsx-src">
 const { useState, useEffect, useRef } = React;
 
 const STORAGE_KEY = "babyTracker_v6";
@@ -308,6 +351,76 @@ function calcAge(dob) {
   return { months, weeksAfterMonths, remainingDays, totalWeeks, totalDays };
 }
 
+// ── Sub-components (must be defined outside App to avoid hook violations) ──
+
+function LinkChildForm({joinChildByCode, C, fullCard}) {
+  const [linkCode, setLinkCode] = React.useState("");
+  const [linkStatus, setLinkStatus] = React.useState("");
+  const [linkError, setLinkError] = React.useState("");
+  const [linkName, setLinkName] = React.useState("");
+  const inputStyle = {width:"100%",fontSize:fullCard?22:20,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.18em",textAlign:"center",padding:fullCard?"11px":"10px",borderRadius:10,border:`1.5px solid ${linkStatus==="error"?C.ter:C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8,boxSizing:"border-box"};
+  const btnSize = fullCard ? {padding:"12px",fontSize:15} : {padding:"11px",fontSize:14};
+  const inner = (
+    <div>
+      <input value={linkCode} onChange={e=>setLinkCode(e.target.value.toUpperCase())} placeholder="e.g. AB3X7Y" maxLength={6} style={inputStyle}/>
+      {linkStatus==="error" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{linkError}</div>}
+      {linkStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ {linkName} added!</div>}
+      <button onClick={async()=>{
+        setLinkStatus("loading");
+        const result = await joinChildByCode(linkCode);
+        if(result.ok){setLinkStatus("ok");setLinkName(result.childName);setLinkCode("");setTimeout(()=>setLinkStatus(""),2500);}
+        else{setLinkStatus("error");setLinkError(result.error);}
+      }} disabled={linkCode.length<6||linkStatus==="loading"}
+        style={{width:"100%",...btnSize,borderRadius:99,border:"none",background:linkCode.length===6?C.mint:"#e0f0ea",color:linkCode.length===6?"white":"#a0c8b0",fontWeight:700,cursor:linkCode.length===6?"pointer":"not-allowed",fontFamily:"inherit",transition:"all 0.2s"}}>
+        {linkStatus==="loading"?"⏳ Linking…":"Link child"}
+      </button>
+    </div>
+  );
+  if (!fullCard) return inner;
+  return (
+    <div style={{background:"white",borderRadius:14,padding:"14px",border:`1px solid ${C.blush}`,marginBottom:16}}>
+      <div style={{fontSize:14,fontWeight:700,color:"#7a6a5a",marginBottom:4}}>Link a child</div>
+      <div style={{fontSize:13,color:"#9a8a7a",marginBottom:10}}>Enter a sync code from another parent to add their child to your app.</div>
+      {inner}
+    </div>
+  );
+}
+
+function UsernameSetForm({reserveUsername, normaliseUsername, C}) {
+  const [u, setU] = React.useState("");
+  const [st, setSt] = React.useState("idle");
+  const ref = React.useRef(null);
+  return (
+    <div>
+      <div style={{position:"relative",marginBottom:6}}>
+        <input value={u} onChange={e=>{
+          setU(e.target.value); setSt("checking");
+          clearTimeout(ref.current);
+          if(e.target.value.trim().length<3){setSt("invalid");return;}
+          ref.current=setTimeout(async()=>{
+            if(!window._fb){setSt("idle");return;}
+            const {db,doc,getDoc}=window._fb;
+            const snap=await getDoc(doc(db,"usernames",normaliseUsername(e.target.value)));
+            setSt(snap.exists()?"taken":"available");
+          },600);
+        }} placeholder="e.g. TeamSmith"
+        style={{width:"100%",padding:"9px 36px 9px 12px",borderRadius:10,border:`1.5px solid ${st==="available"?"#50c878":st==="taken"?C.ter:C.blush}`,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+        <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>
+          {st==="checking"?"⏳":st==="available"?"✅":st==="taken"?"❌":""}
+        </span>
+      </div>
+      {st==="taken" && <div style={{fontSize:12,color:C.ter,marginBottom:6}}>That username is taken — try another</div>}
+      <button onClick={async()=>{
+        if(st!=="available"||!u.trim()) return;
+        const ok = await reserveUsername(u);
+        if(!ok) setSt("taken");
+      }} disabled={st!=="available"} style={{width:"100%",padding:"9px",borderRadius:99,border:"none",background:st==="available"?C.ter:"#f2d9cc",color:st==="available"?"white":"#b89890",fontSize:14,fontWeight:700,cursor:st==="available"?"pointer":"not-allowed",fontFamily:"inherit"}}>
+        Save username
+      </button>
+    </div>
+  );
+}
+
 function App(){
   const timerRef = React.useRef(null);
 
@@ -406,6 +519,12 @@ function App(){
   const[napStartT,setNapStartT]=useState(null);
   const[napSec,setNapSec]=useState(0);
   const[napCountdown,setNapCountdown]=useState(null); // seconds until next nap window opens
+  // ── Breast feed live timer state ──
+  const[breastSide,setBreastSide]=useState(null); // null | "L" | "R"
+  const[breastSec,setBreastSec]=useState({L:0,R:0});
+  const[breastActive,setBreastActive]=useState(false); // timer running
+  const[breastStartTime,setBreastStartTime]=useState(null); // feed start wall-clock time
+  const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null); // seconds until predicted bedtime
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
@@ -438,6 +557,29 @@ function App(){
   const[obName,setObName]=useState("");
   const[obDob,setObDob]=useState("");
   const[obSex,setObSex]=useState("");
+  const[obUsername,setObUsername]=useState("");
+  const[obUsernameStatus,setObUsernameStatus]=useState("idle"); // idle | checking | available | taken | invalid
+  const[obMode,setObMode]=useState("create"); // "create" | "join"
+  const[obJoinUn,setObJoinUn]=useState("");
+  const[obJoinStatus,setObJoinStatus]=useState("idle"); // idle | loading | ok | error
+  const[obJoinError,setObJoinError]=useState("");
+  const[obPin,setObPin]=useState("");           // PIN being set during onboarding
+  const[obPinConfirm,setObPinConfirm]=useState(""); // PIN confirm during onboarding
+  const[obPinStep,setObPinStep]=useState("set"); // "set" | "confirm"
+  const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
+  const obUsernameCheckRef = React.useRef(null);
+
+  // ── PIN login screen state ──
+  // Shown on every app open if account exists — gates the whole app
+  const[loginScreen,setLoginScreen]=useState(()=>{
+    // If they have a saved username, show login. If fresh install, skip to onboarding.
+    try{ return !!localStorage.getItem("family_username"); }catch{ return false; }
+  });
+  const[loginUsername,setLoginUsername]=useState(()=>{try{return localStorage.getItem("family_username")||"";}catch{return "";}});
+  const[loginPin,setLoginPin]=useState("");
+  const[loginStatus,setLoginStatus]=useState("idle"); // idle | checking | error | ok
+  const[loginError,setLoginError]=useState("");
+
   const[editEntry,setEditEntry]=useState(null);
   const[insightDismissed,setInsightDismissed]=useState(()=>{try{return!!localStorage.getItem("ins_v1");}catch{return false;}});
   const[showInsights,setShowInsights]=useState(false);
@@ -449,11 +591,14 @@ function App(){
   const[dragOver,setDragOver]=useState(null); // id of entry being hovered over
   const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
+  const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
 
   // ── Firebase sync state ──
-  // ── familyCode = shared partner code (visible to user)
-  // ── backupCode = silent personal backup code (always-on, never shown)
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
+  const[childSyncCodes,setChildSyncCodes]=useState(()=>{
+    try{const s=localStorage.getItem("child_sync_codes_v1");return s?JSON.parse(s):{};}catch{return {};}
+  });
+  const childSubsRef = React.useRef({});
   const[backupCode,setBackupCode]=useState(()=>{try{return localStorage.getItem("backup_code")||null;}catch{return null;}});
   const[syncStatus,setSyncStatus]=useState("idle");
   const[showFamilyModal,setShowFamilyModal]=useState(false);
@@ -470,8 +615,17 @@ function App(){
 
   // ── Persist all children to localStorage ──
   useEffect(()=>{try{localStorage.setItem("children_v1",JSON.stringify(children));}catch{}},[children]);
+  useEffect(()=>{try{localStorage.setItem("child_sync_codes_v1",JSON.stringify(childSyncCodes));}catch{}},[childSyncCodes]);
   useEffect(()=>{if(resolvedActiveId)try{localStorage.setItem("active_child",resolvedActiveId);}catch{}},[resolvedActiveId]);
   useEffect(()=>{if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}},[onboarded]);
+  // ── Online/offline detection ──
+  useEffect(()=>{
+    const on=()=>setIsOnline(true);
+    const off=()=>setIsOnline(false);
+    window.addEventListener("online",on);
+    window.addEventListener("offline",off);
+    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
+  },[]);
 
   // ── Firebase: wait for SDK ready, then ensure backup code exists ──
   useEffect(()=>{
@@ -532,7 +686,7 @@ function App(){
       const d = snap.data();
       if(d.updatedBy && d.updatedBy === window._fbUid) return;
       try {
-        if(d.children) setChildren(JSON.parse(d.children));
+        if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
         setSyncStatus("synced");
       } catch(e) { console.warn("Apply sync error", e); }
     }, (e) => { console.warn("Snapshot error", e); setSyncStatus("error"); });
@@ -544,18 +698,17 @@ function App(){
     return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
   },[fbReady, familyCode]);
 
-  // ── Firebase: push on every data change — always to backup, also to family if set ──
+  // ── Firebase: push on every data change — always to personal backup ──
   useEffect(()=>{
     if(!fbReady) return;
     clearTimeout(syncRef.current);
     syncRef.current = setTimeout(()=>{
-      // Always push to personal backup (silent — no status indicator)
+      // Always push full snapshot to personal backup (silent)
       if(backupCode) pushToCloud(backupCode, children, true);
-      // Also push to shared family code if set
-      if(familyCode) pushToCloud(familyCode, children, false);
+      // Per-child pushes are handled by the childSyncCodes effect below
     }, 2000);
     return ()=>clearTimeout(syncRef.current);
-  },[fbReady, backupCode, familyCode, children]);
+  },[fbReady, backupCode, children]);
 
   // ── Firebase: generate a shared family code ──
   async function createFamilyCode() {
@@ -585,7 +738,7 @@ function App(){
       const snap = await getDoc(doc(db,"families",clean));
       if(!snap.exists()) { setJoinError("Code not found — check with your partner"); return; }
       const d = snap.data();
-      if(d.children) setChildren(JSON.parse(d.children));
+      if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
       setFamilyCode(clean);
       try{localStorage.setItem("family_code", clean);}catch{}
       subscribeToFamily(clean);
@@ -620,6 +773,291 @@ function App(){
       if(window._fb) window._fb.logEvent(window._fb.analytics, name, params);
     } catch(e){}
   }
+
+  // ── PIN: simple hash (not cryptographic, but adequate for baby app) ──
+  function hashPin(pin) {
+    let h = 5381;
+    for(let i=0;i<pin.length;i++) h = ((h<<5)+h)+pin.charCodeAt(i);
+    return (h>>>0).toString(16);
+  }
+
+  // ── Username: normalise for storage (lowercase, trim) ──
+  const normaliseUsername = (u) => u.trim().toLowerCase().replace(/\s+/g,"");
+
+  // ── Username: check availability (debounced) ──
+  function checkUsername(raw) {
+    const val = raw.trim();
+    setObUsername(raw);
+    clearTimeout(obUsernameCheckRef.current);
+    if(!val) { setObUsernameStatus("idle"); return; }
+    if(val.length < 3) { setObUsernameStatus("invalid"); return; }
+    setObUsernameStatus("checking");
+    obUsernameCheckRef.current = setTimeout(async()=>{
+      if(!window._fb) { setObUsernameStatus("idle"); return; }
+      const {db, doc, getDoc} = window._fb;
+      try {
+        const snap = await getDoc(doc(db,"usernames",normaliseUsername(val)));
+        setObUsernameStatus(snap.exists() ? "taken" : "available");
+      } catch(e) { setObUsernameStatus("idle"); }
+    }, 600);
+  }
+
+  // ── Username + PIN: reserve in Firebase ──
+  async function reserveUsername(username, pin) {
+    if(!window._fb || !username.trim() || !pin) return false;
+    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
+    const key = normaliseUsername(username);
+    try {
+      const snap = await getDoc(doc(db,"usernames",key));
+      if(snap.exists()) return false;
+      await setDoc(doc(db,"usernames",key), {
+        pinHash: hashPin(pin),
+        backupCode: backupCode,
+        familyCode: familyCode || null,
+        createdAt: serverTimestamp(),
+        displayName: username.trim()
+      });
+      setFamilyUsername(username.trim());
+      try{ localStorage.setItem("family_username", username.trim()); }catch{}
+      trackEvent("username_created");
+      return true;
+    } catch(e) { console.warn("Reserve username error", e); return false; }
+  }
+
+  // ── PIN login: verify username + PIN against Firebase ──
+  async function verifyLogin(username, pin) {
+    if(!window._fb) return {ok:false, error:"Not connected — check your internet"};
+    const {db, doc, getDoc} = window._fb;
+    const key = normaliseUsername(username.trim());
+    if(!key) return {ok:false, error:"Enter your username"};
+    if(pin.length !== 4) return {ok:false, error:"PIN must be 4 digits"};
+    try {
+      const snap = await getDoc(doc(db,"usernames",key));
+      if(!snap.exists()) return {ok:false, error:"Username not found"};
+      const d = snap.data();
+      if(d.pinHash !== hashPin(pin)) return {ok:false, error:"Incorrect PIN"};
+      // Success — restore data if needed
+      const codeToUse = d.familyCode || d.backupCode;
+      if(codeToUse && !familyCode) {
+        const fSnap = await getDoc(doc(db,"families",codeToUse));
+        if(fSnap.exists()) {
+          const fd = fSnap.data();
+          if(fd.children) setChildren(prev => mergeChildren(prev, JSON.parse(fd.children)));
+          setFamilyCode(codeToUse);
+          try{ localStorage.setItem("family_code", codeToUse); }catch{}
+          subscribeToFamily(codeToUse);
+        }
+      }
+      setFamilyUsername(d.displayName || username.trim());
+      try{ localStorage.setItem("family_username", d.displayName || username.trim()); }catch{}
+      return {ok:true};
+    } catch(e) { return {ok:false, error:"Something went wrong — try again"}; }
+  }
+
+  // ── Username: join by username + PIN (partner flow — they enter YOUR username+PIN to get your data) ──
+  async function joinByUsername(username, pin) {
+    if(!window._fb) return {ok:false, error:"Not connected"};
+    const {db, doc, getDoc} = window._fb;
+    const key = normaliseUsername(username.trim());
+    try {
+      const uSnap = await getDoc(doc(db,"usernames",key));
+      if(!uSnap.exists()) return {ok:false, error:"Username not found — check the spelling"};
+      const uData = uSnap.data();
+      // Verify PIN
+      if(uData.pinHash && pin && uData.pinHash !== hashPin(pin)) {
+        return {ok:false, error:"Incorrect PIN"};
+      }
+      const codeToJoin = uData.familyCode || uData.backupCode;
+      if(!codeToJoin) return {ok:false, error:"No data found for this username"};
+      const fSnap = await getDoc(doc(db,"families",codeToJoin));
+      if(!fSnap.exists()) return {ok:false, error:"No data found for this username"};
+      const d = fSnap.data();
+      if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
+      setFamilyCode(codeToJoin);
+      try{ localStorage.setItem("family_code", codeToJoin); }catch{}
+      subscribeToFamily(codeToJoin);
+      trackEvent("username_joined");
+      return {ok:true};
+    } catch(e) { return {ok:false, error:"Something went wrong — please try again"}; }
+  }
+
+  // ── Username: update username record when familyCode changes ──
+  useEffect(()=>{
+    if(!fbReady || !familyUsername || !familyCode) return;
+    (async()=>{
+      if(!window._fb) return;
+      const {db, doc, setDoc} = window._fb;
+      const key = normaliseUsername(familyUsername);
+      try {
+        await setDoc(doc(db,"usernames",key), {familyCode}, {merge:true});
+      } catch(e){}
+    })();
+  },[fbReady, familyUsername, familyCode]);
+
+  // ── Merge remote children into local — keeps local children, adds/updates remote ones ──
+  // Used for blended families: each parent's children are preserved, remote ones merged in
+  function mergeChildren(localCh, remoteCh) {
+    // Start with all local children
+    const merged = {...localCh};
+    // Add or update with remote children (remote wins on conflict for same id)
+    Object.entries(remoteCh).forEach(([id, child]) => {
+      if(!merged[id]) {
+        // New child from remote — add it
+        merged[id] = child;
+      } else {
+        // Same child exists locally — merge days (union), keep most recent other fields
+        const localDays = merged[id].days || {};
+        const remoteDays = child.days || {};
+        const mergedDays = {...localDays};
+        Object.entries(remoteDays).forEach(([date, entries]) => {
+          if(!mergedDays[date] || entries.length > (mergedDays[date]||[]).length) {
+            mergedDays[date] = entries;
+          }
+        });
+        merged[id] = {...child, days: mergedDays};
+      }
+    });
+    return merged;
+  }
+
+  // ── Per-child sync: generate a code for a specific child ──
+  async function createChildSyncCode(childId) {
+    if(!window._fb) return null;
+    const {db, doc, getDoc, setDoc, serverTimestamp} = window._fb;
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code, exists = true;
+    while(exists) {
+      code = Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+      try{ const s = await getDoc(doc(db,"child_syncs",code)); exists = s.exists(); }
+      catch{ exists = false; }
+    }
+    const child = children[childId];
+    // Push this single child's data
+    await setDoc(doc(db,"child_syncs",code), {
+      childId,
+      childName: child?.name || "",
+      ownerUid: window._fbUid || "",
+      ownerUsername: familyUsername || "",
+      child: JSON.stringify(child),
+      updatedAt: serverTimestamp(),
+      updatedBy: window._fbUid || ""
+    });
+    setChildSyncCodes(prev => ({...prev, [childId]: code}));
+    subscribeToChildSync(childId, code);
+    trackEvent("child_sync_created");
+    return code;
+  }
+
+  // ── Per-child sync: push one child's data to its sync doc ──
+  async function pushChildSync(childId, code) {
+    if(!window._fb || !code) return;
+    const {db, doc, setDoc, serverTimestamp} = window._fb;
+    const child = children[childId];
+    if(!child) return;
+    try {
+      await setDoc(doc(db,"child_syncs",code), {
+        child: JSON.stringify(child),
+        childName: child.name || "",
+        updatedAt: serverTimestamp(),
+        updatedBy: window._fbUid || ""
+      }, {merge:true});
+    } catch(e) { console.warn("pushChildSync error", e); }
+  }
+
+  // ── Per-child sync: subscribe to live updates for one child ──
+  const subscribeToChildSync = React.useCallback((childId, code) => {
+    if(!window._fb || !code) return;
+    // Unsub existing if any
+    if(childSubsRef.current[childId]) childSubsRef.current[childId]();
+    const {db, doc, onSnapshot} = window._fb;
+    const unsub = onSnapshot(doc(db,"child_syncs",code), (snap) => {
+      if(!snap.exists()) return;
+      const d = snap.data();
+      if(d.updatedBy && d.updatedBy === window._fbUid) return; // skip our own writes
+      try {
+        if(d.child) {
+          const remoteChild = JSON.parse(d.child);
+          setChildren(prev => {
+            const existing = prev[childId];
+            if(!existing) {
+              // New child — add it (partner linked this child to us)
+              return {...prev, [childId]: {...remoteChild, id: childId}};
+            }
+            // Merge days
+            const mergedDays = {...(existing.days||{})};
+            Object.entries(remoteChild.days||{}).forEach(([date, entries]) => {
+              if(!mergedDays[date] || entries.length > (mergedDays[date]||[]).length) {
+                mergedDays[date] = entries;
+              }
+            });
+            return {...prev, [childId]: {...remoteChild, id:childId, days:mergedDays}};
+          });
+        }
+      } catch(e) { console.warn("Child sync apply error", e); }
+    });
+    childSubsRef.current[childId] = unsub;
+  }, []);
+
+  // ── Per-child sync: join a child by its code (partner flow) ──
+  async function joinChildByCode(code) {
+    if(!window._fb) return {ok:false, error:"Not connected"};
+    const {db, doc, getDoc} = window._fb;
+    const clean = code.trim().toUpperCase();
+    if(clean.length !== 6) return {ok:false, error:"Code must be 6 characters"};
+    try {
+      const snap = await getDoc(doc(db,"child_syncs",clean));
+      if(!snap.exists()) return {ok:false, error:"Code not found — ask the other parent to check"};
+      const d = snap.data();
+      const childId = d.childId;
+      if(!childId) return {ok:false, error:"Invalid sync code"};
+      // If we don't have this child yet, add it
+      setChildren(prev => {
+        if(prev[childId]) return prev; // already have it
+        let remoteChild = {};
+        try{ remoteChild = d.child ? JSON.parse(d.child) : {}; }catch{}
+        return {...prev, [childId]: {...remoteChild, id: childId}};
+      });
+      setChildSyncCodes(prev => ({...prev, [childId]: clean}));
+      subscribeToChildSync(childId, clean);
+      trackEvent("child_sync_joined");
+      return {ok:true, childName: d.childName || "child"};
+    } catch(e) { return {ok:false, error:"Something went wrong — please try again"}; }
+  }
+
+  // ── Per-child sync: remove a child from this device (stop seeing them) ──
+  function unlinkChild(childId) {
+    if(childSubsRef.current[childId]) {
+      childSubsRef.current[childId]();
+      delete childSubsRef.current[childId];
+    }
+    setChildSyncCodes(prev => {const n={...prev};delete n[childId];return n;});
+    setChildren(prev => {const n={...prev};delete n[childId];return n;});
+  }
+
+  // ── Per-child sync: re-subscribe on load for all children with codes ──
+  useEffect(()=>{
+    if(!fbReady) return;
+    Object.entries(childSyncCodes).forEach(([childId, code]) => {
+      subscribeToChildSync(childId, code);
+    });
+    return ()=>{
+      Object.values(childSubsRef.current).forEach(unsub=>unsub());
+      childSubsRef.current={};
+    };
+  },[fbReady]);
+
+  // ── Per-child sync: push each child's data when it changes ──
+  useEffect(()=>{
+    if(!fbReady) return;
+    clearTimeout(syncRef.current);
+    syncRef.current = setTimeout(()=>{
+      // Push each child that has a sync code
+      Object.entries(childSyncCodes).forEach(([childId, code]) => {
+        pushChildSync(childId, code);
+      });
+    }, 2000);
+    return ()=>clearTimeout(syncRef.current);
+  },[fbReady, children, childSyncCodes]);
 
   // ── Multi-child: add a new child ──
   function addChild(name, dob, sex, unborn) {
@@ -664,6 +1102,10 @@ function App(){
 
   // ── Add child onboarding modal state ──
   const[showAddChild,setShowAddChild]=useState(false);
+  const[moreSection,setMoreSection]=useState(null); // null | "growth" | "milestones"
+  const[restoreMode,setRestoreMode]=useState(null); // null | "join" | "restore"
+  const[restoreInput,setRestoreInput]=useState("");
+  const[restoreStatus,setRestoreStatus]=useState("");
   const[newChildName,setNewChildName]=useState("");
   const[newChildDob,setNewChildDob]=useState("");
   const[newChildSex,setNewChildSex]=useState("");
@@ -673,6 +1115,18 @@ function App(){
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
   },[napOn]);
+
+  // ── Breast timer tick — increments active side each second ──
+  useEffect(()=>{
+    if(breastActive && breastSide){
+      breastRef.current=setInterval(()=>{
+        setBreastSec(s=>({...s,[breastSide]:s[breastSide]+1}));
+      },1000);
+    } else {
+      clearInterval(breastRef.current);
+    }
+    return()=>clearInterval(breastRef.current);
+  },[breastActive,breastSide]);
 
   // Live countdown to next nap window — ticks every second
   const countdownRef = React.useRef(null);
@@ -768,7 +1222,13 @@ function App(){
     const es=days[d]||[];
     const ml=es.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
     const ns=es.filter(e=>!e.night&&e.type==="nap");
-    return{date:d,ml,napM:ns.reduce((s,n)=>s+minDiff(n.start,n.end),0),naps:ns.length,nightW:es.filter(e=>e.night).length};
+    const napM=ns.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+    const naps=ns.length;
+    const feeds=es.filter(e=>e.type==="feed").length;
+    const poops=es.filter(e=>e.type==="poop").length;
+    const nightW=es.filter(e=>e.night).length;
+    const label=d===todayStr()?"Today":fmtDate(d);
+    return{date:d,ml,napM,nap:napM,naps,feeds,poops,nightW,label};
   });
   const avgMl=last7.length?Math.round(wStats.reduce((s,x)=>s+x.ml,0)/last7.length):0;
   const maxMl=Math.max(...wStats.map(x=>x.ml),1);
@@ -1758,6 +2218,27 @@ function App(){
     });
   }
   function startNap(){setNapStartT(nowTime());setNapSec(0);setNapOn(true);}
+
+  // ── Breast feed timer functions ──
+  function startBreastTimer(side){
+    if(!breastStartTime) setBreastStartTime(nowTime());
+    setBreastSide(side);
+    setBreastActive(true);
+  }
+  function pauseBreastTimer(){setBreastActive(false);}
+  function switchBreastSide(side){
+    setBreastActive(true);
+    setBreastSide(side);
+  }
+  function saveBreastFeed(){
+    const lMins=Math.round(breastSec.L/60), rMins=Math.round(breastSec.R/60);
+    if(lMins===0&&rMins===0)return;
+    const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:false,note:""};
+    setDays(d=>{const updated=[...(d[selDay]||[]),entry];return{...d,[selDay]:autoClassifyNight(updated)};});
+    setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
+    trackEvent("entry_logged",{type:"breast_feed"});
+  }
+  function cancelBreastTimer(){setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);}
   function endNap(){
     setNapOn(false);const end=nowTime();
     setDays(d=>{
@@ -1832,18 +2313,117 @@ function App(){
   const tabSt=t=>({flex:1,padding:"10px 2px",border:"none",background:"none",fontSize:14,fontWeight:700,cursor:"pointer",color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.04em",textTransform:"uppercase"});
   const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
 
-  const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
-  const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
+  const tabIcons={day:"📅",children:"👶",insights:"📊",more:"☰"};
+  const tabLabels={day:"Day",children:"Children",insights:"Insights",more:"More"};
+
+  // ── LOGIN SCREEN — shown on every open if they have an account ──
+  if (loginScreen && onboarded) {
+    const doLogin = async () => {
+      if(loginPin.length !== 4) return;
+      setLoginStatus("checking");
+      const result = await verifyLogin(loginUsername, loginPin);
+      if(result.ok) {
+        setLoginStatus("ok");
+        setTimeout(()=>setLoginScreen(false), 400);
+      } else {
+        setLoginStatus("error");
+        setLoginError(result.error);
+        setLoginPin("");
+      }
+    };
+    return (
+      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 28px",fontFamily:"'DM Sans',sans-serif"}}>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,color:C.ter,marginBottom:6,textAlign:"center"}}>OBubba</div>
+        <div style={{fontSize:14,color:C.lt,marginBottom:48,textAlign:"center"}}>Welcome back 👋</div>
+
+        {/* Username display / change */}
+        <div style={{width:"100%",maxWidth:360,marginBottom:28}}>
+          <div style={{background:"white",borderRadius:16,padding:"12px 16px",border:`1px solid ${C.blush}`,display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+            <div>
+              <div style={{fontSize:12,color:C.lt,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Signed in as</div>
+              <div style={{fontSize:18,fontWeight:700,color:C.deep}}>{loginUsername}</div>
+            </div>
+            <button onClick={()=>{
+              const u = window.prompt("Enter username:", loginUsername);
+              if(u && u.trim()) { setLoginUsername(u.trim()); try{localStorage.setItem("family_username",u.trim());}catch{} }
+            }} style={{background:"none",border:`1px solid ${C.blush}`,borderRadius:99,padding:"5px 10px",fontSize:12,color:C.lt,cursor:"pointer",fontFamily:"inherit"}}>
+              Change
+            </button>
+          </div>
+        </div>
+
+        {/* PIN dots */}
+        <div style={{display:"flex",gap:12,marginBottom:8,justifyContent:"center"}}>
+          {[0,1,2,3].map(i=>(
+            <div key={i} style={{width:52,height:64,borderRadius:14,
+              border:`2px solid ${loginStatus==="error"?C.ter:loginPin.length>i?C.ter:C.blush}`,
+              background:loginStatus==="ok"?"#e8f7f0":loginStatus==="error"&&loginPin.length===0?"#fff0ee":"white",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              transition:"all 0.15s"}}>
+              <div style={{width:14,height:14,borderRadius:"50%",background:loginPin.length>i?C.ter:"transparent",transition:"all 0.15s"}}/>
+            </div>
+          ))}
+        </div>
+        <div style={{fontSize:13,minHeight:20,marginBottom:24,textAlign:"center",color:loginStatus==="error"?C.ter:"#50c878"}}>
+          {loginStatus==="error"?loginError:loginStatus==="ok"?"✓ Welcome back!":""}
+        </div>
+
+        {/* Numpad */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,width:"100%",maxWidth:280,marginBottom:20}}>
+          {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k,i)=>(
+            <button key={i} onClick={()=>{
+              if(k==="") return;
+              if(k==="⌫"){
+                setLoginPin(p=>p.slice(0,-1));
+                setLoginStatus("idle");
+              } else if(loginPin.length<4){
+                const nv = loginPin+String(k);
+                setLoginPin(nv);
+                setLoginStatus("idle");
+                setLoginError("");
+                if(nv.length===4) {
+                  // auto-submit
+                  setTimeout(async()=>{
+                    setLoginStatus("checking");
+                    const result = await verifyLogin(loginUsername, nv);
+                    if(result.ok){setLoginStatus("ok");setTimeout(()=>setLoginScreen(false),400);}
+                    else{setLoginStatus("error");setLoginError(result.error);setLoginPin("");}
+                  },100);
+                }
+              }
+            }} style={{padding:"18px 10px",borderRadius:16,
+              border:`1px solid ${C.blush}`,
+              background:k===""?"transparent":loginStatus==="checking"?"#f5f0ec":"white",
+              fontSize:22,fontWeight:600,color:C.deep,
+              cursor:k===""?"default":"pointer",fontFamily:"inherit",
+              boxShadow:k===""?"none":"0 2px 8px rgba(44,31,26,0.06)",
+              transition:"all 0.1s",
+              opacity:loginStatus==="checking"?0.6:1}}>
+              {k}
+            </button>
+          ))}
+        </div>
+
+        {/* Skip/offline option */}
+        <button onClick={()=>setLoginScreen(false)} style={{background:"none",border:"none",color:C.lt,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+          Skip sign in (offline mode)
+        </button>
+      </div>
+    );
+  }
 
   // ONBOARDING
   if (!onboarded) {
-    const completeOnboarding = () => {
-      // Update the first child (created during init migration) with onboarding data
+    const completeOnboarding = async () => {
       updateChild({
         name: obName.trim() || "",
         dob: obDob || "",
         sex: obSex || "",
       });
+      // Reserve username + PIN in Firebase if provided and available
+      if(obUsername.trim() && obUsernameStatus === "available" && obPin.length === 4 && fbReady) {
+        await reserveUsername(obUsername, obPin);
+      }
       setOnboarded(true);
     };
     const steps = [
@@ -1916,8 +2496,172 @@ function App(){
             <button onClick={()=>setObSex("")} style={{width:"100%",padding:"12px",borderRadius:14,border:`2px solid ${obSex===""?C.ter:C.blush}`,background:obSex===""?"#fdf0eb":"white",color:obSex===""?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,fontFamily:"inherit",transition:"all 0.2s"}}>
               Prefer not to say / skip
             </button>
-            <button onClick={completeOnboarding} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>
-              Start Tracking 🌙
+            <button onClick={()=>setObStep(4)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>
+              Continue →
+            </button>
+          </div>
+        )
+      },
+      {
+        icon:"🔐",
+        title:"Family account",
+        sub:"Create a username and PIN to sync across devices, or join your partner's account.",
+        action: (
+          <div style={{width:"100%",marginTop:12}}>
+            {/* Create / Join toggle */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:20,background:C.warm,borderRadius:14,padding:4}}>
+              {[["create","New account"],["join","Sign in"]].map(([mode,label])=>(
+                <button key={mode} onClick={()=>{setObMode(mode);setObJoinStatus("idle");setObUsernameStatus("idle");setObUsername("");setObPin("");setObPinConfirm("");setObPinStep("set");setObJoinUn("");}}
+                  style={{padding:"10px",borderRadius:11,border:"none",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",
+                    background:obMode===mode?"white":"transparent",color:obMode===mode?C.ter:C.lt,
+                    boxShadow:obMode===mode?"0 2px 8px rgba(0,0,0,0.08)":"none"}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {obMode==="create" ? (
+              <div>
+                {/* Step 1: Pick username */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>Username</label>
+                  <div style={{position:"relative"}}>
+                    <input value={obUsername} onChange={e=>checkUsername(e.target.value)}
+                      placeholder="e.g. TeamSmith"
+                      style={{width:"100%",fontSize:17,padding:"12px 42px 12px 14px",borderRadius:14,
+                        border:`2px solid ${obUsernameStatus==="available"?"#50c878":obUsernameStatus==="taken"||obUsernameStatus==="invalid"?C.ter:C.blush}`,
+                        background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
+                    <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:16}}>
+                      {obUsernameStatus==="checking"?"⏳":obUsernameStatus==="available"?"✅":obUsernameStatus==="taken"?"❌":obUsernameStatus==="invalid"?"⚠️":""}
+                    </span>
+                  </div>
+                  <div style={{fontSize:12,marginTop:4,minHeight:16,
+                    color:obUsernameStatus==="available"?"#50c878":obUsernameStatus==="taken"?C.ter:obUsernameStatus==="invalid"?"#b88a20":C.lt}}>
+                    {obUsernameStatus==="available"?"✓ Available!":obUsernameStatus==="taken"?"Taken — try another":obUsernameStatus==="invalid"?"Min 3 characters":"Your partner uses this to find you"}
+                  </div>
+                </div>
+                {/* Step 2: Set PIN */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>
+                    {obPinStep==="set" ? "4-digit PIN" : "Confirm PIN"}
+                  </label>
+                  <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:4}}>
+                    {[0,1,2,3].map(i=>(
+                      <div key={i} style={{width:44,height:56,borderRadius:12,border:`2px solid ${
+                        (obPinStep==="set"?obPin:obPinConfirm).length>i?C.ter:C.blush}`,
+                        background:"white",display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:24,fontWeight:700,color:C.ter}}>
+                        {(obPinStep==="set"?obPin:obPinConfirm).length>i?"●":""}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Hidden numeric input */}
+                  <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                    value={obPinStep==="set"?obPin:obPinConfirm}
+                    onChange={e=>{
+                      const v=e.target.value.replace(/\D/g,"").slice(0,4);
+                      if(obPinStep==="set"){
+                        setObPin(v);
+                        if(v.length===4) setObPinStep("confirm");
+                      } else {
+                        setObPinConfirm(v);
+                      }
+                    }}
+                    style={{opacity:0,position:"absolute",width:1,height:1}}
+                    autoFocus={obUsernameStatus==="available"}
+                  />
+                  {/* Tap-to-focus overlay */}
+                  <div onClick={e=>{e.currentTarget.previousSibling.focus();}}
+                    style={{width:"100%",height:4}}/>
+                  {obPinStep==="confirm" && obPinConfirm.length===4 && obPin!==obPinConfirm && (
+                    <div style={{fontSize:12,color:C.ter,textAlign:"center",marginTop:4}}>PINs don't match — <button onClick={()=>{setObPin("");setObPinConfirm("");setObPinStep("set");}} style={{background:"none",border:"none",color:C.ter,textDecoration:"underline",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>try again</button></div>
+                  )}
+                  {obPinStep==="confirm" && obPinConfirm.length===4 && obPin===obPinConfirm && (
+                    <div style={{fontSize:12,color:"#50c878",textAlign:"center",marginTop:4}}>✓ PIN confirmed</div>
+                  )}
+                </div>
+                {/* Numpad */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+                  {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k,i)=>(
+                    <button key={i} onClick={()=>{
+                      if(k==="") return;
+                      const cur = obPinStep==="set"?obPin:obPinConfirm;
+                      const set = obPinStep==="set"?setObPin:setObPinConfirm;
+                      if(k==="⌫"){
+                        set(cur.slice(0,-1));
+                      } else if(cur.length<4){
+                        const nv = cur+String(k);
+                        set(nv);
+                        if(obPinStep==="set" && nv.length===4) setObPinStep("confirm");
+                      }
+                    }} style={{padding:"14px",borderRadius:12,border:`1px solid ${C.blush}`,background:k===""?"transparent":"white",fontSize:18,fontWeight:700,color:C.deep,cursor:k===""?"default":"pointer",fontFamily:"inherit"}}>
+                      {k}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={async()=>{
+                  if(obUsernameStatus!=="available"||obPin.length!==4||obPin!==obPinConfirm) return;
+                  await completeOnboarding();
+                }} disabled={obUsernameStatus!=="available"||obPin.length!==4||obPin!==obPinConfirm}
+                  style={{width:"100%",background:obUsernameStatus==="available"&&obPin.length===4&&obPin===obPinConfirm?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                    border:"none",borderRadius:99,padding:"14px",color:obUsernameStatus==="available"&&obPin.length===4&&obPin===obPinConfirm?"white":"#b89890",
+                    fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
+                  Create account & Start Tracking 🌙
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>Username</label>
+                  <input value={obJoinUn} onChange={e=>setObJoinUn(e.target.value)}
+                    placeholder="e.g. TeamSmith" autoCapitalize="none"
+                    style={{width:"100%",fontSize:17,padding:"12px 14px",borderRadius:14,
+                      border:`2px solid ${obJoinStatus==="ok"?"#50c878":obJoinStatus==="error"?C.ter:C.blush}`,
+                      background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>4-digit PIN</label>
+                  <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:8}}>
+                    {[0,1,2,3].map(i=>(
+                      <div key={i} style={{width:44,height:56,borderRadius:12,border:`2px solid ${obPin.length>i?C.ter:C.blush}`,background:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,color:C.ter}}>
+                        {obPin.length>i?"●":""}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:8}}>
+                    {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k,i)=>(
+                      <button key={i} onClick={()=>{
+                        if(k==="") return;
+                        if(k==="⌫"){setObPin(p=>p.slice(0,-1));}
+                        else if(obPin.length<4){setObPin(p=>p+String(k));}
+                      }} style={{padding:"14px",borderRadius:12,border:`1px solid ${C.blush}`,background:k===""?"transparent":"white",fontSize:18,fontWeight:700,color:C.deep,cursor:k===""?"default":"pointer",fontFamily:"inherit"}}>
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {obJoinStatus==="error" && <div style={{fontSize:13,color:C.ter,textAlign:"center",marginBottom:8}}>{obJoinError}</div>}
+                {obJoinStatus==="ok" && <div style={{fontSize:13,color:"#50c878",textAlign:"center",marginBottom:8}}>✓ Signed in! Syncing data…</div>}
+                <button onClick={async()=>{
+                  if(!obJoinUn.trim()||obPin.length!==4||obJoinStatus==="loading"||obJoinStatus==="ok") return;
+                  setObJoinStatus("loading");
+                  const r = await joinByUsername(obJoinUn.trim(), obPin);
+                  if(r.ok){
+                    setFamilyUsername(obJoinUn.trim());
+                    try{localStorage.setItem("family_username",obJoinUn.trim());}catch{}
+                    setObJoinStatus("ok");
+                    setTimeout(()=>completeOnboarding(),900);
+                  } else {setObJoinStatus("error");setObJoinError(r.error);}
+                }} disabled={!obJoinUn.trim()||obPin.length!==4||obJoinStatus==="loading"||obJoinStatus==="ok"}
+                  style={{width:"100%",background:obJoinUn.trim()&&obPin.length===4?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                    border:"none",borderRadius:99,padding:"14px",color:obJoinUn.trim()&&obPin.length===4?"white":"#b89890",
+                    fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
+                  {obJoinStatus==="loading"?"⏳ Signing in…":"Sign in 🌙"}
+                </button>
+              </div>
+            )}
+            <button onClick={completeOnboarding} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit",paddingTop:4}}>
+              Skip for now
             </button>
           </div>
         )
@@ -1964,64 +2708,104 @@ function App(){
           {
             icon:"📅",
             title:"Your Daily Log",
-            body:"The Day tab is your home base. Every feed, nap, wake and nappy gets logged here — all in one beautiful timeline.",
+            body:"The Day tab is your home base. Every feed, nap, wake and nappy gets logged here — all in one timeline.",
             spot:"bottom-nav-day",
             arrow:"bottom",
           },
           {
             icon:"➕",
-            title:"Add an Entry",
-            body:"Tap the big + button to log a feed, nap, wake up, bedtime, or nappy change. You can also tap + add next to Daytime for a shortcut.",
+            title:"Logging Entries",
+            body:null,
+            bodyJSX:(
+              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.6}}>
+                <div style={{marginBottom:10}}>Three ways to log — pick what's easiest in the moment:</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",gap:6}}>
+                  <div>➕ Tap the big <strong>+ button</strong> (bottom right) for the full form</div>
+                  <div>⚡ Use the <strong>quick-log bar</strong> above the nav for one-tap Wet / Dirty / Wake / Bed</div>
+                  <div>📋 Tap <strong>📋</strong> to paste a messy note — the app reads it automatically</div>
+                </div>
+              </div>
+            ),
             spot:"fab-add",
             arrow:"bottom-right",
           },
           {
-            icon:"📋",
-            title:"On the Go? Just Type It",
-            body:"Busy mum? Tap the 📋 button above the + and drop in a messy note like \"fed 180ml at 9am, napped 12-1, bedtime 7pm\" — the app will read it and log everything for you automatically.",
-            spot:"fab-paste",
-            arrow:"bottom-right",
-          },
-          {
             icon:"🍼",
-            title:"Bottle, Breast & Solids",
-            body:"Under Feed you can log bottle ml, breastfeed minutes per side (L/R), or solid food meals. The app tracks them separately.",
+            title:"Feeds: Bottle, Breast & Solids",
+            body:"In the add entry form, choose Feed → then Bottle (ml), Breast (minutes per side L/R), or Solids. The app tracks them separately and gives NHS-aligned guidance.",
             spot:"center",
             arrow:null,
           },
           {
             icon:"😴",
             title:"Nap Timer",
-            body:"Tap Start Nap when baby goes down. The timer runs live and saves the nap automatically when you tap End & Save.",
+            body:"Tap 😴 Start Nap in the top-left corner when baby goes down. A live timer runs. Tap Save when they wake — the nap logs automatically.",
+            spot:"center",
+            arrow:null,
+          },
+          {
+            icon:"🤱",
+            title:"Breast Feed Timer",
+            body:"Tap 🤱 Start Feed in the top-left to time a breastfeed. Tap L or R to track each side — both timers count up and you can switch sides. Tap Save ✓ when done.",
             spot:"center",
             arrow:null,
           },
           {
             icon:"🧠",
-            title:"Sleep Analytics",
-            body:"Once naps are logged, the app gives you a sleep score, 'Is This Normal?' check, feeding reassurance, and a suggested schedule for tomorrow.",
+            title:"Sleep Intelligence",
+            body:"Once naps are logged, scroll the Day tab to see your sleep score, 'Is This Normal?' check, feed reassurance, and a suggested schedule for tomorrow based on your baby's age.",
             spot:"center",
             arrow:null,
           },
           {
             icon:"⏱️",
             title:"Next Nap Countdown",
-            body:"A live countdown in the top corner shows when the next nap window opens based on wake windows for your baby's age.",
+            body:"A live pill in the top-right corner counts down to the next nap window — based on wake windows for your baby's exact age. When it turns terracotta, it's nap time.",
             spot:"nap-countdown",
             arrow:"top-right",
           },
           {
-            icon:"📊",
-            title:"Week & Trends",
-            body:"The Week and Trends tabs give you averages, charts, and insights across the past 7 days. Great for spotting patterns.",
-            spot:"bottom-nav-week",
+            icon:"👶",
+            title:"Children Tab",
+            body:null,
+            bodyJSX:(
+              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
+                <div style={{marginBottom:10}}>Tap <strong>Children</strong> in the bottom nav to manage all your children in one place.</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",gap:6,marginBottom:8}}>
+                  <div>➕ Tap <strong>Add a child</strong> to start tracking another baby</div>
+                  <div>👆 Tap any child card to switch to them</div>
+                  <div>🔗 Enter a co-parent's sync code to link a shared child</div>
+                  <div>↔️ Or <strong>swipe left/right</strong> on the Day header to switch quickly</div>
+                </div>
+                <div style={{fontSize:13,color:"#8a7a6a"}}>Each child has completely separate feeds, naps, growth and milestones.</div>
+              </div>
+            ),
+            spot:"bottom-nav-children",
             arrow:"bottom",
           },
           {
-            icon:"📏",
-            title:"Growth & Milestones",
-            body:"Log weight checks in Growth to see WHO percentile charts. Track developmental milestones in the Milestones tab.",
-            spot:"bottom-nav-growth",
+            icon:"📊",
+            title:"Insights Tab",
+            body:"Tap Insights to see 7-day averages, bar charts for feeds and naps by day, nappy counts, and trend analysis. Great for spotting patterns or preparing for a GP visit.",
+            spot:"bottom-nav-insights",
+            arrow:"bottom",
+          },
+          {
+            icon:"☰",
+            title:"More Tab",
+            body:null,
+            bodyJSX:(
+              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
+                <div style={{marginBottom:10}}>Tap <strong>More</strong> to access:</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",gap:6}}>
+                  <div>📏 <strong>Growth</strong> — log weights, see WHO percentile charts</div>
+                  <div>⭐ <strong>Milestones</strong> — tick off developmental milestones</div>
+                  <div>🔗 <strong>Share & Sync</strong> — set username, sync with partner, per-child codes</div>
+                  <div>🎓 <strong>Tutorial</strong> — replay this tour anytime</div>
+                </div>
+              </div>
+            ),
+            spot:"bottom-nav-more",
             arrow:"bottom",
           },
           {
@@ -2030,14 +2814,13 @@ function App(){
             body:null,
             bodyJSX: (
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.6}}>
-                <div style={{marginBottom:10}}>Get the best experience by saving OBubba as an app — no app store needed!</div>
+                <div style={{marginBottom:10}}>Save OBubba as an app — no app store needed, works offline too!</div>
                 <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8}}>
                   <div style={{fontWeight:700,marginBottom:6}}>🍎 iPhone (Safari)</div>
                   <div style={{display:"flex",flexDirection:"column",gap:3}}>
                     <div>1. Tap the <strong>Share</strong> button (□↑) at the bottom</div>
-                    <div>2. Scroll down and tap <strong>View More</strong></div>
-                    <div>3. Tap <strong>Add to Home Screen</strong></div>
-                    <div>4. Tap <strong>Add</strong> to confirm</div>
+                    <div>2. Tap <strong>Add to Home Screen</strong></div>
+                    <div>3. Tap <strong>Add</strong></div>
                   </div>
                 </div>
                 <div style={{background:"#f0f5f0",borderRadius:12,padding:"10px 12px"}}>
@@ -2045,27 +2828,8 @@ function App(){
                   <div style={{display:"flex",flexDirection:"column",gap:3}}>
                     <div>1. Tap the <strong>three-dot menu</strong> (⋮) top right</div>
                     <div>2. Tap <strong>Add to Home Screen</strong></div>
-                    <div>3. Tap <strong>Add</strong> to confirm</div>
                   </div>
                 </div>
-              </div>
-            ),
-            spot:"center",
-            arrow:null,
-          },
-          {
-            icon:"👶",
-            title:"Multiple Children",
-            body:null,
-            bodyJSX:(
-              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
-                <div style={{marginBottom:10}}>Tracking more than one child? OBubba handles it!</div>
-                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
-                  <div>👆 <strong>Swipe left or right</strong> on the header to switch between children</div>
-                  <div>● <strong>Dots</strong> at the top of the header show which child you're on</div>
-                  <div>＋ Tap the <strong>+ button</strong> next to the dots to add a new child</div>
-                </div>
-                <div style={{fontSize:13,color:"#8a7a6a"}}>Each child has their own feeds, naps, growth chart and milestones — completely separate.</div>
               </div>
             ),
             spot:"center",
@@ -2077,13 +2841,16 @@ function App(){
             body:null,
             bodyJSX:(
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
-                <div style={{marginBottom:10}}>OBubba automatically backs up your data to the cloud — no setup needed.</div>
+                <div style={{marginBottom:10}}>OBubba automatically backs up everything to the cloud — no setup needed.</div>
                 <div style={{background:"#e8f7f0",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6,border:"1px solid #b0e8cc"}}>
-                  <div>🔄 Every entry saves to Firebase within <strong>2 seconds</strong></div>
-                  <div>🔑 You have a personal <strong>backup code</strong> — find it under the Share button</div>
-                  <div>📲 New phone? Enter your backup code to <strong>restore everything</strong></div>
+                  <div>🔄 Every entry saves within <strong>2 seconds</strong></div>
+                  <div>👤 Data is tied to your <strong>family username</strong></div>
+                  <div>📲 New phone? Enter your exact username in <strong>More → Share & Sync → Restore</strong></div>
                 </div>
-                <div style={{fontSize:13,color:"#4a8a6a",fontWeight:600}}>Tip: write your backup code down somewhere safe!</div>
+                <div style={{background:"#fff3e0",borderRadius:12,padding:"10px 12px",border:"1px solid #f0c870",display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
+                  <div style={{fontSize:13,color:"#8a5a10",lineHeight:1.5}}><strong>Important:</strong> wrong username = no data. Write yours down somewhere safe!</div>
+                </div>
               </div>
             ),
             spot:"center",
@@ -2091,18 +2858,21 @@ function App(){
           },
           {
             icon:"👨‍👩‍👧",
-            title:"Share with Your Partner",
+            title:"Partner Sync & Blended Families",
             body:null,
             bodyJSX:(
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
-                <div style={{marginBottom:10}}>Keep both parents in sync — every feed and nap updates on both phones instantly.</div>
+                <div style={{marginBottom:8}}>Go to <strong>More → Share & Sync</strong> to:</div>
                 <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
-                  <div>1. Tap <strong>👨‍👩‍👧 Share</strong> in the header</div>
-                  <div>2. Tap <strong>"Create family code"</strong> — you'll get a 6-letter code</div>
-                  <div>3. Your partner opens OBubba, taps Share, enters the code</div>
-                  <div>4. <strong>Both phones sync in real time ✓</strong></div>
+                  <div>1. Set your <strong>family username</strong></div>
+                  <div>2. Tap <strong>Get code</strong> next to a child to get their sync code</div>
+                  <div>3. Send that code to the co-parent — they enter it in <strong>Children → Link a child</strong></div>
+                  <div>4. Each parent only sees the children they've been given codes for ✓</div>
                 </div>
-                <div style={{fontSize:13,color:"#8a7a6a"}}>Works across Android and iPhone.</div>
+                <div style={{background:"#fff3e0",borderRadius:12,padding:"10px 12px",border:"1px solid #f0c870",display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
+                  <div style={{fontSize:13,color:"#8a5a10",lineHeight:1.5}}>Username must be <strong>exact</strong> — check spelling before sharing.</div>
+                </div>
               </div>
             ),
             spot:"center",
@@ -2111,7 +2881,7 @@ function App(){
           {
             icon:"🎉",
             title:"You're all set!",
-            body:"That's everything you need to know. You can revisit this tour anytime from the header menu. Happy tracking!",
+            body:"That's everything. Tap More → Tutorial anytime to replay this tour. Happy tracking — you've got this! 🌙",
             spot:"center",
             arrow:null,
           },
@@ -2130,14 +2900,15 @@ function App(){
         const step = TUT_STEPS[tutStep];
         const isLast = tutStep === TUT_STEPS.length - 1;
 
-        // Spotlight positions
+        // Spotlight positions — 4 equal tabs: Day(0-25%), Children(25-50%), Insights(50-75%), More(75-100%)
         const spotPos = {
-          "bottom-nav-day":   { bottom:55, left:"10%",  width:"18%", height:56 },
-          "bottom-nav-week":  { bottom:55, left:"28%",  width:"18%", height:56 },
-          "bottom-nav-growth":{ bottom:55, left:"64%",  width:"18%", height:56 },
-          "fab-add":          { bottom:72, right:16,    width:58,    height:58 },
-          "fab-paste":        { bottom:138, right:18,   width:46,    height:46 },
-          "nap-countdown":    { top:8,     right:12,    width:110,   height:50 },
+          "bottom-nav-day":       { bottom:55, left:"2%",   width:"23%", height:56 },
+          "bottom-nav-children":  { bottom:55, left:"26%",  width:"23%", height:56 },
+          "bottom-nav-insights":  { bottom:55, left:"51%",  width:"23%", height:56 },
+          "bottom-nav-more":      { bottom:55, left:"75%",  width:"23%", height:56 },
+          "fab-add":              { bottom:72, right:16,    width:58,    height:58 },
+          "fab-paste":            { bottom:138, right:18,   width:46,    height:46 },
+          "nap-countdown":        { top:8,     right:12,    width:110,   height:50 },
           "center": null,
         };
         const pos = spotPos[step.spot];
@@ -2250,6 +3021,14 @@ function App(){
         );
       })()}
 
+      {/* OFFLINE BANNER */}
+      {!isOnline&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:999,background:"#2c1f1a",color:"white",textAlign:"center",padding:"10px 16px",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <span>📵</span>
+          <span>You're offline — entries are saved locally and will sync when you reconnect</span>
+        </div>
+      )}
+
       {/* HERO HEADER */}
       <div
         style={{background:theme.primary,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}
@@ -2257,9 +3036,11 @@ function App(){
         onTouchEnd={handleSwipeEnd}
       >
 
-        {/* ── NAP TIMER (top-left) ── */}
+        {/* ── NAP + BREAST TIMER (top-left) ── */}
         {tab === "day" && (
-          <div style={{position:"absolute",top:14,left:16,zIndex:10}}>
+          <div style={{position:"absolute",top:14,left:16,zIndex:10,display:"flex",flexDirection:"column",gap:5}}>
+
+            {/* Nap timer */}
             {!napOn ? (
               <button onClick={startNap} style={{background:"rgba(255,255,255,0.85)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mint,cursor:"pointer",fontWeight:700,backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",display:"flex",alignItems:"center",gap:5}}>
                 😴 <span>Start Nap</span>
@@ -2268,6 +3049,40 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.9)",borderRadius:99,padding:"5px 6px 5px 12px",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",backdropFilter:"blur(8px)"}}>
                 <span style={{fontSize:14,fontFamily:"monospace",fontWeight:700,color:C.mint}}>😴 {fmtSec(napSec)}</span>
                 <button onClick={endNap} style={{background:C.mint,border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:"white",cursor:"pointer",fontWeight:700}}>Save</button>
+              </div>
+            )}
+
+            {/* Breast feed timer */}
+            {!breastStartTime ? (
+              <button onClick={()=>startBreastTimer("L")} style={{background:"rgba(255,255,255,0.85)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.ter,cursor:"pointer",fontWeight:700,backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",display:"flex",alignItems:"center",gap:5}}>
+                🤱 <span>Start Feed</span>
+              </button>
+            ) : (
+              <div style={{background:"rgba(255,255,255,0.95)",borderRadius:16,padding:"8px 10px",boxShadow:"0 2px 16px rgba(44,31,26,0.15)",backdropFilter:"blur(8px)",minWidth:170}}>
+                {/* Side timers */}
+                <div style={{display:"flex",gap:5,marginBottom:6}}>
+                  {["L","R"].map(side=>(
+                    <button key={side} onClick={()=>switchBreastSide(side)} style={{
+                      flex:1,padding:"5px 4px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"monospace",fontWeight:700,fontSize:13,
+                      background: breastSide===side&&breastActive ? C.ter : "#f5e8e4",
+                      color: breastSide===side&&breastActive ? "white" : C.mid,
+                      transition:"all 0.15s"
+                    }}>
+                      {side} {fmtSec(breastSec[side])}
+                      {breastSide===side&&breastActive&&<span style={{marginLeft:3,fontSize:10}}>●</span>}
+                    </button>
+                  ))}
+                </div>
+                {/* Pause / save */}
+                <div style={{display:"flex",gap:5}}>
+                  <button onClick={breastActive?pauseBreastTimer:()=>startBreastTimer(breastSide||"L")} style={{flex:1,padding:"4px",borderRadius:8,border:`1px solid ${C.blush}`,background:"none",fontSize:12,color:C.mid,cursor:"pointer",fontWeight:600}}>
+                    {breastActive?"⏸ Pause":"▶ Resume"}
+                  </button>
+                  <button onClick={saveBreastFeed} style={{flex:1,padding:"4px",borderRadius:8,border:"none",background:C.ter,color:"white",fontSize:12,cursor:"pointer",fontWeight:700}}>
+                    Save ✓
+                  </button>
+                  <button onClick={cancelBreastTimer} style={{padding:"4px 7px",borderRadius:8,border:"none",background:"#f0e8e4",color:C.lt,fontSize:12,cursor:"pointer"}}>✕</button>
+                </div>
               </div>
             )}
           </div>
@@ -2332,7 +3147,7 @@ function App(){
               {(()=>{
                 const age = calcAge(babyDob);
                 if (!age && !babyUnborn) return (
-                  <div onClick={e=>{e.stopPropagation();setTab("growth");}} style={{fontSize:15,color:C.lt,marginTop:8,fontFamily:"monospace",cursor:"pointer"}}>
+                  <div onClick={e=>{e.stopPropagation();setTab("more");setMoreSection("growth");}} style={{fontSize:15,color:C.lt,marginTop:8,fontFamily:"monospace",cursor:"pointer"}}>
                     Add date of birth in Growth tab →
                   </div>
                 );
@@ -2344,10 +3159,11 @@ function App(){
                         <span style={{fontSize:15}}>🤰</span>
                         <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</span>
                       </div>
-                      <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
-                      <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
-                        {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync":"🔗 "+familyCode) : "👨‍👩‍👧 Share"}
-                      </button>
+                      {familyCode && (
+                        <div style={{background:syncStatus==="synced"?"rgba(80,200,120,0.25)":"rgba(255,255,255,0.35)",borderRadius:99,padding:"5px 12px",fontSize:13,color:C.mid,fontFamily:"monospace",fontWeight:600}}>
+                          {syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing":syncStatus==="error"?"⚠️":"🔗 "+( familyUsername||"")}
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -2360,10 +3176,11 @@ function App(){
                       <span style={{fontSize:15}}>🎂</span>
                       <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{parts.join(" & ")} · {age.totalWeeks} weeks</span>
                     </div>
-                    <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
-                    <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
-                      {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync":"🔗 "+familyCode) : "👨‍👩‍👧 Share"}
-                    </button>
+                    {familyCode && (
+                      <div style={{background:syncStatus==="synced"?"rgba(80,200,120,0.25)":"rgba(255,255,255,0.35)",borderRadius:99,padding:"5px 12px",fontSize:13,color:C.mid,fontFamily:"monospace",fontWeight:600}}>
+                        {syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing":syncStatus==="error"?"⚠️":"🔗 "+(familyUsername||"")}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -2447,7 +3264,25 @@ function App(){
                 <button onClick={()=>openEntry(false)} style={{background:C.ter,border:"none",borderRadius:99,padding:"5px 13px",fontSize:14,color:"white",cursor:"pointer",fontWeight:600}}>+ add</button>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
-                {dayE.length===0&&<div style={{textAlign:"center",padding:"20px",color:C.lt,fontSize:15,fontFamily:"monospace"}}>No entries yet</div>}
+                {dayE.length===0&&(
+                  <div style={{textAlign:"center",padding:"22px 12px",background:C.warm,borderRadius:14,border:`1px dashed ${C.blush}`}}>
+                    <div style={{fontSize:28,marginBottom:8}}>👆</div>
+                    <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>Nothing logged yet today</div>
+                    <div style={{fontSize:13,color:C.lt,lineHeight:1.5,marginBottom:12}}>
+                      Tap <strong>+ add</strong> above or the <strong>+</strong> button to log a feed, nap, or wake.<br/>
+                      {Object.keys(days).filter(d=>(days[d]||[]).length>0).length===0
+                        ? "Log your first entry to unlock sleep insights and feed tracking."
+                        : "Quick-log buttons below the screen let you log in one tap."}
+                    </div>
+                    <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                      {[["🍼","Feed",()=>openEntry(false)],["😴","Nap",startNap],["⏰","Wake",()=>{setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"wake",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};});}]].map(([icon,label,action])=>(
+                        <button key={label} onClick={action} style={{padding:"7px 16px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>
+                          <span>{icon}</span><span>{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {dayE.map(e=>{
                   const isDragging=dragId===e.id;
                   const isOver=dragOver===e.id;
@@ -2555,7 +3390,13 @@ function App(){
               {/* Unified Feed Card */}
               {(()=>{
                 const fc = feedCard();
-                if (!fc) return null;
+                if (!fc) return (
+                  <div style={{background:C.warm,borderRadius:14,padding:"16px",marginBottom:10,border:`1px dashed ${C.blush}`,textAlign:"center"}}>
+                    <div style={{fontSize:22,marginBottom:6}}>🍼</div>
+                    <div style={{fontSize:14,fontWeight:600,color:C.mid,marginBottom:3}}>No feeds logged yet</div>
+                    <div style={{fontSize:13,color:C.lt}}>Log a bottle or breast feed to see intake tracking and NHS guidance here.</div>
+                  </div>
+                );
                 return (
                   <div style={{background:fc.bg,border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
                     <div style={{fontSize:14,fontFamily:"monospace",color:fc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Today's Milk Intake</div>
@@ -2705,7 +3546,13 @@ function App(){
               {/* Is This Normal - Sleep */}
               {(()=>{
                 const sc = sleepNormalCard();
-                if (!sc) return null;
+                if (!sc) return (
+                  <div style={{background:C.warm,borderRadius:14,padding:"16px",marginBottom:10,border:`1px dashed ${C.blush}`,textAlign:"center"}}>
+                    <div style={{fontSize:22,marginBottom:6}}>😴</div>
+                    <div style={{fontSize:14,fontWeight:600,color:C.mid,marginBottom:3}}>No naps logged yet</div>
+                    <div style={{fontSize:13,color:C.lt}}>Tap <strong>Start Nap</strong> in the header or log a nap to see age-based sleep guidance.</div>
+                  </div>
+                );
                 return (
                   <div style={{background:sc.bg,border:`1px solid ${sc.color}30`,borderLeft:`4px solid ${sc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
                     <div style={{fontSize:14,fontFamily:"monospace",color:sc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Is This Normal? Today's Sleep</div>
@@ -2870,425 +3717,342 @@ function App(){
           )
         )}
 
-        {/* WEEK TAB */}
-        {tab==="week"&&(
-          <div>
-            <div style={card}>
-              <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Avg Daily Feed (last 7 days)</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:C.ter}}>{avgMl}<span style={{fontSize:15,color:C.lt,fontWeight:400}}> ml</span></div>
-            </div>
-            <div style={card}>
-              <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Feed Total by Day</div>
-              <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
-                {wStats.map((s,i)=>(
-                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                    <div style={{fontSize:9,fontFamily:"monospace",color:C.lt}}>{s.ml||""}</div>
-                    <div style={{width:"100%",background:`${C.ter}${s.date===selDay?"ff":"88"}`,borderRadius:"4px 4px 0 0",height:`${Math.max(4,(s.ml/maxMl)*60)}px`}}/>
-                    <div style={{fontSize:9,fontFamily:"monospace",color:s.date===selDay?C.ter:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,5)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={card}>
-              <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Nap Time by Day (mins)</div>
-              <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
-                {wStats.map((s,i)=>(
-                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                    <div style={{fontSize:9,fontFamily:"monospace",color:C.lt}}>{s.napM||""}</div>
-                    <div style={{width:"100%",background:`${C.mint}${s.date===selDay?"ff":"88"}`,borderRadius:"4px 4px 0 0",height:`${Math.max(4,(s.napM/maxNapBar)*60)}px`}}/>
-                    <div style={{fontSize:9,fontFamily:"monospace",color:s.date===selDay?C.mint:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,5)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={card}>
-              <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Day Summary</div>
-              {wStats.map((s,i)=>(
-                <div key={i} onClick={()=>{setSelDay(s.date);setTab("day");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:i<wStats.length-1?`1px solid ${C.blush}`:"none",cursor:"pointer"}}>
-                  <span style={{fontSize:15,color:s.date===selDay?C.ter:C.deep,fontWeight:s.date===selDay?600:400}}>{fmtLong(s.date)}</span>
-                  <div style={{display:"flex",gap:8}}>
-                    <span style={{fontSize:14,fontFamily:"monospace",color:C.ter}}>{s.ml}ml</span>
-                    <span style={{fontSize:14,fontFamily:"monospace",color:C.mint}}>{s.naps} naps</span>
-                    <span style={{fontSize:14,fontFamily:"monospace",color:C.lt}}>{s.nightW}🌙</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TRENDS TAB */}
-        {tab==="trends"&&(
-          dayKeys.length<3?(
-            <div style={{textAlign:"center",padding:"48px 20px",color:C.lt}}>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Not enough data yet</div>
-              <div style={{fontSize:15,fontFamily:"monospace"}}>Add at least 3 days to see trends</div>
-            </div>
-          ):(
+        {/* INSIGHTS TAB — Week + Trends merged */}
+        {tab==="insights"&&(()=>{
+          return (
             <div>
-              {tLast&&tPrev&&(
-                <div style={card}>
-                  <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>This Week vs Last Week</div>
-                  {[
-                    {label:"Avg Daily Feed",curr:tLast.avgMl,prev:tPrev.avgMl,unit:"ml"},
-                    {label:"Avg Nap Time",curr:tLast.avgNap,prev:tPrev.avgNap,unit:"min"},
-                    {label:"Avg Night Wakes",curr:tLast.avgNight,prev:tPrev.avgNight,unit:""},
-                  ].map((row,i)=>{
-                    const t=arrow(row.curr,row.prev);
-                    return(
-                      <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:i<2?`1px solid ${C.blush}`:"none"}}>
-                        <div>
-                          <div style={{fontSize:15,fontWeight:500}}>{row.label}</div>
-                          <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginTop:2}}>Last week: {row.prev}{row.unit}</div>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.ter}}>{row.curr}<span style={{fontSize:14,color:C.lt}}>{row.unit}</span></div>
-                          {t&&<div style={{fontSize:16,color:t.color,lineHeight:1}}>{t.icon}</div>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div style={card}>
-                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Daily Feed (ml)</div>
-                <TrendLine vals={mlVals} keys={dayKeys} color={C.ter}/>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,paddingTop:4}}>
+                <div style={{width:3,height:16,background:C.ter,borderRadius:99}}/>
+                <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>This Week</div>
               </div>
               <div style={card}>
-                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Daily Nap Time</div>
-                <TrendLine vals={napVals} keys={dayKeys} color={C.mint} unit="m"/>
+                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Avg Daily Feed (last 7 days)</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:C.ter}}>{avgMl}<span style={{fontSize:15,color:C.lt,fontWeight:400}}> ml</span></div>
               </div>
-              {weekAvgs.length>1&&(
-                <div style={card}>
-                  <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Weekly Averages</div>
-                  {weekAvgs.map((wk,i)=>(
-                    <div key={i} style={{padding:"9px 0",borderBottom:i<weekAvgs.length-1?`1px solid ${C.blush}`:"none"}}>
-                      <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginBottom:5}}>{wk.label} · {wk.days} days</div>
-                      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
-                        <span style={{background:"#f5e0d8",color:C.ter,fontFamily:"monospace",fontSize:15,padding:"2px 8px",borderRadius:99}}>~{wk.avgMl}ml/day</span>
-                        <span style={{background:"#d4ede6",color:C.mint,fontFamily:"monospace",fontSize:15,padding:"2px 8px",borderRadius:99}}>~{hm(wk.avgNap)} naps</span>
-                        <span style={{background:"#f5eccb",color:"#b88a20",fontFamily:"monospace",fontSize:15,padding:"2px 8px",borderRadius:99}}>~{wk.avgNight} night wakes</span>
+              <div style={card}>
+                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Feed Total by Day</div>
+                <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
+                  {wStats.map((s,i)=>(
+                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                      <div style={{width:"100%",background:C.blush,borderRadius:6,position:"relative",height:60,display:"flex",alignItems:"flex-end"}}>
+                        <div style={{width:"100%",borderRadius:6,background:s.ml>0?C.ter:C.blush,height:`${maxMl>0?Math.max(8,s.ml/maxMl*60):8}px`,transition:"height 0.5s"}}/>
                       </div>
+                      <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase"}}>{s.label}</div>
+                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:C.mid}}>{s.ml>0?s.ml:"-"}</div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )
-        )}
-
-        {/* GROWTH TAB */}
-        {tab==="growth"&&(()=>{
-          const ageMonths = babyDob ? Math.floor((new Date() - new Date(babyDob)) / (1000*60*60*24*30.44)) : null;
-          const sortedW = [...weights].sort((a,b)=>a.date.localeCompare(b.date));
-          const wWithPct = sortedW.map(w => {
-            if(!babyDob) return {...w, pct: null};
-            const ageMo = Math.floor((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44));
-            if(ageMo < 0 || ageMo > 24) return {...w, pct: null};
-            return {...w, pct: getPercentile(w.kg, ageMo, babySex), ageMo};
-          });
-          const latest = wWithPct.filter(w=>w.pct!==null).slice(-1)[0];
-          const W=280,H=80;
-          const kgs = sortedW.map(w=>w.kg);
-          const maxKg = Math.max(...kgs,1);
-          const minKg = Math.min(...kgs,0)*0.95;
-          const pts = sortedW.map((w,i)=>({
-            x: sortedW.length===1?W/2:(i/(sortedW.length-1))*W,
-            y: H-((w.kg-minKg)/(maxKg-minKg||1))*H,
-            kg:w.kg, date:w.date
-          }));
-          const path = pts.map((p,i)=>`${i===0?"M":"L"}${p.x},${p.y}`).join(" ");
-
-          return(
-            <div>
-              <div style={{...card}}>
-                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Baby Info</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-                  <div>
-                    <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>{babyUnborn ? "Due Date" : "Date of Birth"}</label>
-                    <input type="date" value={babyDob} onChange={e=>setBabyDob(e.target.value)} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
-                    <div style={{display:"flex",gap:6,marginTop:6}}>
-                      {[["born","Born 🎉"],["unborn","Due 🤰"]].map(([v,l])=>(
-                        <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"5px 8px",borderRadius:10,border:`1.5px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:14,fontWeight:600,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
-                          {l}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Sex</label>
-                    <select value={babySex} onChange={e=>setBabySex(e.target.value)} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}>
-                      <option value="boy">Boy</option>
-                      <option value="girl">Girl</option>
-                    </select>
-                  </div>
-                </div>
-                {ageMonths!==null&&<div style={{fontSize:14,color:C.mid,fontFamily:"monospace",textAlign:"center",marginTop:4}}>
-                  {babyUnborn
-                    ? (()=>{
-                        const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-                        return daysUntil > 0
-                          ? <span>{babyName||"Baby"} is due in <strong style={{color:C.ter}}>{daysUntil} day{daysUntil!==1?"s":""}</strong> 🤰</span>
-                          : <span>Due date has passed — update to date of birth!</span>;
-                      })()
-                    : <span>{babyName||"Baby"} is <strong style={{color:C.ter}}>{ageMonths} month{ageMonths!==1?"s":""}</strong> old</span>
-                  }
-                </div>}
               </div>
-
-              {latest&&(
-                <div style={{...card,textAlign:"center",padding:"20px 16px"}}>
-                  <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Latest Weight Percentile</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:52,fontWeight:700,color:percentileColor(latest.pct),lineHeight:1}}>{ordinal(latest.pct)}</div>
-                  <div style={{fontSize:15,color:C.mid,marginTop:6}}>{latest.kg}kg at {latest.ageMo} months · {babySex}</div>
-                  <div style={{fontSize:14,marginTop:6,padding:"6px 12px",borderRadius:99,display:"inline-block",background:percentileColor(latest.pct)+"22",color:percentileColor(latest.pct),fontFamily:"monospace",fontWeight:600}}>
-                    {percentileNote(latest.pct)}
-                  </div>
-                </div>
-              )}
-
-              <div style={{...card}}>
-                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Log Weight</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-                  <Inp label="Date" type="date" value={growthForm.date} onChange={e=>setGrowthForm(f=>({...f,date:e.target.value}))} style={{marginBottom:0}}/>
-                  <Inp label="Weight (kg)" type="number" step="0.01" placeholder="e.g. 5.2" value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
-                </div>
-                <PBtn onClick={()=>{
-                  if(!growthForm.kg)return;
-                  const updated=[...weights.filter(x=>x.date!==growthForm.date),{date:growthForm.date,kg:parseFloat(growthForm.kg)}].sort((a,b)=>a.date.localeCompare(b.date));
-                  setWeights(updated);setGrowthForm({date:todayStr(),kg:""});
-                }}>Save Weight</PBtn>
-              </div>
-
-              {sortedW.length>=2&&(
-                <div style={{...card}}>
-                  <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Weight Over Time</div>
-                  <svg width="100%" viewBox={`0 0 ${W} ${H+20}`} style={{overflow:"visible"}}>
-                    <path d={path} fill="none" stroke={C.ter} strokeWidth={2} strokeLinejoin="round"/>
-                    {pts.map((p,i)=>(
-                      <g key={i}>
-                        <circle cx={p.x} cy={p.y} r={4} fill={C.ter}/>
-                        <text x={p.x} y={p.y-9} textAnchor="middle" fontSize={9} fill={C.mid} fontFamily="monospace">{p.kg}kg</text>
-                        <text x={p.x} y={H+16} textAnchor="middle" fontSize={8} fill={C.lt} fontFamily="monospace">{fmtDate(p.date).slice(0,5)}</text>
-                      </g>
-                    ))}
-                  </svg>
-                </div>
-              )}
-
-              {wWithPct.filter(w=>w.pct!==null).length>0&&(
-                <div style={{...card}}>
-                  <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Percentile History</div>
-                  {wWithPct.filter(w=>w.pct!==null).reverse().map((w,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:i<wWithPct.filter(x=>x.pct!==null).length-1?`1px solid ${C.blush}`:"none"}}>
-                      <div>
-                        <div style={{fontSize:15,fontWeight:500}}>{fmtLong(w.date)}</div>
-                        <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginTop:2}}>{w.ageMo} months · {w.kg}kg</div>
+              <div style={card}>
+                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Avg Nap Time by Day</div>
+                <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
+                  {wStats.map((s,i)=>(
+                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                      <div style={{width:"100%",background:C.blush,borderRadius:6,position:"relative",height:60,display:"flex",alignItems:"flex-end"}}>
+                        <div style={{width:"100%",borderRadius:6,background:s.nap>0?C.mint:C.blush,height:`${maxNapBar>0?Math.max(8,s.nap/maxNapBar*60):8}px`,transition:"height 0.5s"}}/>
                       </div>
-                      <span style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:percentileColor(w.pct)}}>{ordinal(w.pct)}</span>
+                      <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase"}}>{s.label}</div>
+                      <div style={{fontSize:11,fontFamily:"monospace",fontWeight:700,color:C.mid}}>{s.nap>0?hm(s.nap):"-"}</div>
                     </div>
                   ))}
                 </div>
-              )}
-
-              {weights.length>0&&(
-                <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                  {[...weights].sort((a,b)=>b.date.localeCompare(a.date)).map((w,i)=>(
-                    <div key={i} style={{background:C.warm,border:`1px solid ${C.blush}`,borderRadius:14,padding:"11px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontSize:15,fontWeight:500}}>{fmtLong(w.date)}</span>
-                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <span style={{background:"#f5e0d8",color:C.ter,fontFamily:"monospace",fontSize:15,padding:"3px 10px",borderRadius:99,fontWeight:600}}>{w.kg} kg</span>
-                        <button onClick={()=>setWeights(ws=>ws.filter(x=>x.date!==w.date))} style={{background:"#f0e5e0",border:"none",borderRadius:"50%",width:23,height:23,color:C.lt,cursor:"pointer",fontSize:14}}>✕</button>
-                      </div>
+              </div>
+              <div style={card}>
+                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Nappy Changes by Day</div>
+                <div style={{display:"flex",gap:8}}>
+                  {wStats.map((s,i)=>(
+                    <div key={i} style={{flex:1,textAlign:"center"}}>
+                      <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",marginBottom:4}}>{s.label}</div>
+                      <div style={{fontWeight:700,color:C.mid,fontSize:13}}>{s.poops||"-"}</div>
                     </div>
                   ))}
                 </div>
-              )}
-              {weights.length===0&&<div style={{textAlign:"center",color:C.lt,fontSize:15,fontFamily:"monospace",padding:"20px 0"}}>No weights logged yet</div>}
+              </div>
+
+              <div style={{display:"flex",alignItems:"center",gap:8,margin:"20px 0 16px",paddingTop:4}}>
+                <div style={{width:3,height:16,background:C.gold,borderRadius:99}}/>
+                <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Trends</div>
+              </div>
+              <div style={card}>
+                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>7-Day Avg Feeds / Day</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.ter}}>{(wStats.reduce((s,d)=>s+(d.feeds||0),0)/7).toFixed(1)}</div>
+              </div>
+              <div style={card}>
+                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>7-Day Avg Naps / Day</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.mint}}>{(wStats.reduce((s,d)=>s+(d.naps||0),0)/7).toFixed(1)}</div>
+              </div>
+              {(()=>{
+                const alerts = regressionCheck();
+                if (!alerts) return null;
+                return alerts.map((a,i)=>(
+                  <div key={i} style={{background:"#fff8f0",border:"1px solid #f0d8b0",borderLeft:"4px solid #d4a855",borderRadius:16,padding:"14px 16px",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <span style={{fontSize:18}}>{a.icon}</span>
+                      <div style={{fontSize:14,fontWeight:700,color:"#8a6020"}}>{a.title}</div>
+                    </div>
+                    <div style={{fontSize:14,color:C.mid,lineHeight:1.6}}>{a.body}</div>
+                  </div>
+                ));
+              })()}
             </div>
           );
         })()}
 
-        {/* MILESTONES TAB */}
-        {tab==="milestones"&&(()=>{
-          const age = calcAge(babyDob);
-          const ageWeeks = age ? age.totalWeeks : null;
-          const currentMonth = babyUnborn ? -1 : (age ? age.months : null);
-          const doneCount = MILESTONES.filter(m=>milestones[m.id]&&milestones[m.id].date).length;
+        {/* CHILDREN TAB */}
+        {tab==="children"&&(()=>{
+          return (
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,paddingTop:4}}>
+                <div style={{width:3,height:16,background:C.ter,borderRadius:99}}/>
+                <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Your Children</div>
+              </div>
 
-          if (!babyDob) return (
-            <div style={{...card,textAlign:"center",padding:"36px 20px"}}>
-              <div style={{fontSize:40,marginBottom:14}}>🎂</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Add your baby's date of birth</div>
-              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>We'll show milestones organised by month, tailored to exactly how old {babyName||"your baby"} is today.</div>
-              <button onClick={()=>setTab("growth")} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>Set Date of Birth →</button>
-            </div>
-          );
-
-          // Unborn baby — show all milestones greyed out with a banner
-          if (babyUnborn) {
-            const daysUntil = babyDob ? Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24)) : null;
-            return (
-              <div>
-                <div style={{background:"linear-gradient(135deg,#fdeee8,#fad8d0)",border:`1px solid ${C.rose}`,borderRadius:16,padding:"16px 18px",marginBottom:16,textAlign:"center"}}>
-                  <div style={{fontSize:28,marginBottom:8}}>🤰</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.deep,fontWeight:700,marginBottom:4}}>
-                    {daysUntil > 0 ? `Due in ${daysUntil} day${daysUntil!==1?"s":""}` : "Almost here!"}
-                  </div>
-                  <div style={{fontSize:15,color:C.mid,lineHeight:1.6}}>Milestones are ready and waiting. They'll unlock once {babyName||"your baby"} arrives!</div>
-                </div>
-                {[0,1,2,3,4,5,6].map(mo => {
-                  const ms = MILESTONES.filter(m => {
-                    const startMo = Math.floor(m.earliest / 4.33);
-                    const endMo = Math.floor(m.latest / 4.33);
-                    return mo >= startMo && mo <= endMo;
-                  });
-                  if (!ms.length) return null;
-                  const monthLabel = mo === 0 ? "Newborn" : `Month ${mo}`;
+              {/* Child cards */}
+              <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
+                {Object.values(children).map(child => {
+                  const isActive = child.id === resolvedActiveId;
+                  const age = calcAge(child.dob);
+                  const todayEntries = (child.days||{})[todayStr()]||[];
+                  const feeds = todayEntries.filter(e=>e.type==="feed").length;
+                  const naps = todayEntries.filter(e=>e.type==="nap").length;
                   return (
-                    <div key={mo} style={{...card, padding:0, overflow:"hidden", marginBottom:12, opacity:0.45}}>
-                      <div style={{background:"#f0ece8", padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-                        <div style={{fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:700, color:"#b0a8a4"}}>{monthLabel}</div>
-                        <span style={{fontSize:14,color:"#c0b8b4",fontFamily:"monospace"}}>🔒 {ms.length} milestones</span>
-                      </div>
-                      <div style={{padding:"4px 16px 6px"}}>
-                        {ms.map(m => (
-                          <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
-                            <div style={{width:22,height:22,borderRadius:"50%",border:"2px solid #ddd",background:"transparent",flexShrink:0}}/>
-                            <div style={{fontSize:15,color:"#c8bdb8"}}>{m.label}</div>
+                    <div key={child.id} onClick={()=>{setActiveChildId(child.id);setTab("day");}}
+                      style={{background:isActive?"#fdf0eb":"white",borderRadius:18,padding:"16px",border:`2px solid ${isActive?C.ter:C.blush}`,cursor:"pointer",transition:"all 0.2s"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:44,height:44,borderRadius:14,background:isActive?C.ter:C.blush,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
+                            {child.sex==="girl"?"👧":child.sex==="boy"?"👦":"👶"}
                           </div>
-                        ))}
+                          <div>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep}}>{child.name||"Unnamed"}</div>
+                            <div style={{fontSize:13,color:C.lt}}>{age ? `${age.months}m ${age.weeksAfterMonths}w` : "Age unknown"}</div>
+                          </div>
+                        </div>
+                        {isActive && <div style={{background:C.ter,color:"white",borderRadius:99,padding:"3px 10px",fontSize:12,fontWeight:700}}>Active</div>}
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <div style={{flex:1,background:"rgba(255,255,255,0.7)",borderRadius:10,padding:"8px",textAlign:"center"}}>
+                          <div style={{fontSize:18,fontWeight:700,color:C.ter}}>{feeds}</div>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:"monospace",textTransform:"uppercase"}}>feeds today</div>
+                        </div>
+                        <div style={{flex:1,background:"rgba(255,255,255,0.7)",borderRadius:10,padding:"8px",textAlign:"center"}}>
+                          <div style={{fontSize:18,fontWeight:700,color:C.mint}}>{naps}</div>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:"monospace",textTransform:"uppercase"}}>naps today</div>
+                        </div>
+                        <div style={{flex:1,background:"rgba(255,255,255,0.7)",borderRadius:10,padding:"8px",textAlign:"center"}}>
+                          <div style={{fontSize:18,fontWeight:700,color:C.mid}}>{todayEntries.length}</div>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:"monospace",textTransform:"uppercase"}}>entries</div>
+                        </div>
+                      </div>
+                      <div style={{marginTop:8,fontSize:12,color:isActive?C.ter:C.lt,fontWeight:600,textAlign:"center"}}>
+                        {isActive ? "Currently tracking ✓" : "Tap to switch →"}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            );
-          }
 
-          const msMonths = (m) => {
-            const startMo = Math.floor(m.earliest / 4.33);
-            const endMo = Math.floor(m.latest / 4.33);
-            return { startMo, endMo };
-          };
-
-          const maxMonth = Math.max((currentMonth||0) + 1, 12);
-          const months = Array.from({length: maxMonth + 1}, (_, i) => i);
-
-          const msForMonth = (mo) => MILESTONES.filter(m => {
-            const { startMo, endMo } = msMonths(m);
-            return mo >= startMo && mo <= endMo;
-          });
-
-          const MilestoneRow = ({m, monthIdx}) => {
-            const done = milestones[m.id] && milestones[m.id].date;
-            const isCurrent = currentMonth !== null && monthIdx === currentMonth;
-            const isPast = currentMonth !== null && monthIdx < currentMonth;
-            const isFuture = currentMonth !== null && monthIdx > currentMonth + 1;
-            const checkBorder = done ? C.mint : isCurrent ? C.ter : isFuture ? "#ddd" : C.blush;
-            const checkBg = done ? C.mint : "transparent";
-            const textColor = done ? C.mint : isFuture ? "#c8bdb8" : C.deep;
-
-            return (
-              <div onClick={()=>{
-                if(isFuture) return;
-                if(done){
-                  if(window.confirm(`Remove "${m.label}"?`)) setMilestones(ms=>({...ms,[m.id]:{}}));
-                } else {
-                  setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
-                }
-              }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${C.blush}`,cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1}}>
-                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${checkBorder}`,background:checkBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  {done&&<span style={{color:"white",fontSize:15,fontWeight:700}}>✓</span>}
+              {/* Add child button — big, obvious, impossible to miss */}
+              <button onClick={()=>setShowAddChild(true)} style={{
+                width:"100%",padding:"18px",borderRadius:18,border:`2px dashed ${C.ter}`,
+                background:"#fdf8f5",color:C.ter,fontSize:16,fontWeight:700,
+                cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",
+                justifyContent:"center",gap:10,marginBottom:16,transition:"all 0.2s"
+              }}>
+                <span style={{fontSize:28}}>+</span>
+                <div style={{textAlign:"left"}}>
+                  <div>Add a child</div>
+                  <div style={{fontSize:13,fontWeight:400,color:C.lt,marginTop:1}}>Track another baby or child separately</div>
                 </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:15,fontWeight:done?600:400,color:textColor}}>{m.label}</div>
-                  {done&&<div style={{fontSize:14,fontFamily:"monospace",color:C.lt,marginTop:1}}>✓ {fmtLong(milestones[m.id].date)}</div>}
+              </button>
+
+              {/* Link a child from another parent */}
+              <div style={{background:"white",borderRadius:14,padding:"14px 16px",border:`1px solid ${C.blush}`,marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <span style={{fontSize:18}}>🔗</span>
+                  <div style={{fontWeight:700,fontSize:15,color:C.mid}}>Link a child from a co-parent</div>
                 </div>
-                {!done && isCurrent && <span style={{fontSize:14,background:"#fdeee8",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700,flexShrink:0}}>Now</span>}
-                {!done && isPast && !isFuture && <span style={{fontSize:14,background:"#fdf4f0",color:C.lt,borderRadius:99,padding:"3px 8px",flexShrink:0}}>Tap to log</span>}
+                <div style={{fontSize:13,color:C.lt,marginBottom:10}}>Have a sync code from another parent? Enter it to add their child to your app.</div>
+                <LinkChildForm joinChildByCode={joinChildByCode} C={C}/>
               </div>
-            );
-          };
 
-          const MonthBlock = ({mo}) => {
-            const ms = msForMonth(mo);
-            if (!ms.length) return null;
-            const isCurrent = currentMonth !== null && mo === currentMonth;
-            const isNext = currentMonth !== null && mo === currentMonth + 1;
-            const isPast = currentMonth !== null && mo < currentMonth;
-            const isFuture = currentMonth !== null && mo > currentMonth + 1;
-            const doneMsInBlock = ms.filter(m => milestones[m.id] && milestones[m.id].date);
-            const headerBg = isCurrent
-              ? `linear-gradient(135deg,#c9705a,#a85a44)`
-              : isNext ? `linear-gradient(135deg,#e8a898,#d49080)`
-              : isPast ? "white"
-              : "#f5f2ef";
-            const headerText = (isCurrent || isNext) ? "white" : isPast ? C.mid : "#b0a8a4";
-            const monthLabel = mo === 0 ? "Newborn" : `Month ${mo}`;
-            const monthRange = mo === 0 ? "0–4 weeks" : `${mo}–${mo+1} months`;
-
-            return (
-              <div style={{...card, padding:0, overflow:"hidden", marginBottom:12}}>
-                <div style={{background:headerBg, padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-                  <div>
-                    <div style={{fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:700, color:headerText, lineHeight:1}}>{monthLabel}</div>
-                    <div style={{fontSize:14, fontFamily:"monospace", color: (isCurrent||isNext) ? "rgba(255,255,255,0.7)" : C.lt, marginTop:3}}>{monthRange}</div>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    {isCurrent && <span style={{fontSize:15,background:"rgba(255,255,255,0.25)",color:"white",borderRadius:99,padding:"3px 10px",fontWeight:700}}>👶 Right now</span>}
-                    {isNext && <span style={{fontSize:15,background:"rgba(255,255,255,0.25)",color:"white",borderRadius:99,padding:"3px 10px",fontWeight:700}}>🔜 Up next</span>}
-                    {isPast && <span style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>{doneMsInBlock.length}/{ms.length} done</span>}
-                    {isFuture && <span style={{fontSize:15,color:"#c0b8b4",fontFamily:"monospace"}}>{ms.length} milestones</span>}
-                  </div>
-                </div>
-                <div style={{padding:"4px 16px 6px"}}>
-                  {ms.map(m => <MilestoneRow key={m.id} m={m} monthIdx={mo}/>)}
-                </div>
+              {/* Swipe tip */}
+              <div style={{background:C.warm,borderRadius:12,padding:"12px 14px",display:"flex",gap:10,alignItems:"center",border:`1px solid ${C.blush}`}}>
+                <span style={{fontSize:20}}>👆</span>
+                <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>You can also <strong>swipe left/right</strong> on the main header to quickly switch between children.</div>
               </div>
-            );
-          };
-
-          const ageParts = [];
-          if (age.months > 0) ageParts.push(`${age.months} month${age.months!==1?"s":""}`);
-          if (age.weeksAfterMonths > 0) ageParts.push(`${age.weeksAfterMonths} week${age.weeksAfterMonths!==1?"s":""}`);
-          if (age.remainingDays > 0 || ageParts.length===0) ageParts.push(`${age.remainingDays} day${age.remainingDays!==1?"s":""}`);
-
-          return (
-            <div>
-              <div style={{...card, background:`linear-gradient(135deg,#fdf4f0,#fff8f4)`, marginBottom:16}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div>
-                    <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5}}>{possessive(babyName||"Baby")} age today</div>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.ter,lineHeight:1.1}}>{ageParts.join(", ")}</div>
-                    <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginTop:4}}>{age.totalDays} days · week {age.totalWeeks}</div>
-                  </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.mint}}>{doneCount}</div>
-                    <div style={{fontSize:14,fontFamily:"monospace",color:C.lt}}>achieved</div>
-                  </div>
-                </div>
-                <div style={{marginTop:12,background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
-                  <div style={{height:"100%",borderRadius:99,background:`linear-gradient(90deg,${C.ter},${C.mint})`,width:`${Math.round(doneCount/MILESTONES.length*100)}%`}}/>
-                </div>
-                <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,marginTop:3,textAlign:"right"}}>{doneCount} of {MILESTONES.length}</div>
-              </div>
-              {months.map(mo => <MonthBlock key={mo} mo={mo}/>)}
             </div>
           );
         })()}
 
-      </div>
+        {/* MORE TAB — Growth, Milestones, Share/Sync */}
+        {tab==="more"&&(()=>{
+
+          // ── GROWTH sub-screen ──
+          if(moreSection==="growth") return (()=>{
+            const weights = activeChild.weights || [];
+            const hasDob = !!babyDob;
+            const ageWeeks = babyDob ? Math.floor((Date.now()-new Date(babyDob))/(7*24*60*60*1000)) : null;
+            return (
+              <div>
+                <button onClick={()=>setMoreSection(null)} style={{background:"none",border:"none",color:C.ter,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:12,padding:0}}>← Back</button>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:16}}>Growth</div>
+                {!hasDob && (
+                  <div style={{background:"#fff8e8",borderRadius:12,padding:"12px 14px",marginBottom:14,border:"1px solid #f0d890",fontSize:14,color:"#8a6a10"}}>
+                    Add a date of birth in the Children tab to see percentile charts.
+                  </div>
+                )}
+                <div style={card}>
+                  <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Log Weight</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                    <div>
+                      <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4}}>Date</label>
+                      <input type="date" value={growthForm.date} onChange={e=>setGrowthForm(f=>({...f,date:e.target.value}))}
+                        style={{width:"100%",padding:"9px",borderRadius:10,border:`1.5px solid ${C.blush}`,fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4}}>Weight (kg)</label>
+                      <input type="number" step="0.01" value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))}
+                        placeholder="e.g. 4.2"
+                        style={{width:"100%",padding:"9px",borderRadius:10,border:`1.5px solid ${C.blush}`,fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                  </div>
+                  <button onClick={()=>{
+                    if(!growthForm.kg) return;
+                    const entry={date:growthForm.date,kg:parseFloat(growthForm.kg)};
+                    setWeights(prev=>[...prev.filter(w=>w.date!==entry.date),entry].sort((a,b)=>a.date.localeCompare(b.date)));
+                    setGrowthForm(f=>({...f,kg:""}));
+                  }} style={{width:"100%",padding:"11px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    Save Weight
+                  </button>
+                </div>
+                {weights.length > 0 && (
+                  <div style={card}>
+                    <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Weight History</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {[...weights].reverse().map((w,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 10px",background:C.warm,borderRadius:10}}>
+                          <div style={{fontSize:14,color:C.mid}}>{w.date}</div>
+                          <div style={{fontSize:16,fontWeight:700,color:C.ter}}>{w.kg} kg</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })();
+
+          // ── MILESTONES sub-screen ──
+          if(moreSection==="milestones") return (()=>{
+            const milestones = activeChild.milestones || {};
+            const MILESTONES = [
+              {mo:1,items:["First smile","Tracks objects with eyes","Responds to sounds"]},
+              {mo:2,items:["Coos and makes sounds","Holds head up briefly","Recognises familiar faces"]},
+              {mo:3,items:["Laughs out loud","Opens and shuts hands","Pushes up on tummy"]},
+              {mo:4,items:["Rolls front to back","Reaches for objects","Babbles"]},
+              {mo:6,items:["Sits with support","Transfers objects between hands","First solid foods"]},
+              {mo:9,items:["Crawls or shuffles","Says mama/dada","Pulls to stand"]},
+              {mo:12,items:["First steps","Says 1–3 words","Waves bye-bye"]},
+              {mo:18,items:["Runs","Says 10–25 words","Follows simple instructions"]},
+              {mo:24,items:["Jumps","Says 50+ words","Plays with other children"]},
+            ];
+            const doneCount = Object.values(milestones).filter(Boolean).length;
+            const totalCount = MILESTONES.reduce((s,m)=>s+m.items.length,0);
+            return (
+              <div>
+                <button onClick={()=>setMoreSection(null)} style={{background:"none",border:"none",color:C.ter,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:12,padding:0}}>← Back</button>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:4}}>Milestones</div>
+                <div style={{fontSize:14,color:C.lt,marginBottom:16}}>{doneCount} of {totalCount} reached</div>
+                <div style={{background:C.warm,borderRadius:10,height:8,marginBottom:20,overflow:"hidden"}}>
+                  <div style={{height:"100%",borderRadius:99,background:`linear-gradient(90deg,${C.ter},${C.mint})`,width:`${Math.round(doneCount/totalCount*100)}%`,transition:"width 0.5s"}}/>
+                </div>
+                {MILESTONES.map(mo=>(
+                  <div key={mo.mo} style={card}>
+                    <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>{mo.mo} Month{mo.mo>1?"s":""}</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {mo.items.map(item=>(
+                        <div key={item} onClick={()=>setMilestones(prev=>({...prev,[item]:!prev[item]}))}
+                          style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:12,background:milestones[item]?"#e8f7f0":"white",border:`1.5px solid ${milestones[item]?C.mint:C.blush}`,cursor:"pointer",transition:"all 0.2s"}}>
+                          <div style={{width:22,height:22,borderRadius:99,border:`2px solid ${milestones[item]?C.mint:C.blush}`,background:milestones[item]?C.mint:"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                            {milestones[item]&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
+                          </div>
+                          <div style={{fontSize:14,color:milestones[item]?C.mint:C.mid,fontWeight:milestones[item]?600:400}}>{item}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })();
+
+          // ── MORE home screen ──
+          return (
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,paddingTop:4}}>
+                <div style={{width:3,height:16,background:C.ter,borderRadius:99}}/>
+                <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>More</div>
+              </div>
+
+              {/* Menu items */}
+              {[
+                {icon:"📏", label:"Growth", sub:"Weight log & WHO percentile charts", action:()=>setMoreSection("growth")},
+                {icon:"⭐", label:"Milestones", sub:"Developmental milestone tracker", action:()=>setMoreSection("milestones")},
+                {icon:"🔗", label:"Share & Sync", sub:"Partner sync, family username, backup", action:()=>setShowFamilyModal(true)},
+                {icon:"🎓", label:"Tutorial", sub:"Replay the app tour", action:()=>{try{localStorage.removeItem("tut_v1");}catch{}setTutStep(0);}},
+              ].map(item=>(
+                <button key={item.label} onClick={item.action} style={{width:"100%",background:"white",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:10,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:14,textAlign:"left"}}>
+                  <div style={{width:44,height:44,borderRadius:14,background:"#fdf0eb",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{item.icon}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{item.label}</div>
+                    <div style={{fontSize:13,color:C.lt,marginTop:1}}>{item.sub}</div>
+                  </div>
+                  <span style={{fontSize:18,color:C.lt}}>›</span>
+                </button>
+              ))}
+
+              {/* App info */}
+              <div style={{marginTop:8,textAlign:"center",padding:"12px"}}>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.lt,fontStyle:"italic"}}>OBubba</div>
+                <div style={{fontSize:12,color:C.lt,marginTop:2}}>Made with love for tired parents</div>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* BOTTOM NAV */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto"}}>
-        {["day","week","trends","growth","milestones"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={tabSt(t)}>
-            <span style={{fontSize:18}}>{tabIcons[t]}</span>
+        {["day","children","insights","more"].map(t=>(
+          <button key={t} onClick={()=>{setTab(t);if(t!=="more")setMoreSection(null);}} style={tabSt(t)}>
+            <span style={{fontSize:20}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
           </button>
         ))}
       </div>
+
+      {/* QUICK-LOG BAR — one-tap logging for common actions */}
+      {tab==="day" && (
+        <div style={{position:"fixed",bottom:62,left:0,right:0,zIndex:48,padding:"0 12px 8px",pointerEvents:"none"}}>
+          <div style={{display:"flex",gap:6,justifyContent:"flex-start",pointerEvents:"all",overflowX:"auto",paddingBottom:2,scrollbarWidth:"none"}}>
+            {[
+              {label:"💧 Wet",   action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+              {label:"💩 Dirty", action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"poop",time:nowTime(),poopType:"dirty",night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+              {label:"⏰ Wake",  action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"wake",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+              {label:"🌙 Bed",   action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"sleep",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+            ].map(({label,action})=>(
+              <button key={label} onClick={action} style={{
+                flexShrink:0,padding:"7px 13px",borderRadius:99,border:"none",
+                background:"rgba(255,255,255,0.92)",
+                color:C.mid,fontSize:13,fontWeight:700,cursor:"pointer",
+                boxShadow:"0 2px 10px rgba(44,31,26,0.12)",
+                backdropFilter:"blur(8px)",fontFamily:"inherit",
+                whiteSpace:"nowrap"
+              }}>{label}</button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* FABs */}
       <div style={{position:"fixed",bottom:70,right:18,display:"flex",flexDirection:"column",gap:10,alignItems:"center",zIndex:49}}>
@@ -3642,11 +4406,7 @@ function App(){
       )}
 
       {/* ── FAMILY SYNC MODAL ── */}
-      {showFamilyModal && (()=>{
-        const[restoreMode,setRestoreMode]=React.useState(false);
-        const[restoreInput,setRestoreInput]=React.useState("");
-        const[restoreStatus,setRestoreStatus]=React.useState(""); // "" | "loading" | "ok" | "fail"
-        return (
+      {showFamilyModal && (
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowFamilyModal(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"#faf6f0",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
 
@@ -3662,81 +4422,115 @@ function App(){
               </div>
             </div>
 
-            {/* Backup code (for recovery) */}
-            {backupCode && (
-              <div style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
-                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Your personal backup code</div>
-                <div style={{fontFamily:"monospace",fontSize:18,fontWeight:700,color:C.mid,letterSpacing:"0.12em",marginBottom:4}}>{backupCode}</div>
-                <div style={{fontSize:12,color:C.lt}}>Save this somewhere safe. If you lose your phone, use "Restore data" below to get everything back.</div>
+            {/* Account info */}
+            {familyUsername ? (
+              <div style={{background:"white",borderRadius:12,padding:"14px 16px",marginBottom:16,border:`1px solid ${C.blush}`}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Your account</div>
+                    <div style={{fontSize:20,fontWeight:700,color:C.ter}}>{familyUsername}</div>
+                    <div style={{fontSize:12,color:C.lt,marginTop:2}}>Your partner signs in with this username + your PIN</div>
+                  </div>
+                  <span style={{fontSize:22}}>🔐</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{background:"#fff8e8",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1px solid #f0d890"}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#8a6a10",marginBottom:4}}>No account set up</div>
+                <div style={{fontSize:13,color:"#9a7a20",marginBottom:8}}>Go through setup to create a username and PIN for syncing with your partner.</div>
               </div>
             )}
 
             <div style={{width:"100%",height:1,background:C.blush,marginBottom:16}}/>
 
-            {familyCode ? (
-              <>
-                <div style={{background:"white",borderRadius:16,padding:"20px",marginBottom:16,textAlign:"center",border:`2px solid ${C.mint}30`}}>
-                  <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Your Family Code</div>
-                  <div style={{fontFamily:"monospace",fontSize:38,fontWeight:700,color:C.ter,letterSpacing:"0.15em",marginBottom:8}}>{familyCode}</div>
-                  <div style={{fontSize:13,color:C.lt,marginBottom:12}}>Share this with your partner — they tap "👨‍👩‍👧 Share" and enter it</div>
-                  <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-                    <div style={{fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:99,background:
-                      syncStatus==="synced"?"#e8f7f0":
-                      syncStatus==="syncing"?"#fff8e8":
-                      syncStatus==="error"?"#fff0f0":"#f0f0f0",
-                      color:syncStatus==="synced"?C.mint:syncStatus==="syncing"?"#b88a20":syncStatus==="error"?C.ter:C.lt
-                    }}>
-                      {syncStatus==="synced"?"✓ Synced with partner":
-                       syncStatus==="syncing"?"⏳ Syncing…":
-                       syncStatus==="error"?"⚠️ Sync error — check connection":
-                       "○ Waiting for partner"}
+            {/* ── PER-CHILD SHARING ── */}
+            <div style={{fontFamily:"monospace",fontSize:12,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Share children individually</div>
+
+            {/* Each child gets its own code */}
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              {Object.values(children).map(child => {
+                const cid = child.id;
+                const code = childSyncCodes[cid];
+                const isShared = !!code;
+                return (
+                  <div key={cid} style={{background:"white",borderRadius:14,padding:"12px 14px",border:`1px solid ${isShared?C.mint+"40":C.blush}`}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isShared?8:0}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:15,color:C.deep}}>{child.name||"Unnamed child"}</div>
+                        <div style={{fontSize:12,color:C.lt}}>{isShared?"Sharing enabled":"Not shared yet"}</div>
+                      </div>
+                      {!isShared ? (
+                        <button onClick={async()=>{await createChildSyncCode(cid);}} style={{padding:"7px 14px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
+                          Get code
+                        </button>
+                      ) : (
+                        <span style={{fontSize:18}}>🔗</span>
+                      )}
                     </div>
+                    {isShared && (
+                      <>
+                        <div style={{background:"#f0faf5",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,border:"1px solid #b0e8cc"}}>
+                          <div>
+                            <div style={{fontSize:11,fontFamily:"monospace",color:"#4a8a6a",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Sync code</div>
+                            <div style={{fontFamily:"monospace",fontSize:24,fontWeight:700,color:C.ter,letterSpacing:"0.18em"}}>{code}</div>
+                          </div>
+                          <button onClick={()=>{try{navigator.clipboard.writeText(code);}catch{}}} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"white",fontSize:12,fontWeight:600,color:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
+                            Copy
+                          </button>
+                        </div>
+                        <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Share this code with the co-parent — they tap "Link a child" below and enter it.</div>
+                        <button onClick={()=>unlinkChild(cid)} style={{fontSize:12,color:C.lt,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit",textDecoration:"underline"}}>
+                          Remove from my app
+                        </button>
+                      </>
+                    )}
                   </div>
-                </div>
-                <button onClick={()=>{
-                  setFamilyCode(null);
-                  try{localStorage.removeItem("family_code");}catch{}
-                  if(unsubscribeRef.current) unsubscribeRef.current();
-                  setSyncStatus("idle");
-                  setShowFamilyModal(false);
-                }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1px solid ${C.blush}`,background:"none",color:C.lt,fontSize:15,cursor:"pointer",fontFamily:"inherit",marginBottom:12}}>
-                  Leave family sync
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={async()=>{
-                  setSyncStatus("syncing");
-                  await createFamilyCode();
-                  setSyncStatus("synced");
-                }} style={{width:"100%",padding:"15px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:12}}>
-                  {syncStatus==="syncing" ? "⏳ Creating…" : "✨ Create family code"}
-                </button>
-                <div style={{textAlign:"center",fontSize:13,color:C.lt,marginBottom:12}}>or</div>
-                <div style={{background:"white",borderRadius:16,padding:"16px",border:`1px solid ${C.blush}`,marginBottom:12}}>
-                  <div style={{fontSize:14,fontWeight:600,color:C.mid,marginBottom:10}}>Join with a code</div>
-                  <input value={joinCodeInput} onChange={e=>setJoinCodeInput(e.target.value.toUpperCase())}
-                    placeholder="e.g. AB3X7Y" maxLength={6}
-                    style={{width:"100%",fontSize:24,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.15em",textAlign:"center",padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}/>
-                  {joinError && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{joinError}</div>}
-                  <button onClick={()=>joinFamily(joinCodeInput)} style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:C.mint,color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                    Join family
+                );
+              })}
+            </div>
+
+            {/* Link a child from another parent */}
+            <LinkChildForm joinChildByCode={joinChildByCode} C={C} fullCard={true}/>
+
+            {/* Join by username */}
+            <div style={{borderRadius:12,border:`1px solid ${C.blush}`,overflow:"hidden",marginBottom:12}}>
+              <button onClick={()=>{setRestoreMode(m=>m==="join"?null:"join");setRestoreInput("");setRestoreStatus("");}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.mid,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center",fontWeight:600}}>
+                <span>🔗 Join a partner's username</span>
+                <span style={{fontSize:12,color:C.lt}}>{restoreMode==="join"?"▲":"▼"}</span>
+              </button>
+              {restoreMode==="join" && (
+                <div style={{padding:"0 16px 16px"}}>
+                  <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your partner's family username to pull their children and data onto this device.</div>
+                  <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value)}
+                    placeholder="e.g. TeamSmith"
+                    style={{width:"100%",fontSize:16,fontFamily:"inherit",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${restoreStatus==="fail"?C.ter:restoreStatus==="ok"?"#50c878":C.blush}`,background:"#faf6f0",color:C.deep,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
+                  {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Username not found — check the spelling</div>}
+                  {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Joined and synced!</div>}
+                  <button onClick={async()=>{
+                    if(!restoreInput.trim()) return;
+                    setRestoreStatus("loading");
+                    const r = await joinByUsername(restoreInput.trim());
+                    setRestoreStatus(r.ok?"ok":"fail");
+                    if(!r.ok) setRestoreInput("");
+                    if(r.ok) setTimeout(()=>setShowFamilyModal(false),1200);
+                  }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    {restoreStatus==="loading"?"⏳ Joining…":"Join username"}
                   </button>
                 </div>
-              </>
-            )}
+              )}
+            </div>
 
             {/* Restore data section */}
             <div style={{borderRadius:12,border:`1px dashed ${C.blush}`,overflow:"hidden"}}>
-              <button onClick={()=>setRestoreMode(m=>!m)} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.lt,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span>🔄 Restore data from backup</span>
-                <span style={{fontSize:12}}>{restoreMode?"▲":"▼"}</span>
+              <button onClick={()=>{setRestoreMode(m=>m==="restore"?null:"restore");setRestoreInput("");setRestoreStatus("");}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.lt,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>🔄 Restore from backup code</span>
+                <span style={{fontSize:12}}>{restoreMode==="restore"?"▲":"▼"}</span>
               </button>
-              {restoreMode && (
+              {restoreMode==="restore" && (
                 <div style={{padding:"0 16px 16px"}}>
-                  <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code or family code from another device to restore all data.</div>
+                  <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code from another device to restore all data.</div>
                   <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
-                    placeholder="Enter backup or family code"
+                    placeholder="Enter backup code"
                     style={{width:"100%",fontSize:16,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.1em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}/>
                   {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
                   {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
@@ -3754,8 +4548,8 @@ function App(){
 
           </div>
         </div>
-        );
-      })()}
+      )}
+
 
     </div>
   );
@@ -3772,6 +4566,112 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
     if(sex==="girl")document.body.classList.add("girl");
     else if(sex==="boy")document.body.classList.add("boy");
   }catch(e){}
+})();
+</script>
+
+<script>
+// Register service worker for offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Inline service worker as blob URL so it works from any path
+    const swCode = `
+const CACHE = 'obubba-v1';
+const ASSETS = [
+  self.registration.scope,
+  'https://unpkg.com/react@18/umd/react.development.js',
+  'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
+  'https://unpkg.com/@babel/standalone/babel.js',
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap',
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(cache => {
+      // Cache what we can, ignore failures (CDN assets)
+      return Promise.allSettled(ASSETS.map(url => cache.add(url).catch(()=>{})));
+    }).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', e => {
+  // Always serve the app shell from cache if available (offline-first for navigation)
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      caches.match(self.registration.scope)
+        .then(cached => cached || fetch(e.request))
+        .catch(() => caches.match(self.registration.scope))
+    );
+    return;
+  }
+  // For other requests: network first, fallback to cache
+  e.respondWith(
+    fetch(e.request)
+      .then(resp => {
+        if (resp && resp.status === 200 && resp.type !== 'opaque') {
+          const clone = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(e.request))
+  );
+});
+`;
+    const blob = new Blob([swCode], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl, {scope: '/'})
+      .then(reg => {
+        window._swReg = reg;
+        console.log('SW registered');
+      })
+      .catch(e => console.warn('SW reg failed:', e));
+  });
+}
+</script>
+<script>
+// iOS PWA safe JSX executor - avoids eval() restriction
+// Babel.transform() returns a string, we run it via blob URL (no eval needed)
+(function() {
+  function run() {
+    var src = document.getElementById("jsx-src");
+    if (!src) { showError("jsx-src element not found"); return; }
+    if (typeof Babel === "undefined") { showError("Babel not loaded"); return; }
+    if (typeof React === "undefined") { showError("React not loaded"); return; }
+    try {
+      var result = Babel.transform(src.textContent, {
+        presets: ["react"],
+        filename: "app.js"
+      });
+      var blob = new Blob([result.code], {type: "application/javascript"});
+      var url = URL.createObjectURL(blob);
+      var script = document.createElement("script");
+      script.src = url;
+      script.onerror = function(e) { showError("Execution error - check console"); };
+      document.head.appendChild(script);
+    } catch(e) {
+      showError("Transform error: " + e.message);
+    }
+  }
+  function showError(msg) {
+    var d = document.getElementById("root");
+    if (d) {
+      d.innerHTML = "<div style=\"background:#fff;color:#c00;padding:20px;font-family:monospace;font-size:13px;border:2px solid #c00;margin:20px;border-radius:8px\"><strong>Error:</strong><br>" + msg + "</div>";
+    }
+  }
+  // Wait for all scripts to be ready
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run);
+  } else {
+    run();
+  }
 })();
 </script>
 </body>
