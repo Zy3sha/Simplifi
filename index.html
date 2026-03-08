@@ -2700,9 +2700,23 @@ function App(){
             arrow:"bottom",
           },
           {
+            icon:"⚙️",
+            title:"Edit Baby Details",
+            body:"Tap the ⚙️ gear icon in the top-right of the header to edit your baby's name, date of birth, or sex at any time. The Growth tab uses this info automatically — no need to enter it twice!",
+            spot:"center",
+            arrow:null,
+          },
+          {
+            icon:"🤱",
+            title:"Breast Feed Timer",
+            body:"Tap Start Feed to start a live breastfeed timer. Switch between L and R sides mid-feed — the app tracks each side separately. Tap Save ✓ when done and it logs straight to your day.",
+            spot:"center",
+            arrow:null,
+          },
+          {
             icon:"📏",
-            title:"Growth & Milestones",
-            body:"Log weight checks in Growth to see WHO percentile charts. Track developmental milestones in the Milestones tab.",
+            title:"Growth & Percentiles",
+            body:"Head to the Growth tab to log weight check-ins. Once your baby's sex and date of birth are set via ⚙️, OBubba shows their WHO percentile — where they rank among babies their age.",
             spot:"bottom-nav-growth",
             arrow:"bottom",
           },
@@ -2800,7 +2814,7 @@ function App(){
           {
             icon:"🎉",
             title:"You're all set!",
-            body:"That's everything you need to know. You can revisit this tour anytime from the header menu. Happy tracking!",
+            body:"That's everything! Tap ⚙️ in the header to update baby details, or '? Tour' anytime to revisit. Happy tracking!",
             spot:"center",
             arrow:null,
           },
@@ -2949,182 +2963,148 @@ function App(){
 
       {/* HERO HEADER */}
       <div
-        style={{background:theme.primary,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}
+        style={{background:theme.primary,padding:"16px 16px 0",position:"relative"}}
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
+        {/* ── ROW 1: Child dots + spacer + settings ── */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            {childIds.map(cid=>(
+              <button key={cid} onClick={()=>setActiveChildId(cid)} style={{
+                width:cid===resolvedActiveId?22:8,height:8,borderRadius:99,border:"none",cursor:"pointer",
+                background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.18)",transition:"all 0.25s",padding:0
+              }}/>
+            ))}
+            <button onClick={()=>setShowAddChild(true)} style={{
+              width:22,height:22,borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.2)",
+              background:"transparent",color:C.mid,cursor:"pointer",fontSize:13,
+              display:"flex",alignItems:"center",justifyContent:"center"
+            }}>+</button>
+          </div>
+          <button onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
+            style={{background:"rgba(255,255,255,0.5)",border:"none",borderRadius:99,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16}}>
+            ⚙️
+          </button>
+        </div>
 
-        {/* ── NAP + BREAST TIMER (top-left) ── */}
-        {tab === "day" && (
-          <div style={{position:"absolute",top:14,left:16,zIndex:10,display:"flex",flexDirection:"column",gap:5}}>
+        {/* ── ROW 2: Baby name (editable) ── */}
+        {!nameEdit ? (
+          <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}} style={{cursor:"pointer",marginBottom:6}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,color:C.deep,fontWeight:700,lineHeight:1.15,display:"flex",alignItems:"center",gap:6}}>
+              {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
+              <span style={{fontSize:14,opacity:0.35}}>✦</span>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={e=>{e.preventDefault();setBabyName(nameIn.trim());setNameEdit(false);}} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
+            <input autoFocus value={nameIn} onChange={e=>setNameIn(e.target.value)} placeholder="e.g. Oliver"
+              style={{flex:1,fontSize:18,padding:"9px 13px",borderRadius:12,border:"none",background:"rgba(255,255,255,0.7)",color:C.deep,outline:"none",fontFamily:"inherit"}}/>
+            <button type="submit" style={{background:C.ter,border:"none",borderRadius:10,color:"white",fontSize:14,padding:"9px 14px",cursor:"pointer",fontWeight:700}}>Save</button>
+            {babyName&&<button type="button" onClick={()=>setNameEdit(false)} style={{background:"rgba(255,255,255,0.4)",border:"none",borderRadius:10,color:C.mid,fontSize:14,padding:"9px 10px",cursor:"pointer"}}>✕</button>}
+          </form>
+        )}
 
-            {/* Nap timer */}
-            {!napOn ? (
-              <button onClick={startNap} style={{background:"rgba(255,255,255,0.85)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mint,cursor:"pointer",fontWeight:700,backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",display:"flex",alignItems:"center",gap:5}}>
-                😴 <span>Start Nap</span>
-              </button>
-            ) : (
-              <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.9)",borderRadius:99,padding:"5px 6px 5px 12px",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",backdropFilter:"blur(8px)"}}>
-                <span style={{fontSize:14,fontFamily:"monospace",fontWeight:700,color:C.mint}}>😴 {fmtSec(napSec)}</span>
-                <button onClick={endNap} style={{background:C.mint,border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:"white",cursor:"pointer",fontWeight:700}}>Save</button>
+        {/* ── ROW 3: Age pill + action buttons ── */}
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:10}}>
+          {(()=>{
+            if (!age && !babyUnborn) return (
+              <div onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
+                style={{fontSize:13,color:C.mid,cursor:"pointer",background:"rgba(255,255,255,0.4)",borderRadius:99,padding:"4px 11px",fontFamily:"monospace"}}>
+                ⚙️ Add date of birth
+              </div>
+            );
+            if (babyUnborn && babyDob) {
+              const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
+              return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 11px",display:"inline-flex",alignItems:"center",gap:5,fontSize:13,color:C.deep,fontWeight:600}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
+            }
+            if (!age) return null;
+            const parts = [];
+            if (age.months > 0) parts.push(`${age.months} month${age.months!==1?"s":""}`);
+            if (age.weeksAfterMonths > 0) parts.push(`${age.weeksAfterMonths} week${age.weeksAfterMonths!==1?"s":""}`);
+            return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 11px",display:"inline-flex",alignItems:"center",gap:5,fontSize:13,color:C.deep,fontWeight:600}}>🎂 {parts.join(" & ")} · {age.totalWeeks} weeks</div>;
+          })()}
+          <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
+            {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️ Sync":"👨‍👩‍👧 "+(familyUsername||"Synced")) : "👨‍👩‍👧 Share"}
+          </button>
+          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
+        </div>
+
+        {/* ── ROW 4: Live timers (nap + feed) — only on Day tab, only if active ── */}
+        {tab === "day" && (napOn || breastStartTime) && (
+          <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+            {napOn && (
+              <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.85)",borderRadius:99,padding:"5px 6px 5px 12px",boxShadow:"0 2px 8px rgba(44,31,26,0.12)"}}>
+                <span style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:C.mint}}>😴 {fmtSec(napSec)}</span>
+                <button onClick={endNap} style={{background:C.mint,border:"none",borderRadius:99,padding:"3px 10px",fontSize:12,color:"white",cursor:"pointer",fontWeight:700}}>Save</button>
               </div>
             )}
-
-            {/* Breast feed timer */}
-            {!breastStartTime ? (
-              <button onClick={()=>startBreastTimer("L")} style={{background:"rgba(255,255,255,0.85)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.ter,cursor:"pointer",fontWeight:700,backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",display:"flex",alignItems:"center",gap:5}}>
-                🤱 <span>Start Feed</span>
-              </button>
-            ) : (
-              <div style={{background:"rgba(255,255,255,0.95)",borderRadius:16,padding:"8px 10px",boxShadow:"0 2px 16px rgba(44,31,26,0.15)",backdropFilter:"blur(8px)",minWidth:170}}>
-                {/* Side timers */}
-                <div style={{display:"flex",gap:5,marginBottom:6}}>
+            {breastStartTime && (
+              <div style={{background:"rgba(255,255,255,0.92)",borderRadius:14,padding:"7px 10px",boxShadow:"0 2px 8px rgba(44,31,26,0.12)",display:"flex",flexDirection:"column",gap:5}}>
+                <div style={{display:"flex",gap:5}}>
                   {["L","R"].map(side=>(
                     <button key={side} onClick={()=>switchBreastSide(side)} style={{
-                      flex:1,padding:"5px 4px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"monospace",fontWeight:700,fontSize:13,
-                      background: breastSide===side&&breastActive ? C.ter : "#f5e8e4",
-                      color: breastSide===side&&breastActive ? "white" : C.mid,
-                      transition:"all 0.15s"
+                      flex:1,padding:"4px 8px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"monospace",fontWeight:700,fontSize:12,
+                      background:breastSide===side&&breastActive?C.ter:"#f5e8e4",
+                      color:breastSide===side&&breastActive?"white":C.mid,transition:"all 0.15s"
                     }}>
-                      {side} {fmtSec(breastSec[side])}
-                      {breastSide===side&&breastActive&&<span style={{marginLeft:3,fontSize:10}}>●</span>}
+                      {side} {fmtSec(breastSec[side])}{breastSide===side&&breastActive&&<span style={{marginLeft:2,fontSize:9}}>●</span>}
                     </button>
                   ))}
                 </div>
-                {/* Pause / save */}
                 <div style={{display:"flex",gap:5}}>
-                  <button onClick={breastActive?pauseBreastTimer:()=>startBreastTimer(breastSide||"L")} style={{flex:1,padding:"4px",borderRadius:8,border:`1px solid ${C.blush}`,background:"none",fontSize:12,color:C.mid,cursor:"pointer",fontWeight:600}}>
-                    {breastActive?"⏸ Pause":"▶ Resume"}
+                  <button onClick={breastActive?pauseBreastTimer:()=>startBreastTimer(breastSide||"L")} style={{flex:1,padding:"3px",borderRadius:7,border:`1px solid ${C.blush}`,background:"none",fontSize:11,color:C.mid,cursor:"pointer",fontWeight:600}}>
+                    {breastActive?"⏸":"▶"}
                   </button>
-                  <button onClick={saveBreastFeed} style={{flex:1,padding:"4px",borderRadius:8,border:"none",background:C.ter,color:"white",fontSize:12,cursor:"pointer",fontWeight:700}}>
-                    Save ✓
-                  </button>
-                  <button onClick={cancelBreastTimer} style={{padding:"4px 7px",borderRadius:8,border:"none",background:"#f0e8e4",color:C.lt,fontSize:12,cursor:"pointer"}}>✕</button>
+                  <button onClick={saveBreastFeed} style={{flex:1,padding:"3px",borderRadius:7,border:"none",background:C.ter,color:"white",fontSize:11,cursor:"pointer",fontWeight:700}}>Save ✓</button>
+                  <button onClick={cancelBreastTimer} style={{padding:"3px 7px",borderRadius:7,border:"none",background:"#f0e8e4",color:C.lt,fontSize:11,cursor:"pointer"}}>✕</button>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ── NAP COUNTDOWN PILL (top-right corner) ── */}
-        {(napCountdown !== null || bedCountdown !== null) && tab === "day" && (()=>{
-          const isBed = bedCountdown !== null;
-          const countdown = isBed ? bedCountdown : napCountdown;
-          const isNeutral = napCountdown === -1; // nap mode but no active window
-          const isNow = !isNeutral && countdown <= 0;
-          const isUrgent = !isNeutral && countdown <= 300;
-          return (
-            <div style={{
-              position:"absolute",top:14,right:16,zIndex:10,
-              background: isNow ? (isBed ? C.sky : C.mint) : isUrgent ? C.ter : "rgba(255,255,255,0.85)",
-              borderRadius:99,
-              padding:"6px 12px",
-              boxShadow:"0 2px 12px rgba(44,31,26,0.15)",
-              display:"flex",alignItems:"center",gap:6,
-              backdropFilter:"blur(8px)",
-              border: isNow||isUrgent ? "none" : `1px solid rgba(255,255,255,0.6)`,
-              minWidth:90,justifyContent:"center"
-            }}>
-              <span style={{fontSize:14}}>{isBed ? "🌙" : "⏱️"}</span>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1,marginBottom:1}}>
-                  {isBed ? "Bedtime" : "Next Nap"}
-                </div>
-                <div style={{fontSize:15,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":isBed?C.sky:C.ter,lineHeight:1}}>
-                  {isNeutral ? "–" : isNow ? "Now" : fmtCountdown(countdown)}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
-        <div style={{position:"relative",zIndex:1}}>
-          {/* Child switcher dots */}
-          {childIds.length > 0 && (
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-              {childIds.map((cid,i) => (
-                <button key={cid} onClick={()=>setActiveChildId(cid)} style={{
-                  width: cid===resolvedActiveId ? 22 : 8,
-                  height: 8, borderRadius:99, border:"none", cursor:"pointer",
-                  background: cid===resolvedActiveId ? C.ter : "rgba(255,255,255,0.5)",
-                  transition:"all 0.25s", padding:0
-                }}/>
-              ))}
-              <button onClick={()=>setShowAddChild(true)} style={{
-                width:24,height:24,borderRadius:99,border:"1.5px dashed rgba(255,255,255,0.6)",
-                background:"transparent",color:C.mid,cursor:"pointer",fontSize:14,
-                display:"flex",alignItems:"center",justifyContent:"center",marginLeft:2
-              }}>+</button>
-            </div>
-          )}
-          {!nameEdit?(
-            <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}}>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:C.deep,fontWeight:700,lineHeight:1.1,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
-                {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
-                <span style={{fontSize:18,opacity:0.5}}>✦</span>
-                <button onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:"rgba(255,255,255,0.4)",border:"none",borderRadius:99,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:15,flexShrink:0}}>⚙️</button>
-              </div>
-              {(()=>{
-                if (!age && !babyUnborn) return (
-                  <div onClick={e=>{e.stopPropagation();setTab("growth");}} style={{fontSize:15,color:C.lt,marginTop:8,fontFamily:"monospace",cursor:"pointer"}}>
-                    Add date of birth in Growth tab →
+        {/* ── ROW 4b: Quick-start buttons (only on Day tab, only when timers NOT running) ── */}
+        {tab === "day" && !napOn && !breastStartTime && (
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            <button onClick={startNap} style={{background:"rgba(255,255,255,0.6)",border:"none",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.mint,cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
+              😴 Start Nap
+            </button>
+            <button onClick={()=>startBreastTimer("L")} style={{background:"rgba(255,255,255,0.6)",border:"none",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
+              🤱 Start Feed
+            </button>
+            {/* Nap countdown pill inline */}
+            {(napCountdown !== null || bedCountdown !== null) && (()=>{
+              const isBed = bedCountdown !== null;
+              const countdown = isBed ? bedCountdown : napCountdown;
+              const isNeutral = napCountdown === -1;
+              const isNow = !isNeutral && countdown <= 0;
+              const isUrgent = !isNeutral && countdown <= 300;
+              return (
+                <div style={{marginLeft:"auto",background:isNow?(isBed?C.sky:C.mint):isUrgent?C.ter:"rgba(255,255,255,0.6)",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,border:"none"}}>
+                  <span style={{fontSize:13}}>{isBed?"🌙":"⏱️"}</span>
+                  <div>
+                    <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{isBed?"Bedtime":"Next Nap"}</div>
+                    <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":isBed?C.sky:C.ter,lineHeight:1.2}}>{isNeutral?"–":isNow?"Now":fmtCountdown(countdown)}</div>
                   </div>
-                );
-                if (babyUnborn && babyDob) {
-                  const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-                  return (
-                    <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{background:"rgba(255,255,255,0.5)",borderRadius:20,padding:"6px 16px",display:"inline-flex",alignItems:"center",gap:6}}>
-                        <span style={{fontSize:15}}>🤰</span>
-                        <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</span>
-                      </div>
-                      <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
-                      <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
-                        {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️ Sync":"👨‍👩‍👧 "+(familyUsername||"Synced")) : "👨‍👩‍👧 Share"}
-                      </button>
-                    </div>
-                  );
-                }
-                const parts = [];
-                if (age.months > 0) parts.push(`${age.months} month${age.months!==1?"s":""}`);
-                if (age.weeksAfterMonths > 0) parts.push(`${age.weeksAfterMonths} week${age.weeksAfterMonths!==1?"s":""}`);
-                return (
-                  <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <div style={{background:"rgba(255,255,255,0.5)",borderRadius:20,padding:"6px 16px",display:"inline-flex",alignItems:"center",gap:6}}>
-                      <span style={{fontSize:15}}>🎂</span>
-                      <span style={{fontSize:14,color:C.deep,fontWeight:600}}>{parts.join(" & ")} · {age.totalWeeks} weeks</span>
-                    </div>
-                    <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
-                    <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
-                      {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️ Sync":"👨‍👩‍👧 "+(familyUsername||"Synced")) : "👨‍👩‍👧 Share"}
-                    </button>
-                  </div>
-                );
-              })()}
-            </div>
-          ):(
-            <div>
-              <div style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.15em",marginBottom:8}}>Enter baby's name</div>
-              <form onSubmit={e=>{e.preventDefault();setBabyName(nameIn.trim());setNameEdit(false);}} style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input autoFocus value={nameIn} onChange={e=>setNameIn(e.target.value)} placeholder="e.g. Oliver" style={{flex:1,fontSize:18,padding:"10px 14px",borderRadius:12,border:"none",background:"rgba(255,255,255,0.6)",color:C.deep,outline:"none",fontFamily:"inherit"}}/>
-                <button type="submit" style={{background:C.ter,border:"none",borderRadius:10,color:"white",fontSize:14,padding:"10px 16px",cursor:"pointer",fontWeight:700}}>Save</button>
-                {babyName&&<button type="button" onClick={()=>setNameEdit(false)} style={{background:"rgba(255,255,255,0.4)",border:"none",borderRadius:10,color:C.mid,fontSize:14,padding:"10px 12px",cursor:"pointer"}}>✕</button>}
-              </form>
-            </div>
-          )}
-        </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
-        {/* Date strip */}
-        <div style={{position:"relative",zIndex:1,marginTop:20,display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",paddingBottom:2}}>
-          <div style={{flexShrink:0,display:"flex",alignItems:"center",gap:4}}>
-            <button onClick={()=>{setNewDate(todayStr());setModal("addDay");}} style={{background:"rgba(255,255,255,0.5)",border:`1px dashed ${C.lt}`,borderRadius:20,padding:"5px 12px",color:C.mid,fontSize:14,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>+ Past Date</button>
+        {/* ── DATE STRIP ── */}
+        <div style={{display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",paddingBottom:14}}>
+          <div style={{flexShrink:0}}>
+            <button onClick={()=>{setNewDate(todayStr());setModal("addDay");}} style={{background:"rgba(255,255,255,0.5)",border:`1px dashed ${C.lt}`,borderRadius:20,padding:"5px 12px",color:C.mid,fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>+ Past Date</button>
           </div>
           {displayDayKeys.map(d=>(
-            <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"white":"rgba(255,255,255,0.35)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?"none":`1px solid rgba(255,255,255,0.5)`}}>
-              <button onClick={()=>setSelDay(d)} style={{background:"none",border:"none",color:d===selDay?C.ter:C.mid,fontSize:14,fontFamily:"monospace",cursor:"pointer",padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
+            <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"white":"rgba(255,255,255,0.35)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?"none":`1px solid rgba(255,255,255,0.45)`}}>
+              <button onClick={()=>setSelDay(d)} style={{background:"none",border:"none",color:d===selDay?C.ter:C.mid,fontSize:13,fontFamily:"monospace",cursor:"pointer",padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
               <button onClick={e=>{setMenuDay(d);setEditDate(d);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?"#f2d9cc":"rgba(255,255,255,0.4)",border:"none",borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:9,color:d===selDay?C.mid:C.lt}}>✎</button>
             </div>
           ))}
-          {!displayDayKeys.length&&<span style={{color:C.lt,fontSize:14,fontFamily:"monospace",alignSelf:"center"}}>No days yet</span>}
+          {!displayDayKeys.length&&<span style={{color:C.lt,fontSize:13,fontFamily:"monospace",alignSelf:"center"}}>No days yet</span>}
         </div>
       </div>
 
@@ -3770,45 +3750,35 @@ function App(){
           return(
             <div>
               <div style={{...card}}>
-                <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Baby Info</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-                  <div>
-                    <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>{babyUnborn ? "Due Date" : "Date of Birth"}</label>
-                    <input type="date" value={babyDob} onChange={e=>setBabyDob(e.target.value)} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
-                    <div style={{display:"flex",gap:6,marginTop:6}}>
-                      {[["born","Born 🎉"],["unborn","Due 🤰"]].map(([v,l])=>(
-                        <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"5px 8px",borderRadius:10,border:`1.5px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:14,fontWeight:600,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
-                          {l}
-                        </div>
-                      ))}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em"}}>Baby Info</div>
+                  <button onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
+                    style={{background:C.warm,border:`1.5px solid ${C.blush}`,borderRadius:99,padding:"4px 12px",fontSize:13,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
+                    ✏️ Edit
+                  </button>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  <div style={{background:C.warm,borderRadius:12,padding:"10px 12px",border:`1px solid ${C.blush}`}}>
+                    <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>{babyUnborn?"Due Date":"Born"}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.deep,lineHeight:1.3}}>
+                      {babyDob ? new Date(babyDob+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"2-digit"}) : <span style={{color:C.lt,fontStyle:"italic",fontSize:12}}>Not set</span>}
                     </div>
+                    {ageMonths!==null&&<div style={{fontSize:11,color:C.ter,fontFamily:"monospace",marginTop:2,fontWeight:600}}>
+                      {babyUnborn?(()=>{const d=Math.ceil((new Date(babyDob)-new Date())/(1000*60*60*24));return d>0?`${d}d to go`:"Any day!";})():`${ageMonths}mo`}
+                    </div>}
                   </div>
-                  <div>
-                    <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Sex</label>
-                    {!babySex && (
-                      <div style={{fontSize:12,color:C.ter,fontFamily:"monospace",marginBottom:6,fontWeight:600}}>⚠ Not set — select to enable percentile charts</div>
-                    )}
-                    <div style={{display:"flex",flexDirection:"column",gap:5}}>
-                      {[["boy","👦","Boy","#eaf3fb","#3d6a8a"],["girl","👧","Girl","#fde7e4","#a85070"],["","⬜","Not set","#f0e8e0","#7a5c52"]].map(([v,emoji,l,accent,col])=>(
-                        <button key={v} onClick={()=>setBabySex(v)}
-                          style={{width:"100%",padding:"7px 10px",borderRadius:10,border:`2px solid ${babySex===v?col:C.blush}`,background:babySex===v?accent:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:babySex===v?col:C.mid,fontFamily:"inherit",transition:"all 0.15s",textAlign:"left",display:"flex",alignItems:"center",gap:7}}>
-                          <span style={{fontSize:16}}>{emoji}</span>{l}
-                        </button>
-                      ))}
-                    </div>
+                  <div style={{background:babySex==="boy"?"#eaf3fb":babySex==="girl"?"#fde7e4":C.warm,borderRadius:12,padding:"10px 12px",border:`1px solid ${babySex?C.blush:C.ter}`}}>
+                    <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Sex</div>
+                    {babySex
+                      ? <div style={{fontSize:13,fontWeight:600,color:babySex==="boy"?"#3d6a8a":"#a85070"}}>{babySex==="boy"?"👦 Boy":"👧 Girl"}</div>
+                      : <div><div style={{fontSize:12,color:C.ter,fontWeight:600}}>⚠ Not set</div><div style={{fontSize:10,color:C.lt,marginTop:1}}>Needed for percentiles</div></div>
+                    }
+                  </div>
+                  <div style={{background:C.warm,borderRadius:12,padding:"10px 12px",border:`1px solid ${C.blush}`}}>
+                    <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Name</div>
+                    <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{babyName||<span style={{color:C.lt,fontStyle:"italic",fontSize:12}}>—</span>}</div>
                   </div>
                 </div>
-                {ageMonths!==null&&<div style={{fontSize:14,color:C.mid,fontFamily:"monospace",textAlign:"center",marginTop:4}}>
-                  {babyUnborn
-                    ? (()=>{
-                        const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-                        return daysUntil > 0
-                          ? <span>{babyName||"Baby"} is due in <strong style={{color:C.ter}}>{daysUntil} day{daysUntil!==1?"s":""}</strong> 🤰</span>
-                          : <span>Due date has passed — update to date of birth!</span>;
-                      })()
-                    : <span>{babyName||"Baby"} is <strong style={{color:C.ter}}>{ageMonths} month{ageMonths!==1?"s":""}</strong> old</span>
-                  }
-                </div>}
               </div>
 
               {latest&&(
@@ -4534,9 +4504,9 @@ function App(){
             <div style={{marginBottom:24}}>
               <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",display:"block",marginBottom:8}}>Sex</label>
               <div style={{display:"flex",gap:8}}>
-                {[["boy","👦 Boy","#d0e6f5"],["girl","👧 Girl","#f5ccc7"],["","⬜ Not set","#f0e8e0"]].map(([v,l,accent])=>(
+                {[["boy","👦 Boy","#eaf3fb","#3d6a8a"],["girl","👧 Girl","#fde7e4","#a85070"],["","⬜ Not set","#f0e8e0","#7a5c52"]].map(([v,l,accent,col])=>(
                   <button key={v} onClick={()=>setCsSex(v)}
-                    style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${csSex===v?accent:C.blush}`,background:csSex===v?`${accent}55`:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:csSex===v?C.deep:C.mid,fontFamily:"inherit",transition:"all 0.15s"}}>
+                    style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${csSex===v?col:C.blush}`,background:csSex===v?accent:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:csSex===v?col:C.mid,fontFamily:"inherit",transition:"all 0.15s"}}>
                     {l}
                   </button>
                 ))}
