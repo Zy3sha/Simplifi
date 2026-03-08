@@ -13,9 +13,9 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -4413,15 +4413,22 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 
 <script>
 (function() {
-  var src = document.getElementById('jsx-src').textContent;
-  var result = Babel.transform(src, { presets: ['react'] });
-  var blob = new Blob([result.code], { type: 'application/javascript' });
-  var url = URL.createObjectURL(blob);
-  var s = document.createElement('script');
-  s.src = url;
-  s.onload = function() { URL.revokeObjectURL(url); };
-  s.onerror = function(e) { console.error('JSX load error', e); };
-  document.body.appendChild(s);
+  try {
+    if (typeof Babel === 'undefined') throw new Error('Babel not loaded');
+    if (typeof React === 'undefined') throw new Error('React not loaded');
+    var src = document.getElementById('jsx-src').textContent;
+    var result = Babel.transform(src, { presets: ['react'] });
+    var blob = new Blob([result.code], { type: 'application/javascript' });
+    var url = URL.createObjectURL(blob);
+    var s = document.createElement('script');
+    s.src = url;
+    s.onload = function() { URL.revokeObjectURL(url); };
+    s.onerror = function(e) { console.error('JSX load error', e); };
+    document.body.appendChild(s);
+  } catch(e) {
+    console.error('OBubba loader error:', e);
+    document.getElementById('root').innerHTML = '<div style="padding:40px;font-family:sans-serif;text-align:center"><h2>Failed to load</h2><p>' + e.message + '</p><p>Please check your internet connection and reload.</p></div>';
+  }
 })();
 </script>
 
@@ -4445,9 +4452,9 @@ if ('serviceWorker' in navigator) {
 const CACHE = 'obubba-v1';
 const ASSETS = [
   self.registration.scope,
-  'https://unpkg.com/react@18/umd/react.development.js',
-  'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
-  'https://unpkg.com/@babel/standalone/babel.js',
+  'https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js',
+  'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js',
+  'https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js',
   'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap',
 ];
 
