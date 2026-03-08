@@ -487,10 +487,12 @@ function App(){
   const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");return(u&&!v)?"login":null;}catch{return null;}});
   const[authMode,setAuthMode]=useState("login");
   const[authUsername,setAuthUsername]=useState(()=>{try{return localStorage.getItem("family_username")||"";}catch{return "";}});
+  const[authUsernameStatus,setAuthUsernameStatus]=useState("idle"); // idle|checking|found|notfound
   const[authPin,setAuthPin]=useState("");
   const[authPin2,setAuthPin2]=useState("");
   const[authError,setAuthError]=useState("");
   const[authLoading,setAuthLoading]=useState(false);
+  const authUsernameCheckRef = React.useRef(null);
   const[obPin,setObPin]=useState("");
   const[obPin2,setObPin2]=useState("");
   const obUsernameCheckRef = React.useRef(null);
@@ -757,6 +759,23 @@ function App(){
         setObUsernameStatus(snap.exists() ? "taken" : "available");
       } catch(e) { setObUsernameStatus("idle"); }
     }, 600);
+  }
+
+  function checkAuthUsername(raw) {
+    const val = raw.replace(/[^a-zA-Z0-9_-]/g,"");
+    setAuthUsername(val);
+    setAuthError("");
+    clearTimeout(authUsernameCheckRef.current);
+    if(!val || val.length < 3) { setAuthUsernameStatus("idle"); return; }
+    setAuthUsernameStatus("checking");
+    authUsernameCheckRef.current = setTimeout(async()=>{
+      if(!window._fb) { setAuthUsernameStatus("idle"); return; }
+      const {db, doc, getDoc} = window._fb;
+      try {
+        const snap = await getDoc(doc(db,"usernames",normaliseUsername(val)));
+        setAuthUsernameStatus(snap.exists() ? "found" : "notfound");
+      } catch(e) { setAuthUsernameStatus("idle"); }
+    }, 500);
   }
 
   // ── Username: reserve in Firebase and link to backup code ──
@@ -2296,7 +2315,7 @@ function App(){
         {/* Mode toggle */}
         <div style={{display:"flex",background:C.warm,borderRadius:99,padding:4,marginBottom:24,gap:4}}>
           {[["login","Sign In"],["create","Create Account"]].map(([m,l])=>(
-            <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");}}
+            <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");setAuthUsernameStatus("idle");}}
               style={{padding:"8px 18px",borderRadius:99,border:"none",background:authMode===m?"white":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
               {l}
             </button>
@@ -2308,12 +2327,27 @@ function App(){
           <div style={{marginBottom:16}}>
             <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Username</label>
             <input
+              type="text"
               value={authUsername}
               onChange={e=>setAuthUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g,""))}
               placeholder="e.g. TeamSmith"
               autoCapitalize="none" autoCorrect="off" spellCheck="false"
-              style={{width:"100%",fontSize:18,padding:"13px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}
+              autoComplete="off" data-lpignore="true" data-form-type="other"
+              style={{width:"100%",fontSize:18,padding:"13px 16px",borderRadius:14,border:`2px solid ${
+                isLogin
+                  ? authUsernameStatus==="found"?"#50c878"
+                  : authUsernameStatus==="notfound"?C.ter:C.blush
+                  : C.blush}`,background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}
+              onChange={e=>checkAuthUsername(e.target.value)}
             />
+            {isLogin && authUsernameStatus!=="idle" && (
+              <div style={{fontSize:13,marginTop:6,textAlign:"center",
+                color:authUsernameStatus==="found"?"#50c878":authUsernameStatus==="notfound"?C.ter:C.lt}}>
+                {authUsernameStatus==="checking"?"⏳ Checking…":
+                 authUsernameStatus==="found"?"✓ Account found":
+                 authUsernameStatus==="notfound"?"✗ No account with that username":null}
+              </div>
+            )}
           </div>
 
           {/* PIN pad */}
@@ -2359,9 +2393,10 @@ function App(){
         dob: obDob || "",
         sex: obSex || "",
       });
-      if(obUsername.trim() && obUsernameStatus === "available" && fbReady && obPin.length===4) {
+      if(obUsername.trim() && fbReady && obPin.length===4) {
         await reserveUsername(obUsername, obPin);
       }
+      try{ localStorage.setItem("onboarded_v2","1"); }catch{}
       setOnboarded(true);
     };
     const steps = [
@@ -2416,9 +2451,12 @@ function App(){
             <div style={{position:"relative",marginBottom:8}}>
               <input
                 autoFocus
+                type="text"
                 value={obUsername}
                 onChange={e=>checkUsername(e.target.value)}
                 placeholder="e.g. TeamSmith"
+                autoCapitalize="none" autoCorrect="off" spellCheck="false"
+                autoComplete="off" data-lpignore="true" data-form-type="other"
                 style={{width:"100%",fontSize:20,padding:"14px 48px 14px 18px",borderRadius:16,
                   border:`2px solid ${
                     obUsernameStatus==="available"?"#50c878":
