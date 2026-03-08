@@ -1726,21 +1726,23 @@ function App(){
     const napStart_min = addMinutes(lastAwakeStart, wakeWindowMin);
     const napStart_max = addMinutes(lastAwakeStart, wakeWindowMax);
 
-    // If the nap window max has already passed, show as overdue (now) rather than hiding
+    // Check if nap window has already passed
     const now = new Date();
     const nowMins = now.getHours()*60 + now.getMinutes();
     const [maxH, maxM] = napStart_max.split(":").map(Number);
     const napMaxMins = maxH*60 + maxM;
     const isOverdue = nowMins > napMaxMins;
 
-    // Suppress nap if it's too close to bedtime — gap must be at least one full wake window max
-    const bed = bedtimePrediction();
-    if (bed) {
-      const [bh, bm] = bed.time.split(":").map(Number);
-      const bedMins = bh*60 + bm;
-      const [minH, minM] = napStart_min.split(":").map(Number);
-      const napMinMins = minH*60 + minM;
-      if (bedMins - napMinMins < wakeWindowMax) return null;
+    // Suppress nap if it's too close to bedtime — but NOT if it's already overdue (baby still needs the nap)
+    if (!isOverdue) {
+      const bed = bedtimePrediction();
+      if (bed) {
+        const [bh, bm] = bed.time.split(":").map(Number);
+        const bedMins = bh*60 + bm;
+        const [minH, minM] = napStart_min.split(":").map(Number);
+        const napMinMins = minH*60 + minM;
+        if (bedMins - napMinMins < wakeWindowMax) return null;
+      }
     }
 
     return { napStart_min, napStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart, isOverdue };
@@ -2864,6 +2866,9 @@ function App(){
   function startNap(){setNapStartT(nowTime());setNapSec(0);setNapOn(true);}
 
   function logBedtimeNow(){
+    // Guard against duplicate bedtime entries
+    const already = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+    if (already) return;
     quickAddLog("sleep",{type:"sleep",time:nowTime(),night:false,note:""});
   }
 
