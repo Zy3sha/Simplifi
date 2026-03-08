@@ -658,10 +658,12 @@ function App(){
   const[feedType,setFeedType]=useState("milk"); // "milk" | "solids"
   const[dragId,setDragId]=useState(null); // id of entry being dragged
   const[dragOver,setDragOver]=useState(null); // id of entry being hovered over
-  const touchDragRef = React.useRef({active:false, id:null, nodeMap:{}, overEntry:null});
+  const touchDragRef = React.useRef({active:false, id:null, overEntry:null});
   const logListRef = React.useRef(null);
+  const reorderRef = React.useRef(reorderEntry);
+  React.useEffect(()=>{ reorderRef.current = reorderEntry; });
 
-  // Attach non-passive touch listeners to log list so we can preventDefault
+  // Attach non-passive touch listeners once — read latest reorder via ref
   React.useEffect(()=>{
     const el = logListRef.current;
     if(!el) return;
@@ -671,9 +673,8 @@ function App(){
       if(!handle) return;
       const entryEl = handle.closest('[data-entry-id]');
       if(!entryEl) return;
-      const id = entryEl.dataset.entryId;
       touchDragRef.current.active = true;
-      touchDragRef.current.id = id;
+      touchDragRef.current.id = entryEl.dataset.entryId;
       touchDragRef.current.overEntry = null;
       ev.preventDefault();
     }
@@ -682,14 +683,11 @@ function App(){
       if(!touchDragRef.current.active) return;
       ev.preventDefault();
       const touch = ev.touches[0];
-      // Walk through all entry nodes to find which one we're over
       const entries = el.querySelectorAll('[data-entry-id]');
       let over = null;
       entries.forEach(node=>{
         const rect = node.getBoundingClientRect();
-        if(touch.clientY >= rect.top && touch.clientY <= rect.bottom){
-          over = node.dataset.entryId;
-        }
+        if(touch.clientY >= rect.top && touch.clientY <= rect.bottom) over = node.dataset.entryId;
       });
       if(over && over !== touchDragRef.current.id){
         if(over !== touchDragRef.current.overEntry){
@@ -706,10 +704,10 @@ function App(){
     function onTouchEnd(){
       if(!touchDragRef.current.active) return;
       const {id, overEntry} = touchDragRef.current;
-      if(id && overEntry && id !== overEntry) reorderEntry(id, overEntry);
-      touchDragRef.current = {active:false, id:null, nodeMap:{}, overEntry:null};
+      touchDragRef.current = {active:false, id:null, overEntry:null};
       setDragId(null);
       setDragOver(null);
+      if(id && overEntry && id !== overEntry) reorderRef.current(id, overEntry);
     }
 
     el.addEventListener('touchstart', onTouchStart, {passive:false});
@@ -720,8 +718,7 @@ function App(){
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
     };
-  // eslint-disable-next-line
-  },[selDay, days]);
+  },[]); // empty deps — attach once only
   const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
