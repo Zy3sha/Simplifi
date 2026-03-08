@@ -756,10 +756,10 @@ function App(){
   const reorderRef = React.useRef(reorderEntry);
   React.useEffect(()=>{ reorderRef.current = reorderEntry; });
 
-  // Attach non-passive touch listeners once — read latest reorder via ref
-  React.useEffect(()=>{
-    const el = logListRef.current;
-    if(!el) return;
+  // Attach non-passive touch listeners via callback ref — fires when element mounts/unmounts
+  const logListCallbackRef = React.useCallback((el) => {
+    logListRef.current = el;
+    if (!el) return;
 
     function onTouchStart(ev){
       const handle = ev.target.closest('[data-drag-handle]');
@@ -806,12 +806,22 @@ function App(){
     el.addEventListener('touchstart', onTouchStart, {passive:false});
     el.addEventListener('touchmove', onTouchMove, {passive:false});
     el.addEventListener('touchend', onTouchEnd, {passive:false});
-    return()=>{
+    // Store cleanup on element so it can be called on unmount
+    el._dragCleanup = () => {
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
     };
-  },[]); // empty deps — attach once only
+  }, []);
+
+  // Cleanup when logListCallbackRef element unmounts
+  React.useEffect(() => {
+    return () => {
+      if (logListRef.current && logListRef.current._dragCleanup) {
+        logListRef.current._dragCleanup();
+      }
+    };
+  }, []);
   const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
@@ -4162,7 +4172,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:15}}>Daytime</span>
               </div>
-              <div ref={logListRef} style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
+              <div ref={logListCallbackRef} style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
                 {dayE.length===0&&(
                   <div style={{textAlign:"center",padding:"22px 12px",background:C.warm,borderRadius:14,border:`1px dashed ${C.blush}`}}>
                     <div style={{fontSize:28,marginBottom:8}}>👆</div>
@@ -4898,24 +4908,26 @@ function App(){
           }
 
           const doneCount = MILESTONES.filter(m=>milestones[m.id]&&milestones[m.id].date).length;
-          const showFrom = Math.max(0, ageWeeks - 4);
-          const showTo   = ageWeeks + 12;
-
-          const visibleMs = MILESTONES.filter(m => {
-            const inWindow = m.weeks[2] >= showFrom && m.weeks[0] <= showTo;
-            const catOk = msFilter === "all" || m.cat === msFilter;
-            return inWindow && catOk;
-          });
-
           const currentLeap  = WONDER_WEEKS.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
-          const upcomingLeap = WONDER_WEEKS.find(l => l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 3);
+          // Only tease upcoming leap if baby is within 2 weeks of it starting
+          const upcomingLeap = WONDER_WEEKS.find(l => l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 2);
+
+          // Only show milestones baby has actually reached (earliest week passed)
+          const visibleMs = MILESTONES.filter(m => {
+            const done = milestones[m.id] && milestones[m.id].date;
+            if (done) return true;
+            const catOk = msFilter === "all" || m.cat === msFilter;
+            const reachable = ageWeeks >= m.weeks[0];
+            const notStalePast = m.weeks[2] >= ageWeeks - 8;
+            return reachable && notStalePast && catOk;
+          });
 
           const timelineItems = [];
           visibleMs.forEach(m => timelineItems.push({type:"milestone", data:m, sortWeek: m.weeks[1]}));
           if (msFilter === "all") {
             WONDER_WEEKS.forEach(l => {
               const isActive = ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd;
-              const comingSoon = l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 3;
+              const comingSoon = l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 2;
               if (isActive || comingSoon) {
                 timelineItems.push({type:"leap", data:l, sortWeek: l.peakWeek});
               }
