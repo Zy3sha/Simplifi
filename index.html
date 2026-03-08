@@ -406,6 +406,12 @@ function App(){
   const[napStartT,setNapStartT]=useState(null);
   const[napSec,setNapSec]=useState(0);
   const[napCountdown,setNapCountdown]=useState(null); // seconds until next nap window opens
+  // ── Breast feed live timer state ──
+  const[breastSide,setBreastSide]=useState(null); // null | "L" | "R"
+  const[breastSec,setBreastSec]=useState({L:0,R:0});
+  const[breastActive,setBreastActive]=useState(false); // timer running
+  const[breastStartTime,setBreastStartTime]=useState(null); // feed start wall-clock time
+  const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null); // seconds until predicted bedtime
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
@@ -438,6 +444,10 @@ function App(){
   const[obName,setObName]=useState("");
   const[obDob,setObDob]=useState("");
   const[obSex,setObSex]=useState("");
+  const[obUsername,setObUsername]=useState("");
+  const[obUsernameStatus,setObUsernameStatus]=useState("idle"); // idle | checking | available | taken | invalid
+  const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
+  const obUsernameCheckRef = React.useRef(null);
   const[editEntry,setEditEntry]=useState(null);
   const[insightDismissed,setInsightDismissed]=useState(()=>{try{return!!localStorage.getItem("ins_v1");}catch{return false;}});
   const[showInsights,setShowInsights]=useState(false);
@@ -449,11 +459,18 @@ function App(){
   const[dragOver,setDragOver]=useState(null); // id of entry being hovered over
   const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
+  const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
 
   // ── Firebase sync state ──
   // ── familyCode = shared partner code (visible to user)
   // ── backupCode = silent personal backup code (always-on, never shown)
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
+  // Per-child sync codes — {childId: "SYNC6CHAR"} — each child can have its own sync code
+  const[childSyncCodes,setChildSyncCodes]=useState(()=>{
+    try{const s=localStorage.getItem("child_sync_codes_v1");return s?JSON.parse(s):{};}catch{return {};}
+  });
+  // Subscriptions per child — {childId: unsubscribeFn}
+  const childSubsRef = React.useRef({});
   const[backupCode,setBackupCode]=useState(()=>{try{return localStorage.getItem("backup_code")||null;}catch{return null;}});
   const[syncStatus,setSyncStatus]=useState("idle");
   const[showFamilyModal,setShowFamilyModal]=useState(false);
@@ -470,8 +487,17 @@ function App(){
 
   // ── Persist all children to localStorage ──
   useEffect(()=>{try{localStorage.setItem("children_v1",JSON.stringify(children));}catch{}},[children]);
+  useEffect(()=>{try{localStorage.setItem("child_sync_codes_v1",JSON.stringify(childSyncCodes));}catch{}},[childSyncCodes]);
   useEffect(()=>{if(resolvedActiveId)try{localStorage.setItem("active_child",resolvedActiveId);}catch{}},[resolvedActiveId]);
   useEffect(()=>{if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}},[onboarded]);
+  // ── Online/offline detection ──
+  useEffect(()=>{
+    const on=()=>setIsOnline(true);
+    const off=()=>setIsOnline(false);
+    window.addEventListener("online",on);
+    window.addEventListener("offline",off);
+    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
+  },[]);
 
   // ── Firebase: wait for SDK ready, then ensure backup code exists ──
   useEffect(()=>{
@@ -532,7 +558,7 @@ function App(){
       const d = snap.data();
       if(d.updatedBy && d.updatedBy === window._fbUid) return;
       try {
-        if(d.children) setChildren(JSON.parse(d.children));
+        if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
         setSyncStatus("synced");
       } catch(e) { console.warn("Apply sync error", e); }
     }, (e) => { console.warn("Snapshot error", e); setSyncStatus("error"); });
@@ -544,18 +570,17 @@ function App(){
     return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
   },[fbReady, familyCode]);
 
-  // ── Firebase: push on every data change — always to backup, also to family if set ──
+  // ── Firebase: push on every data change — always to personal backup ──
   useEffect(()=>{
     if(!fbReady) return;
     clearTimeout(syncRef.current);
     syncRef.current = setTimeout(()=>{
-      // Always push to personal backup (silent — no status indicator)
+      // Always push full snapshot to personal backup (silent)
       if(backupCode) pushToCloud(backupCode, children, true);
-      // Also push to shared family code if set
-      if(familyCode) pushToCloud(familyCode, children, false);
+      // Per-child pushes are handled by the childSyncCodes effect below
     }, 2000);
     return ()=>clearTimeout(syncRef.current);
-  },[fbReady, backupCode, familyCode, children]);
+  },[fbReady, backupCode, children]);
 
   // ── Firebase: generate a shared family code ──
   async function createFamilyCode() {
@@ -585,7 +610,7 @@ function App(){
       const snap = await getDoc(doc(db,"families",clean));
       if(!snap.exists()) { setJoinError("Code not found — check with your partner"); return; }
       const d = snap.data();
-      if(d.children) setChildren(JSON.parse(d.children));
+      if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
       setFamilyCode(clean);
       try{localStorage.setItem("family_code", clean);}catch{}
       subscribeToFamily(clean);
@@ -620,6 +645,254 @@ function App(){
       if(window._fb) window._fb.logEvent(window._fb.analytics, name, params);
     } catch(e){}
   }
+
+  // ── Username: normalise for storage (lowercase, trim) ──
+  const normaliseUsername = (u) => u.trim().toLowerCase();
+
+  // ── Username: check availability (debounced) ──
+  function checkUsername(raw) {
+    const val = raw.trim();
+    setObUsername(raw);
+    clearTimeout(obUsernameCheckRef.current);
+    if(!val) { setObUsernameStatus("idle"); return; }
+    if(val.length < 3) { setObUsernameStatus("invalid"); return; }
+    setObUsernameStatus("checking");
+    obUsernameCheckRef.current = setTimeout(async()=>{
+      if(!window._fb) { setObUsernameStatus("idle"); return; }
+      const {db, doc, getDoc} = window._fb;
+      try {
+        const snap = await getDoc(doc(db,"usernames",normaliseUsername(val)));
+        setObUsernameStatus(snap.exists() ? "taken" : "available");
+      } catch(e) { setObUsernameStatus("idle"); }
+    }, 600);
+  }
+
+  // ── Username: reserve in Firebase and link to backup code ──
+  async function reserveUsername(username) {
+    if(!window._fb || !username.trim()) return false;
+    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
+    const key = normaliseUsername(username);
+    try {
+      // Double-check it's still available
+      const snap = await getDoc(doc(db,"usernames",key));
+      if(snap.exists()) return false;
+      // Reserve it — points to the backup code
+      await setDoc(doc(db,"usernames",key), {
+        backupCode: backupCode,
+        familyCode: familyCode || null,
+        createdAt: serverTimestamp(),
+        displayName: username.trim()
+      });
+      setFamilyUsername(username.trim());
+      try{ localStorage.setItem("family_username", username.trim()); }catch{}
+      trackEvent("username_created");
+      return true;
+    } catch(e) { console.warn("Reserve username error", e); return false; }
+  }
+
+  // ── Username: join by username (partner flow) ──
+  async function joinByUsername(username) {
+    if(!window._fb) return {ok:false, error:"Not connected"};
+    const {db, doc, getDoc} = window._fb;
+    const key = normaliseUsername(username.trim());
+    try {
+      const uSnap = await getDoc(doc(db,"usernames",key));
+      if(!uSnap.exists()) return {ok:false, error:"Username not found — check the spelling"};
+      const uData = uSnap.data();
+      // Use familyCode if set, otherwise backupCode
+      const codeToJoin = uData.familyCode || uData.backupCode;
+      if(!codeToJoin) return {ok:false, error:"No data found for this username"};
+      const fSnap = await getDoc(doc(db,"families",codeToJoin));
+      if(!fSnap.exists()) return {ok:false, error:"No data found for this username"};
+      const d = fSnap.data();
+      if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
+      setFamilyCode(codeToJoin);
+      setFamilyUsername(uData.displayName || username.trim());
+      try{ localStorage.setItem("family_code", codeToJoin); }catch{}
+      try{ localStorage.setItem("family_username", uData.displayName || username.trim()); }catch{}
+      subscribeToFamily(codeToJoin);
+      trackEvent("username_joined");
+      return {ok:true};
+    } catch(e) { return {ok:false, error:"Something went wrong — please try again"}; }
+  }
+
+  // ── Username: update username record when familyCode changes ──
+  useEffect(()=>{
+    if(!fbReady || !familyUsername || !familyCode) return;
+    (async()=>{
+      if(!window._fb) return;
+      const {db, doc, setDoc} = window._fb;
+      const key = normaliseUsername(familyUsername);
+      try {
+        await setDoc(doc(db,"usernames",key), {familyCode}, {merge:true});
+      } catch(e){}
+    })();
+  },[fbReady, familyUsername, familyCode]);
+
+  // ── Merge remote children into local — keeps local children, adds/updates remote ones ──
+  // Used for blended families: each parent's children are preserved, remote ones merged in
+  function mergeChildren(localCh, remoteCh) {
+    // Start with all local children
+    const merged = {...localCh};
+    // Add or update with remote children (remote wins on conflict for same id)
+    Object.entries(remoteCh).forEach(([id, child]) => {
+      if(!merged[id]) {
+        // New child from remote — add it
+        merged[id] = child;
+      } else {
+        // Same child exists locally — merge days (union), keep most recent other fields
+        const localDays = merged[id].days || {};
+        const remoteDays = child.days || {};
+        const mergedDays = {...localDays};
+        Object.entries(remoteDays).forEach(([date, entries]) => {
+          if(!mergedDays[date] || entries.length > (mergedDays[date]||[]).length) {
+            mergedDays[date] = entries;
+          }
+        });
+        merged[id] = {...child, days: mergedDays};
+      }
+    });
+    return merged;
+  }
+
+  // ── Per-child sync: generate a code for a specific child ──
+  async function createChildSyncCode(childId) {
+    if(!window._fb) return null;
+    const {db, doc, getDoc, setDoc, serverTimestamp} = window._fb;
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code, exists = true;
+    while(exists) {
+      code = Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+      try{ const s = await getDoc(doc(db,"child_syncs",code)); exists = s.exists(); }
+      catch{ exists = false; }
+    }
+    const child = children[childId];
+    // Push this single child's data
+    await setDoc(doc(db,"child_syncs",code), {
+      childId,
+      childName: child?.name || "",
+      ownerUid: window._fbUid || "",
+      ownerUsername: familyUsername || "",
+      child: JSON.stringify(child),
+      updatedAt: serverTimestamp(),
+      updatedBy: window._fbUid || ""
+    });
+    setChildSyncCodes(prev => ({...prev, [childId]: code}));
+    subscribeToChildSync(childId, code);
+    trackEvent("child_sync_created");
+    return code;
+  }
+
+  // ── Per-child sync: push one child's data to its sync doc ──
+  async function pushChildSync(childId, code) {
+    if(!window._fb || !code) return;
+    const {db, doc, setDoc, serverTimestamp} = window._fb;
+    const child = children[childId];
+    if(!child) return;
+    try {
+      await setDoc(doc(db,"child_syncs",code), {
+        child: JSON.stringify(child),
+        childName: child.name || "",
+        updatedAt: serverTimestamp(),
+        updatedBy: window._fbUid || ""
+      }, {merge:true});
+    } catch(e) { console.warn("pushChildSync error", e); }
+  }
+
+  // ── Per-child sync: subscribe to live updates for one child ──
+  const subscribeToChildSync = React.useCallback((childId, code) => {
+    if(!window._fb || !code) return;
+    // Unsub existing if any
+    if(childSubsRef.current[childId]) childSubsRef.current[childId]();
+    const {db, doc, onSnapshot} = window._fb;
+    const unsub = onSnapshot(doc(db,"child_syncs",code), (snap) => {
+      if(!snap.exists()) return;
+      const d = snap.data();
+      if(d.updatedBy && d.updatedBy === window._fbUid) return; // skip our own writes
+      try {
+        if(d.child) {
+          const remoteChild = JSON.parse(d.child);
+          setChildren(prev => {
+            const existing = prev[childId];
+            if(!existing) {
+              // New child — add it (partner linked this child to us)
+              return {...prev, [childId]: {...remoteChild, id: childId}};
+            }
+            // Merge days
+            const mergedDays = {...(existing.days||{})};
+            Object.entries(remoteChild.days||{}).forEach(([date, entries]) => {
+              if(!mergedDays[date] || entries.length > (mergedDays[date]||[]).length) {
+                mergedDays[date] = entries;
+              }
+            });
+            return {...prev, [childId]: {...remoteChild, id:childId, days:mergedDays}};
+          });
+        }
+      } catch(e) { console.warn("Child sync apply error", e); }
+    });
+    childSubsRef.current[childId] = unsub;
+  }, []);
+
+  // ── Per-child sync: join a child by its code (partner flow) ──
+  async function joinChildByCode(code) {
+    if(!window._fb) return {ok:false, error:"Not connected"};
+    const {db, doc, getDoc} = window._fb;
+    const clean = code.trim().toUpperCase();
+    if(clean.length !== 6) return {ok:false, error:"Code must be 6 characters"};
+    try {
+      const snap = await getDoc(doc(db,"child_syncs",clean));
+      if(!snap.exists()) return {ok:false, error:"Code not found — ask the other parent to check"};
+      const d = snap.data();
+      const childId = d.childId;
+      if(!childId) return {ok:false, error:"Invalid sync code"};
+      // If we don't have this child yet, add it
+      setChildren(prev => {
+        if(prev[childId]) return prev; // already have it
+        let remoteChild = {};
+        try{ remoteChild = d.child ? JSON.parse(d.child) : {}; }catch{}
+        return {...prev, [childId]: {...remoteChild, id: childId}};
+      });
+      setChildSyncCodes(prev => ({...prev, [childId]: clean}));
+      subscribeToChildSync(childId, clean);
+      trackEvent("child_sync_joined");
+      return {ok:true, childName: d.childName || "child"};
+    } catch(e) { return {ok:false, error:"Something went wrong — please try again"}; }
+  }
+
+  // ── Per-child sync: remove a child from this device (stop seeing them) ──
+  function unlinkChild(childId) {
+    if(childSubsRef.current[childId]) {
+      childSubsRef.current[childId]();
+      delete childSubsRef.current[childId];
+    }
+    setChildSyncCodes(prev => {const n={...prev};delete n[childId];return n;});
+    setChildren(prev => {const n={...prev};delete n[childId];return n;});
+  }
+
+  // ── Per-child sync: re-subscribe on load for all children with codes ──
+  useEffect(()=>{
+    if(!fbReady) return;
+    Object.entries(childSyncCodes).forEach(([childId, code]) => {
+      subscribeToChildSync(childId, code);
+    });
+    return ()=>{
+      Object.values(childSubsRef.current).forEach(unsub=>unsub());
+      childSubsRef.current={};
+    };
+  },[fbReady]);
+
+  // ── Per-child sync: push each child's data when it changes ──
+  useEffect(()=>{
+    if(!fbReady) return;
+    clearTimeout(syncRef.current);
+    syncRef.current = setTimeout(()=>{
+      // Push each child that has a sync code
+      Object.entries(childSyncCodes).forEach(([childId, code]) => {
+        pushChildSync(childId, code);
+      });
+    }, 2000);
+    return ()=>clearTimeout(syncRef.current);
+  },[fbReady, children, childSyncCodes]);
 
   // ── Multi-child: add a new child ──
   function addChild(name, dob, sex, unborn) {
@@ -673,6 +946,18 @@ function App(){
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
   },[napOn]);
+
+  // ── Breast timer tick — increments active side each second ──
+  useEffect(()=>{
+    if(breastActive && breastSide){
+      breastRef.current=setInterval(()=>{
+        setBreastSec(s=>({...s,[breastSide]:s[breastSide]+1}));
+      },1000);
+    } else {
+      clearInterval(breastRef.current);
+    }
+    return()=>clearInterval(breastRef.current);
+  },[breastActive,breastSide]);
 
   // Live countdown to next nap window — ticks every second
   const countdownRef = React.useRef(null);
@@ -1758,6 +2043,27 @@ function App(){
     });
   }
   function startNap(){setNapStartT(nowTime());setNapSec(0);setNapOn(true);}
+
+  // ── Breast feed timer functions ──
+  function startBreastTimer(side){
+    if(!breastStartTime) setBreastStartTime(nowTime());
+    setBreastSide(side);
+    setBreastActive(true);
+  }
+  function pauseBreastTimer(){setBreastActive(false);}
+  function switchBreastSide(side){
+    setBreastActive(true);
+    setBreastSide(side);
+  }
+  function saveBreastFeed(){
+    const lMins=Math.round(breastSec.L/60), rMins=Math.round(breastSec.R/60);
+    if(lMins===0&&rMins===0)return;
+    const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:false,note:""};
+    setDays(d=>{const updated=[...(d[selDay]||[]),entry];return{...d,[selDay]:autoClassifyNight(updated)};});
+    setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
+    trackEvent("entry_logged",{type:"breast_feed"});
+  }
+  function cancelBreastTimer(){setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);}
   function endNap(){
     setNapOn(false);const end=nowTime();
     setDays(d=>{
@@ -1837,13 +2143,16 @@ function App(){
 
   // ONBOARDING
   if (!onboarded) {
-    const completeOnboarding = () => {
-      // Update the first child (created during init migration) with onboarding data
+    const completeOnboarding = async () => {
       updateChild({
         name: obName.trim() || "",
         dob: obDob || "",
         sex: obSex || "",
       });
+      // Reserve username in Firebase if provided and available
+      if(obUsername.trim() && obUsernameStatus === "available" && fbReady) {
+        await reserveUsername(obUsername);
+      }
       setOnboarded(true);
     };
     const steps = [
@@ -1916,8 +2225,64 @@ function App(){
             <button onClick={()=>setObSex("")} style={{width:"100%",padding:"12px",borderRadius:14,border:`2px solid ${obSex===""?C.ter:C.blush}`,background:obSex===""?"#fdf0eb":"white",color:obSex===""?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:"pointer",marginBottom:14,fontFamily:"inherit",transition:"all 0.2s"}}>
               Prefer not to say / skip
             </button>
-            <button onClick={completeOnboarding} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>
-              Start Tracking 🌙
+            <button onClick={()=>setObStep(4)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>
+              Continue →
+            </button>
+          </div>
+        )
+      },
+      {
+        icon:"👨‍👩‍👧",
+        title:"Choose a\nfamily username",
+        sub:"This is how your partner will find and sync with you. Something memorable like \"TeamSmith\" or \"BabyJones2025\".",
+        action: (
+          <div style={{width:"100%",marginTop:20}}>
+            <div style={{position:"relative",marginBottom:8}}>
+              <input
+                autoFocus
+                value={obUsername}
+                onChange={e=>checkUsername(e.target.value)}
+                placeholder="e.g. TeamSmith"
+                style={{width:"100%",fontSize:20,padding:"14px 48px 14px 18px",borderRadius:16,
+                  border:`2px solid ${
+                    obUsernameStatus==="available"?"#50c878":
+                    obUsernameStatus==="taken"||obUsernameStatus==="invalid"?C.ter:C.blush}`,
+                  background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",
+                  boxSizing:"border-box",transition:"border-color 0.2s"}}/>
+              <span style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",fontSize:18}}>
+                {obUsernameStatus==="checking"?"⏳":
+                 obUsernameStatus==="available"?"✅":
+                 obUsernameStatus==="taken"?"❌":
+                 obUsernameStatus==="invalid"?"⚠️":""}
+              </span>
+            </div>
+            <div style={{fontSize:13,textAlign:"center",marginBottom:16,minHeight:20,
+              color:obUsernameStatus==="available"?"#50c878":
+                    obUsernameStatus==="taken"?C.ter:
+                    obUsernameStatus==="invalid"?"#b88a20":C.lt}}>
+              {obUsernameStatus==="available"?"✓ Username is available!":
+               obUsernameStatus==="taken"?"That username is taken — try another":
+               obUsernameStatus==="invalid"?"Must be at least 3 characters":
+               obUsernameStatus==="checking"?"Checking…":
+               "Your partner will use this to sync with you"}
+            </div>
+            <button
+              onClick={completeOnboarding}
+              disabled={obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid"}
+              style={{width:"100%",background:
+                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
+                  ?"#f2d9cc":`linear-gradient(135deg,#c9705a,#a85a44)`,
+                border:"none",borderRadius:99,padding:"14px",color:
+                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
+                  ?"#b89890":"white",
+                fontSize:16,fontWeight:700,cursor:
+                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
+                  ?"not-allowed":"pointer",
+                boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
+              {obUsernameStatus==="checking"?"Checking…":"Start Tracking 🌙"}
+            </button>
+            <button onClick={completeOnboarding} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+              Skip for now
             </button>
           </div>
         )
@@ -2080,10 +2445,13 @@ function App(){
                 <div style={{marginBottom:10}}>OBubba automatically backs up your data to the cloud — no setup needed.</div>
                 <div style={{background:"#e8f7f0",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6,border:"1px solid #b0e8cc"}}>
                   <div>🔄 Every entry saves to Firebase within <strong>2 seconds</strong></div>
-                  <div>🔑 You have a personal <strong>backup code</strong> — find it under the Share button</div>
-                  <div>📲 New phone? Enter your backup code to <strong>restore everything</strong></div>
+                  <div>👤 Your data is tied to your <strong>family username</strong></div>
+                  <div>📲 New phone? Enter your <strong>exact username</strong> to restore everything</div>
                 </div>
-                <div style={{fontSize:13,color:"#4a8a6a",fontWeight:600}}>Tip: write your backup code down somewhere safe!</div>
+                <div style={{background:"#fff3e0",borderRadius:12,padding:"10px 12px",border:"1px solid #f0c870",display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
+                  <div style={{fontSize:13,color:"#8a5a10",lineHeight:1.5}}><strong>Important:</strong> your data is linked to your username. An incorrect or different username will not retrieve your data. Write it down somewhere safe!</div>
+                </div>
               </div>
             ),
             spot:"center",
@@ -2098,11 +2466,15 @@ function App(){
                 <div style={{marginBottom:10}}>Keep both parents in sync — every feed and nap updates on both phones instantly.</div>
                 <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
                   <div>1. Tap <strong>👨‍👩‍👧 Share</strong> in the header</div>
-                  <div>2. Tap <strong>"Create family code"</strong> — you'll get a 6-letter code</div>
-                  <div>3. Your partner opens OBubba, taps Share, enters the code</div>
+                  <div>2. Tap <strong>"Start family sync"</strong> to generate a link</div>
+                  <div>3. Your partner taps Share, enters <strong>your username</strong></div>
                   <div>4. <strong>Both phones sync in real time ✓</strong></div>
                 </div>
-                <div style={{fontSize:13,color:"#8a7a6a"}}>Works across Android and iPhone.</div>
+                <div style={{background:"#fff3e0",borderRadius:12,padding:"10px 12px",border:"1px solid #f0c870",display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
+                  <div style={{fontSize:13,color:"#8a5a10",lineHeight:1.5}}><strong>Username must be exact</strong> — a typo or wrong username will connect to the wrong family or show an error. Double-check spelling before sharing.</div>
+                </div>
+                <div style={{fontSize:13,color:"#8a7a6a",marginTop:8}}>Works across Android and iPhone. Great for blended families — each parent's children merge together.</div>
               </div>
             ),
             spot:"center",
@@ -2250,6 +2622,14 @@ function App(){
         );
       })()}
 
+      {/* OFFLINE BANNER */}
+      {!isOnline&&(
+        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:999,background:"#2c1f1a",color:"white",textAlign:"center",padding:"10px 16px",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <span>📵</span>
+          <span>You're offline — entries are saved locally and will sync when you reconnect</span>
+        </div>
+      )}
+
       {/* HERO HEADER */}
       <div
         style={{background:theme.primary,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}
@@ -2257,9 +2637,11 @@ function App(){
         onTouchEnd={handleSwipeEnd}
       >
 
-        {/* ── NAP TIMER (top-left) ── */}
+        {/* ── NAP + BREAST TIMER (top-left) ── */}
         {tab === "day" && (
-          <div style={{position:"absolute",top:14,left:16,zIndex:10}}>
+          <div style={{position:"absolute",top:14,left:16,zIndex:10,display:"flex",flexDirection:"column",gap:5}}>
+
+            {/* Nap timer */}
             {!napOn ? (
               <button onClick={startNap} style={{background:"rgba(255,255,255,0.85)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mint,cursor:"pointer",fontWeight:700,backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",display:"flex",alignItems:"center",gap:5}}>
                 😴 <span>Start Nap</span>
@@ -2268,6 +2650,40 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.9)",borderRadius:99,padding:"5px 6px 5px 12px",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",backdropFilter:"blur(8px)"}}>
                 <span style={{fontSize:14,fontFamily:"monospace",fontWeight:700,color:C.mint}}>😴 {fmtSec(napSec)}</span>
                 <button onClick={endNap} style={{background:C.mint,border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:"white",cursor:"pointer",fontWeight:700}}>Save</button>
+              </div>
+            )}
+
+            {/* Breast feed timer */}
+            {!breastStartTime ? (
+              <button onClick={()=>startBreastTimer("L")} style={{background:"rgba(255,255,255,0.85)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.ter,cursor:"pointer",fontWeight:700,backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(44,31,26,0.15)",display:"flex",alignItems:"center",gap:5}}>
+                🤱 <span>Start Feed</span>
+              </button>
+            ) : (
+              <div style={{background:"rgba(255,255,255,0.95)",borderRadius:16,padding:"8px 10px",boxShadow:"0 2px 16px rgba(44,31,26,0.15)",backdropFilter:"blur(8px)",minWidth:170}}>
+                {/* Side timers */}
+                <div style={{display:"flex",gap:5,marginBottom:6}}>
+                  {["L","R"].map(side=>(
+                    <button key={side} onClick={()=>switchBreastSide(side)} style={{
+                      flex:1,padding:"5px 4px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"monospace",fontWeight:700,fontSize:13,
+                      background: breastSide===side&&breastActive ? C.ter : "#f5e8e4",
+                      color: breastSide===side&&breastActive ? "white" : C.mid,
+                      transition:"all 0.15s"
+                    }}>
+                      {side} {fmtSec(breastSec[side])}
+                      {breastSide===side&&breastActive&&<span style={{marginLeft:3,fontSize:10}}>●</span>}
+                    </button>
+                  ))}
+                </div>
+                {/* Pause / save */}
+                <div style={{display:"flex",gap:5}}>
+                  <button onClick={breastActive?pauseBreastTimer:()=>startBreastTimer(breastSide||"L")} style={{flex:1,padding:"4px",borderRadius:8,border:`1px solid ${C.blush}`,background:"none",fontSize:12,color:C.mid,cursor:"pointer",fontWeight:600}}>
+                    {breastActive?"⏸ Pause":"▶ Resume"}
+                  </button>
+                  <button onClick={saveBreastFeed} style={{flex:1,padding:"4px",borderRadius:8,border:"none",background:C.ter,color:"white",fontSize:12,cursor:"pointer",fontWeight:700}}>
+                    Save ✓
+                  </button>
+                  <button onClick={cancelBreastTimer} style={{padding:"4px 7px",borderRadius:8,border:"none",background:"#f0e8e4",color:C.lt,fontSize:12,cursor:"pointer"}}>✕</button>
+                </div>
               </div>
             )}
           </div>
@@ -2346,7 +2762,7 @@ function App(){
                       </div>
                       <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
                       <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
-                        {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync":"🔗 "+familyCode) : "👨‍👩‍👧 Share"}
+                        {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️ Sync":"👨‍👩‍👧 "+(familyUsername||"Synced")) : "👨‍👩‍👧 Share"}
                       </button>
                     </div>
                   );
@@ -2362,7 +2778,7 @@ function App(){
                     </div>
                     <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
                     <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:99,padding:"6px 14px",fontSize:14,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
-                      {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync":"🔗 "+familyCode) : "👨‍👩‍👧 Share"}
+                      {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️ Sync":"👨‍👩‍👧 "+(familyUsername||"Synced")) : "👨‍👩‍👧 Share"}
                     </button>
                   </div>
                 );
@@ -2447,7 +2863,25 @@ function App(){
                 <button onClick={()=>openEntry(false)} style={{background:C.ter,border:"none",borderRadius:99,padding:"5px 13px",fontSize:14,color:"white",cursor:"pointer",fontWeight:600}}>+ add</button>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
-                {dayE.length===0&&<div style={{textAlign:"center",padding:"20px",color:C.lt,fontSize:15,fontFamily:"monospace"}}>No entries yet</div>}
+                {dayE.length===0&&(
+                  <div style={{textAlign:"center",padding:"22px 12px",background:C.warm,borderRadius:14,border:`1px dashed ${C.blush}`}}>
+                    <div style={{fontSize:28,marginBottom:8}}>👆</div>
+                    <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>Nothing logged yet today</div>
+                    <div style={{fontSize:13,color:C.lt,lineHeight:1.5,marginBottom:12}}>
+                      Tap <strong>+ add</strong> above or the <strong>+</strong> button to log a feed, nap, or wake.<br/>
+                      {Object.keys(days).filter(d=>(days[d]||[]).length>0).length===0
+                        ? "Log your first entry to unlock sleep insights and feed tracking."
+                        : "Quick-log buttons below the screen let you log in one tap."}
+                    </div>
+                    <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                      {[["🍼","Feed",()=>openEntry(false)],["😴","Nap",startNap],["⏰","Wake",()=>{setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"wake",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};});}]].map(([icon,label,action])=>(
+                        <button key={label} onClick={action} style={{padding:"7px 16px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>
+                          <span>{icon}</span><span>{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {dayE.map(e=>{
                   const isDragging=dragId===e.id;
                   const isOver=dragOver===e.id;
@@ -2555,7 +2989,13 @@ function App(){
               {/* Unified Feed Card */}
               {(()=>{
                 const fc = feedCard();
-                if (!fc) return null;
+                if (!fc) return (
+                  <div style={{background:C.warm,borderRadius:14,padding:"16px",marginBottom:10,border:`1px dashed ${C.blush}`,textAlign:"center"}}>
+                    <div style={{fontSize:22,marginBottom:6}}>🍼</div>
+                    <div style={{fontSize:14,fontWeight:600,color:C.mid,marginBottom:3}}>No feeds logged yet</div>
+                    <div style={{fontSize:13,color:C.lt}}>Log a bottle or breast feed to see intake tracking and NHS guidance here.</div>
+                  </div>
+                );
                 return (
                   <div style={{background:fc.bg,border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
                     <div style={{fontSize:14,fontFamily:"monospace",color:fc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Today's Milk Intake</div>
@@ -2705,7 +3145,13 @@ function App(){
               {/* Is This Normal - Sleep */}
               {(()=>{
                 const sc = sleepNormalCard();
-                if (!sc) return null;
+                if (!sc) return (
+                  <div style={{background:C.warm,borderRadius:14,padding:"16px",marginBottom:10,border:`1px dashed ${C.blush}`,textAlign:"center"}}>
+                    <div style={{fontSize:22,marginBottom:6}}>😴</div>
+                    <div style={{fontSize:14,fontWeight:600,color:C.mid,marginBottom:3}}>No naps logged yet</div>
+                    <div style={{fontSize:13,color:C.lt}}>Tap <strong>Start Nap</strong> in the header or log a nap to see age-based sleep guidance.</div>
+                  </div>
+                );
                 return (
                   <div style={{background:sc.bg,border:`1px solid ${sc.color}30`,borderLeft:`4px solid ${sc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
                     <div style={{fontSize:14,fontFamily:"monospace",color:sc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Is This Normal? Today's Sleep</div>
@@ -3290,6 +3736,29 @@ function App(){
         ))}
       </div>
 
+      {/* QUICK-LOG BAR — one-tap logging for common actions */}
+      {tab==="day" && (
+        <div style={{position:"fixed",bottom:62,left:0,right:0,zIndex:48,padding:"0 12px 8px",pointerEvents:"none"}}>
+          <div style={{display:"flex",gap:6,justifyContent:"flex-start",pointerEvents:"all",overflowX:"auto",paddingBottom:2,scrollbarWidth:"none"}}>
+            {[
+              {label:"💧 Wet",   action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+              {label:"💩 Dirty", action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"poop",time:nowTime(),poopType:"dirty",night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+              {label:"⏰ Wake",  action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"wake",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+              {label:"🌙 Bed",   action:()=>setDays(d=>{const u=[...(d[selDay]||[]),{id:uid(),type:"sleep",time:nowTime(),night:false,note:""}];return{...d,[selDay]:autoClassifyNight(u)};})},
+            ].map(({label,action})=>(
+              <button key={label} onClick={action} style={{
+                flexShrink:0,padding:"7px 13px",borderRadius:99,border:"none",
+                background:"rgba(255,255,255,0.92)",
+                color:C.mid,fontSize:13,fontWeight:700,cursor:"pointer",
+                boxShadow:"0 2px 10px rgba(44,31,26,0.12)",
+                backdropFilter:"blur(8px)",fontFamily:"inherit",
+                whiteSpace:"nowrap"
+              }}>{label}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* FABs */}
       <div style={{position:"fixed",bottom:70,right:18,display:"flex",flexDirection:"column",gap:10,alignItems:"center",zIndex:49}}>
         <button onClick={openPaste} style={{width:44,height:44,borderRadius:"50%",background:"white",border:`2px solid ${C.blush}`,color:C.ter,fontSize:20,cursor:"pointer",boxShadow:"0 2px 12px rgba(201,112,90,0.2)",display:"flex",alignItems:"center",justifyContent:"center"}} title="Paste day notes">📋</button>
@@ -3662,69 +4131,130 @@ function App(){
               </div>
             </div>
 
-            {/* Backup code (for recovery) */}
-            {backupCode && (
-              <div style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
-                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Your personal backup code</div>
-                <div style={{fontFamily:"monospace",fontSize:18,fontWeight:700,color:C.mid,letterSpacing:"0.12em",marginBottom:4}}>{backupCode}</div>
-                <div style={{fontSize:12,color:C.lt}}>Save this somewhere safe. If you lose your phone, use "Restore data" below to get everything back.</div>
+            {/* Username display / set */}
+            {familyUsername ? (
+              <div style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:16,border:`1px solid ${C.blush}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div>
+                  <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Your family username</div>
+                  <div style={{fontSize:20,fontWeight:700,color:C.ter}}>{familyUsername}</div>
+                </div>
+                <span style={{fontSize:22}}>👨‍👩‍👧</span>
+              </div>
+            ) : (
+              <div style={{background:"#fff8e8",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1px solid #f0d890"}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#8a6a10",marginBottom:4}}>No username set</div>
+                <div style={{fontSize:13,color:"#9a7a20",marginBottom:8}}>Set a family username so your partner can find you easily.</div>
+                {(()=>{
+                  const[u,setU]=React.useState("");
+                  const[st,setSt]=React.useState("idle");
+                  const ref=React.useRef(null);
+                  return (
+                    <div>
+                      <div style={{position:"relative",marginBottom:6}}>
+                        <input value={u} onChange={e=>{
+                          setU(e.target.value); setSt("checking");
+                          clearTimeout(ref.current);
+                          if(e.target.value.trim().length<3){setSt("invalid");return;}
+                          ref.current=setTimeout(async()=>{
+                            if(!window._fb){setSt("idle");return;}
+                            const {db,doc,getDoc}=window._fb;
+                            const snap=await getDoc(doc(db,"usernames",normaliseUsername(e.target.value)));
+                            setSt(snap.exists()?"taken":"available");
+                          },600);
+                        }} placeholder="e.g. TeamSmith"
+                        style={{width:"100%",padding:"9px 36px 9px 12px",borderRadius:10,border:`1.5px solid ${st==="available"?"#50c878":st==="taken"?C.ter:C.blush}`,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+                        <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>
+                          {st==="checking"?"⏳":st==="available"?"✅":st==="taken"?"❌":""}
+                        </span>
+                      </div>
+                      {st==="taken"&&<div style={{fontSize:12,color:C.ter,marginBottom:6}}>That username is taken — try another</div>}
+                      <button onClick={async()=>{
+                        if(st!=="available"||!u.trim()) return;
+                        const ok = await reserveUsername(u);
+                        if(!ok) setSt("taken");
+                      }} disabled={st!=="available"} style={{width:"100%",padding:"9px",borderRadius:99,border:"none",background:st==="available"?C.ter:"#f2d9cc",color:st==="available"?"white":"#b89890",fontSize:14,fontWeight:700,cursor:st==="available"?"pointer":"not-allowed",fontFamily:"inherit"}}>
+                        Save username
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
             <div style={{width:"100%",height:1,background:C.blush,marginBottom:16}}/>
 
-            {familyCode ? (
-              <>
-                <div style={{background:"white",borderRadius:16,padding:"20px",marginBottom:16,textAlign:"center",border:`2px solid ${C.mint}30`}}>
-                  <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Your Family Code</div>
-                  <div style={{fontFamily:"monospace",fontSize:38,fontWeight:700,color:C.ter,letterSpacing:"0.15em",marginBottom:8}}>{familyCode}</div>
-                  <div style={{fontSize:13,color:C.lt,marginBottom:12}}>Share this with your partner — they tap "👨‍👩‍👧 Share" and enter it</div>
-                  <div style={{display:"flex",gap:8,justifyContent:"center"}}>
-                    <div style={{fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:99,background:
-                      syncStatus==="synced"?"#e8f7f0":
-                      syncStatus==="syncing"?"#fff8e8":
-                      syncStatus==="error"?"#fff0f0":"#f0f0f0",
-                      color:syncStatus==="synced"?C.mint:syncStatus==="syncing"?"#b88a20":syncStatus==="error"?C.ter:C.lt
-                    }}>
-                      {syncStatus==="synced"?"✓ Synced with partner":
-                       syncStatus==="syncing"?"⏳ Syncing…":
-                       syncStatus==="error"?"⚠️ Sync error — check connection":
-                       "○ Waiting for partner"}
+            {/* ── PER-CHILD SHARING ── */}
+            <div style={{fontFamily:"monospace",fontSize:12,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Share children individually</div>
+
+            {/* Each child gets its own code */}
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              {Object.values(children).map(child => {
+                const cid = child.id;
+                const code = childSyncCodes[cid];
+                const isShared = !!code;
+                return (
+                  <div key={cid} style={{background:"white",borderRadius:14,padding:"12px 14px",border:`1px solid ${isShared?C.mint+"40":C.blush}`}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isShared?8:0}}>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:15,color:C.deep}}>{child.name||"Unnamed child"}</div>
+                        <div style={{fontSize:12,color:C.lt}}>{isShared?"Sharing enabled":"Not shared yet"}</div>
+                      </div>
+                      {!isShared ? (
+                        <button onClick={async()=>{await createChildSyncCode(cid);}} style={{padding:"7px 14px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
+                          Get code
+                        </button>
+                      ) : (
+                        <span style={{fontSize:18}}>🔗</span>
+                      )}
                     </div>
+                    {isShared && (
+                      <>
+                        <div style={{background:"#f0faf5",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,border:"1px solid #b0e8cc"}}>
+                          <div>
+                            <div style={{fontSize:11,fontFamily:"monospace",color:"#4a8a6a",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Sync code</div>
+                            <div style={{fontFamily:"monospace",fontSize:24,fontWeight:700,color:C.ter,letterSpacing:"0.18em"}}>{code}</div>
+                          </div>
+                          <button onClick={()=>{try{navigator.clipboard.writeText(code);}catch{}}} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"white",fontSize:12,fontWeight:600,color:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
+                            Copy
+                          </button>
+                        </div>
+                        <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Share this code with the co-parent — they tap "Link a child" below and enter it.</div>
+                        <button onClick={()=>unlinkChild(cid)} style={{fontSize:12,color:C.lt,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit",textDecoration:"underline"}}>
+                          Remove from my app
+                        </button>
+                      </>
+                    )}
                   </div>
-                </div>
-                <button onClick={()=>{
-                  setFamilyCode(null);
-                  try{localStorage.removeItem("family_code");}catch{}
-                  if(unsubscribeRef.current) unsubscribeRef.current();
-                  setSyncStatus("idle");
-                  setShowFamilyModal(false);
-                }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1px solid ${C.blush}`,background:"none",color:C.lt,fontSize:15,cursor:"pointer",fontFamily:"inherit",marginBottom:12}}>
-                  Leave family sync
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={async()=>{
-                  setSyncStatus("syncing");
-                  await createFamilyCode();
-                  setSyncStatus("synced");
-                }} style={{width:"100%",padding:"15px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginBottom:12}}>
-                  {syncStatus==="syncing" ? "⏳ Creating…" : "✨ Create family code"}
-                </button>
-                <div style={{textAlign:"center",fontSize:13,color:C.lt,marginBottom:12}}>or</div>
-                <div style={{background:"white",borderRadius:16,padding:"16px",border:`1px solid ${C.blush}`,marginBottom:12}}>
-                  <div style={{fontSize:14,fontWeight:600,color:C.mid,marginBottom:10}}>Join with a code</div>
-                  <input value={joinCodeInput} onChange={e=>setJoinCodeInput(e.target.value.toUpperCase())}
+                );
+              })}
+            </div>
+
+            {/* Link a child from another parent */}
+            {(()=>{
+              const[linkCode,setLinkCode]=React.useState("");
+              const[linkStatus,setLinkStatus]=React.useState(""); // "" | "loading" | "ok" | "error"
+              const[linkError,setLinkError]=React.useState("");
+              const[linkName,setLinkName]=React.useState("");
+              return (
+                <div style={{background:"white",borderRadius:14,padding:"14px",border:`1px solid ${C.blush}`,marginBottom:16}}>
+                  <div style={{fontSize:14,fontWeight:700,color:C.mid,marginBottom:4}}>Link a child</div>
+                  <div style={{fontSize:13,color:C.lt,marginBottom:10}}>Enter a sync code from another parent to add their child to your app.</div>
+                  <input value={linkCode} onChange={e=>setLinkCode(e.target.value.toUpperCase())}
                     placeholder="e.g. AB3X7Y" maxLength={6}
-                    style={{width:"100%",fontSize:24,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.15em",textAlign:"center",padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}/>
-                  {joinError && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{joinError}</div>}
-                  <button onClick={()=>joinFamily(joinCodeInput)} style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:C.mint,color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                    Join family
+                    style={{width:"100%",fontSize:22,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.18em",textAlign:"center",padding:"11px",borderRadius:10,border:`1.5px solid ${linkStatus==="error"?C.ter:C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
+                  {linkStatus==="error" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{linkError}</div>}
+                  {linkStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ {linkName} added to your app!</div>}
+                  <button onClick={async()=>{
+                    setLinkStatus("loading");
+                    const result = await joinChildByCode(linkCode);
+                    if(result.ok) { setLinkStatus("ok"); setLinkName(result.childName); setLinkCode(""); setTimeout(()=>setLinkStatus(""),2500); }
+                    else { setLinkStatus("error"); setLinkError(result.error); }
+                  }} disabled={linkCode.length<6||linkStatus==="loading"} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:linkCode.length===6?C.mint:"#e0f0ea",color:linkCode.length===6?"white":"#a0c8b0",fontSize:15,fontWeight:700,cursor:linkCode.length===6?"pointer":"not-allowed",fontFamily:"inherit",transition:"all 0.2s"}}>
+                    {linkStatus==="loading"?"⏳ Linking…":"Link child"}
                   </button>
                 </div>
-              </>
-            )}
+              );
+            })()}
 
             {/* Restore data section */}
             <div style={{borderRadius:12,border:`1px dashed ${C.blush}`,overflow:"hidden"}}>
@@ -3773,6 +4303,74 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
     else if(sex==="boy")document.body.classList.add("boy");
   }catch(e){}
 })();
+</script>
+
+<script>
+// Register service worker for offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Inline service worker as blob URL so it works from any path
+    const swCode = `
+const CACHE = 'obubba-v1';
+const ASSETS = [
+  self.registration.scope,
+  'https://unpkg.com/react@18/umd/react.development.js',
+  'https://unpkg.com/react-dom@18/umd/react-dom.development.js',
+  'https://unpkg.com/@babel/standalone/babel.js',
+  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap',
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(cache => {
+      // Cache what we can, ignore failures (CDN assets)
+      return Promise.allSettled(ASSETS.map(url => cache.add(url).catch(()=>{})));
+    }).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', e => {
+  // Always serve the app shell from cache if available (offline-first for navigation)
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      caches.match(self.registration.scope)
+        .then(cached => cached || fetch(e.request))
+        .catch(() => caches.match(self.registration.scope))
+    );
+    return;
+  }
+  // For other requests: network first, fallback to cache
+  e.respondWith(
+    fetch(e.request)
+      .then(resp => {
+        if (resp && resp.status === 200 && resp.type !== 'opaque') {
+          const clone = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(e.request))
+  );
+});
+`;
+    const blob = new Blob([swCode], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl, {scope: '/'})
+      .then(reg => {
+        window._swReg = reg;
+        console.log('SW registered');
+      })
+      .catch(e => console.warn('SW reg failed:', e));
+  });
+}
 </script>
 </body>
 </html>
