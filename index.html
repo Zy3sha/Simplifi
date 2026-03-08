@@ -2286,9 +2286,6 @@ function App(){
   const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
   const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
 
-  // DEBUG
-  console.log("RENDER STATE:", {authScreen, onboarded, obStep, familyUsername, lsOnboarded: typeof localStorage !== 'undefined' ? localStorage.getItem("onboarded_v2") : "n/a", lsAuthVerified: typeof localStorage !== 'undefined' ? localStorage.getItem("auth_verified") : "n/a"});
-
   // ── AUTH SCREEN (login / create — shown on new device or manual logout) ──
   if (authScreen) {
     const isLogin = authMode === "login";
@@ -2413,20 +2410,31 @@ function App(){
     const steps = [
       {
         icon:"oliver", title:"Welcome to\nOBubba!",
-        sub:"Let's make life easy.",
+        sub:"Everything you need to track your baby's world.",
         action: (
-          <div style={{width:"100%",marginTop:12}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-              {[["🍼","Feeds"],["😴","Sleep"],["📈","Trends"],["📏","Growth"],["⭐","Milestones"],["🧠","Insights"]].map(function(item,i){
+          <div style={{width:"100%",marginTop:10}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:16}}>
+              {[
+                ["🍼","Track feeds"],
+                ["💩","Track nappies"],
+                ["😴","Track sleep"],
+                ["🧠","Sleep advice"],
+                ["🔮","Schedule prediction"],
+                ["💤","Nap prediction"],
+                ["🍽️","Feed advice"],
+                ["⭐","Milestone tracker"],
+                ["📏","Growth tracker"],
+                ["📈","Analyse trends"],
+              ].map(function(item,i){
                 return (
                   <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"white",border:`1px solid ${C.blush}`,borderRadius:12,padding:"9px 10px"}}>
-                    <div style={{fontSize:16}}>{item[0]}</div>
-                    <div style={{fontSize:13,color:C.mid,fontWeight:500}}>{item[1]}</div>
+                    <div style={{fontSize:15}}>{item[0]}</div>
+                    <div style={{fontSize:12,color:C.mid,fontWeight:500,lineHeight:1.2}}>{item[1]}</div>
                   </div>
                 );
               })}
             </div>
-            <button onClick={()=>setObStep(1)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px 40px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10}}>Get Started →</button>
+            <button onClick={()=>setObStep(1)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px 40px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)"}}>Get Started →</button>
           </div>
         )
       },
@@ -2602,7 +2610,7 @@ function App(){
         <div key={obStep} style={{animation:"fadeUp 0.4s ease",textAlign:"center",width:"100%",maxWidth:360,flex:1,display:"flex",flexDirection:"column",justifyContent:"center",paddingTop:8,paddingBottom:8}}>
           <div style={{marginBottom:12,lineHeight:1,display:"flex",justifyContent:"center"}}>
             {step.icon === "oliver"
-              ? <img src="oliver.png" style={{width:90,height:90,borderRadius:20,boxShadow:"0 8px 24px rgba(0,0,0,0.12)"}}/>
+              ? <img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>
               : typeof step.icon === "string"
               ? <span style={{fontSize:56}}>{step.icon}</span>
               : step.icon}
