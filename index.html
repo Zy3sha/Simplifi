@@ -2595,9 +2595,9 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
         <div key="child-setup" style={{animation:"fadeUp 0.4s ease",textAlign:"center",width:"100%",maxWidth:360}}>
           <img src="oliver.png" style={{width:100,height:100,borderRadius:20,marginBottom:16,boxShadow:"0 8px 24px rgba(0,0,0,0.1)"}}/>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1.25,marginBottom:6}}>Now let’s add{"
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1.25,marginBottom:6}}>Now let's add{"
 "}your baby ✨</div>
-          <div style={{fontSize:13,color:C.lt,lineHeight:1.6,marginBottom:20}}>OBubba uses your baby’s details to personalise nap predictions, feeding recommendations, milestones and growth charts.</div>
+          <div style={{fontSize:13,color:C.lt,lineHeight:1.6,marginBottom:20}}>OBubba uses your baby's details to personalise nap predictions, feeding recommendations, milestones and growth charts.</div>
 
           {/* Mode toggle */}
           <div style={{display:"flex",background:"#f0e8e0",borderRadius:99,padding:3,marginBottom:18,gap:3}}>
@@ -2616,7 +2616,7 @@ function App(){
                 <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>Used for <strong>nap & wake windows</strong>, <strong>feed recommendations</strong>, <strong>milestones</strong> and <strong>growth percentiles</strong>. Update anytime in ⚙️ Baby Settings.</div>
               </div>
               <input value={obName} onChange={e=>setObName(e.target.value)}
-                placeholder="Baby’s name (optional)"
+                placeholder="Baby's name (optional)"
                 style={{width:"100%",fontSize:18,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:10,boxSizing:"border-box"}}/>
               <div style={{display:"flex",gap:8,marginBottom:10}}>
                 {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
@@ -2637,10 +2637,10 @@ function App(){
               </div>
               <button onClick={()=>finishChildSetup({name:obName,dob:obDob,sex:obSex})}
                 style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,fontFamily:"inherit"}}>
-                {obName.trim()||obDob ? "Let’s go! →" : "Continue →"}
+                {obName.trim()||obDob ? "Let's go! →" : "Continue →"}
               </button>
               <button onClick={()=>finishChildSetup(null)} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-                Skip — I’ll add details later
+                Skip — I'll add details later
               </button>
             </div>
           )}
@@ -2675,7 +2675,7 @@ function App(){
                 {obLinkStatus==="loading"?"⏳ Linking…":"Link child →"}
               </button>
               <button onClick={()=>finishChildSetup(null)} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-                Skip — I’ll set up later
+                Skip — I'll set up later
               </button>
             </div>
           )}
@@ -2792,7 +2792,7 @@ function App(){
               <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
                 <div style={{marginBottom:10}}>Keep both parents in sync — tap <strong>👨‍👩‍👧 Share</strong> in the header to open Data & Sync.</div>
                 <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:8,display:"flex",flexDirection:"column",gap:6}}>
-                  <div>🔗 Tap <strong>"Get code"</strong> next to your child’s name to get a 6-digit sync code</div>
+                  <div>🔗 Tap <strong>"Get code"</strong> next to your child's name to get a 6-digit sync code</div>
                   <div>📲 Your partner opens Share and taps <strong>"Link a child"</strong></div>
                   <div>They enter your <strong>6-digit code</strong> — your child appears on their phone ✔</div>
                 </div>
