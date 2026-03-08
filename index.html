@@ -646,6 +646,12 @@ function App(){
   const[editEntry,setEditEntry]=useState(null);
   const[insightDismissed,setInsightDismissed]=useState(()=>{try{return!!localStorage.getItem("ins_v1");}catch{return false;}});
   const[showInsights,setShowInsights]=useState(false);
+  // ── Personal recommendations preference (per child) ──
+  // null = not yet decided, true = use personal, false = use NHS only
+  const[usePersonalRecs,setUsePersonalRecs]=useState(()=>{
+    try{const v=localStorage.getItem("use_personal_recs_v1");return v===null?null:JSON.parse(v);}catch{return null;}
+  });
+  const[showPersonalPrompt,setShowPersonalPrompt]=useState(false);
   const[pasteText,setPasteText]=useState("");
   const[parsedEntries,setParsedEntries]=useState(null);
   const[parseError,setParseError]=useState("");
@@ -1661,7 +1667,19 @@ function App(){
     // Only use personalised windows from days that actually have nap data
     const napDays = loggedDays.filter(d => (days[d]||[]).some(e => e.type==="nap" && !e.night && e.start && e.end));
 
-    if (napDays.length < 7) {
+    // ── Use personal baselines if user has opted in ──
+    if (usePersonalRecs === true) {
+      const pb = computePersonalBaselines();
+      if (pb && pb.personalWWMin && pb.personalWWMax) {
+        wakeWindowMin = pb.personalWWMin;
+        wakeWindowMax = pb.personalWWMax;
+        sourceLabel = `${possessive(babyName||"Baby")} personal avg wake window (${pb.personalAvgWW}min)`;
+      } else {
+        const ww = getWakeWindow(ageWeeks);
+        wakeWindowMin = ww.min; wakeWindowMax = ww.max;
+        sourceLabel = `age-appropriate wake windows for ${age.months}mo`;
+      }
+    } else if (napDays.length < 7) {
       const ww = getWakeWindow(ageWeeks);
       wakeWindowMin = ww.min;
       wakeWindowMax = ww.max;
@@ -1973,7 +1991,17 @@ function App(){
   function tomorrowSchedule() {
     if (!age) return null;
     const w = age.totalWeeks;
-    const ww = getWakeWindow(w);
+    let ww = getWakeWindow(w);
+    let scheduleSource = "NHS age guidelines";
+
+    // If personal recs are enabled and we have enough data, use personal wake windows
+    if (usePersonalRecs === true) {
+      const pb = computePersonalBaselines();
+      if (pb && pb.personalWWMin && pb.personalWWMax) {
+        ww = { min: pb.personalWWMin, max: pb.personalWWMax, label: `${pb.personalAvgWW}min avg` };
+        scheduleSource = `${possessive(babyName||"Baby")} personal patterns`;
+      }
+    }
 
     // Figure out expected wake time from recent data
     const dk = Object.keys(days).sort().slice(-7);
@@ -2194,7 +2222,11 @@ function App(){
     }
 
     return { totalMl, dayMl, nightMl, totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin,
-             status, color, bg, icon, statusMsg, sleepLink, suggestions, nhsNote, dayFraction, hasFrequentNightWakes };
+             status, color, bg, icon, statusMsg, sleepLink, suggestions, nhsNote, dayFraction, hasFrequentNightWakes,
+             // Personal baselines (available when usePersonalRecs is true)
+             personalTarget: usePersonalRecs===true ? (()=>{ const pb=computePersonalBaselines(); return pb&&pb.personalAvgMl?pb.personalAvgMl:null; })() : null,
+             personalFeedCount: usePersonalRecs===true ? (()=>{ const pb=computePersonalBaselines(); return pb&&pb.personalFeedCount?pb.personalFeedCount:null; })() : null
+           };
   }
 
   function analyseTrends() {
@@ -2294,6 +2326,109 @@ function App(){
 
     return { insights, avgWake: avgWake!==null?minsToTime(avgWake):null, avgBed: avgBed!==null?minsToTime(avgBed):null, avgNaps, avgNapMins, avgNightWakes, avgMlRecent, days: dk.length };
   }
+
+  // ── PERSONAL BASELINES: analyse baby's own 7-day patterns vs NHS ──
+  function computePersonalBaselines() {
+    const dk = Object.keys(days).sort();
+    // Need at least 7 days with meaningful data
+    const activeDays = dk.filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
+    if (activeDays.length < 7) return null;
+    if (!age) return null;
+
+    const recent = activeDays.slice(-14); // up to last 14 days
+    const mtp = m => { const h=Math.floor(m/60)%24,mm=m%60; return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`; };
+
+    // ── Wake windows ──
+    let allWakeWindows = [];
+    recent.forEach(d => {
+      const ws = getAwakeWindows(days[d]||[]);
+      ws.forEach(w => { if(w.mins >= 20 && w.mins < 240) allWakeWindows.push(w.mins); });
+    });
+    const sortedWW = [...allWakeWindows].sort((a,b)=>a-b);
+    const trim = Math.max(1, Math.floor(sortedWW.length * 0.1));
+    const trimmedWW = sortedWW.slice(trim, sortedWW.length - trim);
+    const personalAvgWW = trimmedWW.length >= 3 ? Math.round(trimmedWW.reduce((a,b)=>a+b,0)/trimmedWW.length) : null;
+    const personalWWMin = personalAvgWW ? Math.max(25, Math.round(personalAvgWW * 0.88)) : null;
+    const personalWWMax = personalAvgWW ? Math.max((personalWWMin||45)+15, Math.round(personalAvgWW * 1.12)) : null;
+
+    // ── Nap count & duration ──
+    const napCountsArr = recent.map(d => (days[d]||[]).filter(e=>e.type==="nap"&&!e.night).length).filter(v=>v>0);
+    const personalNapCount = napCountsArr.length ? Math.round(napCountsArr.reduce((a,b)=>a+b,0)/napCountsArr.length) : null;
+
+    const napDurArr = [];
+    recent.forEach(d => {
+      (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n => {
+        const dur = minDiff(n.start, n.end);
+        if(dur > 5 && dur < 240) napDurArr.push(dur);
+      });
+    });
+    const sortedND = [...napDurArr].sort((a,b)=>a-b);
+    const trimND = Math.max(1, Math.floor(sortedND.length * 0.1));
+    const trimmedND = sortedND.slice(trimND, sortedND.length - trimND);
+    const personalAvgNapDur = trimmedND.length >= 3 ? Math.round(trimmedND.reduce((a,b)=>a+b,0)/trimmedND.length) : null;
+
+    // ── Total daily nap time ──
+    const totalNapArr = recent.map(d => {
+      const ns = (days[d]||[]).filter(e=>e.type==="nap"&&!e.night);
+      return ns.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+    }).filter(v=>v>0);
+    const personalTotalNap = totalNapArr.length ? Math.round(totalNapArr.reduce((a,b)=>a+b,0)/totalNapArr.length) : null;
+
+    // ── Feed totals ──
+    const feedArr = recent.map(d => {
+      const fs = (days[d]||[]).filter(e=>e.type==="feed"&&e.feedType!=="solids");
+      return fs.reduce((s,f)=>s+(f.amount||0),0);
+    }).filter(v=>v>0);
+    const sortedF = [...feedArr].sort((a,b)=>a-b);
+    const trimF = Math.max(1, Math.floor(sortedF.length * 0.1));
+    const personalAvgMl = sortedF.slice(trimF, sortedF.length - trimF).length >= 2
+      ? Math.round(sortedF.slice(trimF, sortedF.length - trimF).reduce((a,b)=>a+b,0) / sortedF.slice(trimF, sortedF.length - trimF).length)
+      : (feedArr.length ? Math.round(feedArr.reduce((a,b)=>a+b,0)/feedArr.length) : null);
+
+    // ── Feed frequency (per day) ──
+    const feedCountArr = recent.map(d => (days[d]||[]).filter(e=>e.type==="feed"&&!e.night&&e.feedType!=="solids").length).filter(v=>v>0);
+    const personalFeedCount = feedCountArr.length ? Math.round(feedCountArr.reduce((a,b)=>a+b,0)/feedCountArr.length) : null;
+
+    // ── Bedtime ──
+    const bedArr = recent.map(d => {
+      const e = (days[d]||[]).find(x=>x.type==="sleep"&&!x.night);
+      if(!e) return null;
+      const [h,m]=e.time.split(":").map(Number); return h*60+m;
+    }).filter(v=>v!==null);
+    const personalAvgBed = bedArr.length >= 3 ? Math.round(bedArr.reduce((a,b)=>a+b,0)/bedArr.length) : null;
+
+    // ── NHS comparison ──
+    const w = age.totalWeeks;
+    const nhsWW = getWakeWindow(w);
+    const nhsNapProfile = getAgeNapProfile(w);
+    const nhsBedMin = 18*60, nhsBedMax = 20*60; // 6pm-8pm NHS typical range
+
+    // Compute differences
+    const wwDiff = personalAvgWW ? personalAvgWW - Math.round((nhsWW.min+nhsWW.max)/2) : 0;
+    const mlDiff = personalAvgMl && age ? (() => {
+      let target;
+      if(w<4)target=550;else if(w<8)target=650;else if(w<13)target=750;else if(w<26)target=850;else if(w<39)target=700;else if(w<52)target=600;else target=400;
+      return personalAvgMl - target;
+    })() : 0;
+
+    return {
+      activeDays: activeDays.length,
+      personalAvgWW, personalWWMin, personalWWMax,
+      personalNapCount, personalAvgNapDur, personalTotalNap,
+      personalAvgMl, personalFeedCount,
+      personalAvgBed: personalAvgBed ? mtp(personalAvgBed) : null,
+      nhsWW, nhsNapProfile,
+      wwDiff, mlDiff,
+      hasEnoughData: personalAvgWW !== null && personalAvgMl !== null
+    };
+  }
+
+  // ── Persist usePersonalRecs to localStorage ──
+  React.useEffect(()=>{
+    if(usePersonalRecs !== null) {
+      try{localStorage.setItem("use_personal_recs_v1", JSON.stringify(usePersonalRecs));}catch{}
+    }
+  },[usePersonalRecs]);
 
   // ── SMART PASTE PARSER ──
   function parseTime(str, previousMinutes=null) {
@@ -3932,6 +4067,22 @@ function App(){
                         ℹ️ {fc.nhsNote}
                       </div>
                     )}
+
+                    {/* Personal vs NHS target comparison */}
+                    {fc.personalTarget && (
+                      <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`,display:"flex",gap:8}}>
+                        <div style={{flex:1,background:"#f0faf5",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
+                          <div style={{fontSize:11,fontFamily:"monospace",color:"#4a8070",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>✨ Personal target</div>
+                          <div style={{fontSize:18,fontWeight:700,color:"#2a7060",fontFamily:"'Playfair Display',serif"}}>{fc.personalTarget}ml</div>
+                          {fc.personalFeedCount && <div style={{fontSize:11,color:"#5a9080",fontFamily:"monospace"}}>{fc.personalFeedCount} feeds/day</div>}
+                        </div>
+                        <div style={{flex:1,background:"#f5f8ff",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
+                          <div style={{fontSize:11,fontFamily:"monospace",color:"#5a6a90",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>NHS guideline</div>
+                          <div style={{fontSize:18,fontWeight:700,color:"#4a5a80",fontFamily:"'Playfair Display',serif"}}>{fc.totalLabel.split(" ")[0]}</div>
+                          <div style={{fontSize:11,color:"#6a7a90",fontFamily:"monospace"}}>{fc.totalLabel.split("(")[0].trim()}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -3984,7 +4135,10 @@ function App(){
                       <div style={{background:"linear-gradient(135deg,#e8f5ef,#f0faf6)",borderRadius:14,padding:"12px 14px"}}>
                         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:suggestedBed?8:0}}>
                           <div>
-                            <div style={{fontSize:14,fontFamily:"monospace",color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>😴 Next Nap Window</div>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                              <div style={{fontSize:14,fontFamily:"monospace",color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em"}}>😴 Next Nap Window</div>
+                              {usePersonalRecs===true&&<span style={{fontSize:10,background:"#d0f0e4",color:"#2a7055",borderRadius:99,padding:"2px 7px",fontFamily:"monospace",fontWeight:700}}>✨ Personal</span>}
+                            </div>
                             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.mint}}>{minsAway!==null&&minsAway<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
                             <div style={{fontSize:14,color:C.lt,marginTop:2}}>{pred.sourceLabel}</div>
                           </div>
@@ -3993,6 +4147,12 @@ function App(){
                             <div style={{fontSize:15,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
                           </div>
                         </div>
+                        {/* Show NHS comparison when using personal recs */}
+                        {usePersonalRecs===true&&(()=>{
+                          const aw=age?getWakeWindow(age.totalWeeks):null;
+                          if(!aw) return null;
+                          return <div style={{fontSize:12,color:C.lt,fontFamily:"monospace",marginBottom:suggestedBed?6:0}}>NHS for this age: {aw.label} · <span style={{color:C.mid}}>Your baby: {pred.wakeWindowMin}–{pred.wakeWindowMax}min</span></div>;
+                        })()}
                         {suggestedBed&&(
                           <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
                             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -4139,8 +4299,89 @@ function App(){
                       ))}
                     </div>
                     <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:8}}>
-                      Based on recent sleep patterns and age-appropriate wake windows
+                      Based on recent sleep patterns and {usePersonalRecs===true?"✨ personal":"NHS age-appropriate"} wake windows
                     </div>
+                  </div>
+                );
+              })()}
+
+              {/* Personal Recommendations prompt (after 7 days, if not yet decided) */}
+              {(()=>{
+                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
+                if (activeDays.length < 7 || usePersonalRecs !== null) return null;
+                const pb = computePersonalBaselines();
+                if (!pb || !pb.hasEnoughData) return null;
+                return (
+                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8f5ff)",border:`1px solid #a0d8c0`,borderRadius:18,padding:"16px 15px",marginBottom:12,boxShadow:"0 2px 12px rgba(100,180,150,0.1)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <span style={{fontSize:22}}>🎉</span>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#2a6050"}}>7 days of data — {possessive(babyName||"Baby")} personal patterns are ready!</div>
+                    </div>
+                    <div style={{fontSize:14,color:"#3a7060",marginBottom:12,lineHeight:1.6}}>
+                      We've analysed {possessive(babyName||"Baby")} real data and compared it to NHS guidelines. Would you like recommendations tailored to their personal patterns?
+                    </div>
+                    <div style={{background:"white",borderRadius:12,padding:"10px 12px",marginBottom:12,border:"1px solid #c0e8d8"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                        <div style={{fontSize:13,fontWeight:700,color:"#4a8070"}}>Wake windows</div>
+                        <div style={{fontSize:13,fontFamily:"monospace"}}>
+                          <span style={{color:"#6a9090"}}>NHS: {pb.nhsWW.label}</span>
+                          <span style={{margin:"0 6px",color:"#ccc"}}>|</span>
+                          <span style={{color:"#2a6050",fontWeight:700}}>{possessive(babyName||"Baby")}: ~{pb.personalAvgWW}min</span>
+                        </div>
+                      </div>
+                      {pb.personalAvgMl && (
+                        <div style={{display:"flex",justifyContent:"space-between"}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#4a8070"}}>Daily milk</div>
+                          <div style={{fontSize:13,fontFamily:"monospace"}}>
+                            <span style={{color:"#6a9090"}}>NHS: ~{age&&age.totalWeeks<26?"700-1000":age&&age.totalWeeks<52?"500-700":"300-500"}ml</span>
+                            <span style={{margin:"0 6px",color:"#ccc"}}>|</span>
+                            <span style={{color:"#2a6050",fontWeight:700}}>{possessive(babyName||"Baby")}: ~{pb.personalAvgMl}ml</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{fontSize:13,color:"#5a8070",marginBottom:10,lineHeight:1.5}}>
+                      NHS guidelines will always be visible alongside {possessive(babyName||"Baby")} personal recommendations.
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>{setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};}} style={{flex:2,background:`linear-gradient(135deg,#50a888,#3a8870)`,border:"none",borderRadius:99,padding:"10px",color:"white",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                        ✨ Use personal recommendations
+                      </button>
+                      <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}} style={{flex:1,background:"none",border:`1px solid #a0c8b8`,borderRadius:99,padding:"10px",color:"#5a8070",fontSize:13,cursor:"pointer"}}>
+                        NHS only
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Personal recs active banner */}
+              {usePersonalRecs === true && (()=>{
+                const pb = computePersonalBaselines();
+                if (!pb) return null;
+                return (
+                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8fff5)",border:`1px solid #a0d8c0`,borderRadius:14,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#2a7060",marginBottom:2}}>✨ Personal recommendations active</div>
+                      <div style={{fontSize:12,color:"#4a9080",lineHeight:1.4}}>Based on {pb.activeDays} days of {possessive(babyName||"Baby")} data · updates as you log more</div>
+                    </div>
+                    <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}} style={{background:"none",border:`1px solid #b0d8c8`,borderRadius:99,padding:"5px 10px",color:"#5a9080",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                      Switch to NHS
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* NHS-only mode banner (after choosing) */}
+              {usePersonalRecs === false && (()=>{
+                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
+                if (activeDays.length < 7) return null;
+                return (
+                  <div style={{background:"#f5f8ff",border:`1px solid #c8d8f0`,borderRadius:14,padding:"11px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <div style={{fontSize:13,color:"#4a5a80"}}>Using NHS guidelines · Personal patterns available</div>
+                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}} style={{background:"none",border:`1px solid #c0cce8`,borderRadius:99,padding:"5px 10px",color:"#5a6a90",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+                      Review
+                    </button>
                   </div>
                 );
               })()}
