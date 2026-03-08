@@ -2332,6 +2332,8 @@ function App(){
     const entries = [];
     const warnings = [];
     let lastMinutes = null;
+    // tMins: convert a plain "HH:MM" string to minutes — avoids timeVal's object-only interface
+    const tMins = (s) => { if(!s) return 0; const[h,m]=s.split(":").map(Number); return h*60+m; };
 
     // Seed lastMinutes from today's existing entries so "9 feed 120" knows 9 = 9am
     const todayEntries = (days[selDay]||[]).filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -2366,7 +2368,7 @@ function App(){
       if (/dream\s*feed/.test(l)) {
         const t = parseTime(raw.replace(/dream\s*feed/i,""), lastMinutes);
         const ml = parseAmount(raw);
-        if (t) { entries.push({type:"feed",time:t,amount:ml,night:true,note:"Dream feed",id:uid(),feedType:"milk"}); lastMinutes = timeVal(t); }
+        if (t) { entries.push({type:"feed",time:t,amount:ml,night:true,note:"Dream feed",id:uid(),feedType:"milk"}); lastMinutes = tMins(t); }
         else warnings.push('Couldn\'t parse dream feed: "'+raw+'"');
         return;
       }
@@ -2377,7 +2379,7 @@ function App(){
         const ml = parseAmount(raw);
         const hasNote = /self.settled|settled\s*without|no\s*milk|went\s*back|fussed|cried/i.test(raw);
         const note = hasNote ? raw.replace(/wake\s*\d+/i,"").replace(/^\s*[-–:\s]*/,"").trim() : "";
-        if (t) { entries.push({type:ml>0?"feed":"wake",time:t,amount:ml||0,night:true,note:note,id:uid(),feedType:"milk"}); lastMinutes = timeVal(t); }
+        if (t) { entries.push({type:ml>0?"feed":"wake",time:t,amount:ml||0,night:true,note:note,id:uid(),feedType:"milk"}); lastMinutes = tMins(t); }
         else warnings.push('Couldn\'t parse night wake: "'+raw+'"');
         return;
       }
@@ -2385,7 +2387,7 @@ function App(){
       // ── Morning wake up ──
       if (/woke?\s*up|wake\s*up|morning|got\s*up/.test(l)) {
         const t = parseTime(raw.replace(/woke?\s*up|wake\s*up|morning|got\s*up/i,""), lastMinutes);
-        if (t) { entries.push({type:"wake",time:t,night:false,note:"",id:uid()}); lastMinutes = timeVal(t); }
+        if (t) { entries.push({type:"wake",time:t,night:false,note:"",id:uid()}); lastMinutes = tMins(t); }
         else warnings.push('Couldn\'t parse wake time: "'+raw+'"');
         return;
       }
@@ -2393,7 +2395,7 @@ function App(){
       // ── Bedtime ──
       if (/\b(asleep|bedtime|bed time|went to sleep|down for bed|bed|sleep)\b/.test(l) && !/nap/.test(l) && !/wake/.test(l)) {
         const t = parseTime(raw.replace(/asleep|bedtime|bed time|went to sleep|down for bed|sleep|bed/ig,"").trim(), lastMinutes);
-        if (t) { entries.push({type:"sleep",time:t,night:false,note:"",id:uid()}); lastMinutes = timeVal(t); }
+        if (t) { entries.push({type:"sleep",time:t,night:false,note:"",id:uid()}); lastMinutes = tMins(t); }
         else warnings.push('Couldn\'t parse bedtime: "'+raw+'"');
         return;
       }
@@ -2403,7 +2405,7 @@ function App(){
         // Strip "nap" and optional nap-number (e.g. "nap2", "nap 3") but NOT time digits.
         // Old: /nap\s*\d*/i would eat the "2" in "nap 2:25", corrupting the time.
         // New: only eat digit if it's followed by whitespace or end-of-word (it's a nap index).
-        const rangeStr = raw.replace(/nap\s*(?:\d+\s|\d+$)?/i,"").replace(/^[\s:\-–]+/,"").trim();
+        const rangeStr = raw.replace(/nap\s*\d*\s*/i,"").replace(/^[\s:\-–]+/,"").trim();
         // Naps only happen during the day (~7am–8pm = 420–1200 mins).
         // If parseTimeRange returns a time outside that window and no explicit am/pm
         // was given, flip it by ±12h into the daytime window.
@@ -2427,7 +2429,7 @@ function App(){
           range.end   = clampToNapWindow(range.end,   rangeStr.split(/[-–]/).slice(-1)[0] || "");
         }
         if (range) {
-          entries.push({type:"nap",start:range.start,end:range.end,night:false,note:"",id:uid()}); lastMinutes = timeVal(range.end);
+          entries.push({type:"nap",start:range.start,end:range.end,night:false,note:"",id:uid()}); lastMinutes = tMins(range.end);
         } else {
           const t = parseTime(rangeStr, lastMinutes);
           if (t) warnings.push('Found nap but no end time: "'+raw+'" — add it manually');
@@ -2443,10 +2445,11 @@ function App(){
         const range = parseTimeRange(cleaned, lastMinutes);
         const t = range ? range.start : parseTime(cleaned, lastMinutes);
         // If no time found but we have an amount, default to now — user can edit later
-        const finalT = t || nowTime();
+        const _mts=(mn)=>{const h=Math.floor(mn/60)%24,m=mn%60;return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");};
+        const finalT = t || (lastMinutes !== null ? _mts(lastMinutes) : nowTime());
         entries.push({type:"feed",time:finalT,amount:ml,night:false,note:t?"":"(time estimated)",id:uid(),feedType:"milk"});
         if (!t) lastMinutes = null; // don't let a fake time pollute the sequence
-        else lastMinutes = timeVal(t);
+        else lastMinutes = tMins(t);
         return;
       }
 
@@ -2458,7 +2461,7 @@ function App(){
         const ml = parseInt(shorthand[2]);
         if (t && ml >= 10 && ml <= 500) {
           entries.push({type:"feed",time:t,amount:ml,night:false,note:"",id:uid(),feedType:"milk"});
-          lastMinutes = timeVal(t);
+          lastMinutes = tMins(t);
           return;
         }
       }
@@ -2470,7 +2473,7 @@ function App(){
         const num = parseInt(bare[2]);
         if (t && num >= 10 && num <= 500) {
           entries.push({type:"feed",time:t,amount:num,night:false,note:"",id:uid(),feedType:"milk"});
-          lastMinutes = timeVal(t);
+          lastMinutes = tMins(t);
           return;
         }
       }
