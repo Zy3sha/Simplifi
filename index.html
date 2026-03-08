@@ -2296,12 +2296,20 @@ function App(){
       if(isLogin) {
           if(authPin.length !== 4) { setAuthError("Enter your 4-digit PIN"); setAuthLoading(false); return; }
         const ok = await verifyLogin(authUsername, authPin);
-        if(ok) { setAuthScreen(null); }
+        if(ok) {
+          try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+          setOnboarded(true);
+          setAuthScreen(null);
+        }
       } else {
         // Create account
         if(authPin !== authPin2) { setAuthError("PINs don't match"); setAuthLoading(false); return; }
         const ok = await reserveUsername(authUsername, authPin);
-        if(ok) { setAuthScreen(null); }
+        if(ok) {
+          try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+          setOnboarded(true);
+          setAuthScreen(null);
+        }
         else { setAuthError("That username is taken — try another"); }
       }
       setAuthLoading(false);
