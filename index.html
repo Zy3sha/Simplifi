@@ -641,20 +641,14 @@ function App(){
   // Runs once when fbReady + backupCode are available.
   // If localStorage has no meaningful data (no children with any days logged),
   // pull from cloud and hydrate. This handles the "new deploy wipes localStorage" case.
+  // ── Always merge from cloud on startup — cloud wins for days/weights ──
+  // We always pull and merge so deploys never lose data. Local-only changes
+  // (e.g. name edits made offline) are kept via mergeChildren.
   const hasRestoredBackup = React.useRef(false);
   useEffect(()=>{
     if(!fbReady || !backupCode) return;
     if(hasRestoredBackup.current) return;
     hasRestoredBackup.current = true;
-
-    // Check if local data looks empty (no days logged in any child)
-    const localHasData = Object.values(children).some(c =>
-      Object.values(c.days||{}).some(d => d && d.length > 0) ||
-      (c.weights||[]).length > 0
-    );
-    if(localHasData) return; // already have data locally, don't overwrite
-
-    // Pull from backup
     (async()=>{
       try {
         const {db, doc, getDoc} = window._fb;
@@ -665,9 +659,8 @@ function App(){
           const cloud = JSON.parse(d.children);
           setChildren(prev => mergeChildren(prev, cloud));
           setSyncStatus("synced");
-          console.log("Restored data from backup code", backupCode);
         }
-      } catch(e) { console.warn("Backup restore error", e); }
+      } catch(e) { console.warn("OBubba restore error", e); }
     })();
   },[fbReady, backupCode]);
 
@@ -4949,30 +4942,26 @@ window.onerror = function(msg, src, line, col, err) {
 </script>
 
 <script>
-// Register service worker for offline support
+// ── Service Worker — cache busted on every deploy via BUILD_TS ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Inline service worker as blob URL so it works from any path
+    const BUILD_TS = '202603080939'; // updated every deploy — busts old cache
     const swCode = `
-const CACHE = 'obubba-v1';
-const ASSETS = [
-  self.registration.scope,
-  'https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js',
-  'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js',
-  'https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js',
-  'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap',
-];
+const CACHE = 'obubba-${BUILD_TS}';
+const ASSETS = [self.registration.scope];
 
 self.addEventListener('install', e => {
+  // Skip waiting immediately so new SW activates right away
+  self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(cache => {
-      // Cache what we can, ignore failures (CDN assets)
-      return Promise.allSettled(ASSETS.map(url => cache.add(url).catch(()=>{})));
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE).then(cache =>
+      cache.add(self.registration.scope).catch(()=>{})
+    )
   );
 });
 
 self.addEventListener('activate', e => {
+  // Delete ALL old caches on activate
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
@@ -4981,16 +4970,22 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Always serve the app shell from cache if available (offline-first for navigation)
   if (e.request.mode === 'navigate') {
+    // Navigation: network first, then cache fallback (ensures fresh HTML on deploy)
     e.respondWith(
-      caches.match(self.registration.scope)
-        .then(cached => cached || fetch(e.request))
-        .catch(() => caches.match(self.registration.scope))
+      fetch(e.request)
+        .then(resp => {
+          if (resp && resp.status === 200) {
+            const clone = resp.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return resp;
+        })
+        .catch(() => caches.match(e.request))
     );
     return;
   }
-  // For other requests: network first, fallback to cache
+  // Other assets: network first, cache fallback
   e.respondWith(
     fetch(e.request)
       .then(resp => {
@@ -5003,13 +4998,26 @@ self.addEventListener('fetch', e => {
       .catch(() => caches.match(e.request))
   );
 });
-`;
+\`;
     const blob = new Blob([swCode], {type: 'application/javascript'});
     const swUrl = URL.createObjectURL(blob);
     navigator.serviceWorker.register(swUrl, {scope: '/'})
       .then(reg => {
         window._swReg = reg;
-        console.log('SW registered');
+        // Check for updates every time app loads
+        reg.update();
+        // When a new SW is waiting, activate it immediately
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          if (!newSW) return;
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+              // New version ready — reload all clients
+              navigator.serviceWorker.controller.postMessage({type:'SKIP_WAITING'});
+              window.location.reload();
+            }
+          });
+        });
       })
       .catch(e => console.warn('SW reg failed:', e));
   });
