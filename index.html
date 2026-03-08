@@ -2343,9 +2343,10 @@ function App(){
 
   function runParse() {
     if (!pasteText.trim()) return;
-    // Must have a day selected or a date in the text to paste into
+    // Only block if there's genuinely nowhere to put the entries
+    // (no day tab open AND no date found in the text)
     if (!selDay && !pasteText.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/)) {
-      setParseError("Please select or create a day first before pasting entries.");
+      setParseError("No day tab is open and no date was found in your notes. Open a day tab first or include a date.");
       return;
     }
     const result = smartParse(pasteText);
@@ -4637,8 +4638,8 @@ function App(){
                 </div>
               )}
               {!parsedEntries.detectedDate&&(
-                <div style={{fontSize:14,fontFamily:"monospace",color:C.gold,background:"#fffbf0",borderRadius:10,padding:"7px 12px",marginBottom:12}}>
-                  📅 No date found — entries will be added to <strong>{fmtLong(selDay||todayStr())}</strong>
+                <div style={{fontSize:14,fontFamily:"monospace",color:selDay?C.mint:C.gold,background:selDay?"#f0faf6":"#fffbf0",borderRadius:10,padding:"7px 12px",marginBottom:12}}>
+                  📅 {selDay ? <>Adding to open tab: <strong>{fmtLong(selDay)}</strong></> : <>No date found — entries will be added to <strong>{fmtLong(todayStr())}</strong></>}
                 </div>
               )}
               <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>
