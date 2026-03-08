@@ -3846,24 +3846,8 @@ function App(){
                 </div>
               )}
 
-              {/* ══ 2. STATS ROW ══════════════════════════════════ */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:18}}>
-                {[
-                  {big:totalMl||dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?"ml":"meals",label:totalMl?"Milk":"Solids",color:C.ter,bg:"#fdf0eb"},
-                  {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:"#8a7060",bg:"#f0ece6"},
-                  {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},
-                  {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"},
-                ].map((s,i)=>(
-                  <div key={i} style={{background:s.bg,borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:s.color,lineHeight:1}}>{s.big}</div>
-                    {s.unit&&<div style={{fontSize:14,fontFamily:"monospace",color:s.color,opacity:0.7,marginTop:1}}>{s.unit}</div>}
-                    <div style={{fontSize:8,color:C.mid,marginTop:3,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* ══ NEW LOG BAR ════════════════════════════════ */}
-              {/* Personal Recommendations prompt — early position so always visible */}
+              {/* ══ PERSONAL / NHS RECOMMENDATION PROMPT ══════════ */}
+              {/* Personal Recommendations prompt — shown after 7 days */}
               {(()=>{
                 const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
                 if (activeDays.length < 7 || usePersonalRecs !== null) return null;
@@ -3950,6 +3934,24 @@ function App(){
                   </div>
                 );
               })()}
+
+              {/* ══ 2. STATS ROW ══════════════════════════════════ */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:18}}>
+                {[
+                  {big:totalMl||dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?"ml":"meals",label:totalMl?"Milk":"Solids",color:C.ter,bg:"#fdf0eb"},
+                  {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:"#8a7060",bg:"#f0ece6"},
+                  {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},
+                  {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"},
+                ].map((s,i)=>(
+                  <div key={i} style={{background:s.bg,borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:s.color,lineHeight:1}}>{s.big}</div>
+                    {s.unit&&<div style={{fontSize:14,fontFamily:"monospace",color:s.color,opacity:0.7,marginTop:1}}>{s.unit}</div>}
+                    <div style={{fontSize:8,color:C.mid,marginTop:3,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:"monospace"}}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ══ NEW LOG BAR ════════════════════════════════ */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:16}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
