@@ -485,11 +485,18 @@ function App(){
     return n.endsWith("s") ? `${n}'` : `${n}'s`;
   };
 
-  // ── Persist all children to localStorage ──
-  useEffect(()=>{try{localStorage.setItem("children_v1",JSON.stringify(children));}catch{}},[children]);
-  useEffect(()=>{try{localStorage.setItem("child_sync_codes_v1",JSON.stringify(childSyncCodes));}catch{}},[childSyncCodes]);
-  useEffect(()=>{if(resolvedActiveId)try{localStorage.setItem("active_child",resolvedActiveId);}catch{}},[resolvedActiveId]);
-  useEffect(()=>{if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}},[onboarded]);
+  // ── Persist to localStorage — batched into one debounced write ──
+  const lsRef = React.useRef(null);
+  useEffect(()=>{
+    clearTimeout(lsRef.current);
+    lsRef.current = setTimeout(()=>{
+      try{localStorage.setItem("children_v1",JSON.stringify(children));}catch{}
+      try{localStorage.setItem("child_sync_codes_v1",JSON.stringify(childSyncCodes));}catch{}
+      if(resolvedActiveId)try{localStorage.setItem("active_child",resolvedActiveId);}catch{}
+      if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}
+    }, 300);
+    return ()=>clearTimeout(lsRef.current);
+  },[children, childSyncCodes, resolvedActiveId, onboarded]);
   // ── Online/offline detection ──
   useEffect(()=>{
     const on=()=>setIsOnline(true);
@@ -959,42 +966,50 @@ function App(){
     return()=>clearInterval(breastRef.current);
   },[breastActive,breastSide]);
 
+  // ── Memoised age — babyDob almost never changes, no need to recalculate everywhere ──
+  const age = React.useMemo(() => calcAge(babyDob), [babyDob]);
+
+  // ── Pre-compute stable countdown inputs outside the tick (only recalc when data changes) ──
+  const tickDataRef = React.useRef({});
+  React.useEffect(()=>{
+    const ageWeeks = age ? age.totalWeeks : null;
+    let expectedNaps = 4;
+    if (ageWeeks) {
+      if (ageWeeks < 6)       expectedNaps = 5;
+      else if (ageWeeks < 13) expectedNaps = 4;
+      else if (ageWeeks < 26) expectedNaps = 3;
+      else if (ageWeeks < 39) expectedNaps = 2;
+      else if (ageWeeks < 78) expectedNaps = 2;
+      else                    expectedNaps = 1;
+    }
+    const bed = bedtimePrediction();
+    const pred = predictNextNap();
+    const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+    const napsDone = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).length;
+    const bedMins = bed ? (()=>{ const [bh,bm]=bed.time.split(":").map(Number); return bh*60+bm; })() : null;
+    tickDataRef.current = { hasBedtime, bed, bedMins, napsDone, expectedNaps, pred };
+  },[selDay, days, age]);
+
   // Live countdown to next nap window — ticks every second
   const countdownRef = React.useRef(null);
   useEffect(()=>{
     function tick(){
       const now = new Date();
       const nowMins = now.getHours()*60 + now.getMinutes();
-      const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+      const { hasBedtime, bed, bedMins, napsDone, expectedNaps, pred } = tickDataRef.current;
 
-      // ── Work out bedtime conditions ──
-      const bed = bedtimePrediction();
-      const ageWeeks = calcAge(babyDob) ? calcAge(babyDob).totalWeeks : null;
-      let expectedNaps = 4;
-      if (ageWeeks) {
-        if (ageWeeks < 6)  expectedNaps = 5;
-        else if (ageWeeks < 13) expectedNaps = 4;
-        else if (ageWeeks < 26) expectedNaps = 3;
-        else if (ageWeeks < 39) expectedNaps = 2;
-        else if (ageWeeks < 78) expectedNaps = 2;
-        else expectedNaps = 1;
-      }
-      const napsDone = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).length;
       const napsComplete = napsDone >= expectedNaps;
-      const bedMins = bed ? (()=>{ const [bh,bm]=bed.time.split(":").map(Number); return bh*60+bm; })() : null;
       const minsUntilBed = bedMins !== null ? bedMins - nowMins : null;
       const within2hrs = minsUntilBed !== null && minsUntilBed > 0 && minsUntilBed <= 120;
       const bedtimeConditionMet = (within2hrs || napsComplete) && !hasBedtime && bed;
 
       if (hasBedtime) {
-        // Bedtime already logged — hide both
         setNapCountdown(null);
         setBedCountdown(null);
         return;
       }
 
       if (bedtimeConditionMet) {
-        // Switch to bedtime countdown
         setNapCountdown(null);
         let diff = Math.round(minsUntilBed * 60);
         if (diff < 0) diff = 0;
@@ -1002,9 +1017,7 @@ function App(){
         return;
       }
 
-      // ── Default: always show nap countdown ──
       setBedCountdown(null);
-      const pred = predictNextNap();
       if (pred) {
         const [h,m] = pred.napStart_min.split(":").map(Number);
         const target = new Date();
@@ -1013,18 +1026,16 @@ function App(){
         if (diff < 0) diff = 0;
         setNapCountdown(diff);
       } else {
-        // No active prediction — show a neutral "nap" state (no countdown number)
-        setNapCountdown(-1); // -1 = "nap mode but no window yet"
+        setNapCountdown(-1);
       }
     }
     tick();
     countdownRef.current = setInterval(tick, 1000);
     return()=>clearInterval(countdownRef.current);
-  },[selDay, days, babyDob]);
+  },[selDay, days, age]);
 
   // ── AGE-ADAPTIVE STAGE ──
   function getAgeStage(){
-    const age=calcAge(babyDob);
     if(!age) return null;
     const w=age.totalWeeks;
     if(w<6)   return{stage:"newborn",label:"Newborn",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"4-6 naps",feedGoal:"8-12 feeds/day",nightNote:"Wake every 2-3h is normal",tip:"Tiny tummy — feed on demand, log every feed."};
@@ -1110,7 +1121,6 @@ function App(){
   }
 
   function predictNextNap() {
-    const age = calcAge(babyDob);
     const ageWeeks = age ? age.totalWeeks : null;
     if (!ageWeeks || !selDay) return null;
 
@@ -1193,14 +1203,12 @@ function App(){
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     const napMinutes = todayNaps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
     const nightWakes = today.filter(e => e.night).length;
-    const age = calcAge(babyDob);
     const ageWeeks = age ? age.totalWeeks : null;
     const ww = ageWeeks ? getWakeWindow(ageWeeks) : null;
 
     let score = 100;
     // Penalise if nap time is too short for age
     const idealNapMin = ww ? Math.min(ww.min * todayNaps.length, 240) : 120;
-    if (napMinutes < 90) score -= 20;
     else if (napMinutes > 240) score -= 10;
     // Night wakes
     if (nightWakes > 3) score -= 20;
@@ -1228,7 +1236,6 @@ function App(){
     const today = days[selDay] || [];
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     if (!todayNaps.length) return null;
-    const age = calcAge(babyDob);
     if (!age) return null;
     const ww = getWakeWindow(age.totalWeeks);
     const lastNap = todayNaps[todayNaps.length - 1];
@@ -1315,7 +1322,6 @@ function App(){
 
   // ── FEATURE 1: "Is This Normal?" sleep comparison ──
   function napNormalRange() {
-    const age = calcAge(babyDob);
     if (!age) return null;
     const w = age.totalWeeks;
     // [min, max] in minutes, label
@@ -1403,7 +1409,6 @@ function App(){
 
   // ── FEATURE 3: Suggested tomorrow schedule ──
   function tomorrowSchedule() {
-    const age = calcAge(babyDob);
     if (!age) return null;
     const w = age.totalWeeks;
     const ww = getWakeWindow(w);
@@ -1462,7 +1467,6 @@ function App(){
 
   // ── FEEDS: Day vs total intake with NHS-aligned ranges + sleep-linked advice ──
   function feedCard() {
-    const age = calcAge(babyDob);
     if (!age) return null;
     const w = age.totalWeeks;
     const today = days[selDay] || [];
@@ -1668,7 +1672,7 @@ function App(){
       return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
     };
 
-    const ageWeeks = calcAge(babyDob) ? calcAge(babyDob).totalWeeks : null;
+    const ageWeeks = age ? age.totalWeeks : null;
     const ww = ageWeeks ? getWakeWindow(ageWeeks) : null;
 
     const insights = [];
@@ -2746,7 +2750,6 @@ function App(){
                 <span style={{fontSize:18,marginLeft:8,opacity:0.5}}>✦</span>
               </div>
               {(()=>{
-                const age = calcAge(babyDob);
                 if (!age && !babyUnborn) return (
                   <div onClick={e=>{e.stopPropagation();setTab("growth");}} style={{fontSize:15,color:C.lt,marginTop:8,fontFamily:"monospace",cursor:"pointer"}}>
                     Add date of birth in Growth tab →
@@ -3557,7 +3560,6 @@ function App(){
 
         {/* MILESTONES TAB */}
         {tab==="milestones"&&(()=>{
-          const age = calcAge(babyDob);
           const ageWeeks = age ? age.totalWeeks : null;
           const currentMonth = babyUnborn ? -1 : (age ? age.months : null);
           const doneCount = MILESTONES.filter(m=>milestones[m.id]&&milestones[m.id].date).length;
@@ -4295,9 +4297,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 
 <script>
-// iOS PWA fix: eval() and new Function() are blocked in iOS PWA mode.
-// Babel standalone uses both. Solution: compile to plain JS string, then
-// load via a blob URL which iOS allows.
 (function() {
   var src = document.getElementById('jsx-src').textContent;
   var result = Babel.transform(src, { presets: ['react'] });
