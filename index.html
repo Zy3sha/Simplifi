@@ -2387,7 +2387,28 @@ function App(){
       // ── Nap ──
       if (/\bnap\b/.test(l)) {
         const rangeStr = raw.replace(/nap\s*\d*/i,"").replace(/^[\s:\-–]+/,"").trim();
+        // Naps only happen during the day (~7am–8pm = 420–1200 mins).
+        // If parseTimeRange returns a time outside that window and no explicit am/pm
+        // was given, flip it by ±12h into the daytime window.
+        function clampToNapWindow(timeStr, rawSegment) {
+          if (!timeStr) return timeStr;
+          const hasExplicit = /\d\s*(am|pm)/i.test(rawSegment);
+          if (hasExplicit) return timeStr; // user was explicit — respect it
+          let mins = timeVal(timeStr);
+          // If outside 7am–8pm, try the ±12h mirror
+          if (mins < 420 || mins > 1200) {
+            const mirror = (mins + 720) % 1440;
+            if (mirror >= 420 && mirror <= 1200) {
+              return String(Math.floor(mirror/60)).padStart(2,"0") + ":" + String(mirror%60).padStart(2,"0");
+            }
+          }
+          return timeStr;
+        }
         const range = parseTimeRange(rangeStr, lastMinutes);
+        if (range) {
+          range.start = clampToNapWindow(range.start, rangeStr.split(/[-–]/)[0] || "");
+          range.end   = clampToNapWindow(range.end,   rangeStr.split(/[-–]/).slice(-1)[0] || "");
+        }
         if (range) {
           entries.push({type:"nap",start:range.start,end:range.end,night:false,note:"",id:uid()}); lastMinutes = timeVal(range.end);
         } else {
