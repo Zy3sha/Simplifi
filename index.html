@@ -58,7 +58,7 @@
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
+<script type="text/plain" id="jsx-src">
 const { useState, useEffect, useRef } = React;
 
 const STORAGE_KEY = "babyTracker_v6";
@@ -4292,6 +4292,23 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<script>
+// iOS PWA fix: eval() and new Function() are blocked in iOS PWA mode.
+// Babel standalone uses both. Solution: compile to plain JS string, then
+// load via a blob URL which iOS allows.
+(function() {
+  var src = document.getElementById('jsx-src').textContent;
+  var result = Babel.transform(src, { presets: ['react'] });
+  var blob = new Blob([result.code], { type: 'application/javascript' });
+  var url = URL.createObjectURL(blob);
+  var s = document.createElement('script');
+  s.src = url;
+  s.onload = function() { URL.revokeObjectURL(url); };
+  s.onerror = function(e) { console.error('JSX load error', e); };
+  document.body.appendChild(s);
+})();
 </script>
 
 
