@@ -455,10 +455,10 @@ function App(){
   const[nameIn,setNameIn]=useState("");
   const[wForm,setWForm]=useState({date:todayStr(),kg:""});
   const theme = babySex==="girl"
-    ? {primary:"#fde7e4",secondary:"#f5ccc7"}
+    ? {primary:"#fde7e4",secondary:"#f5ccc7",grad:"linear-gradient(135deg,#fde7e4,#f5ccc7)"}
     : babySex==="boy"
-    ? {primary:"#eaf3fb",secondary:"#d0e6f5"}
-    : {primary:"#c9705a",secondary:"#7a5c52"};
+    ? {primary:"#eaf3fb",secondary:"#d0e6f5",grad:"linear-gradient(135deg,#eaf3fb,#d0e6f5)"}
+    : {primary:"#c9705a",secondary:"#7a5c52",grad:"linear-gradient(135deg,#c9705a,#a85a44)"};
   const[growthForm,setGrowthForm]=useState({date:todayStr(),kg:""});
   const[onboarded,setOnboarded]=useState(()=>{
     try{
@@ -522,6 +522,11 @@ function App(){
   const[backupCode,setBackupCode]=useState(()=>{try{return localStorage.getItem("backup_code")||null;}catch{return null;}});
   const[syncStatus,setSyncStatus]=useState("idle");
   const[showFamilyModal,setShowFamilyModal]=useState(false);
+  const[showChildSettings,setShowChildSettings]=useState(false);
+  const[csName,setCsName]=useState("");
+  const[csDob,setCsDob]=useState("");
+  const[csSex,setCsSex]=useState("");
+  const[csConfirmDelete,setCsConfirmDelete]=useState(false);
   const[joinCodeInput,setJoinCodeInput]=useState("");
   const[joinError,setJoinError]=useState("");
   const[fbReady,setFbReady]=useState(false);
@@ -3053,9 +3058,10 @@ function App(){
           )}
           {!nameEdit?(
             <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}}>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:C.deep,fontWeight:700,lineHeight:1.1,cursor:"pointer"}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:C.deep,fontWeight:700,lineHeight:1.1,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
                 {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
-                <span style={{fontSize:18,marginLeft:8,opacity:0.5}}>✦</span>
+                <span style={{fontSize:18,opacity:0.5}}>✦</span>
+                <button onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:"rgba(255,255,255,0.4)",border:"none",borderRadius:99,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:15,flexShrink:0}}>⚙️</button>
               </div>
               {(()=>{
                 if (!age && !babyUnborn) return (
@@ -3778,11 +3784,18 @@ function App(){
                     </div>
                   </div>
                   <div>
-                    <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Sex</label>
-                    <select value={babySex} onChange={e=>setBabySex(e.target.value)} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}>
-                      <option value="boy">Boy</option>
-                      <option value="girl">Girl</option>
-                    </select>
+                    <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Sex</label>
+                    {!babySex && (
+                      <div style={{fontSize:12,color:C.ter,fontFamily:"monospace",marginBottom:6,fontWeight:600}}>⚠ Not set — select to enable percentile charts</div>
+                    )}
+                    <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                      {[["boy","👦","Boy","#eaf3fb","#3d6a8a"],["girl","👧","Girl","#fde7e4","#a85070"],["","⬜","Not set","#f0e8e0","#7a5c52"]].map(([v,emoji,l,accent,col])=>(
+                        <button key={v} onClick={()=>setBabySex(v)}
+                          style={{width:"100%",padding:"7px 10px",borderRadius:10,border:`2px solid ${babySex===v?col:C.blush}`,background:babySex===v?accent:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:babySex===v?col:C.mid,fontFamily:"inherit",transition:"all 0.15s",textAlign:"left",display:"flex",alignItems:"center",gap:7}}>
+                          <span style={{fontSize:16}}>{emoji}</span>{l}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 {ageMonths!==null&&<div style={{fontSize:14,color:C.mid,fontFamily:"monospace",textAlign:"center",marginTop:4}}>
@@ -4492,6 +4505,71 @@ function App(){
               color: newChildName.trim() ? "white" : "#b89890",
               fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit"
             }}>Add {newChildName||"child"} ✦</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── CHILD SETTINGS MODAL ── */}
+      {showChildSettings&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowChildSettings(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"white",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:480,boxShadow:"0 -8px 40px rgba(0,0,0,0.15)"}}>
+            <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 24px"}}/>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:24}}>Child Settings</div>
+
+            {/* Name */}
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",display:"block",marginBottom:6}}>Name</label>
+              <input value={csName} onChange={e=>setCsName(e.target.value)} placeholder="Baby's name"
+                style={{width:"100%",fontSize:17,padding:"12px 14px",borderRadius:12,border:`2px solid ${C.blush}`,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+            </div>
+
+            {/* DOB */}
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",display:"block",marginBottom:6}}>Date of Birth</label>
+              <input type="date" value={csDob} onChange={e=>setCsDob(e.target.value)}
+                style={{width:"100%",fontSize:17,padding:"12px 14px",borderRadius:12,border:`2px solid ${C.blush}`,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+            </div>
+
+            {/* Sex */}
+            <div style={{marginBottom:24}}>
+              <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",display:"block",marginBottom:8}}>Sex</label>
+              <div style={{display:"flex",gap:8}}>
+                {[["boy","👦 Boy","#d0e6f5"],["girl","👧 Girl","#f5ccc7"],["","⬜ Not set","#f0e8e0"]].map(([v,l,accent])=>(
+                  <button key={v} onClick={()=>setCsSex(v)}
+                    style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${csSex===v?accent:C.blush}`,background:csSex===v?`${accent}55`:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:csSex===v?C.deep:C.mid,fontFamily:"inherit",transition:"all 0.15s"}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Save */}
+            <button onClick={()=>{
+              updateChild({name:csName.trim(),dob:csDob,sex:csSex});
+              setShowChildSettings(false);
+            }} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:10,fontFamily:"inherit",boxShadow:"0 4px 16px rgba(201,112,90,0.35)"}}>
+              Save Changes
+            </button>
+
+            {/* Delete */}
+            {Object.keys(children).length > 1 && !csConfirmDelete && (
+              <button onClick={()=>setCsConfirmDelete(true)}
+                style={{width:"100%",background:"none",border:`2px solid #f2d9cc`,borderRadius:99,padding:"12px",color:C.ter,fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                🗑 Delete this child
+              </button>
+            )}
+            {csConfirmDelete && (
+              <div style={{background:"#fff4f2",border:`2px solid ${C.ter}`,borderRadius:16,padding:"16px",textAlign:"center"}}>
+                <div style={{fontSize:15,fontWeight:600,color:C.deep,marginBottom:12}}>Delete {csName||"this child"}? This cannot be undone.</div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setCsConfirmDelete(false)} style={{flex:1,padding:"11px",borderRadius:99,border:`2px solid ${C.blush}`,background:"white",color:C.mid,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+                  <button onClick={()=>{deleteChild(resolvedActiveId);setShowChildSettings(false);setCsConfirmDelete(false);}}
+                    style={{flex:1,padding:"11px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    Yes, delete
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
