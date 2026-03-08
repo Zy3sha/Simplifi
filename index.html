@@ -2054,7 +2054,7 @@ function App(){
     }
     setDays(d => {
       const existing = d[date] || [];
-      return { ...d, [date]: [...existing, ...parsedEntries.entries] };
+      return { ...d, [date]: autoClassifyNight([...existing, ...parsedEntries.entries]) };
     });
     if (parsedEntries.detectedDate) setSelDay(parsedEntries.detectedDate);
     setModal(null); setParsedEntries(null); setPasteText("");
@@ -2071,36 +2071,45 @@ function App(){
   function autoClassifyNight(entries) {
     const sorted = [...entries].sort((a,b) => timeVal(a) - timeVal(b));
 
-    // Find bedtime (type==="sleep", the last one in the day)
+    // Find bedtime (type==="sleep", the last one before 11pm)
     const bedtimes = sorted.filter(e => e.type === "sleep" && !e.night);
     const bedtime = bedtimes.length ? bedtimes[bedtimes.length-1].time : null;
 
-    // Find morning wake (type==="wake", first one — usually before 10am)
+    // Find morning wake: first "wake" entry with time >= 5am (ignores night wakes)
     const wakes = sorted.filter(e => e.type === "wake");
-    const morningWake = wakes.length ? wakes[0].time : null;
+    const morningWake = wakes.find(e => {
+      const h = parseInt((e.time||"00:00").split(":")[0]);
+      return h >= 5 && h < 12;
+    });
+    const morningWakeTime = morningWake ? morningWake.time : null;
 
     if (!bedtime) return entries; // no bedtime logged yet — leave as-is
 
+    const bedMins = timeVal({time: bedtime}); // e.g. 1140 for 7pm
+
     return entries.map(e => {
-      // Only auto-classify wake and feed entries (not naps, poops, sleep itself)
       if (e.type !== "wake" && e.type !== "feed") return e;
-      // Don't override manually set entries that are already in daytime and clearly daytime
       const t = e.time;
       if (!t) return e;
 
-      const afterBed = timeVal({time: t}) > timeVal({time: bedtime});
-      // Before morning wake: either no morning wake, or entry is before first wake
-      const beforeMorning = !morningWake || timeVal({time: t}) < timeVal({time: morningWake});
-      // Also catch very early times (midnight to 6am) as night even without explicit bedtime
-      const earlyMorning = parseInt(t.split(":")[0]) < 6;
+      const tMins = timeVal({time: t});
+      const h = parseInt(t.split(":")[0]);
 
-      const shouldBeNight = afterBed || (earlyMorning && beforeMorning);
+      // After bedtime (same evening, e.g. 7pm-11:59pm)
+      const afterBed = tMins > bedMins;
+      // Cross-midnight: time wrapped around (0am-12pm range, before morning wake)
+      // A time is "night side of midnight" if it's < bedtime AND before morning wake
+      const morningMins = morningWakeTime ? timeVal({time: morningWakeTime}) : 720; // default noon
+      const crossMidnight = tMins < bedMins && tMins < morningMins;
 
-      // Don't flip daytime feeds that happen to be before a morning wake (e.g. 7am feed logged first)
-      // Only mark as night if it's clearly after bed OR very early
-      if (shouldBeNight && !e.night) return {...e, night: true};
-      // If it was auto-night but now morning wake has been logged and it's after that — flip back to day
-      if (e.night && morningWake && timeVal({time:t}) >= timeVal({time:morningWake}) && !afterBed) return {...e, night: false};
+      const shouldBeNight = afterBed || crossMidnight;
+
+      // Morning wake itself and anything after it is daytime
+      const isMorningOrAfter = morningWakeTime && tMins >= morningMins;
+
+      if (shouldBeNight && !isMorningOrAfter) return {...e, night: true};
+      // Flip back to day if it's at or after morning wake
+      if (e.night && isMorningOrAfter) return {...e, night: false};
       return e;
     });
   }
