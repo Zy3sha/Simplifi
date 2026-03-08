@@ -13,8 +13,8 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <!-- Firebase SDKs -->
   <script type="module">
@@ -537,8 +537,27 @@ function App(){
   const[obSex,setObSex]=useState("");
   const[obUsername,setObUsername]=useState("");
   const[obUsernameStatus,setObUsernameStatus]=useState("idle"); // idle | checking | available | taken | invalid
+  const[obMode,setObMode]=useState("create"); // "create" | "join"
+  const[obJoinUn,setObJoinUn]=useState("");
+  const[obJoinStatus,setObJoinStatus]=useState("idle"); // idle | loading | ok | error
+  const[obJoinError,setObJoinError]=useState("");
+  const[obPin,setObPin]=useState("");           // PIN being set during onboarding
+  const[obPinConfirm,setObPinConfirm]=useState(""); // PIN confirm during onboarding
+  const[obPinStep,setObPinStep]=useState("set"); // "set" | "confirm"
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
   const obUsernameCheckRef = React.useRef(null);
+
+  // ── PIN login screen state ──
+  // Shown on every app open if account exists — gates the whole app
+  const[loginScreen,setLoginScreen]=useState(()=>{
+    // If they have a saved username, show login. If fresh install, skip to onboarding.
+    try{ return !!localStorage.getItem("family_username"); }catch{ return false; }
+  });
+  const[loginUsername,setLoginUsername]=useState(()=>{try{return localStorage.getItem("family_username")||"";}catch{return "";}});
+  const[loginPin,setLoginPin]=useState("");
+  const[loginStatus,setLoginStatus]=useState("idle"); // idle | checking | error | ok
+  const[loginError,setLoginError]=useState("");
+
   const[editEntry,setEditEntry]=useState(null);
   const[insightDismissed,setInsightDismissed]=useState(()=>{try{return!!localStorage.getItem("ins_v1");}catch{return false;}});
   const[showInsights,setShowInsights]=useState(false);
@@ -553,14 +572,10 @@ function App(){
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
 
   // ── Firebase sync state ──
-  // ── familyCode = shared partner code (visible to user)
-  // ── backupCode = silent personal backup code (always-on, never shown)
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
-  // Per-child sync codes — {childId: "SYNC6CHAR"} — each child can have its own sync code
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
     try{const s=localStorage.getItem("child_sync_codes_v1");return s?JSON.parse(s):{};}catch{return {};}
   });
-  // Subscriptions per child — {childId: unsubscribeFn}
   const childSubsRef = React.useRef({});
   const[backupCode,setBackupCode]=useState(()=>{try{return localStorage.getItem("backup_code")||null;}catch{return null;}});
   const[syncStatus,setSyncStatus]=useState("idle");
@@ -737,8 +752,15 @@ function App(){
     } catch(e){}
   }
 
+  // ── PIN: simple hash (not cryptographic, but adequate for baby app) ──
+  function hashPin(pin) {
+    let h = 5381;
+    for(let i=0;i<pin.length;i++) h = ((h<<5)+h)+pin.charCodeAt(i);
+    return (h>>>0).toString(16);
+  }
+
   // ── Username: normalise for storage (lowercase, trim) ──
-  const normaliseUsername = (u) => u.trim().toLowerCase();
+  const normaliseUsername = (u) => u.trim().toLowerCase().replace(/\s+/g,"");
 
   // ── Username: check availability (debounced) ──
   function checkUsername(raw) {
@@ -758,17 +780,16 @@ function App(){
     }, 600);
   }
 
-  // ── Username: reserve in Firebase and link to backup code ──
-  async function reserveUsername(username) {
-    if(!window._fb || !username.trim()) return false;
+  // ── Username + PIN: reserve in Firebase ──
+  async function reserveUsername(username, pin) {
+    if(!window._fb || !username.trim() || !pin) return false;
     const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const key = normaliseUsername(username);
     try {
-      // Double-check it's still available
       const snap = await getDoc(doc(db,"usernames",key));
       if(snap.exists()) return false;
-      // Reserve it — points to the backup code
       await setDoc(doc(db,"usernames",key), {
+        pinHash: hashPin(pin),
         backupCode: backupCode,
         familyCode: familyCode || null,
         createdAt: serverTimestamp(),
@@ -781,8 +802,38 @@ function App(){
     } catch(e) { console.warn("Reserve username error", e); return false; }
   }
 
-  // ── Username: join by username (partner flow) ──
-  async function joinByUsername(username) {
+  // ── PIN login: verify username + PIN against Firebase ──
+  async function verifyLogin(username, pin) {
+    if(!window._fb) return {ok:false, error:"Not connected — check your internet"};
+    const {db, doc, getDoc} = window._fb;
+    const key = normaliseUsername(username.trim());
+    if(!key) return {ok:false, error:"Enter your username"};
+    if(pin.length !== 4) return {ok:false, error:"PIN must be 4 digits"};
+    try {
+      const snap = await getDoc(doc(db,"usernames",key));
+      if(!snap.exists()) return {ok:false, error:"Username not found"};
+      const d = snap.data();
+      if(d.pinHash !== hashPin(pin)) return {ok:false, error:"Incorrect PIN"};
+      // Success — restore data if needed
+      const codeToUse = d.familyCode || d.backupCode;
+      if(codeToUse && !familyCode) {
+        const fSnap = await getDoc(doc(db,"families",codeToUse));
+        if(fSnap.exists()) {
+          const fd = fSnap.data();
+          if(fd.children) setChildren(prev => mergeChildren(prev, JSON.parse(fd.children)));
+          setFamilyCode(codeToUse);
+          try{ localStorage.setItem("family_code", codeToUse); }catch{}
+          subscribeToFamily(codeToUse);
+        }
+      }
+      setFamilyUsername(d.displayName || username.trim());
+      try{ localStorage.setItem("family_username", d.displayName || username.trim()); }catch{}
+      return {ok:true};
+    } catch(e) { return {ok:false, error:"Something went wrong — try again"}; }
+  }
+
+  // ── Username: join by username + PIN (partner flow — they enter YOUR username+PIN to get your data) ──
+  async function joinByUsername(username, pin) {
     if(!window._fb) return {ok:false, error:"Not connected"};
     const {db, doc, getDoc} = window._fb;
     const key = normaliseUsername(username.trim());
@@ -790,7 +841,10 @@ function App(){
       const uSnap = await getDoc(doc(db,"usernames",key));
       if(!uSnap.exists()) return {ok:false, error:"Username not found — check the spelling"};
       const uData = uSnap.data();
-      // Use familyCode if set, otherwise backupCode
+      // Verify PIN
+      if(uData.pinHash && pin && uData.pinHash !== hashPin(pin)) {
+        return {ok:false, error:"Incorrect PIN"};
+      }
       const codeToJoin = uData.familyCode || uData.backupCode;
       if(!codeToJoin) return {ok:false, error:"No data found for this username"};
       const fSnap = await getDoc(doc(db,"families",codeToJoin));
@@ -798,9 +852,7 @@ function App(){
       const d = fSnap.data();
       if(d.children) setChildren(prev => mergeChildren(prev, JSON.parse(d.children)));
       setFamilyCode(codeToJoin);
-      setFamilyUsername(uData.displayName || username.trim());
       try{ localStorage.setItem("family_code", codeToJoin); }catch{}
-      try{ localStorage.setItem("family_username", uData.displayName || username.trim()); }catch{}
       subscribeToFamily(codeToJoin);
       trackEvent("username_joined");
       return {ok:true};
@@ -1029,7 +1081,7 @@ function App(){
   // ── Add child onboarding modal state ──
   const[showAddChild,setShowAddChild]=useState(false);
   const[moreSection,setMoreSection]=useState(null); // null | "growth" | "milestones"
-  const[restoreMode,setRestoreMode]=useState(false);
+  const[restoreMode,setRestoreMode]=useState(null); // null | "join" | "restore"
   const[restoreInput,setRestoreInput]=useState("");
   const[restoreStatus,setRestoreStatus]=useState("");
   const[newChildName,setNewChildName]=useState("");
@@ -2242,6 +2294,102 @@ function App(){
   const tabIcons={day:"📅",children:"👶",insights:"📊",more:"☰"};
   const tabLabels={day:"Day",children:"Children",insights:"Insights",more:"More"};
 
+  // ── LOGIN SCREEN — shown on every open if they have an account ──
+  if (loginScreen && onboarded) {
+    const doLogin = async () => {
+      if(loginPin.length !== 4) return;
+      setLoginStatus("checking");
+      const result = await verifyLogin(loginUsername, loginPin);
+      if(result.ok) {
+        setLoginStatus("ok");
+        setTimeout(()=>setLoginScreen(false), 400);
+      } else {
+        setLoginStatus("error");
+        setLoginError(result.error);
+        setLoginPin("");
+      }
+    };
+    return (
+      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 28px",fontFamily:"'DM Sans',sans-serif"}}>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,color:C.ter,marginBottom:6,textAlign:"center"}}>OBubba</div>
+        <div style={{fontSize:14,color:C.lt,marginBottom:48,textAlign:"center"}}>Welcome back 👋</div>
+
+        {/* Username display / change */}
+        <div style={{width:"100%",maxWidth:360,marginBottom:28}}>
+          <div style={{background:"white",borderRadius:16,padding:"12px 16px",border:`1px solid ${C.blush}`,display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+            <div>
+              <div style={{fontSize:12,color:C.lt,fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Signed in as</div>
+              <div style={{fontSize:18,fontWeight:700,color:C.deep}}>{loginUsername}</div>
+            </div>
+            <button onClick={()=>{
+              const u = window.prompt("Enter username:", loginUsername);
+              if(u && u.trim()) { setLoginUsername(u.trim()); try{localStorage.setItem("family_username",u.trim());}catch{} }
+            }} style={{background:"none",border:`1px solid ${C.blush}`,borderRadius:99,padding:"5px 10px",fontSize:12,color:C.lt,cursor:"pointer",fontFamily:"inherit"}}>
+              Change
+            </button>
+          </div>
+        </div>
+
+        {/* PIN dots */}
+        <div style={{display:"flex",gap:12,marginBottom:8,justifyContent:"center"}}>
+          {[0,1,2,3].map(i=>(
+            <div key={i} style={{width:52,height:64,borderRadius:14,
+              border:`2px solid ${loginStatus==="error"?C.ter:loginPin.length>i?C.ter:C.blush}`,
+              background:loginStatus==="ok"?"#e8f7f0":loginStatus==="error"&&loginPin.length===0?"#fff0ee":"white",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              transition:"all 0.15s"}}>
+              <div style={{width:14,height:14,borderRadius:"50%",background:loginPin.length>i?C.ter:"transparent",transition:"all 0.15s"}}/>
+            </div>
+          ))}
+        </div>
+        <div style={{fontSize:13,minHeight:20,marginBottom:24,textAlign:"center",color:loginStatus==="error"?C.ter:"#50c878"}}>
+          {loginStatus==="error"?loginError:loginStatus==="ok"?"✓ Welcome back!":""}
+        </div>
+
+        {/* Numpad */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,width:"100%",maxWidth:280,marginBottom:20}}>
+          {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k,i)=>(
+            <button key={i} onClick={()=>{
+              if(k==="") return;
+              if(k==="⌫"){
+                setLoginPin(p=>p.slice(0,-1));
+                setLoginStatus("idle");
+              } else if(loginPin.length<4){
+                const nv = loginPin+String(k);
+                setLoginPin(nv);
+                setLoginStatus("idle");
+                setLoginError("");
+                if(nv.length===4) {
+                  // auto-submit
+                  setTimeout(async()=>{
+                    setLoginStatus("checking");
+                    const result = await verifyLogin(loginUsername, nv);
+                    if(result.ok){setLoginStatus("ok");setTimeout(()=>setLoginScreen(false),400);}
+                    else{setLoginStatus("error");setLoginError(result.error);setLoginPin("");}
+                  },100);
+                }
+              }
+            }} style={{padding:"18px 10px",borderRadius:16,
+              border:`1px solid ${C.blush}`,
+              background:k===""?"transparent":loginStatus==="checking"?"#f5f0ec":"white",
+              fontSize:22,fontWeight:600,color:C.deep,
+              cursor:k===""?"default":"pointer",fontFamily:"inherit",
+              boxShadow:k===""?"none":"0 2px 8px rgba(44,31,26,0.06)",
+              transition:"all 0.1s",
+              opacity:loginStatus==="checking"?0.6:1}}>
+              {k}
+            </button>
+          ))}
+        </div>
+
+        {/* Skip/offline option */}
+        <button onClick={()=>setLoginScreen(false)} style={{background:"none",border:"none",color:C.lt,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+          Skip sign in (offline mode)
+        </button>
+      </div>
+    );
+  }
+
   // ONBOARDING
   if (!onboarded) {
     const completeOnboarding = async () => {
@@ -2250,9 +2398,9 @@ function App(){
         dob: obDob || "",
         sex: obSex || "",
       });
-      // Reserve username in Firebase if provided and available
-      if(obUsername.trim() && obUsernameStatus === "available" && fbReady) {
-        await reserveUsername(obUsername);
+      // Reserve username + PIN in Firebase if provided and available
+      if(obUsername.trim() && obUsernameStatus === "available" && obPin.length === 4 && fbReady) {
+        await reserveUsername(obUsername, obPin);
       }
       setOnboarded(true);
     };
@@ -2333,56 +2481,164 @@ function App(){
         )
       },
       {
-        icon:"👨‍👩‍👧",
-        title:"Choose a\nfamily username",
-        sub:"This is how your partner will find and sync with you. Something memorable like \"TeamSmith\" or \"BabyJones2025\".",
+        icon:"🔐",
+        title:"Family account",
+        sub:"Create a username and PIN to sync across devices, or join your partner's account.",
         action: (
-          <div style={{width:"100%",marginTop:20}}>
-            <div style={{position:"relative",marginBottom:8}}>
-              <input
-                autoFocus
-                value={obUsername}
-                onChange={e=>checkUsername(e.target.value)}
-                placeholder="e.g. TeamSmith"
-                style={{width:"100%",fontSize:20,padding:"14px 48px 14px 18px",borderRadius:16,
-                  border:`2px solid ${
-                    obUsernameStatus==="available"?"#50c878":
-                    obUsernameStatus==="taken"||obUsernameStatus==="invalid"?C.ter:C.blush}`,
-                  background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",
-                  boxSizing:"border-box",transition:"border-color 0.2s"}}/>
-              <span style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",fontSize:18}}>
-                {obUsernameStatus==="checking"?"⏳":
-                 obUsernameStatus==="available"?"✅":
-                 obUsernameStatus==="taken"?"❌":
-                 obUsernameStatus==="invalid"?"⚠️":""}
-              </span>
+          <div style={{width:"100%",marginTop:12}}>
+            {/* Create / Join toggle */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:20,background:C.warm,borderRadius:14,padding:4}}>
+              {[["create","New account"],["join","Sign in"]].map(([mode,label])=>(
+                <button key={mode} onClick={()=>{setObMode(mode);setObJoinStatus("idle");setObUsernameStatus("idle");setObUsername("");setObPin("");setObPinConfirm("");setObPinStep("set");setObJoinUn("");}}
+                  style={{padding:"10px",borderRadius:11,border:"none",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",
+                    background:obMode===mode?"white":"transparent",color:obMode===mode?C.ter:C.lt,
+                    boxShadow:obMode===mode?"0 2px 8px rgba(0,0,0,0.08)":"none"}}>
+                  {label}
+                </button>
+              ))}
             </div>
-            <div style={{fontSize:13,textAlign:"center",marginBottom:16,minHeight:20,
-              color:obUsernameStatus==="available"?"#50c878":
-                    obUsernameStatus==="taken"?C.ter:
-                    obUsernameStatus==="invalid"?"#b88a20":C.lt}}>
-              {obUsernameStatus==="available"?"✓ Username is available!":
-               obUsernameStatus==="taken"?"That username is taken — try another":
-               obUsernameStatus==="invalid"?"Must be at least 3 characters":
-               obUsernameStatus==="checking"?"Checking…":
-               "Your partner will use this to sync with you"}
-            </div>
-            <button
-              onClick={completeOnboarding}
-              disabled={obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid"}
-              style={{width:"100%",background:
-                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
-                  ?"#f2d9cc":`linear-gradient(135deg,#c9705a,#a85a44)`,
-                border:"none",borderRadius:99,padding:"14px",color:
-                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
-                  ?"#b89890":"white",
-                fontSize:16,fontWeight:700,cursor:
-                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
-                  ?"not-allowed":"pointer",
-                boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
-              {obUsernameStatus==="checking"?"Checking…":"Start Tracking 🌙"}
-            </button>
-            <button onClick={completeOnboarding} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+
+            {obMode==="create" ? (
+              <div>
+                {/* Step 1: Pick username */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>Username</label>
+                  <div style={{position:"relative"}}>
+                    <input value={obUsername} onChange={e=>checkUsername(e.target.value)}
+                      placeholder="e.g. TeamSmith"
+                      style={{width:"100%",fontSize:17,padding:"12px 42px 12px 14px",borderRadius:14,
+                        border:`2px solid ${obUsernameStatus==="available"?"#50c878":obUsernameStatus==="taken"||obUsernameStatus==="invalid"?C.ter:C.blush}`,
+                        background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box",transition:"border-color 0.2s"}}/>
+                    <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:16}}>
+                      {obUsernameStatus==="checking"?"⏳":obUsernameStatus==="available"?"✅":obUsernameStatus==="taken"?"❌":obUsernameStatus==="invalid"?"⚠️":""}
+                    </span>
+                  </div>
+                  <div style={{fontSize:12,marginTop:4,minHeight:16,
+                    color:obUsernameStatus==="available"?"#50c878":obUsernameStatus==="taken"?C.ter:obUsernameStatus==="invalid"?"#b88a20":C.lt}}>
+                    {obUsernameStatus==="available"?"✓ Available!":obUsernameStatus==="taken"?"Taken — try another":obUsernameStatus==="invalid"?"Min 3 characters":"Your partner uses this to find you"}
+                  </div>
+                </div>
+                {/* Step 2: Set PIN */}
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>
+                    {obPinStep==="set" ? "4-digit PIN" : "Confirm PIN"}
+                  </label>
+                  <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:4}}>
+                    {[0,1,2,3].map(i=>(
+                      <div key={i} style={{width:44,height:56,borderRadius:12,border:`2px solid ${
+                        (obPinStep==="set"?obPin:obPinConfirm).length>i?C.ter:C.blush}`,
+                        background:"white",display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:24,fontWeight:700,color:C.ter}}>
+                        {(obPinStep==="set"?obPin:obPinConfirm).length>i?"●":""}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Hidden numeric input */}
+                  <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                    value={obPinStep==="set"?obPin:obPinConfirm}
+                    onChange={e=>{
+                      const v=e.target.value.replace(/\D/g,"").slice(0,4);
+                      if(obPinStep==="set"){
+                        setObPin(v);
+                        if(v.length===4) setObPinStep("confirm");
+                      } else {
+                        setObPinConfirm(v);
+                      }
+                    }}
+                    style={{opacity:0,position:"absolute",width:1,height:1}}
+                    autoFocus={obUsernameStatus==="available"}
+                  />
+                  {/* Tap-to-focus overlay */}
+                  <div onClick={e=>{e.currentTarget.previousSibling.focus();}}
+                    style={{width:"100%",height:4}}/>
+                  {obPinStep==="confirm" && obPinConfirm.length===4 && obPin!==obPinConfirm && (
+                    <div style={{fontSize:12,color:C.ter,textAlign:"center",marginTop:4}}>PINs don't match — <button onClick={()=>{setObPin("");setObPinConfirm("");setObPinStep("set");}} style={{background:"none",border:"none",color:C.ter,textDecoration:"underline",cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>try again</button></div>
+                  )}
+                  {obPinStep==="confirm" && obPinConfirm.length===4 && obPin===obPinConfirm && (
+                    <div style={{fontSize:12,color:"#50c878",textAlign:"center",marginTop:4}}>✓ PIN confirmed</div>
+                  )}
+                </div>
+                {/* Numpad */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+                  {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k,i)=>(
+                    <button key={i} onClick={()=>{
+                      if(k==="") return;
+                      const cur = obPinStep==="set"?obPin:obPinConfirm;
+                      const set = obPinStep==="set"?setObPin:setObPinConfirm;
+                      if(k==="⌫"){
+                        set(cur.slice(0,-1));
+                      } else if(cur.length<4){
+                        const nv = cur+String(k);
+                        set(nv);
+                        if(obPinStep==="set" && nv.length===4) setObPinStep("confirm");
+                      }
+                    }} style={{padding:"14px",borderRadius:12,border:`1px solid ${C.blush}`,background:k===""?"transparent":"white",fontSize:18,fontWeight:700,color:C.deep,cursor:k===""?"default":"pointer",fontFamily:"inherit"}}>
+                      {k}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={async()=>{
+                  if(obUsernameStatus!=="available"||obPin.length!==4||obPin!==obPinConfirm) return;
+                  await completeOnboarding();
+                }} disabled={obUsernameStatus!=="available"||obPin.length!==4||obPin!==obPinConfirm}
+                  style={{width:"100%",background:obUsernameStatus==="available"&&obPin.length===4&&obPin===obPinConfirm?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                    border:"none",borderRadius:99,padding:"14px",color:obUsernameStatus==="available"&&obPin.length===4&&obPin===obPinConfirm?"white":"#b89890",
+                    fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
+                  Create account & Start Tracking 🌙
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>Username</label>
+                  <input value={obJoinUn} onChange={e=>setObJoinUn(e.target.value)}
+                    placeholder="e.g. TeamSmith" autoCapitalize="none"
+                    style={{width:"100%",fontSize:17,padding:"12px 14px",borderRadius:14,
+                      border:`2px solid ${obJoinStatus==="ok"?"#50c878":obJoinStatus==="error"?C.ter:C.blush}`,
+                      background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:C.lt,display:"block",marginBottom:4,fontWeight:600}}>4-digit PIN</label>
+                  <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:8}}>
+                    {[0,1,2,3].map(i=>(
+                      <div key={i} style={{width:44,height:56,borderRadius:12,border:`2px solid ${obPin.length>i?C.ter:C.blush}`,background:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:700,color:C.ter}}>
+                        {obPin.length>i?"●":""}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:8}}>
+                    {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((k,i)=>(
+                      <button key={i} onClick={()=>{
+                        if(k==="") return;
+                        if(k==="⌫"){setObPin(p=>p.slice(0,-1));}
+                        else if(obPin.length<4){setObPin(p=>p+String(k));}
+                      }} style={{padding:"14px",borderRadius:12,border:`1px solid ${C.blush}`,background:k===""?"transparent":"white",fontSize:18,fontWeight:700,color:C.deep,cursor:k===""?"default":"pointer",fontFamily:"inherit"}}>
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {obJoinStatus==="error" && <div style={{fontSize:13,color:C.ter,textAlign:"center",marginBottom:8}}>{obJoinError}</div>}
+                {obJoinStatus==="ok" && <div style={{fontSize:13,color:"#50c878",textAlign:"center",marginBottom:8}}>✓ Signed in! Syncing data…</div>}
+                <button onClick={async()=>{
+                  if(!obJoinUn.trim()||obPin.length!==4||obJoinStatus==="loading"||obJoinStatus==="ok") return;
+                  setObJoinStatus("loading");
+                  const r = await joinByUsername(obJoinUn.trim(), obPin);
+                  if(r.ok){
+                    setFamilyUsername(obJoinUn.trim());
+                    try{localStorage.setItem("family_username",obJoinUn.trim());}catch{}
+                    setObJoinStatus("ok");
+                    setTimeout(()=>completeOnboarding(),900);
+                  } else {setObJoinStatus("error");setObJoinError(r.error);}
+                }} disabled={!obJoinUn.trim()||obPin.length!==4||obJoinStatus==="loading"||obJoinStatus==="ok"}
+                  style={{width:"100%",background:obJoinUn.trim()&&obPin.length===4?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                    border:"none",borderRadius:99,padding:"14px",color:obJoinUn.trim()&&obPin.length===4?"white":"#b89890",
+                    fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
+                  {obJoinStatus==="loading"?"⏳ Signing in…":"Sign in 🌙"}
+                </button>
+              </div>
+            )}
+            <button onClick={completeOnboarding} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit",paddingTop:4}}>
               Skip for now
             </button>
           </div>
@@ -4144,20 +4400,22 @@ function App(){
               </div>
             </div>
 
-            {/* Username display / set */}
+            {/* Account info */}
             {familyUsername ? (
-              <div style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:16,border:`1px solid ${C.blush}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div>
-                  <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Your family username</div>
-                  <div style={{fontSize:20,fontWeight:700,color:C.ter}}>{familyUsername}</div>
+              <div style={{background:"white",borderRadius:12,padding:"14px 16px",marginBottom:16,border:`1px solid ${C.blush}`}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Your account</div>
+                    <div style={{fontSize:20,fontWeight:700,color:C.ter}}>{familyUsername}</div>
+                    <div style={{fontSize:12,color:C.lt,marginTop:2}}>Your partner signs in with this username + your PIN</div>
+                  </div>
+                  <span style={{fontSize:22}}>🔐</span>
                 </div>
-                <span style={{fontSize:22}}>👨‍👩‍👧</span>
               </div>
             ) : (
               <div style={{background:"#fff8e8",borderRadius:12,padding:"12px 14px",marginBottom:16,border:"1px solid #f0d890"}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#8a6a10",marginBottom:4}}>No username set</div>
-                <div style={{fontSize:13,color:"#9a7a20",marginBottom:8}}>Set a family username so your partner can find you easily.</div>
-                <UsernameSetForm reserveUsername={reserveUsername} normaliseUsername={normaliseUsername} C={C}/>
+                <div style={{fontSize:13,fontWeight:700,color:"#8a6a10",marginBottom:4}}>No account set up</div>
+                <div style={{fontSize:13,color:"#9a7a20",marginBottom:8}}>Go through setup to create a username and PIN for syncing with your partner.</div>
               </div>
             )}
 
@@ -4212,17 +4470,45 @@ function App(){
             {/* Link a child from another parent */}
             <LinkChildForm joinChildByCode={joinChildByCode} C={C} fullCard={true}/>
 
+            {/* Join by username */}
+            <div style={{borderRadius:12,border:`1px solid ${C.blush}`,overflow:"hidden",marginBottom:12}}>
+              <button onClick={()=>{setRestoreMode(m=>m==="join"?null:"join");setRestoreInput("");setRestoreStatus("");}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.mid,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center",fontWeight:600}}>
+                <span>🔗 Join a partner's username</span>
+                <span style={{fontSize:12,color:C.lt}}>{restoreMode==="join"?"▲":"▼"}</span>
+              </button>
+              {restoreMode==="join" && (
+                <div style={{padding:"0 16px 16px"}}>
+                  <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your partner's family username to pull their children and data onto this device.</div>
+                  <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value)}
+                    placeholder="e.g. TeamSmith"
+                    style={{width:"100%",fontSize:16,fontFamily:"inherit",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${restoreStatus==="fail"?C.ter:restoreStatus==="ok"?"#50c878":C.blush}`,background:"#faf6f0",color:C.deep,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
+                  {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Username not found — check the spelling</div>}
+                  {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Joined and synced!</div>}
+                  <button onClick={async()=>{
+                    if(!restoreInput.trim()) return;
+                    setRestoreStatus("loading");
+                    const r = await joinByUsername(restoreInput.trim());
+                    setRestoreStatus(r.ok?"ok":"fail");
+                    if(!r.ok) setRestoreInput("");
+                    if(r.ok) setTimeout(()=>setShowFamilyModal(false),1200);
+                  }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    {restoreStatus==="loading"?"⏳ Joining…":"Join username"}
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Restore data section */}
             <div style={{borderRadius:12,border:`1px dashed ${C.blush}`,overflow:"hidden"}}>
-              <button onClick={()=>setRestoreMode(m=>!m)} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.lt,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span>🔄 Restore data from backup</span>
-                <span style={{fontSize:12}}>{restoreMode?"▲":"▼"}</span>
+              <button onClick={()=>{setRestoreMode(m=>m==="restore"?null:"restore");setRestoreInput("");setRestoreStatus("");}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.lt,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span>🔄 Restore from backup code</span>
+                <span style={{fontSize:12}}>{restoreMode==="restore"?"▲":"▼"}</span>
               </button>
-              {restoreMode && (
+              {restoreMode==="restore" && (
                 <div style={{padding:"0 16px 16px"}}>
-                  <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code or family code from another device to restore all data.</div>
+                  <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code from another device to restore all data.</div>
                   <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
-                    placeholder="Enter backup or family code"
+                    placeholder="Enter backup code"
                     style={{width:"100%",fontSize:16,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.1em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}/>
                   {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
                   {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
