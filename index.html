@@ -2265,7 +2265,12 @@ function App(){
       if (suffix==="am" && h===12) h=0;
       let total = h*60 + min;
       if (!suffix && previousMinutes!==null && total <= previousMinutes) {
-        while (total <= previousMinutes && total < 24*60) total += 12*60;
+        // Don't advance past midnight if previous time was late evening (>=9pm).
+        // e.g. "8:56" after "Sleep 7pm" (lastMins=1140) should be 08:56 next morning, not 20:56.
+        const crossedMidnight = previousMinutes >= 1080 && total < 720; // after 6pm, treat morning hours as next-day
+        if (!crossedMidnight) {
+          while (total <= previousMinutes && total < 24*60) total += 12*60;
+        }
       }
       total = total % (24*60);
       return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
@@ -2279,7 +2284,11 @@ function App(){
       if (suffix==="am" && h===12) h=0;
       let total = h*60 + min;
       if (!suffix && previousMinutes!==null && total <= previousMinutes) {
-        while (total <= previousMinutes && total < 24*60) total += 12*60;
+        // Don't advance past midnight if previous time was late evening (>=9pm).
+        const crossedMidnight = previousMinutes >= 1080 && total < 720; // after 6pm, treat morning hours as next-day
+        if (!crossedMidnight) {
+          while (total <= previousMinutes && total < 24*60) total += 12*60;
+        }
       }
       total = total % (24*60);
       return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
@@ -2410,11 +2419,20 @@ function App(){
         const rangeSep = rangeStr.match(/^(.+?)\s*(?:-|–|to)\s*(.+)$/i);
         let napStart = null, napEnd = null;
         if (rangeSep) {
-          // Strip any am/pm suffix before parsing so context (lastMinutes) drives am/pm resolution.
-          const startClean = rangeSep[1].trim().replace(/\s*(am|pm)\s*$/i,"");
-          const endClean   = rangeSep[2].trim().replace(/\s*(am|pm)\s*$/i,"");
-          napStart = parseTime(startClean, lastMinutes);
-          if (napStart) napEnd = parseTime(endClean, timeVal({time: napStart}));
+          // If a suffix (am/pm) is explicitly given, trust it.
+          // If no suffix, use context (lastMinutes) to resolve 12hr ambiguity.
+          // This supports both 12hr ("1:00-1:10pm") and 24hr ("13:00-14:00") input.
+          const startRaw = rangeSep[1].trim();
+          const endRaw   = rangeSep[2].trim();
+          const startHasSuffix = /\s*(am|pm)\s*$/i.test(startRaw);
+          const endHasSuffix   = /\s*(am|pm)\s*$/i.test(endRaw);
+          // Parse start: if it has a suffix, use it directly; otherwise use lastMinutes context
+          napStart = parseTime(startRaw, startHasSuffix ? null : lastMinutes);
+          if (napStart) {
+            const startMins = timeVal({time: napStart});
+            // Parse end: if it has a suffix, use it directly; otherwise use napStart as context
+            napEnd = parseTime(endRaw, endHasSuffix ? null : startMins);
+          }
         }
         if (napStart && napEnd) {
           entries.push({type:"nap",start:napStart,end:napEnd,night:false,note:"",id:uid()});
@@ -2437,8 +2455,8 @@ function App(){
         const _mts=(mn)=>{const h=Math.floor(mn/60)%24,m=mn%60;return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");};
         const finalT = t || (lastMinutes !== null ? _mts(lastMinutes) : nowTime());
         entries.push({type:"feed",time:finalT,amount:ml,night:false,note:t?"":"(time estimated)",id:uid(),feedType:"milk"});
-        if (!t) lastMinutes = null; // don't let a fake time pollute the sequence
-        else lastMinutes = tMins(t);
+        if (t) lastMinutes = tMins(t);
+        // if no explicit time, keep lastMinutes as-is so subsequent lines still get correct am/pm context
         return;
       }
 
