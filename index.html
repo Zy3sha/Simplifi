@@ -3779,29 +3779,33 @@ function App(){
         {/* ── ROW 4b: Quick-start buttons (only on Day tab, only when timers NOT running) ── */}
         {tab === "day" && !napOn && !breastStartTime && (
           <div style={{display:"flex",gap:8,marginBottom:10}}>
-            <button onClick={startNap} style={{background:"rgba(255,255,255,0.6)",border:"none",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.mint,cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
-              😴 Start Nap
-            </button>
             <button onClick={()=>startBreastTimer("L")} style={{background:"rgba(255,255,255,0.6)",border:"none",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
               🤱 Start Feed
             </button>
-            {/* Nap countdown pill inline */}
+            {/* Nap countdown pill — tappable to start nap when "Now" */}
             {(napCountdown !== null || bedCountdown !== null) && (()=>{
               const isBed = bedCountdown !== null;
               const countdown = isBed ? bedCountdown : napCountdown;
               const isNeutral = napCountdown === -1;
-              const isNow = !isNeutral && countdown <= 0;
-              const isUrgent = !isNeutral && countdown <= 300;
+              const isNow = !isNeutral && !isBed && countdown <= 0;
+              const isUrgent = !isNeutral && !isBed && countdown <= 300;
               return (
-                <div style={{marginLeft:"auto",background:isNow?(isBed?C.sky:C.mint):isUrgent?C.ter:"rgba(255,255,255,0.6)",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,border:"none"}}>
-                  <span style={{fontSize:13}}>{isBed?"🌙":"⏱️"}</span>
+                <div onClick={isNow ? startNap : undefined}
+                  style={{marginLeft:"auto",background:isNow?C.mint:isUrgent?C.ter:"rgba(255,255,255,0.6)",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,border:"none",cursor:isNow?"pointer":"default",boxShadow:isNow?"0 0 0 3px rgba(111,168,152,0.35)":"none",transition:"all 0.2s"}}>
+                  <span style={{fontSize:13}}>{isBed?"🌙":isNow?"😴":"⏱️"}</span>
                   <div>
-                    <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{isBed?"Next Sleep":"Next Nap"}</div>
-                    <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":isBed?C.sky:C.ter,lineHeight:1.2}}>{isNeutral?"–":isNow?"Now":fmtCountdown(countdown)}</div>
+                    <div style={{fontSize:9,fontFamily:"monospace",color:isNow||isUrgent?"rgba(255,255,255,0.8)":C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{isBed?"Next Sleep":isNow?"Tap to start":"Next Nap"}</div>
+                    <div style={{fontSize:13,fontFamily:"monospace",fontWeight:700,color:isNow||isUrgent?"white":isBed?C.sky:C.ter,lineHeight:1.2}}>{isNeutral?"–":isNow?"Start nap →":fmtCountdown(countdown)}</div>
                   </div>
                 </div>
               );
             })()}
+            {/* Show a Start Nap pill only when there's no countdown showing */}
+            {napCountdown === null && bedCountdown === null && (
+              <button onClick={startNap} style={{marginLeft:"auto",background:"rgba(255,255,255,0.6)",border:"none",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.mint,cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
+                😴 Start Nap
+              </button>
+            )}
           </div>
         )}
 
@@ -3912,9 +3916,9 @@ function App(){
                       <div style={{fontSize:13,fontWeight:700,color:"#2a7060",marginBottom:2}}>✨ Personal recommendations active</div>
                       <div style={{fontSize:12,color:"#4a9080",lineHeight:1.4}}>Based on {pb.activeDays} days of {possessive(babyName||"Baby")} data · updates as you log more</div>
                     </div>
-                    <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}}
+                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}}
                       style={{background:"none",border:`1px solid #b0d8c8`,borderRadius:99,padding:"5px 10px",color:"#5a9080",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,fontFamily:"inherit"}}>
-                      Switch to NHS
+                      Change
                     </button>
                   </div>
                 );
@@ -3929,7 +3933,7 @@ function App(){
                     <div style={{fontSize:13,color:"#4a5a80"}}>Using NHS guidelines · {babyName||"Baby"}'s personal patterns available</div>
                     <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}}
                       style={{background:"none",border:`1px solid #c0cce8`,borderRadius:99,padding:"5px 10px",color:"#5a6a90",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,fontFamily:"inherit"}}>
-                      Review
+                      Change
                     </button>
                   </div>
                 );
