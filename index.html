@@ -2267,47 +2267,15 @@ function App(){
   const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
   const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
 
-  // ── Auto-trigger biometric when login screen opens ──
-  React.useEffect(()=>{
-    if(authScreen === "login" && familyUsername) {
-      (async()=>{
-        if(!window.PublicKeyCredential) return;
-        try {
-          const result = await navigator.credentials.get({
-            publicKey: { challenge: new Uint8Array(32), timeout: 60000, userVerification: "required" }
-          });
-          if(result) {
-            try{ localStorage.setItem("auth_verified","1"); }catch{}
-            setAuthScreen(null);
-          }
-        } catch(e) { /* biometric failed or cancelled — fall through to PIN */ }
-      })();
-    }
-  },[authScreen]);
-
   // ── AUTH SCREEN (login / create — shown on new device or manual logout) ──
   if (authScreen) {
     const isLogin = authMode === "login";
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin : true);
 
-    async function handleBiometricCheck() {
-      if(!window.PublicKeyCredential) return false;
-      try {
-        const result = await navigator.credentials.get({
-          publicKey: { challenge: new Uint8Array(32), timeout: 60000, userVerification: "required" }
-        });
-        return !!result;
-      } catch(e) { return false; }
-    }
     async function handleAuth() {
       setAuthError(""); setAuthLoading(true);
       if(isLogin) {
-        // Try biometric first
-        const bio = await handleBiometricCheck().catch(()=>false);
-        if(!bio) {
-          // Fall back to PIN
           if(authPin.length !== 4) { setAuthError("Enter your 4-digit PIN"); setAuthLoading(false); return; }
-        }
         const ok = await verifyLogin(authUsername, authPin);
         if(ok) { setAuthScreen(null); }
       } else {
