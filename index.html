@@ -2295,20 +2295,34 @@ function App(){
   function parseTimeRange(str, previousMinutes=null) {
     const sep = str.match(/(.+?)\s*(?:-|–|to)\s*(.+)/i);
     if (!sep) return null;
-    const start = parseTime(sep[1], previousMinutes);
+
+    const startRaw = sep[1].trim();
+    const endRaw   = sep[2].trim();
+
+    const startHasSuffix = /\d\s*(am|pm)/i.test(startRaw);
+    const endHasSuffix   = /\d\s*(am|pm)/i.test(endRaw);
+
+    // If end has explicit suffix but start doesn't, inherit it for the start.
+    // e.g. "9-11am" → start becomes "9am"; "3-4pm" → "3pm"; "4:20-4:50pm" → "4:20pm".
+    // Guard: only inherit when start hour <= end hour (avoids mangling "11pm-12:30am").
+    let augmentedStart = startRaw;
+    if (!startHasSuffix && endHasSuffix) {
+      const endSuffix = (endRaw.match(/\d\s*(am|pm)/i) || [])[1];
+      const startHour = parseInt((startRaw.match(/(\d{1,2})/) || [])[1] || "0");
+      const endHour   = parseInt((endRaw.match(/(\d{1,2})/)   || [])[1] || "0");
+      if (startHour <= endHour) augmentedStart = startRaw + endSuffix;
+    }
+
+    // When either side has an explicit suffix, parse start without previousMinutes
+    // so the suffix is taken literally rather than being advanced.
+    const start = parseTime(augmentedStart, (startHasSuffix || endHasSuffix) ? null : previousMinutes);
     const startMins = start ? timeVal(start) : previousMinutes;
 
-    // Parse end independently WITHOUT advancing am/pm — if it has an explicit suffix honour it.
-    // Only fall back to the "advance past start" logic when end has no am/pm suffix.
-    const endRaw = sep[2].trim();
-    const hasExplicitSuffix = /\d\s*(am|pm)/i.test(endRaw);
-    let end;
-    if (hasExplicitSuffix) {
-      // Parse with a null previous so am/pm is taken literally
-      end = parseTime(endRaw, null);
-    } else {
-      end = parseTime(endRaw, startMins);
-    }
+    // Parse end: honour explicit suffix literally; otherwise advance past start.
+    const end = endHasSuffix
+      ? parseTime(endRaw, null)
+      : parseTime(endRaw, startMins);
+
     if (start && end) return { start, end };
     return null;
   }
@@ -2386,7 +2400,10 @@ function App(){
 
       // ── Nap ──
       if (/\bnap\b/.test(l)) {
-        const rangeStr = raw.replace(/nap\s*\d*/i,"").replace(/^[\s:\-–]+/,"").trim();
+        // Strip "nap" and optional nap-number (e.g. "nap2", "nap 3") but NOT time digits.
+        // Old: /nap\s*\d*/i would eat the "2" in "nap 2:25", corrupting the time.
+        // New: only eat digit if it's followed by whitespace or end-of-word (it's a nap index).
+        const rangeStr = raw.replace(/nap\s*(?:\d+\s|\d+$)?/i,"").replace(/^[\s:\-–]+/,"").trim();
         // Naps only happen during the day (~7am–8pm = 420–1200 mins).
         // If parseTimeRange returns a time outside that window and no explicit am/pm
         // was given, flip it by ±12h into the daytime window.
