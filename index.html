@@ -280,49 +280,101 @@ function percentileNote(p) {
 }
 
 const MILESTONE_CATS = [
-  { key:"social", label:"Social & Emotional", icon:"💛" },
-  { key:"language", label:"Language & Communication", icon:"💬" },
-  { key:"motor", label:"Movement & Physical", icon:"🌿" },
-  { key:"cognitive", label:"Cognitive & Play", icon:"🔆" },
+  { key:"social",    label:"Social & Emotional",      icon:"💛" },
+  { key:"language",  label:"Language & Communication", icon:"💬" },
+  { key:"motor",     label:"Movement & Physical",      icon:"🌿" },
+  { key:"cognitive", label:"Cognitive & Play",         icon:"🔆" },
 ];
 
+// weeks-based: earliest/typical/latest are in weeks of age
 const MILESTONES = [
-  { id:"m1",  cat:"social",    label:"First smile",                   earliest:4,  typical:6,   latest:12  },
-  { id:"m2",  cat:"social",    label:"Recognises your face & voice",  earliest:4,  typical:8,   latest:16  },
-  { id:"m3",  cat:"social",    label:"Laughs out loud",               earliest:10, typical:16,  latest:24  },
-  { id:"m4",  cat:"social",    label:"Enjoys looking in a mirror",    earliest:12, typical:20,  latest:28  },
-  { id:"m5",  cat:"social",    label:"Stranger anxiety begins",       earliest:24, typical:32,  latest:44  },
-  { id:"m6",  cat:"social",    label:"Plays peek-a-boo",              earliest:24, typical:32,  latest:44  },
-  { id:"m7",  cat:"social",    label:"Waves bye-bye",                 earliest:32, typical:40,  latest:52  },
-  { id:"m8",  cat:"social",    label:"Separation anxiety",            earliest:32, typical:40,  latest:56  },
-  { id:"m9",  cat:"language",  label:"Coos and gurgles",              earliest:4,  typical:8,   latest:16  },
-  { id:"m10", cat:"language",  label:"Turns toward sounds",           earliest:4,  typical:8,   latest:16  },
-  { id:"m11", cat:"language",  label:"Babbles (ba-ba, da-da)",        earliest:16, typical:24,  latest:36  },
-  { id:"m12", cat:"language",  label:"Responds to own name",          earliest:20, typical:28,  latest:40  },
-  { id:"m13", cat:"language",  label:"Imitates sounds",               earliest:24, typical:32,  latest:44  },
-  { id:"m14", cat:"language",  label:"First word",                    earliest:36, typical:48,  latest:64  },
-  { id:"m15", cat:"language",  label:"Points to things",              earliest:36, typical:44,  latest:56  },
-  { id:"m16", cat:"language",  label:"Follows simple instructions",   earliest:40, typical:52,  latest:68  },
-  { id:"m17", cat:"motor",     label:"Holds head up briefly",         earliest:2,  typical:6,   latest:12  },
-  { id:"m18", cat:"motor",     label:"Steady head control",           earliest:8,  typical:12,  latest:20  },
-  { id:"m19", cat:"motor",     label:"Grasps objects placed in hand", earliest:8,  typical:12,  latest:20  },
-  { id:"m20", cat:"motor",     label:"Reaches for objects",           earliest:12, typical:16,  latest:24  },
-  { id:"m21", cat:"motor",     label:"Rolls front to back",           earliest:12, typical:16,  latest:24  },
-  { id:"m22", cat:"motor",     label:"Rolls back to front",           earliest:16, typical:20,  latest:28  },
-  { id:"m23", cat:"motor",     label:"Sits with support",             earliest:16, typical:24,  latest:32  },
-  { id:"m24", cat:"motor",     label:"Transfers objects hand to hand",earliest:20, typical:28,  latest:36  },
-  { id:"m25", cat:"motor",     label:"Sits without support",          earliest:24, typical:28,  latest:40  },
-  { id:"m26", cat:"motor",     label:"Crawls or bottom shuffles",     earliest:28, typical:36,  latest:52  },
-  { id:"m27", cat:"motor",     label:"Pulls to stand",                earliest:32, typical:40,  latest:52  },
-  { id:"m28", cat:"motor",     label:"Cruises along furniture",       earliest:36, typical:44,  latest:56  },
-  { id:"m29", cat:"motor",     label:"First steps",                   earliest:40, typical:52,  latest:72  },
-  { id:"m30", cat:"cognitive", label:"Tracks moving objects",         earliest:4,  typical:8,   latest:16  },
-  { id:"m31", cat:"cognitive", label:"Explores with hands & mouth",   earliest:12, typical:20,  latest:28  },
-  { id:"m32", cat:"cognitive", label:"Bangs objects together",        earliest:24, typical:32,  latest:44  },
-  { id:"m33", cat:"cognitive", label:"Looks for dropped objects",     earliest:24, typical:32,  latest:44  },
-  { id:"m34", cat:"cognitive", label:"Object permanence (finds hidden toy)", earliest:28, typical:36, latest:48 },
-  { id:"m35", cat:"cognitive", label:"Imitates actions (clapping)",   earliest:32, typical:40,  latest:52  },
-  { id:"m36", cat:"cognitive", label:"Stacks two objects",            earliest:44, typical:52,  latest:68  },
+  // ── Social & Emotional ──
+  { id:"m1",  cat:"social",    label:"First smile (social)",           earliest:4,  typical:6,   latest:12  },
+  { id:"m2",  cat:"social",    label:"Recognises your face & voice",   earliest:4,  typical:8,   latest:16  },
+  { id:"m3",  cat:"social",    label:"Calms when picked up",           earliest:2,  typical:4,   latest:10  },
+  { id:"m4",  cat:"social",    label:"Laughs out loud",                earliest:10, typical:16,  latest:24  },
+  { id:"m5",  cat:"social",    label:"Enjoys looking in a mirror",     earliest:12, typical:20,  latest:28  },
+  { id:"m6",  cat:"social",    label:"Shows excitement (kicks, waves)",earliest:12, typical:18,  latest:26  },
+  { id:"m7",  cat:"social",    label:"Reaches out to be held",         earliest:16, typical:22,  latest:30  },
+  { id:"m8",  cat:"social",    label:"Stranger anxiety begins",        earliest:24, typical:32,  latest:44  },
+  { id:"m9",  cat:"social",    label:"Plays peek-a-boo",               earliest:24, typical:32,  latest:44  },
+  { id:"m10", cat:"social",    label:"Shows affection (hugs, kisses)", earliest:30, typical:38,  latest:52  },
+  { id:"m11", cat:"social",    label:"Waves bye-bye",                  earliest:32, typical:40,  latest:52  },
+  { id:"m12", cat:"social",    label:"Separation anxiety peaks",       earliest:32, typical:40,  latest:56  },
+  { id:"m13", cat:"social",    label:"Plays alongside other children", earliest:40, typical:52,  latest:68  },
+  // ── Language & Communication ──
+  { id:"m14", cat:"language",  label:"Coos and gurgles",               earliest:4,  typical:8,   latest:16  },
+  { id:"m15", cat:"language",  label:"Turns toward sounds & voices",   earliest:4,  typical:8,   latest:16  },
+  { id:"m16", cat:"language",  label:"Reacts to loud noises",          earliest:2,  typical:5,   latest:12  },
+  { id:"m17", cat:"language",  label:"Squeals and laughs aloud",       earliest:12, typical:18,  latest:26  },
+  { id:"m18", cat:"language",  label:"Babbles (ba-ba, da-da, ma-ma)",  earliest:16, typical:24,  latest:36  },
+  { id:"m19", cat:"language",  label:"Responds to own name",           earliest:20, typical:28,  latest:40  },
+  { id:"m20", cat:"language",  label:"Imitates sounds and tones",      earliest:24, typical:32,  latest:44  },
+  { id:"m21", cat:"language",  label:"Uses gestures (shaking head)",   earliest:30, typical:38,  latest:52  },
+  { id:"m22", cat:"language",  label:"Says 'mama' or 'dada' (meaning)",earliest:36, typical:44,  latest:60  },
+  { id:"m23", cat:"language",  label:"First real word",                earliest:36, typical:48,  latest:64  },
+  { id:"m24", cat:"language",  label:"Points to things they want",     earliest:36, typical:44,  latest:56  },
+  { id:"m25", cat:"language",  label:"Follows simple instructions",    earliest:40, typical:52,  latest:68  },
+  { id:"m26", cat:"language",  label:"Uses 2–3 words with meaning",    earliest:48, typical:60,  latest:78  },
+  // ── Movement & Physical ──
+  { id:"m27", cat:"motor",     label:"Holds head up briefly (tummy)", earliest:2,  typical:6,   latest:12  },
+  { id:"m28", cat:"motor",     label:"Steady head control",            earliest:8,  typical:12,  latest:20  },
+  { id:"m29", cat:"motor",     label:"Grasps objects placed in hand",  earliest:8,  typical:12,  latest:20  },
+  { id:"m30", cat:"motor",     label:"Pushes up on arms (tummy time)", earliest:8,  typical:14,  latest:22  },
+  { id:"m31", cat:"motor",     label:"Reaches for objects",            earliest:12, typical:16,  latest:24  },
+  { id:"m32", cat:"motor",     label:"Rolls front to back",            earliest:12, typical:16,  latest:24  },
+  { id:"m33", cat:"motor",     label:"Rolls back to front",            earliest:16, typical:20,  latest:28  },
+  { id:"m34", cat:"motor",     label:"Sits with support",              earliest:16, typical:24,  latest:32  },
+  { id:"m35", cat:"motor",     label:"Transfers objects hand to hand", earliest:20, typical:28,  latest:36  },
+  { id:"m36", cat:"motor",     label:"Sits without support",           earliest:24, typical:28,  latest:40  },
+  { id:"m37", cat:"motor",     label:"Bears weight on legs (supported)",earliest:20, typical:28, latest:38  },
+  { id:"m38", cat:"motor",     label:"Crawls or bottom shuffles",      earliest:28, typical:36,  latest:52  },
+  { id:"m39", cat:"motor",     label:"Pulls to stand",                 earliest:32, typical:40,  latest:52  },
+  { id:"m40", cat:"motor",     label:"Cruises along furniture",        earliest:36, typical:44,  latest:56  },
+  { id:"m41", cat:"motor",     label:"Stands alone briefly",           earliest:38, typical:48,  latest:60  },
+  { id:"m42", cat:"motor",     label:"First steps",                    earliest:40, typical:52,  latest:72  },
+  { id:"m43", cat:"motor",     label:"Picks up small objects (pincer grip)", earliest:28, typical:36, latest:48 },
+  // ── Cognitive & Play ──
+  { id:"m44", cat:"cognitive", label:"Tracks moving objects with eyes",earliest:4,  typical:8,   latest:16  },
+  { id:"m45", cat:"cognitive", label:"Stares at faces intently",       earliest:2,  typical:4,   latest:10  },
+  { id:"m46", cat:"cognitive", label:"Explores with hands & mouth",    earliest:12, typical:20,  latest:28  },
+  { id:"m47", cat:"cognitive", label:"Reaches for and shakes toys",    earliest:14, typical:20,  latest:30  },
+  { id:"m48", cat:"cognitive", label:"Bangs objects together",         earliest:24, typical:32,  latest:44  },
+  { id:"m49", cat:"cognitive", label:"Looks for dropped objects",      earliest:24, typical:32,  latest:44  },
+  { id:"m50", cat:"cognitive", label:"Object permanence (finds hidden toy)", earliest:28, typical:36, latest:48 },
+  { id:"m51", cat:"cognitive", label:"Imitates actions (clapping, waving)", earliest:32, typical:40, latest:52 },
+  { id:"m52", cat:"cognitive", label:"Puts objects in and takes out",  earliest:32, typical:40,  latest:52  },
+  { id:"m53", cat:"cognitive", label:"Stacks two objects / rings",     earliest:44, typical:52,  latest:68  },
+  { id:"m54", cat:"cognitive", label:"Understands cause and effect",   earliest:28, typical:36,  latest:50  },
+  { id:"m55", cat:"cognitive", label:"Pretend play begins (feeding doll)", earliest:44, typical:56, latest:72 },
+];
+
+// Wonder Weeks / Mental Leaps — peak fussy period in weeks
+const WONDER_WEEKS = [
+  { leap:1, weekStart:4,  weekEnd:5,  name:"The World of Changing Sensations", color:"#7b68ee", emoji:"✨",
+    expect:["More crying and fussiness than usual","Wants to be held constantly","Sleep becomes harder"],
+    skills:["Notices differences in light and dark","Reacts to new smells and tastes","Startles at loud sounds"] },
+  { leap:2, weekStart:7,  weekEnd:9,  name:"The World of Patterns", color:"#e07b54", emoji:"🔷",
+    expect:["Clingy and cranky for several days","Feeds more frequently","Hard to put down"],
+    skills:["Recognises simple patterns and shapes","Follows moving objects more smoothly","Begins to smile socially"] },
+  { leap:3, weekStart:11, weekEnd:12, name:"The World of Smooth Transitions", color:"#50a878", emoji:"🌊",
+    expect:["Fussy in the evenings","May wake more at night","Wants feeding for comfort"],
+    skills:["Movements become smoother and more fluid","Begins to 'talk' back with coos","More aware of their own body"] },
+  { leap:4, weekStart:14, weekEnd:19, name:"The World of Events", color:"#e0a030", emoji:"🎬",
+    expect:["Longest fussy period so far (up to 5 weeks)","Sleep regression very common","Extremely clingy"],
+    skills:["Understands events happen in sequence","Starts to roll","Grabs objects deliberately","Babbles back and forth"] },
+  { leap:5, weekStart:22, weekEnd:26, name:"The World of Relationships", color:"#c86090", emoji:"🔗",
+    expect:["Separation anxiety begins","Cries when you leave the room","Very clingy and needy"],
+    skills:["Understands distance and space","Sits with support","Stranger awareness develops","Reaches for everything"] },
+  { leap:6, weekStart:33, weekEnd:37, name:"The World of Categories", color:"#4aa8c0", emoji:"🗂️",
+    expect:["Temper tantrums may start","Tests limits more","Fussy and unpredictable"],
+    skills:["Groups things by colour, shape, size","Pulls to stand","Waves bye-bye","Understands 'no'"] },
+  { leap:7, weekStart:41, weekEnd:46, name:"The World of Sequences", color:"#9060c0", emoji:"📋",
+    expect:["Clingy around nap and bedtime","May refuse foods","Testing independence"],
+    skills:["Understands simple sequences (put in, take out)","First steps approaching","Points to things","Says first words"] },
+  { leap:8, weekStart:51, weekEnd:54, name:"The World of Programs", color:"#d04040", emoji:"⚙️",
+    expect:["Cranky and difficult around the 1-year mark","Big sleep disruption possible","Strong separation anxiety"],
+    skills:["Plans simple actions to reach a goal","Stacks objects","Follows instructions","Uses 2–3 words with meaning"] },
 ];
 
 function calcAge(dob) {
@@ -4781,167 +4833,210 @@ function App(){
         {/* MILESTONES TAB */}
         {tab==="milestones"&&(()=>{
           const ageWeeks = age ? age.totalWeeks : null;
-          const currentMonth = babyUnborn ? -1 : (age ? age.months : null);
           const doneCount = MILESTONES.filter(m=>milestones[m.id]&&milestones[m.id].date).length;
+          const [msFilter, setMsFilter] = React.useState("all");
 
           if (!babyDob) return (
             <div style={{...card,textAlign:"center",padding:"36px 20px"}}>
               <div style={{fontSize:40,marginBottom:14}}>🎂</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Add your baby's date of birth</div>
-              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>Add your baby's date of birth in Baby Settings to unlock growth percentiles and weight tracking.</div>
+              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>Add your baby's date of birth in Baby Settings to unlock milestones and Wonder Weeks.</div>
               <button onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>⚙️ Open Baby Settings →</button>
             </div>
           );
 
-          // Unborn baby — show all milestones greyed out with a banner
           if (babyUnborn) {
             const daysUntil = babyDob ? Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24)) : null;
             return (
-              <div>
-                <div style={{background:"linear-gradient(135deg,#fdeee8,#fad8d0)",border:`1px solid ${C.rose}`,borderRadius:16,padding:"16px 18px",marginBottom:16,textAlign:"center"}}>
-                  <div style={{fontSize:28,marginBottom:8}}>🤰</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.deep,fontWeight:700,marginBottom:4}}>
-                    {daysUntil > 0 ? `Due in ${daysUntil} day${daysUntil!==1?"s":""}` : "Almost here!"}
-                  </div>
-                  <div style={{fontSize:15,color:C.mid,lineHeight:1.6}}>Milestones are ready and waiting. They'll unlock once {babyName||"your baby"} arrives!</div>
+              <div style={{...card,textAlign:"center",padding:"36px 20px"}}>
+                <div style={{fontSize:36,marginBottom:10}}>🤰</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>
+                  {daysUntil > 0 ? `Due in ${daysUntil} day${daysUntil!==1?"s":""}` : "Almost here!"}
                 </div>
-                {[0,1,2,3,4,5,6].map(mo => {
-                  const ms = MILESTONES.filter(m => {
-                    const startMo = Math.floor(m.earliest / 4.33);
-                    const endMo = Math.floor(m.latest / 4.33);
-                    return mo >= startMo && mo <= endMo;
-                  });
-                  if (!ms.length) return null;
-                  const monthLabel = mo === 0 ? "Newborn" : `Month ${mo}`;
-                  return (
-                    <div key={mo} style={{...card, padding:0, overflow:"hidden", marginBottom:12, opacity:0.45}}>
-                      <div style={{background:"#f0ece8", padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-                        <div style={{fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:700, color:"#b0a8a4"}}>{monthLabel}</div>
-                        <span style={{fontSize:14,color:"#c0b8b4",fontFamily:"monospace"}}>🔒 {ms.length} milestones</span>
-                      </div>
-                      <div style={{padding:"4px 16px 6px"}}>
-                        {ms.map(m => (
-                          <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
-                            <div style={{width:22,height:22,borderRadius:"50%",border:"2px solid #ddd",background:"transparent",flexShrink:0}}/>
-                            <div style={{fontSize:15,color:"#c8bdb8"}}>{m.label}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+                <div style={{fontSize:15,color:C.lt,lineHeight:1.6}}>Milestones and Wonder Weeks will unlock once {babyName||"your baby"} arrives!</div>
               </div>
             );
           }
 
-          const msMonths = (m) => {
-            const startMo = Math.floor(m.earliest / 4.33);
-            const endMo = Math.floor(m.latest / 4.33);
-            return { startMo, endMo };
-          };
+          const currentLeap = WONDER_WEEKS.find(w => ageWeeks >= w.weekStart && ageWeeks <= w.weekEnd);
+          const nextLeap = WONDER_WEEKS.find(w => w.weekStart > (ageWeeks||0));
 
-          const maxMonth = Math.max((currentMonth||0) + 1, 12);
-          const months = Array.from({length: maxMonth + 1}, (_, i) => i);
-
-          const msForMonth = (mo) => MILESTONES.filter(m => {
-            const { startMo, endMo } = msMonths(m);
-            return mo >= startMo && mo <= endMo;
+          const relevantMs = MILESTONES.filter(m => {
+            if (!ageWeeks && ageWeeks !== 0) return false;
+            const done = milestones[m.id] && milestones[m.id].date;
+            if (done) return true;
+            if (m.earliest > ageWeeks + 4) return false;
+            if (m.latest < ageWeeks - 8) return false;
+            return true;
           });
 
-          const MilestoneRow = ({m, monthIdx}) => {
+          const filteredMs = msFilter === "all"
+            ? relevantMs
+            : relevantMs.filter(m => m.cat === msFilter);
+
+          const catCounts = {};
+          MILESTONE_CATS.forEach(c => { catCounts[c.key] = relevantMs.filter(m => m.cat === c.key).length; });
+
+          const ageParts = [];
+          if (age.months > 0) ageParts.push(`${age.months}mo`);
+          if (age.weeksAfterMonths > 0) ageParts.push(`${age.weeksAfterMonths}w`);
+          if (ageParts.length === 0) ageParts.push(`${age.remainingDays}d`);
+
+          const sortedMs = [...filteredMs].sort((a,b) => {
+            const aDone = milestones[a.id]&&milestones[a.id].date;
+            const bDone = milestones[b.id]&&milestones[b.id].date;
+            const aOverdue = a.typical < (ageWeeks||0) && !aDone;
+            const bOverdue = b.typical < (ageWeeks||0) && !bDone;
+            if (aOverdue && !bOverdue) return -1;
+            if (!aOverdue && bOverdue) return 1;
+            if (aDone && !bDone) return 1;
+            if (!aDone && bDone) return -1;
+            return a.typical - b.typical;
+          });
+
+          const MilestoneCard = ({m}) => {
             const done = milestones[m.id] && milestones[m.id].date;
-            const isCurrent = currentMonth !== null && monthIdx === currentMonth;
-            const isPast = currentMonth !== null && monthIdx < currentMonth;
-            const isFuture = currentMonth !== null && monthIdx > currentMonth + 1;
-            const checkBorder = done ? C.mint : isCurrent ? C.ter : isFuture ? "#ddd" : C.blush;
-            const checkBg = done ? C.mint : "transparent";
-            const textColor = done ? C.mint : isFuture ? "#c8bdb8" : C.deep;
+            const isActive = ageWeeks >= m.earliest && ageWeeks <= m.latest;
+            const isOverdue = m.typical < ageWeeks && !done;
+            const isUpcoming = m.earliest > ageWeeks;
+            const catInfo = MILESTONE_CATS.find(c => c.key === m.cat);
+            const statusColor = done ? C.mint : isOverdue ? "#e07050" : isActive ? C.ter : "#b0a8b0";
+            const statusLabel = done
+              ? `✓ ${fmtLong(milestones[m.id].date)}`
+              : isOverdue ? "Worth trying now"
+              : isActive ? "In window"
+              : `~${Math.ceil(m.earliest - ageWeeks)}w away`;
 
             return (
               <div onClick={()=>{
-                if(isFuture) return;
+                if(isUpcoming && !done) return;
                 if(done){
                   if(window.confirm(`Remove "${m.label}"?`)) setMilestones(ms=>({...ms,[m.id]:{}}));
                 } else {
                   setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
                 }
-              }} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:`1px solid ${C.blush}`,cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1}}>
-                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${checkBorder}`,background:checkBg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  {done&&<span style={{color:"white",fontSize:15,fontWeight:700}}>✓</span>}
+              }} style={{background:"white",borderRadius:14,padding:"13px 14px",marginBottom:8,border:`1.5px solid ${done?C.mint:isOverdue?"#f0d0c0":isActive?C.blush:"#ede9e5"}`,cursor:isUpcoming&&!done?"default":"pointer",opacity:isUpcoming&&!done?0.55:1,display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:26,height:26,borderRadius:"50%",border:`2px solid ${statusColor}`,background:done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {done && <span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
                 </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:15,fontWeight:done?600:400,color:textColor}}>{m.label}</div>
-                  {done&&<div style={{fontSize:14,fontFamily:"monospace",color:C.lt,marginTop:1}}>✓ {fmtLong(milestones[m.id].date)}</div>}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:15,fontWeight:done?600:500,color:done?C.mint:C.deep,lineHeight:1.3}}>{m.label}</div>
+                  <div style={{fontSize:13,color:statusColor,marginTop:2,display:"flex",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:12}}>{catInfo?.icon}</span>
+                    <span>{statusLabel}</span>
+                  </div>
                 </div>
-                {!done && isCurrent && <span style={{fontSize:14,background:"#fdeee8",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700,flexShrink:0}}>Now</span>}
-                {!done && isPast && !isFuture && <span style={{fontSize:14,background:"#fdf4f0",color:C.lt,borderRadius:99,padding:"3px 8px",flexShrink:0}}>Tap to log</span>}
+                {!done && isActive && !isOverdue && <span style={{fontSize:12,background:"#fdeee8",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>Now</span>}
+                {isOverdue && <span style={{fontSize:12,background:"#fdf0eb",color:"#e07050",borderRadius:99,padding:"3px 8px",fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>Try now</span>}
               </div>
             );
           };
-
-          const MonthBlock = ({mo}) => {
-            const ms = msForMonth(mo);
-            if (!ms.length) return null;
-            const isCurrent = currentMonth !== null && mo === currentMonth;
-            const isNext = currentMonth !== null && mo === currentMonth + 1;
-            const isPast = currentMonth !== null && mo < currentMonth;
-            const isFuture = currentMonth !== null && mo > currentMonth + 1;
-            const doneMsInBlock = ms.filter(m => milestones[m.id] && milestones[m.id].date);
-            const headerBg = isCurrent
-              ? `linear-gradient(135deg,#c9705a,#a85a44)`
-              : isNext ? `linear-gradient(135deg,#e8a898,#d49080)`
-              : isPast ? "white"
-              : "#f5f2ef";
-            const headerText = (isCurrent || isNext) ? "white" : isPast ? C.mid : "#b0a8a4";
-            const monthLabel = mo === 0 ? "Newborn" : `Month ${mo}`;
-            const monthRange = mo === 0 ? "0–4 weeks" : `${mo}–${mo+1} months`;
-
-            return (
-              <div style={{...card, padding:0, overflow:"hidden", marginBottom:12}}>
-                <div style={{background:headerBg, padding:"12px 16px", display:"flex", alignItems:"center", justifyContent:"space-between"}}>
-                  <div>
-                    <div style={{fontFamily:"'Playfair Display',serif", fontSize:17, fontWeight:700, color:headerText, lineHeight:1}}>{monthLabel}</div>
-                    <div style={{fontSize:14, fontFamily:"monospace", color: (isCurrent||isNext) ? "rgba(255,255,255,0.7)" : C.lt, marginTop:3}}>{monthRange}</div>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    {isCurrent && <span style={{fontSize:15,background:"rgba(255,255,255,0.25)",color:"white",borderRadius:99,padding:"3px 10px",fontWeight:700}}>👶 Right now</span>}
-                    {isNext && <span style={{fontSize:15,background:"rgba(255,255,255,0.25)",color:"white",borderRadius:99,padding:"3px 10px",fontWeight:700}}>🔜 Up next</span>}
-                    {isPast && <span style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>{doneMsInBlock.length}/{ms.length} done</span>}
-                    {isFuture && <span style={{fontSize:15,color:"#c0b8b4",fontFamily:"monospace"}}>{ms.length} milestones</span>}
-                  </div>
-                </div>
-                <div style={{padding:"4px 16px 6px"}}>
-                  {ms.map(m => <MilestoneRow key={m.id} m={m} monthIdx={mo}/>)}
-                </div>
-              </div>
-            );
-          };
-
-          const ageParts = [];
-          if (age.months > 0) ageParts.push(`${age.months} month${age.months!==1?"s":""}`);
-          if (age.weeksAfterMonths > 0) ageParts.push(`${age.weeksAfterMonths} week${age.weeksAfterMonths!==1?"s":""}`);
-          if (age.remainingDays > 0 || ageParts.length===0) ageParts.push(`${age.remainingDays} day${age.remainingDays!==1?"s":""}`);
 
           return (
             <div>
-              <div style={{...card, background:`linear-gradient(135deg,#fdf4f0,#fff8f4)`, marginBottom:16}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div style={{...card,background:`linear-gradient(135deg,#fdf4f0,#fff8f4)`,marginBottom:12,padding:"14px 16px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <div>
-                    <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:5}}>{possessive(babyName||"Baby")} age today</div>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.ter,lineHeight:1.1}}>{ageParts.join(", ")}</div>
-                    <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginTop:4}}>{age.totalDays} days · week {age.totalWeeks}</div>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{possessive(babyName||"Baby")} age</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.ter,lineHeight:1}}>{ageParts.join(" ")}</div>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginTop:2}}>Week {ageWeeks} · {age.totalDays} days</div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.mint}}>{doneCount}</div>
-                    <div style={{fontSize:14,fontFamily:"monospace",color:C.lt}}>achieved</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.mint,lineHeight:1}}>{doneCount}</div>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt}}>achieved</div>
                   </div>
                 </div>
-                <div style={{marginTop:12,background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
-                  <div style={{height:"100%",borderRadius:99,background:`linear-gradient(90deg,${C.ter},${C.mint})`,width:`${Math.round(doneCount/MILESTONES.length*100)}%`}}/>
+                <div style={{background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
+                  <div style={{height:"100%",borderRadius:99,background:`linear-gradient(90deg,${C.ter},${C.mint})`,width:`${Math.round(doneCount/MILESTONES.length*100)}%`,transition:"width 0.4s"}}/>
                 </div>
-                <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,marginTop:3,textAlign:"right"}}>{doneCount} of {MILESTONES.length}</div>
+                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginTop:3,textAlign:"right"}}>{doneCount} of {MILESTONES.length} total</div>
               </div>
-              {months.map(mo => <MonthBlock key={mo} mo={mo}/>)}
+
+              {currentLeap && (
+                <div style={{borderRadius:16,marginBottom:12,overflow:"hidden",border:`1.5px solid ${currentLeap.color}33`}}>
+                  <div style={{padding:"12px 14px",background:`linear-gradient(135deg,${currentLeap.color},${currentLeap.color}cc)`,display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:22}}>{currentLeap.emoji}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:"rgba(255,255,255,0.8)",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:"0.08em"}}>Wonder Week · Leap {currentLeap.leap}</div>
+                      <div style={{fontSize:16,fontWeight:700,color:"white",lineHeight:1.2}}>{currentLeap.name}</div>
+                    </div>
+                    <div style={{background:"rgba(255,255,255,0.22)",borderRadius:99,padding:"4px 10px",flexShrink:0}}>
+                      <div style={{fontSize:12,color:"white",fontWeight:700,whiteSpace:"nowrap"}}>Wk {currentLeap.weekStart}–{currentLeap.weekEnd}</div>
+                    </div>
+                  </div>
+                  <div style={{padding:"10px 14px 12px",background:`${currentLeap.color}0d`}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      <div>
+                        <div style={{fontSize:11,fontFamily:"monospace",color:currentLeap.color,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>What to expect</div>
+                        {currentLeap.expect.map((e,i)=>(
+                          <div key={i} style={{fontSize:13,color:C.deep,marginBottom:4,display:"flex",gap:5,lineHeight:1.3}}>
+                            <span style={{color:currentLeap.color,flexShrink:0,marginTop:1}}>•</span><span>{e}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <div style={{fontSize:11,fontFamily:"monospace",color:"#50a878",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Skills emerging</div>
+                        {currentLeap.skills.map((s,i)=>(
+                          <div key={i} style={{fontSize:13,color:C.deep,marginBottom:4,display:"flex",gap:5,lineHeight:1.3}}>
+                            <span style={{color:"#50a878",flexShrink:0,marginTop:1}}>✦</span><span>{s}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!currentLeap && nextLeap && (
+                <div style={{...card,padding:"11px 14px",marginBottom:12,background:"#f8f5ff",border:"1.5px solid #ddd8f5",display:"flex",alignItems:"center",gap:12}}>
+                  <span style={{fontSize:22,flexShrink:0}}>{nextLeap.emoji}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,fontFamily:"monospace",color:"#7b68ee",textTransform:"uppercase",letterSpacing:"0.07em"}}>Next · Leap {nextLeap.leap} · Week {nextLeap.weekStart}</div>
+                    <div style={{fontSize:15,fontWeight:600,color:C.deep,marginTop:1,lineHeight:1.2}}>{nextLeap.name}</div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#7b68ee"}}>{nextLeap.weekStart - ageWeeks}w</div>
+                    <div style={{fontSize:11,color:C.lt}}>away</div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto",paddingBottom:2,WebkitOverflowScrolling:"touch"}}>
+                {[{key:"all",label:"All",icon:"🌟"},...MILESTONE_CATS].map(c=>(
+                  <button key={c.key} onClick={()=>setMsFilter(c.key)}
+                    style={{flexShrink:0,padding:"6px 12px",borderRadius:99,border:`1.5px solid ${msFilter===c.key?C.ter:C.blush}`,background:msFilter===c.key?"#fdeee8":"white",color:msFilter===c.key?C.ter:C.mid,fontSize:13,fontWeight:msFilter===c.key?700:400,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}>
+                    <span>{c.icon}</span><span>{c.label}</span>
+                    {c.key!=="all"&&<span style={{fontSize:11,opacity:0.7}}>({catCounts[c.key]||0})</span>}
+                  </button>
+                ))}
+              </div>
+
+              {sortedMs.length === 0
+                ? <div style={{...card,textAlign:"center",padding:"28px 16px",color:C.lt,fontSize:15}}>Nothing to show for this filter right now</div>
+                : sortedMs.map(m => <MilestoneCard key={m.id} m={m}/>)
+              }
+
+              <div style={{...card,marginTop:8,padding:"14px 16px"}}>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.mid,marginBottom:10}}>All Wonder Week Leaps</div>
+                {WONDER_WEEKS.map(w => {
+                  const isPast = ageWeeks > w.weekEnd;
+                  const isCurrent = ageWeeks >= w.weekStart && ageWeeks <= w.weekEnd;
+                  const weeksUntil = w.weekStart - ageWeeks;
+                  return (
+                    <div key={w.leap} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.blush}`}}>
+                      <div style={{width:30,height:30,borderRadius:"50%",background:isCurrent?w.color:isPast?`${w.color}30`:"#f0ece8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0,color:isPast?w.color:"inherit"}}>
+                        {isPast ? "✓" : w.emoji}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:isCurrent?700:400,color:isCurrent?w.color:isPast?C.lt:C.deep,lineHeight:1.2}}>Leap {w.leap} — {w.name}</div>
+                        <div style={{fontSize:12,fontFamily:"monospace",color:C.lt}}>Week {w.weekStart}–{w.weekEnd}</div>
+                      </div>
+                      {isCurrent && <span style={{fontSize:11,background:w.color,color:"white",borderRadius:99,padding:"3px 9px",fontWeight:700,flexShrink:0}}>NOW</span>}
+                      {!isCurrent && !isPast && <span style={{fontSize:12,color:C.lt,flexShrink:0,fontFamily:"monospace"}}>{weeksUntil}w</span>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           );
         })()}
