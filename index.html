@@ -2405,7 +2405,7 @@ function App(){
         // Strip "nap" and optional nap-number (e.g. "nap2", "nap 3") but NOT time digits.
         // Old: /nap\s*\d*/i would eat the "2" in "nap 2:25", corrupting the time.
         // New: only eat digit if it's followed by whitespace or end-of-word (it's a nap index).
-        const rangeStr = raw.replace(/nap\s*\d*\s*/i,"").replace(/^[\s:\-–]+/,"").trim();
+        const rangeStr = raw.replace(/nap\s*(\d+(?![\d:]))\s*/i,"").replace(/nap\s*/i,"").replace(/^[\s:-–]+/,"").trim();
         // Naps only happen during the day (~7am–8pm = 420–1200 mins).
         // If parseTimeRange returns a time outside that window and no explicit am/pm
         // was given, flip it by ±12h into the daytime window.
