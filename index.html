@@ -3863,6 +3863,93 @@ function App(){
               </div>
 
               {/* ══ NEW LOG BAR ════════════════════════════════ */}
+              {/* Personal Recommendations prompt — early position so always visible */}
+              {(()=>{
+                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
+                if (activeDays.length < 7 || usePersonalRecs !== null) return null;
+                const pb = computePersonalBaselines();
+                if (!pb) return null;
+                return (
+                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8f5ff)",border:`1px solid #a0d8c0`,borderRadius:18,padding:"16px 15px",marginBottom:16,boxShadow:"0 2px 12px rgba(100,180,150,0.12)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <span style={{fontSize:22}}>🎉</span>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#2a6050"}}>7 days of data!</div>
+                    </div>
+                    <div style={{fontSize:14,color:"#3a7060",marginBottom:12,lineHeight:1.6}}>
+                      We've analysed {possessive(babyName||"Baby")} real patterns and compared them to NHS guidelines. Would you like recommendations tailored to their personal data?
+                    </div>
+                    <div style={{background:"white",borderRadius:12,padding:"10px 12px",marginBottom:12,border:"1px solid #c0e8d8"}}>
+                      {pb.personalAvgWW && (
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:pb.personalAvgMl?8:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#4a8070"}}>Wake windows</div>
+                          <div style={{fontSize:13,fontFamily:"monospace",textAlign:"right"}}>
+                            <div style={{color:"#6a9090"}}>NHS: {pb.nhsWW.label}</div>
+                            <div style={{color:"#2a6050",fontWeight:700}}>{babyName||"Baby"}'s avg: ~{pb.personalAvgWW}min</div>
+                          </div>
+                        </div>
+                      )}
+                      {pb.personalAvgMl && (
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#4a8070"}}>Daily milk</div>
+                          <div style={{fontSize:13,fontFamily:"monospace",textAlign:"right"}}>
+                            <div style={{color:"#6a9090"}}>NHS: ~{age&&age.totalWeeks<26?"700–1000":age&&age.totalWeeks<52?"500–700":"300–500"}ml</div>
+                            <div style={{color:"#2a6050",fontWeight:700}}>{babyName||"Baby"}'s avg: ~{pb.personalAvgMl}ml</div>
+                          </div>
+                        </div>
+                      )}
+                      {!pb.personalAvgWW && !pb.personalAvgMl && (
+                        <div style={{fontSize:13,color:"#5a8070"}}>Log a few more naps and feeds to see your comparison</div>
+                      )}
+                    </div>
+                    <div style={{fontSize:12,color:"#5a8070",marginBottom:10,lineHeight:1.5}}>
+                      NHS guidelines will always be shown alongside {babyName||"Baby"}'s personal recommendations, and will update as you log more.
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>{setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};}}
+                        style={{flex:2,background:`linear-gradient(135deg,#50a888,#3a8870)`,border:"none",borderRadius:99,padding:"10px",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                        ✨ Use {babyName||"Baby"}'s personal patterns
+                      </button>
+                      <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}}
+                        style={{flex:1,background:"none",border:`1px solid #a0c8b8`,borderRadius:99,padding:"10px",color:"#5a8070",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                        NHS only
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Personal recs active banner */}
+              {usePersonalRecs === true && (()=>{
+                const pb = computePersonalBaselines();
+                if (!pb) return null;
+                return (
+                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8fff5)",border:`1px solid #a0d8c0`,borderRadius:14,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#2a7060",marginBottom:2}}>✨ Personal recommendations active</div>
+                      <div style={{fontSize:12,color:"#4a9080",lineHeight:1.4}}>Based on {pb.activeDays} days of {possessive(babyName||"Baby")} data · updates as you log more</div>
+                    </div>
+                    <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}}
+                      style={{background:"none",border:`1px solid #b0d8c8`,borderRadius:99,padding:"5px 10px",color:"#5a9080",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,fontFamily:"inherit"}}>
+                      Switch to NHS
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* NHS-only mode banner */}
+              {usePersonalRecs === false && (()=>{
+                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
+                if (activeDays.length < 7) return null;
+                return (
+                  <div style={{background:"#f5f8ff",border:`1px solid #c8d8f0`,borderRadius:14,padding:"11px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <div style={{fontSize:13,color:"#4a5a80"}}>Using NHS guidelines · {babyName||"Baby"}'s personal patterns available</div>
+                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}}
+                      style={{background:"none",border:`1px solid #c0cce8`,borderRadius:99,padding:"5px 10px",color:"#5a6a90",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,fontFamily:"inherit"}}>
+                      Review
+                    </button>
+                  </div>
+                );
+              })()}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:16}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
@@ -4301,87 +4388,6 @@ function App(){
                     <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:8}}>
                       Based on recent sleep patterns and {usePersonalRecs===true?"✨ personal":"NHS age-appropriate"} wake windows
                     </div>
-                  </div>
-                );
-              })()}
-
-              {/* Personal Recommendations prompt (after 7 days, if not yet decided) */}
-              {(()=>{
-                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
-                if (activeDays.length < 7 || usePersonalRecs !== null) return null;
-                const pb = computePersonalBaselines();
-                if (!pb || !pb.hasEnoughData) return null;
-                return (
-                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8f5ff)",border:`1px solid #a0d8c0`,borderRadius:18,padding:"16px 15px",marginBottom:12,boxShadow:"0 2px 12px rgba(100,180,150,0.1)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                      <span style={{fontSize:22}}>🎉</span>
-                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#2a6050"}}>7 days of data — {possessive(babyName||"Baby")} personal patterns are ready!</div>
-                    </div>
-                    <div style={{fontSize:14,color:"#3a7060",marginBottom:12,lineHeight:1.6}}>
-                      We've analysed {possessive(babyName||"Baby")} real data and compared it to NHS guidelines. Would you like recommendations tailored to their personal patterns?
-                    </div>
-                    <div style={{background:"white",borderRadius:12,padding:"10px 12px",marginBottom:12,border:"1px solid #c0e8d8"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                        <div style={{fontSize:13,fontWeight:700,color:"#4a8070"}}>Wake windows</div>
-                        <div style={{fontSize:13,fontFamily:"monospace"}}>
-                          <span style={{color:"#6a9090"}}>NHS: {pb.nhsWW.label}</span>
-                          <span style={{margin:"0 6px",color:"#ccc"}}>|</span>
-                          <span style={{color:"#2a6050",fontWeight:700}}>{possessive(babyName||"Baby")}: ~{pb.personalAvgWW}min</span>
-                        </div>
-                      </div>
-                      {pb.personalAvgMl && (
-                        <div style={{display:"flex",justifyContent:"space-between"}}>
-                          <div style={{fontSize:13,fontWeight:700,color:"#4a8070"}}>Daily milk</div>
-                          <div style={{fontSize:13,fontFamily:"monospace"}}>
-                            <span style={{color:"#6a9090"}}>NHS: ~{age&&age.totalWeeks<26?"700-1000":age&&age.totalWeeks<52?"500-700":"300-500"}ml</span>
-                            <span style={{margin:"0 6px",color:"#ccc"}}>|</span>
-                            <span style={{color:"#2a6050",fontWeight:700}}>{possessive(babyName||"Baby")}: ~{pb.personalAvgMl}ml</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{fontSize:13,color:"#5a8070",marginBottom:10,lineHeight:1.5}}>
-                      NHS guidelines will always be visible alongside {possessive(babyName||"Baby")} personal recommendations.
-                    </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <button onClick={()=>{setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};}} style={{flex:2,background:`linear-gradient(135deg,#50a888,#3a8870)`,border:"none",borderRadius:99,padding:"10px",color:"white",fontSize:14,fontWeight:700,cursor:"pointer"}}>
-                        ✨ Use personal recommendations
-                      </button>
-                      <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}} style={{flex:1,background:"none",border:`1px solid #a0c8b8`,borderRadius:99,padding:"10px",color:"#5a8070",fontSize:13,cursor:"pointer"}}>
-                        NHS only
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Personal recs active banner */}
-              {usePersonalRecs === true && (()=>{
-                const pb = computePersonalBaselines();
-                if (!pb) return null;
-                return (
-                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8fff5)",border:`1px solid #a0d8c0`,borderRadius:14,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:700,color:"#2a7060",marginBottom:2}}>✨ Personal recommendations active</div>
-                      <div style={{fontSize:12,color:"#4a9080",lineHeight:1.4}}>Based on {pb.activeDays} days of {possessive(babyName||"Baby")} data · updates as you log more</div>
-                    </div>
-                    <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}} style={{background:"none",border:`1px solid #b0d8c8`,borderRadius:99,padding:"5px 10px",color:"#5a9080",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
-                      Switch to NHS
-                    </button>
-                  </div>
-                );
-              })()}
-
-              {/* NHS-only mode banner (after choosing) */}
-              {usePersonalRecs === false && (()=>{
-                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
-                if (activeDays.length < 7) return null;
-                return (
-                  <div style={{background:"#f5f8ff",border:`1px solid #c8d8f0`,borderRadius:14,padding:"11px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                    <div style={{fontSize:13,color:"#4a5a80"}}>Using NHS guidelines · Personal patterns available</div>
-                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}} style={{background:"none",border:`1px solid #c0cce8`,borderRadius:99,padding:"5px 10px",color:"#5a6a90",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
-                      Review
-                    </button>
                   </div>
                 );
               })()}
