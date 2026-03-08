@@ -23,6 +23,41 @@
       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged }
       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    onAuthStateChanged(auth, async (user) => {
+  if (!user) return;
+
+  const uid = user.uid;
+  const ref = doc(db, "users", uid);
+
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    const data = snap.data();
+    if (data.children) {
+      setChildren(JSON.parse(data.children));
+    }
+  }
+});
+    useEffect(() => {
+  if (!window._fbUid) return;
+
+  const save = async () => {
+    try {
+      const {db, doc, setDoc, serverTimestamp} = window._fb;
+
+      await setDoc(doc(db, "users", window._fbUid), {
+        children: JSON.stringify(children),
+        updatedAt: serverTimestamp()
+      });
+
+    } catch(e) {
+      console.warn("Save failed", e);
+    }
+  };
+
+  save();
+
+}, [children]);
     import { getAnalytics, logEvent }
       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
 
@@ -377,9 +412,6 @@ function App(){
   const setBabyDob     = (v) => updateChild({dob: v});
   const setBabySex     = (v) => updateChild({sex: v});
   const setBabyUnborn  = (v) => updateChild({unborn: v});
-  const setDays        = (fn) => setChildren(prev => {
-    const cur = prev[resolvedActiveId];
-    const next = typeof fn === "function" ? fn(cur.days) : fn;
     return {...prev, [resolvedActiveId]: {...cur, days: next}};
   });
   const setWeights     = (fn) => setChildren(prev => {
