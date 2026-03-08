@@ -311,88 +311,12 @@ function calcAge(dob) {
 function App(){
   const timerRef = React.useRef(null);
 
-  // ── Multi-child state ──
-  const[children,setChildren]=useState(()=>{
-    try {
-      const saved = localStorage.getItem("children_v1");
-      if(saved) return JSON.parse(saved);
-      // Migrate from old single-child storage
-      const oldDays = localStorage.getItem(STORAGE_KEY);
-      const oldWeights = localStorage.getItem("bw_v2");
-      const oldName = localStorage.getItem("bn_v2");
-      const oldDob = localStorage.getItem("dob_v1");
-      const oldSex = localStorage.getItem("sex_v1");
-      const oldUnborn = localStorage.getItem("unborn_v1");
-      const oldMilestones = localStorage.getItem("ms_v1");
-      const cid = uid();
-      let daysData = {};
-      try{ daysData = oldDays ? JSON.parse(oldDays) : {}; }catch{}
-      if(!daysData[todayStr()]) daysData[todayStr()] = [];
-      return { [cid]: {
-        id: cid,
-        name: oldName||"",
-        dob: oldDob||"",
-        sex: oldSex||"",
-        unborn: oldUnborn==="1",
-        days: daysData,
-        weights: oldWeights ? JSON.parse(oldWeights) : [],
-        milestones: oldMilestones ? JSON.parse(oldMilestones) : {}
-      }};
-    } catch(e) {
-      const cid = uid();
-      const d = {}; d[todayStr()] = [];
-      return { [cid]: { id:cid, name:"", dob:"", sex:"", unborn:false, days:d, weights:[], milestones:{} }};
-    }
+  const[days,setDays]=useState(()=>{
+    try{const r=localStorage.getItem(STORAGE_KEY);if(r){const d=JSON.parse(r);if(!d[todayStr()])d[todayStr()]=[];return d;}}catch{}
+    const d={};d[todayStr()]=[];return d;
   });
-  const[activeChildId,setActiveChildId]=useState(()=>{
-    try{
-      const saved = localStorage.getItem("children_v1");
-      const act = localStorage.getItem("active_child");
-      if(saved && act && JSON.parse(saved)[act]) return act;
-      if(saved) return Object.keys(JSON.parse(saved))[0];
-    }catch{}
-    return null;
-  });
-
-  // ── Derive active child (with auto-init fallback) ──
-  const childIds = Object.keys(children);
-  const resolvedActiveId = (activeChildId && children[activeChildId]) ? activeChildId : childIds[0];
-  const activeChild = children[resolvedActiveId] || { id:"", name:"", dob:"", sex:"", unborn:false, days:{}, weights:[], milestones:{} };
-
-  // ── Per-child aliases (keeps all existing logic working) ──
-  const babyName    = activeChild.name;
-  const babyDob     = activeChild.dob;
-  const babySex     = activeChild.sex;
-  const babyUnborn  = activeChild.unborn;
-  const days        = activeChild.days[todayStr()] !== undefined ? activeChild.days : (() => { const d = {...activeChild.days}; d[todayStr()]=[]; return d; })();
-  const weights     = activeChild.weights;
-  const milestones  = activeChild.milestones;
-
-  // ── Setters that update the active child ──
-  const updateChild = (patch) => setChildren(prev => ({
-    ...prev,
-    [resolvedActiveId]: { ...prev[resolvedActiveId], ...patch }
-  }));
-  const setBabyName    = (v) => updateChild({name: v});
-  const setBabyDob     = (v) => updateChild({dob: v});
-  const setBabySex     = (v) => updateChild({sex: v});
-  const setBabyUnborn  = (v) => updateChild({unborn: v});
-  const setDays        = (fn) => setChildren(prev => {
-    const cur = prev[resolvedActiveId];
-    const next = typeof fn === "function" ? fn(cur.days) : fn;
-    return {...prev, [resolvedActiveId]: {...cur, days: next}};
-  });
-  const setWeights     = (fn) => setChildren(prev => {
-    const cur = prev[resolvedActiveId];
-    const next = typeof fn === "function" ? fn(cur.weights) : fn;
-    return {...prev, [resolvedActiveId]: {...cur, weights: next}};
-  });
-  const setMilestones  = (fn) => setChildren(prev => {
-    const cur = prev[resolvedActiveId];
-    const next = typeof fn === "function" ? fn(cur.milestones) : fn;
-    return {...prev, [resolvedActiveId]: {...cur, milestones: next}};
-  });
-
+  const[weights,setWeights]=useState(()=>{try{return JSON.parse(localStorage.getItem("bw_v2")||"[]");}catch{return[];}});
+  const[babyName,setBabyName]=useState(()=>{try{return localStorage.getItem("bn_v2")||"";}catch{return"";}});
   const[selDay,setSelDay]=useState(todayStr);
   const[tab,setTab]=useState("day");
   const[modal,setModal]=useState(null);
@@ -424,18 +348,9 @@ function App(){
   const[onboarded,setOnboarded]=useState(()=>{
     try{
       const done = localStorage.getItem("onboarded_v2");
-      const saved = localStorage.getItem("children_v1");
-      if(done) return true;
-      // Legacy migration check
       const hasName = localStorage.getItem("bn_v2");
       const hasDob = localStorage.getItem("dob_v1");
-      if(hasName && hasDob) return true;
-      // New: onboarded if any child has a name
-      if(saved) {
-        const ch = JSON.parse(saved);
-        return Object.values(ch).some(c => c.name);
-      }
-      return false;
+      return !!(done || (hasName && hasDob));
     }catch{return false;}
   });
   const[obStep,setObStep]=useState(0);
@@ -469,9 +384,13 @@ function App(){
     return n.endsWith("s") ? `${n}'` : `${n}'s`;
   };
 
-  // ── Persist all children to localStorage ──
-  useEffect(()=>{try{localStorage.setItem("children_v1",JSON.stringify(children));}catch{}},[children]);
-  useEffect(()=>{if(resolvedActiveId)try{localStorage.setItem("active_child",resolvedActiveId);}catch{}},[resolvedActiveId]);
+  useEffect(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify(days));}catch{}},[days]);
+  useEffect(()=>{try{localStorage.setItem("bw_v2",JSON.stringify(weights));}catch{}},[weights]);
+  useEffect(()=>{try{localStorage.setItem("bn_v2",babyName);}catch{}},[babyName]);
+  useEffect(()=>{try{localStorage.setItem("ms_v1",JSON.stringify(milestones));}catch{}},[milestones]);
+  useEffect(()=>{try{localStorage.setItem("dob_v1",babyDob);}catch{}},[babyDob]);
+  useEffect(()=>{try{localStorage.setItem("unborn_v1",babyUnborn?"1":"0");}catch{}},[babyUnborn]);
+  useEffect(()=>{try{localStorage.setItem("sex_v1",babySex);}catch{}},[babySex]);
   useEffect(()=>{if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}},[onboarded]);
 
   // ── Firebase: wait for SDK ready ──
@@ -483,13 +402,19 @@ function App(){
   },[]);
 
   // ── Firebase: push local data to cloud ──
-  const pushToCloud = React.useCallback(async(code, allChildren) => {
+  const pushToCloud = React.useCallback(async(code, data) => {
     if(!window._fb || !code) return;
     const {db, doc, setDoc, serverTimestamp} = window._fb;
     try {
       setSyncStatus("syncing");
       await setDoc(doc(db, "families", code), {
-        children: JSON.stringify(allChildren),
+        days: JSON.stringify(data.days),
+        weights: JSON.stringify(data.weights),
+        babyName: data.babyName||"",
+        babyDob: data.babyDob||"",
+        babySex: data.babySex||"",
+        babyUnborn: data.babyUnborn?1:0,
+        milestones: JSON.stringify(data.milestones),
         updatedAt: serverTimestamp(),
         updatedBy: window._fbUid||"unknown"
       }, {merge:true});
@@ -508,9 +433,16 @@ function App(){
     unsubscribeRef.current = onSnapshot(doc(db,"families",code), (snap) => {
       if(!snap.exists()) return;
       const d = snap.data();
+      // Only apply if updated by someone else
       if(d.updatedBy && d.updatedBy === window._fbUid) return;
       try {
-        if(d.children) setChildren(JSON.parse(d.children));
+        if(d.days)      setDays(JSON.parse(d.days));
+        if(d.weights)   setWeights(JSON.parse(d.weights));
+        if(d.babyName)  setBabyName(d.babyName);
+        if(d.babyDob)   setBabyDob(d.babyDob);
+        if(d.babySex)   setBabySex(d.babySex);
+        if(d.milestones) setMilestones(JSON.parse(d.milestones));
+        setBabyUnborn(d.babyUnborn===1);
         setSyncStatus("synced");
       } catch(e) { console.warn("Apply sync error", e); }
     }, (e) => { console.warn("Snapshot error", e); setSyncStatus("error"); });
@@ -527,7 +459,7 @@ function App(){
     if(!fbReady || !familyCode) return;
     clearTimeout(syncRef.current);
     syncRef.current = setTimeout(()=>{
-      pushToCloud(familyCode, children);
+      pushToCloud(familyCode, {days, weights, babyName, babyDob, babySex, babyUnborn, milestones});
     }, 2000);
     return ()=>clearTimeout(syncRef.current);
   },[fbReady, familyCode, days, weights, babyName, babyDob, babySex, babyUnborn, milestones]);
@@ -544,7 +476,7 @@ function App(){
       exists = snap.exists();
     }
     // Save current data under new code
-    await pushToCloud(code, children);
+    await pushToCloud(code, {days, weights, babyName, babyDob, babySex, babyUnborn, milestones});
     setFamilyCode(code);
     try{localStorage.setItem("family_code", code);}catch{}
     subscribeToFamily(code);
@@ -561,7 +493,13 @@ function App(){
       const snap = await getDoc(doc(db,"families",clean));
       if(!snap.exists()) { setJoinError("Code not found — check with your partner"); return; }
       const d = snap.data();
-      if(d.children) setChildren(JSON.parse(d.children));
+      if(d.days)      setDays(JSON.parse(d.days));
+      if(d.weights)   setWeights(JSON.parse(d.weights));
+      if(d.babyName)  setBabyName(d.babyName);
+      if(d.babyDob)   setBabyDob(d.babyDob);
+      if(d.babySex)   setBabySex(d.babySex);
+      if(d.milestones) setMilestones(JSON.parse(d.milestones));
+      setBabyUnborn(d.babyUnborn===1);
       setFamilyCode(clean);
       try{localStorage.setItem("family_code", clean);}catch{}
       subscribeToFamily(clean);
@@ -579,54 +517,6 @@ function App(){
       if(window._fb) window._fb.logEvent(window._fb.analytics, name, params);
     } catch(e){}
   }
-
-  // ── Multi-child: add a new child ──
-  function addChild(name, dob, sex, unborn) {
-    const cid = uid();
-    const d = {}; d[todayStr()] = [];
-    setChildren(prev => ({
-      ...prev,
-      [cid]: { id:cid, name, dob, sex, unborn, days:d, weights:[], milestones:{} }
-    }));
-    setActiveChildId(cid);
-    trackEvent("child_added");
-    return cid;
-  }
-
-  // ── Multi-child: delete a child ──
-  function deleteChild(cid) {
-    setChildren(prev => {
-      const next = {...prev};
-      delete next[cid];
-      return next;
-    });
-    const remaining = childIds.filter(id => id !== cid);
-    if(remaining.length > 0) setActiveChildId(remaining[0]);
-  }
-
-  // ── Child switcher swipe state ──
-  const swipeStartX = React.useRef(null);
-
-  function handleSwipeStart(e) {
-    swipeStartX.current = (e.touches ? e.touches[0] : e).clientX;
-  }
-  function handleSwipeEnd(e) {
-    if(swipeStartX.current === null) return;
-    const endX = (e.changedTouches ? e.changedTouches[0] : e).clientX;
-    const diff = swipeStartX.current - endX;
-    if(Math.abs(diff) < 50) return;
-    const idx = childIds.indexOf(resolvedActiveId);
-    if(diff > 0 && idx < childIds.length-1) setActiveChildId(childIds[idx+1]); // swipe left = next
-    else if(diff < 0 && idx > 0) setActiveChildId(childIds[idx-1]); // swipe right = prev
-    swipeStartX.current = null;
-  }
-
-  // ── Add child onboarding modal state ──
-  const[showAddChild,setShowAddChild]=useState(false);
-  const[newChildName,setNewChildName]=useState("");
-  const[newChildDob,setNewChildDob]=useState("");
-  const[newChildSex,setNewChildSex]=useState("");
-  const[newChildUnborn,setNewChildUnborn]=useState(false);
   useEffect(()=>{
     if(napOn)timerRef.current=setInterval(()=>setNapSec(s=>s+1),1000);
     else clearInterval(timerRef.current);
@@ -1739,12 +1629,9 @@ function App(){
   // ONBOARDING
   if (!onboarded) {
     const completeOnboarding = () => {
-      // Update the first child (created during init migration) with onboarding data
-      updateChild({
-        name: obName.trim() || "",
-        dob: obDob || "",
-        sex: obSex || "",
-      });
+      if (obName.trim()) setBabyName(obName.trim());
+      if (obDob) setBabyDob(obDob);
+      setBabySex(obSex);
       setOnboarded(true);
     };
     const steps = [
@@ -2097,11 +1984,7 @@ function App(){
       })()}
 
       {/* HERO HEADER */}
-      <div
-        style={{background:theme.primary,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}
-        onTouchStart={handleSwipeStart}
-        onTouchEnd={handleSwipeEnd}
-      >
+      <div style={{background:theme.primary,padding:"52px 20px 24px",position:"relative",overflow:"hidden"}}>
 
         {/* ── NAP TIMER (top-left) ── */}
         {tab === "day" && (
@@ -2151,24 +2034,6 @@ function App(){
           );
         })()}
         <div style={{position:"relative",zIndex:1}}>
-          {/* Child switcher dots */}
-          {childIds.length > 0 && (
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-              {childIds.map((cid,i) => (
-                <button key={cid} onClick={()=>setActiveChildId(cid)} style={{
-                  width: cid===resolvedActiveId ? 22 : 8,
-                  height: 8, borderRadius:99, border:"none", cursor:"pointer",
-                  background: cid===resolvedActiveId ? C.ter : "rgba(255,255,255,0.5)",
-                  transition:"all 0.25s", padding:0
-                }}/>
-              ))}
-              <button onClick={()=>setShowAddChild(true)} style={{
-                width:24,height:24,borderRadius:99,border:"1.5px dashed rgba(255,255,255,0.6)",
-                background:"transparent",color:C.mid,cursor:"pointer",fontSize:14,
-                display:"flex",alignItems:"center",justifyContent:"center",marginLeft:2
-              }}>+</button>
-            </div>
-          )}
           {!nameEdit?(
             <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}}>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,color:C.deep,fontWeight:700,lineHeight:1.1,cursor:"pointer"}}>
@@ -3436,56 +3301,6 @@ function App(){
           </Sheet>
         );
       })()}
-
-      {/* ── ADD CHILD MODAL ── */}
-      {showAddChild && (
-        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowAddChild(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"#faf6f0",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%"}}>
-            <div style={{width:40,height:4,background:"#f2d9cc",borderRadius:99,margin:"0 auto 20px"}}/>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:"#2c1f1a",marginBottom:20}}>Add a child</div>
-
-            <div style={{fontSize:14,color:"#b89890",marginBottom:6,fontWeight:600}}>Name</div>
-            <input value={newChildName} onChange={e=>setNewChildName(e.target.value)}
-              placeholder="Baby's name" autoFocus
-              style={{width:"100%",fontSize:18,padding:"12px 14px",borderRadius:12,border:"1.5px solid #f2d9cc",background:"white",color:"#2c1f1a",outline:"none",fontFamily:"inherit",marginBottom:14}}/>
-
-            <div style={{fontSize:14,color:"#b89890",marginBottom:6,fontWeight:600}}>
-              {newChildUnborn ? "Due date" : "Date of birth"}
-            </div>
-            <input type="date" value={newChildDob} onChange={e=>setNewChildDob(e.target.value)}
-              style={{width:"100%",fontSize:16,padding:"12px 14px",borderRadius:12,border:"1.5px solid #f2d9cc",background:"white",color:"#2c1f1a",outline:"none",fontFamily:"inherit",marginBottom:14}}/>
-
-            <div style={{display:"flex",gap:8,marginBottom:14}}>
-              {["","girl","boy"].map(s=>(
-                <button key={s} onClick={()=>setNewChildSex(s)} style={{
-                  flex:1,padding:"10px",borderRadius:12,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,
-                  background: newChildSex===s ? "#c9705a" : "#f2d9cc",
-                  color: newChildSex===s ? "white" : "#7a5c52"
-                }}>{s===""?"Any":s==="girl"?"👧 Girl":"👦 Boy"}</button>
-              ))}
-            </div>
-
-            <button onClick={()=>setNewChildUnborn(v=>!v)} style={{
-              width:"100%",padding:"11px",borderRadius:99,border:"1.5px solid #f2d9cc",
-              background: newChildUnborn?"#fff3f0":"white",color:"#7a5c52",fontSize:14,
-              cursor:"pointer",fontFamily:"inherit",fontWeight:600,marginBottom:16
-            }}>{newChildUnborn ? "🤰 Not born yet" : "🎂 Already born"}</button>
-
-            <button onClick={()=>{
-              if(!newChildName.trim()) return;
-              addChild(newChildName.trim(), newChildDob, newChildSex, newChildUnborn);
-              setNewChildName(""); setNewChildDob(""); setNewChildSex(""); setNewChildUnborn(false);
-              setShowAddChild(false);
-              setTab("day"); setSelDay(todayStr());
-            }} style={{
-              width:"100%",padding:"15px",borderRadius:99,border:"none",
-              background: newChildName.trim() ? "#c9705a" : "#f2d9cc",
-              color: newChildName.trim() ? "white" : "#b89890",
-              fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit"
-            }}>Add {newChildName||"child"} ✦</button>
-          </div>
-        </div>
-      )}
 
       {/* ── FAMILY SYNC MODAL ── */}
       {showFamilyModal && (
