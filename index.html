@@ -3760,7 +3760,7 @@ function App(){
 
               const icon = isBedNow ? "🌙" : isBed ? "🌙" : "⏱️";
               const label = isNapNow ? "Tap to start" : isBedNow ? "Tap to log" : isBed ? "Bedtime in" : "Next Nap";
-              const valueText = isNapNow ? "😴 Start nap" : isBedNow ? "🌙 Log bedtime" : countdown !== null ? fmtCountdown(countdown) : "–";
+              const valueText = isNapNow ? "😴 Start nap" : isBedNow ? "Log bedtime" : countdown !== null ? fmtCountdown(countdown) : "–";
               const bg = isNapNow ? C.mint : isBedNow ? C.sky : isUrgent ? C.ter : "rgba(255,255,255,0.6)";
               const textColor = isNow || isUrgent ? "white" : isBed ? C.sky : C.ter;
               const subColor = isNow || isUrgent ? "rgba(255,255,255,0.85)" : C.lt;
