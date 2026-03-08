@@ -2402,34 +2402,23 @@ function App(){
 
       // ── Nap ──
       if (/\bnap\b/.test(l)) {
-        // Strip "nap" and optional nap-number (e.g. "nap2", "nap 3") but NOT time digits.
-        // Old: /nap\s*\d*/i would eat the "2" in "nap 2:25", corrupting the time.
-        // New: only eat digit if it's followed by whitespace or end-of-word (it's a nap index).
-        const rangeStr = raw.replace(/nap\s*(\d+(?![\d:]))\s*/i,"").replace(/nap\s*/i,"").replace(/^[\s:-–]+/,"").trim();
-        // Naps only happen during the day (~7am–8pm = 420–1200 mins).
-        // If parseTimeRange returns a time outside that window and no explicit am/pm
-        // was given, flip it by ±12h into the daytime window.
-        function clampToNapWindow(timeStr, rawSegment) {
-          if (!timeStr) return timeStr;
-          const hasExplicit = /\d\s*(am|pm)/i.test(rawSegment);
-          if (hasExplicit) return timeStr; // user was explicit — respect it
-          let mins = timeVal(timeStr);
-          // If outside 7am–8pm, try the ±12h mirror
-          if (mins < 420 || mins > 1200) {
-            const mirror = (mins + 720) % 1440;
-            if (mirror >= 420 && mirror <= 1200) {
-              return String(Math.floor(mirror/60)).padStart(2,"0") + ":" + String(mirror%60).padStart(2,"0");
-            }
-          }
-          return timeStr;
+        // Strip "nap" keyword and optional nap-number (e.g. "nap 1", "nap2") but NOT time digits.
+        // Only strip a digit if it is NOT followed by another digit or colon (so "nap 10:40" is safe).
+        const rangeStr = raw.replace(/nap\s*(\d+(?![\d:]))\s*/i,"").replace(/nap\s*/i,"").replace(/^[\s:\-–]+/,"").trim();
+        // Parse start and end purely using lastMinutes context — no am/pm inference.
+        // Split on the range separator to get the two halves.
+        const rangeSep = rangeStr.match(/^(.+?)\s*(?:-|–|to)\s*(.+)$/i);
+        let napStart = null, napEnd = null;
+        if (rangeSep) {
+          // Strip any am/pm suffix before parsing so context (lastMinutes) drives am/pm resolution.
+          const startClean = rangeSep[1].trim().replace(/\s*(am|pm)\s*$/i,"");
+          const endClean   = rangeSep[2].trim().replace(/\s*(am|pm)\s*$/i,"");
+          napStart = parseTime(startClean, lastMinutes);
+          if (napStart) napEnd = parseTime(endClean, timeVal({time: napStart}));
         }
-        const range = parseTimeRange(rangeStr, lastMinutes);
-        if (range) {
-          range.start = clampToNapWindow(range.start, rangeStr.split(/[-–]/)[0] || "");
-          range.end   = clampToNapWindow(range.end,   rangeStr.split(/[-–]/).slice(-1)[0] || "");
-        }
-        if (range) {
-          entries.push({type:"nap",start:range.start,end:range.end,night:false,note:"",id:uid()}); lastMinutes = tMins(range.end);
+        if (napStart && napEnd) {
+          entries.push({type:"nap",start:napStart,end:napEnd,night:false,note:"",id:uid()});
+          lastMinutes = timeVal({time: napEnd});
         } else {
           const t = parseTime(rangeStr, lastMinutes);
           if (t) warnings.push('Found nap but no end time: "'+raw+'" — add it manually');
