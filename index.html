@@ -481,6 +481,7 @@ function App(){
   const[obName,setObName]=useState("");
   const[obDob,setObDob]=useState("");
   const[obSex,setObSex]=useState("");
+  const[needsChildSetup,setNeedsChildSetup]=useState(false);
   const[obUsername,setObUsername]=useState("");
   const[obUsernameStatus,setObUsernameStatus]=useState("idle"); // idle | checking | available | taken | invalid
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
@@ -2316,6 +2317,9 @@ function App(){
         const ok = await reserveUsername(authUsername, authPin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+          try{ localStorage.removeItem("tut_v1"); }catch{}
+          setTutStep(0);
+          setNeedsChildSetup(true);
           setOnboarded(true);
           setAuthScreen(null);
         }
@@ -2404,18 +2408,15 @@ function App(){
 
   // ONBOARDING
   if (!onboarded) {
-    const completeOnboarding = async (childData) => {
-      const name = (childData?.name ?? obName).trim();
-      const dob  = childData?.dob  ?? obDob;
-      const sex  = childData?.sex  ?? obSex;
-      updateChild({ name, dob, sex });
+    const completeOnboarding = async () => {
       if(obUsername.trim() && fbReady && obPin.length===4) {
         await reserveUsername(obUsername, obPin);
       }
       try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-      // Show tutorial after onboarding
+      // Ensure tutorial runs first, child setup shows after
       try{ localStorage.removeItem("tut_v1"); }catch{}
       setTutStep(0);
+      setNeedsChildSetup(true);
       setOnboarded(true);
     };
 
@@ -2512,7 +2513,7 @@ function App(){
                "Your partner will use this to sync with you"}
             </div>
             <button
-              onClick={()=>obUsernameStatus==="available"?setObStep(3):setObStep(4)}
+              onClick={()=>obUsernameStatus==="available"?setObStep(3):completeOnboarding()}
               disabled={obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid"}
               style={{width:"100%",background:
                 (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
@@ -2526,7 +2527,7 @@ function App(){
                 boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
               {obUsernameStatus==="checking"?"Checking…":"Continue →"}
             </button>
-            <button onClick={()=>setObStep(4)} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
               Skip for now
             </button>
           </div>
@@ -2545,101 +2546,17 @@ function App(){
                 {obPin2.length>0&&obPin2.length<4&&<div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:10}}>Confirm your PIN</div>}
                 {obPin2.length===4&&obPin2!==obPin&&<div style={{fontSize:14,color:C.ter,textAlign:"center",marginBottom:10}}>PINs don't match — try again</div>}
                 {obPin2.length===4&&obPin2!==obPin&&(()=>{setTimeout(()=>setObPin2(""),600);return null;})()}
-                <PinPad value={obPin2} onChange={setObPin2} onComplete={(p)=>{ if(p===obPin) setObStep(4); }}/>
+                <PinPad value={obPin2} onChange={setObPin2} onComplete={(p)=>{ if(p===obPin) completeOnboarding(); }}/>
               </div>
             )}
-            <button onClick={()=>setObStep(4)} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>
+            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>
               Skip PIN
             </button>
           </div>
         )
       },
-      {
-        icon:"oliver",
-        title:"Now let's add\nyour baby ✨",
-        sub:"OBubba uses your baby's details to personalise nap predictions, feeding recommendations, milestones and growth charts.",
-        action: (
-          <div style={{width:"100%",marginTop:16}}>
-            <div style={{display:"flex",background:C.warm,borderRadius:99,padding:3,marginBottom:20,gap:3}}>
-              {[["new","👶 Add my baby"],["link","🔗 Join via share code"]].map(([m,l])=>(
-                <button key={m} onClick={()=>{setObChildMode(m);setObLinkStatus("");setObLinkError("");}}
-                  style={{flex:1,padding:"9px 6px",borderRadius:99,border:"none",background:obChildMode===m?"white":"transparent",color:obChildMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",boxShadow:obChildMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
-                  {l}
-                </button>
-              ))}
-            </div>
-            {obChildMode==="new" && (
-              <div>
-                <div style={{background:"#fdf0eb",borderRadius:14,padding:"12px 14px",marginBottom:14,border:`1px solid ${C.blush}`,display:"flex",gap:10,alignItems:"flex-start"}}>
-                  <span style={{fontSize:18,flexShrink:0}}>💡</span>
-                  <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>Used for <strong>nap & wake windows</strong>, <strong>feed recommendations</strong>, <strong>milestones</strong> and <strong>growth percentiles</strong>. Update anytime in ⚙️ Baby Settings.</div>
-                </div>
-                <input autoFocus value={obName} onChange={e=>setObName(e.target.value)}
-                  placeholder="Baby's name (optional)"
-                  style={{width:"100%",fontSize:18,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:10,boxSizing:"border-box"}}/>
-                <div style={{display:"flex",gap:8,marginBottom:10}}>
-                  {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
-                    <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:13,fontWeight:700,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
-                      {l}
-                    </div>
-                  ))}
-                </div>
-                <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)}
-                  style={{width:"100%",fontSize:16,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:10,boxSizing:"border-box"}}/>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
-                  {[["boy","👦","Boy","#eaf3fb","#3d6a8a"],["girl","👧","Girl","#fde7e4","#a85070"],["","⬜","Not set","#f0e8e0","#7a5c52"]].map(([v,emoji,l,accent,col])=>(
-                    <button key={v} onClick={()=>setObSex(v)}
-                      style={{padding:"12px 4px",borderRadius:14,border:`2px solid ${obSex===v?col:C.blush}`,background:obSex===v?accent:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:obSex===v?col:C.mid,fontFamily:"inherit",transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                      <span style={{fontSize:22}}>{emoji}</span>{l}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={()=>completeOnboarding()} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,fontFamily:"inherit"}}>
-                  {obName.trim()||obDob ? "Let’s go! →" : "Continue →"}
-                </button>
-                <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-                  Skip — I'll add details later
-                </button>
-              </div>
-            )}
-            {obChildMode==="link" && (
-              <div>
-                <div style={{background:"#f0faf5",borderRadius:14,padding:"12px 14px",marginBottom:14,border:"1px solid #b0e8cc",display:"flex",gap:10,alignItems:"flex-start"}}>
-                  <span style={{fontSize:18,flexShrink:0}}>📲</span>
-                  <div style={{fontSize:13,color:"#2a7a50",lineHeight:1.55}}>If another parent has already set up this baby, they can share a <strong>6-digit code</strong> from their Share menu. Enter it below to add the child to your app.</div>
-                </div>
-                <input
-                  value={obLinkCode}
-                  onChange={e=>{ setObLinkCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"")); setObLinkStatus(""); setObLinkError(""); }}
-                  placeholder="e.g. AB3X7Y"
-                  maxLength={6}
-                  style={{width:"100%",fontSize:28,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.2em",textAlign:"center",padding:"16px",borderRadius:14,border:`2px solid ${obLinkStatus==="error"?C.ter:obLinkStatus==="ok"?"#50c878":C.blush}`,background:"white",color:C.ter,outline:"none",marginBottom:10,boxSizing:"border-box"}}/>
-                {obLinkStatus==="error" && <div style={{fontSize:13,color:C.ter,marginBottom:10,textAlign:"center"}}>{obLinkError}</div>}
-                {obLinkStatus==="ok" && <div style={{fontSize:13,color:"#50c878",marginBottom:10,textAlign:"center",fontWeight:600}}>✔ Child linked! Taking you in…</div>}
-                <button onClick={async()=>{
-                  if(obLinkCode.length!==6) return;
-                  setObLinkStatus("loading");
-                  const result = await joinChildByCode(obLinkCode);
-                  if(result.ok) {
-                    setObLinkStatus("ok");
-                    setTimeout(()=>completeOnboarding({name:"",dob:"",sex:""}), 1200);
-                  } else {
-                    setObLinkStatus("error");
-                    setObLinkError(result.error||"Code not found — check with the other parent");
-                  }
-                }} disabled={obLinkCode.length!==6||obLinkStatus==="loading"||obLinkStatus==="ok"}
-                  style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:obLinkCode.length===6&&obLinkStatus!=="ok"?`linear-gradient(135deg,#50c878,#3aa860)`:"#e0f0ea",color:obLinkCode.length===6&&obLinkStatus!=="ok"?"white":"#a0c8b0",fontSize:16,fontWeight:700,cursor:obLinkCode.length===6&&obLinkStatus!=="ok"?"pointer":"not-allowed",fontFamily:"inherit",transition:"all 0.2s",marginBottom:10}}>
-                  {obLinkStatus==="loading"?"⏳ Linking…":"Link child →"}
-                </button>
-                <button onClick={()=>completeOnboarding({name:"",dob:"",sex:""})} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-                  Skip — I'll set up later
-                </button>
-              </div>
-            )}
-          </div>
-        )
-      },
     ];
+    const step = steps[obStep];    ];
     const step = steps[obStep];
     return (
       <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"env(safe-area-inset-top,24px) 24px env(safe-area-inset-bottom,24px)",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",overflowY:"auto"}}>
@@ -2661,6 +2578,108 @@ function App(){
           <div style={{fontSize:13,color:C.lt,lineHeight:1.6,marginBottom:4}}>{step.sub}</div>
           {step.action}
           {obStep>0&&<button onClick={()=>setObStep(s=>s-1)} style={{marginTop:12,background:"none",border:"none",color:C.lt,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>}
+        </div>
+      </div>
+    );
+  }
+
+  // ── CHILD SETUP SCREEN (after new account creation, before app) ──
+  if (needsChildSetup && tutStep === -1) {
+    const finishChildSetup = async (childData) => {
+      if (childData) {
+        updateChild({ name: (childData.name||"").trim(), dob: childData.dob||"", sex: childData.sex||"" });
+      }
+      setNeedsChildSetup(false);
+    };
+    return (
+      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,30px) 24px 40px",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",overflowY:"auto"}}>
+        <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        <div key="child-setup" style={{animation:"fadeUp 0.4s ease",textAlign:"center",width:"100%",maxWidth:360}}>
+          <img src="oliver.png" style={{width:100,height:100,borderRadius:20,marginBottom:16,boxShadow:"0 8px 24px rgba(0,0,0,0.1)"}}/>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1.25,marginBottom:6}}>Now let’s add{"
+"}your baby ✨</div>
+          <div style={{fontSize:13,color:C.lt,lineHeight:1.6,marginBottom:20}}>OBubba uses your baby’s details to personalise nap predictions, feeding recommendations, milestones and growth charts.</div>
+
+          {/* Mode toggle */}
+          <div style={{display:"flex",background:"#f0e8e0",borderRadius:99,padding:3,marginBottom:18,gap:3}}>
+            {[["new","👶 Add my baby"],["link","🔗 Join via share code"]].map(([m,l])=>(
+              <button key={m} onClick={()=>{setObChildMode(m);setObLinkStatus("");setObLinkError("");}}
+                style={{flex:1,padding:"9px 6px",borderRadius:99,border:"none",background:obChildMode===m?"white":"transparent",color:obChildMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",boxShadow:obChildMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+
+          {obChildMode==="new" && (
+            <div>
+              <div style={{background:"#fdf0eb",borderRadius:14,padding:"12px 14px",marginBottom:14,border:`1px solid ${C.blush}`,display:"flex",gap:10,alignItems:"flex-start",textAlign:"left"}}>
+                <span style={{fontSize:18,flexShrink:0}}>💡</span>
+                <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>Used for <strong>nap & wake windows</strong>, <strong>feed recommendations</strong>, <strong>milestones</strong> and <strong>growth percentiles</strong>. Update anytime in ⚙️ Baby Settings.</div>
+              </div>
+              <input value={obName} onChange={e=>setObName(e.target.value)}
+                placeholder="Baby’s name (optional)"
+                style={{width:"100%",fontSize:18,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:10,boxSizing:"border-box"}}/>
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
+                  <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"#fdf0eb":"white",textAlign:"center",cursor:"pointer",fontSize:13,fontWeight:700,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
+                    {l}
+                  </div>
+                ))}
+              </div>
+              <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)}
+                style={{width:"100%",fontSize:16,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"white",outline:"none",fontFamily:"inherit",textAlign:"center",marginBottom:10,boxSizing:"border-box"}}/>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+                {[["boy","👦","Boy","#eaf3fb","#3d6a8a"],["girl","👧","Girl","#fde7e4","#a85070"],["","⬜","Not set","#f0e8e0","#7a5c52"]].map(([v,emoji,l,accent,col])=>(
+                  <button key={v} onClick={()=>setObSex(v)}
+                    style={{padding:"12px 4px",borderRadius:14,border:`2px solid ${obSex===v?col:C.blush}`,background:obSex===v?accent:"white",cursor:"pointer",fontSize:13,fontWeight:700,color:obSex===v?col:C.mid,fontFamily:"inherit",transition:"all 0.15s",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                    <span style={{fontSize:22}}>{emoji}</span>{l}
+                  </button>
+                ))}
+              </div>
+              <button onClick={()=>finishChildSetup({name:obName,dob:obDob,sex:obSex})}
+                style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,fontFamily:"inherit"}}>
+                {obName.trim()||obDob ? "Let’s go! →" : "Continue →"}
+              </button>
+              <button onClick={()=>finishChildSetup(null)} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+                Skip — I’ll add details later
+              </button>
+            </div>
+          )}
+
+          {obChildMode==="link" && (
+            <div>
+              <div style={{background:"#f0faf5",borderRadius:14,padding:"12px 14px",marginBottom:14,border:"1px solid #b0e8cc",display:"flex",gap:10,alignItems:"flex-start",textAlign:"left"}}>
+                <span style={{fontSize:18,flexShrink:0}}>📲</span>
+                <div style={{fontSize:13,color:"#2a7a50",lineHeight:1.55}}>If another parent has already set up this baby, they can share a <strong>6-digit code</strong> from their Share menu. Enter it below to add the child to your app.</div>
+              </div>
+              <input
+                value={obLinkCode}
+                onChange={e=>{ setObLinkCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"")); setObLinkStatus(""); setObLinkError(""); }}
+                placeholder="e.g. AB3X7Y"
+                maxLength={6}
+                style={{width:"100%",fontSize:28,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.2em",textAlign:"center",padding:"16px",borderRadius:14,border:`2px solid ${obLinkStatus==="error"?C.ter:obLinkStatus==="ok"?"#50c878":C.blush}`,background:"white",color:C.ter,outline:"none",marginBottom:10,boxSizing:"border-box"}}/>
+              {obLinkStatus==="error" && <div style={{fontSize:13,color:C.ter,marginBottom:10,textAlign:"center"}}>{obLinkError}</div>}
+              {obLinkStatus==="ok" && <div style={{fontSize:13,color:"#50c878",marginBottom:10,textAlign:"center",fontWeight:600}}>✔ Child linked! Taking you in…</div>}
+              <button onClick={async()=>{
+                if(obLinkCode.length!==6) return;
+                setObLinkStatus("loading");
+                const result = await joinChildByCode(obLinkCode);
+                if(result.ok) {
+                  setObLinkStatus("ok");
+                  setTimeout(()=>finishChildSetup(null), 1200);
+                } else {
+                  setObLinkStatus("error");
+                  setObLinkError(result.error||"Code not found — check with the other parent");
+                }
+              }} disabled={obLinkCode.length!==6||obLinkStatus==="loading"||obLinkStatus==="ok"}
+                style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:obLinkCode.length===6&&obLinkStatus!=="ok"?`linear-gradient(135deg,#50c878,#3aa860)`:"#e0f0ea",color:obLinkCode.length===6&&obLinkStatus!=="ok"?"white":"#a0c8b0",fontSize:16,fontWeight:700,cursor:obLinkCode.length===6&&obLinkStatus!=="ok"?"pointer":"not-allowed",fontFamily:"inherit",transition:"all 0.2s",marginBottom:10}}>
+                {obLinkStatus==="loading"?"⏳ Linking…":"Link child →"}
+              </button>
+              <button onClick={()=>finishChildSetup(null)} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+                Skip — I’ll set up later
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -3886,8 +3905,8 @@ function App(){
             <div style={{...card,textAlign:"center",padding:"36px 20px"}}>
               <div style={{fontSize:40,marginBottom:14}}>🎂</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Add your baby's date of birth</div>
-              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>We'll show milestones organised by month, tailored to exactly how old {babyName||"your baby"} is today.</div>
-              <button onClick={()=>setTab("growth")} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>Set Date of Birth →</button>
+              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>Add your baby's date of birth in Baby Settings to unlock growth percentiles and weight tracking.</div>
+              <button onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>⚙️ Open Baby Settings →</button>
             </div>
           );
 
