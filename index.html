@@ -645,6 +645,7 @@ function App(){
   // Always pulls from Firebase and does a full replace if local has no real data,
   // or a merge if local has entries. Also fixes activeChildId to point at a real child.
   const hasRestoredBackup = React.useRef(false);
+  const restoreCompleted = React.useRef(false); // true only after cloud data is applied
   useEffect(()=>{
     if(!fbReady || !backupCode) return;
     if(hasRestoredBackup.current) return;
@@ -681,19 +682,31 @@ function App(){
           return cloudIds[0]; // fall back to first cloud child
         });
 
+        restoreCompleted.current = true;
         setSyncStatus("synced");
-      } catch(e) { console.warn("OBubba restore error", e); }
+      } catch(e) {
+        restoreCompleted.current = true; // allow pushes even if restore fails
+        console.warn("OBubba restore error", e);
+      }
     })();
   },[fbReady, backupCode]);
 
   // ── Firebase: push on every data change — always to personal backup ──
+  // IMPORTANT: never push until after the cloud restore has completed,
+  // otherwise we'd overwrite good Firebase data with the empty default state.
   useEffect(()=>{
     if(!fbReady) return;
+    if(!restoreCompleted.current) return; // wait until cloud restore finishes
     clearTimeout(syncRef.current);
     syncRef.current = setTimeout(()=>{
-      // Always push full snapshot to personal backup (silent)
+      // Guard: don't push if children looks like a blank default (no real data)
+      const hasAnyData = Object.values(children).some(c =>
+        (c.name && c.name.trim()) || c.dob ||
+        Object.values(c.days||{}).some(d => d && d.length > 0) ||
+        (c.weights||[]).length > 0
+      );
+      if(!hasAnyData) return; // refuse to push empty state
       if(backupCode) pushToCloud(backupCode, children, true);
-      // Per-child pushes are handled by the childSyncCodes effect below
     }, 2000);
     return ()=>clearTimeout(syncRef.current);
   },[fbReady, backupCode, children]);
