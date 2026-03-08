@@ -405,10 +405,53 @@ function LinkChildForm({ joinChildByCode, C }) {
   );
 }
 
-function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, C }) {
+function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername, backupCode, C }) {
   const [restoreMode, setRestoreMode] = React.useState(false);
   const [restoreInput, setRestoreInput] = React.useState("");
   const [restoreStatus, setRestoreStatus] = React.useState("");
+
+  // If the user is logged in AND has an active backup code, auto-restore is already
+  // happening — show a status card instead of a manual code entry form.
+  if (familyUsername && backupCode) {
+    return (
+      <div style={{borderRadius:12,border:"1px dashed #b0e8cc",overflow:"hidden",background:"#f0faf6"}}>
+        <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:18}}>🔄</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#2a7a50",marginBottom:2}}>Data restores automatically</div>
+            <div style={{fontSize:13,color:"#4a9a70",lineHeight:1.4}}>
+              Signed in as <strong>{familyUsername}</strong> — your data is linked to your account and restores automatically on any device when you sign in.
+            </div>
+          </div>
+        </div>
+        {!restoreMode && (
+          <button onClick={()=>setRestoreMode(true)} style={{width:"100%",padding:"8px 16px",background:"none",border:"none",borderTop:"1px dashed #b0e8cc",textAlign:"left",cursor:"pointer",fontSize:13,color:"#4a9a70",fontFamily:"inherit"}}>
+            ↗ Restore from a different backup code instead…
+          </button>
+        )}
+        {restoreMode && (
+          <div style={{padding:"0 16px 16px",borderTop:"1px dashed #b0e8cc"}}>
+            <div style={{fontSize:13,color:C.lt,marginBottom:8,marginTop:10}}>Enter a backup code or family code from another device to import that data.</div>
+            <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
+              placeholder="Enter backup or family code"
+              style={{width:"100%",fontSize:16,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.1em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
+            {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
+            {restoreStatus==="ok" && <div style={{fontSize:13,color:"#50c878",marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
+            <button onClick={async()=>{
+              setRestoreStatus("loading");
+              const ok = await restoreFromBackup(restoreInput);
+              setRestoreStatus(ok?"ok":"fail");
+              if(ok) setTimeout(()=>setShowFamilyModal(false),1200);
+            }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+              {restoreStatus==="loading"?"⏳ Restoring…":"Restore data"}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Not logged in — show the standard manual restore form
   return (
     <div style={{borderRadius:12,border:`1px dashed ${C.blush}`,overflow:"hidden"}}>
       <button onClick={()=>setRestoreMode(m=>!m)} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",textAlign:"left",cursor:"pointer",fontSize:14,color:C.lt,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -420,7 +463,7 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, C }) {
           <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code or family code from another device to restore all data.</div>
           <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
             placeholder="Enter backup or family code"
-            style={{width:"100%",fontSize:16,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.1em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8}}/>
+            style={{width:"100%",fontSize:16,fontFamily:"monospace",fontWeight:700,letterSpacing:"0.1em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"#faf6f0",color:C.ter,outline:"none",marginBottom:8,boxSizing:"border-box"}}/>
           {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
           {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
           <button onClick={async()=>{
@@ -754,7 +797,19 @@ function App(){
         if(code && !backupCode) setBackupCode(code); // sync state if only in LS
 
         if(!code) {
-          // Try username lookup in Firestore
+          // Wait briefly for Firebase Auth uid — it arrives asynchronously
+          // and we need it for uid_to_backup lookups below.
+          if(!window._fbUid) {
+            await new Promise(resolve => {
+              let waited = 0;
+              const poll = setInterval(() => {
+                waited += 200;
+                if(window._fbUid || waited >= 5000) { clearInterval(poll); resolve(); }
+              }, 200);
+            });
+          }
+
+          // Try username lookup in Firestore (user is logged in, username persists in LS)
           const uname = familyUsername || localStorage.getItem("family_username");
           if(uname) {
             const key = uname.toLowerCase().replace(/[^a-z0-9_]/g,"");
@@ -769,6 +824,21 @@ function App(){
                 }
               }
             } catch(e){ console.warn("OBubba username lookup error",e); }
+          }
+
+          // Also try uid→backupCode mapping (catches cases where username isn't in LS)
+          if(!code && window._fbUid) {
+            try {
+              const uidSnap2 = await getDoc(doc(db,"uid_to_backup",window._fbUid));
+              if(uidSnap2.exists()) {
+                const ec = uidSnap2.data().backupCode;
+                if(ec) {
+                  code = ec;
+                  setBackupCode(ec);
+                  try{ localStorage.setItem("backup_code",ec); }catch{}
+                }
+              }
+            } catch(e){ console.warn("OBubba early uid_to_backup lookup error",e); }
           }
         }
 
@@ -786,8 +856,27 @@ function App(){
                 if(cloud) {
                   const cloudIds = Object.keys(cloud);
                   if(cloudIds.length) {
-                    // Merge: don't wipe local-only entries made offline
-                    setChildren(prev => mergeChildren(prev, cloud));
+                    // Merge: don't wipe local-only entries made offline.
+                    // After merging, prune any blank placeholder children that were
+                    // auto-created at init (name=="" dob=="" no entries) — these are
+                    // artefacts of localStorage being cleared; cloud has the real data.
+                    setChildren(prev => {
+                      const merged = mergeChildren(prev, cloud);
+                      const cloudHasNamedChild = cloudIds.some(id => cloud[id] && cloud[id].name);
+                      if (cloudHasNamedChild) {
+                        // Remove blank auto-created placeholders that aren't in the cloud
+                        Object.keys(merged).forEach(id => {
+                          if (!cloud[id]) {
+                            const ch = merged[id];
+                            const isBlank = !ch.name && !ch.dob &&
+                              Object.values(ch.days||{}).every(d => !d || d.length === 0) &&
+                              !(ch.weights||[]).length;
+                            if (isBlank) delete merged[id];
+                          }
+                        });
+                      }
+                      return merged;
+                    });
                     // Also persist the merged result immediately
                     setChildren(prev => {
                       try{ localStorage.setItem("children_v1",JSON.stringify(prev)); }catch{}
@@ -810,38 +899,9 @@ function App(){
           if(fc && fc !== code) subscribeToFamily(fc);
 
         } else {
-          // No code found — last-chance lookup by anonymous uid before generating new code.
-          // This handles the case where localStorage was cleared after an app update.
+          // No code found after all lookups — generate a unique backup code for new user.
+          // (uid_to_backup and username lookups were already tried in Step 1 above.)
           let foundExisting = false;
-          if(window._fbUid) {
-            try {
-              const uidSnap = await getDoc(doc(db,"uid_to_backup",window._fbUid));
-              if(uidSnap.exists()) {
-                const existingCode = uidSnap.data().backupCode;
-                if(existingCode) {
-                  setBackupCode(existingCode);
-                  try{ localStorage.setItem("backup_code",existingCode); }catch{}
-                  // Pull the data for this code
-                  const existingSnap = await getDoc(doc(db,"families",existingCode));
-                  if(existingSnap.exists()) {
-                    const d = existingSnap.data();
-                    if(d.children) {
-                      let cloud;
-                      try{ cloud = JSON.parse(d.children); }catch(e){ cloud = null; }
-                      if(cloud && Object.keys(cloud).length) {
-                        setChildren(prev => mergeChildren(prev, cloud));
-                        setChildren(prev => {
-                          try{ localStorage.setItem("children_v1",JSON.stringify(prev)); }catch{}
-                          return prev;
-                        });
-                      }
-                    }
-                  }
-                  foundExisting = true;
-                }
-              }
-            } catch(e){ console.warn("OBubba uid_to_backup lookup error",e); }
-          }
           if(!foundExisting) {
             // Genuinely new user — generate a unique backup code
             const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1007,13 +1067,29 @@ function App(){
               let cloud;
               try { cloud = JSON.parse(d.children); } catch(e) { cloud = null; }
               if(cloud) {
-                // Merge with local so offline edits aren't lost on login
-                setChildren(prev => mergeChildren(prev, cloud));
+                const cloudIds = Object.keys(cloud);
+                // Merge with local so offline edits aren't lost on login.
+                // Also prune blank placeholder children created at init.
+                setChildren(prev => {
+                  const merged = mergeChildren(prev, cloud);
+                  const cloudHasNamedChild = cloudIds.some(id => cloud[id] && cloud[id].name);
+                  if (cloudHasNamedChild) {
+                    Object.keys(merged).forEach(id => {
+                      if (!cloud[id]) {
+                        const ch = merged[id];
+                        const isBlank = !ch.name && !ch.dob &&
+                          Object.values(ch.days||{}).every(d => !d || d.length === 0) &&
+                          !(ch.weights||[]).length;
+                        if (isBlank) delete merged[id];
+                      }
+                    });
+                  }
+                  return merged;
+                });
                 setChildren(prev => {
                   try{ localStorage.setItem("children_v1", JSON.stringify(prev)); }catch{}
                   return prev;
                 });
-                const cloudIds = Object.keys(cloud);
                 if(cloudIds.length) {
                   setActiveChildId(cloudIds[0]);
                   try{ localStorage.setItem("active_child", cloudIds[0]); }catch{}
@@ -5080,7 +5156,7 @@ function App(){
             <LinkChildForm joinChildByCode={joinChildByCode} C={C} />
 
             {/* Restore data section */}
-            <RestoreDataForm restoreFromBackup={restoreFromBackup} setShowFamilyModal={setShowFamilyModal} C={C} />
+            <RestoreDataForm restoreFromBackup={restoreFromBackup} setShowFamilyModal={setShowFamilyModal} familyUsername={familyUsername} backupCode={backupCode} C={C} />
 
             {/* Sign out */}
             {familyUsername && (
