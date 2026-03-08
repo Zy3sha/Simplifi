@@ -1301,6 +1301,24 @@ function App(){
     })();
   },[fbReady, familyUsername, familyCode]);
 
+  // ── Dedup entries within a day — removes content-identical duplicates ──
+  // Two entries are duplicates if they have the same type + key time fields,
+  // regardless of their id (which differs when same entry saved on two devices).
+  function dedupEntries(entries) {
+    const seen = new Set();
+    return entries.filter(e => {
+      let key;
+      if (e.type === "nap")  key = `nap|${e.start}|${e.end}`;
+      else if (e.type === "feed" && e.feedType === "breast") key = `breast|${e.time}|${e.breastL}|${e.breastR}`;
+      else if (e.type === "feed") key = `feed|${e.time}|${e.amount}`;
+      else if (e.type === "poop") key = `poop|${e.time}|${e.poopType}`;
+      else key = `${e.type}|${e.time}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   // ── Merge remote children into local ──
   // Unions day entries by entry id so no data is ever lost between devices.
   // Remote wins on scalar fields (name, dob, sex) so profile edits propagate.
@@ -1318,12 +1336,12 @@ function App(){
         allDates.forEach(date => {
           const lArr = localDays[date] || [];
           const rArr = remoteDays[date] || [];
-          if(!lArr.length) { mergedDays[date] = rArr; return; }
-          if(!rArr.length) { mergedDays[date] = lArr; return; }
+          if(!lArr.length) { mergedDays[date] = dedupEntries(rArr); return; }
+          if(!rArr.length) { mergedDays[date] = dedupEntries(lArr); return; }
           // Union by entry id — preserve local order, append any remote-only entries
           const seen = new Set(lArr.map(e=>e.id));
           const extra = rArr.filter(e=>e.id && !seen.has(e.id));
-          mergedDays[date] = [...lArr, ...extra];
+          mergedDays[date] = dedupEntries([...lArr, ...extra]);
         });
         // Remote wins on scalar profile fields; local wins on days (merged above) and weights/milestones (union)
         const mergedWeights = [...(merged[id].weights||[])];
@@ -2998,6 +3016,27 @@ function App(){
     setSelDay(newDate);
     setModal(null);
   }
+
+  // ── One-time dedup cleanup — fixes any duplicates already in state/localStorage ──
+  const dedupDoneRef = React.useRef(false);
+  useEffect(()=>{
+    if(dedupDoneRef.current) return;
+    dedupDoneRef.current = true;
+    setChildren(prev => {
+      let changed = false;
+      const cleaned = {};
+      Object.entries(prev).forEach(([cid, child]) => {
+        const cleanDays = {};
+        Object.entries(child.days || {}).forEach(([date, entries]) => {
+          const deduped = dedupEntries(entries || []);
+          cleanDays[date] = deduped;
+          if(deduped.length !== (entries||[]).length) changed = true;
+        });
+        cleaned[cid] = {...child, days: cleanDays};
+      });
+      return changed ? cleaned : prev;
+    });
+  }, []); // runs once on mount
 
   // Auto-create the day after selDay — but only once selDay has at least one entry
   // ── Auto-create the next calendar day once a day gets its first entry ──
