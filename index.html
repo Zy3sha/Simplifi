@@ -641,9 +641,9 @@ function App(){
   // Runs once when fbReady + backupCode are available.
   // If localStorage has no meaningful data (no children with any days logged),
   // pull from cloud and hydrate. This handles the "new deploy wipes localStorage" case.
-  // ── Always merge from cloud on startup — cloud wins for days/weights ──
-  // We always pull and merge so deploys never lose data. Local-only changes
-  // (e.g. name edits made offline) are kept via mergeChildren.
+  // ── Restore from cloud on startup ──
+  // Always pulls from Firebase and does a full replace if local has no real data,
+  // or a merge if local has entries. Also fixes activeChildId to point at a real child.
   const hasRestoredBackup = React.useRef(false);
   useEffect(()=>{
     if(!fbReady || !backupCode) return;
@@ -655,11 +655,33 @@ function App(){
         const snap = await getDoc(doc(db, "families", backupCode));
         if(!snap.exists()) return;
         const d = snap.data();
-        if(d.children) {
-          const cloud = JSON.parse(d.children);
-          setChildren(prev => mergeChildren(prev, cloud));
-          setSyncStatus("synced");
-        }
+        if(!d.children) return;
+        const cloud = JSON.parse(d.children);
+        if(!cloud || !Object.keys(cloud).length) return;
+
+        setChildren(prev => {
+          // Check if local has any real logged data
+          const localHasEntries = Object.values(prev).some(c =>
+            Object.values(c.days||{}).some(day => day && day.length > 0) ||
+            (c.weights||[]).length > 0
+          );
+          // Full replace if local is empty/default, merge otherwise
+          const merged = localHasEntries ? mergeChildren(prev, cloud) : cloud;
+          // Persist immediately so activeChildId resolves correctly
+          try { localStorage.setItem("children_v1", JSON.stringify(merged)); } catch{}
+          return merged;
+        });
+
+        // Fix activeChildId — if it points to a ghost child, reset to first cloud child
+        setActiveChildId(prev => {
+          const cloudIds = Object.keys(cloud);
+          if(cloudIds.includes(prev)) return prev; // already valid
+          const saved = localStorage.getItem("active_child");
+          if(saved && cloudIds.includes(saved)) return saved;
+          return cloudIds[0]; // fall back to first cloud child
+        });
+
+        setSyncStatus("synced");
       } catch(e) { console.warn("OBubba restore error", e); }
     })();
   },[fbReady, backupCode]);
