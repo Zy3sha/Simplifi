@@ -652,40 +652,44 @@ function App(){
     hasRestoredBackup.current = true;
     (async()=>{
       try {
+        console.log("OBubba: starting restore from", backupCode);
         const {db, doc, getDoc} = window._fb;
         const snap = await getDoc(doc(db, "families", backupCode));
-        if(!snap.exists()) return;
+        console.log("OBubba: snap exists?", snap.exists());
+        if(!snap.exists()) { restoreCompleted.current = true; return; }
         const d = snap.data();
-        if(!d.children) return;
+        console.log("OBubba: cloud data keys", Object.keys(d));
+        if(!d.children) { restoreCompleted.current = true; return; }
         const cloud = JSON.parse(d.children);
-        if(!cloud || !Object.keys(cloud).length) return;
+        const cloudIds = Object.keys(cloud);
+        console.log("OBubba: cloud children", cloudIds.length, cloudIds.map(id => cloud[id].name));
+        if(!cloud || !cloudIds.length) { restoreCompleted.current = true; return; }
 
         setChildren(prev => {
-          // Check if local has any real logged data
           const localHasEntries = Object.values(prev).some(c =>
             Object.values(c.days||{}).some(day => day && day.length > 0) ||
             (c.weights||[]).length > 0
           );
-          // Full replace if local is empty/default, merge otherwise
+          console.log("OBubba: localHasEntries?", localHasEntries);
           const merged = localHasEntries ? mergeChildren(prev, cloud) : cloud;
-          // Persist immediately so activeChildId resolves correctly
+          console.log("OBubba: setting children", Object.keys(merged).length, "children");
           try { localStorage.setItem("children_v1", JSON.stringify(merged)); } catch{}
           return merged;
         });
 
-        // Fix activeChildId — if it points to a ghost child, reset to first cloud child
         setActiveChildId(prev => {
-          const cloudIds = Object.keys(cloud);
-          if(cloudIds.includes(prev)) return prev; // already valid
+          if(cloudIds.includes(prev)) { console.log("OBubba: activeChildId already valid", prev); return prev; }
           const saved = localStorage.getItem("active_child");
-          if(saved && cloudIds.includes(saved)) return saved;
-          return cloudIds[0]; // fall back to first cloud child
+          if(saved && cloudIds.includes(saved)) { console.log("OBubba: restoring activeChildId from localStorage", saved); return saved; }
+          console.log("OBubba: resetting activeChildId to", cloudIds[0]);
+          return cloudIds[0];
         });
 
         restoreCompleted.current = true;
         setSyncStatus("synced");
+        console.log("OBubba: restore complete");
       } catch(e) {
-        restoreCompleted.current = true; // allow pushes even if restore fails
+        restoreCompleted.current = true;
         console.warn("OBubba restore error", e);
       }
     })();
@@ -4980,75 +4984,38 @@ window.onerror = function(msg, src, line, col, err) {
 // ── Service Worker — cache busted on every deploy via BUILD_TS ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    const BUILD_TS = '202603080939'; // updated every deploy — busts old cache
-    const swCode = `
-const CACHE = 'obubba-${BUILD_TS}';
-const ASSETS = [self.registration.scope];
-
-self.addEventListener('install', e => {
-  // Skip waiting immediately so new SW activates right away
-  self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE).then(cache =>
-      cache.add(self.registration.scope).catch(()=>{})
-    )
-  );
-});
-
-self.addEventListener('activate', e => {
-  // Delete ALL old caches on activate
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', e => {
-  if (e.request.mode === 'navigate') {
-    // Navigation: network first, then cache fallback (ensures fresh HTML on deploy)
-    e.respondWith(
-      fetch(e.request)
-        .then(resp => {
-          if (resp && resp.status === 200) {
-            const clone = resp.clone();
-            caches.open(CACHE).then(c => c.put(e.request, clone));
-          }
-          return resp;
-        })
-        .catch(() => caches.match(e.request))
-    );
-    return;
-  }
-  // Other assets: network first, cache fallback
-  e.respondWith(
-    fetch(e.request)
-      .then(resp => {
-        if (resp && resp.status === 200 && resp.type !== 'opaque') {
-          const clone = resp.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return resp;
-      })
-      .catch(() => caches.match(e.request))
-  );
-});
-\`;
+    const BUILD_TS = '202603080955';
+    const CACHE_NAME = 'obubba-' + BUILD_TS;
+    const swCode = [
+      "const CACHE = '" + CACHE_NAME + "';",
+      "self.addEventListener('install', e => {",
+      "  self.skipWaiting();",
+      "  e.waitUntil(caches.open(CACHE).then(c => c.add(self.registration.scope).catch(()=>{})));",
+      "});",
+      "self.addEventListener('activate', e => {",
+      "  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));",
+      "});",
+      "self.addEventListener('message', e => { if(e.data && e.data.type==='SKIP_WAITING') self.skipWaiting(); });",
+      "self.addEventListener('fetch', e => {",
+      "  if (e.request.mode === 'navigate') {",
+      "    e.respondWith(fetch(e.request).then(r => { if(r&&r.status===200){const c=r.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));} return r; }).catch(()=>caches.match(e.request)));",
+      "    return;",
+      "  }",
+      "  e.respondWith(fetch(e.request).then(r => { if(r&&r.status===200&&r.type!=='opaque'){const c=r.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));} return r; }).catch(()=>caches.match(e.request)));",
+      "});"
+    ].join('\n');
     const blob = new Blob([swCode], {type: 'application/javascript'});
     const swUrl = URL.createObjectURL(blob);
     navigator.serviceWorker.register(swUrl, {scope: '/'})
       .then(reg => {
         window._swReg = reg;
-        // Check for updates every time app loads
         reg.update();
-        // When a new SW is waiting, activate it immediately
         reg.addEventListener('updatefound', () => {
           const newSW = reg.installing;
           if (!newSW) return;
           newSW.addEventListener('statechange', () => {
             if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-              // New version ready — reload all clients
-              navigator.serviceWorker.controller.postMessage({type:'SKIP_WAITING'});
+              newSW.postMessage({type:'SKIP_WAITING'});
               window.location.reload();
             }
           });
