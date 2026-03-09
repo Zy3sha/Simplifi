@@ -19,7 +19,7 @@
   <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp }
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, deleteDoc, query, orderBy }
       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, signInAnonymously, onAuthStateChanged }
       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -41,7 +41,7 @@
     const auth = getAuth(app);
     const analytics = getAnalytics(app);
 
-    window._fb = { db, auth, analytics, doc, setDoc, getDoc, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged, logEvent };
+    window._fb = { db, auth, analytics, doc, setDoc, getDoc, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged, logEvent, collection, addDoc, getDocs, deleteDoc, query, orderBy };
 
     signInAnonymously(auth).catch(e => console.warn("Auth error", e));
     onAuthStateChanged(auth, user => { if (user) window._fbUid = user.uid; });
@@ -971,6 +971,21 @@ function App(){
   const[backupCode,setBackupCode]=useState(()=>{try{return localStorage.getItem("backup_code")||null;}catch{return null;}});
   const[syncStatus,setSyncStatus]=useState("idle");
   const[showFamilyModal,setShowFamilyModal]=useState(false);
+  const[showAdminPanel,setShowAdminPanel]=useState(false);
+  const[activeFeedback,setActiveFeedback]=useState(null); // {id, question, choices, createdAt}
+  const[feedbackAnswered,setFeedbackAnswered]=useState(false);
+  const[showFeedbackCard,setShowFeedbackCard]=useState(false);
+  const[fbStarRating,setFbStarRating]=useState(0);
+  const[fbChoice,setFbChoice]=useState(null);
+  const[fbText,setFbText]=useState("");
+  const[fbSubmitting,setFbSubmitting]=useState(false);
+  const[feedbackDismissed,setFeedbackDismissed]=useState(false);
+  // Admin panel state
+  const[adminQuestion,setAdminQuestion]=useState("");
+  const[adminChoices,setAdminChoices]=useState(["","",""]);
+  const[adminStats,setAdminStats]=useState(null);
+  const[adminLoading,setAdminLoading]=useState(false);
+  const[adminSaving,setAdminSaving]=useState(false);
   const[showChildSettings,setShowChildSettings]=useState(false);
   const[csName,setCsName]=useState("");
   const[csDob,setCsDob]=useState("");
@@ -1400,6 +1415,108 @@ function App(){
     try {
       if(window._fb) window._fb.logEvent(window._fb.analytics, name, params);
     } catch(e){}
+  }
+
+  const ADMIN_USERNAMES = ["zyesha corran","zyeshacorran","zyesha_corran"];
+  const isAdmin = familyUsername && ADMIN_USERNAMES.includes(familyUsername.toLowerCase().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"") ) ||
+    (familyUsername && familyUsername.toLowerCase().includes("zyesha"));
+
+  // ── Feedback: load active question on mount ──
+  useEffect(()=>{
+    if(!window._fb) return;
+    const {db, doc, onSnapshot} = window._fb;
+    const unsub = onSnapshot(doc(db,"feedback","active"), snap=>{
+      if(snap.exists()){
+        const data = snap.data();
+        const qid = data.id;
+        // Check if this user already answered
+        try{
+          const answered = localStorage.getItem("fb_answered_"+qid);
+          if(answered){setFeedbackAnswered(true);setShowFeedbackCard(false);}
+          else{setActiveFeedback(data);setFeedbackAnswered(false);setShowFeedbackCard(true);setFeedbackDismissed(false);}
+        }catch{
+          setActiveFeedback(data);setFeedbackAnswered(false);setShowFeedbackCard(true);
+        }
+      } else {
+        setActiveFeedback(null);setShowFeedbackCard(false);
+      }
+    });
+    return()=>unsub();
+  },[fbReady]);
+
+  // ── Feedback: submit response ──
+  async function submitFeedback(){
+    if(!activeFeedback||fbSubmitting) return;
+    setFbSubmitting(true);
+    try{
+      const {db, collection, addDoc, serverTimestamp} = window._fb;
+      await addDoc(collection(db,"feedback","active","responses"),{
+        questionId: activeFeedback.id,
+        question: activeFeedback.question,
+        stars: fbStarRating,
+        choice: fbChoice||null,
+        text: fbText.trim()||null,
+        uid: window._fbUid||"anon",
+        username: familyUsername||null,
+        ts: serverTimestamp(),
+      });
+      try{localStorage.setItem("fb_answered_"+activeFeedback.id,"1");}catch{}
+      setShowFeedbackCard(false);setFeedbackAnswered(true);
+      setFbStarRating(0);setFbChoice(null);setFbText("");
+    }catch(e){console.warn("Feedback submit error",e);}
+    setFbSubmitting(false);
+  }
+
+  // ── Admin: push a new feedback question ──
+  async function adminPushQuestion(){
+    if(!adminQuestion.trim()) return;
+    setAdminSaving(true);
+    try{
+      const {db, doc, setDoc, serverTimestamp} = window._fb;
+      const qid = "q_"+Date.now();
+      await setDoc(doc(db,"feedback","active"),{
+        id: qid,
+        question: adminQuestion.trim(),
+        choices: adminChoices.filter(c=>c.trim()),
+        createdAt: serverTimestamp(),
+      });
+      setAdminQuestion("");setAdminChoices(["","",""]);
+      await adminLoadStats();
+    }catch(e){console.warn("Admin push error",e);}
+    setAdminSaving(false);
+  }
+
+  // ── Admin: delete/archive active question ──
+  async function adminDeleteQuestion(){
+    try{
+      const {db, doc, deleteDoc} = window._fb;
+      await deleteDoc(doc(db,"feedback","active"));
+      setActiveFeedback(null);setAdminStats(null);
+    }catch(e){console.warn("Admin delete error",e);}
+  }
+
+  // ── Admin: load response stats ──
+  async function adminLoadStats(){
+    if(!window._fb) return;
+    setAdminLoading(true);
+    try{
+      const {db, collection, getDocs, query, orderBy, doc, getDoc} = window._fb;
+      // Get active question first
+      const activeSnap = await getDoc(doc(db,"feedback","active"));
+      if(!activeSnap.exists()){setAdminStats(null);setAdminLoading(false);return;}
+      const active = activeSnap.data();
+      const q = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
+      const snap = await getDocs(q);
+      const responses = snap.docs.map(d=>d.data());
+      const count = responses.length;
+      const avgStars = count ? (responses.reduce((a,r)=>a+(r.stars||0),0)/count).toFixed(1) : "—";
+      // Choice tallies
+      const choiceCounts = {};
+      (active.choices||[]).forEach(c=>{choiceCounts[c]=0;});
+      responses.forEach(r=>{ if(r.choice && choiceCounts[r.choice]!==undefined) choiceCounts[r.choice]++; });
+      setAdminStats({question:active.question, choices:active.choices||[], id:active.id, count, avgStars, choiceCounts, responses});
+    }catch(e){console.warn("Admin load error",e);}
+    setAdminLoading(false);
   }
 
   // ── Username: normalise for storage (lowercase, trim) ──
@@ -4476,6 +4593,11 @@ function App(){
           <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>
             {familyCode?(syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️":"👨‍👩‍👧 "+(familyUsername||"Share")):"👨‍👩‍👧 Share"}
           </button>
+          {isAdmin&&(
+            <button onClick={e=>{e.stopPropagation();setShowAdminPanel(true);adminLoadStats();}} style={{background:"rgba(201,112,90,0.15)",border:"1px solid rgba(201,112,90,0.3)",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.ter,cursor:"pointer",fontFamily:"monospace",fontWeight:700,flexShrink:0,whiteSpace:"nowrap"}}>
+              ⚙️ Admin
+            </button>
+          )}
           {backupCode&&(
             <button onClick={e=>{
               e.stopPropagation();
@@ -4773,6 +4895,47 @@ function App(){
                   </button>
                 ))}
               </div>
+
+              {/* ══ FEEDBACK FLOATING CARD ══════════════════════════ */}
+              {tab==="day" && showFeedbackCard && activeFeedback && !feedbackDismissed && !feedbackAnswered && (
+                <div style={{background:"white",borderRadius:18,padding:"16px",marginBottom:16,border:`1.5px solid ${C.blush}`,boxShadow:"0 4px 20px rgba(201,112,90,0.13)",position:"relative"}}>
+                  <button onClick={()=>setFeedbackDismissed(true)} style={{position:"absolute",top:10,right:12,background:"none",border:"none",fontSize:18,color:C.lt,cursor:"pointer",lineHeight:1}}>✕</button>
+                  <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Quick feedback 💬</div>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:12,lineHeight:1.4,paddingRight:20}}>{activeFeedback.question}</div>
+
+                  {/* Star rating */}
+                  <div style={{display:"flex",gap:6,marginBottom:12,justifyContent:"center"}}>
+                    {[1,2,3,4,5].map(n=>(
+                      <button key={n} onClick={()=>setFbStarRating(n)}
+                        style={{background:"none",border:"none",fontSize:28,cursor:"pointer",opacity:fbStarRating>=n?1:0.25,transition:"opacity 0.15s",padding:"0 2px"}}>⭐</button>
+                    ))}
+                  </div>
+
+                  {/* Multiple choice */}
+                  {activeFeedback.choices && activeFeedback.choices.length>0 && (
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+                      {activeFeedback.choices.map(c=>(
+                        <button key={c} onClick={()=>setFbChoice(fbChoice===c?null:c)}
+                          style={{padding:"6px 14px",borderRadius:99,border:`1.5px solid ${fbChoice===c?C.ter:C.blush}`,background:fbChoice===c?"#fdf0eb":C.warm,fontSize:13,fontWeight:600,color:fbChoice===c?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                          {c}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Free text */}
+                  <textarea value={fbText} onChange={e=>setFbText(e.target.value)}
+                    placeholder="Any other thoughts… (optional)"
+                    rows={2}
+                    style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:"inherit",outline:"none",resize:"none",boxSizing:"border-box",marginBottom:10}}/>
+
+                  <button onClick={submitFeedback} disabled={fbSubmitting||fbStarRating===0}
+                    style={{width:"100%",padding:"11px",borderRadius:99,border:"none",background:fbStarRating>0?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:fbStarRating>0?"pointer":"default",fontFamily:"inherit",transition:"background 0.2s"}}>
+                    {fbSubmitting?"Sending…":"Send Feedback"}
+                  </button>
+                  <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:"monospace"}}>Takes 10 seconds · won't appear again</div>
+                </div>
+              )}
 
               {/* ══ 3. TODAY'S LOG ════════════════════════════════ */}
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
@@ -6996,6 +7159,97 @@ function App(){
                 </button>
               </div>
             )}
+
+          </div>
+        </div>
+      )}
+
+      {/* ══ ADMIN PANEL MODAL ══════════════════════════════════════ */}
+      {showAdminPanel && isAdmin && (
+        <div onClick={()=>setShowAdminPanel(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.cream,borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
+            <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20}}>⚙️ Feedback Admin</div>
+              <button onClick={()=>setShowAdminPanel(false)} style={{background:"none",border:"none",fontSize:20,color:C.lt,cursor:"pointer"}}>✕</button>
+            </div>
+
+            {/* ── Current stats ── */}
+            <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Live question</div>
+            {adminLoading && <div style={{textAlign:"center",padding:"20px",color:C.lt,fontFamily:"monospace"}}>Loading…</div>}
+            {!adminLoading && adminStats && (
+              <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10,lineHeight:1.4}}>"{adminStats.question}"</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                  <div style={{background:"#fdf0eb",borderRadius:12,padding:"10px",textAlign:"center"}}>
+                    <div style={{fontSize:24,fontWeight:700,color:C.ter}}>{adminStats.count}</div>
+                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase"}}>Responses</div>
+                  </div>
+                  <div style={{background:"#fdf0eb",borderRadius:12,padding:"10px",textAlign:"center"}}>
+                    <div style={{fontSize:24,fontWeight:700,color:C.ter}}>{adminStats.avgStars}⭐</div>
+                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase"}}>Avg rating</div>
+                  </div>
+                </div>
+                {adminStats.choices.length>0 && (
+                  <div style={{marginBottom:12}}>
+                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Choice breakdown</div>
+                    {adminStats.choices.map(c=>{
+                      const cnt = adminStats.choiceCounts[c]||0;
+                      const pct = adminStats.count>0 ? Math.round((cnt/adminStats.count)*100) : 0;
+                      return(
+                        <div key={c} style={{marginBottom:6}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
+                            <span style={{color:C.mid}}>{c}</span>
+                            <span style={{fontFamily:"monospace",color:C.lt}}>{cnt} ({pct}%)</span>
+                          </div>
+                          <div style={{height:6,background:C.blush,borderRadius:99,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:pct+"%",background:C.ter,borderRadius:99,transition:"width 0.4s"}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <button onClick={adminDeleteQuestion}
+                  style={{width:"100%",padding:"10px",borderRadius:99,border:`1.5px solid #e8574a`,background:"white",color:"#e8574a",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                  🗑 Archive & stop showing this question
+                </button>
+              </div>
+            )}
+            {!adminLoading && !adminStats && (
+              <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px dashed ${C.blush}`,textAlign:"center",color:C.lt,fontSize:13,fontFamily:"monospace"}}>
+                No active question — push one below
+              </div>
+            )}
+
+            {/* ── Push new question ── */}
+            <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Push new question</div>
+            <div style={{background:"white",borderRadius:16,padding:"14px",border:`1px solid ${C.blush}`}}>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Question</label>
+                <textarea value={adminQuestion} onChange={e=>setAdminQuestion(e.target.value)}
+                  placeholder="e.g. How are you finding OBubba so far?"
+                  rows={2}
+                  style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:"inherit",outline:"none",resize:"none",boxSizing:"border-box"}}/>
+              </div>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Multiple choice options (optional)</label>
+                {adminChoices.map((c,i)=>(
+                  <input key={i} value={c} onChange={e=>{const a=[...adminChoices];a[i]=e.target.value;setAdminChoices(a);}}
+                    placeholder={`Option ${i+1}`}
+                    style={{width:"100%",padding:"7px 11px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+                ))}
+                <button onClick={()=>setAdminChoices(a=>[...a,""])}
+                  style={{fontSize:12,color:C.lt,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit",textDecoration:"underline"}}>
+                  + Add option
+                </button>
+              </div>
+              <button onClick={adminPushQuestion} disabled={adminSaving||!adminQuestion.trim()}
+                style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:adminQuestion.trim()?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:adminQuestion.trim()?"pointer":"default",fontFamily:"inherit"}}>
+                {adminSaving?"Pushing…":"🚀 Push to all users"}
+              </button>
+              <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:"monospace"}}>Replaces any existing active question immediately</div>
+            </div>
 
           </div>
         </div>
