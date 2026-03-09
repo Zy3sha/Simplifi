@@ -4589,9 +4589,10 @@ function App(){
               display:"flex",alignItems:"center",justifyContent:"center"
             }}>+</button>
           </div>
-          <button onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
-            style={{background:"rgba(255,255,255,0.5)",border:_bN,borderRadius:99,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:14}}>
-            ⚙️
+          <button onClick={e=>{e.stopPropagation();setTab("settings");}}
+            style={{background:"rgba(255,255,255,0.5)",border:_bN,borderRadius:99,padding:"4px 10px 4px 7px",display:"flex",alignItems:"center",gap:5,cursor:_cP,maxWidth:140}}>
+            <span style={{fontSize:14}}>👤</span>
+            <span style={{fontSize:11,fontFamily:_fM,fontWeight:700,color:C.mid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{familyUsername||"Account"}</span>
           </button>
         </div>
 
@@ -7412,6 +7413,22 @@ function App(){
                   style={{width:"100%",padding:"10px",borderRadius:99,border:`1.5px solid #e8574a`,background:"white",color:"#e8574a",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,marginTop:4}}>
                   🗑 Archive & stop showing
                 </button>
+              </div>
+            )}
+            {!adminLoading && adminStats && adminStats._rawResponses && adminStats._rawResponses.length>0 && (
+              <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
+                <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>All responses ({adminStats._rawResponses.length})</div>
+                {adminStats._rawResponses.map((r,i)=>(
+                  <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i<adminStats._rawResponses.length-1?`1px solid ${C.blush}`:"none"}}}>
+                    <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginBottom:4}}>Response {i+1} · {r.ts?.toDate?(()=>{const d=r.ts.toDate();return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});})():"—"}</div>
+                    {Object.entries(r.answers||{}).map(([qid,ans])=>(
+                      <div key={qid} style={{fontSize:13,color:C.mid,marginBottom:2}}>
+                        <span style={{fontFamily:_fM,color:C.lt,fontSize:11}}>{qid}: </span>
+                        {Array.isArray(ans)?ans.join(", "):String(ans)}
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
             {!adminLoading && !adminStats && (
