@@ -1600,8 +1600,22 @@ function App(){
 
 
   useEffect(()=>{
-    if(showAdminPanel && isAdmin) adminLoadStats();
-  },[showAdminPanel]);
+    if(showAdminPanel && isAdmin && window._fb) {
+      adminLoadStats();
+      // Set up real-time listener for responses
+      const {db, collection, query, orderBy, onSnapshot} = window._fb;
+      const q = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
+      const unsubscribe = onSnapshot(q, (snap) => {
+        const responses = snap.docs.map(d=>d.data());
+        setAdminStats(prev => {
+          if(!prev) return null;
+          return {...prev, count:responses.length, _rawResponses:responses};
+        });
+      }, (err) => console.warn("Real-time listener error:", err));
+      
+      return () => unsubscribe();
+    }
+  },[showAdminPanel, isAdmin]);
 
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
@@ -7614,26 +7628,42 @@ function App(){
               </div>
             )}
             {!adminLoading && adminStats && adminStats._rawResponses && adminStats._rawResponses.length>0 && (
-              <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
-                <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>All responses ({adminStats._rawResponses.length})</div>
-                {adminStats._rawResponses.map((r,ri)=>(
-                  <div key={ri} style={{marginBottom:10,paddingBottom:10,borderBottom:ri<adminStats._rawResponses.length-1?`1px solid ${C.blush}`:"none"}}>
-                    <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginBottom:4}}>
-                      Response {ri+1}{r.username?" · "+r.username:""} · {r.ts?.toDate?(()=>{const d=r.ts.toDate();return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"});})():"—"}
-                    </div>
-                    {Object.entries(r.answers||{}).map(([qid,ans])=>(
-                      <div key={qid} style={{fontSize:13,color:C.mid,marginBottom:2}}>
-                        <span style={{fontFamily:_fM,color:C.lt,fontSize:11}}>{qid}: </span>
-                        {Array.isArray(ans)?ans.join(", "):String(ans)}
+              <div style={{background:"white",borderRadius:14,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
+                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10,fontWeight:700}}>
+                  ✅ All responses ({adminStats._rawResponses.length})
+                </div>
+                <div style={{maxHeight:"400px",overflowY:"auto",paddingRight:4}}>
+                  {adminStats._rawResponses.map((r,ri)=>(
+                    <div key={ri} style={{background:C.warm,borderRadius:10,padding:"12px",marginBottom:10,border:`1px solid ${C.blush}`}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{fontSize:12,fontWeight:700,color:C.dk}}>
+                          {r.username || "Anonymous"}
+                        </div>
+                        <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>
+                          {r.ts?.toDate?(()=>{const d=r.ts.toDate();const now=new Date();const diff=now-d;if(diff<60000)return"just now";if(diff<3600000)return Math.floor(diff/60000)+"m ago";if(diff<86400000)return Math.floor(diff/3600000)+"h ago";return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});})():"—"}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                ))}
+                      <div style={{fontSize:12,color:C.mid,lineHeight:"1.5"}}>
+                        {Object.entries(r.answers||{}).length === 0 ? (
+                          <span style={{color:C.lt,fontStyle:"italic",fontFamily:_fM}}>No answers recorded</span>
+                        ) : (
+                          Object.entries(r.answers||{}).map(([qid,ans],idx)=>(
+                            <div key={idx} style={{marginBottom:idx<Object.entries(r.answers||{}).length-1?6:0}}>
+                              <span style={{fontFamily:_fM,color:C.lt,fontSize:11,fontWeight:600}}>{qid}: </span>
+                              <span style={{color:C.dk}}>{Array.isArray(ans)?ans.join(", "):String(ans)||"—"}</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {!adminLoading && !adminStats && (
-              <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px dashed ${C.blush}`,textAlign:"center",color:C.lt,fontSize:13,fontFamily:_fM}}>
-                No active push — build one below
+              <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px dashed ${C.blush}`,textAlign:"center"}}>
+                <div style={{color:C.lt,fontSize:13,fontFamily:_fM,fontWeight:600}}>No active feedback yet</div>
+                <div style={{color:C.lt,fontSize:12,fontFamily:_fM,marginTop:4}}>Create and push a survey below to start collecting responses</div>
               </div>
             )}
 
