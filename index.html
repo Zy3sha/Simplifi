@@ -1875,14 +1875,21 @@ function App(){
   const maxNapBar=Math.max(...wStats.map(x=>x.napM),1);
   const chunk=(arr,n)=>{const r=[];for(let i=0;i<arr.length;i+=n)r.push(arr.slice(i,i+n));return r;};
   const trendWeeks=chunk(dayKeys,7);
+  // Rolling windows: last 7 days vs previous 7 days (not calendar chunks)
+  const rolling7=(keys)=>{
+    const mlA=keys.map(d=>(days[d]||[]).filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0));
+    const napA=keys.map(d=>{const ns=(days[d]||[]).filter(e=>e.type==="nap"&&!e.night);return ns.reduce((s,n)=>s+minDiff(n.start,n.end),0);});
+    const nightA=keys.map(d=>(days[d]||[]).filter(e=>e.night).length);
+    return{avgMl:avgArr(mlA),avgNap:avgArr(napA),avgNight:avgArr(nightA)};
+  };
+  const tLast = dayKeys.length>=7 ? rolling7(dayKeys.slice(-7)) : null;
+  const tPrev = dayKeys.length>=14 ? rolling7(dayKeys.slice(-14,-7)) : null;
   const weekAvgs=trendWeeks.map(wk=>{
     const mlA=wk.map(d=>(days[d]||[]).filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0));
     const napA=wk.map(d=>{const ns=(days[d]||[]).filter(e=>e.type==="nap"&&!e.night);return ns.reduce((s,n)=>s+minDiff(n.start,n.end),0);});
     const nightA=wk.map(d=>(days[d]||[]).filter(e=>e.night).length);
     return{label:`${fmtDate(wk[0])}–${fmtDate(wk[wk.length-1])}`,days:wk.length,avgMl:avgArr(mlA),avgNap:avgArr(napA),avgNight:avgArr(nightA)};
   });
-  const tLast=weekAvgs[weekAvgs.length-1];
-  const tPrev=weekAvgs[weekAvgs.length-2];
   const mlVals=dayKeys.map(d=>(days[d]||[]).filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0));
   const napVals=dayKeys.map(d=>{const ns=(days[d]||[]).filter(e=>e.type==="nap"&&!e.night);return ns.reduce((s,n)=>s+minDiff(n.start,n.end),0);});
 
@@ -5011,20 +5018,20 @@ function App(){
             </div>
           ):(
             <div>
-              {tLast&&tPrev&&(
+              {tLast&&(
                 <div style={card}>
-                  <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>This Week vs Last Week</div>
+                  <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>Last 7 Days vs Previous 7</div>
                   {[
-                    {label:"Avg Daily Feed",curr:tLast.avgMl,prev:tPrev.avgMl,unit:"ml"},
-                    {label:"Avg Nap Time",curr:tLast.avgNap,prev:tPrev.avgNap,unit:"min"},
-                    {label:"Avg Night Wakes",curr:tLast.avgNight,prev:tPrev.avgNight,unit:""},
+                    {label:"Avg Daily Feed",curr:tLast.avgMl,prev:tPrev?.avgMl,unit:"ml"},
+                    {label:"Avg Nap Time",curr:tLast.avgNap,prev:tPrev?.avgNap,unit:"min"},
+                    {label:"Avg Night Wakes",curr:tLast.avgNight,prev:tPrev?.avgNight,unit:""},
                   ].map((row,i)=>{
-                    const t=arrow(row.curr,row.prev);
+                    const t=row.prev!=null?arrow(row.curr,row.prev):null;
                     return(
                       <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:i<2?`1px solid ${C.blush}`:"none"}}>
                         <div>
                           <div style={{fontSize:15,fontWeight:500}}>{row.label}</div>
-                          <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginTop:2}}>Last week: {row.prev}{row.unit}</div>
+                          <div style={{fontSize:15,fontFamily:"monospace",color:C.lt,marginTop:2}}>{row.prev!=null?`Prev 7 days: ${row.prev}${row.unit}`:"Not enough history yet"}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
                           <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.ter}}>{row.curr}<span style={{fontSize:14,color:C.lt}}>{row.unit}</span></div>
@@ -5725,7 +5732,7 @@ function App(){
               <div style={{background:"#f8f5f0",border:"1px solid #e8dfd4",borderRadius:12,padding:"12px 14px",marginBottom:4}}>
                 <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
                   <span style={{fontWeight:700,color:C.deep}}>ℹ️ About this guidance</span><br/>
-                  Activities and advice are based on NHS Start4Life and WHO Child Development guidelines, as well as Kinedu-style developmental play principles. Every baby develops at their own pace — use these as inspiration, not a checklist. If you have concerns about development, speak to your health visitor or GP.
+                  Activities and advice are based on NHS Start4Life and WHO Child Development guidelines. Every baby develops at their own pace — use these as inspiration, not a checklist. If you have concerns about development, speak to your health visitor or GP.
                 </div>
               </div>
 
