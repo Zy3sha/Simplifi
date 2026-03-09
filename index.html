@@ -876,7 +876,7 @@ function App(){
       }
     };
   }, []);
-  const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v2")?-1:0;}catch{return 0;}});
+  const[tutStep,setTutStep]=useState(-1); // -1 = off; 0..N = active; only starts on new account or Tour button
   // tutStep: 0..N = active tutorial, -1 = dismissed
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
 
@@ -5584,9 +5584,9 @@ function App(){
             if (!ageWeeks || !m || m.id === undefined) return null;
             const done = !!(milestones[m.id]?.date);
             if (done) return null;
-            // Show tip if baby is 2+ weeks past the 'latest' window for this milestone
-            const weeksOverdue = ageWeeks - m.weeks[2];
-            if (weeksOverdue < 2) return null;
+            // Show tip for any unmet milestone that is currently in window or overdue
+            const isInWindowOrPast = ageWeeks >= m.weeks[0];
+            if (!isInWindowOrPast) return null;
             return (MILESTONE_EXERCISES[m.id] || [])[0] || null;
           };
 
