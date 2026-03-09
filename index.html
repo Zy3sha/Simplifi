@@ -2259,7 +2259,25 @@ function App(){
     const w = age.totalWeeks;
     const today = days[selDay] || [];
 
-    const allMilkFeeds  = today.filter(e => e.type==="feed" && e.feedType!=="solids");
+    // ── Include cross-midnight night feeds from the next calendar day ──
+    // A night wake at e.g. 12:03am on 09/03 belongs to the 08/03→09/03 sleep period
+    // but saves to 09/03 because the clock has passed midnight. Pull those in.
+    const nextDayStr = (() => {
+      const d = new Date(selDay + "T12:00:00"); d.setDate(d.getDate()+1);
+      return d.toISOString().split("T")[0];
+    })();
+    const nextDayEntries = days[nextDayStr] || [];
+    const nextDayMorningWake = nextDayEntries
+      .filter(e => e.type==="wake" && !e.night)
+      .sort((a,b) => timeVal(a)-timeVal(b))
+      .find(e => { const h=parseInt((e.time||"00:00").split(":")[0]); return h>=5&&h<12; });
+    const nextMorningMins = nextDayMorningWake ? timeVal(nextDayMorningWake) : 7*60;
+    const crossMidnightEntries = nextDayEntries.filter(e =>
+      e.night && timeVal(e) < nextMorningMins
+    );
+    const allToday = [...today, ...crossMidnightEntries];
+
+    const allMilkFeeds  = allToday.filter(e => (e.type==="feed" && e.feedType!=="solids") || (e.type==="wake" && e.night && (e.amount||0)>0));
     const dayMilkFeeds  = allMilkFeeds.filter(e => !e.night);
     const nightMilkFeeds= allMilkFeeds.filter(e => e.night);
     const totalMl   = allMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
