@@ -887,7 +887,7 @@ function App(){
       }
     };
   }, []);
-  const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
+  const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v2")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
 
@@ -3649,28 +3649,20 @@ function App(){
         const ok = await reserveUsername(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          try{ localStorage.removeItem("tut_v1"); }catch{}
+          try{ localStorage.removeItem("tut_v2"); }catch{}
           setTutStep(0); setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); return;
         } else { setAuthError("That username is taken — try another"); setAuthLoading(false); }
       }
     }
 
-    // ── Pre-fill username and auto-trigger Face ID if already registered ──
+    // ── Pre-fill username on mount ──
     React.useEffect(()=>{
       if(!isLogin) return;
       try{
         const u = localStorage.getItem("bio_user");
         if(u && !authUsername) setAuthUsername(u);
-        // If Face ID is registered, auto-trigger it after a short delay
-        if(u && biometricAvail){
-          const hasCred = !!localStorage.getItem("bio_cred_"+u);
-          if(hasCred){
-            const t = setTimeout(()=>{ handleBiometricLoginAuto(u); }, 400);
-            return ()=>clearTimeout(t);
-          }
-        }
       }catch{}
-    },[biometricAvail]);
+    },[]);
 
     // ── Core Face ID login (called after registration confirmed, or on return visits) ──
     async function handleBiometricLoginAuto(user) {
@@ -3783,7 +3775,7 @@ function App(){
 
           {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
 
-          {/* ── Face ID prompt card — shown after successful PIN, before entering app ── */}
+          {/* ── Ask Face ID card — shown once after first PIN login ── */}
           {isLogin && authStep==="askFaceId" && (
             <div style={{marginTop:16,background:"white",border:`1px solid ${C.blush}`,borderRadius:18,padding:"20px 18px",boxShadow:"0 4px 20px rgba(201,112,90,0.1)"}}>
               <div style={{fontSize:28,textAlign:"center",marginBottom:10}}>🔐</div>
@@ -3805,14 +3797,30 @@ function App(){
             </div>
           )}
 
-          {/* ── Standard sign-in button (PIN flow) ── */}
+          {/* ── Face ID sign-in button — shown when registered, requires user tap (Safari gesture) ── */}
+          {isLogin && authStep==="pin" && biometricAvail && (()=>{
+            const bioUser = (()=>{ try{ return localStorage.getItem("bio_user")||""; }catch{ return ""; } })();
+            const lookupUser = authUsername || bioUser;
+            const hasCred = (()=>{ try{ return !!localStorage.getItem("bio_cred_"+lookupUser); }catch{ return false; } })();
+            if(!hasCred) return null;
+            return (
+              <button onClick={()=>handleBiometricLoginAuto(authUsername||(()=>{ try{ return localStorage.getItem("bio_user")||""; }catch{ return ""; } })())}
+                disabled={biometricStatus==="checking"}
+                style={{width:"100%",marginTop:14,background:biometricStatus==="checking"?"#e8e0d8":"linear-gradient(135deg,#2c1f1a,#4a2e26)",border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 4px 20px rgba(44,31,26,0.25)",transition:"all 0.2s"}}>
+                <span style={{fontSize:20}}>🔐</span>
+                <span>{biometricStatus==="checking"?"Verifying…":"Sign in with Face ID"}</span>
+              </button>
+            );
+          })()}
+
+          {/* ── PIN sign-in button ── */}
           {isLogin && authStep==="pin" ? (
             <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4||authLoading}
-              style={{width:"100%",marginTop:14,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+              style={{width:"100%",marginTop:10,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
                 border:"none",borderRadius:99,padding:"13px",color:authPin.length===4&&!authLoading?"white":"#b89890",
                 fontSize:15,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
                 boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-              {authLoading?"⏳ Signing in…":"Sign In →"}
+              {authLoading?"⏳ Signing in…":"Sign in with PIN →"}
             </button>
           ) : !isLogin ? (
             <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit||authLoading}
@@ -3836,7 +3844,7 @@ function App(){
       }
       try{ localStorage.setItem("onboarded_v2","1"); }catch{}
       // Ensure tutorial runs first, child setup shows after
-      try{ localStorage.removeItem("tut_v1"); }catch{}
+      try{ localStorage.removeItem("tut_v2"); }catch{}
       setTutStep(0);
       setNeedsChildSetup(true);
       setOnboarded(true);
@@ -4276,7 +4284,7 @@ function App(){
         ];
 
         const dismissTutorial = () => {
-          try{localStorage.setItem("tut_v1","1");}catch{}
+          try{localStorage.setItem("tut_v2","1");}catch{}
           setTutStep(-1);
         };
         const nextStep = () => {
@@ -4463,7 +4471,7 @@ function App(){
               💾 Save
             </button>
           )}
-          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0}}>
             ? Tour
           </button>
         </div>
