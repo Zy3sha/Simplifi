@@ -664,6 +664,9 @@ function App(){
   const[selDay,setSelDay]=useState(todayStr);
   const[tab,setTab]=useState("day");
   const[msFilter,setMsFilter]=useState("all");
+  const[msShowPastLeaps,setMsShowPastLeaps]=useState(false);
+  const[msShowPastMs,setMsShowPastMs]=useState(false);
+  const[msShowUpcoming,setMsShowUpcoming]=useState(false);
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null); // 'feed'|'nappy'|'sleep'|null
   const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:""});
@@ -5078,15 +5081,17 @@ function App(){
         {tab==="milestones"&&(()=>{
           const ageWeeks = age ? age.totalWeeks : null;
 
+          // ── No DOB ───────────────────────────────────────────────────────
           if (!babyDob) return (
             <div style={{...card,textAlign:"center",padding:"36px 20px"}}>
               <div style={{fontSize:40,marginBottom:14}}>🎂</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Add your baby's date of birth</div>
               <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>Add your baby's date of birth in Baby Settings to unlock milestones and Wonder Weeks.</div>
-              <button onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>⚙️ Open Baby Settings →</button>
+              <button onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:"linear-gradient(135deg,#c9705a,#a85a44)",border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>⚙️ Open Baby Settings →</button>
             </div>
           );
 
+          // ── Unborn ───────────────────────────────────────────────────────
           if (babyUnborn) {
             const daysUntil = babyDob ? Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24)) : null;
             return (
@@ -5100,111 +5105,268 @@ function App(){
             );
           }
 
-          const doneCount = MILESTONES.filter(m=>milestones[m.id]&&milestones[m.id].date).length;
-          const currentLeap  = WONDER_WEEKS.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
-          // Only tease upcoming leap if baby is within 2 weeks of it starting
-          const upcomingLeap = WONDER_WEEKS.find(l => l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 2);
+          // ── Helpers ──────────────────────────────────────────────────────
+          const dobDate  = new Date(babyDob + "T00:00:00");
+          const wkToDate = (w) => { const d = new Date(dobDate); d.setDate(d.getDate() + w*7); return d; };
+          const fmtD     = (d) => d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+          const name     = babyName || "Baby";
 
-          // Only show milestones baby has actually reached (earliest week passed)
-          const visibleMs = MILESTONES.filter(m => {
-            const done = milestones[m.id] && milestones[m.id].date;
-            if (done) return true;
-            const catOk = msFilter === "all" || m.cat === msFilter;
-            const reachable = ageWeeks >= m.weeks[0];
-            const notStalePast = m.weeks[2] >= ageWeeks - 8;
-            return reachable && notStalePast && catOk;
+          // ── Leap phase logic ─────────────────────────────────────────────
+          // Phases: pre-leap (within 1wk of start) → fussy storm (start→peak) → skills bloom (peak→end) → calm
+          const activeLeap  = WONDER_WEEKS.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
+          const nextLeap    = WONDER_WEEKS.find(l => l.windowStart > (activeLeap ? activeLeap.windowEnd : ageWeeks));
+          const isPreLeap   = !activeLeap && nextLeap && ageWeeks >= nextLeap.windowStart - 1;
+          const isFussy     = activeLeap && ageWeeks <  activeLeap.peakWeek;
+          const isBloom     = activeLeap && ageWeeks >= activeLeap.peakWeek;
+          const heroLeap    = activeLeap || (isPreLeap ? nextLeap : null);
+
+          const pastLeaps   = WONDER_WEEKS.filter(l => l.windowEnd < ageWeeks && !(activeLeap && l.leap===activeLeap.leap));
+          const upcomLeaps  = WONDER_WEEKS.filter(l => {
+            if (activeLeap && l.leap <= activeLeap.leap) return false;
+            if (nextLeap   && l.leap === nextLeap.leap && isPreLeap) return false;
+            return l.windowStart > ageWeeks;
           });
 
-          const timelineItems = [];
-          visibleMs.forEach(m => timelineItems.push({type:"milestone", data:m, sortWeek: m.weeks[1]}));
-          if (msFilter === "all") {
-            WONDER_WEEKS.forEach(l => {
-              const isActive = ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd;
-              const comingSoon = l.windowStart > ageWeeks && l.windowStart <= ageWeeks + 2;
-              if (isActive || comingSoon) {
-                timelineItems.push({type:"leap", data:l, sortWeek: l.peakWeek});
-              }
-            });
-          }
-          timelineItems.sort((a,b) => a.sortWeek - b.sortWeek);
-
-          const ageParts = [];
+          // ── Milestone bucketing ──────────────────────────────────────────
+          const doneCount = MILESTONES.filter(m => milestones[m.id]?.date).length;
+          const ageParts  = [];
           if (age.months > 0) ageParts.push(`${age.months}mo`);
           if (age.weeksAfterMonths > 0) ageParts.push(`${age.weeksAfterMonths}w`);
 
+          const catOk = (m) => msFilter === "all" || m.cat === msFilter;
+          // Current window: ≥ earliest age and ≤ latest+4 weeks ahead
+          const nowMs    = MILESTONES.filter(m => catOk(m) && ageWeeks >= m.weeks[0] && m.weeks[0] <= ageWeeks + 4 && m.weeks[2] >= ageWeeks - 4);
+          const pastMs   = MILESTONES.filter(m => catOk(m) && m.weeks[2] < ageWeeks - 4 && milestones[m.id]?.date);
+          const futureMs = MILESTONES.filter(m => catOk(m) && m.weeks[0] > ageWeeks + 4);
+
+          // ── Sub-components ───────────────────────────────────────────────
           const MilestoneRow = ({m}) => {
-            const done = milestones[m.id] && milestones[m.id].date;
+            const done     = !!(milestones[m.id]?.date);
             const isNow    = ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[2];
-            const isPast   = ageWeeks > m.weeks[2];
+            const isPast   = !isNow && ageWeeks > m.weeks[2];
             const isFuture = ageWeeks < m.weeks[0];
-            const catInfo  = MILESTONE_CATS.find(c=>c.key===m.cat);
-            const circleColor = done ? C.mint : isNow ? C.ter : isFuture ? "#ccc" : C.lt;
+            const catInfo  = MILESTONE_CATS.find(c => c.key === m.cat);
+            const tick     = done ? C.mint : isNow ? C.ter : "#ccc";
             return (
               <div onClick={()=>{
                 if(isFuture) return;
                 if(done){ if(window.confirm(`Remove "${m.label}"?`)) setMilestones(ms=>({...ms,[m.id]:{}}))}
                 else setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
-              }} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"11px 0",borderBottom:`1px solid ${C.blush}`,cursor:isFuture?"default":"pointer",opacity:isFuture?0.5:1}}>
-                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${circleColor}`,background:done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>
-                  {done&&<span style={{color:"white",fontSize:12,fontWeight:700,lineHeight:1}}>✓</span>}
+              }} style={{display:"flex",alignItems:"flex-start",gap:11,padding:"10px 0",borderBottom:`1px solid ${C.blush}`,cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1}}>
+                <div style={{width:21,height:21,borderRadius:"50%",border:`2px solid ${tick}`,background:done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2}}>
+                  {done && <span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:15,fontWeight:done?600:400,color:done?C.mint:C.deep,lineHeight:1.3}}>{m.label}</div>
-                  <div style={{fontSize:11,color:C.lt,marginTop:2,display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+                  <div style={{fontSize:14,fontWeight:done?600:400,color:done?C.mint:C.deep,lineHeight:1.3}}>{m.label}</div>
+                  <div style={{fontSize:11,color:C.lt,marginTop:2,display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
                     <span style={{background:"#f5f0eb",borderRadius:99,padding:"1px 6px"}}>{catInfo?.icon} {catInfo?.label}</span>
-                    <span style={{fontFamily:"monospace"}}>wk {m.weeks[0]}–{m.weeks[2]}</span>
-                    {done&&<span style={{color:C.mint}}>✓ {fmtLong(milestones[m.id].date)}</span>}
+                    {done
+                      ? <span style={{color:C.mint}}>✓ {fmtLong(milestones[m.id].date)}</span>
+                      : <span style={{fontFamily:"monospace"}}>typical wk {m.weeks[1]}</span>}
                   </div>
                 </div>
-                <div style={{flexShrink:0}}>
-                  {!done && isNow   && <span style={{fontSize:12,background:"#fdeee8",color:C.ter,borderRadius:99,padding:"3px 9px",fontWeight:700}}>Now</span>}
-                  {!done && isPast  && <span style={{fontSize:12,background:"#f5f5f0",color:C.lt, borderRadius:99,padding:"3px 9px"}}>Log</span>}
-                  {!done && isFuture && <span style={{fontSize:11,color:"#ccc",fontFamily:"monospace"}}>wk {m.weeks[1]}</span>}
+                <div style={{flexShrink:0,paddingTop:2}}>
+                  {!done && isNow   && <span style={{fontSize:11,background:"#fdeee8",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700}}>Now</span>}
+                  {!done && isPast  && <span style={{fontSize:11,background:"#f0f8f0",color:C.mint,borderRadius:99,padding:"3px 8px",cursor:"pointer"}}>Log it</span>}
+                  {!done && isFuture && <span style={{fontSize:11,color:"#bbb",fontFamily:"monospace"}}>wk {m.weeks[0]}</span>}
                 </div>
               </div>
             );
           };
 
-          const LeapBanner_unused = null; // hoisted to top-level component
+          const Accordion = ({label, count, open, toggle, accent, children}) => (
+            <div style={{marginBottom:8}}>
+              <button onClick={toggle} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:open?"#fdf4f0":C.warm,border:`1px solid ${open?C.blush:"#e8e0da"}`,borderRadius:open?"12px 12px 0 0":12,cursor:"pointer",fontFamily:"inherit",transition:"border-radius 0.15s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:13,fontWeight:700,color:accent||C.mid}}>{label}</span>
+                  <span style={{fontSize:11,background:"#ede8e2",borderRadius:99,padding:"1px 7px",color:C.lt,fontFamily:"monospace"}}>{count}</span>
+                </div>
+                <span style={{fontSize:11,color:C.lt,transition:"transform 0.2s",display:"inline-block",transform:open?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
+              </button>
+              {open && (
+                <div style={{border:`1px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 12px 12px",padding:"4px 14px 8px",background:"white"}}>
+                  {children}
+                </div>
+              )}
+            </div>
+          );
 
           return (
             <div>
-              <div style={{...card, background:`linear-gradient(135deg,#fdf4f0,#fff8f4)`, marginBottom:12, padding:"14px 16px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+
+              {/* ══ LEAP HERO CARD ══════════════════════════════════════════ */}
+              {(()=>{
+                if (!heroLeap && !nextLeap) return null;
+
+                // ── PRE-LEAP: storm brewing ──────────────────────────────
+                if (isPreLeap && heroLeap) {
+                  const startDate = fmtD(wkToDate(heroLeap.windowStart));
+                  const peakDate  = fmtD(wkToDate(heroLeap.peakWeek));
+                  const endDate   = fmtD(wkToDate(heroLeap.windowEnd));
+                  return (
+                    <div style={{background:"linear-gradient(135deg,#fffbec,#fff5cc)",border:"1px solid #f0d060",borderRadius:18,padding:"16px 16px 14px",marginBottom:14}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:11}}>
+                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#f5c840,#e8a820)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,boxShadow:"0 2px 8px rgba(232,168,32,0.3)"}}>⛈</div>
+                        <div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#8a6808",textTransform:"uppercase",letterSpacing:"0.1em"}}>Storm brewing · Leap {heroLeap.leap} approaching</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#5a3800",lineHeight:1.2}}>{heroLeap.name}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:11}}>
+                        {[["Fussy storm",`${startDate} – ${peakDate}`],["Skills bloom",`${peakDate} – ${endDate}`]].map(([lbl,val])=>(
+                          <div key={lbl} style={{background:"rgba(245,200,64,0.18)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
+                            <span style={{color:"#8a6808",fontWeight:600}}>{lbl} </span>
+                            <span style={{color:"#6a4808",fontFamily:"monospace"}}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{background:"rgba(255,255,255,0.65)",borderRadius:10,padding:"9px 11px",marginBottom:10}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"#6a4000",marginBottom:3}}>What to expect from {startDate}</div>
+                        <div style={{fontSize:12,color:"#6a4808",lineHeight:1.55}}>{heroLeap.fussy}</div>
+                      </div>
+                      <div style={{fontSize:12,fontWeight:700,color:"#6a4000",marginBottom:5}}>New skills coming ({peakDate} → {endDate})</div>
+                      {heroLeap.skills.map((s,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+                          <span style={{color:"#d4a010",fontSize:13,flexShrink:0}}>✦</span>
+                          <span style={{fontSize:12,color:"#5a3808"}}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                // ── FUSSY STORM: leap active, pre-peak ───────────────────
+                if (isFussy && heroLeap) {
+                  const peakDate = fmtD(wkToDate(heroLeap.peakWeek));
+                  const endDate  = fmtD(wkToDate(heroLeap.windowEnd));
+                  return (
+                    <div style={{background:"linear-gradient(135deg,#f0ebff,#e4d8ff)",border:"1px solid #b8a4f8",borderRadius:18,padding:"16px 16px 14px",marginBottom:14}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:11}}>
+                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#8848e0,#6030c0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,boxShadow:"0 2px 8px rgba(104,48,192,0.3)"}}>🌀</div>
+                        <div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#5030a0",textTransform:"uppercase",letterSpacing:"0.1em"}}>Leap {heroLeap.leap} · Fussy storm</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#2e1070",lineHeight:1.2}}>{heroLeap.name}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:11}}>
+                        {[["Fussy storm","now → "+peakDate],["Skills bloom",peakDate+" → "+endDate]].map(([lbl,val])=>(
+                          <div key={lbl} style={{background:"rgba(136,72,224,0.12)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
+                            <span style={{color:"#5030a0",fontWeight:600}}>{lbl} </span>
+                            <span style={{color:"#3a1880",fontFamily:"monospace"}}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"9px 11px",marginBottom:10}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"#2e1070",marginBottom:3}}>{name} is in the fussy storm right now</div>
+                        <div style={{fontSize:12,color:"#3a1880",lineHeight:1.55}}>{heroLeap.fussy} The skills bloom starts around {peakDate}.</div>
+                      </div>
+                      <div style={{fontSize:12,fontWeight:700,color:"#3a1880",marginBottom:5}}>Skills unlocking soon ({peakDate} → {endDate})</div>
+                      {heroLeap.skills.map((s,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+                          <span style={{color:"#8848e0",fontSize:13,flexShrink:0}}>✦</span>
+                          <span style={{fontSize:12,color:"#2e1070"}}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                // ── SKILLS BLOOM: leap active, post-peak ─────────────────
+                if (isBloom && heroLeap) {
+                  const endDate      = fmtD(wkToDate(heroLeap.windowEnd));
+                  const nextStartStr = nextLeap ? fmtD(wkToDate(nextLeap.windowStart)) : null;
+                  return (
+                    <div style={{background:"linear-gradient(135deg,#e8f8ee,#d0f0e0)",border:"1px solid #70d098",borderRadius:18,padding:"16px 16px 14px",marginBottom:14}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:11}}>
+                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#38c870,#20a050)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,boxShadow:"0 2px 8px rgba(32,160,80,0.3)"}}>🌱</div>
+                        <div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#187040",textTransform:"uppercase",letterSpacing:"0.1em"}}>Leap {heroLeap.leap} · Skills blooming</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#0a4020",lineHeight:1.2}}>{heroLeap.name}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:11}}>
+                        {[["Blooming now","→ "+endDate], nextStartStr&&["Next leap",nextStartStr]].filter(Boolean).map(([lbl,val])=>(
+                          <div key={lbl} style={{background:"rgba(56,200,112,0.14)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
+                            <span style={{color:"#187040",fontWeight:600}}>{lbl} </span>
+                            <span style={{color:"#0a4020",fontFamily:"monospace"}}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"9px 11px",marginBottom:10}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"#0a4020",marginBottom:3}}>The storm has cleared — skills are blooming!</div>
+                        <div style={{fontSize:12,color:"#125030",lineHeight:1.55}}>The unsettled phase of Leap {heroLeap.leap} is easing. Watch for exciting new abilities in {name} over the next few days.</div>
+                      </div>
+                      <div style={{fontSize:12,fontWeight:700,color:"#125030",marginBottom:5}}>Skills {name} is developing right now (until {endDate})</div>
+                      {heroLeap.skills.map((s,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+                          <span style={{color:"#38c870",fontSize:13,flexShrink:0}}>✦</span>
+                          <span style={{fontSize:12,color:"#0a4020"}}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                // ── CALM: between leaps, show next leap preview if within 8wks ──
+                if (nextLeap && (nextLeap.windowStart - ageWeeks) <= 8) {
+                  const wksAway   = nextLeap.windowStart - ageWeeks;
+                  const startDate = fmtD(wkToDate(nextLeap.windowStart));
+                  const peakDate  = fmtD(wkToDate(nextLeap.peakWeek));
+                  const endDate   = fmtD(wkToDate(nextLeap.windowEnd));
+                  return (
+                    <div style={{background:"#f8f4ff",border:"1px solid #d8cef8",borderRadius:18,padding:"14px 16px 12px",marginBottom:14}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:9}}>
+                        <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#c0a8f0,#a080d8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🔭</div>
+                        <div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#6050b0",textTransform:"uppercase",letterSpacing:"0.1em"}}>Coming in ~{wksAway} week{wksAway!==1?"s":""} · Leap {nextLeap.leap}</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#2e1870",lineHeight:1.2}}>{nextLeap.name}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:9}}>
+                        {[["Fussy storm",`${startDate} – ${peakDate}`],["Skills bloom",`${peakDate} – ${endDate}`]].map(([lbl,val])=>(
+                          <div key={lbl} style={{background:"rgba(160,128,216,0.12)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
+                            <span style={{color:"#5040a0",fontWeight:600}}>{lbl} </span>
+                            <span style={{color:"#3a2880",fontFamily:"monospace"}}>{val}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{fontSize:12,color:"#3a2880",lineHeight:1.5,marginBottom:7}}>{nextLeap.fussy}</div>
+                      <div style={{fontSize:11,fontWeight:600,color:"#5040a0",marginBottom:4}}>Skills coming with this leap</div>
+                      {nextLeap.skills.map((s,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
+                          <span style={{color:"#a080d8",fontSize:12,flexShrink:0}}>✦</span>
+                          <span style={{fontSize:11,color:"#3a2880"}}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* ══ AGE + PROGRESS ══════════════════════════════════════════ */}
+              <div style={{...card,background:"linear-gradient(135deg,#fdf4f0,#fff8f4)",marginBottom:12,padding:"12px 16px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                   <div>
-                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:3}}>{possessive(babyName||"Baby")} age</div>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.ter,lineHeight:1}}>
-                      {ageParts.join(" ")} <span style={{fontSize:13,color:C.lt,fontFamily:"monospace",fontWeight:400}}>· wk {ageWeeks}</span>
+                    <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:2}}>{possessive(name)} age</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.ter,lineHeight:1}}>
+                      {ageParts.join(" ")} <span style={{fontSize:12,color:C.lt,fontFamily:"monospace",fontWeight:400}}>· wk {ageWeeks}</span>
                     </div>
                   </div>
                   <div style={{textAlign:"right"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.mint,lineHeight:1}}>{doneCount}</div>
-                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt}}>achieved</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.mint,lineHeight:1}}>{doneCount}</div>
+                    <div style={{fontSize:10,fontFamily:"monospace",color:C.lt}}>milestones logged</div>
                   </div>
                 </div>
                 <div style={{background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
                   <div style={{height:"100%",borderRadius:99,background:`linear-gradient(90deg,${C.ter},${C.mint})`,width:`${Math.round(doneCount/MILESTONES.length*100)}%`,transition:"width 0.4s"}}/>
                 </div>
-                <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,marginTop:3,display:"flex",justifyContent:"space-between"}}>
-                  <span>{doneCount} of {MILESTONES.length}</span>
-                  <span>Showing wk {Math.max(0,ageWeeks-4)}–{ageWeeks+12}</span>
-                </div>
+                <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,marginTop:3}}>{doneCount} of {MILESTONES.length} logged</div>
               </div>
 
-              {(currentLeap||upcomingLeap)&&(
-                <div style={{display:"flex",alignItems:"center",gap:8,background:currentLeap?"linear-gradient(135deg,#ede8ff,#ddd5ff)":"#f5f2ff",border:`1px solid ${currentLeap?"#b8aef5":"#d8d0f8"}`,borderRadius:12,padding:"10px 13px",marginBottom:10}}>
-                  <span style={{fontSize:17}}>🌀</span>
-                  <div style={{flex:1,fontSize:13,color:"#4030a0",lineHeight:1.4}}>
-                    {currentLeap
-                      ? <><strong>Leap {currentLeap.leap}: {currentLeap.name}</strong> is happening now — extra fussiness is totally normal!</>
-                      : <><strong>Leap {upcomingLeap.leap}: {upcomingLeap.name}</strong> is coming in ~{upcomingLeap.windowStart - ageWeeks} week{upcomingLeap.windowStart - ageWeeks!==1?"s":""}.</>
-                    }
-                  </div>
-                </div>
-              )}
-
-              <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:4,marginBottom:10,WebkitOverflowScrolling:"touch"}}>
-                {MILESTONE_CATS.map(c=>(
+              {/* ══ CATEGORY FILTER ═════════════════════════════════════════ */}
+              <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:4,marginBottom:12,WebkitOverflowScrolling:"touch"}}>
+                {[{key:"all",icon:"⭐",label:"All"},...MILESTONE_CATS].map(c=>(
                   <button key={c.key} onClick={()=>setMsFilter(c.key)}
                     style={{flexShrink:0,padding:"5px 11px",borderRadius:99,border:`1.5px solid ${msFilter===c.key?C.ter:C.blush}`,background:msFilter===c.key?"#fdeee8":C.warm,color:msFilter===c.key?C.ter:C.mid,fontSize:12,fontWeight:msFilter===c.key?700:400,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
                     {c.icon} {c.label}
@@ -5212,20 +5374,79 @@ function App(){
                 ))}
               </div>
 
-              {timelineItems.length===0 ? (
-                <div style={{...card,textAlign:"center",padding:"28px 20px",color:C.lt,fontSize:14}}>No milestones in this window for this category.</div>
-              ) : (
-                <div style={{...card,padding:"4px 16px 6px"}}>
-                  {timelineItems.map(item=>
-                    item.type==="leap"
-                      ? <LeapBanner key={`leap-${item.data.leap}`} l={item.data} ageWeeks={ageWeeks} C={C}/>
-                      : <MilestoneRow key={item.data.id} m={item.data}/>
-                  )}
+              {/* ══ CURRENT WINDOW MILESTONES ═══════════════════════════════ */}
+              <div style={{...card,padding:"4px 14px 8px",marginBottom:10}}>
+                <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",padding:"8px 0 6px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>
+                  Happening now · tap to mark achieved
                 </div>
-              )}
-              <div style={{textAlign:"center",fontSize:11,color:C.lt,marginTop:8,marginBottom:4,fontFamily:"monospace",lineHeight:1.5}}>
-                Showing ±4 weeks around {possessive(babyName||"baby")} age · tap any to mark done
+                {nowMs.length === 0
+                  ? <div style={{textAlign:"center",padding:"18px 0",color:C.lt,fontSize:13}}>No milestones in this window for this category.</div>
+                  : nowMs.map(m => <MilestoneRow key={m.id} m={m}/>)
+                }
               </div>
+
+              {/* ══ COLLAPSIBLE PAST ════════════════════════════════════════ */}
+              {pastLeaps.length > 0 && (
+                <Accordion label="Past wonder weeks" count={pastLeaps.length} open={msShowPastLeaps} toggle={()=>setMsShowPastLeaps(v=>!v)} accent="#7060b0">
+                  {pastLeaps.map(l => (
+                    <div key={l.leap} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#9060e0,#7040c0)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.leap}</span>
+                        </div>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:700,color:"#4a28a0"}}>Leap {l.leap}: {l.name}</div>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:"monospace"}}>{fmtD(wkToDate(l.windowStart))} – {fmtD(wkToDate(l.windowEnd))}</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:11,color:C.lt,paddingLeft:32,lineHeight:1.6}}>{l.skills.join(" · ")}</div>
+                    </div>
+                  ))}
+                </Accordion>
+              )}
+
+              {pastMs.length > 0 && (
+                <Accordion label="Achieved milestones" count={pastMs.length} open={msShowPastMs} toggle={()=>setMsShowPastMs(v=>!v)} accent={C.mint}>
+                  {pastMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
+                </Accordion>
+              )}
+
+              {/* ══ COLLAPSIBLE UPCOMING ════════════════════════════════════ */}
+              {(upcomLeaps.length > 0 || futureMs.length > 0) && (
+                <Accordion label="What's coming up" count={upcomLeaps.length + futureMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent="#d09020">
+                  {upcomLeaps.map(l => (
+                    <div key={l.leap} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#f0c030,#d89010)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.leap}</span>
+                        </div>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:700,color:"#7a5000"}}>Leap {l.leap}: {l.name}</div>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:"monospace"}}>{fmtD(wkToDate(l.windowStart))} – {fmtD(wkToDate(l.windowEnd))} · wk {l.windowStart}–{l.windowEnd}</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:11,color:"#8a6010",paddingLeft:32,marginBottom:3,lineHeight:1.5}}>{l.fussy}</div>
+                      <div style={{fontSize:11,color:C.lt,paddingLeft:32,lineHeight:1.6}}>{l.skills.join(" · ")}</div>
+                    </div>
+                  ))}
+                  {futureMs.length > 0 && (
+                    <div style={{paddingTop:4}}>
+                      <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",padding:"8px 0 4px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>Future milestones</div>
+                      {futureMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
+                    </div>
+                  )}
+                </Accordion>
+              )}
+
+              {/* ══ DISCLAIMER ══════════════════════════════════════════════ */}
+              <div style={{background:"#f8f5f0",border:"1px solid #e8dfd4",borderRadius:12,padding:"12px 14px",marginTop:6,marginBottom:4}}>
+                <div style={{fontSize:11,color:C.mid,lineHeight:1.65}}>
+                  <span style={{fontWeight:700,color:C.deep}}>ℹ️ A note on milestones</span><br/>
+                  Every baby develops at their own pace — these ranges are general guidelines, not a fixed schedule. Some babies reach milestones earlier, others later, and both are perfectly normal.<br/><br/>
+                  If you have any concerns about milestones that haven't been reached over a couple of months, or if something doesn't feel right, <span style={{fontWeight:600}}>speak to your health visitor or GP</span> — they're there to help and will always take your concerns seriously.
+                </div>
+              </div>
+
             </div>
           );
         })()}
