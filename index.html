@@ -1458,6 +1458,7 @@ function App(){
       if(q.type==="text") return true; // optional
       if(q.type==="star") return (ans||0)>0;
       if(q.type==="multi") return ans && ans.length>0;
+      if(q.type==="single") return ans !== undefined && ans !== null && ans !== "";
       if(q.type==="scale") return ans !== undefined && ans !== null && ans !== "";
       if(q.type==="yesno") return ans !== undefined && ans !== null;
       return true;
@@ -1564,7 +1565,7 @@ function App(){
         } else if(qq.type==="scale"){
           const avg = answers.length ? (answers.reduce((s,a)=>s+(parseFloat(a)||0),0)/answers.length).toFixed(1) : "—";
           return {...qq, count:answers.length, avg};
-        } else if(qq.type==="multi"){
+        } else if(qq.type==="multi" || qq.type==="single"){
           const tally={};
           (qq.choices||[]).forEach(c=>{tally[c]=0;});
           answers.forEach(a=>{ (Array.isArray(a)?a:[a]).forEach(c=>{ if(tally[c]!==undefined) tally[c]++; }); });
@@ -5007,6 +5008,24 @@ function App(){
                             </div>
                           )}
 
+                          {/* Single-select (pick one) */}
+                          {q.type==="single" && (
+                            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                              {(q.choices||[]).map(c=>{
+                                const sel=fbAnswers[q.id]===c;
+                                return(
+                                  <button key={c} onClick={()=>setFbAnswer(q.id,c)}
+                                    style={{padding:"10px 14px",borderRadius:12,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?"#fdf0eb":C.warm,fontSize:13,fontWeight:600,color:sel?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
+                                    <span style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${sel?C.ter:C.blush}`,background:sel?C.ter:"white",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                                      {sel&&<span style={{width:8,height:8,borderRadius:"50%",background:"white",display:"block"}}/>}
+                                    </span>
+                                    {c}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
                           {/* Scale */}
                           {q.type==="scale" && (
                             <div>
@@ -7327,8 +7346,8 @@ function App(){
                       </div>
                     )}
 
-                    {/* Multi stats */}
-                    {q.type==="multi" && (
+                    {/* Multi / Single stats */}
+                    {(q.type==="multi"||q.type==="single") && (
                       <div>
                         {(q.choices||[]).map(c=>{
                           const cnt=(q.tally||{})[c]||0;
@@ -7411,7 +7430,7 @@ function App(){
 
                   {/* Question type picker */}
                   <div style={{display:"flex",gap:5,marginBottom:8,flexWrap:"wrap"}}>
-                    {[{v:"star",l:"⭐ Stars"},{v:"multi",l:"☑️ Multi"},{v:"scale",l:"📊 Scale"},{v:"text",l:"✏️ Text"},{v:"yesno",l:"👍 Yes/No"}].map(({v,l})=>(
+                    {[{v:"star",l:"⭐ Stars"},{v:"single",l:"🔘 Single"},{v:"multi",l:"☑️ Multi"},{v:"scale",l:"📊 Scale"},{v:"text",l:"✏️ Text"},{v:"yesno",l:"👍 Yes/No"}].map(({v,l})=>(
                       <button key={v} onClick={()=>adminUpdateQ(qi,"type",v)}
                         style={{padding:"4px 10px",borderRadius:99,border:`1.5px solid ${q.type===v?C.ter:C.blush}`,background:q.type===v?"#fdf0eb":C.cream,color:q.type===v?C.ter:C.lt,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"monospace"}}>
                         {l}
@@ -7422,10 +7441,10 @@ function App(){
                   {/* Question text */}
                   <input value={q.text} onChange={e=>adminUpdateQ(qi,"text",e.target.value)}
                     placeholder="Your question…"
-                    style={{width:"100%",padding:"8px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"white",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom: q.type==="multi"?8:0}}/>
+                    style={{width:"100%",padding:"8px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"white",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:(q.type==="multi"||q.type==="single")?8:0}}/>
 
-                  {/* Choices (multi only) */}
-                  {q.type==="multi" && (
+                  {/* Choices (multi + single) */}
+                  {(q.type==="multi"||q.type==="single") && (
                     <div>
                       {(q.choices||[]).map((c,ci)=>(
                         <div key={ci} style={{display:"flex",gap:5,marginBottom:5,alignItems:"center"}}>
