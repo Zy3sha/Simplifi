@@ -1555,65 +1555,77 @@ function App(){
     if(!window._fb) return;
     setAdminLoading(true);
     try{
-      const {db, collection, getDocs, query, orderBy, doc, getDoc} = window._fb;
-      // Always load responses regardless of whether active doc exists
-      const q = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
-      const snap = await getDocs(q);
-      const responses = snap.docs.map(d=>d.data());
-      const activeSnap = await getDoc(doc(db,"feedback","active"));
-      const active = activeSnap.exists() ? activeSnap.data() : null;
-      const count = responses.length;
+      const {db, collection, query, orderBy, doc, getDoc, onSnapshot} = window._fb;
+      
+      // Set up real-time listener for responses
+      const responsesQuery = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
+      const unsubscribeResponses = onSnapshot(responsesQuery, async (snap) => {
+        const responses = snap.docs.map(d=>d.data());
+        
+        // Now load the active document
+        try {
+          const activeSnap = await getDoc(doc(db,"feedback","active"));
+          const active = activeSnap.exists() ? activeSnap.data() : null;
+          const count = responses.length;
 
-      if(active){
-        const qStats = (active.questions||[]).map(qq=>{
-          const answers = responses.map(r=>(r.answers||{})[qq.id]).filter(a=>a!==undefined&&a!==null&&a!=="");
-          if(qq.type==="star"){
-            const avg = answers.length ? (answers.reduce((s,a)=>s+(a||0),0)/answers.length).toFixed(1) : "—";
-            return {...qq, count:answers.length, avg};
-          } else if(qq.type==="scale"){
-            const avg = answers.length ? (answers.reduce((s,a)=>s+(parseFloat(a)||0),0)/answers.length).toFixed(1) : "—";
-            return {...qq, count:answers.length, avg};
-          } else if(qq.type==="multi" || qq.type==="single"){
-            const tally={};
-            (qq.choices||[]).forEach(c=>{tally[c]=0;});
-            answers.forEach(a=>{ (Array.isArray(a)?a:[a]).forEach(c=>{ if(tally[c]!==undefined) tally[c]++; }); });
-            return {...qq, count:answers.length, tally};
-          } else if(qq.type==="text"){
-            return {...qq, count:answers.length, texts:answers.slice(0,20)};
-          } else if(qq.type==="yesno"){
-            const yes = answers.filter(a=>a===true||a==="yes").length;
-            const no = answers.filter(a=>a===false||a==="no").length;
-            return {...qq, count:answers.length, yes, no};
+          if(active){
+            const qStats = (active.questions||[]).map(qq=>{
+              const answers = responses.map(r=>(r.answers||{})[qq.id]).filter(a=>a!==undefined&&a!==null&&a!=="");
+              if(qq.type==="star"){
+                const avg = answers.length ? (answers.reduce((s,a)=>s+(a||0),0)/answers.length).toFixed(1) : "—";
+                return {...qq, count:answers.length, avg};
+              } else if(qq.type==="scale"){
+                const avg = answers.length ? (answers.reduce((s,a)=>s+(parseFloat(a)||0),0)/answers.length).toFixed(1) : "—";
+                return {...qq, count:answers.length, avg};
+              } else if(qq.type==="multi" || qq.type==="single"){
+                const tally={};
+                (qq.choices||[]).forEach(c=>{tally[c]=0;});
+                answers.forEach(a=>{ (Array.isArray(a)?a:[a]).forEach(c=>{ if(tally[c]!==undefined) tally[c]++; }); });
+                return {...qq, count:answers.length, tally};
+              } else if(qq.type==="text"){
+                return {...qq, count:answers.length, texts:answers.slice(0,20)};
+              } else if(qq.type==="yesno"){
+                const yes = answers.filter(a=>a===true||a==="yes").length;
+                const no = answers.filter(a=>a===false||a==="no").length;
+                return {...qq, count:answers.length, yes, no};
+              }
+              return {...qq, count:answers.length};
+            });
+            setAdminStats({title:active.title, id:active.id, count, questions:qStats, _rawResponses:responses});
+          } else if(responses.length>0){
+            setAdminStats({title:"(archived push)", id:null, count, questions:[], _rawResponses:responses});
+          } else {
+            setAdminStats(null);
           }
-          return {...qq, count:answers.length};
-        });
-        setAdminStats({title:active.title, id:active.id, count, questions:qStats, _rawResponses:responses});
-      } else if(responses.length>0){
-        // Active doc deleted but responses still exist — show them raw
-        setAdminStats({title:"(archived push)", id:null, count, questions:[], _rawResponses:responses});
-      } else {
-        setAdminStats(null);
-      }
-    }catch(e){console.warn("Admin load error",e);}
-    setAdminLoading(false);
+        } catch(e) {
+          console.warn("Error loading active document:", e);
+        }
+      }, (err) => {
+        console.warn("Real-time responses listener error:", err);
+        setAdminLoading(false);
+      });
+      
+      setAdminLoading(false);
+      // Return cleanup function
+      window._adminUnsubscribe = unsubscribeResponses;
+      
+    }catch(e){
+      console.warn("Admin load init error:", e);
+      setAdminLoading(false);
+    }
   }
 
 
   useEffect(()=>{
     if(showAdminPanel && isAdmin && window._fb) {
       adminLoadStats();
-      // Set up real-time listener for responses
-      const {db, collection, query, orderBy, onSnapshot} = window._fb;
-      const q = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
-      const unsubscribe = onSnapshot(q, (snap) => {
-        const responses = snap.docs.map(d=>d.data());
-        setAdminStats(prev => {
-          if(!prev) return null;
-          return {...prev, count:responses.length, _rawResponses:responses};
-        });
-      }, (err) => console.warn("Real-time listener error:", err));
       
-      return () => unsubscribe();
+      return () => {
+        if(window._adminUnsubscribe) {
+          window._adminUnsubscribe();
+          window._adminUnsubscribe = null;
+        }
+      };
     }
   },[showAdminPanel, isAdmin]);
 
