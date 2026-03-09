@@ -1417,9 +1417,10 @@ function App(){
     } catch(e){}
   }
 
-  const ADMIN_USERNAMES = ["zyesha corran","zyeshacorran","zyesha_corran"];
-  const isAdmin = familyUsername && ADMIN_USERNAMES.includes(familyUsername.toLowerCase().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"") ) ||
-    (familyUsername && familyUsername.toLowerCase().includes("zyesha"));
+  const ADMIN_USERNAMES = ["zyesha corran","zyeshacorran","zyesha_corran","zyesha"];
+  const isAdmin = !!(familyUsername && (
+    familyUsername.toLowerCase().includes("zyesha")
+  ));
 
   // ── Feedback: load active question on mount ──
   useEffect(()=>{
