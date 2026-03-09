@@ -2259,7 +2259,7 @@ function App(){
     let status, color, bg, icon, message;
     if (totalMins < range.min) {
       // Only show "naps low" alert if naps are done for the day or it's late
-      if (!napsComplete && !dayEffectivelyOver) return null;
+      if (!napsComplete && !dayEffectivelyOver) return "suppressed";
       status = "below"; color = C.ter; bg = "#fff3f0";
       icon = "⚠️";
       const gap = range.min - totalMins;
@@ -4980,6 +4980,32 @@ function App(){
                     <div style={{fontSize:13,color:C.lt}}>Tap <strong>Start Nap</strong> in the header or log a nap to see age-based sleep guidance.</div>
                   </div>
                 );
+                if (sc === "suppressed") {
+                  // Naps logged, day still in progress — show neutral in-progress card
+                  const today2 = days[selDay]||[];
+                  const naps2 = today2.filter(e=>e.type==="nap"&&!e.night);
+                  const totalMins2 = naps2.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                  const range2 = napNormalRange();
+                  return (
+                    <div style={{background:"#f0faf6",border:`1px solid ${C.mint}30`,borderLeft:`4px solid ${C.mint}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
+                      <div style={{fontSize:14,fontFamily:"monospace",color:C.mint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Is This Normal? Today's Sleep</div>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                        <div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.mint}}>{hm(totalMins2)}</div>
+                          <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,marginTop:2}}>today's naps so far</div>
+                        </div>
+                        {range2&&<div style={{textAlign:"right"}}>
+                          <div style={{fontSize:15,fontFamily:"monospace",color:C.mid}}>Typical for this age</div>
+                          <div style={{fontSize:15,fontWeight:600,color:C.mid}}>{range2.label}</div>
+                        </div>}
+                      </div>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"white",borderRadius:10,padding:"9px 12px"}}>
+                        <span style={{fontSize:16,flexShrink:0}}>✓</span>
+                        <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>Day still in progress — more naps expected. Check back later for a full summary.</div>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div style={{background:sc.bg,border:`1px solid ${sc.color}30`,borderLeft:`4px solid ${sc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:10}}>
                     <div style={{fontSize:14,fontFamily:"monospace",color:sc.color,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Is This Normal? Today's Sleep</div>
