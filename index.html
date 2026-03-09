@@ -709,7 +709,7 @@ function App(){
   const[devActFilter,setDevActFilter]=useState("all");
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null); // 'feed'|'nappy'|'sleep'|null
-  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:""});
+  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
@@ -772,6 +772,17 @@ function App(){
   const[authError,setAuthError]=useState("");
   const[authLoading,setAuthLoading]=useState(false);
   const authUsernameCheckRef = React.useRef(null);
+  // ── Biometric (Face ID / fingerprint) ──
+  const[biometricAvail,setBiometricAvail]=useState(false);
+  const[biometricStatus,setBiometricStatus]=useState("idle"); // idle|checking|success|fail
+  React.useEffect(()=>{
+    // Check if WebAuthn platform authenticator is available (Face ID, Touch ID, fingerprint)
+    if(window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
+      PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(ok=>{
+        setBiometricAvail(ok);
+      }).catch(()=>{});
+    }
+  },[]);
   const[obPin,setObPin]=useState("");
   const[obPin2,setObPin2]=useState("");
   const[obLinkCode,setObLinkCode]=useState("");
@@ -2578,6 +2589,10 @@ function App(){
   }
 
   function analyseTrends() {
+    // ── Smart Insights Engine ──
+    // These insights are CROSS-DAY pattern analysis — NOT repeating today's feed/sleep bullets.
+    // Day view shows: today's ml count, today's wake windows, today's nap total.
+    // Insights show: trends over time, consistency scores, causal links, predictive flags.
     const dk = Object.keys(days).sort();
     if (dk.length < 3) return null;
     const recent = dk.slice(-7);
@@ -2587,12 +2602,14 @@ function App(){
       return w?timeVal(w):null;
     }).filter(v=>v!==null);
     const avgWake = wakeTimes.length ? Math.round(avgArr(wakeTimes)) : null;
+    const wakeStdDev = wakeTimes.length > 1 ? Math.round(Math.sqrt(wakeTimes.reduce((s,v)=>s+Math.pow(v-(avgWake||0),2),0)/wakeTimes.length)) : null;
 
     const bedTimes = recent.map(d=>{
       const s=(days[d]||[]).find(e=>e.type==="sleep"&&!e.night);
       return s?timeVal(s):null;
     }).filter(v=>v!==null);
     const avgBed = bedTimes.length ? Math.round(avgArr(bedTimes)) : null;
+    const bedStdDev = bedTimes.length>1 ? Math.round(Math.sqrt(bedTimes.reduce((s,v)=>s+Math.pow(v-(avgBed||0),2),0)/bedTimes.length)) : null;
 
     const napCounts = recent.map(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).length);
     const avgNaps = napCounts.length ? Math.round(avgArr(napCounts)*10)/10 : null;
@@ -2602,6 +2619,7 @@ function App(){
       return ns.reduce((s,n)=>s+minDiff(n.start,n.end),0);
     });
     const avgNapMins = Math.round(avgArr(napMinsArr));
+    const napMinsStdDev = napMinsArr.length > 1 ? Math.round(Math.sqrt(napMinsArr.reduce((s,v)=>s+Math.pow(v-avgNapMins,2),0)/napMinsArr.length)) : null;
 
     const nightWakes = recent.map(d=>(days[d]||[]).filter(e=>e.night).length);
     const avgNightWakes = Math.round(avgArr(nightWakes)*10)/10;
@@ -2609,70 +2627,143 @@ function App(){
     const mlArr = recent.map(d=>(days[d]||[]).filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0));
     const avgMlRecent = Math.round(avgArr(mlArr));
 
-    const bedStdDev = bedTimes.length>1 ? Math.round(Math.sqrt(bedTimes.reduce((s,v)=>s+Math.pow(v-avgBed,2),0)/bedTimes.length)) : null;
+    // Trend direction for night wakes: are they getting better or worse?
+    const recentHalf = nightWakes.slice(-3);
+    const olderHalf = nightWakes.slice(0,3);
+    const recentAvg = recentHalf.reduce((a,b)=>a+b,0)/Math.max(recentHalf.length,1);
+    const olderAvg = olderHalf.length ? olderHalf.reduce((a,b)=>a+b,0)/olderHalf.length : recentAvg;
+    const nightWakeTrend = recentAvg < olderAvg - 0.3 ? "improving" : recentAvg > olderAvg + 0.3 ? "worsening" : "stable";
 
-    const minsToTime = m => {
-      const h = Math.floor(m/60)%24;
-      const mm = m%60;
-      return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
-    };
+    // Feed trend
+    const mlRecent3 = mlArr.slice(-3).reduce((a,b)=>a+b,0)/3;
+    const mlOlder = mlArr.slice(0,3).length ? mlArr.slice(0,3).reduce((a,b)=>a+b,0)/mlArr.slice(0,3).length : mlRecent3;
+    const feedTrend = mlRecent3 > mlOlder + 30 ? "rising" : mlRecent3 < mlOlder - 30 ? "falling" : "stable";
 
     const ageWeeks = age ? age.totalWeeks : null;
     const ww = ageWeeks ? getWakeWindow(ageWeeks) : null;
+    const napProfile = ageWeeks ? getAgeNapProfile(ageWeeks) : null;
+
+    const mtp = m => {
+      if (m === null) return "--";
+      const h = Math.floor(((m%1440)+1440)%1440/60);
+      const mm = ((m%1440)+1440)%1440%60;
+      const ampm = h >= 12 ? "pm" : "am";
+      const h12 = h%12 || 12;
+      return `${h12}:${String(mm).padStart(2,"0")}${ampm}`;
+    };
 
     const insights = [];
 
-    if (avgBed !== null) {
-      const bedH = Math.floor(avgBed/60);
-      const ideal = bedH < 18 || bedH > 20;
-      insights.push({
-        type: ideal?"warn":"good",
-        icon: ideal?"🌙":"✅",
-        title: "Bedtime",
-        body: `Average bedtime is ${fmt12(minsToTime(avgBed))}. ${bedH<18?"This is quite early — an earlier bedtime can sometimes cause early morning waking.":bedH>20?"A bedtime after 8pm can make it harder for babies to fall and stay asleep. Aim for 6:30–7:30pm.":"This is in a great range. Consistent 6:30–7:30pm bedtimes help regulate the body clock."}`
-      });
-      if (bedStdDev !== null && bedStdDev > 30) {
+    // ── 1. WAKE TIME CONSISTENCY (not just average — the day view already shows today's wake) ──
+    if (wakeStdDev !== null && wakeTimes.length >= 4) {
+      if (wakeStdDev > 35) {
         insights.push({
-          type:"warn", icon:"⚠️", title:"Bedtime consistency",
-          body:`Bedtime varies by about ${Math.round(bedStdDev)} minutes day to day. More consistency (within 15 minutes) helps baby's circadian rhythm and makes settling easier.`
+          type:"warn", icon:"🌅", title:"Inconsistent Wake Time",
+          body:`Wake time varies by ~${wakeStdDev} minutes across the week (avg ${mtp(avgWake)}). A circadian rhythm that shifts significantly day-to-day makes nap timing harder to predict and can increase night waking. Aim for morning wake within a 20-minute window each day.`
+        });
+      } else if (wakeStdDev < 15) {
+        insights.push({
+          type:"good", icon:"🌅", title:"Excellent Wake Consistency",
+          body:`Wake time is highly consistent — varying by only ~${wakeStdDev} minutes across the last ${wakeTimes.length} days. This is one of the strongest anchors for a predictable sleep rhythm. Keep it up.`
         });
       }
     }
 
-    if (avgWake !== null) {
-      const wakeH = Math.floor(avgWake/60);
+    // ── 2. BEDTIME WINDOW + CONSISTENCY (not today's bedtime — that's in Day view) ──
+    if (avgBed !== null && bedTimes.length >= 3) {
+      const bedH = Math.floor(avgBed/60);
+      if (bedStdDev !== null && bedStdDev > 30) {
+        insights.push({
+          type:"warn", icon:"🌙", title:"Bedtime Varies Too Much",
+          body:`Average bedtime is ${mtp(avgBed)} but shifts by ~${bedStdDev} minutes day to day. Variable bedtimes make it harder for babies to build sleep pressure at the right time, often leading to overtired protests or early morning waking. Aim for within 15 minutes of ${mtp(avgBed)} each night.`
+        });
+      } else if (bedH < 17) {
+        insights.push({
+          type:"warn", icon:"🌙", title:"Bedtime May Be Too Early",
+          body:`Average bedtime of ${mtp(avgBed)} is quite early. Bedtimes before 6pm can cause early morning waking (before 6am) — the baby completes their full sleep cycle and surfaces before dawn. If you're seeing early waking, try pushing bedtime 15–20 minutes later every few days.`
+        });
+      } else if (bedH > 20) {
+        insights.push({
+          type:"warn", icon:"🌙", title:"Late Average Bedtime",
+          body:`Average bedtime of ${mtp(avgBed)} is later than the recommended 6:30–7:30pm window. Overtired babies often fight sleep and wake more at night — the later the bedtime, the higher cortisol levels tend to be. A gradual 10–15 min earlier each night can reset this without disruption.`
+        });
+      }
+    }
+
+    // ── 3. NIGHT WAKE TREND — direction matters more than one night's count ──
+    if (nightWakes.length >= 5) {
+      if (nightWakeTrend === "worsening") {
+        insights.push({
+          type:"warn", icon:"😴", title:"Night Wakes Increasing",
+          body:`Night wakes have been climbing over the last 3 days (avg ${recentAvg.toFixed(1)}) compared to earlier in the week (avg ${olderAvg.toFixed(1)}). Common causes at this point: a developmental leap, undertired days reducing sleep pressure, or a feed association building. Check the nap total trend below.`
+        });
+      } else if (nightWakeTrend === "improving") {
+        insights.push({
+          type:"good", icon:"😴", title:"Night Sleep Improving",
+          body:`Night wakes have dropped recently — from an average of ${olderAvg.toFixed(1)} to ${recentAvg.toFixed(1)} per night. Whatever you're doing with daytime structure is working. Keep nap timing and bedtime consistent to maintain the improvement.`
+        });
+      }
+    }
+
+    // ── 4. NAP TOTAL vs AGE TARGET — with variance analysis ──
+    if (avgNapMins > 0 && napProfile) {
+      const { idealTotalMin, idealTotalMax } = napProfile;
+      const gapToMin = idealTotalMin - avgNapMins;
+      const gapToMax = avgNapMins - idealTotalMax;
+      if (napMinsStdDev !== null && napMinsStdDev > 40) {
+        insights.push({
+          type:"info", icon:"💤", title:"Nap Length Is Inconsistent Day to Day",
+          body:`Total nap time varies by ~${napMinsStdDev} minutes across the week (avg ${hm(avgNapMins)}). High variability often means wake windows are drifting — an overtired nap starts too late and runs short, then the next day everything shifts. A consistent first-nap start time reduces this ripple effect.`
+        });
+      } else if (gapToMin > 30) {
+        insights.push({
+          type:"warn", icon:"💤", title:"Below Target Nap Total",
+          body:`Averaging ${hm(avgNapMins)} of day sleep — ${hm(gapToMin)} below the ${hm(idealTotalMin)} minimum for this age. Daytime sleep debt tends to surface as increased night waking or early rising, not as easier settling. Extending even one nap per day can make a measurable difference.`
+        });
+      } else if (gapToMax > 30) {
+        insights.push({
+          type:"info", icon:"💤", title:"Nap Total on the High Side",
+          body:`Averaging ${hm(avgNapMins)} of day sleep — above the ideal ${hm(idealTotalMax)} maximum for this age. Too much daytime sleep can reduce overnight sleep pressure and lead to night waking or shorter consolidated stretches. Consider capping the last nap to protect bedtime.`
+        });
+      }
+    }
+
+    // ── 5. FEED INTAKE TREND — week-over-week direction (Day view shows today's ml total) ──
+    if (avgMlRecent > 0 && feedTrend !== "stable") {
+      const weekLabel = ageWeeks && ageWeeks >= 26 ? " (alongside solids)" : "";
+      if (feedTrend === "falling" && mlRecent3 < 400) {
+        insights.push({
+          type:"warn", icon:"🍼", title:"Milk Intake Dropping",
+          body:`The last 3 days have averaged ${Math.round(mlRecent3)}ml — down from ${Math.round(mlOlder)}ml earlier in the week${weekLabel}. A sustained drop below 400ml/day is worth monitoring; if it continues for more than 3–4 days, mention it to your health visitor.`
+        });
+      } else if (feedTrend === "rising" && mlRecent3 > 1100) {
+        insights.push({
+          type:"info", icon:"🍼", title:"Milk Intake Rising",
+          body:`Daily intake has climbed to ~${Math.round(mlRecent3)}ml in the last 3 days. This may reflect a growth spurt — a short-term increase is completely normal. If it continues beyond 5–7 days above 1200ml, it can sometimes indicate comfort feeding replacing sleep associations.`
+        });
+      }
+    }
+
+    // ── 6. FEED-SLEEP LINK (cross-domain — not shown anywhere else) ──
+    if (avgNightWakes > 2 && avgMlRecent < 450 && avgMlRecent > 0) {
       insights.push({
-        type: wakeH<6?"warn":wakeH>8?"info":"good",
-        icon: wakeH<6?"🌅":"☀️",
-        title:"Wake time",
-        body:`Average wake-up is ${fmt12(minsToTime(avgWake))}. ${wakeH<6?"Waking before 6am is considered early rising — this could be linked to bedtime being too early, or an overtired baby.":wakeH>8?"A late wake time may push nap and bedtime schedules later. Gently waking by 7–7:30am helps set the day's rhythm.":"A consistent wake time is one of the best tools for improving night sleep."}`
+        type:"warn", icon:"🔗", title:"Low Day Feeds May Be Driving Night Waking",
+        body:`Average daytime intake of ${avgMlRecent}ml is below the typical minimum, and night wakes are averaging ${avgNightWakes}/night. Hungry babies often compensate at night — not from habit, but genuine need. Offering one extra daytime feed or adding 20–30ml per bottle may reduce overnight hunger waking within a few days.`
       });
     }
 
-    if (avgNightWakes !== null) {
-      insights.push({
-        type: avgNightWakes>3?"warn":avgNightWakes>1?"info":"good",
-        icon: avgNightWakes>3?"😴":"🌟",
-        title:"Night wakes",
-        body:`Averaging ${avgNightWakes} night wake${avgNightWakes!==1?"s":""} per night. ${avgNightWakes>3?"Frequent waking can indicate overtiredness, undertiredness, hunger, or a sleep association. Consider reviewing the last awake window before bed.":avgNightWakes>1?"Some night waking is completely normal at this age. Focus on a consistent pre-sleep routine.":"Great night sleep! Fewer wakes suggest good sleep pressure and routine."}`
-      });
+    // ── 7. DEVELOPMENTAL LEAP WARNING (purely cross-day context) ──
+    if (ageWeeks && nightWakeTrend === "worsening") {
+      const leapNow = WONDER_WEEKS.find(l => ageWeeks >= l.weeks[0]-1 && ageWeeks <= l.weeks[1]+1);
+      if (leapNow) {
+        insights.push({
+          type:"info", icon:"🧠", title:`Leap ${leapNow.leap}: ${leapNow.title}`,
+          body:`Your baby is in or near Wonder Week leap ${leapNow.leap} (${leapNow.weeks[0]}–${leapNow.weeks[1]} weeks). Increased night waking during leaps is neurological, not behavioural — the brain is building new connections. Expect 1–3 weeks of disruption. Consistent routines help more than sleep training during this window.`
+        });
+      }
     }
 
-    if (avgNapMins > 0 && ww) {
-      insights.push({
-        type:"info", icon:"😴", title:"Nap totals",
-        body:`Averaging ${hm(avgNapMins)} of day sleep across ${avgNaps} nap${avgNaps!==1?"s":""}. Appropriate wake windows for this age are ${ww.label}.`
-      });
-    }
-
-    if (avgMlRecent > 0) {
-      insights.push({
-        type:"info", icon:"🍼", title:"Feeding",
-        body:`Averaging ${avgMlRecent}ml per day over the last 7 days. ${avgMlRecent<400?"This seems low — if you're concerned about intake, speak to your health visitor.":avgMlRecent>1200?"High intake can sometimes indicate comfort feeding rather than hunger.":"Intake looks consistent."}`
-      });
-    }
-
-    return { insights, avgWake: avgWake!==null?minsToTime(avgWake):null, avgBed: avgBed!==null?minsToTime(avgBed):null, avgNaps, avgNapMins, avgNightWakes, avgMlRecent, days: dk.length };
+    return { insights, avgWake:avgWake!==null?mtp(avgWake):null, avgBed:avgBed!==null?mtp(avgBed):null, avgNaps, avgNapMins, avgNightWakes, avgMlRecent, days:dk.length };
   }
 
   // ── PERSONAL BASELINES: analyse baby's own 7-day patterns vs NHS ──
@@ -3071,7 +3162,7 @@ function App(){
 
   function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});setModal("entry");}
   function openLogPanel(panel){
-    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime()});
+    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime(),feedTime:nowTime(),feedTimeSet:false});
     setLogPanel(panel);
   }
 
@@ -3157,12 +3248,13 @@ function App(){
 
   function saveLogFeed(){
     const f=logForm;
+    const t = f.feedTimeSet && f.feedTime ? f.feedTime : nowTime();
     if(f.feedType==="bottle"){
-      quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:parseInt(f.amount)||0,note:f.note||""});
+      quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:parseInt(f.amount)||0,note:f.note||""});
     } else if(f.feedType==="breast"){
-      quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"breast",breastL:parseInt(f.breastL)||0,breastR:parseInt(f.breastR)||0,amount:0,note:f.note||""});
+      quickAddLog("feed",{type:"feed",time:t,feedType:"breast",breastL:parseInt(f.breastL)||0,breastR:parseInt(f.breastR)||0,amount:0,note:f.note||""});
     } else {
-      quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"solids",amount:0,note:f.note||""});
+      quickAddLog("feed",{type:"feed",time:t,feedType:"solids",amount:0,note:f.note||""});
     }
   }
 
@@ -3440,6 +3532,8 @@ function App(){
         const ok = await verifyLogin(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+          // Store biometric-eligible flag after successful PIN login
+          try{ localStorage.setItem("bio_user", authUsername); }catch{}
           setOnboarded(true); setAuthScreen(null); return;
         } else {
           setAuthError("Wrong PIN — try again");
@@ -3453,6 +3547,66 @@ function App(){
           try{ localStorage.removeItem("tut_v1"); }catch{}
           setTutStep(0); setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); return;
         } else { setAuthError("That username is taken — try another"); setAuthLoading(false); }
+      }
+    }
+
+    // ── Biometric login using WebAuthn / Face ID / Touch ID ──
+    async function handleBiometricLogin() {
+      if (!biometricAvail) return;
+      const storedUser = (() => { try { return localStorage.getItem("bio_user") || authUsername; } catch { return authUsername; } })();
+      if (!storedUser) { setAuthError("Enter your username first, then use Face ID"); return; }
+      setBiometricStatus("checking");
+      try {
+        // Use a simple user-presence check — no server round-trip needed.
+        // We use a local credential if one exists, otherwise create one bound to this device.
+        const credIdRaw = (() => { try { return localStorage.getItem("bio_cred_"+storedUser); } catch { return null; } })();
+
+        if (credIdRaw) {
+          // ── Assert existing credential ──
+          const credId = Uint8Array.from(atob(credIdRaw), c => c.charCodeAt(0));
+          const challenge = crypto.getRandomValues(new Uint8Array(32));
+          await navigator.credentials.get({
+            publicKey: {
+              challenge,
+              timeout: 60000,
+              rpId: window.location.hostname || "localhost",
+              allowCredentials: [{ id: credId, type: "public-key", transports: ["internal"] }],
+              userVerification: "required",
+            }
+          });
+          // If we get here, biometric passed — sign in
+          try{ localStorage.setItem("onboarded_v2","1"); localStorage.setItem("bio_user", storedUser); }catch{}
+          setOnboarded(true); setAuthScreen(null); setBiometricStatus("success");
+        } else {
+          // ── Register new credential on this device ──
+          const challenge = crypto.getRandomValues(new Uint8Array(32));
+          const userId = crypto.getRandomValues(new Uint8Array(16));
+          const cred = await navigator.credentials.create({
+            publicKey: {
+              challenge,
+              rp: { name: "OBubba", id: window.location.hostname || "localhost" },
+              user: { id: userId, name: storedUser, displayName: storedUser },
+              pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+              authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+              timeout: 60000,
+            }
+          });
+          // Store credential ID
+          const credIdB64 = btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
+          try{ localStorage.setItem("bio_cred_"+storedUser, credIdB64); localStorage.setItem("bio_user", storedUser); }catch{}
+          setBiometricStatus("success");
+          setAuthError("Face ID / fingerprint registered! You can now use it to sign in next time.");
+        }
+      } catch(e) {
+        setBiometricStatus("fail");
+        if (e.name === "NotAllowedError") {
+          setAuthError("Biometric cancelled.");
+        } else if (e.name === "SecurityError") {
+          setAuthError("Biometric not available on this connection (needs HTTPS).");
+        } else {
+          setAuthError("Biometric failed — use PIN instead.");
+        }
+        setTimeout(() => setBiometricStatus("idle"), 2000);
       }
     }
     return (
@@ -3510,6 +3664,19 @@ function App(){
           )}
 
           {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
+
+          {/* Biometric login — shown when device supports it and in login mode */}
+          {isLogin && biometricAvail && (()=>{
+            const hasCred = (() => { try { return !!localStorage.getItem("bio_cred_"+(authUsername||localStorage.getItem("bio_user")||"")); } catch { return false; } })();
+            const bioLabel = hasCred ? "Sign in with Face ID / Fingerprint" : "Register Face ID / Fingerprint";
+            return (
+              <button onClick={handleBiometricLogin} disabled={biometricStatus==="checking"}
+                style={{width:"100%",marginTop:10,background:biometricStatus==="checking"?"#f2d9cc":"linear-gradient(135deg,#2c1f1a,#4a2e26)",border:"none",borderRadius:99,padding:"13px",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px rgba(44,31,26,0.3)",transition:"all 0.2s",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                <span style={{fontSize:18}}>{biometricStatus==="checking"?"⏳":biometricStatus==="success"?"✅":"🔐"}</span>
+                <span>{biometricStatus==="checking"?"Checking biometric…":bioLabel}</span>
+              </button>
+            );
+          })()}
 
           {/* Sign In button — always visible for login, shown for create */}
           {isLogin ? (
@@ -3585,18 +3752,18 @@ function App(){
         sub:"Sign in to sync your existing data, or create a new account to get started.",
         action: (
           <div style={{width:"100%",marginTop:24,display:"flex",flexDirection:"column",gap:12}}>
-            <button onClick={()=>setObStep(2)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:16,padding:"18px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
+            <button onClick={()=>setObStep(2)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:16,padding:"18px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 20px rgba(201,112,90,0.4)",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
               <span style={{fontSize:28}}>✨</span>
               <div>
                 <div style={{fontSize:16,fontWeight:700}}>Create new account</div>
-                <div style={{fontSize:13,opacity:0.85,fontWeight:400,marginTop:2}}>Set up a username & PIN</div>
+                <div style={{fontSize:13,opacity:0.82,fontWeight:400,marginTop:2}}>Set up a username & PIN</div>
               </div>
             </button>
-            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"white",border:`2px solid ${C.blush}`,borderRadius:16,padding:"18px",color:C.deep,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
+            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:16,padding:"18px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
               <span style={{fontSize:28}}>🔐</span>
               <div>
                 <div style={{fontSize:16,fontWeight:700}}>I already have an account</div>
-                <div style={{fontSize:13,color:C.lt,fontWeight:400,marginTop:2}}>Sign in to restore your data</div>
+                <div style={{fontSize:13,color:"rgba(255,255,255,0.45)",fontWeight:400,marginTop:2}}>Sign in to restore your data</div>
               </div>
             </button>
           </div>
@@ -3655,7 +3822,7 @@ function App(){
                 boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
               {obUsernameStatus==="checking"?"Checking…":"Continue →"}
             </button>
-            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
               Skip for now
             </button>
           </div>
@@ -3677,7 +3844,7 @@ function App(){
                 <PinPad value={obPin2} onChange={setObPin2} onComplete={(p)=>{ if(p===obPin) completeOnboarding(); }}/>
               </div>
             )}
-            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>
+            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>
               Skip PIN
             </button>
           </div>
@@ -3685,27 +3852,97 @@ function App(){
       },
     ];
     const step = steps[obStep];
+    const isHeroStep = obStep === 0;
     return (
-      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"space-between",padding:"env(safe-area-inset-top,24px) 24px env(safe-area-inset-bottom,24px)",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",overflowY:"auto"}}>
-        <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
-        <div style={{display:"flex",gap:8,paddingTop:16,marginBottom:8,flexShrink:0}}>
-          {steps.map((_,i)=>(
-            <div key={i} style={{width:i===obStep?24:8,height:8,borderRadius:99,background:i===obStep?C.ter:C.blush,transition:"all 0.3s"}}/>
-          ))}
-        </div>
-        <div key={obStep} style={{animation:"fadeUp 0.4s ease",textAlign:"center",width:"100%",maxWidth:360,flex:1,display:"flex",flexDirection:"column",justifyContent:"center",paddingTop:8,paddingBottom:8}}>
-          <div style={{marginBottom:12,lineHeight:1,display:"flex",justifyContent:"center"}}>
-            {step.icon === "oliver"
-              ? <img src="oliver.png" style={{width:140,height:140,borderRadius:24,boxShadow:"0 10px 28px rgba(0,0,0,0.12)"}}/>
-              : typeof step.icon === "string"
-              ? <span style={{fontSize:56}}>{step.icon}</span>
-              : step.icon}
+      <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1c100a 0%,#2e1710 45%,#1c100a 100%)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",overflowY:"auto",position:"relative",overflow:"hidden"}}>
+        <style>{`
+          @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+          @keyframes obFloat{0%,100%{transform:translateY(0px) rotate(-1deg)}50%{transform:translateY(-10px) rotate(1deg)}}
+          @keyframes obGlow{0%,100%{opacity:0.3}50%{opacity:0.7}}
+          @keyframes obShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+        `}</style>
+
+        {/* Ambient glow blobs */}
+        <div style={{position:"absolute",top:-100,left:"50%",transform:"translateX(-50%)",width:500,height:400,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.18) 0%,transparent 65%)",pointerEvents:"none",animation:"obGlow 5s ease infinite"}}/>
+        <div style={{position:"absolute",bottom:-60,right:-80,width:320,height:320,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.09) 0%,transparent 70%)",pointerEvents:"none"}}/>
+        <div style={{position:"absolute",bottom:80,left:-60,width:200,height:200,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(111,168,152,0.08) 0%,transparent 70%)",pointerEvents:"none"}}/>
+
+        {isHeroStep ? (
+          /* ─── HERO SPLASH ─── */
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"}}>
+            {/* Top bar */}
+            <div style={{padding:"48px 28px 0",display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.13)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0,boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>
+                <img src="icon.png" alt="OBubba" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.parentNode.innerHTML="🍼";}}/>
+              </div>
+              <div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:"white",lineHeight:1,letterSpacing:"0.01em"}}>OBubba</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",letterSpacing:"0.08em",textTransform:"uppercase",marginTop:2}}>Baby Tracker</div>
+              </div>
+            </div>
+
+            {/* Hero content */}
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 28px 0",textAlign:"center",animation:"fadeUp 0.5s ease"}}>
+              {/* Mascot with halo glow */}
+              <div style={{position:"relative",marginBottom:28}}>
+                <div style={{position:"absolute",inset:-16,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.25) 0%,transparent 70%)",animation:"obGlow 3s ease infinite"}}/>
+                <div style={{width:158,height:158,borderRadius:36,overflow:"hidden",border:"1.5px solid rgba(255,255,255,0.1)",boxShadow:"0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.1)",animation:"obFloat 5s ease infinite",position:"relative"}}>
+                  <img src="oliver.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.background="#2e1710";e.target.parentNode.innerHTML="<div style='font-size:72px;line-height:158px'>👶</div>";}}/>
+                </div>
+                <div style={{position:"absolute",bottom:-6,right:-6,width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#50c878,#38b060)",border:"2.5px solid #1c100a",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:"0 4px 14px rgba(80,200,120,0.45)"}}>✓</div>
+              </div>
+
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:"white",lineHeight:1.18,marginBottom:14}}>
+                Everything your<br/>baby needs, tracked.
+              </div>
+              <div style={{fontSize:15,color:"rgba(255,255,255,0.5)",lineHeight:1.7,marginBottom:30,maxWidth:290}}>
+                Sleep, feeds, nappies, growth and smart insights — built for the reality of new parenthood.
+              </div>
+
+              {/* Feature chips */}
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:6}}>
+                {[["🍼","Feeds & intake"],["😴","Sleep tracking"],["🧠","Smart insights"],["📏","Growth & WHO"],["⭐","Milestones"],["🔗","Partner sync"]].map(([ico,lbl],i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:99,padding:"7px 13px",backdropFilter:"blur(8px)"}}>
+                    <span style={{fontSize:13}}>{ico}</span>
+                    <span style={{fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:500}}>{lbl}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA section */}
+            <div style={{padding:"28px 28px 40px"}}>
+              <button onClick={()=>setObStep(1)} style={{width:"100%",background:"linear-gradient(135deg,#c9705a 0%,#e0825f 100%)",border:"none",borderRadius:18,padding:"19px",color:"white",fontSize:17,fontWeight:700,cursor:"pointer",boxShadow:"0 8px 32px rgba(201,112,90,0.5)",letterSpacing:"0.01em",transition:"transform 0.12s",fontFamily:"inherit"}}>
+                Get Started →
+              </button>
+              <div style={{textAlign:"center",marginTop:12,fontSize:12,color:"rgba(255,255,255,0.25)",letterSpacing:"0.02em"}}>Free · No ads · Your data stays private</div>
+            </div>
           </div>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1.25,whiteSpace:"pre-line",marginBottom:8}}>{step.title}</div>
-          <div style={{fontSize:13,color:C.lt,lineHeight:1.6,marginBottom:4}}>{step.sub}</div>
-          {step.action}
-          {obStep>0&&<button onClick={()=>setObStep(s=>s-1)} style={{marginTop:12,background:"none",border:"none",color:C.lt,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>}
-        </div>
+        ) : (
+          /* ─── SUBSEQUENT STEPS (1–3) ─── */
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"}}>
+            {/* Step header */}
+            <div style={{padding:"48px 28px 20px",display:"flex",alignItems:"center",gap:12}}>
+              <button onClick={()=>setObStep(s=>s-1)} style={{width:38,height:38,borderRadius:11,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.6)",fontSize:17,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>←</button>
+              <div style={{flex:1,height:3,background:"rgba(255,255,255,0.08)",borderRadius:99,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${(obStep/3)*100}%`,background:"linear-gradient(90deg,#c9705a,#e0825f)",borderRadius:99,transition:"width 0.4s ease"}}/>
+              </div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",fontFamily:"monospace",flexShrink:0}}>{obStep}/3</div>
+            </div>
+
+            {/* Content */}
+            <div key={obStep} style={{flex:1,padding:"0 28px",animation:"fadeUp 0.35s ease"}}>
+              <div style={{fontSize:46,marginBottom:14,lineHeight:1}}>{step.icon}</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:"white",lineHeight:1.22,whiteSpace:"pre-line",marginBottom:10}}>{step.title}</div>
+              <div style={{fontSize:14,color:"rgba(255,255,255,0.45)",lineHeight:1.65,marginBottom:22}}>{step.sub}</div>
+              {/* Action card */}
+              <div style={{background:"rgba(255,255,255,0.05)",backdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.09)",borderRadius:22,padding:"22px 18px"}}>
+                {step.action}
+              </div>
+            </div>
+            <div style={{height:40}}/>
+          </div>
+        )}
       </div>
     );
   }
@@ -3826,85 +4063,101 @@ function App(){
       {tutStep >= 0 && (()=>{
         const TUT_STEPS = [
           {
-            icon:"📅",
+            icon:"👋",
             title:"Welcome to OBubba!",
-            body:"This quick tour shows you the key features — takes about a minute. Tap anywhere on the dark background or 'Next' to move forward.",
-            spot:"center",
-            arrow:null,
+            body:"A quick tour of every feature — takes about 90 seconds. Tap anywhere on the dark area or 'Next' to move through it.",
+            spot:null, arrow:null,
           },
           {
             icon:"🍼",
             title:"Log Feed, Nappy or Sleep",
-            body:"These four buttons are your main tools. Tap Feed, Nappy, or Sleep to log instantly — or Notes to paste a rough text summary and let OBubba parse it automatically.",
-            spot:"log-bar",
-            arrow:"top",
+            body:"These four buttons are your core tools. Tap Feed to log a bottle, breast or solids. Nappy for wet or dirty. Sleep for naps or bedtime. Notes lets you paste a rough text summary and OBubba parses it automatically.",
+            spot:"log-bar", arrow:"up",
           },
           {
             icon:"⏱️",
             title:"Nap & Bedtime Countdown",
-            body:"This pill counts down to the next predicted nap based on your baby's age and wake windows. When it hits zero — tap it to start the nap timer. When all naps are done, it switches to bedtime countdown and tapping logs bedtime instantly.",
-            spot:"nap-countdown",
-            arrow:"top-right",
+            body:"This pill predicts when the next nap is due based on your baby's age and wake windows. When it hits zero, tap it to start the nap timer. Once all naps are done it switches to bedtime — tap then to log instantly.",
+            spot:"nap-countdown", arrow:"down",
           },
           {
             icon:"🤱",
-            title:"Live Timers",
-            body:"Tap 🤱 Start Feed for a breastfeed timer — track left and right sides separately. The nap timer starts automatically when you tap the countdown pill at nap time.",
-            spot:"start-feed",
-            arrow:"top-left",
+            title:"Breastfeed Timer",
+            body:"Tap 🤱 Start Feed to begin a live breastfeed session. Switch between Left and Right sides with one tap. Hit Save when done — it logs time, duration and which sides were used.",
+            spot:"start-feed", arrow:"down",
           },
           {
             icon:"📊",
-            title:"Week & Trends",
-            body:"Week shows 7-day averages for feeds, naps and sleep. Trends shows charts over time — great for spotting patterns and showing your health visitor.",
-            spot:"bottom-nav-week",
-            arrow:"bottom",
+            title:"Day Tab — Today at a Glance",
+            body:"The Day tab shows all today's entries as a visual timeline. Tap any entry to edit or delete it. The feed card tracks ml intake against NHS targets. The sleep card shows wake windows and sleep quality.",
+            spot:"bottom-nav-day", arrow:"up",
+          },
+          {
+            icon:"📅",
+            title:"Week Tab — 7-Day Averages",
+            body:"Week shows bar charts of feed totals and nap minutes across the last 7 days, plus a summary table. Tap any day row to jump straight to that day.",
+            spot:"bottom-nav-week", arrow:"up",
+          },
+          {
+            icon:"📈",
+            title:"Trends — Charts Over Time",
+            body:"Trends shows bedtime, wake time, nap duration and feed totals over time. Scroll down to see Smart Insights — personalised observations based on your baby's own patterns vs NHS guidelines.",
+            spot:"bottom-nav-trends", arrow:"up",
           },
           {
             icon:"📏",
-            title:"Growth & Milestones",
-            body:"Log weight in Growth to see your baby's WHO percentile. Miles shows age-appropriate milestones — tap any to mark it done and record the date.",
-            spot:"bottom-nav-growth",
-            arrow:"bottom",
+            title:"Growth — WHO Percentile Chart",
+            body:"Log your baby's weight to see their WHO percentile plotted on a growth chart. Tap any entry to edit it. The chart covers 0–24 months with lines for every major percentile band.",
+            spot:"bottom-nav-growth", arrow:"up",
+          },
+          {
+            icon:"⭐",
+            title:"Milestones",
+            body:"Age-appropriate developmental milestones appear here automatically. Tap any to mark it done and record the date. Activities suggest things to try at home. Wonder Weeks leaps are flagged when relevant.",
+            spot:"bottom-nav-miles", arrow:"up",
+          },
+          {
+            icon:"✨",
+            title:"Smart Insights",
+            body:"After 7 days of data, OBubba analyses your baby's real patterns — wake windows, nap totals, feed intake and night wakes — and generates personalised observations you won't see in the Day view. Found in the Trends tab.",
+            spot:null, arrow:null,
           },
           {
             icon:"👨‍👩‍👧",
             title:"Share with Your Partner",
             bodyJSX:(
-              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
-                <div style={{marginBottom:8}}>Tap <strong>👨‍👩‍👧 Share</strong> in the header to sync with a partner or restore data on a new phone.</div>
-                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",gap:5}}>
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>👨‍👩‍👧 Share</strong> in the header to sync with a partner or restore to a new phone.</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
                   <div>🔗 Tap <strong>Get code</strong> next to your child's name</div>
                   <div>📲 Partner opens Share → <strong>Link a child</strong> → enters your code</div>
                   <div>✅ Both phones stay in sync automatically</div>
+                  <div>💾 Tap <strong>Save</strong> to manually push a cloud backup anytime</div>
                 </div>
               </div>
             ),
-            spot:"share-btn",
-            arrow:"top-right",
+            spot:"share-btn", arrow:"down",
           },
           {
             icon:"👶",
             title:"Multiple Children",
             bodyJSX:(
-              <div style={{fontSize:15,color:"#5a4a3a",lineHeight:1.7}}>
-                <div style={{marginBottom:8}}>Each child has their own logs, growth chart and milestones — completely separate.</div>
-                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",gap:5}}>
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>Each child has separate logs, growth chart and milestones.</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
                   <div>👆 <strong>Swipe left/right</strong> on the header to switch children</div>
-                  <div>＋ Tap the <strong>+ button</strong> next to the dots to add a child</div>
+                  <div>＋ Tap the <strong>+ dot</strong> in the header to add a child</div>
                   <div>⚙️ Tap the <strong>gear icon</strong> to edit name, DOB or sex</div>
                 </div>
               </div>
             ),
-            spot:"center",
-            arrow:null,
+            spot:null, arrow:null,
           },
           {
             icon:"🎉",
             title:"You're all set!",
-            body:"Start by logging today's wake time, then let the countdown guide the rest of the day. Tap '? Tour' in the header anytime to revisit this. Happy tracking!",
-            spot:"center",
-            arrow:null,
+            body:"Start by logging today's wake time, then let the countdown guide the rest of the day. Tap '? Tour' in the header anytime to revisit this.",
+            spot:null, arrow:null,
           },
         ];
 
@@ -3921,131 +4174,139 @@ function App(){
         const step = TUT_STEPS[tutStep];
         const isLast = tutStep === TUT_STEPS.length - 1;
 
-        // Spotlight positions
+        // Spotlight positions — pixel-perfect to actual element locations
         const spotPos = {
-          "bottom-nav-day":   { bottom:55, left:"10%",  width:"18%", height:56 },
-          "bottom-nav-week":  { bottom:55, left:"28%",  width:"18%", height:56 },
-          "bottom-nav-trends":{ bottom:55, left:"46%",  width:"18%", height:56 },
-          "bottom-nav-growth":{ bottom:55, left:"64%",  width:"18%", height:56 },
-          "bottom-nav-miles": { bottom:55, left:"82%",  width:"18%", height:56 },
-          "nap-countdown":    { top:115,   right:12,    width:120,   height:48 },
-          "start-feed":       { top:115,   left:12,     width:130,   height:40 },
-          "share-btn":        { top:62,    left:"42%",  width:110,   height:36 },
-          "log-bar":          { top:340,   left:"4%",   width:"92%", height:80 },
-          "center": null,
+          "bottom-nav-day":   { bottom:56, left:"2%",  width:"18%", height:54 },
+          "bottom-nav-week":  { bottom:56, left:"21%", width:"18%", height:54 },
+          "bottom-nav-trends":{ bottom:56, left:"40%", width:"18%", height:54 },
+          "bottom-nav-growth":{ bottom:56, left:"59%", width:"18%", height:54 },
+          "bottom-nav-miles": { bottom:56, left:"78%", width:"20%", height:54 },
+          "nap-countdown":    { top:148,   right:12,   width:136,   height:50 },
+          "start-feed":       { top:148,   left:12,    width:140,   height:50 },
+          "share-btn":        { top:90,    left:"40%", width:120,   height:32 },
+          "log-bar":          { top:354,   left:"2%",  width:"96%", height:84 },
         };
-        const pos = spotPos[step.spot];
+        const pos = step.spot ? spotPos[step.spot] : null;
+
+        // Card position: arrow "up" = card below highlight; "down" = card above; null = center
+        let cardStyle = {
+          position:"fixed",
+          left:"50%",
+          transform:"translateX(-50%)",
+          width:"min(350px, calc(100vw - 28px))",
+          background:"white",
+          borderRadius:24,
+          padding:"20px 18px 16px",
+          boxShadow:"0 24px 64px rgba(0,0,0,0.45)",
+          animation:"tutPop 0.3s ease",
+          zIndex:1002,
+          pointerEvents:"auto",
+          maxHeight:"calc(100vh - 60px)",
+          overflowY:"auto",
+        };
+        if (step.arrow === "up") {
+          // Highlight is at bottom — card floats above it
+          cardStyle.bottom = pos ? (window.innerHeight - (typeof pos.bottom==="number" ? pos.bottom : 56) - 240) : 160;
+          cardStyle.bottom = 170;
+          cardStyle.top = "auto";
+        } else if (step.arrow === "down") {
+          // Highlight is at top — card appears below it
+          cardStyle.top = pos ? ((pos.top||0) + (pos.height||50) + 18) : 190;
+          cardStyle.bottom = "auto";
+        } else {
+          cardStyle.top = "50%";
+          cardStyle.transform = "translate(-50%, -50%)";
+        }
 
         return (
           <div style={{position:"fixed",inset:0,zIndex:999,pointerEvents:"auto"}}>
-            {/* Dim backdrop */}
-            <div style={{position:"absolute",inset:0,background:"rgba(20,12,8,0.72)",backdropFilter:"blur(2px)"}}
+            {/* Dim backdrop — clicking advances */}
+            <div style={{position:"absolute",inset:0,background:"rgba(16,8,4,0.80)",backdropFilter:"blur(2.5px)"}}
               onClick={nextStep}/>
 
-            {/* Spotlight cutout (if position known) */}
+            {/* Spotlight — real cutout using clip-path where supported, else glowing border box */}
             {pos && (
-              <div style={{
-                position:"absolute",
-                ...pos,
-                borderRadius:16,
-                boxShadow:"0 0 0 9999px rgba(20,12,8,0.0)",
-                background:"transparent",
-                border:"2.5px solid rgba(255,255,255,0.6)",
-                animation:"tutPulse 1.8s ease infinite",
-                pointerEvents:"none",
-                zIndex:1001,
-              }}/>
+              <>
+                {/* Glowing highlight border */}
+                <div style={{
+                  position:"fixed",
+                  ...pos,
+                  borderRadius:14,
+                  border:"2.5px solid rgba(255,255,255,0.75)",
+                  boxShadow:"0 0 0 4px rgba(201,112,90,0.35), 0 0 24px rgba(201,112,90,0.4)",
+                  animation:"tutPulse 1.6s ease infinite",
+                  pointerEvents:"none",
+                  zIndex:1001,
+                  background:"rgba(255,255,255,0.04)",
+                }}/>
+                {/* Arrow indicator pointing from card toward highlight */}
+                {step.arrow==="up" && (
+                  <div style={{
+                    position:"fixed",
+                    left:"50%",transform:"translateX(-50%)",
+                    bottom: 170 + 4,
+                    width:0,height:0,
+                    borderLeft:"10px solid transparent",borderRight:"10px solid transparent",
+                    borderTop:"10px solid white",
+                    zIndex:1003,pointerEvents:"none",
+                  }}/>
+                )}
+                {step.arrow==="down" && (
+                  <div style={{
+                    position:"fixed",
+                    left:"50%",transform:"translateX(-50%)",
+                    top: (typeof cardStyle.top==="number" ? cardStyle.top : 190) - 10,
+                    width:0,height:0,
+                    borderLeft:"10px solid transparent",borderRight:"10px solid transparent",
+                    borderBottom:"10px solid white",
+                    zIndex:1003,pointerEvents:"none",
+                  }}/>
+                )}
+              </>
             )}
 
             {/* Tooltip card */}
-            {(()=>{
-              // Calculate safe position based on arrow direction
-              // All positions use fixed so they're always relative to viewport
-              let cardStyle = {
-                position:"fixed",
-                left:"50%",
-                transform:"translateX(-50%)",
-                width:"min(340px, calc(100vw - 32px))",
-                background:"white",
-                borderRadius:22,
-                padding:"20px 18px 16px",
-                boxShadow:"0 20px 60px rgba(0,0,0,0.4)",
-                animation:"tutPop 0.3s ease",
-                zIndex:1002,
-                pointerEvents:"auto",
-                maxHeight:"calc(100vh - 40px)",
-                overflowY:"auto",
-              };
-              if (step.arrow==="bottom" || step.arrow==="bottom-right") {
-                // Card sits above the bottom nav — anchor to bottom
-                cardStyle.bottom = 140;
-                cardStyle.top = "auto";
-              } else if (step.arrow==="top-right" || step.arrow==="top-left" || step.arrow==="top") {
-                // Card sits below the top element
-                cardStyle.top = 175;
-                cardStyle.bottom = "auto";
-              } else {
-                // Centered — use fixed centering
-                cardStyle.top = "50%";
-                cardStyle.transform = "translate(-50%, -50%)";
-              }
-              return (
-                <div style={cardStyle}>
-                  {/* Arrow pointer */}
-                  {step.arrow==="bottom" && (
-                    <div style={{position:"absolute",bottom:-10,left:"50%",transform:"translateX(-50%)",width:0,height:0,borderLeft:"10px solid transparent",borderRight:"10px solid transparent",borderTop:"10px solid white"}}/>
-                  )}
-                  {step.arrow==="bottom-right" && (
-                    <div style={{position:"absolute",bottom:-10,right:24,width:0,height:0,borderLeft:"10px solid transparent",borderRight:"10px solid transparent",borderTop:"10px solid white"}}/>
-                  )}
-                  {step.arrow==="top-right" && (
-                    <div style={{position:"absolute",top:-10,right:24,width:0,height:0,borderLeft:"10px solid transparent",borderRight:"10px solid transparent",borderBottom:"10px solid white"}}/>
-                  )}
-                  {step.arrow==="top-left" && (
-                    <div style={{position:"absolute",top:-10,left:24,width:0,height:0,borderLeft:"10px solid transparent",borderRight:"10px solid transparent",borderBottom:"10px solid white"}}/>
-                  )}
-                  {step.arrow==="top" && (
-                    <div style={{position:"absolute",top:-10,left:"50%",transform:"translateX(-50%)",width:0,height:0,borderLeft:"10px solid transparent",borderRight:"10px solid transparent",borderBottom:"10px solid white"}}/>
-                  )}
-
-                  {/* Header row */}
-                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{width:38,height:38,borderRadius:12,background:"#fdf0eb",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0}}>{step.icon}</div>
-                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep,lineHeight:1.2}}>{step.title}</div>
-                    </div>
-                    <button onClick={dismissTutorial} style={{background:"none",border:"none",color:C.lt,fontSize:18,cursor:"pointer",padding:"0 0 0 8px",lineHeight:1,flexShrink:0}}>&#x2715;</button>
-                  </div>
-
-                  <div style={{fontSize:15,color:C.mid,lineHeight:1.6,marginBottom:14}}>{step.bodyJSX || step.body}</div>
-
-                  {/* Progress dots */}
-                  <div style={{display:"flex",gap:4,justifyContent:"center",marginBottom:12}}>
-                    {TUT_STEPS.map((_,i)=>(
-                      <div key={i} onClick={()=>setTutStep(i)} style={{width:i===tutStep?18:6,height:6,borderRadius:99,background:i===tutStep?C.ter:C.blush,transition:"all 0.3s",cursor:"pointer"}}/>
-                    ))}
-                  </div>
-
-                  {/* Buttons */}
-                  <div style={{display:"flex",gap:8}}>
-                    {tutStep > 0 && (
-                      <button onClick={prevStep} style={{flex:1,padding:"9px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"white",color:C.mid,fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                        ← Back
-                      </button>
-                    )}
-                    <button onClick={nextStep} style={{flex:2,padding:"10px",borderRadius:12,border:"none",background:`linear-gradient(135deg,#c9705a,#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 14px rgba(201,112,90,0.35)"}}>
-                      {isLast ? "Start Tracking!" : "Next →"}
-                    </button>
-                  </div>
-
-                  {tutStep === 0 && (
-                    <button onClick={dismissTutorial} style={{width:"100%",marginTop:8,background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
-                      Skip tutorial
-                    </button>
-                  )}
+            <div style={cardStyle}>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:38,height:38,borderRadius:12,background:"#fdf0eb",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,flexShrink:0}}>{step.icon}</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep,lineHeight:1.2}}>{step.title}</div>
                 </div>
-              );
-            })()}
+                <button onClick={dismissTutorial} style={{background:"none",border:"none",color:C.lt,fontSize:18,cursor:"pointer",padding:"0 0 0 8px",lineHeight:1,flexShrink:0}}>✕</button>
+              </div>
+
+              <div style={{fontSize:14,color:C.mid,lineHeight:1.65,marginBottom:14}}>{step.bodyJSX || step.body}</div>
+
+              {/* Progress */}
+              <div style={{display:"flex",gap:3,justifyContent:"center",marginBottom:12}}>
+                {TUT_STEPS.map((_,i)=>(
+                  <div key={i} onClick={()=>setTutStep(i)} style={{
+                    width:i===tutStep?18:5,height:5,borderRadius:99,
+                    background:i<tutStep?"#c9705a":i===tutStep?C.ter:C.blush,
+                    transition:"all 0.3s",cursor:"pointer",flexShrink:0
+                  }}/>
+                ))}
+              </div>
+
+              {/* Buttons */}
+              <div style={{display:"flex",gap:8}}>
+                {tutStep > 0 && (
+                  <button onClick={prevStep} style={{flex:1,padding:"9px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"white",color:C.mid,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                    ← Back
+                  </button>
+                )}
+                <button onClick={nextStep} style={{flex:2,padding:"10px",borderRadius:12,border:"none",background:`linear-gradient(135deg,#c9705a,#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 14px rgba(201,112,90,0.35)"}}>
+                  {isLast ? "🎉 Start Tracking!" : "Next →"}
+                </button>
+              </div>
+
+              {tutStep === 0 && (
+                <button onClick={dismissTutorial} style={{width:"100%",marginTop:8,background:"none",border:"none",color:C.lt,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                  Skip tour
+                </button>
+              )}
+            </div>
           </div>
         );
       })()}
@@ -4064,8 +4325,8 @@ function App(){
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
-        {/* ── ROW 1: Child dots + spacer + settings ── */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+        {/* ── ROW 1: Child dots + settings ── */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             {childIds.map(cid=>(
               <button key={cid} onClick={()=>setActiveChildId(cid)} style={{
@@ -4080,17 +4341,20 @@ function App(){
             }}>+</button>
           </div>
           <button onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
-            style={{background:"rgba(255,255,255,0.5)",border:"none",borderRadius:99,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16}}>
+            style={{background:"rgba(255,255,255,0.5)",border:"none",borderRadius:99,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:14}}>
             ⚙️
           </button>
         </div>
 
-        {/* ── ROW 2: Baby name (editable) ── */}
+        {/* ── ROW 2: Logo icon + Baby name (editable) ── */}
         {!nameEdit ? (
-          <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}} style={{cursor:"pointer",marginBottom:6}}>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,color:C.deep,fontWeight:700,lineHeight:1.15,display:"flex",alignItems:"center",gap:6}}>
+          <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}} style={{cursor:"pointer",marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:34,height:34,borderRadius:9,overflow:"hidden",flexShrink:0,border:"1.5px solid rgba(255,255,255,0.75)",boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
+              <img src="icon.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
+                onError={e=>{e.target.style.display="none";e.target.parentNode.style.background=C.ter;e.target.parentNode.style.display="flex";e.target.parentNode.style.alignItems="center";e.target.parentNode.style.justifyContent="center";e.target.parentNode.innerHTML="🍼";}}/>
+            </div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:C.deep,fontWeight:700,lineHeight:1.1}}>
               {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
-              <span style={{fontSize:14,opacity:0.35}}>✦</span>
             </div>
           </div>
         ) : (
@@ -4102,41 +4366,42 @@ function App(){
           </form>
         )}
 
-        {/* ── ROW 3: Age pill + action buttons ── */}
-        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:10}}>
+        {/* ── ROW 3: Age · Share · Save · Tour — single line, no wrap ── */}
+        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:10,overflowX:"auto",flexWrap:"nowrap",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
           {(()=>{
             if (!age && !babyUnborn) return (
               <div onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
-                style={{fontSize:13,color:C.mid,cursor:"pointer",background:"rgba(255,255,255,0.4)",borderRadius:99,padding:"4px 11px",fontFamily:"monospace"}}>
-                ⚙️ Add date of birth
+                style={{fontSize:12,color:C.mid,cursor:"pointer",background:"rgba(255,255,255,0.4)",borderRadius:99,padding:"4px 10px",fontFamily:"monospace",flexShrink:0}}>
+                ⚙️ Add DOB
               </div>
             );
             if (babyUnborn && babyDob) {
               const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-              return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 11px",display:"inline-flex",alignItems:"center",gap:5,fontSize:13,color:C.deep,fontWeight:600}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
+              return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:4,fontSize:12,color:C.deep,fontWeight:600,flexShrink:0}}>🤰 {daysUntil > 0 ? `Due ${daysUntil}d` : "Due any day!"}</div>;
             }
             if (!age) return null;
             const parts = [];
-            if (age.months > 0) parts.push(`${age.months} month${age.months!==1?"s":""}`);
-            if (age.weeksAfterMonths > 0) parts.push(`${age.weeksAfterMonths} week${age.weeksAfterMonths!==1?"s":""}`);
-            return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 11px",display:"inline-flex",alignItems:"center",gap:5,fontSize:13,color:C.deep,fontWeight:600}}>🎂 {parts.join(" & ")} · {age.totalWeeks} weeks</div>;
+            if (age.months > 0) parts.push(`${age.months}mo`);
+            if (age.weeksAfterMonths > 0) parts.push(`${age.weeksAfterMonths}w`);
+            return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:4,fontSize:12,color:C.deep,fontWeight:600,flexShrink:0}}>🎂 {parts.join(" ")} · {age.totalWeeks}wk</div>;
           })()}
-          <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
-            {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️ Sync":"👨‍👩‍👧 "+(familyUsername||"Synced")) : "👨‍👩‍👧 Share"}
+          <div style={{flex:"1 1 0",minWidth:0}}/>
+          <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 10px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>
+            {familyCode?(syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️":"👨‍👩‍👧 "+(familyUsername||"Share")):"👨‍👩‍👧 Share"}
           </button>
           {backupCode&&(
             <button onClick={e=>{
               e.stopPropagation();
-              const totalEntries = Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
-              const totalDays = Object.values(children).reduce((s,c)=>s+Object.keys(c.days||{}).length,0);
-              if(window.confirm("Save all data to cloud now?\n\n" + totalDays + " days · " + totalEntries + " entries\n\nThis will overwrite the existing cloud backup with your current data. Make sure everything looks correct before saving.")) {
-                pushToCloud(backupCode, childrenRef.current);
-              }
-            }} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mint,cursor:"pointer",fontFamily:"monospace",fontWeight:700}}>
+              const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
+              const days2=Object.values(children).reduce((s,c)=>s+Object.keys(c.days||{}).length,0);
+              if(window.confirm("Save all data to cloud now?\n\n"+days2+" days · "+tot+" entries\n\nThis overwrites the existing cloud backup.")){pushToCloud(backupCode,childrenRef.current);}
+            }} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 10px",fontSize:12,color:C.mint,cursor:"pointer",fontFamily:"monospace",fontWeight:700,flexShrink:0}}>
               💾 Save
             </button>
           )}
-          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
+          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 10px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0}}>
+            ? Tour
+          </button>
         </div>
 
         {/* ── ROW 4: Live timers (nap + feed) — only on Day tab, only if active ── */}
@@ -5714,6 +5979,7 @@ function App(){
       {/* LOG PANEL SHEETS */}
       {logPanel==="feed"&&(
         <Sheet onClose={()=>setLogPanel(null)} title="🍼 Log Feed">
+          {/* Feed type tabs */}
           <div style={{display:"flex",gap:8,marginBottom:16}}>
             {[{v:"bottle",label:"🍼 Bottle"},{v:"breast",label:"🤱 Breast"},{v:"solids",label:"🥣 Solids"}].map(({v,label})=>(
               <button key={v} onClick={()=>setLogForm(f=>({...f,feedType:v}))}
@@ -5722,6 +5988,26 @@ function App(){
               </button>
             ))}
           </div>
+
+          {/* Time — set now or pick */}
+          <div style={{marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+              <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em"}}>Time</label>
+              <button onClick={()=>setLogForm(f=>({...f,feedTimeSet:!f.feedTimeSet,feedTime:f.feedTime||nowTime()}))}
+                style={{fontSize:12,background:"none",border:`1px solid ${logForm.feedTimeSet?C.ter:C.blush}`,borderRadius:99,padding:"3px 10px",color:logForm.feedTimeSet?C.ter:C.lt,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
+                {logForm.feedTimeSet?"✓ Time set":"Set time"}
+              </button>
+            </div>
+            {logForm.feedTimeSet ? (
+              <input type="time" value={logForm.feedTime} onChange={e=>setLogForm(f=>({...f,feedTime:e.target.value}))}
+                style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`2px solid ${C.ter}`,background:"#fdf0eb",fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+            ) : (
+              <div style={{fontSize:13,color:C.lt,background:C.warm,borderRadius:12,padding:"9px 11px",border:`1px dashed ${C.blush}`}}>
+                📍 Will log as <strong style={{color:C.mid}}>{fmt12(nowTime())}</strong> — tap "Set time" to change
+              </div>
+            )}
+          </div>
+
           {logForm.feedType==="bottle"&&(
             <Inp label="Amount (ml)" type="number" inputMode="numeric" placeholder="e.g. 180" value={logForm.amount} onChange={e=>setLogForm(f=>({...f,amount:e.target.value}))}/>
           )}
