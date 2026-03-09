@@ -758,7 +758,7 @@ function App(){
   const[devActFilter,setDevActFilter]=useState("all");
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null); // 'feed'|'nappy'|'sleep'|null
-  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
+  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
@@ -771,7 +771,7 @@ function App(){
     if(todayWake) setShowWakeInline(false);
   },[days, selDay, showWakeInline]);
   const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
-  const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});
+  const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});
   const[newDate,setNewDate]=useState(todayStr());
   const[menuDay,setMenuDay]=useState(null);
   const[editDate,setEditDate]=useState("");
@@ -3315,9 +3315,9 @@ function App(){
     setModal(null); _setParsedEntries(null); setPasteText("");
   }
 
-  function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
+  function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});setModal("entry");}
   function openLogPanel(panel){
-    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime(),feedTime:nowTime(),feedTimeSet:false});
+    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime(),feedTime:nowTime(),feedTimeSet:false});
     setLogPanel(panel);
   }
 
@@ -3373,7 +3373,7 @@ function App(){
     setEType(entry.type);
     setFeedType(entry.feedType||"milk");
     setNightMode(!!entry.night);
-    setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||"",breastL:entry.breastL||"",breastR:entry.breastR||"",pumpL:entry.pumpL||"",pumpR:entry.pumpR||""});
+    setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||"",breastL:entry.breastL||"",breastR:entry.breastR||""});
     setModal("entry");
   }
   function delEntry(id){
@@ -3408,28 +3408,12 @@ function App(){
       quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:parseInt(f.amount)||0,note:f.note||""});
     } else if(f.feedType==="breast"){
       quickAddLog("feed",{type:"feed",time:t,feedType:"breast",breastL:parseInt(f.breastL)||0,breastR:parseInt(f.breastR)||0,amount:0,note:f.note||""});
-    } else if(f.feedType==="pump"){
-      const pL=parseInt(f.pumpL)||0, pR=parseInt(f.pumpR)||0;
-      quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:pL,pumpR:pR,amount:pL+pR,note:f.note||""});
     } else {
       quickAddLog("feed",{type:"feed",time:t,feedType:"solids",amount:0,note:f.note||""});
     }
   }
 
-  function saveLogPump(){
-    const f=logForm;
-    const t = f.pumpStart || nowTime();
-    const total = parseInt(f.pumpTotal)||0;
-    const pL = parseInt(f.pumpL)||0;
-    const pR = parseInt(f.pumpR)||0;
-    // If total is set and L/R are both empty, split equally
-    const finalL = (f.pumpL===""&&f.pumpR===""&&total>0) ? Math.round(total/2) : pL;
-    const finalR = (f.pumpL===""&&f.pumpR===""&&total>0) ? total-Math.round(total/2) : pR;
-    const finalTotal = finalL+finalR || total;
-    quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:finalL,pumpR:finalR,amount:finalTotal,pumpDuration:parseInt(f.pumpDuration)||0,note:f.note||""});
-  }
-
-
+  function saveLogNappy(poopType){
     quickAddLog("poop",{type:"poop",time:nowTime(),poopType,note:""});
   }
 
@@ -3448,9 +3432,6 @@ function App(){
       if(feedType==="breast"){
         const bL=parseInt(form.breastL)||0, bR=parseInt(form.breastR)||0;
         e={...e,type:"feed",time:form.time,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:nightMode||form.night==="yes"};
-      } else if(feedType==="pump"){
-        const pL=parseInt(form.pumpL)||0, pR=parseInt(form.pumpR)||0;
-        e={...e,type:"feed",time:form.time,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:nightMode||form.night==="yes"};
       } else {
         e={...e,type:"feed",time:form.time,amount:parseInt(form.amount)||0,night:nightMode||form.night==="yes",feedType:feedType};
       }
@@ -4176,7 +4157,7 @@ function App(){
           {
             icon:"🍼",
             title:"Log Feed, Nappy, Sleep & More",
-            body:"The six buttons in the log bar are your core logging tools. Tap Feed for bottle, breast or solids. Pump to log a pumping session. Nappy for wet or dirty. Sleep for naps or bedtime. Wake Up for morning wake time. Notes to paste a rough summary.",
+            body:"The five buttons in the middle of the screen are your core logging tools. Tap Feed for bottle, breast or solids. Nappy for wet or dirty. Sleep for naps or bedtime. Wake Up to log morning wake time. Notes to paste a rough summary.",
             location: "Centre of screen",
           },
           {
@@ -4190,12 +4171,6 @@ function App(){
             title:"Breastfeed Timer",
             body:"Tap 🤱 Start Feed in the top left to begin a live breastfeed session. Switch between Left and Right sides, then Save when done — it logs time, duration and both sides automatically.",
             location: "Top left of screen",
-          },
-          {
-            icon:"🫙",
-            title:"Log a Pump Session",
-            body:"Tap 🫙 Pump in the log bar to record a pumping session. Enter the start time, how long you pumped, and the total amount — it automatically splits ml equally between left and right. You can adjust per side individually and add a note (e.g. freezer stash, morning session).",
-            location: "Log bar — second row",
           },
           {
             icon:"📈",
@@ -4718,12 +4693,11 @@ function App(){
               </div>
 
               {/* ══ NEW LOG BAR ════════════════════════════════ */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
                   {id:"nappy", icon:"💩", label:"Nappy"},
                   {id:"sleep", icon:"😴", label:"Sleep"},
-                  {id:"pump",  icon:"🫙", label:"Pump"},
                   {id:"wake",  icon:"☀️", label:"Wake Up"},
                   {id:"paste", icon:"📋", label:"Notes"},
                 ].map(({id,icon,label})=>(
@@ -4774,16 +4748,11 @@ function App(){
                           <span style={{fontSize:17}}>{ICONS[e.type]}</span>
                           <div>
                             <div style={{fontSize:14,fontWeight:500}}>
-                              {e.type==="feed"?(e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":e.feedType==="pump"?"Pumped":"Bottle Feed"):NAMES[e.type]}
+                              {e.type==="feed"?(e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":"Bottle Feed"):NAMES[e.type]}
                             </div>
                             {e.type==="feed"&&e.feedType==="breast"&&(
                               <div style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>
                                 {e.breastL>0?`L: ${e.breastL}m`:""}{e.breastL>0&&e.breastR>0?" · ":""}{e.breastR>0?`R: ${e.breastR}m`:""}
-                              </div>
-                            )}
-                            {e.type==="feed"&&e.feedType==="pump"&&(
-                              <div style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>
-                                {e.pumpL>0?`L: ${e.pumpL}ml`:""}{e.pumpL>0&&e.pumpR>0?" · ":""}{e.pumpR>0?`R: ${e.pumpR}ml`:""}
                               </div>
                             )}
                             {e.type==="nap"&&<div style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>{minDiff(e.start,e.end)} min</div>}
@@ -4797,11 +4766,9 @@ function App(){
                             {e.type==="feed"
                               ? (e.feedType==="breast"
                                   ? `${(e.breastL||0)+(e.breastR||0)}m`
-                                  : e.feedType==="pump"
-                                    ? `${(e.pumpL||0)+(e.pumpR||0)}ml`
-                                    : e.feedType==="solids"
-                                      ? fmt12(e.time)
-                                      : `${e.amount}ml`)
+                                  : e.feedType==="solids"
+                                    ? fmt12(e.time)
+                                    : `${e.amount}ml`)
                               : e.type==="nap"
                                 ? `${fmt12(e.start)}-${fmt12(e.end)}`
                                 : fmt12(e.time)}
@@ -6192,7 +6159,6 @@ function App(){
               </div>
             </div>
           )}
-          {logForm.feedType==="pump"&&null}
           {logForm.feedType==="solids"&&(
             <Inp label="What did they eat?" type="text" placeholder="e.g. porridge, half jar" value={logForm.note} onChange={e=>setLogForm(f=>({...f,note:e.target.value}))}/>
           )}
@@ -6280,67 +6246,6 @@ function App(){
         </Sheet>
       )}
 
-      {logPanel==="pump"&&(
-        <Sheet onClose={()=>setLogPanel(null)} title="🫙 Log Pump Session">
-
-          {/* Start time */}
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Start time</label>
-            <input type="time" value={logForm.pumpStart||nowTime()} onChange={e=>setLogForm(f=>({...f,pumpStart:e.target.value}))}
-              style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
-          </div>
-
-          {/* Duration */}
-          <Inp label="Duration (mins)" type="number" inputMode="numeric" min="0" placeholder="e.g. 20"
-            value={logForm.pumpDuration||""} onChange={e=>setLogForm(f=>({...f,pumpDuration:e.target.value}))}/>
-
-          {/* Total ml — auto-splits into L+R */}
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Total pumped (ml)</label>
-            <input type="number" inputMode="numeric" min="0" placeholder="e.g. 120"
-              value={logForm.pumpTotal||""}
-              onChange={e=>{
-                const tot=parseInt(e.target.value)||0;
-                const half=Math.round(tot/2);
-                setLogForm(f=>({...f,pumpTotal:e.target.value,pumpL:tot>0?String(half):"",pumpR:tot>0?String(tot-half):""}));
-              }}
-              style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`2px solid ${C.ter}`,background:"#fdf0eb",fontSize:18,fontWeight:700,fontFamily:"inherit",outline:"none",boxSizing:"border-box",textAlign:"center",color:C.ter}}/>
-            <div style={{fontSize:12,color:C.lt,marginTop:4,textAlign:"center",fontFamily:"monospace"}}>Splits equally between left & right — adjust below if needed</div>
-          </div>
-
-          {/* L / R breakdown */}
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Per side (ml)</label>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {[["pumpL","Left (L)"],["pumpR","Right (R)"]].map(([k,lbl])=>(
-                <div key={k}>
-                  <label style={{fontSize:13,fontFamily:"monospace",color:C.mid,display:"block",marginBottom:3,textAlign:"center"}}>{lbl}</label>
-                  <input type="number" inputMode="numeric" min="0" placeholder="ml"
-                    value={logForm[k]||""}
-                    onChange={e=>{
-                      const updated={...logForm,[k]:e.target.value};
-                      const newTotal=(parseInt(updated.pumpL)||0)+(parseInt(updated.pumpR)||0);
-                      setLogForm(f=>({...f,[k]:e.target.value,pumpTotal:newTotal>0?String(newTotal):""}));
-                    }}
-                    style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
-                </div>
-              ))}
-            </div>
-            {((parseInt(logForm.pumpL)||0)+(parseInt(logForm.pumpR)||0))>0&&(
-              <div style={{background:"#f0faf5",borderRadius:10,padding:"8px 14px",marginTop:8,display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid #b0e8cc"}}>
-                <span style={{fontSize:13,fontFamily:"monospace",color:"#4a8a6a",textTransform:"uppercase",letterSpacing:"0.06em"}}>Total</span>
-                <span style={{fontSize:18,fontWeight:700,fontFamily:"monospace",color:"#2a7a50"}}>{(parseInt(logForm.pumpL)||0)+(parseInt(logForm.pumpR)||0)} ml</span>
-              </div>
-            )}
-          </div>
-
-          <Inp label="Notes (optional)" type="text" placeholder="e.g. morning session, freezer stash…"
-            value={logForm.note||""} onChange={e=>setLogForm(f=>({...f,note:e.target.value}))}/>
-
-          <PBtn onClick={saveLogPump}>✓ Save Pump Session</PBtn>
-        </Sheet>
-      )}
-
       {/* ENTRY MODAL */}
       {modal==="entry"&&(
         <Sheet onClose={()=>{setModal(null);setEditEntry(null);}} title={editEntry?"Edit Entry":"Add Entry"}>
@@ -6381,7 +6286,6 @@ function App(){
                 </div>
               </div>
             )}
-            {feedType==="pump"&&null}
             {feedType==="solids"&&<Inp label="Description / amount" type="text" placeholder="e.g. porridge, half jar" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
             <Inp label="Time" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/>
             {!nightMode&&(
