@@ -705,6 +705,8 @@ function App(){
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
   const[msShowActivities,setMsShowActivities]=useState(false);
+  const[growthLogOpen,setGrowthLogOpen]=useState(false);
+  const[devActFilter,setDevActFilter]=useState("all");
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null); // 'feed'|'nappy'|'sleep'|null
   const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:""});
@@ -3430,23 +3432,18 @@ function App(){
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin : true);
 
     async function handleAuth(pinArg, pin2Arg) {
-      // Accept pin directly from PinPad onComplete to avoid stale React state
       const pin = typeof pinArg === "string" ? pinArg : authPin;
       const pin2 = typeof pin2Arg === "string" ? pin2Arg : authPin2;
       if(pin.length !== 4) return;
-      setAuthError("");
-      setAuthLoading(true);
+      setAuthError(""); setAuthLoading(true);
       if(isLogin) {
         const ok = await verifyLogin(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          setOnboarded(true);
-          setAuthScreen(null);
-          return;
+          setOnboarded(true); setAuthScreen(null); return;
         } else {
           setAuthError("Wrong PIN — try again");
-          setAuthPin("");
-          setAuthLoading(false);
+          setAuthPin(""); setAuthLoading(false);
         }
       } else {
         if(pin !== pin2) { setAuthError("PINs don't match"); setAuthPin2(""); setAuthLoading(false); return; }
@@ -3454,87 +3451,80 @@ function App(){
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
           try{ localStorage.removeItem("tut_v1"); }catch{}
-          setTutStep(0);
-          setNeedsChildSetup(true);
-          setOnboarded(true);
-          setAuthScreen(null);
-          return;
-        } else {
-          setAuthError("That username is taken — try another");
-          setAuthLoading(false);
-        }
+          setTutStep(0); setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); return;
+        } else { setAuthError("That username is taken — try another"); setAuthLoading(false); }
       }
     }
     return (
-      <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"30px 24px",fontFamily:"'DM Sans',sans-serif"}}>
-        <img src="oliver.png" style={{width:72,height:72,borderRadius:16,marginBottom:20,boxShadow:"0 6px 20px rgba(0,0,0,0.1)"}}/>
-        <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.deep,marginBottom:6}}>OBubba</div>
-        <div style={{fontSize:15,color:C.lt,marginBottom:28}}>{isLogin?"Welcome back":"Create your account"}</div>
+      <div style={{height:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",padding:"0 24px 24px",fontFamily:"'DM Sans',sans-serif"}}>
+        {/* Header — compact */}
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"24px 0 16px"}}>
+          <img src="oliver.png" style={{width:56,height:56,borderRadius:14,marginBottom:10,boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}/>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:3}}>OBubba</div>
+          <div style={{fontSize:14,color:C.lt}}>{isLogin?"Welcome back":"Create your account"}</div>
+        </div>
 
         {/* Mode toggle */}
-        <div style={{display:"flex",background:C.warm,borderRadius:99,padding:4,marginBottom:24,gap:4}}>
+        <div style={{display:"flex",background:C.warm,borderRadius:99,padding:4,marginBottom:16,gap:4}}>
           {[["login","Sign In"],["create","Create Account"]].map(([m,l])=>(
             <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");setAuthUsernameStatus("idle");}}
-              style={{padding:"8px 18px",borderRadius:99,border:"none",background:authMode===m?"white":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
+              style={{padding:"7px 16px",borderRadius:99,border:"none",background:authMode===m?"white":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
               {l}
             </button>
           ))}
         </div>
 
         <div style={{width:"100%",maxWidth:320}}>
-          {/* Username input */}
-          <div style={{marginBottom:16}}>
-            <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Username</label>
-            <input
-              type="text"
-              value={authUsername}
+          {/* Username */}
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:5}}>Username</label>
+            <input type="text" value={authUsername}
               autoCapitalize="none" autoCorrect="off" spellCheck="false"
               autoComplete="off" data-lpignore="true" data-form-type="other"
               placeholder="e.g. TeamSmith"
-              style={{width:"100%",fontSize:18,padding:"13px 16px",borderRadius:14,border:`2px solid ${
-                isLogin
-                  ? authUsernameStatus==="found"?"#50c878"
-                  : authUsernameStatus==="notfound"?C.ter:C.blush
-                  : C.blush}`,background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}
-              onChange={e=>checkAuthUsername(e.target.value)}
-            />
+              style={{width:"100%",fontSize:16,padding:"11px 14px",borderRadius:12,border:`2px solid ${isLogin?authUsernameStatus==="found"?"#50c878":authUsernameStatus==="notfound"?C.ter:C.blush:C.blush}`,background:"white",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}
+              onChange={e=>checkAuthUsername(e.target.value)}/>
             {isLogin && authUsernameStatus!=="idle" && (
-              <div style={{fontSize:13,marginTop:6,textAlign:"center",
-                color:authUsernameStatus==="found"?"#50c878":authUsernameStatus==="notfound"?C.ter:C.lt}}>
-                {authUsernameStatus==="checking"?"⏳ Checking…":
-                 authUsernameStatus==="found"?"✓ Account found":
-                 authUsernameStatus==="notfound"?"✗ No account with that username":null}
+              <div style={{fontSize:12,marginTop:4,textAlign:"center",color:authUsernameStatus==="found"?"#50c878":authUsernameStatus==="notfound"?C.ter:C.lt}}>
+                {authUsernameStatus==="checking"?"⏳ Checking…":authUsernameStatus==="found"?"✓ Account found":"✗ No account with that username"}
               </div>
             )}
           </div>
 
-          {/* PIN pad */}
-          <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:12}}>
-            {isLogin ? "PIN" : "Choose a PIN"}
+          {/* PIN */}
+          <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:10}}>
+            {isLogin?"PIN":"Choose a PIN"}
           </label>
           {authLoading ? (
-            <div style={{textAlign:"center",padding:"32px 0"}}>
-              <div style={{fontSize:13,color:C.mid,fontFamily:"monospace"}}>⏳ {isLogin?"Signing in…":"Creating account…"}</div>
-            </div>
+            <div style={{textAlign:"center",padding:"24px 0",fontSize:13,color:C.mid,fontFamily:"monospace"}}>⏳ {isLogin?"Signing in…":"Creating account…"}</div>
           ) : (
-            <PinPad value={authPin} onChange={p=>{setAuthPin(p);setAuthError("");}} onComplete={isLogin ? handleAuth : null}/>
+            <PinPad value={authPin} onChange={p=>{setAuthPin(p);setAuthError("");}} onComplete={isLogin?handleAuth:null}/>
           )}
 
           {/* Confirm PIN for create */}
           {!isLogin && !authLoading && authPin.length===4 && (
-            <div style={{marginTop:20}}>
-              <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:12}}>Confirm PIN</label>
-              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={p2=>handleAuth(authPin, p2)}/>
+            <div style={{marginTop:16}}>
+              <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:10}}>Confirm PIN</label>
+              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={p2=>handleAuth(authPin,p2)}/>
             </div>
           )}
 
-          {authError&&<div style={{fontSize:14,color:C.ter,textAlign:"center",marginTop:12,fontWeight:600}}>{authError}</div>}
+          {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
 
-          {!isLogin && (
-            <button onClick={()=>handleAuth(authPin, authPin2)} disabled={!canSubmit||authLoading}
-              style={{width:"100%",marginTop:20,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                border:"none",borderRadius:99,padding:"14px",color:canSubmit&&!authLoading?"white":"#b89890",
-                fontSize:16,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
+          {/* Sign In button — always visible for login, shown for create */}
+          {isLogin ? (
+            <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4||authLoading}
+              style={{width:"100%",marginTop:14,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                border:"none",borderRadius:99,padding:"13px",color:authPin.length===4&&!authLoading?"white":"#b89890",
+                fontSize:15,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
+                boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
+              {authLoading?"⏳ Please wait…":"Sign In →"}
+            </button>
+          ) : (
+            <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit||authLoading}
+              style={{width:"100%",marginTop:14,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                border:"none",borderRadius:99,padding:"13px",color:canSubmit&&!authLoading?"white":"#b89890",
+                fontSize:15,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
                 boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
               {authLoading?"⏳ Please wait…":"Create Account"}
             </button>
@@ -4950,7 +4940,6 @@ function App(){
           const latestW = wWithPctForTrends.filter(w=>w.pct!==null).slice(-1)[0];
           const prevW = wWithPctForTrends.filter(w=>w.pct!==null).slice(-2,-1)[0];
           const weightGain = latestW && prevW ? Math.round((latestW.kg - prevW.kg)*1000)/1000 : null;
-          const [growthLogOpen, setGrowthLogOpen] = React.useState(false);
 
           return (
             <div>
@@ -5645,8 +5634,7 @@ function App(){
 
           const devAdvice = getDevAdvice(ageWeeks);
           const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks !== null && ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
-          const [actFilter, setActFilter] = React.useState("all");
-          const filteredActs = actFilter === "all" ? nowActs : nowActs.filter(a => a.cat === actFilter);
+          const filteredActs = devActFilter === "all" ? nowActs : nowActs.filter(a => a.cat === devActFilter);
 
           return (
             <div>
@@ -5671,8 +5659,8 @@ function App(){
                 {/* Category filter pills */}
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
                   {[{key:"all",label:"All",icon:"✦"},...ACT_CATS].map(c=>(
-                    <button key={c.key} onClick={()=>setActFilter(c.key)}
-                      style={{padding:"5px 12px",borderRadius:99,border:`1.5px solid ${actFilter===c.key?C.ter:C.blush}`,background:actFilter===c.key?"#fdf0eb":C.warm,fontSize:12,fontWeight:600,color:actFilter===c.key?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                    <button key={c.key} onClick={()=>setDevActFilter(c.key)}
+                      style={{padding:"5px 12px",borderRadius:99,border:`1.5px solid ${devActFilter===c.key?C.ter:C.blush}`,background:devActFilter===c.key?"#fdf0eb":C.warm,fontSize:12,fontWeight:600,color:devActFilter===c.key?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
                       {c.icon} {c.label}
                     </button>
                   ))}
