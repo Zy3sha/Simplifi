@@ -1429,8 +1429,14 @@ function App(){
         const pid = data.id;
         try{
           const answered = localStorage.getItem("fb_answered_"+pid);
-          if(answered){ setShowFeedbackCard(false); }
-          else{ setActiveFeedback(data); setFbAnswers({}); setShowFeedbackCard(true); setFeedbackDismissed(false); setFbThankYou(false); }
+          if(answered){ setShowFeedbackCard(false); return; }
+          // 3-day gap check since last completed feedback
+          const lastDone = localStorage.getItem("fb_last_completed");
+          if(lastDone){
+            const daysSince = (Date.now() - parseInt(lastDone)) / (1000*60*60*24);
+            if(daysSince < 3){ setShowFeedbackCard(false); return; }
+          }
+          setActiveFeedback(data); setFbAnswers({}); setShowFeedbackCard(true); setFeedbackDismissed(false); setFbThankYou(false);
         }catch{
           setActiveFeedback(data); setFbAnswers({}); setShowFeedbackCard(true);
         }
@@ -1480,6 +1486,7 @@ function App(){
         ts: serverTimestamp(),
       });
       try{localStorage.setItem("fb_answered_"+activeFeedback.id,"1");}catch{}
+      try{localStorage.setItem("fb_last_completed", Date.now().toString());}catch{}
       setFbThankYou(true);
       setTimeout(()=>{ setShowFeedbackCard(false); setFbThankYou(false); },3000);
     }catch(e){console.warn("Feedback submit error",e);}
@@ -4974,7 +4981,6 @@ function App(){
                     </div>
                   ) : (
                     <>
-                      <button onClick={()=>setFeedbackDismissed(true)} style={{position:"absolute",top:12,right:14,background:"none",border:"none",fontSize:18,color:C.lt,cursor:"pointer",lineHeight:1}}>✕</button>
                       <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Quick feedback 💬</div>
                       {activeFeedback.title && <div style={{fontSize:16,fontWeight:700,color:C.deep,marginBottom:14,lineHeight:1.4,paddingRight:24}}>{activeFeedback.title}</div>}
 
