@@ -3429,20 +3429,28 @@ function App(){
     const isLogin = authMode === "login";
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin : true);
 
-    async function handleAuth() {
-      setAuthError(""); setAuthLoading(true);
+    async function handleAuth(pinArg, pin2Arg) {
+      // Accept pin directly from PinPad onComplete to avoid stale React state
+      const pin = typeof pinArg === "string" ? pinArg : authPin;
+      const pin2 = typeof pin2Arg === "string" ? pin2Arg : authPin2;
+      if(pin.length !== 4) return;
+      setAuthError("");
+      setAuthLoading(true);
       if(isLogin) {
-          if(authPin.length !== 4) { setAuthError("Enter your 4-digit PIN"); setAuthLoading(false); return; }
-        const ok = await verifyLogin(authUsername, authPin);
+        const ok = await verifyLogin(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
           setOnboarded(true);
           setAuthScreen(null);
+          return;
+        } else {
+          setAuthError("Wrong PIN — try again");
+          setAuthPin("");
+          setAuthLoading(false);
         }
       } else {
-        // Create account
-        if(authPin !== authPin2) { setAuthError("PINs don't match"); setAuthLoading(false); return; }
-        const ok = await reserveUsername(authUsername, authPin);
+        if(pin !== pin2) { setAuthError("PINs don't match"); setAuthPin2(""); setAuthLoading(false); return; }
+        const ok = await reserveUsername(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
           try{ localStorage.removeItem("tut_v1"); }catch{}
@@ -3450,10 +3458,12 @@ function App(){
           setNeedsChildSetup(true);
           setOnboarded(true);
           setAuthScreen(null);
+          return;
+        } else {
+          setAuthError("That username is taken — try another");
+          setAuthLoading(false);
         }
-        else { setAuthError("That username is taken — try another"); }
       }
-      setAuthLoading(false);
     }
     return (
       <div style={{minHeight:"100vh",background:`linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"30px 24px",fontFamily:"'DM Sans',sans-serif"}}>
@@ -3478,10 +3488,9 @@ function App(){
             <input
               type="text"
               value={authUsername}
-              onChange={e=>setAuthUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g,""))}
-              placeholder="e.g. TeamSmith"
               autoCapitalize="none" autoCorrect="off" spellCheck="false"
               autoComplete="off" data-lpignore="true" data-form-type="other"
+              placeholder="e.g. TeamSmith"
               style={{width:"100%",fontSize:18,padding:"13px 16px",borderRadius:14,border:`2px solid ${
                 isLogin
                   ? authUsernameStatus==="found"?"#50c878"
@@ -3503,27 +3512,33 @@ function App(){
           <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:12}}>
             {isLogin ? "PIN" : "Choose a PIN"}
           </label>
-          <PinPad value={authPin} onChange={p=>{setAuthPin(p);setAuthError("");}} onComplete={isLogin?handleAuth:null}/>
+          {authLoading ? (
+            <div style={{textAlign:"center",padding:"32px 0"}}>
+              <div style={{fontSize:13,color:C.mid,fontFamily:"monospace"}}>⏳ {isLogin?"Signing in…":"Creating account…"}</div>
+            </div>
+          ) : (
+            <PinPad value={authPin} onChange={p=>{setAuthPin(p);setAuthError("");}} onComplete={isLogin ? handleAuth : null}/>
+          )}
 
           {/* Confirm PIN for create */}
-          {!isLogin && authPin.length===4 && (
+          {!isLogin && !authLoading && authPin.length===4 && (
             <div style={{marginTop:20}}>
               <label style={{fontSize:13,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:12}}>Confirm PIN</label>
-              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={handleAuth}/>
+              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={p2=>handleAuth(authPin, p2)}/>
             </div>
           )}
 
           {authError&&<div style={{fontSize:14,color:C.ter,textAlign:"center",marginTop:12,fontWeight:600}}>{authError}</div>}
 
-          <button onClick={handleAuth} disabled={!canSubmit||authLoading}
-            style={{width:"100%",marginTop:20,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-              border:"none",borderRadius:99,padding:"14px",color:canSubmit&&!authLoading?"white":"#b89890",
-              fontSize:16,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
-              boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-            {authLoading?"⏳ Please wait…":isLogin?"Sign In":"Create Account"}
-          </button>
-
-
+          {!isLogin && (
+            <button onClick={()=>handleAuth(authPin, authPin2)} disabled={!canSubmit||authLoading}
+              style={{width:"100%",marginTop:20,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                border:"none",borderRadius:99,padding:"14px",color:canSubmit&&!authLoading?"white":"#b89890",
+                fontSize:16,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
+                boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
+              {authLoading?"⏳ Please wait…":"Create Account"}
+            </button>
+          )}
         </div>
       </div>
     );
