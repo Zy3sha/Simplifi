@@ -972,17 +972,14 @@ function App(){
   const[syncStatus,setSyncStatus]=useState("idle");
   const[showFamilyModal,setShowFamilyModal]=useState(false);
   const[showAdminPanel,setShowAdminPanel]=useState(false);
-  const[activeFeedback,setActiveFeedback]=useState(null); // {id, question, choices, createdAt}
-  const[feedbackAnswered,setFeedbackAnswered]=useState(false);
+  const[activeFeedback,setActiveFeedback]=useState(null); // {id, title, questions:[{id,type,text,choices}], createdAt}
   const[showFeedbackCard,setShowFeedbackCard]=useState(false);
-  const[fbStarRating,setFbStarRating]=useState(0);
-  const[fbChoice,setFbChoice]=useState(null);
-  const[fbText,setFbText]=useState("");
-  const[fbSubmitting,setFbSubmitting]=useState(false);
   const[feedbackDismissed,setFeedbackDismissed]=useState(false);
+  const[fbAnswers,setFbAnswers]=useState({}); // {questionId: value}
+  const[fbSubmitting,setFbSubmitting]=useState(false);
+  const[fbThankYou,setFbThankYou]=useState(false);
   // Admin panel state
-  const[adminQuestion,setAdminQuestion]=useState("");
-  const[adminChoices,setAdminChoices]=useState(["","",""]);
+  const[adminPush,setAdminPush]=useState({title:"",questions:[{id:"q1",type:"star",text:"",choices:[""]}]});
   const[adminStats,setAdminStats]=useState(null);
   const[adminLoading,setAdminLoading]=useState(false);
   const[adminSaving,setAdminSaving]=useState(false);
@@ -1422,87 +1419,135 @@ function App(){
     familyUsername.toLowerCase().includes("zyesha")
   ));
 
-  // ── Feedback: load active question on mount ──
+  // ── Feedback: load active push on mount ──
   useEffect(()=>{
     if(!window._fb) return;
     const {db, doc, onSnapshot} = window._fb;
     const unsub = onSnapshot(doc(db,"feedback","active"), snap=>{
       if(snap.exists()){
         const data = snap.data();
-        const qid = data.id;
-        // Check if this user already answered
+        const pid = data.id;
         try{
-          const answered = localStorage.getItem("fb_answered_"+qid);
-          if(answered){setFeedbackAnswered(true);setShowFeedbackCard(false);}
-          else{setActiveFeedback(data);setFeedbackAnswered(false);setShowFeedbackCard(true);setFeedbackDismissed(false);}
+          const answered = localStorage.getItem("fb_answered_"+pid);
+          if(answered){ setShowFeedbackCard(false); }
+          else{ setActiveFeedback(data); setFbAnswers({}); setShowFeedbackCard(true); setFeedbackDismissed(false); setFbThankYou(false); }
         }catch{
-          setActiveFeedback(data);setFeedbackAnswered(false);setShowFeedbackCard(true);
+          setActiveFeedback(data); setFbAnswers({}); setShowFeedbackCard(true);
         }
       } else {
-        setActiveFeedback(null);setShowFeedbackCard(false);
+        setActiveFeedback(null); setShowFeedbackCard(false);
       }
     });
     return()=>unsub();
   },[fbReady]);
 
-  // ── Feedback: submit response ──
+  // ── Feedback: update a single answer ──
+  function setFbAnswer(qid, value){ setFbAnswers(prev=>({...prev,[qid]:value})); }
+  function toggleFbMulti(qid, choice){
+    setFbAnswers(prev=>{
+      const cur = prev[qid]||[];
+      return {...prev,[qid]: cur.includes(choice)?cur.filter(c=>c!==choice):[...cur,choice]};
+    });
+  }
+
+  // ── Feedback: check if all required questions answered ──
+  function fbIsComplete(){
+    if(!activeFeedback) return false;
+    return activeFeedback.questions.every(q=>{
+      const ans = fbAnswers[q.id];
+      if(q.type==="text") return true; // optional
+      if(q.type==="star") return (ans||0)>0;
+      if(q.type==="multi") return ans && ans.length>0;
+      if(q.type==="scale") return ans !== undefined && ans !== null && ans !== "";
+      if(q.type==="yesno") return ans !== undefined && ans !== null;
+      return true;
+    });
+  }
+
+  // ── Feedback: submit ──
   async function submitFeedback(){
     if(!activeFeedback||fbSubmitting) return;
     setFbSubmitting(true);
     try{
       const {db, collection, addDoc, serverTimestamp} = window._fb;
       await addDoc(collection(db,"feedback","active","responses"),{
-        questionId: activeFeedback.id,
-        question: activeFeedback.question,
-        stars: fbStarRating,
-        choice: fbChoice||null,
-        text: fbText.trim()||null,
+        pushId: activeFeedback.id,
+        pushTitle: activeFeedback.title||"",
+        answers: fbAnswers,
         uid: window._fbUid||"anon",
         username: familyUsername||null,
         ts: serverTimestamp(),
       });
       try{localStorage.setItem("fb_answered_"+activeFeedback.id,"1");}catch{}
-      setShowFeedbackCard(false);setFeedbackAnswered(true);
-      setFbStarRating(0);setFbChoice(null);setFbText("");
+      setFbThankYou(true);
+      setTimeout(()=>{ setShowFeedbackCard(false); setFbThankYou(false); },3000);
     }catch(e){console.warn("Feedback submit error",e);}
     setFbSubmitting(false);
   }
 
-  // ── Admin: push a new feedback question ──
-  async function adminPushQuestion(){
-    if(!adminQuestion.trim()) return;
+  // ── Admin: helpers ──
+  function adminNewQuestion(){ return {id:"q_"+Date.now(),type:"star",text:"",choices:[""]}; }
+  function adminUpdateQ(idx,field,val){
+    setAdminPush(p=>{ const qs=[...p.questions]; qs[idx]={...qs[idx],[field]:val}; return {...p,questions:qs}; });
+  }
+  function adminUpdateChoice(qIdx,cIdx,val){
+    setAdminPush(p=>{ const qs=[...p.questions]; const cs=[...qs[qIdx].choices]; cs[cIdx]=val; qs[qIdx]={...qs[qIdx],choices:cs}; return {...p,questions:qs}; });
+  }
+  function adminAddChoice(qIdx){
+    setAdminPush(p=>{ const qs=[...p.questions]; qs[qIdx]={...qs[qIdx],choices:[...qs[qIdx].choices,""]}; return {...p,questions:qs}; });
+  }
+  function adminRemoveChoice(qIdx,cIdx){
+    setAdminPush(p=>{ const qs=[...p.questions]; qs[qIdx]={...qs[qIdx],choices:qs[qIdx].choices.filter((_,i)=>i!==cIdx)}; return {...p,questions:qs}; });
+  }
+  function adminAddQuestion(){
+    setAdminPush(p=>({...p,questions:[...p.questions,adminNewQuestion()]}));
+  }
+  function adminRemoveQuestion(idx){
+    setAdminPush(p=>({...p,questions:p.questions.filter((_,i)=>i!==idx)}));
+  }
+  function adminMoveQuestion(idx,dir){
+    setAdminPush(p=>{ const qs=[...p.questions]; const t=qs[idx]; qs[idx]=qs[idx+dir]; qs[idx+dir]=t; return {...p,questions:qs}; });
+  }
+
+  // ── Admin: push feedback to users ──
+  async function adminPushFeedback(){
+    if(!adminPush.title.trim()||adminPush.questions.length===0) return;
     setAdminSaving(true);
     try{
       const {db, doc, setDoc, serverTimestamp} = window._fb;
-      const qid = "q_"+Date.now();
+      const pid = "push_"+Date.now();
       await setDoc(doc(db,"feedback","active"),{
-        id: qid,
-        question: adminQuestion.trim(),
-        choices: adminChoices.filter(c=>c.trim()),
+        id: pid,
+        title: adminPush.title.trim(),
+        questions: adminPush.questions.map(q=>({
+          id: q.id,
+          type: q.type,
+          text: q.text.trim(),
+          choices: (q.choices||[]).filter(c=>c.trim()),
+        })),
         createdAt: serverTimestamp(),
       });
-      setAdminQuestion("");setAdminChoices(["","",""]);
+      setAdminPush({title:"",questions:[adminNewQuestion()]});
       await adminLoadStats();
     }catch(e){console.warn("Admin push error",e);}
     setAdminSaving(false);
   }
 
-  // ── Admin: delete/archive active question ──
+  // ── Admin: archive active push ──
   async function adminDeleteQuestion(){
     try{
       const {db, doc, deleteDoc} = window._fb;
       await deleteDoc(doc(db,"feedback","active"));
-      setActiveFeedback(null);setAdminStats(null);
+      setActiveFeedback(null); setAdminStats(null);
     }catch(e){console.warn("Admin delete error",e);}
   }
 
-  // ── Admin: load response stats ──
+  // ── Admin: load stats ──
   async function adminLoadStats(){
     if(!window._fb) return;
     setAdminLoading(true);
     try{
       const {db, collection, getDocs, query, orderBy, doc, getDoc} = window._fb;
-      // Get active question first
       const activeSnap = await getDoc(doc(db,"feedback","active"));
       if(!activeSnap.exists()){setAdminStats(null);setAdminLoading(false);return;}
       const active = activeSnap.data();
@@ -1510,12 +1555,30 @@ function App(){
       const snap = await getDocs(q);
       const responses = snap.docs.map(d=>d.data());
       const count = responses.length;
-      const avgStars = count ? (responses.reduce((a,r)=>a+(r.stars||0),0)/count).toFixed(1) : "—";
-      // Choice tallies
-      const choiceCounts = {};
-      (active.choices||[]).forEach(c=>{choiceCounts[c]=0;});
-      responses.forEach(r=>{ if(r.choice && choiceCounts[r.choice]!==undefined) choiceCounts[r.choice]++; });
-      setAdminStats({question:active.question, choices:active.choices||[], id:active.id, count, avgStars, choiceCounts, responses});
+      // Build per-question stats
+      const qStats = (active.questions||[]).map(qq=>{
+        const answers = responses.map(r=>(r.answers||{})[qq.id]).filter(a=>a!==undefined&&a!==null&&a!=="");
+        if(qq.type==="star"){
+          const avg = answers.length ? (answers.reduce((s,a)=>s+(a||0),0)/answers.length).toFixed(1) : "—";
+          return {...qq, count:answers.length, avg};
+        } else if(qq.type==="scale"){
+          const avg = answers.length ? (answers.reduce((s,a)=>s+(parseFloat(a)||0),0)/answers.length).toFixed(1) : "—";
+          return {...qq, count:answers.length, avg};
+        } else if(qq.type==="multi"){
+          const tally={};
+          (qq.choices||[]).forEach(c=>{tally[c]=0;});
+          answers.forEach(a=>{ (Array.isArray(a)?a:[a]).forEach(c=>{ if(tally[c]!==undefined) tally[c]++; }); });
+          return {...qq, count:answers.length, tally};
+        } else if(qq.type==="text"){
+          return {...qq, count:answers.length, texts:answers.slice(0,20)};
+        } else if(qq.type==="yesno"){
+          const yes = answers.filter(a=>a===true||a==="yes").length;
+          const no = answers.filter(a=>a===false||a==="no").length;
+          return {...qq, count:answers.length, yes, no};
+        }
+        return {...qq, count:answers.length};
+      });
+      setAdminStats({title:active.title, id:active.id, count, questions:qStats});
     }catch(e){console.warn("Admin load error",e);}
     setAdminLoading(false);
   }
@@ -4897,44 +4960,105 @@ function App(){
                 ))}
               </div>
 
-              {/* ══ FEEDBACK FLOATING CARD ══════════════════════════ */}
-              {tab==="day" && showFeedbackCard && activeFeedback && !feedbackDismissed && !feedbackAnswered && (
-                <div style={{background:"white",borderRadius:18,padding:"16px",marginBottom:16,border:`1.5px solid ${C.blush}`,boxShadow:"0 4px 20px rgba(201,112,90,0.13)",position:"relative"}}>
-                  <button onClick={()=>setFeedbackDismissed(true)} style={{position:"absolute",top:10,right:12,background:"none",border:"none",fontSize:18,color:C.lt,cursor:"pointer",lineHeight:1}}>✕</button>
-                  <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Quick feedback 💬</div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:12,lineHeight:1.4,paddingRight:20}}>{activeFeedback.question}</div>
+              {/* ══ FEEDBACK CARD ══════════════════════════════════ */}
+              {tab==="day" && showFeedbackCard && activeFeedback && !feedbackDismissed && (
+                <div style={{background:"white",borderRadius:18,padding:"18px",marginBottom:16,border:`1.5px solid ${C.blush}`,boxShadow:"0 4px 24px rgba(201,112,90,0.13)",position:"relative"}}>
 
-                  {/* Star rating */}
-                  <div style={{display:"flex",gap:6,marginBottom:12,justifyContent:"center"}}>
-                    {[1,2,3,4,5].map(n=>(
-                      <button key={n} onClick={()=>setFbStarRating(n)}
-                        style={{background:"none",border:"none",fontSize:28,cursor:"pointer",opacity:fbStarRating>=n?1:0.25,transition:"opacity 0.15s",padding:"0 2px"}}>⭐</button>
-                    ))}
-                  </div>
-
-                  {/* Multiple choice */}
-                  {activeFeedback.choices && activeFeedback.choices.length>0 && (
-                    <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
-                      {activeFeedback.choices.map(c=>(
-                        <button key={c} onClick={()=>setFbChoice(fbChoice===c?null:c)}
-                          style={{padding:"6px 14px",borderRadius:99,border:`1.5px solid ${fbChoice===c?C.ter:C.blush}`,background:fbChoice===c?"#fdf0eb":C.warm,fontSize:13,fontWeight:600,color:fbChoice===c?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                          {c}
-                        </button>
-                      ))}
+                  {/* Thank you screen */}
+                  {fbThankYou ? (
+                    <div style={{textAlign:"center",padding:"24px 0"}}>
+                      <div style={{fontSize:48,marginBottom:10}}>🙏</div>
+                      <div style={{fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>Thank you!</div>
+                      <div style={{fontSize:13,color:C.lt,fontFamily:"monospace"}}>Your feedback really helps us improve OBubba</div>
                     </div>
+                  ) : (
+                    <>
+                      <button onClick={()=>setFeedbackDismissed(true)} style={{position:"absolute",top:12,right:14,background:"none",border:"none",fontSize:18,color:C.lt,cursor:"pointer",lineHeight:1}}>✕</button>
+                      <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Quick feedback 💬</div>
+                      {activeFeedback.title && <div style={{fontSize:16,fontWeight:700,color:C.deep,marginBottom:14,lineHeight:1.4,paddingRight:24}}>{activeFeedback.title}</div>}
+
+                      {/* Questions */}
+                      {(activeFeedback.questions||[]).map((q,qi)=>(
+                        <div key={q.id} style={{marginBottom:18,paddingBottom:18,borderBottom:qi<activeFeedback.questions.length-1?`1px solid ${C.blush}`:"none"}}>
+                          <div style={{fontSize:14,fontWeight:600,color:C.deep,marginBottom:10,lineHeight:1.4}}>{qi+1}. {q.text}</div>
+
+                          {/* Star */}
+                          {q.type==="star" && (
+                            <div style={{display:"flex",gap:4,justifyContent:"center"}}>
+                              {[1,2,3,4,5].map(n=>(
+                                <button key={n} onClick={()=>setFbAnswer(q.id,n)}
+                                  style={{background:"none",border:"none",fontSize:30,cursor:"pointer",opacity:(fbAnswers[q.id]||0)>=n?1:0.2,transition:"opacity 0.15s",padding:"0 3px"}}>⭐</button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Multi-select */}
+                          {q.type==="multi" && (
+                            <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                              {(q.choices||[]).map(c=>{
+                                const sel=(fbAnswers[q.id]||[]).includes(c);
+                                return(
+                                  <button key={c} onClick={()=>toggleFbMulti(q.id,c)}
+                                    style={{padding:"7px 14px",borderRadius:99,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?"#fdf0eb":C.warm,fontSize:13,fontWeight:600,color:sel?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                                    {sel?"✓ ":""}{c}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Scale */}
+                          {q.type==="scale" && (
+                            <div>
+                              <div style={{display:"flex",justifyContent:"space-between",gap:4,marginBottom:6}}>
+                                {[1,2,3,4,5,6,7,8,9,10].map(n=>{
+                                  const sel=fbAnswers[q.id]===n;
+                                  return(
+                                    <button key={n} onClick={()=>setFbAnswer(q.id,n)}
+                                      style={{flex:1,padding:"8px 0",borderRadius:10,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?C.ter:C.warm,color:sel?"white":C.mid,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                                      {n}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.lt,fontFamily:"monospace"}}>
+                                <span>Not at all</span><span>Extremely</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Free text */}
+                          {q.type==="text" && (
+                            <textarea value={fbAnswers[q.id]||""} onChange={e=>setFbAnswer(q.id,e.target.value)}
+                              placeholder="Type your answer here… (optional)"
+                              rows={3}
+                              style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:"inherit",outline:"none",resize:"none",boxSizing:"border-box"}}/>
+                          )}
+
+                          {/* Yes/No */}
+                          {q.type==="yesno" && (
+                            <div style={{display:"flex",gap:10}}>
+                              {["yes","no"].map(v=>{
+                                const sel=fbAnswers[q.id]===v;
+                                return(
+                                  <button key={v} onClick={()=>setFbAnswer(q.id,v)}
+                                    style={{flex:1,padding:"10px",borderRadius:12,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?"#fdf0eb":C.warm,color:sel?C.ter:C.mid,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                                    {v==="yes"?"👍 Yes":"👎 No"}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      <button onClick={submitFeedback} disabled={fbSubmitting||!fbIsComplete()}
+                        style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:fbIsComplete()?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:fbIsComplete()?"pointer":"default",fontFamily:"inherit",transition:"background 0.2s"}}>
+                        {fbSubmitting?"Sending…":"Send Feedback"}
+                      </button>
+                      <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:"monospace"}}>Takes 1 minute · won't appear again</div>
+                    </>
                   )}
-
-                  {/* Free text */}
-                  <textarea value={fbText} onChange={e=>setFbText(e.target.value)}
-                    placeholder="Any other thoughts… (optional)"
-                    rows={2}
-                    style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:"inherit",outline:"none",resize:"none",boxSizing:"border-box",marginBottom:10}}/>
-
-                  <button onClick={submitFeedback} disabled={fbSubmitting||fbStarRating===0}
-                    style={{width:"100%",padding:"11px",borderRadius:99,border:"none",background:fbStarRating>0?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:fbStarRating>0?"pointer":"default",fontFamily:"inherit",transition:"background 0.2s"}}>
-                    {fbSubmitting?"Sending…":"Send Feedback"}
-                  </button>
-                  <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:"monospace"}}>Takes 10 seconds · won't appear again</div>
                 </div>
               )}
 
@@ -7175,81 +7299,163 @@ function App(){
               <button onClick={()=>setShowAdminPanel(false)} style={{background:"none",border:"none",fontSize:20,color:C.lt,cursor:"pointer"}}>✕</button>
             </div>
 
-            {/* ── Current stats ── */}
-            <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Live question</div>
+            {/* ── Live stats ── */}
+            <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Live push</div>
             {adminLoading && <div style={{textAlign:"center",padding:"20px",color:C.lt,fontFamily:"monospace"}}>Loading…</div>}
             {!adminLoading && adminStats && (
               <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
-                <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10,lineHeight:1.4}}>"{adminStats.question}"</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-                  <div style={{background:"#fdf0eb",borderRadius:12,padding:"10px",textAlign:"center"}}>
-                    <div style={{fontSize:24,fontWeight:700,color:C.ter}}>{adminStats.count}</div>
-                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase"}}>Responses</div>
-                  </div>
-                  <div style={{background:"#fdf0eb",borderRadius:12,padding:"10px",textAlign:"center"}}>
-                    <div style={{fontSize:24,fontWeight:700,color:C.ter}}>{adminStats.avgStars}⭐</div>
-                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase"}}>Avg rating</div>
-                  </div>
-                </div>
-                {adminStats.choices.length>0 && (
-                  <div style={{marginBottom:12}}>
-                    <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Choice breakdown</div>
-                    {adminStats.choices.map(c=>{
-                      const cnt = adminStats.choiceCounts[c]||0;
-                      const pct = adminStats.count>0 ? Math.round((cnt/adminStats.count)*100) : 0;
-                      return(
-                        <div key={c} style={{marginBottom:6}}>
-                          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}>
-                            <span style={{color:C.mid}}>{c}</span>
-                            <span style={{fontFamily:"monospace",color:C.lt}}>{cnt} ({pct}%)</span>
-                          </div>
-                          <div style={{height:6,background:C.blush,borderRadius:99,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:pct+"%",background:C.ter,borderRadius:99,transition:"width 0.4s"}}/>
-                          </div>
+                <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:4}}>{adminStats.title}</div>
+                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginBottom:12}}>{adminStats.count} response{adminStats.count!==1?"s":""}</div>
+
+                {(adminStats.questions||[]).map((q,qi)=>(
+                  <div key={q.id} style={{marginBottom:14,paddingBottom:14,borderBottom:qi<adminStats.questions.length-1?`1px solid ${C.blush}`:"none"}}>
+                    <div style={{fontSize:13,fontWeight:600,color:C.mid,marginBottom:8}}>{qi+1}. {q.text}</div>
+
+                    {/* Star stats */}
+                    {q.type==="star" && (
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{fontSize:26,fontWeight:700,color:C.ter}}>{q.avg}⭐</div>
+                        <div style={{fontSize:12,color:C.lt,fontFamily:"monospace"}}>avg from {q.count} answers</div>
+                      </div>
+                    )}
+
+                    {/* Scale stats */}
+                    {q.type==="scale" && (
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{fontSize:26,fontWeight:700,color:C.ter}}>{q.avg}<span style={{fontSize:14}}>/10</span></div>
+                        <div style={{fontSize:12,color:C.lt,fontFamily:"monospace"}}>avg from {q.count} answers</div>
+                      </div>
+                    )}
+
+                    {/* Multi stats */}
+                    {q.type==="multi" && (
+                      <div>
+                        {(q.choices||[]).map(c=>{
+                          const cnt=(q.tally||{})[c]||0;
+                          const pct=q.count>0?Math.round((cnt/q.count)*100):0;
+                          return(
+                            <div key={c} style={{marginBottom:6}}>
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
+                                <span style={{color:C.mid}}>{c}</span>
+                                <span style={{fontFamily:"monospace",color:C.lt}}>{cnt} ({pct}%)</span>
+                              </div>
+                              <div style={{height:6,background:C.blush,borderRadius:99,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:pct+"%",background:C.ter,borderRadius:99}}/>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Text responses */}
+                    {q.type==="text" && q.texts && q.texts.length>0 && (
+                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                        {q.texts.map((t,i)=>(
+                          <div key={i} style={{background:C.warm,borderRadius:10,padding:"8px 10px",fontSize:13,color:C.mid,fontStyle:"italic"}}>"{t}"</div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Yes/No stats */}
+                    {q.type==="yesno" && (
+                      <div style={{display:"flex",gap:10}}>
+                        <div style={{flex:1,background:"#eaf6f0",borderRadius:12,padding:"10px",textAlign:"center"}}>
+                          <div style={{fontSize:22,fontWeight:700,color:"#3a8a60"}}>{q.yes||0}</div>
+                          <div style={{fontSize:11,fontFamily:"monospace",color:"#5aaa80",textTransform:"uppercase"}}>Yes</div>
                         </div>
-                      );
-                    })}
+                        <div style={{flex:1,background:"#fdf0eb",borderRadius:12,padding:"10px",textAlign:"center"}}>
+                          <div style={{fontSize:22,fontWeight:700,color:C.ter}}>{q.no||0}</div>
+                          <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase"}}>No</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
+
                 <button onClick={adminDeleteQuestion}
-                  style={{width:"100%",padding:"10px",borderRadius:99,border:`1.5px solid #e8574a`,background:"white",color:"#e8574a",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
-                  🗑 Archive & stop showing this question
+                  style={{width:"100%",padding:"10px",borderRadius:99,border:`1.5px solid #e8574a`,background:"white",color:"#e8574a",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",marginTop:4}}>
+                  🗑 Archive & stop showing
                 </button>
               </div>
             )}
             {!adminLoading && !adminStats && (
               <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px dashed ${C.blush}`,textAlign:"center",color:C.lt,fontSize:13,fontFamily:"monospace"}}>
-                No active question — push one below
+                No active push — build one below
               </div>
             )}
 
-            {/* ── Push new question ── */}
-            <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Push new question</div>
-            <div style={{background:"white",borderRadius:16,padding:"14px",border:`1px solid ${C.blush}`}}>
-              <div style={{marginBottom:10}}>
-                <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Question</label>
-                <textarea value={adminQuestion} onChange={e=>setAdminQuestion(e.target.value)}
-                  placeholder="e.g. How are you finding OBubba so far?"
-                  rows={2}
-                  style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:"inherit",outline:"none",resize:"none",boxSizing:"border-box"}}/>
+            {/* ── Build new push ── */}
+            <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Build new feedback push</div>
+            <div style={{background:"white",borderRadius:16,padding:"14px",border:`1px solid ${C.blush}`,marginBottom:10}}>
+
+              {/* Push title */}
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Feedback title (shown to users)</label>
+                <input value={adminPush.title} onChange={e=>setAdminPush(p=>({...p,title:e.target.value}))}
+                  placeholder="e.g. Help us improve OBubba 🙏"
+                  style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
               </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Multiple choice options (optional)</label>
-                {adminChoices.map((c,i)=>(
-                  <input key={i} value={c} onChange={e=>{const a=[...adminChoices];a[i]=e.target.value;setAdminChoices(a);}}
-                    placeholder={`Option ${i+1}`}
-                    style={{width:"100%",padding:"7px 11px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom:6}}/>
-                ))}
-                <button onClick={()=>setAdminChoices(a=>[...a,""])}
-                  style={{fontSize:12,color:C.lt,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit",textDecoration:"underline"}}>
-                  + Add option
-                </button>
-              </div>
-              <button onClick={adminPushQuestion} disabled={adminSaving||!adminQuestion.trim()}
-                style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:adminQuestion.trim()?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:adminQuestion.trim()?"pointer":"default",fontFamily:"inherit"}}>
+
+              {/* Questions */}
+              {adminPush.questions.map((q,qi)=>(
+                <div key={q.id} style={{background:C.warm,borderRadius:14,padding:"12px",marginBottom:10,border:`1px solid ${C.blush}`}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700}}>Question {qi+1}</div>
+                    <div style={{display:"flex",gap:4}}>
+                      {qi>0&&<button onClick={()=>adminMoveQuestion(qi,-1)} style={{background:"none",border:`1px solid ${C.blush}`,borderRadius:8,width:26,height:26,cursor:"pointer",color:C.lt,fontSize:12}}>↑</button>}
+                      {qi<adminPush.questions.length-1&&<button onClick={()=>adminMoveQuestion(qi,1)} style={{background:"none",border:`1px solid ${C.blush}`,borderRadius:8,width:26,height:26,cursor:"pointer",color:C.lt,fontSize:12}}>↓</button>}
+                      {adminPush.questions.length>1&&<button onClick={()=>adminRemoveQuestion(qi)} style={{background:"none",border:`1px solid #e8c0bb`,borderRadius:8,width:26,height:26,cursor:"pointer",color:"#c07070",fontSize:12}}>✕</button>}
+                    </div>
+                  </div>
+
+                  {/* Question type picker */}
+                  <div style={{display:"flex",gap:5,marginBottom:8,flexWrap:"wrap"}}>
+                    {[{v:"star",l:"⭐ Stars"},{v:"multi",l:"☑️ Multi"},{v:"scale",l:"📊 Scale"},{v:"text",l:"✏️ Text"},{v:"yesno",l:"👍 Yes/No"}].map(({v,l})=>(
+                      <button key={v} onClick={()=>adminUpdateQ(qi,"type",v)}
+                        style={{padding:"4px 10px",borderRadius:99,border:`1.5px solid ${q.type===v?C.ter:C.blush}`,background:q.type===v?"#fdf0eb":C.cream,color:q.type===v?C.ter:C.lt,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"monospace"}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Question text */}
+                  <input value={q.text} onChange={e=>adminUpdateQ(qi,"text",e.target.value)}
+                    placeholder="Your question…"
+                    style={{width:"100%",padding:"8px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"white",fontSize:13,fontFamily:"inherit",outline:"none",boxSizing:"border-box",marginBottom: q.type==="multi"?8:0}}/>
+
+                  {/* Choices (multi only) */}
+                  {q.type==="multi" && (
+                    <div>
+                      {(q.choices||[]).map((c,ci)=>(
+                        <div key={ci} style={{display:"flex",gap:5,marginBottom:5,alignItems:"center"}}>
+                          <input value={c} onChange={e=>adminUpdateChoice(qi,ci,e.target.value)}
+                            placeholder={`Option ${ci+1}`}
+                            style={{flex:1,padding:"6px 10px",borderRadius:9,border:`1.5px solid ${C.blush}`,background:"white",fontSize:12,fontFamily:"inherit",outline:"none"}}/>
+                          <button onClick={()=>adminRemoveChoice(qi,ci)}
+                            style={{width:24,height:24,borderRadius:"50%",border:`1px solid ${C.blush}`,background:"white",color:C.lt,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+                        </div>
+                      ))}
+                      <button onClick={()=>adminAddChoice(qi)}
+                        style={{fontSize:12,color:C.lt,background:"none",border:"none",cursor:"pointer",padding:"4px 0",fontFamily:"inherit",textDecoration:"underline"}}>
+                        + Add option
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Add question */}
+              <button onClick={adminAddQuestion}
+                style={{width:"100%",padding:"10px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"transparent",color:C.lt,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",marginBottom:12}}>
+                + Add another question
+              </button>
+
+              <button onClick={adminPushFeedback} disabled={adminSaving||!adminPush.title.trim()}
+                style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:adminPush.title.trim()?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:adminPush.title.trim()?"pointer":"default",fontFamily:"inherit"}}>
                 {adminSaving?"Pushing…":"🚀 Push to all users"}
               </button>
-              <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:"monospace"}}>Replaces any existing active question immediately</div>
+              <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:"monospace"}}>Replaces any existing active push immediately</div>
             </div>
 
           </div>
