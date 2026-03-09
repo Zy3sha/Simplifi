@@ -758,7 +758,7 @@ function App(){
   const[devActFilter,setDevActFilter]=useState("all");
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null); // 'feed'|'nappy'|'sleep'|null
-  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
+  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
@@ -771,7 +771,7 @@ function App(){
     if(todayWake) setShowWakeInline(false);
   },[days, selDay, showWakeInline]);
   const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
-  const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});
+  const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});
   const[newDate,setNewDate]=useState(todayStr());
   const[menuDay,setMenuDay]=useState(null);
   const[editDate,setEditDate]=useState("");
@@ -3315,9 +3315,9 @@ function App(){
     setModal(null); _setParsedEntries(null); setPasteText("");
   }
 
-  function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});setModal("entry");}
+  function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
   function openLogPanel(panel){
-    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime(),feedTime:nowTime(),feedTimeSet:false});
+    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime(),feedTime:nowTime(),feedTimeSet:false});
     setLogPanel(panel);
   }
 
@@ -3373,7 +3373,7 @@ function App(){
     setEType(entry.type);
     setFeedType(entry.feedType||"milk");
     setNightMode(!!entry.night);
-    setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||"",breastL:entry.breastL||"",breastR:entry.breastR||""});
+    setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||"",breastL:entry.breastL||"",breastR:entry.breastR||"",pumpL:entry.pumpL||"",pumpR:entry.pumpR||""});
     setModal("entry");
   }
   function delEntry(id){
@@ -3408,6 +3408,9 @@ function App(){
       quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:parseInt(f.amount)||0,note:f.note||""});
     } else if(f.feedType==="breast"){
       quickAddLog("feed",{type:"feed",time:t,feedType:"breast",breastL:parseInt(f.breastL)||0,breastR:parseInt(f.breastR)||0,amount:0,note:f.note||""});
+    } else if(f.feedType==="pump"){
+      const pL=parseInt(f.pumpL)||0, pR=parseInt(f.pumpR)||0;
+      quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:pL,pumpR:pR,amount:pL+pR,note:f.note||""});
     } else {
       quickAddLog("feed",{type:"feed",time:t,feedType:"solids",amount:0,note:f.note||""});
     }
@@ -3432,6 +3435,9 @@ function App(){
       if(feedType==="breast"){
         const bL=parseInt(form.breastL)||0, bR=parseInt(form.breastR)||0;
         e={...e,type:"feed",time:form.time,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:nightMode||form.night==="yes"};
+      } else if(feedType==="pump"){
+        const pL=parseInt(form.pumpL)||0, pR=parseInt(form.pumpR)||0;
+        e={...e,type:"feed",time:form.time,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:nightMode||form.night==="yes"};
       } else {
         e={...e,type:"feed",time:form.time,amount:parseInt(form.amount)||0,night:nightMode||form.night==="yes",feedType:feedType};
       }
@@ -4748,11 +4754,16 @@ function App(){
                           <span style={{fontSize:17}}>{ICONS[e.type]}</span>
                           <div>
                             <div style={{fontSize:14,fontWeight:500}}>
-                              {e.type==="feed"?(e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":"Bottle Feed"):NAMES[e.type]}
+                              {e.type==="feed"?(e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":e.feedType==="pump"?"Pumped":"Bottle Feed"):NAMES[e.type]}
                             </div>
                             {e.type==="feed"&&e.feedType==="breast"&&(
                               <div style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>
                                 {e.breastL>0?`L: ${e.breastL}m`:""}{e.breastL>0&&e.breastR>0?" · ":""}{e.breastR>0?`R: ${e.breastR}m`:""}
+                              </div>
+                            )}
+                            {e.type==="feed"&&e.feedType==="pump"&&(
+                              <div style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>
+                                {e.pumpL>0?`L: ${e.pumpL}ml`:""}{e.pumpL>0&&e.pumpR>0?" · ":""}{e.pumpR>0?`R: ${e.pumpR}ml`:""}
                               </div>
                             )}
                             {e.type==="nap"&&<div style={{fontSize:15,color:C.lt,fontFamily:"monospace"}}>{minDiff(e.start,e.end)} min</div>}
@@ -4766,9 +4777,11 @@ function App(){
                             {e.type==="feed"
                               ? (e.feedType==="breast"
                                   ? `${(e.breastL||0)+(e.breastR||0)}m`
-                                  : e.feedType==="solids"
-                                    ? fmt12(e.time)
-                                    : `${e.amount}ml`)
+                                  : e.feedType==="pump"
+                                    ? `${(e.pumpL||0)+(e.pumpR||0)}ml`
+                                    : e.feedType==="solids"
+                                      ? fmt12(e.time)
+                                      : `${e.amount}ml`)
                               : e.type==="nap"
                                 ? `${fmt12(e.start)}-${fmt12(e.end)}`
                                 : fmt12(e.time)}
@@ -6112,7 +6125,7 @@ function App(){
         <Sheet onClose={()=>setLogPanel(null)} title="🍼 Log Feed">
           {/* Feed type tabs */}
           <div style={{display:"flex",gap:8,marginBottom:16}}>
-            {[{v:"bottle",label:"🍼 Bottle"},{v:"breast",label:"🤱 Breast"},{v:"solids",label:"🥣 Solids"}].map(({v,label})=>(
+            {[{v:"bottle",label:"🍼 Bottle"},{v:"breast",label:"🤱 Breast"},{v:"pump",label:"🫙 Pump"},{v:"solids",label:"🥣 Solids"}].map(({v,label})=>(
               <button key={v} onClick={()=>setLogForm(f=>({...f,feedType:v}))}
                 style={{flex:1,padding:"9px 4px",borderRadius:12,border:`2px solid ${logForm.feedType===v?C.ter:C.blush}`,background:logForm.feedType===v?"#fdf0eb":C.warm,fontSize:13,fontWeight:700,color:logForm.feedType===v?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
                 {label}
@@ -6156,6 +6169,24 @@ function App(){
               </div>
               <div style={{fontSize:15,color:C.lt,fontFamily:"monospace",marginTop:6,textAlign:"center"}}>
                 Total: {((parseInt(logForm.breastL)||0)+(parseInt(logForm.breastR)||0))} min
+              </div>
+            </div>
+          )}
+          {logForm.feedType==="pump"&&(
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Amount pumped (ml)</label>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                {[["pumpL","Left (L)"],["pumpR","Right (R)"]].map(([k,lbl])=>(
+                  <div key={k}>
+                    <label style={{fontSize:14,fontFamily:"monospace",color:C.lt,display:"block",marginBottom:3}}>{lbl}</label>
+                    <input type="number" inputMode="numeric" min="0" placeholder="ml" value={logForm[k]||""} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
+                      style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{background:"#f0faf5",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid #b0e8cc"}}>
+                <span style={{fontSize:13,fontFamily:"monospace",color:"#4a8a6a",textTransform:"uppercase",letterSpacing:"0.06em"}}>Total</span>
+                <span style={{fontSize:17,fontWeight:700,fontFamily:"monospace",color:"#2a7a50"}}>{((parseInt(logForm.pumpL)||0)+(parseInt(logForm.pumpR)||0))} ml</span>
               </div>
             </div>
           )}
@@ -6262,9 +6293,9 @@ function App(){
           {eType==="feed"&&<>
             {/* Milk / Breast / Solids toggle */}
             <div style={{display:"flex",gap:6,marginBottom:12}}>
-              {["milk","breast","solids"].map(ft=>(
+              {["milk","breast","pump","solids"].map(ft=>(
                 <button key={ft} onClick={()=>setFeedType(ft)} style={{flex:1,padding:"7px 4px",borderRadius:12,border:`2px solid ${feedType===ft?C.ter:C.blush}`,background:feedType===ft?"#fdf0eb":C.warm,fontSize:14,fontWeight:600,color:feedType===ft?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit"}}>
-                  {ft==="milk"?"🍼 Bottle":ft==="breast"?"🤱 Breast":"🥣 Solids"}
+                  {ft==="milk"?"🍼 Bottle":ft==="breast"?"🤱 Breast":ft==="pump"?"🫙 Pump":"🥣 Solids"}
                 </button>
               ))}
             </div>
@@ -6286,6 +6317,24 @@ function App(){
                 </div>
               </div>
             )}
+            {feedType==="pump"&&(
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6}}>Amount pumped (ml)</label>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  {[["pumpL","Left (L)"],["pumpR","Right (R)"]].map(([k,lbl])=>(
+                    <div key={k}>
+                      <label style={{fontSize:14,fontFamily:"monospace",color:C.lt,display:"block",marginBottom:3}}>{lbl}</label>
+                      <input type="number" inputMode="numeric" min="0" placeholder="ml" value={form[k]||""} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}
+                        style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
+                    </div>
+                  ))}
+                </div>
+                <div style={{background:"#f0faf5",borderRadius:10,padding:"8px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",border:"1px solid #b0e8cc"}}>
+                  <span style={{fontSize:13,fontFamily:"monospace",color:"#4a8a6a",textTransform:"uppercase",letterSpacing:"0.06em"}}>Total</span>
+                  <span style={{fontSize:17,fontWeight:700,fontFamily:"monospace",color:"#2a7a50"}}>{((parseInt(form.pumpL)||0)+(parseInt(form.pumpR)||0))} ml</span>
+                </div>
+              </div>
+            )}
             {feedType==="solids"&&<Inp label="Description / amount" type="text" placeholder="e.g. porridge, half jar" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
             <Inp label="Time" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/>
             {!nightMode&&(
@@ -6297,7 +6346,7 @@ function App(){
                 </select>
               </div>
             )}
-            {(feedType==="milk"||feedType==="breast")&&<Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
+            {(feedType==="milk"||feedType==="breast"||feedType==="pump")&&<Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
           </>}
 
           {eType==="nap"&&(
