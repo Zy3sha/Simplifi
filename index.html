@@ -2824,12 +2824,22 @@ function App(){
     }
 
     let detectedDate = null;
+    let yearWarning = null; // set if user needs to confirm a year mismatch
     // Check for explicit date first
     if (rawLines.length > 0) {
       const dateMatch = rawLines[0].match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
       if (dateMatch) {
         const d=dateMatch[1], mo=dateMatch[2], y=dateMatch[3];
-        const yr = y.length===2 ? "20"+y : y;
+        let yr = y.length===2 ? "20"+y : y;
+        const currentYear = new Date().getFullYear();
+        const parsedYear = parseInt(yr);
+        if(parsedYear > currentYear) {
+          yearWarning = { type:"future", parsed:parsedYear, corrected:String(currentYear) };
+          yr = String(currentYear); // auto-correct future year — not allowed
+        } else if(parsedYear < currentYear) {
+          yearWarning = { type:"past", parsed:parsedYear, corrected:String(currentYear) };
+          // Don't auto-correct — ask user (handled after parse in confirmPastedDate)
+        }
         detectedDate = yr+"-"+mo.padStart(2,"0")+"-"+d.padStart(2,"0");
       }
     }
@@ -2963,7 +2973,7 @@ function App(){
       warnings.push('Couldn\'t understand: "'+raw+'" — skipped');
     });
 
-    return { entries: entries, warnings: warnings, detectedDate: detectedDate };
+    return { entries: entries, warnings: warnings, detectedDate: detectedDate, yearWarning: yearWarning };
   }
 
   function openPaste() {
@@ -3211,6 +3221,19 @@ function App(){
   }
   function addDay(){
     if(!newDate)return;
+    const currentYear = new Date().getFullYear();
+    const targetYear = parseInt((newDate||"").split("-")[0]);
+    if(targetYear && targetYear > currentYear){
+      alert("Future year dates aren't allowed — please enter a past date.");
+      return;
+    }
+    if(targetYear && targetYear < currentYear){
+      if(window.confirm("That date is in " + targetYear + ". Did you mean " + currentYear + "?\n\nPress OK to use " + currentYear + ", or Cancel to keep " + targetYear + ".")){
+        const corrected = newDate.replace(String(targetYear), String(currentYear));
+        setNewDate(corrected);
+        return; // re-render; user clicks Add again
+      }
+    }
     if(!days[newDate])setDays(d=>({...d,[newDate]:[]}));
     setSelDay(newDate);
     setModal(null);
@@ -3237,15 +3260,24 @@ function App(){
     });
   }, []); // runs once on mount
 
-  // Auto-create the day after selDay — but only once selDay has at least one entry
-  // ── Auto-create the next calendar day once a day gets its first entry ──
+  // Auto-create the next calendar day once a day gets its first entry,
+  // but ONLY for days within 7 days of today — prevents phantom days when
+  // a past/edited day triggers next-day creation for arbitrary old dates.
   useEffect(()=>{
+    const todayDate = todayStr();
+    const todayMs = new Date(todayDate + "T12:00:00").getTime();
     const sortedKeys = Object.keys(days).sort();
     sortedKeys.forEach(dateStr => {
       if ((days[dateStr]||[]).length > 0) {
+        const dayMs = new Date(dateStr + "T12:00:00").getTime();
+        const daysAgo = (todayMs - dayMs) / (1000*60*60*24);
+        // Only auto-create next day for recent days (within 7 days of today)
+        if (daysAgo > 7) return;
         const parts = dateStr.split("-").map(Number);
         const next = new Date(parts[0], parts[1]-1, parts[2]+1);
         const nextStr = next.toISOString().split("T")[0];
+        // Don't create future days beyond tomorrow
+        if (nextStr > new Date(todayMs + 86400000).toISOString().split("T")[0]) return;
         if (!days[nextStr]) setDays(prev => prev[nextStr] ? prev : {...prev, [nextStr]: []});
       }
     });
@@ -3270,18 +3302,40 @@ function App(){
   }, []);
   function saveEditDay(){
     if(!editDate||editDate===menuDay){setModal(null);return;}
-    if(days[editDate]){alert("A day with that date already exists.");return;}
+    // Year validation
+    const currentYear = new Date().getFullYear();
+    const targetYear = parseInt((editDate||"").split("-")[0]);
+    if(targetYear && targetYear > currentYear) {
+      alert("Future year dates aren't allowed — please enter a date in " + currentYear + " or earlier.");
+      return;
+    }
+    if(targetYear && targetYear < currentYear) {
+      if(!window.confirm("That date is in " + targetYear + ". Did you mean " + currentYear + "?
+
+Press OK to use " + currentYear + ", or Cancel to keep " + targetYear + ".")) {
+        // User wants to keep past year — allow it, just proceed
+      } else {
+        // Replace year with current year
+        setEditDate(editDate.replace(/^\d{4}/, String(currentYear)));
+        return; // re-render with corrected date; user clicks Save again
+      }
+    }
+    // If target day exists but is empty (auto-created placeholder), it's safe to overwrite
+    const targetEntries = days[editDate] || [];
+    if(targetEntries.length > 0){alert("A day with data already exists on that date.");return;}
     setDays(d=>{const c={...d};c[editDate]=c[menuDay];delete c[menuDay];return c;});
     setSelDay(editDate);setModal(null);
   }
   function delDay(){
-    if(!window.confirm(`Delete all data for ${fmtDate(menuDay)}?`))return;
-    // Count entries being deleted so push guard doesn't block this intentional removal
     const deletedCount = (days[menuDay]||[]).length;
-    userDeletedCountRef.current += deletedCount;
-    setDays(d=>{const c={...d};delete c[menuDay];return c;});
-    const rem=dayKeys.filter(k=>k!==menuDay);
-    setSelDay(rem[rem.length-1]||null);setModal(null);
+    // Empty days (auto-created placeholders) — delete silently without confirmation
+    if(deletedCount === 0 || window.confirm(`Delete all data for ${fmtDate(menuDay)}?`)){
+      // Count entries so push guard doesn't block this intentional removal
+      userDeletedCountRef.current += deletedCount;
+      setDays(d=>{const c={...d};delete c[menuDay];return c;});
+      const rem=dayKeys.filter(k=>k!==menuDay);
+      setSelDay(rem[rem.length-1]||null);setModal(null);
+    }
   }
   function addWeight(){
     if(!wForm.kg)return;
@@ -5386,9 +5440,36 @@ function App(){
             </>
           ) : (
             <>
-              {parsedEntries.detectedDate&&(
+              {parsedEntries.yearWarning&&parsedEntries.yearWarning.type==="future"&&(
+                <div style={{fontSize:14,color:"#c04040",background:"#fff0f0",borderRadius:10,padding:"10px 12px",marginBottom:12,border:"1px solid #f8c8c8"}}>
+                  ⚠️ Future year ({parsedEntries.yearWarning.parsed}) detected — automatically changed to {parsedEntries.yearWarning.corrected}.
+                </div>
+              )}
+              {parsedEntries.yearWarning&&parsedEntries.yearWarning.type==="past"&&(
+                <div style={{fontSize:14,color:C.mid,background:"#fffbf0",borderRadius:10,padding:"10px 12px",marginBottom:12,border:"1px solid #f0d890"}}>
+                  <div style={{fontWeight:700,marginBottom:6,color:"#8a6a10"}}>⚠️ Year {parsedEntries.yearWarning.parsed} detected — did you mean {parsedEntries.yearWarning.corrected}?</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>{
+                      const correctedText = pasteText.replace(String(parsedEntries.yearWarning.parsed), parsedEntries.yearWarning.corrected);
+                      const result = smartParse(correctedText);
+                      setParsedEntries(result);
+                    }} style={{flex:1,padding:"8px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                      Use {parsedEntries.yearWarning.corrected}
+                    </button>
+                    <button onClick={()=>setParsedEntries({...parsedEntries,yearWarning:null})} style={{flex:1,padding:"8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"white",color:C.mid,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                      Keep {parsedEntries.yearWarning.parsed}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {parsedEntries.detectedDate&&!parsedEntries.yearWarning&&(
                 <div style={{fontSize:14,fontFamily:"monospace",color:C.mint,background:"#f0faf6",borderRadius:10,padding:"7px 12px",marginBottom:12}}>
                   📅 Detected date: <strong>{fmtLong(parsedEntries.detectedDate)}</strong> — entries will be added to this day
+                </div>
+              )}
+              {parsedEntries.detectedDate&&parsedEntries.yearWarning&&(
+                <div style={{fontSize:14,fontFamily:"monospace",color:C.lt,background:C.cream,borderRadius:10,padding:"7px 12px",marginBottom:12}}>
+                  📅 Detected date: <strong>{fmtLong(parsedEntries.detectedDate)}</strong>
                 </div>
               )}
               {!parsedEntries.detectedDate&&(
