@@ -775,15 +775,30 @@ function App(){
   const[newDate,setNewDate]=useState(todayStr());
   const[menuDay,setMenuDay]=useState(null);
   const[editDate,setEditDate]=useState("");
-  const[napOn,setNapOn]=useState(false);
-  const[napStartT,setNapStartT]=useState(null);
-  const[napSec,setNapSec]=useState(0);
+  const[napOn,setNapOn]=useState(()=>{try{return localStorage.getItem("nap_on")==="1";}catch{return false;}});
+  const[napStartT,setNapStartT]=useState(()=>{try{return localStorage.getItem("nap_startT")||null;}catch{return null;}});
+  const[napSec,setNapSec]=useState(()=>{
+    try{
+      const on=localStorage.getItem("nap_on")==="1";
+      const startT=localStorage.getItem("nap_startT");
+      const savedSec=parseInt(localStorage.getItem("nap_sec"))||0;
+      if(on && startT){
+        // Recalculate elapsed time from wall-clock start
+        const now=new Date();
+        const [sh,sm]=startT.split(":").map(Number);
+        const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+        const elapsed=Math.floor((now-startDate)/1000);
+        return elapsed>0?elapsed:savedSec;
+      }
+      return savedSec;
+    }catch{return 0;}
+  });
   const[napCountdown,setNapCountdown]=useState(null); // seconds until next nap window opens
   // ── Breast feed live timer state ──
-  const[breastSide,setBreastSide]=useState(null); // null | "L" | "R"
-  const[breastSec,setBreastSec]=useState({L:0,R:0});
-  const[breastActive,setBreastActive]=useState(false); // timer running
-  const[breastStartTime,setBreastStartTime]=useState(null); // feed start wall-clock time
+  const[breastSide,setBreastSide]=useState(()=>{try{return localStorage.getItem("breast_side")||null;}catch{return null;}});
+  const[breastSec,setBreastSec]=useState(()=>{try{const s=localStorage.getItem("breast_sec");return s?JSON.parse(s):{L:0,R:0};}catch{return {L:0,R:0};}});
+  const[breastActive,setBreastActive]=useState(()=>{try{return localStorage.getItem("breast_active")==="1";}catch{return false;}});
+  const[breastStartTime,setBreastStartTime]=useState(()=>{try{return localStorage.getItem("breast_startTime")||null;}catch{return null;}});
   const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null); // seconds until predicted bedtime
   const[copied,setCopied]=useState(false);
@@ -1849,6 +1864,17 @@ function App(){
     }
     return()=>clearInterval(breastRef.current);
   },[breastActive,breastSide]);
+
+  // ── Persist nap timer state to localStorage ──
+  useEffect(()=>{try{localStorage.setItem("nap_on",napOn?"1":"0");}catch{}},[ napOn]);
+  useEffect(()=>{try{if(napStartT)localStorage.setItem("nap_startT",napStartT);else localStorage.removeItem("nap_startT");}catch{}},[ napStartT]);
+  useEffect(()=>{try{localStorage.setItem("nap_sec",String(napSec));}catch{}},[napSec]);
+
+  // ── Persist breast timer state to localStorage ──
+  useEffect(()=>{try{if(breastStartTime)localStorage.setItem("breast_startTime",breastStartTime);else localStorage.removeItem("breast_startTime");}catch{}},[breastStartTime]);
+  useEffect(()=>{try{if(breastSide)localStorage.setItem("breast_side",breastSide);else localStorage.removeItem("breast_side");}catch{}},[breastSide]);
+  useEffect(()=>{try{localStorage.setItem("breast_sec",JSON.stringify(breastSec));}catch{}},[breastSec]);
+  useEffect(()=>{try{localStorage.setItem("breast_active",breastActive?"1":"0");}catch{}},[breastActive]);
 
   // ── Memoised age — babyDob almost never changes, no need to recalculate everywhere ──
   const age = React.useMemo(() => calcAge(babyDob), [babyDob]);
@@ -3491,7 +3517,11 @@ function App(){
       return {...d,[selDay]:arr};
     });
   }
-  function startNap(){setNapStartT(nowTime());setNapSec(0);setNapOn(true);}
+  function startNap(){
+    const t=nowTime();
+    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");}catch{}
+    setNapStartT(t);setNapSec(0);setNapOn(true);
+  }
 
   function logBedtimeNow(){
     // Guard against duplicate bedtime entries
@@ -3502,7 +3532,11 @@ function App(){
 
   // ── Breast feed timer functions ──
   function startBreastTimer(side){
-    if(!breastStartTime) setBreastStartTime(nowTime());
+    if(!breastStartTime){
+      const t=nowTime();
+      setBreastStartTime(t);
+      try{localStorage.setItem("breast_startTime",t);}catch{}
+    }
     setBreastSide(side);
     setBreastActive(true);
   }
@@ -3518,10 +3552,14 @@ function App(){
     const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:false,note:""};
     // Clear state first to prevent double-fire
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
+    try{["breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));}catch{}
     setDays(d=>{const updated=[...(d[selDay]||[]),entry];return{...d,[selDay]:autoClassifyNight(updated)};});
     trackEvent("entry_logged",{type:"breast_feed"});
   }
-  function cancelBreastTimer(){setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);}
+  function cancelBreastTimer(){
+    setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
+    try{["breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));}catch{}
+  }
   function endNap(){
     if(!napOn) return; // guard against double-fire
     setNapOn(false);const end=nowTime();
@@ -3530,6 +3568,7 @@ function App(){
       return {...d,[selDay]:autoClassifyNight(updated)};
     });
     setNapStartT(null);setNapSec(0);
+    try{["nap_on","nap_startT","nap_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
   function copySummary(){
     const ln=[`${fmtLong(selDay)} — ${possessive(babyName||"Baby")} Day`,""];
