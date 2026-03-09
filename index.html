@@ -761,6 +761,7 @@ function App(){
   const[newDate,setNewDate]=useState(todayStr());
   const[menuDay,setMenuDay]=useState(null);
   const[editDate,setEditDate]=useState("");
+  const[confirmDeleteDay,setConfirmDeleteDay]=useState(false);
   const[napOn,setNapOn]=useState(()=>{try{return localStorage.getItem("nap_on")==="1";}catch{return false;}});
   const[napStartT,setNapStartT]=useState(()=>{try{return localStorage.getItem("nap_startT")||null;}catch{return null;}});
   const[napSec,setNapSec]=useState(()=>{
@@ -3917,27 +3918,26 @@ function App(){
   }
   function delDay(){
     const deletedCount = (days[menuDay]||[]).length;
-
-    if(deletedCount === 0 || window.confirm(`Delete all data for ${fmtDate(menuDay)}?`)){
-      const dayToDelete = menuDay;
-
-      Object.keys(children).forEach(cid => {
-        deletedDaysRef.current.add(cid + ":" + dayToDelete);
-      });
-
-      userDeletedCountRef.current += deletedCount;
-      setDays(d=>{
-        const c={...d};
-        delete c[dayToDelete];
-
-        const rem = Object.keys(c).sort().filter(k=>k!==dayToDelete);
-        setSelDay(rem[rem.length-1]||null);
-        return c;
-      });
-      setModal(null);
-
-      setTimeout(()=>{ if(backupCode) pushToCloud(backupCode, childrenRef.current); }, 600);
-    }
+    if(deletedCount > 0){ setConfirmDeleteDay(true); return; }
+    _doDelDay();
+  }
+  function _doDelDay(){
+    const dayToDelete = menuDay;
+    Object.keys(children).forEach(cid => {
+      deletedDaysRef.current.add(cid + ":" + dayToDelete);
+    });
+    const cnt = (days[dayToDelete]||[]).length;
+    userDeletedCountRef.current += cnt;
+    setDays(d=>{
+      const c={...d};
+      delete c[dayToDelete];
+      const rem = Object.keys(c).sort().filter(k=>k!==dayToDelete);
+      setSelDay(rem[rem.length-1]||null);
+      return c;
+    });
+    setConfirmDeleteDay(false);
+    setModal(null);
+    setTimeout(()=>{ if(backupCode) pushToCloud(backupCode, childrenRef.current); }, 600);
   }
   function addWeight(){
     if(!wForm.kg)return;
@@ -4881,7 +4881,7 @@ function App(){
           {displayDayKeys.map(d=>(
             <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"white":"rgba(255,255,255,0.35)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?"none":`1px solid rgba(255,255,255,0.45)`}}>
               <button onClick={()=>setSelDay(d)} style={{background:_bN,border:_bN,color:d===selDay?C.ter:C.mid,fontSize:13,fontFamily:_fM,cursor:_cP,padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
-              <button onClick={e=>{setMenuDay(d);setEditDate(d);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?"#f2d9cc":"rgba(255,255,255,0.4)",border:_bN,borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:9,color:d===selDay?C.mid:C.lt}}>✎</button>
+              <button onClick={e=>{setMenuDay(d);setEditDate(d);setConfirmDeleteDay(false);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?"#f2d9cc":"rgba(255,255,255,0.4)",border:_bN,borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:9,color:d===selDay?C.mid:C.lt}}>✎</button>
             </div>
           ))}
           {!displayDayKeys.length&&<span style={{color:C.lt,fontSize:13,fontFamily:_fM,alignSelf:"center"}}>No days yet</span>}
@@ -6941,12 +6941,22 @@ function App(){
       )}
 
       {modal==="dayMenu"&&menuDay&&(
-        <Sheet onClose={()=>setModal(null)} title={`Edit · ${fmtDate(menuDay)}`}>
-          <Inp label="Change Date To" type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}/>
-          <PBtn onClick={saveEditDay}>Save New Date</PBtn>
-          <PBtn v="ghost" onClick={()=>setModal(null)} style={{marginTop:8}}>Cancel</PBtn>
-          <div style={{borderTop:`1px solid ${C.blush}`,margin:"12px 0"}}/>
-          <PBtn v="danger" onClick={delDay}>🗑 Delete This Day</PBtn>
+        <Sheet onClose={()=>{setModal(null);setConfirmDeleteDay(false);}} title={`Edit · ${fmtDate(menuDay)}`}>
+          {!confirmDeleteDay ? (<>
+            <Inp label="Change Date To" type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}/>
+            <PBtn onClick={saveEditDay}>Save New Date</PBtn>
+            <PBtn v="ghost" onClick={()=>setModal(null)} style={{marginTop:8}}>Cancel</PBtn>
+            <div style={{borderTop:`1px solid ${C.blush}`,margin:"12px 0"}}/>
+            <PBtn v="danger" onClick={delDay}>🗑 Delete This Day</PBtn>
+          </>) : (<>
+            <div style={{textAlign:"center",padding:"8px 0 16px"}}>
+              <div style={{fontSize:32,marginBottom:8}}>🗑</div>
+              <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:6}}>Delete {fmtDate(menuDay)}?</div>
+              <div style={{fontSize:13,color:C.lt,marginBottom:20}}>This will permanently remove all entries for this day.</div>
+              <PBtn v="danger" onClick={_doDelDay}>Yes, delete it</PBtn>
+              <PBtn v="ghost" onClick={()=>setConfirmDeleteDay(false)} style={{marginTop:8}}>Cancel</PBtn>
+            </div>
+          </>)}
         </Sheet>
       )}
 
