@@ -1410,9 +1410,13 @@ function App(){
     if(!window._fb) return;
     const {db, doc, onSnapshot} = window._fb;
     const unsub = onSnapshot(doc(db,"feedback","active"), snap=>{
+      const currentUsername = familyUsername || localStorage.getItem("family_username") || "";
+      const currentIsAdmin = !!(currentUsername && currentUsername.toLowerCase().includes("zyesha"));
       if(snap.exists()){
         const data = snap.data();
         const pid = data.id;
+        setActiveFeedback(data);
+        if(currentIsAdmin){ setShowFeedbackCard(false); return; }
         try{
           const answered = localStorage.getItem("fb_answered_"+pid);
           if(answered){ setShowFeedbackCard(false); return; }
@@ -1422,16 +1426,16 @@ function App(){
             const daysSince = (Date.now() - parseInt(lastDone)) / (1000*60*60*24);
             if(daysSince < 3){ setShowFeedbackCard(false); return; }
           }
-          setActiveFeedback(data); setFbAnswers({}); setShowFeedbackCard(true); setFeedbackDismissed(false); setFbThankYou(false);
+          setFbAnswers({}); setShowFeedbackCard(true); setFeedbackDismissed(false); setFbThankYou(false);
         }catch{
-          setActiveFeedback(data); setFbAnswers({}); setShowFeedbackCard(true);
+          setFbAnswers({}); setShowFeedbackCard(true);
         }
       } else {
         setActiveFeedback(null); setShowFeedbackCard(false);
       }
     });
     return()=>unsub();
-  },[fbReady]);
+  },[fbReady, familyUsername]);
 
 
   function setFbAnswer(qid, value){ setFbAnswers(prev=>({...prev,[qid]:value})); }
@@ -1584,6 +1588,10 @@ function App(){
     setAdminLoading(false);
   }
 
+
+  useEffect(()=>{
+    if(showAdminPanel && isAdmin) adminLoadStats();
+  },[showAdminPanel]);
 
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
@@ -7340,7 +7348,10 @@ function App(){
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20}}>⚙️ Feedback Admin</div>
-              <button onClick={()=>setShowAdminPanel(false)} style={{background:_bN,border:_bN,fontSize:20,color:C.lt,cursor:_cP}}>✕</button>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <button onClick={()=>adminLoadStats()} style={{background:C.warm,border:`1px solid ${C.blush}`,borderRadius:99,padding:"4px 12px",fontSize:13,color:C.mid,cursor:_cP,fontFamily:_fM,fontWeight:600}}>↻ Refresh</button>
+                <button onClick={()=>setShowAdminPanel(false)} style={{background:_bN,border:_bN,fontSize:20,color:C.lt,cursor:_cP}}>✕</button>
+              </div>
             </div>
 
             {}
