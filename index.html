@@ -46,7 +46,7 @@
     signInAnonymously(auth).catch(e => console.warn("Auth error", e));
     onAuthStateChanged(auth, user => { if (user) window._fbUid = user.uid; });
   </script>
-  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}html,body{height:100%;overscroll-behavior:none;}body{background:#faf6f0;font-family:'DM Sans',sans-serif;}::-webkit-scrollbar{display:none;}input,select,button{font-family:inherit;}body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}body.girl header,body.girl .gender-accent{background:#fde7e4!important;}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}html,body{height:100%;overscroll-behavior:none;color-scheme:light;}body{background:#faf6f0;font-family:'DM Sans',sans-serif;}::-webkit-scrollbar{display:none;}input,select,button{font-family:inherit;}body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}body.girl header,body.girl .gender-accent{background:#fde7e4!important;}</style>
 </head>
 <body>
 <div id="root"></div>
