@@ -747,6 +747,8 @@ function App(){
   const[showPersonalPrompt,setShowPersonalPrompt]=useState(false);
   const[pasteText,setPasteText]=useState("");
   const[parsedEntries,setParsedEntries]=useState(null);
+  const parsedEntriesRef = React.useRef(null);
+  const _setParsedEntries = (v) => { parsedEntriesRef.current = v; setParsedEntries(v); };
   const[parseError,setParseError]=useState("");
   const[feedType,setFeedType]=useState("milk"); // "milk" | "solids"
   const[dragId,setDragId]=useState(null); // id of entry being dragged
@@ -2987,7 +2989,7 @@ function App(){
   }
 
   function openPaste() {
-    setPasteText(""); setParsedEntries(null); setParseError("");
+    setPasteText(""); _setParsedEntries(null); setParseError("");
     setModal("paste");
   }
 
@@ -3002,9 +3004,9 @@ function App(){
     const result = smartParse(pasteText);
     if (result.entries.length === 0) {
       setParseError("Couldn't find any entries. Try including times like '9am', '11:15-12:35' and keywords like Feed, Nap, Wake.");
-      setParsedEntries(null);
+      _setParsedEntries(null);
     } else {
-      setParsedEntries(result);
+      _setParsedEntries(result);
       setParseError("");
     }
   }
@@ -3021,7 +3023,7 @@ function App(){
       return { ...d, [date]: autoClassifyNight([...existing, ...parsedEntries.entries]) };
     });
     if (parsedEntries.detectedDate) setSelDay(parsedEntries.detectedDate);
-    setModal(null); setParsedEntries(null); setPasteText("");
+    setModal(null); _setParsedEntries(null); setPasteText("");
   }
 
   function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});setModal("entry");}
@@ -4081,6 +4083,18 @@ function App(){
           <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>
             {familyCode ? (syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️ Sync":"👨‍👩‍👧 "+(familyUsername||"Synced")) : "👨‍👩‍👧 Share"}
           </button>
+          {backupCode&&(
+            <button onClick={e=>{
+              e.stopPropagation();
+              const totalEntries = Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
+              const totalDays = Object.values(children).reduce((s,c)=>s+Object.keys(c.days||{}).length,0);
+              if(window.confirm("Save all data to cloud now?\n\n" + totalDays + " days · " + totalEntries + " entries\n\nThis will overwrite the existing cloud backup with your current data. Make sure everything looks correct before saving.")) {
+                pushToCloud(backupCode, childrenRef.current);
+              }
+            }} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mint,cursor:"pointer",fontFamily:"monospace",fontWeight:700}}>
+              💾 Save
+            </button>
+          )}
           <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"4px 11px",fontSize:13,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>? Tour</button>
         </div>
 
@@ -5444,7 +5458,7 @@ function App(){
 
       {/* SMART PASTE MODAL */}
       {modal==="paste"&&(
-        <Sheet onClose={()=>{setModal(null);setParsedEntries(null);setPasteText("");}} title="📋 Paste Day Notes">
+        <Sheet onClose={()=>{setModal(null);_setParsedEntries(null);setPasteText("");}} title="📋 Paste Day Notes">
           {!parsedEntries ? (
             <>
               <div style={{fontSize:15,color:C.mid,marginBottom:4,lineHeight:1.6}}>
@@ -5474,17 +5488,21 @@ function App(){
                   <div style={{fontWeight:700,marginBottom:6,color:"#8a6a10"}}>⚠️ Year {parsedEntries.yearWarning.parsed} detected — did you mean {parsedEntries.yearWarning.corrected}?</div>
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={()=>{
-                      // detectedDate is already corrected to current year — just clear the warning
-                      setParsedEntries({...parsedEntries, yearWarning:null});
+                      // Use ref to get fresh state — avoids stale closure saving wrong year
+                      const fresh = parsedEntriesRef.current;
+                      if(fresh) _setParsedEntries({...fresh, yearWarning:null});
                     }} style={{flex:1,padding:"8px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                       Use {parsedEntries.yearWarning.corrected}
                     </button>
                     <button onClick={()=>{
-                      // Revert detectedDate back to the original year the user typed
-                      const revertedDate = parsedEntries.detectedDate
-                        ? parsedEntries.detectedDate.replace(parsedEntries.yearWarning.corrected, String(parsedEntries.yearWarning.parsed))
-                        : parsedEntries.detectedDate;
-                      setParsedEntries({...parsedEntries, detectedDate: revertedDate, yearWarning:null});
+                      // Use ref to get fresh state — avoids stale closure
+                      const fresh = parsedEntriesRef.current;
+                      if(fresh && fresh.yearWarning) {
+                        const revertedDate = fresh.detectedDate
+                          ? fresh.detectedDate.replace(fresh.yearWarning.corrected, String(fresh.yearWarning.parsed))
+                          : fresh.detectedDate;
+                        _setParsedEntries({...fresh, detectedDate: revertedDate, yearWarning:null});
+                      }
                     }} style={{flex:1,padding:"8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"white",color:C.mid,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                       Keep {parsedEntries.yearWarning.parsed}
                     </button>
@@ -5532,7 +5550,7 @@ function App(){
                 </div>
               )}
               <PBtn onClick={confirmPaste}>✓ Add {parsedEntries.entries.length} {parsedEntries.entries.length===1?"Entry":"Entries"}</PBtn>
-              <button onClick={()=>setParsedEntries(null)} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:`1px solid ${C.blush}`,background:"none",color:C.mid,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>← Edit notes</button>
+              <button onClick={()=>_setParsedEntries(null)} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:`1px solid ${C.blush}`,background:"none",color:C.mid,fontSize:15,cursor:"pointer",fontFamily:"inherit"}}>← Edit notes</button>
             </>
           )}
         </Sheet>
