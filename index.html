@@ -713,14 +713,6 @@ function App(){
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
-  const[showWakeInline,setShowWakeInline]=useState(false);
-  const[inlineWakeTime,setInlineWakeTime]=useState("");
-  // Auto-close inline wake picker once a wake entry exists for today
-  React.useEffect(()=>{
-    if(!showWakeInline) return;
-    const todayWake = (days[selDay]||[]).some(e=>e.type==="wake"&&!e.night);
-    if(todayWake) setShowWakeInline(false);
-  },[days, selDay, showWakeInline]);
   const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
   const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});
   const[newDate,setNewDate]=useState(todayStr());
@@ -3643,64 +3635,33 @@ function App(){
       }
     }
 
-    // ── Auto-trigger Face ID on mount if credential already registered ──
-    React.useEffect(()=>{
-      if(!biometricAvail || !isLogin) return;
-      const storedUser = (() => { try { return localStorage.getItem("bio_user") || ""; } catch { return ""; } })();
-      if(!storedUser) return;
-      const hasCred = (() => { try { return !!localStorage.getItem("bio_cred_"+storedUser); } catch { return false; } })();
-      if(!hasCred) return;
-      // Pre-fill username and auto-trigger
-      if(!authUsername) setAuthUsername(storedUser);
-      // Small delay so screen renders first
-      const t = setTimeout(()=>{ handleBiometricLoginAuto(storedUser); }, 350);
-      return ()=>clearTimeout(t);
-    },[biometricAvail]);
-
     // ── Biometric login using WebAuthn / Face ID / Touch ID ──
-    async function handleBiometricLoginAuto(forcedUser) {
-      const storedUser = forcedUser || (() => { try { return localStorage.getItem("bio_user") || authUsername; } catch { return authUsername; } })();
-      if (!storedUser) return;
-      const credIdRaw = (() => { try { return localStorage.getItem("bio_cred_"+storedUser); } catch { return null; } })();
-      if (!credIdRaw) return;
-      setBiometricStatus("checking");
-      try {
-        const credId = Uint8Array.from(atob(credIdRaw), c => c.charCodeAt(0));
-        const challenge = crypto.getRandomValues(new Uint8Array(32));
-        await navigator.credentials.get({
-          publicKey: {
-            challenge,
-            timeout: 60000,
-            rpId: window.location.hostname || "localhost",
-            allowCredentials: [{ id: credId, type: "public-key", transports: ["internal"] }],
-            userVerification: "required",
-          }
-        });
-        try{ localStorage.setItem("onboarded_v2","1"); localStorage.setItem("bio_user", storedUser); }catch{}
-        setOnboarded(true); setAuthScreen(null); setBiometricStatus("success");
-      } catch(e) {
-        setBiometricStatus("fail");
-        if (e.name === "NotAllowedError") {
-          // User cancelled — show PIN quietly
-          setAuthError("");
-        } else if (e.name === "SecurityError") {
-          setAuthError("Face ID needs HTTPS. Use PIN below.");
-        } else {
-          setAuthError("Face ID failed — use your PIN below.");
-        }
-        setTimeout(() => setBiometricStatus("idle"), 2000);
-      }
-    }
-
     async function handleBiometricLogin() {
       if (!biometricAvail) return;
       const storedUser = (() => { try { return localStorage.getItem("bio_user") || authUsername; } catch { return authUsername; } })();
       if (!storedUser) { setAuthError("Enter your username first, then use Face ID"); return; }
       setBiometricStatus("checking");
       try {
+        // Use a simple user-presence check — no server round-trip needed.
+        // We use a local credential if one exists, otherwise create one bound to this device.
         const credIdRaw = (() => { try { return localStorage.getItem("bio_cred_"+storedUser); } catch { return null; } })();
+
         if (credIdRaw) {
-          await handleBiometricLoginAuto(storedUser);
+          // ── Assert existing credential ──
+          const credId = Uint8Array.from(atob(credIdRaw), c => c.charCodeAt(0));
+          const challenge = crypto.getRandomValues(new Uint8Array(32));
+          await navigator.credentials.get({
+            publicKey: {
+              challenge,
+              timeout: 60000,
+              rpId: window.location.hostname || "localhost",
+              allowCredentials: [{ id: credId, type: "public-key", transports: ["internal"] }],
+              userVerification: "required",
+            }
+          });
+          // If we get here, biometric passed — sign in
+          try{ localStorage.setItem("onboarded_v2","1"); localStorage.setItem("bio_user", storedUser); }catch{}
+          setOnboarded(true); setAuthScreen(null); setBiometricStatus("success");
         } else {
           // ── Register new credential on this device ──
           const challenge = crypto.getRandomValues(new Uint8Array(32));
@@ -3715,10 +3676,11 @@ function App(){
               timeout: 60000,
             }
           });
+          // Store credential ID
           const credIdB64 = btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
           try{ localStorage.setItem("bio_cred_"+storedUser, credIdB64); localStorage.setItem("bio_user", storedUser); }catch{}
           setBiometricStatus("success");
-          setAuthError("Face ID registered! It will be used automatically next time.");
+          setAuthError("Face ID / fingerprint registered! You can now use it to sign in next time.");
         }
       } catch(e) {
         setBiometricStatus("fail");
@@ -3790,55 +3752,26 @@ function App(){
 
           {/* Biometric login — shown when device supports it and in login mode */}
           {isLogin && biometricAvail && (()=>{
-            const storedBioUser = (() => { try { return localStorage.getItem("bio_user") || ""; } catch { return ""; } })();
-            const lookupUser = authUsername || storedBioUser;
-            const hasCred = (() => { try { return !!localStorage.getItem("bio_cred_"+lookupUser); } catch { return false; } })();
-            if (hasCred) {
-              // Face ID registered — show as primary CTA, PIN becomes fallback
-              return (
-                <div style={{marginTop:10}}>
-                  <button onClick={handleBiometricLogin} disabled={biometricStatus==="checking"}
-                    style={{width:"100%",background:biometricStatus==="checking"?"#f2d9cc":biometricStatus==="fail"?"#fdf0eb":"linear-gradient(135deg,#2c1f1a,#4a2e26)",border:"none",borderRadius:99,padding:"15px",color:biometricStatus==="fail"?C.ter:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px rgba(44,31,26,0.3)",transition:"all 0.2s",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-                    <span style={{fontSize:20}}>{biometricStatus==="checking"?"⏳":biometricStatus==="success"?"✅":biometricStatus==="fail"?"⚠️":"🔐"}</span>
-                    <span>{biometricStatus==="checking"?"Verifying…":biometricStatus==="fail"?"Face ID failed — try again":"Sign in with Face ID"}</span>
-                  </button>
-                  <div style={{textAlign:"center",marginTop:8,fontSize:12,color:C.lt}}>or enter your PIN above to sign in</div>
-                  <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4||authLoading}
-                    style={{width:"100%",marginTop:6,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                      border:"none",borderRadius:99,padding:"11px",color:authPin.length===4&&!authLoading?"white":"#b89890",
-                      fontSize:14,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
-                      boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-                    {authLoading?"⏳ Please wait…":"Sign in with PIN →"}
-                  </button>
-                </div>
-              );
-            }
-            // No cred yet — show register button below PIN
+            const hasCred = (() => { try { return !!localStorage.getItem("bio_cred_"+(authUsername||localStorage.getItem("bio_user")||"")); } catch { return false; } })();
+            const bioLabel = hasCred ? "Sign in with Face ID / Fingerprint" : "Register Face ID / Fingerprint";
             return (
               <button onClick={handleBiometricLogin} disabled={biometricStatus==="checking"}
                 style={{width:"100%",marginTop:10,background:biometricStatus==="checking"?"#f2d9cc":"linear-gradient(135deg,#2c1f1a,#4a2e26)",border:"none",borderRadius:99,padding:"13px",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px rgba(44,31,26,0.3)",transition:"all 0.2s",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 <span style={{fontSize:18}}>{biometricStatus==="checking"?"⏳":biometricStatus==="success"?"✅":"🔐"}</span>
-                <span>{biometricStatus==="checking"?"Checking biometric…":"Register Face ID / Fingerprint"}</span>
+                <span>{biometricStatus==="checking"?"Checking biometric…":bioLabel}</span>
               </button>
             );
           })()}
 
-          {/* Sign In button — only shown when no Face ID cred registered */}
+          {/* Sign In button — always visible for login, shown for create */}
           {isLogin ? (
-            (()=>{
-              const storedBioUser2 = (() => { try { return localStorage.getItem("bio_user") || ""; } catch { return ""; } })();
-              const hasCred2 = (() => { try { return !!localStorage.getItem("bio_cred_"+(authUsername||storedBioUser2)); } catch { return false; } })();
-              if(biometricAvail && hasCred2) return null; // hidden — Face ID block above has its own PIN btn
-              return (
-                <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4||authLoading}
-                  style={{width:"100%",marginTop:14,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                    border:"none",borderRadius:99,padding:"13px",color:authPin.length===4&&!authLoading?"white":"#b89890",
-                    fontSize:15,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
-                    boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-                  {authLoading?"⏳ Please wait…":"Sign In →"}
-                </button>
-              );
-            })()
+            <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4||authLoading}
+              style={{width:"100%",marginTop:14,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                border:"none",borderRadius:99,padding:"13px",color:authPin.length===4&&!authLoading?"white":"#b89890",
+                fontSize:15,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
+                boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
+              {authLoading?"⏳ Please wait…":"Sign In →"}
+            </button>
           ) : (
             <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit||authLoading}
               style={{width:"100%",marginTop:14,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
@@ -4562,14 +4495,13 @@ function App(){
               // No prediction — need wake logged
               if(isNeutral) {
                 return (
-                  <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
-                    style={{marginLeft:"auto",background:"rgba(255,255,255,0.6)",border:"none",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                    <span style={{fontSize:13}}>☀️</span>
+                  <div style={{marginLeft:"auto",background:"rgba(255,255,255,0.6)",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{fontSize:13}}>⏱️</span>
                     <div style={{textAlign:"left"}}>
                       <div style={{fontSize:9,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>Next Nap</div>
-                      <div style={{fontSize:12,fontFamily:"monospace",color:C.ter,lineHeight:1.3,fontWeight:700}}>Log wake time</div>
+                      <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,lineHeight:1.3}}>Log wake time</div>
                     </div>
-                  </button>
+                  </div>
                 );
               }
 
@@ -4609,29 +4541,6 @@ function App(){
           {!displayDayKeys.length&&<span style={{color:C.lt,fontSize:13,fontFamily:"monospace",alignSelf:"center"}}>No days yet</span>}
         </div>
       </div>
-
-      {/* ── INLINE WAKE TIME PICKER (slides in below header) ── */}
-      {showWakeInline && (
-        <div style={{background:"white",borderTop:`2px solid ${C.ter}`,padding:"12px 16px",maxWidth:520,margin:"0 auto",boxShadow:"0 4px 16px rgba(201,112,90,0.12)",animation:"fadeUp 0.2s ease"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:18}}>☀️</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Morning wake time</div>
-              <input type="time" value={inlineWakeTime} onChange={e=>setInlineWakeTime(e.target.value)}
-                style={{width:"100%",padding:"7px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
-            </div>
-            <button onClick={()=>{
-              const t = inlineWakeTime || nowTime();
-              quickAddLog("wake",{type:"wake",time:t,night:false,note:""});
-              setShowWakeInline(false);
-            }} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:12,padding:"10px 16px",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",boxShadow:"0 4px 12px rgba(201,112,90,0.35)"}}>
-              ✓ Log
-            </button>
-            <button onClick={()=>setShowWakeInline(false)}
-              style={{background:"#f0e8e0",border:"none",borderRadius:"50%",width:28,height:28,color:C.lt,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-          </div>
-        </div>
-      )}
 
       <div style={{padding:"16px 14px 20px",maxWidth:520,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
 
