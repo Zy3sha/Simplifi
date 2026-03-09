@@ -3686,7 +3686,7 @@ function App(){
     }
   },[Object.keys(days).join(",")]);
 
-  const tabSt=t=>({flex:1,padding:"10px 2px",border:"none",background:autoDark?"#120e1c":"none",fontSize:14,fontWeight:700,cursor:"pointer",color:tab===t?C.ter:autoDark?"#6a5880":C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.04em",textTransform:"uppercase"});
+  const tabSt=t=>({flex:1,padding:"6px 2px",border:"none",background:autoDark?"#120e1c":"none",fontSize:10,fontWeight:700,cursor:"pointer",color:tab===t?C.ter:autoDark?"#6a5880":C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,letterSpacing:"0.04em",textTransform:"uppercase"});
   const card={background:autoDark?"#1a1228":"white",border:autoDark?"1px solid #2e2040":`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:autoDark?"none":"0 2px 12px rgba(201,112,90,0.06)"};
 
   const tabIcons={day:"📅",trends:"📈",growth:"📏",milestones:"⭐",develop:"🧩"};
@@ -6134,7 +6134,7 @@ function App(){
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:autoDark?"#120e1c":"white",borderTop:autoDark?"1px solid #2e2040":`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:autoDark?"0 -4px 20px rgba(0,0,0,0.4)":"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto"}}>
         {["day","trends","growth","milestones","develop"].map(t=>(
           <button key={t} onClick={()=>setTab(t)} style={tabSt(t)}>
-            <span style={{fontSize:18}}>{tabIcons[t]}</span>
+            <span style={{fontSize:16}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
           </button>
         ))}
