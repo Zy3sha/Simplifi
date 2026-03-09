@@ -13,9 +13,9 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
   <!-- Firebase SDKs -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -58,6 +58,7 @@
 </head>
 <body>
 <div id="root"></div>
+
 <script type="text/plain" id="jsx-src">
 const { useState, useEffect, useRef } = React;
 
@@ -713,6 +714,14 @@ function App(){
   const[eType,setEType]=useState("feed");
   const[nightMode,setNightMode]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
+  const[showWakeInline,setShowWakeInline]=useState(false);
+  const[inlineWakeTime,setInlineWakeTime]=useState("");
+  // Auto-close inline wake picker once a wake entry exists for today
+  React.useEffect(()=>{
+    if(!showWakeInline) return;
+    const todayWake = (days[selDay]||[]).some(e=>e.type==="wake"&&!e.night);
+    if(todayWake) setShowWakeInline(false);
+  },[days, selDay, showWakeInline]);
   const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
   const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:""});
   const[newDate,setNewDate]=useState(todayStr());
@@ -771,6 +780,7 @@ function App(){
   const[authPin2,setAuthPin2]=useState("");
   const[authError,setAuthError]=useState("");
   const[authLoading,setAuthLoading]=useState(false);
+  const[authStep,setAuthStep]=useState("pin"); // "pin" | "askFaceId"
   const authUsernameCheckRef = React.useRef(null);
   // ── Biometric (Face ID / fingerprint) ──
   const[biometricAvail,setBiometricAvail]=useState(false);
@@ -878,7 +888,7 @@ function App(){
       }
     };
   }, []);
-  const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v1")?-1:0;}catch{return 0;}});
+  const[tutStep,setTutStep]=useState(()=>{try{return localStorage.getItem("tut_v2")?-1:0;}catch{return 0;}});
   // tutStep: 0..N = active tutorial, -1 = dismissed
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
 
@@ -3617,8 +3627,19 @@ function App(){
         const ok = await verifyLogin(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          // Store biometric-eligible flag after successful PIN login
           try{ localStorage.setItem("bio_user", authUsername); }catch{}
+          // Check if Face ID is already registered — if so, skip to app
+          const hasCred = (() => { try { return !!localStorage.getItem("bio_cred_"+authUsername); } catch { return false; } })();
+          if(hasCred) {
+            // Already set up — go straight to app (Face ID will be used next time)
+            setOnboarded(true); setAuthScreen(null); return;
+          }
+          // No Face ID yet — prompt user if device supports it
+          if(biometricAvail) {
+            setAuthLoading(false);
+            setAuthStep("askFaceId"); // show the prompt card
+            return;
+          }
           setOnboarded(true); setAuthScreen(null); return;
         } else {
           setAuthError("Wrong PIN — try again");
@@ -3629,69 +3650,74 @@ function App(){
         const ok = await reserveUsername(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          try{ localStorage.removeItem("tut_v1"); }catch{}
+          try{ localStorage.removeItem("tut_v2"); }catch{}
           setTutStep(0); setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); return;
         } else { setAuthError("That username is taken — try another"); setAuthLoading(false); }
       }
     }
 
-    // ── Biometric login using WebAuthn / Face ID / Touch ID ──
-    async function handleBiometricLogin() {
-      if (!biometricAvail) return;
-      const storedUser = (() => { try { return localStorage.getItem("bio_user") || authUsername; } catch { return authUsername; } })();
-      if (!storedUser) { setAuthError("Enter your username first, then use Face ID"); return; }
+    // ── Pre-fill username on mount ──
+    React.useEffect(()=>{
+      if(!isLogin) return;
+      try{
+        const u = localStorage.getItem("bio_user");
+        if(u && !authUsername) setAuthUsername(u);
+      }catch{}
+    },[]);
+
+    // ── Core Face ID login (called after registration confirmed, or on return visits) ──
+    async function handleBiometricLoginAuto(user) {
+      const credIdRaw = (() => { try { return localStorage.getItem("bio_cred_"+user); } catch { return null; } })();
+      if(!credIdRaw) return;
       setBiometricStatus("checking");
       try {
-        // Use a simple user-presence check — no server round-trip needed.
-        // We use a local credential if one exists, otherwise create one bound to this device.
-        const credIdRaw = (() => { try { return localStorage.getItem("bio_cred_"+storedUser); } catch { return null; } })();
-
-        if (credIdRaw) {
-          // ── Assert existing credential ──
-          const credId = Uint8Array.from(atob(credIdRaw), c => c.charCodeAt(0));
-          const challenge = crypto.getRandomValues(new Uint8Array(32));
-          await navigator.credentials.get({
-            publicKey: {
-              challenge,
-              timeout: 60000,
-              rpId: window.location.hostname || "localhost",
-              allowCredentials: [{ id: credId, type: "public-key", transports: ["internal"] }],
-              userVerification: "required",
-            }
-          });
-          // If we get here, biometric passed — sign in
-          try{ localStorage.setItem("onboarded_v2","1"); localStorage.setItem("bio_user", storedUser); }catch{}
-          setOnboarded(true); setAuthScreen(null); setBiometricStatus("success");
-        } else {
-          // ── Register new credential on this device ──
-          const challenge = crypto.getRandomValues(new Uint8Array(32));
-          const userId = crypto.getRandomValues(new Uint8Array(16));
-          const cred = await navigator.credentials.create({
-            publicKey: {
-              challenge,
-              rp: { name: "OBubba", id: window.location.hostname || "localhost" },
-              user: { id: userId, name: storedUser, displayName: storedUser },
-              pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
-              authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
-              timeout: 60000,
-            }
-          });
-          // Store credential ID
-          const credIdB64 = btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
-          try{ localStorage.setItem("bio_cred_"+storedUser, credIdB64); localStorage.setItem("bio_user", storedUser); }catch{}
-          setBiometricStatus("success");
-          setAuthError("Face ID / fingerprint registered! You can now use it to sign in next time.");
-        }
+        const credId = Uint8Array.from(atob(credIdRaw), c => c.charCodeAt(0));
+        const challenge = crypto.getRandomValues(new Uint8Array(32));
+        await navigator.credentials.get({
+          publicKey: {
+            challenge,
+            timeout: 60000,
+            rpId: window.location.hostname || "localhost",
+            allowCredentials: [{ id: credId, type: "public-key", transports: ["internal"] }],
+            userVerification: "required",
+          }
+        });
+        try{ localStorage.setItem("onboarded_v2","1"); localStorage.setItem("bio_user", user); }catch{}
+        setBiometricStatus("success");
+        setOnboarded(true); setAuthScreen(null);
       } catch(e) {
-        setBiometricStatus("fail");
-        if (e.name === "NotAllowedError") {
-          setAuthError("Biometric cancelled.");
-        } else if (e.name === "SecurityError") {
-          setAuthError("Biometric not available on this connection (needs HTTPS).");
-        } else {
-          setAuthError("Biometric failed — use PIN instead.");
-        }
-        setTimeout(() => setBiometricStatus("idle"), 2000);
+        // Face ID failed — fall through to PIN silently
+        setBiometricStatus("idle");
+        if(e.name === "SecurityError") setAuthError("Face ID needs HTTPS — use PIN below.");
+        // NotAllowedError (user cancelled) or InvalidStateError (stale cred) → just show PIN, no error
+      }
+    }
+
+    // ── Register Face ID then immediately trigger it ──
+    async function registerAndUseFaceId(user) {
+      setBiometricStatus("checking");
+      try {
+        const challenge = crypto.getRandomValues(new Uint8Array(32));
+        const userId = crypto.getRandomValues(new Uint8Array(16));
+        const cred = await navigator.credentials.create({
+          publicKey: {
+            challenge,
+            rp: { name: "OBubba", id: window.location.hostname || "localhost" },
+            user: { id: userId, name: user, displayName: user },
+            pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+            authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+            timeout: 60000,
+          }
+        });
+        const credIdB64 = btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
+        try{ localStorage.setItem("bio_cred_"+user, credIdB64); localStorage.setItem("bio_user", user); }catch{}
+        // Registration done — now immediately use it to sign in
+        await handleBiometricLoginAuto(user);
+      } catch(e) {
+        setBiometricStatus("idle");
+        // Declined or failed — just continue to app, already signed in via PIN
+        try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+        setOnboarded(true); setAuthScreen(null);
       }
     }
     return (
@@ -3750,29 +3776,54 @@ function App(){
 
           {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
 
-          {/* Biometric login — shown when device supports it and in login mode */}
-          {isLogin && biometricAvail && (()=>{
-            const hasCred = (() => { try { return !!localStorage.getItem("bio_cred_"+(authUsername||localStorage.getItem("bio_user")||"")); } catch { return false; } })();
-            const bioLabel = hasCred ? "Sign in with Face ID / Fingerprint" : "Register Face ID / Fingerprint";
+          {/* ── Ask Face ID card — shown once after first PIN login ── */}
+          {isLogin && authStep==="askFaceId" && (
+            <div style={{marginTop:16,background:"white",border:`1px solid ${C.blush}`,borderRadius:18,padding:"20px 18px",boxShadow:"0 4px 20px rgba(201,112,90,0.1)"}}>
+              <div style={{fontSize:28,textAlign:"center",marginBottom:10}}>🔐</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep,textAlign:"center",marginBottom:6}}>Use Face ID next time?</div>
+              <div style={{fontSize:13,color:C.mid,textAlign:"center",lineHeight:1.6,marginBottom:18}}>Sign in instantly with Face ID instead of entering your PIN each time.</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <button
+                  onClick={()=>{ setAuthStep("pin"); registerAndUseFaceId(authUsername); }}
+                  disabled={biometricStatus==="checking"}
+                  style={{width:"100%",background:"linear-gradient(135deg,#2c1f1a,#4a2e26)",border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  <span>{biometricStatus==="checking"?"⏳ Setting up…":"✓ Yes, enable Face ID"}</span>
+                </button>
+                <button
+                  onClick={()=>{ setAuthStep("pin"); try{localStorage.setItem("onboarded_v2","1");}catch{} setOnboarded(true); setAuthScreen(null); }}
+                  style={{width:"100%",background:"none",border:"none",fontSize:13,color:C.lt,cursor:"pointer",fontFamily:"inherit",padding:"6px"}}>
+                  Not now
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Face ID sign-in button — shown when registered, requires user tap (Safari gesture) ── */}
+          {isLogin && authStep==="pin" && biometricAvail && (()=>{
+            const bioUser = (()=>{ try{ return localStorage.getItem("bio_user")||""; }catch{ return ""; } })();
+            const lookupUser = authUsername || bioUser;
+            const hasCred = (()=>{ try{ return !!localStorage.getItem("bio_cred_"+lookupUser); }catch{ return false; } })();
+            if(!hasCred) return null;
             return (
-              <button onClick={handleBiometricLogin} disabled={biometricStatus==="checking"}
-                style={{width:"100%",marginTop:10,background:biometricStatus==="checking"?"#f2d9cc":"linear-gradient(135deg,#2c1f1a,#4a2e26)",border:"none",borderRadius:99,padding:"13px",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 4px 20px rgba(44,31,26,0.3)",transition:"all 0.2s",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                <span style={{fontSize:18}}>{biometricStatus==="checking"?"⏳":biometricStatus==="success"?"✅":"🔐"}</span>
-                <span>{biometricStatus==="checking"?"Checking biometric…":bioLabel}</span>
+              <button onClick={()=>handleBiometricLoginAuto(authUsername||(()=>{ try{ return localStorage.getItem("bio_user")||""; }catch{ return ""; } })())}
+                disabled={biometricStatus==="checking"}
+                style={{width:"100%",marginTop:14,background:biometricStatus==="checking"?"#e8e0d8":"linear-gradient(135deg,#2c1f1a,#4a2e26)",border:"none",borderRadius:99,padding:"14px",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 4px 20px rgba(44,31,26,0.25)",transition:"all 0.2s"}}>
+                <span style={{fontSize:20}}>🔐</span>
+                <span>{biometricStatus==="checking"?"Verifying…":"Sign in with Face ID"}</span>
               </button>
             );
           })()}
 
-          {/* Sign In button — always visible for login, shown for create */}
-          {isLogin ? (
+          {/* ── PIN sign-in button ── */}
+          {isLogin && authStep==="pin" ? (
             <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4||authLoading}
-              style={{width:"100%",marginTop:14,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+              style={{width:"100%",marginTop:10,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
                 border:"none",borderRadius:99,padding:"13px",color:authPin.length===4&&!authLoading?"white":"#b89890",
                 fontSize:15,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:"inherit",
                 boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-              {authLoading?"⏳ Please wait…":"Sign In →"}
+              {authLoading?"⏳ Signing in…":"Sign in with PIN →"}
             </button>
-          ) : (
+          ) : !isLogin ? (
             <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit||authLoading}
               style={{width:"100%",marginTop:14,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
                 border:"none",borderRadius:99,padding:"13px",color:canSubmit&&!authLoading?"white":"#b89890",
@@ -3780,7 +3831,7 @@ function App(){
                 boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
               {authLoading?"⏳ Please wait…":"Create Account"}
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -3794,7 +3845,7 @@ function App(){
       }
       try{ localStorage.setItem("onboarded_v2","1"); }catch{}
       // Ensure tutorial runs first, child setup shows after
-      try{ localStorage.removeItem("tut_v1"); }catch{}
+      try{ localStorage.removeItem("tut_v2"); }catch{}
       setTutStep(0);
       setNeedsChildSetup(true);
       setOnboarded(true);
@@ -4155,58 +4206,52 @@ function App(){
           },
           {
             icon:"🍼",
-            title:"Log Feed, Nappy or Sleep",
-            body:"The four buttons at the bottom centre of the screen are your core tools. Tap Feed to log a bottle, breast or solids. Nappy for wet or dirty. Sleep for naps or bedtime. Notes lets you paste a rough text summary.",
-            location: "Bottom centre of screen",
+            title:"Log Feed, Nappy, Sleep & More",
+            body:"The five buttons in the middle of the screen are your core logging tools. Tap Feed for bottle, breast or solids. Nappy for wet or dirty. Sleep for naps or bedtime. Wake Up to log morning wake time. Notes to paste a rough summary.",
+            location: "Centre of screen",
           },
           {
             icon:"⏱️",
             title:"Nap & Bedtime Countdown",
-            body:"In the top right of the screen, a pill shows when the next nap is due based on your baby's age and wake windows. Tap it when it hits zero to start a nap timer or log bedtime instantly.",
+            body:"The pill in the top right shows when the next nap is due based on your baby's age and wake windows. Tap it when it hits zero to start a nap timer or log bedtime instantly.",
             location: "Top right of screen",
           },
           {
             icon:"🤱",
             title:"Breastfeed Timer",
-            body:"In the top left of the screen, tap 🤱 Start Feed to begin a live breastfeed session. Switch between Left and Right sides, then Save when done — it logs time, duration and both sides.",
+            body:"Tap 🤱 Start Feed in the top left to begin a live breastfeed session. Switch between Left and Right sides, then Save when done — it logs time, duration and both sides automatically.",
             location: "Top left of screen",
-          },
-          {
-            icon:"📊",
-            title:"Day Tab",
-            body:"The Day tab (bottom left) shows all today's entries as a visual timeline. Tap any entry to edit or delete it. The feed card tracks ml intake against NHS targets and the sleep card shows wake windows.",
-            location: "Bottom left navigation",
-          },
-          {
-            icon:"📅",
-            title:"Week Tab",
-            body:"The Week tab (bottom left, second tab) shows bar charts of feed totals and nap minutes across the last 7 days, plus a summary table. Tap any day row to jump to that day.",
-            location: "Bottom navigation — second tab",
           },
           {
             icon:"📈",
             title:"Trends & Insights",
-            body:"The Trends tab (bottom middle) shows bedtime, wake time, nap duration and feed totals over time. After 7 days, Smart Insights appear with personalised observations based on your baby's own patterns.",
-            location: "Bottom middle navigation",
+            body:"The Trends tab shows bedtime, wake time, nap duration and feed totals over time as charts. After 7 days, Smart Insights appear with personalised observations based on your baby's own patterns.",
+            location: "Bottom navigation — first tab",
           },
           {
             icon:"📏",
             title:"Growth Chart",
-            body:"The Growth tab (bottom right, fourth tab) lets you log your baby's weight to see their WHO percentile on a chart. Tap any entry to edit it. Covers 0–24 months with all major percentile bands.",
-            location: "Bottom navigation — fourth tab",
+            body:"The Growth tab lets you log your baby's weight and see their WHO percentile on a chart. Tap any entry to edit it. Covers 0–24 months with all major percentile bands.",
+            location: "Bottom navigation — second tab",
           },
           {
             icon:"⭐",
             title:"Milestones",
-            body:"The Milestones tab (bottom right) shows age-appropriate developmental milestones automatically. Tap any to mark it done and record the date. Wonder Weeks leaps are flagged when relevant.",
-            location: "Bottom right navigation",
+            body:"The Milestones tab shows age-appropriate developmental milestones automatically. Tap any to mark it done and record the date. Wonder Weeks leaps are flagged, and gentle activity tips appear for overdue milestones.",
+            location: "Bottom navigation — third tab",
+          },
+          {
+            icon:"🧩",
+            title:"Development Activities",
+            body:"The Develop tab shows age-appropriate play and activity ideas from NHS and WHO guidelines, updated as your baby grows. Each activity explains what it builds and why it matters.",
+            location: "Bottom navigation — fourth tab",
           },
           {
             icon:"👨‍👩‍👧",
             title:"Share with Your Partner",
             bodyJSX:(
               <div style={{fontSize:15,color:autoDark?"#a898c8":C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>👨‍👩‍👧 Share</strong> in the top right of the header to sync with a partner or restore to a new phone.</div>
+                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>👨‍👩‍👧 Share</strong> in the header to sync with a partner or restore to a new phone.</div>
                 <div style={{background:autoDark?"#0f0a1a":"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
                   <div>🔗 Tap <strong>Get code</strong> next to your child's name</div>
                   <div>📲 Partner opens Share → <strong>Link a child</strong> → enters your code</div>
@@ -4214,18 +4259,18 @@ function App(){
                 </div>
               </div>
             ),
-            location: "Top right — Share button in header",
+            location: "Top row of header",
           },
           {
             icon:"👶",
             title:"Multiple Children",
             bodyJSX:(
               <div style={{fontSize:15,color:autoDark?"#a898c8":C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Each child has separate logs, growth chart and milestones.</div>
+                <div style={{marginBottom:8}}>Each child has their own logs, growth chart and milestones.</div>
                 <div style={{background:autoDark?"#0f0a1a":"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
                   <div>👆 <strong>Swipe left/right</strong> on the header to switch children</div>
                   <div>＋ Tap the <strong>+ dot</strong> in the top left to add a child</div>
-                  <div>⚙️ Tap the <strong>gear icon ⚙️</strong> in the top right to edit name, DOB or sex</div>
+                  <div>⚙️ Tap the <strong>gear icon</strong> top right to edit name, DOB or sex</div>
                 </div>
               </div>
             ),
@@ -4240,7 +4285,7 @@ function App(){
         ];
 
         const dismissTutorial = () => {
-          try{localStorage.setItem("tut_v1","1");}catch{}
+          try{localStorage.setItem("tut_v2","1");}catch{}
           setTutStep(-1);
         };
         const nextStep = () => {
@@ -4413,7 +4458,7 @@ function App(){
         </div>
 
         {/* ── ROW 4: Share · Save · Tour ── */}
-        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:10,overflowX:"auto",flexWrap:"nowrap",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
           <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>
             {familyCode?(syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️":"👨‍👩‍👧 "+(familyUsername||"Share")):"👨‍👩‍👧 Share"}
           </button>
@@ -4427,7 +4472,7 @@ function App(){
               💾 Save
             </button>
           )}
-          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0}}>
             ? Tour
           </button>
         </div>
@@ -4495,13 +4540,14 @@ function App(){
               // No prediction — need wake logged
               if(isNeutral) {
                 return (
-                  <div style={{marginLeft:"auto",background:"rgba(255,255,255,0.6)",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5}}>
-                    <span style={{fontSize:13}}>⏱️</span>
+                  <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
+                    style={{marginLeft:"auto",background:"rgba(255,255,255,0.6)",border:"none",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                    <span style={{fontSize:13}}>☀️</span>
                     <div style={{textAlign:"left"}}>
                       <div style={{fontSize:9,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>Next Nap</div>
-                      <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,lineHeight:1.3}}>Log wake time</div>
+                      <div style={{fontSize:12,fontFamily:"monospace",color:C.ter,lineHeight:1.3,fontWeight:700}}>Log wake time</div>
                     </div>
-                  </div>
+                  </button>
                 );
               }
 
@@ -4541,6 +4587,29 @@ function App(){
           {!displayDayKeys.length&&<span style={{color:C.lt,fontSize:13,fontFamily:"monospace",alignSelf:"center"}}>No days yet</span>}
         </div>
       </div>
+
+      {/* ── INLINE WAKE TIME PICKER (slides in below header) ── */}
+      {showWakeInline && (
+        <div style={{background:"white",borderTop:`2px solid ${C.ter}`,padding:"12px 16px",maxWidth:520,margin:"0 auto",boxShadow:"0 4px 16px rgba(201,112,90,0.12)",animation:"fadeUp 0.2s ease"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:18}}>☀️</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4}}>Morning wake time</div>
+              <input type="time" value={inlineWakeTime} onChange={e=>setInlineWakeTime(e.target.value)}
+                style={{width:"100%",padding:"7px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+            </div>
+            <button onClick={()=>{
+              const t = inlineWakeTime || nowTime();
+              quickAddLog("wake",{type:"wake",time:t,night:false,note:""});
+              setShowWakeInline(false);
+            }} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:12,padding:"10px 16px",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",boxShadow:"0 4px 12px rgba(201,112,90,0.35)"}}>
+              ✓ Log
+            </button>
+            <button onClick={()=>setShowWakeInline(false)}
+              style={{background:"#f0e8e0",border:"none",borderRadius:"50%",width:28,height:28,color:C.lt,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+        </div>
+      )}
 
       <div style={{padding:"16px 14px 20px",maxWidth:520,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
 
