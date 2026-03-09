@@ -3844,11 +3844,11 @@ function App(){
                 <div style={{fontSize:13,opacity:0.82,fontWeight:400,marginTop:2}}>Set up a username & PIN</div>
               </div>
             </button>
-            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:16,padding:"18px",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
+            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"white",border:`1px solid ${C.blush}`,borderRadius:16,padding:"18px",color:C.deep,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
               <span style={{fontSize:28}}>🔐</span>
               <div>
                 <div style={{fontSize:16,fontWeight:700}}>I already have an account</div>
-                <div style={{fontSize:13,color:"rgba(255,255,255,0.45)",fontWeight:400,marginTop:2}}>Sign in to restore your data</div>
+                <div style={{fontSize:13,color:C.lt,fontWeight:400,marginTop:2}}>Sign in to restore your data</div>
               </div>
             </button>
           </div>
@@ -3907,7 +3907,7 @@ function App(){
                 boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
               {obUsernameStatus==="checking"?"Checking…":"Continue →"}
             </button>
-            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
               Skip for now
             </button>
           </div>
@@ -3929,7 +3929,7 @@ function App(){
                 <PinPad value={obPin2} onChange={setObPin2} onComplete={(p)=>{ if(p===obPin) completeOnboarding(); }}/>
               </div>
             )}
-            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>
+            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:"none",border:"none",color:C.lt,fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:16}}>
               Skip PIN
             </button>
           </div>
@@ -3939,7 +3939,7 @@ function App(){
     const step = steps[obStep];
     const isHeroStep = obStep === 0;
     return (
-      <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1c100a 0%,#2e1710 45%,#1c100a 100%)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",overflowY:"auto",position:"relative",overflow:"hidden"}}>
+      <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#faf6f0 0%,#f0e8e0 100%)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",overflowY:"auto",position:"relative",overflow:"hidden"}}>
         <style>{`
           @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
           @keyframes obFloat{0%,100%{transform:translateY(0px) rotate(-1deg)}50%{transform:translateY(-10px) rotate(1deg)}}
@@ -3948,7 +3948,7 @@ function App(){
         `}</style>
 
         {/* Ambient glow blobs */}
-        <div style={{position:"absolute",top:-100,left:"50%",transform:"translateX(-50%)",width:500,height:400,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.18) 0%,transparent 65%)",pointerEvents:"none",animation:"obGlow 5s ease infinite"}}/>
+        <div style={{position:"absolute",top:-100,left:"50%",transform:"translateX(-50%)",width:500,height:400,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.12) 0%,transparent 65%)",pointerEvents:"none",animation:"obGlow 5s ease infinite"}}/>
         <div style={{position:"absolute",bottom:-60,right:-80,width:320,height:320,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.09) 0%,transparent 70%)",pointerEvents:"none"}}/>
         <div style={{position:"absolute",bottom:80,left:-60,width:200,height:200,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(111,168,152,0.08) 0%,transparent 70%)",pointerEvents:"none"}}/>
 
@@ -3957,12 +3957,12 @@ function App(){
           <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"}}>
             {/* Top bar */}
             <div style={{padding:"48px 28px 0",display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:44,height:44,borderRadius:13,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.13)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0,boxShadow:"0 4px 16px rgba(0,0,0,0.3)"}}>
+              <div style={{width:44,height:44,borderRadius:13,background:"white",border:`1px solid ${C.blush}`,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0,boxShadow:"0 4px 16px rgba(201,112,90,0.15)"}}>
                 <img src="icon.png" alt="OBubba" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.parentNode.innerHTML="🍼";}}/>
               </div>
               <div>
-                <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:"white",lineHeight:1,letterSpacing:"0.01em"}}>OBubba</div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.35)",letterSpacing:"0.08em",textTransform:"uppercase",marginTop:2}}>Baby Tracker</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:C.deep,lineHeight:1,letterSpacing:"0.01em"}}>OBubba</div>
+                <div style={{fontSize:11,color:C.lt,letterSpacing:"0.08em",textTransform:"uppercase",marginTop:2}}>Baby Tracker</div>
               </div>
             </div>
 
@@ -3971,25 +3971,25 @@ function App(){
               {/* Mascot with halo glow */}
               <div style={{position:"relative",marginBottom:28}}>
                 <div style={{position:"absolute",inset:-16,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.25) 0%,transparent 70%)",animation:"obGlow 3s ease infinite"}}/>
-                <div style={{width:158,height:158,borderRadius:36,overflow:"hidden",border:"1.5px solid rgba(255,255,255,0.1)",boxShadow:"0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.1)",animation:"obFloat 5s ease infinite",position:"relative"}}>
-                  <img src="oliver.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.background="#2e1710";e.target.parentNode.innerHTML="<div style='font-size:72px;line-height:158px'>👶</div>";}}/>
+                <div style={{width:158,height:158,borderRadius:36,overflow:"hidden",border:`1.5px solid ${C.blush}`,boxShadow:"0 24px 48px rgba(201,112,90,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",animation:"obFloat 5s ease infinite",position:"relative"}}>
+                  <img src="oliver.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.background="#fdf0eb";e.target.parentNode.innerHTML="<div style='font-size:72px;line-height:158px'>👶</div>";}}/>
                 </div>
-                <div style={{position:"absolute",bottom:-6,right:-6,width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#50c878,#38b060)",border:"2.5px solid #1c100a",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:"0 4px 14px rgba(80,200,120,0.45)"}}>✓</div>
+                <div style={{position:"absolute",bottom:-6,right:-6,width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#50c878,#38b060)",border:"2.5px solid #faf6f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:"0 4px 14px rgba(80,200,120,0.45)"}}>✓</div>
               </div>
 
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:"white",lineHeight:1.18,marginBottom:14}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:C.deep,lineHeight:1.18,marginBottom:14}}>
                 Everything your<br/>baby needs, tracked.
               </div>
-              <div style={{fontSize:15,color:"rgba(255,255,255,0.5)",lineHeight:1.7,marginBottom:30,maxWidth:290}}>
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.7,marginBottom:30,maxWidth:290}}>
                 Sleep, feeds, nappies, growth and smart insights — built for the reality of new parenthood.
               </div>
 
               {/* Feature chips */}
               <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:6}}>
                 {[["🍼","Feeds & intake"],["😴","Sleep tracking"],["🧠","Smart insights"],["📏","Growth & WHO"],["⭐","Milestones"],["🔗","Partner sync"]].map(([ico,lbl],i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:99,padding:"7px 13px",backdropFilter:"blur(8px)"}}>
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"white",border:`1px solid ${C.blush}`,borderRadius:99,padding:"7px 13px",boxShadow:"0 1px 4px rgba(201,112,90,0.08)"}}>
                     <span style={{fontSize:13}}>{ico}</span>
-                    <span style={{fontSize:12,color:"rgba(255,255,255,0.7)",fontWeight:500}}>{lbl}</span>
+                    <span style={{fontSize:12,color:C.mid,fontWeight:500}}>{lbl}</span>
                   </div>
                 ))}
               </div>
@@ -4000,7 +4000,7 @@ function App(){
               <button onClick={()=>setObStep(1)} style={{width:"100%",background:"linear-gradient(135deg,#c9705a 0%,#e0825f 100%)",border:"none",borderRadius:18,padding:"19px",color:"white",fontSize:17,fontWeight:700,cursor:"pointer",boxShadow:"0 8px 32px rgba(201,112,90,0.5)",letterSpacing:"0.01em",transition:"transform 0.12s",fontFamily:"inherit"}}>
                 Get Started →
               </button>
-              <div style={{textAlign:"center",marginTop:12,fontSize:12,color:"rgba(255,255,255,0.25)",letterSpacing:"0.02em"}}>Free · No ads · Your data stays private</div>
+              <div style={{textAlign:"center",marginTop:12,fontSize:12,color:C.lt,letterSpacing:"0.02em"}}>Free · No ads · Your data stays private</div>
             </div>
           </div>
         ) : (
@@ -4008,20 +4008,20 @@ function App(){
           <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"}}>
             {/* Step header */}
             <div style={{padding:"48px 28px 20px",display:"flex",alignItems:"center",gap:12}}>
-              <button onClick={()=>setObStep(s=>s-1)} style={{width:38,height:38,borderRadius:11,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.12)",color:"rgba(255,255,255,0.6)",fontSize:17,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>←</button>
-              <div style={{flex:1,height:3,background:"rgba(255,255,255,0.08)",borderRadius:99,overflow:"hidden"}}>
+              <button onClick={()=>setObStep(s=>s-1)} style={{width:38,height:38,borderRadius:11,background:"white",border:`1px solid ${C.blush}`,color:C.mid,fontSize:17,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>←</button>
+              <div style={{flex:1,height:3,background:C.blush,borderRadius:99,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${(obStep/3)*100}%`,background:"linear-gradient(90deg,#c9705a,#e0825f)",borderRadius:99,transition:"width 0.4s ease"}}/>
               </div>
-              <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",fontFamily:"monospace",flexShrink:0}}>{obStep}/3</div>
+              <div style={{fontSize:12,color:C.lt,fontFamily:"monospace",flexShrink:0}}>{obStep}/3</div>
             </div>
 
             {/* Content */}
             <div key={obStep} style={{flex:1,padding:"0 28px",animation:"fadeUp 0.35s ease"}}>
               <div style={{fontSize:46,marginBottom:14,lineHeight:1}}>{step.icon}</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:"white",lineHeight:1.22,whiteSpace:"pre-line",marginBottom:10}}>{step.title}</div>
-              <div style={{fontSize:14,color:"rgba(255,255,255,0.45)",lineHeight:1.65,marginBottom:22}}>{step.sub}</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.deep,lineHeight:1.22,whiteSpace:"pre-line",marginBottom:10}}>{step.title}</div>
+              <div style={{fontSize:14,color:C.mid,lineHeight:1.65,marginBottom:22}}>{step.sub}</div>
               {/* Action card */}
-              <div style={{background:"rgba(255,255,255,0.05)",backdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.09)",borderRadius:22,padding:"22px 18px"}}>
+              <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:22,padding:"22px 18px",boxShadow:"0 2px 16px rgba(201,112,90,0.08)"}}>
                 {step.action}
               </div>
             </div>
@@ -4391,27 +4391,30 @@ function App(){
         {autoDark&&(
           <div style={{position:"absolute",top:4,right:52,fontSize:10,fontFamily:"monospace",color:"rgba(168,152,200,0.6)",letterSpacing:"0.06em"}}>🌙 night</div>
         )}
-        {/* ── ROW 3: Age · Share · Save · Tour — single line, no wrap ── */}
-        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:10,overflowX:"auto",flexWrap:"nowrap",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
+        {/* ── ROW 3: Age badge — own row, slightly larger ── */}
+        <div style={{marginBottom:7}}>
           {(()=>{
             if (!age && !babyUnborn) return (
               <div onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
-                style={{fontSize:12,color:C.mid,cursor:"pointer",background:"rgba(255,255,255,0.4)",borderRadius:99,padding:"4px 10px",fontFamily:"monospace",flexShrink:0}}>
-                ⚙️ Add DOB
+                style={{fontSize:13,color:C.mid,cursor:"pointer",background:"rgba(255,255,255,0.4)",borderRadius:99,padding:"5px 12px",fontFamily:"monospace",display:"inline-block"}}>
+                ⚙️ Add date of birth
               </div>
             );
             if (babyUnborn && babyDob) {
               const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-              return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:4,fontSize:12,color:C.deep,fontWeight:600,flexShrink:0}}>🤰 {daysUntil > 0 ? `Due ${daysUntil}d` : "Due any day!"}</div>;
+              return <div style={{background:"rgba(255,255,255,0.55)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
             }
             if (!age) return null;
             const parts = [];
             if (age.months > 0) parts.push(`${age.months}mo`);
             if (age.weeksAfterMonths > 0) parts.push(`${age.weeksAfterMonths}w`);
-            return <div style={{background:"rgba(255,255,255,0.5)",borderRadius:99,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:4,fontSize:12,color:C.deep,fontWeight:600,flexShrink:0}}>🎂 {parts.join(" ")} · {age.totalWeeks}wk</div>;
+            return <div style={{background:"rgba(255,255,255,0.55)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🎂 {parts.join(" ")} · {age.totalWeeks}wk</div>;
           })()}
-          <div style={{flex:"1 1 0",minWidth:0}}/>
-          <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 10px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>
+        </div>
+
+        {/* ── ROW 4: Share · Save · Tour ── */}
+        <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:10,overflowX:"auto",flexWrap:"nowrap",WebkitOverflowScrolling:"touch",msOverflowStyle:"none",scrollbarWidth:"none"}}>
+          <button onClick={e=>{e.stopPropagation();setShowFamilyModal(true);}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0,whiteSpace:"nowrap"}}>
             {familyCode?(syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳":syncStatus==="error"?"⚠️":"👨‍👩‍👧 "+(familyUsername||"Share")):"👨‍👩‍👧 Share"}
           </button>
           {backupCode&&(
@@ -4420,11 +4423,11 @@ function App(){
               const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
               const days2=Object.values(children).reduce((s,c)=>s+Object.keys(c.days||{}).length,0);
               if(window.confirm("Save all data to cloud now?\n\n"+days2+" days · "+tot+" entries\n\nThis overwrites the existing cloud backup.")){pushToCloud(backupCode,childrenRef.current);}
-            }} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 10px",fontSize:12,color:C.mint,cursor:"pointer",fontFamily:"monospace",fontWeight:700,flexShrink:0}}>
+            }} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mint,cursor:"pointer",fontFamily:"monospace",fontWeight:700,flexShrink:0}}>
               💾 Save
             </button>
           )}
-          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 10px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0}}>
+          <button onClick={e=>{e.stopPropagation();setTutStep(0);try{localStorage.removeItem("tut_v1");}catch{}}} style={{background:"rgba(255,255,255,0.45)",border:"none",borderRadius:99,padding:"5px 12px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"monospace",fontWeight:600,flexShrink:0}}>
             ? Tour
           </button>
         </div>
@@ -4671,17 +4674,18 @@ function App(){
               </div>
 
               {/* ══ NEW LOG BAR ════════════════════════════════ */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
                   {id:"nappy", icon:"💩", label:"Nappy"},
                   {id:"sleep", icon:"😴", label:"Sleep"},
+                  {id:"wake",  icon:"☀️", label:"Wake Up"},
                   {id:"paste", icon:"📋", label:"Notes"},
                 ].map(({id,icon,label})=>(
                   <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 6px",borderRadius:16,border:`2px solid ${logPanel===id?C.ter:C.blush}`,background:logPanel===id?"#fdf0eb":C.warm,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                    <span style={{fontSize:24}}>{icon}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:logPanel===id?C.ter:C.mid,letterSpacing:"0.02em"}}>{label}</span>
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?C.ter:C.blush}`,background:logPanel===id?"#fdf0eb":C.warm,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                    <span style={{fontSize:22}}>{icon}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:C.mid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2}}>{label}</span>
                   </button>
                 ))}
               </div>
@@ -6175,6 +6179,24 @@ function App(){
             </div>
           )}
           <PBtn onClick={saveLogSleep}>✓ Log Sleep</PBtn>
+        </Sheet>
+      )}
+
+      {logPanel==="wake"&&(
+        <Sheet onClose={()=>setLogPanel(null)} title="☀️ Log Wake Up">
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:15,fontFamily:"monospace",color:C.mid,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:4}}>Wake Time</label>
+            <input type="time" value={logForm.feedTime} onChange={e=>setLogForm(f=>({...f,feedTime:e.target.value}))}
+              style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}/>
+          </div>
+          <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:14,fontSize:13,color:C.mid,lineHeight:1.55}}>
+            ☀️ Logs morning wake time — used to calculate wake windows and today's nap schedule.
+          </div>
+          <PBtn onClick={()=>{
+            const t = logForm.feedTime || nowTime();
+            quickAddLog("wake",{type:"wake",time:t,night:false,note:""});
+            setLogPanel(null);
+          }}>✓ Log Wake Up</PBtn>
         </Sheet>
       )}
 
