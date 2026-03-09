@@ -949,7 +949,18 @@ function App(){
       const myUid = window._fbUid;
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
       if(myUid && d.updatedBy === myUid) return;
-      try{ if(d.children) setChildren(prev=>mergeChildren(prev,JSON.parse(d.children))); }
+      try{
+        if(d.children) {
+          const incoming = JSON.parse(d.children);
+          setChildren(prev => {
+            const merged = mergeChildren(prev, incoming);
+            // Update cloud floor so push guard reflects latest known cloud richness
+            const incomingCount = countAllEntries(incoming);
+            if(incomingCount > cloudEntryCountRef.current) cloudEntryCountRef.current = incomingCount;
+            return merged;
+          });
+        }
+      }
       catch(e){ console.warn("Sync apply error",e); }
     });
   },[]);
@@ -1064,6 +1075,8 @@ function App(){
                           }
                         });
                       }
+                      // Record cloud entry count as the safety floor for push guard
+                      cloudEntryCountRef.current = countAllEntries(merged);
                       return merged;
                     });
                     // Also persist the merged result immediately
@@ -1118,19 +1131,41 @@ function App(){
   // Stable session token — written to Firestore with every push so onSnapshot can skip our own writes
   const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
   const justRestoredRef = React.useRef(false);
+  // Track total entry count loaded from cloud — safety floor to prevent pushing
+  // a sparse in-memory state over a richer cloud backup (e.g. after a bad update).
+  const cloudEntryCountRef = React.useRef(0);
+  // Tracks entries the user has explicitly deleted — offsets the push guard floor
+  // so intentional deletions are never blocked.
+  const userDeletedCountRef = React.useRef(0);
+  function countAllEntries(ch) {
+    return Object.values(ch).reduce((total, child) =>
+      total + Object.values(child.days||{}).reduce((s,d) => s+(d&&d.length?d.length:0), 0)
+    , 0);
+  }
   useEffect(()=>{
     if(!fbReady || !restoreDone || !backupCode) return;
     // On the first run after restore, skip the push (we just pulled from cloud)
     if(!justRestoredRef.current) { justRestoredRef.current = true; return; }
     clearTimeout(syncTimerRef.current);
+    // 8s debounce — gives Firebase restore time to complete before any push fires
     syncTimerRef.current = setTimeout(()=>{
       const hasData = Object.values(children).some(c=>
         (c.name&&c.name.trim()) || c.dob ||
         Object.values(c.days||{}).some(d=>d&&d.length>0) ||
         (c.weights||[]).length>0
       );
-      if(hasData) pushToCloud(backupCode, children);
-    }, 3000);
+      if(!hasData) return;
+      // Safety guard: if current entry count is <80% of what we loaded from cloud,
+      // the state looks suspiciously sparse — block the push to protect cloud data.
+      const currentCount = countAllEntries(children);
+      // Adjust floor downward by however many entries the user explicitly deleted
+      const adjustedFloor = Math.max(0, cloudEntryCountRef.current - userDeletedCountRef.current);
+      if(adjustedFloor > 10 && currentCount < adjustedFloor * 0.8) {
+        console.warn("OBubba: push blocked — " + currentCount + " entries vs adjusted floor " + adjustedFloor + ".");
+        return;
+      }
+      pushToCloud(backupCode, children);
+    }, 8000);
     return ()=>clearTimeout(syncTimerRef.current);
   },[fbReady, restoreDone, backupCode, children]);
 
@@ -3031,6 +3066,7 @@ function App(){
     setModal("entry");
   }
   function delEntry(id){
+    userDeletedCountRef.current += 1;
     setDays(d=>{
       const updated=(d[selDay]||[]).filter(e=>e.id!==id);
       return {...d,[selDay]:autoClassifyNight(updated)};
@@ -3240,6 +3276,9 @@ function App(){
   }
   function delDay(){
     if(!window.confirm(`Delete all data for ${fmtDate(menuDay)}?`))return;
+    // Count entries being deleted so push guard doesn't block this intentional removal
+    const deletedCount = (days[menuDay]||[]).length;
+    userDeletedCountRef.current += deletedCount;
     setDays(d=>{const c={...d};delete c[menuDay];return c;});
     const rem=dayKeys.filter(k=>k!==menuDay);
     setSelDay(rem[rem.length-1]||null);setModal(null);
