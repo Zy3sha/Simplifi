@@ -3421,8 +3421,8 @@ function App(){
   const tabSt=t=>({flex:1,padding:"10px 2px",border:"none",background:"none",fontSize:14,fontWeight:700,cursor:"pointer",color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.04em",textTransform:"uppercase"});
   const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
 
-  const tabIcons={day:"📅",week:"📊",trends:"📈",growth:"📏",milestones:"⭐"};
-  const tabLabels={day:"Day",week:"Week",trends:"Trends",growth:"Growth",milestones:"Miles"};
+  const tabIcons={day:"📅",trends:"📈",growth:"📏",milestones:"⭐",develop:"🧩"};
+  const tabLabels={day:"Day",trends:"Trends",growth:"Growth",milestones:"Miles",develop:"Develop"};
 
   // ── AUTH SCREEN (login / create — shown on new device or manual logout) ──
   if (authScreen) {
@@ -4927,8 +4927,85 @@ function App(){
         )}
 
         {/* TRENDS TAB */}
-        {tab==="trends"&&(
-          dayKeys.length<3?(
+        {tab==="trends"&&(()=>{
+          // Growth banner data
+          const ageMonths = babyDob ? Math.floor((new Date() - new Date(babyDob)) / (1000*60*60*24*30.44)) : null;
+          const sortedWforTrends = [...weights].sort((a,b)=>a.date.localeCompare(b.date));
+          const wWithPctForTrends = sortedWforTrends.map(w => {
+            if(!babyDob) return {...w, pct: null};
+            const ageMo = Math.floor((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44));
+            if(ageMo < 0 || ageMo > 24) return {...w, pct: null};
+            return {...w, pct: getPercentile(w.kg, ageMo, babySex), ageMo};
+          });
+          const latestW = wWithPctForTrends.filter(w=>w.pct!==null).slice(-1)[0];
+          const prevW = wWithPctForTrends.filter(w=>w.pct!==null).slice(-2,-1)[0];
+          const weightGain = latestW && prevW ? Math.round((latestW.kg - prevW.kg)*1000)/1000 : null;
+          const [growthLogOpen, setGrowthLogOpen] = React.useState(false);
+
+          return (
+            <div>
+              {/* ── GROWTH BANNER ── */}
+              {(latestW || weights.length === 0) && (
+                <div style={{background: latestW ? `linear-gradient(135deg,${percentileColor(latestW?.pct)}18,${percentileColor(latestW?.pct)}08)` : "linear-gradient(135deg,#f5f0eb,#ede8e0)", border:`2px solid ${latestW ? percentileColor(latestW?.pct)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
+                  {/* Banner header */}
+                  <div style={{padding:"16px 16px 12px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em"}}>📏 Growth</div>
+                      <button onClick={()=>setGrowthLogOpen(o=>!o)} style={{background:"none",border:`1px solid ${C.blush}`,borderRadius:99,padding:"4px 11px",fontSize:12,color:C.mid,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4}}>
+                        History {growthLogOpen?"▲":"▼"}
+                      </button>
+                    </div>
+                    {latestW ? (
+                      <div style={{display:"flex",alignItems:"center",gap:16}}>
+                        <div style={{textAlign:"center",minWidth:70}}>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:44,fontWeight:700,color:percentileColor(latestW.pct),lineHeight:1}}>{ordinal(latestW.pct)}</div>
+                          <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,marginTop:2}}>percentile</div>
+                        </div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:22,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{latestW.kg}kg</div>
+                          <div style={{fontSize:13,color:C.mid,marginTop:2}}>{latestW.ageMo} months · {fmtLong(latestW.date)}</div>
+                          {weightGain !== null && (
+                            <div style={{fontSize:12,color:weightGain>=0?C.mint:C.ter,fontFamily:"monospace",marginTop:3,fontWeight:700}}>
+                              {weightGain>=0?"↑":"↓"} {Math.abs(weightGain*1000)}g since last weigh-in
+                            </div>
+                          )}
+                          <div style={{fontSize:12,marginTop:5,padding:"4px 10px",borderRadius:99,display:"inline-block",background:percentileColor(latestW.pct)+"22",color:percentileColor(latestW.pct),fontFamily:"monospace",fontWeight:600}}>
+                            {percentileNote(latestW.pct)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{textAlign:"center",padding:"8px 0"}}>
+                        <div style={{fontSize:15,color:C.lt,marginBottom:4}}>No weight logged yet</div>
+                        <button onClick={()=>setTab("growth")} style={{background:C.ter,border:"none",borderRadius:99,padding:"8px 18px",color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Log weight →</button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Foldable log */}
+                  {growthLogOpen && wWithPctForTrends.filter(w=>w.pct!==null).length > 0 && (
+                    <div style={{borderTop:`1px solid ${C.blush}`,padding:"10px 16px 14px"}}>
+                      <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Previous measurements</div>
+                      {wWithPctForTrends.filter(w=>w.pct!==null).slice().reverse().map((w,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:i<wWithPctForTrends.filter(x=>x.pct!==null).length-1?`1px solid ${C.blush}`:"none"}}>
+                          <div>
+                            <div style={{fontSize:14,fontWeight:500,color:C.deep}}>{fmtLong(w.date)}</div>
+                            <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,marginTop:1}}>{w.ageMo} months · {w.kg}kg</div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:percentileColor(w.pct)}}>{ordinal(w.pct)}</div>
+                            <div style={{fontSize:10,fontFamily:"monospace",color:C.lt}}>percentile</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {growthLogOpen && wWithPctForTrends.filter(w=>w.pct!==null).length === 0 && (
+                    <div style={{borderTop:`1px solid ${C.blush}`,padding:"12px 16px",textAlign:"center",fontSize:13,color:C.lt}}>No previous measurements to show.</div>
+                  )}
+                </div>
+              )}
+
+          {dayKeys.length<3?(
             <div style={{textAlign:"center",padding:"48px 20px",color:C.lt}}>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Not enough data yet</div>
               <div style={{fontSize:15,fontFamily:"monospace"}}>Add at least 3 days to see trends</div>
@@ -4983,8 +5060,10 @@ function App(){
                 </div>
               )}
             </div>
-          )
-        )}
+          )}
+            </div>
+          );
+        })()}
 
         {/* GROWTH TAB */}
         {tab==="growth"&&(()=>{
@@ -5508,11 +5587,159 @@ function App(){
           );
         })()}
 
+        {/* DEVELOP TAB */}
+        {tab==="develop"&&(()=>{
+          const ageWeeks = age ? age.totalWeeks : null;
+          const name = babyName || "Baby";
+
+          // NHS/WHO age-based developmental advice
+          function getDevAdvice(ageWeeks) {
+            if (!ageWeeks) return [];
+            if (ageWeeks < 6) return [
+              { icon:"👁", title:"Visual stimulation", body:"Babies can only focus 20–30cm away. Hold high-contrast black-and-white patterns near their face. Mobiles above the cot help develop tracking." },
+              { icon:"🗣", title:"Talk constantly", body:"Narrate everything you do. Your voice is the most important stimulus. Babies recognise parents' voices from birth and respond to tone before words." },
+              { icon:"🤱", title:"Skin-to-skin", body:"WHO recommends daily skin-to-skin contact in early weeks. Regulates baby's temperature, heart rate and stress hormones, and supports bonding." },
+              { icon:"🏋️", title:"Tummy time from day one", body:"NHS recommends starting supervised tummy time from birth. Even 1–2 minutes several times daily builds neck and shoulder strength essential for later motor development." },
+            ];
+            if (ageWeeks < 13) return [
+              { icon:"😄", title:"Respond to smiles", body:"First social smiles appear around 6–8 weeks. Mirror them immediately — this 'serve and return' interaction is foundational for emotional development per WHO guidelines." },
+              { icon:"🎵", title:"Singing and rhythm", body:"Singing the same simple songs repeatedly helps babies begin to recognise patterns in language. NHS encourages nursery rhymes from birth for speech development." },
+              { icon:"👐", title:"Grasp play", body:"Place a rattle or your finger lightly in their palm. The grasp reflex is transitioning to intentional grasping — repeated practice builds hand strength." },
+              { icon:"🏋️", title:"Increase tummy time", body:"Work up to 30 minutes of tummy time per day spread across multiple sessions. This is the NHS and WHO recommendation for building strength before rolling." },
+            ];
+            if (ageWeeks < 26) return [
+              { icon:"🔊", title:"Sound cause & effect", body:"Shake a rattle and watch them follow it. Let baby hold the rattle to discover they make the sound. This builds early understanding of cause and effect." },
+              { icon:"📚", title:"Board books daily", body:"NHS Start4Life recommends daily shared book reading from birth. At this age, simple faces and high-contrast illustrations are most engaging." },
+              { icon:"🪞", title:"Mirror exploration", body:"Hold baby in front of a baby-safe mirror. They won't recognise themselves yet but will engage with the 'other baby' — supporting social and visual development." },
+              { icon:"🎶", title:"Baby music classes", body:"WHO developmental guidance notes that rhythmic movement and music together accelerate auditory processing. Even gentle bouncing to music counts." },
+            ];
+            if (ageWeeks < 40) return [
+              { icon:"🧩", title:"Object permanence games", body:"This is the peak age for developing object permanence. Cover a toy with a cloth while they watch and encourage them to find it. Start simple, get more complex." },
+              { icon:"🍽️", title:"Weaning begins", body:"NHS and WHO recommend introducing solid foods at around 6 months (26 weeks). Start with smooth purees, offering a wide variety of tastes early reduces fussiness." },
+              { icon:"🗣", title:"Babbling back", body:"When baby babbles (ba-ba, da-da), respond with the same sounds. This conversational turn-taking is the direct precursor to first words." },
+              { icon:"🚶", title:"Supported standing", body:"Hold baby upright with feet flat and let them bounce and bear weight. NHS guidelines note this builds the leg strength needed for walking later." },
+            ];
+            if (ageWeeks < 54) return [
+              { icon:"👋", title:"Simple signs", body:"NHS recommends teaching simple baby sign language (more, milk, all done) alongside spoken words. Signs give pre-verbal babies a way to communicate and reduce frustration." },
+              { icon:"📖", title:"Interactive reading", body:"Point to pictures and ask 'where's the dog?' Pause and wait. This builds pointing, joint attention and receptive vocabulary — all key WHO language milestones." },
+              { icon:"🧱", title:"Stacking and sorting", body:"Stacking cups and shape sorters build fine motor control, spatial reasoning and problem-solving. NHS developmental checks look for these skills at the 1-year review." },
+              { icon:"🏃", title:"Walking support", body:"Encourage cruising along furniture. NHS guidance is that most babies walk independently by 18 months — provide safe furniture routes and celebrate every step." },
+            ];
+            return [
+              { icon:"💬", title:"First words & naming", body:"Encourage labelling everything consistently. WHO speech milestones expect 2–3 meaningful words by 12–15 months. Respond enthusiastically to any communication attempt." },
+              { icon:"🎭", title:"Pretend play", body:"Introduce simple pretend play — feeding a teddy, talking on a toy phone. NHS 2-year check looks for symbolic play as a key cognitive indicator." },
+              { icon:"🌍", title:"Social play", body:"Organise playdates or baby groups. WHO guidelines emphasise that from 12 months, exposure to other children significantly advances social development." },
+              { icon:"📚", title:"Expand vocabulary", body:"NHS recommends 10+ words by 18 months. Read together daily, name new things, and avoid too much screen time which WHO links to slower language acquisition." },
+            ];
+          }
+
+          const devAdvice = getDevAdvice(ageWeeks);
+          const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks !== null && ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
+          const [actFilter, setActFilter] = React.useState("all");
+          const filteredActs = actFilter === "all" ? nowActs : nowActs.filter(a => a.cat === actFilter);
+
+          return (
+            <div>
+              {/* Age header */}
+              <div style={{background:"linear-gradient(135deg,#fdeee8,#f5e4dc)",border:`1px solid ${C.rose}`,borderRadius:20,padding:"16px",marginBottom:14,display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:52,height:52,borderRadius:16,background:`linear-gradient(135deg,${C.ter},#a85a44)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:24}}>🧩</span>
+                </div>
+                <div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep}}>{name}'s Development</div>
+                  <div style={{fontSize:13,color:C.mid,marginTop:2}}>
+                    {age ? `${age.months} months · ${age.totalWeeks} weeks old` : "Set a date of birth to personalise"}
+                  </div>
+                  <div style={{fontSize:11,fontFamily:"monospace",color:C.lt,marginTop:3}}>Based on NHS & WHO guidelines</div>
+                </div>
+              </div>
+
+              {/* ── KINEDU-STYLE ACTIVITIES ── */}
+              <div style={{...card, marginBottom:14}}>
+                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>🎯 Activities for right now</div>
+
+                {/* Category filter pills */}
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+                  {[{key:"all",label:"All",icon:"✦"},...ACT_CATS].map(c=>(
+                    <button key={c.key} onClick={()=>setActFilter(c.key)}
+                      style={{padding:"5px 12px",borderRadius:99,border:`1.5px solid ${actFilter===c.key?C.ter:C.blush}`,background:actFilter===c.key?"#fdf0eb":C.warm,fontSize:12,fontWeight:600,color:actFilter===c.key?C.ter:C.mid,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                      {c.icon} {c.label}
+                    </button>
+                  ))}
+                </div>
+
+                {!ageWeeks ? (
+                  <div style={{textAlign:"center",padding:"20px",color:C.lt,fontSize:13}}>Set a date of birth in Growth to see personalised activities.</div>
+                ) : filteredActs.length === 0 ? (
+                  <div style={{textAlign:"center",padding:"20px",color:C.lt,fontSize:13}}>No activities in this category for current age.</div>
+                ) : (
+                  filteredActs.map(a => {
+                    const catInfo = ACT_CATS.find(c=>c.key===a.cat);
+                    return (
+                      <div key={a.id} style={{padding:"14px",marginBottom:10,borderRadius:16,background:"#fdf8f5",border:`1px solid ${C.blush}`}}>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:8}}>
+                          <div style={{width:34,height:34,borderRadius:12,background:`linear-gradient(135deg,${C.ter}22,${C.ter}11)`,border:`1px solid ${C.rose}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:15}}>
+                            {catInfo?.icon||"✦"}
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:15,fontWeight:700,color:C.deep,lineHeight:1.2}}>{a.title}</div>
+                            <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                              <span style={{fontSize:11,background:"#f5f0eb",borderRadius:99,padding:"2px 8px",color:C.mid}}>{catInfo?.icon} {catInfo?.label}</span>
+                              <span style={{fontSize:11,fontFamily:"monospace",background:"#eaf6f3",borderRadius:99,padding:"2px 8px",color:C.mint}}>wk {a.weeks[0]}–{a.weeks[1]}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{paddingLeft:44}}>
+                          <div style={{fontSize:13,color:C.deep,lineHeight:1.6,marginBottom:6}}>
+                            <span style={{fontWeight:700,color:C.ter}}>How: </span>{a.how}
+                          </div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.55,background:"white",borderRadius:10,padding:"8px 11px",border:`1px solid ${C.blush}`}}>
+                            <span style={{fontWeight:600,color:C.mint}}>Why it helps: </span>{a.why}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* ── NHS/WHO DEVELOPMENTAL ADVICE ── */}
+              <div style={{...card, marginBottom:14}}>
+                <div style={{fontSize:12,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>🏥 NHS & WHO Guidance for this age</div>
+                {!ageWeeks ? (
+                  <div style={{textAlign:"center",padding:"16px",color:C.lt,fontSize:13}}>Set a date of birth to see age-appropriate guidance.</div>
+                ) : (
+                  devAdvice.map((item, i) => (
+                    <div key={i} style={{display:"flex",gap:12,padding:"12px 0",borderBottom:i<devAdvice.length-1?`1px solid ${C.blush}`:"none"}}>
+                      <div style={{width:36,height:36,borderRadius:12,background:"#f0faf5",border:"1px solid #c0e8d0",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:16}}>
+                        {item.icon}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:3}}>{item.title}</div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.6}}>{item.body}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Disclaimer */}
+              <div style={{background:"#f8f5f0",border:"1px solid #e8dfd4",borderRadius:12,padding:"12px 14px",marginBottom:4}}>
+                <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
+                  <span style={{fontWeight:700,color:C.deep}}>ℹ️ About this guidance</span><br/>
+                  Activities and advice are based on NHS Start4Life and WHO Child Development guidelines, as well as Kinedu-style developmental play principles. Every baby develops at their own pace — use these as inspiration, not a checklist. If you have concerns about development, speak to your health visitor or GP.
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
+
       </div>
 
       {/* BOTTOM NAV */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto"}}>
-        {["day","week","trends","growth","milestones"].map(t=>(
+        {["day","trends","growth","milestones","develop"].map(t=>(
           <button key={t} onClick={()=>setTab(t)} style={tabSt(t)}>
             <span style={{fontSize:18}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
