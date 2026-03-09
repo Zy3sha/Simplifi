@@ -1542,37 +1542,44 @@ function App(){
     setAdminLoading(true);
     try{
       const {db, collection, getDocs, query, orderBy, doc, getDoc} = window._fb;
-      const activeSnap = await getDoc(doc(db,"feedback","active"));
-      if(!activeSnap.exists()){setAdminStats(null);setAdminLoading(false);return;}
-      const active = activeSnap.data();
+      // Always load responses regardless of whether active doc exists
       const q = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
       const snap = await getDocs(q);
       const responses = snap.docs.map(d=>d.data());
+      const activeSnap = await getDoc(doc(db,"feedback","active"));
+      const active = activeSnap.exists() ? activeSnap.data() : null;
       const count = responses.length;
 
-      const qStats = (active.questions||[]).map(qq=>{
-        const answers = responses.map(r=>(r.answers||{})[qq.id]).filter(a=>a!==undefined&&a!==null&&a!=="");
-        if(qq.type==="star"){
-          const avg = answers.length ? (answers.reduce((s,a)=>s+(a||0),0)/answers.length).toFixed(1) : "—";
-          return {...qq, count:answers.length, avg};
-        } else if(qq.type==="scale"){
-          const avg = answers.length ? (answers.reduce((s,a)=>s+(parseFloat(a)||0),0)/answers.length).toFixed(1) : "—";
-          return {...qq, count:answers.length, avg};
-        } else if(qq.type==="multi" || qq.type==="single"){
-          const tally={};
-          (qq.choices||[]).forEach(c=>{tally[c]=0;});
-          answers.forEach(a=>{ (Array.isArray(a)?a:[a]).forEach(c=>{ if(tally[c]!==undefined) tally[c]++; }); });
-          return {...qq, count:answers.length, tally};
-        } else if(qq.type==="text"){
-          return {...qq, count:answers.length, texts:answers.slice(0,20)};
-        } else if(qq.type==="yesno"){
-          const yes = answers.filter(a=>a===true||a==="yes").length;
-          const no = answers.filter(a=>a===false||a==="no").length;
-          return {...qq, count:answers.length, yes, no};
-        }
-        return {...qq, count:answers.length};
-      });
-      setAdminStats({title:active.title, id:active.id, count, questions:qStats, _rawResponses:responses});
+      if(active){
+        const qStats = (active.questions||[]).map(qq=>{
+          const answers = responses.map(r=>(r.answers||{})[qq.id]).filter(a=>a!==undefined&&a!==null&&a!=="");
+          if(qq.type==="star"){
+            const avg = answers.length ? (answers.reduce((s,a)=>s+(a||0),0)/answers.length).toFixed(1) : "—";
+            return {...qq, count:answers.length, avg};
+          } else if(qq.type==="scale"){
+            const avg = answers.length ? (answers.reduce((s,a)=>s+(parseFloat(a)||0),0)/answers.length).toFixed(1) : "—";
+            return {...qq, count:answers.length, avg};
+          } else if(qq.type==="multi" || qq.type==="single"){
+            const tally={};
+            (qq.choices||[]).forEach(c=>{tally[c]=0;});
+            answers.forEach(a=>{ (Array.isArray(a)?a:[a]).forEach(c=>{ if(tally[c]!==undefined) tally[c]++; }); });
+            return {...qq, count:answers.length, tally};
+          } else if(qq.type==="text"){
+            return {...qq, count:answers.length, texts:answers.slice(0,20)};
+          } else if(qq.type==="yesno"){
+            const yes = answers.filter(a=>a===true||a==="yes").length;
+            const no = answers.filter(a=>a===false||a==="no").length;
+            return {...qq, count:answers.length, yes, no};
+          }
+          return {...qq, count:answers.length};
+        });
+        setAdminStats({title:active.title, id:active.id, count, questions:qStats, _rawResponses:responses});
+      } else if(responses.length>0){
+        // Active doc deleted but responses still exist — show them raw
+        setAdminStats({title:"(archived push)", id:null, count, questions:[], _rawResponses:responses});
+      } else {
+        setAdminStats(null);
+      }
     }catch(e){console.warn("Admin load error",e);}
     setAdminLoading(false);
   }
@@ -7417,10 +7424,12 @@ function App(){
             )}
             {!adminLoading && adminStats && adminStats._rawResponses && adminStats._rawResponses.length>0 && (
               <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
-                <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>All responses ({adminStats._rawResponses.length})</div>
-                {adminStats._rawResponses.map((r,i)=>(
-                  <div key={i} style={{marginBottom:10,paddingBottom:10,borderBottom:i<adminStats._rawResponses.length-1?`1px solid ${C.blush}`:"none"}}>
-                    <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginBottom:4}}>Response {i+1} · {r.ts?.toDate?(()=>{const d=r.ts.toDate();return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});})():"—"}</div>
+                <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>All responses ({adminStats._rawResponses.length})</div>
+                {adminStats._rawResponses.map((r,ri)=>(
+                  <div key={ri} style={{marginBottom:10,paddingBottom:10,borderBottom:ri<adminStats._rawResponses.length-1?`1px solid ${C.blush}`:"none"}}>
+                    <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginBottom:4}}>
+                      Response {ri+1}{r.username?" · "+r.username:""} · {r.ts?.toDate?(()=>{const d=r.ts.toDate();return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"});})():"—"}
+                    </div>
                     {Object.entries(r.answers||{}).map(([qid,ans])=>(
                       <div key={qid} style={{fontSize:13,color:C.mid,marginBottom:2}}>
                         <span style={{fontFamily:_fM,color:C.lt,fontSize:11}}>{qid}: </span>
