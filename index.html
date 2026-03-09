@@ -2848,7 +2848,7 @@ function App(){
           yr = String(currentYear); // auto-correct future year — not allowed
         } else if(parsedYear < currentYear) {
           yearWarning = { type:"past", parsed:parsedYear, corrected:String(currentYear) };
-          // Don't auto-correct — ask user (handled after parse in confirmPastedDate)
+          yr = String(currentYear); // auto-correct to current year — user can revert via "Keep 2025"
         }
         detectedDate = yr+"-"+mo.padStart(2,"0")+"-"+d.padStart(2,"0");
       }
@@ -5474,13 +5474,18 @@ function App(){
                   <div style={{fontWeight:700,marginBottom:6,color:"#8a6a10"}}>⚠️ Year {parsedEntries.yearWarning.parsed} detected — did you mean {parsedEntries.yearWarning.corrected}?</div>
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={()=>{
-                      const correctedText = pasteText.replace(String(parsedEntries.yearWarning.parsed), parsedEntries.yearWarning.corrected);
-                      const result = smartParse(correctedText);
-                      setParsedEntries(result);
+                      // detectedDate is already corrected to current year — just clear the warning
+                      setParsedEntries({...parsedEntries, yearWarning:null});
                     }} style={{flex:1,padding:"8px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
                       Use {parsedEntries.yearWarning.corrected}
                     </button>
-                    <button onClick={()=>setParsedEntries({...parsedEntries,yearWarning:null})} style={{flex:1,padding:"8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"white",color:C.mid,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+                    <button onClick={()=>{
+                      // Revert detectedDate back to the original year the user typed
+                      const revertedDate = parsedEntries.detectedDate
+                        ? parsedEntries.detectedDate.replace(parsedEntries.yearWarning.corrected, String(parsedEntries.yearWarning.parsed))
+                        : parsedEntries.detectedDate;
+                      setParsedEntries({...parsedEntries, detectedDate: revertedDate, yearWarning:null});
+                    }} style={{flex:1,padding:"8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"white",color:C.mid,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
                       Keep {parsedEntries.yearWarning.parsed}
                     </button>
                   </div>
