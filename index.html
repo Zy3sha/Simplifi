@@ -349,32 +349,69 @@ const MILESTONES = [
   { id:"m55", cat:"cognitive", label:"Pretend play begins",             weeks:[44, 56, 72] },
 ];
 
-// Wonder Weeks — the 8 mental leaps in the first year
+// Development Phases — 8 key mental phases in the first year
 const WONDER_WEEKS = [
-  { leap:1, windowStart:4,  windowEnd:5,  peakWeek:5,  name:"Changing Sensations",
-    fussy:"Extra crying, wants constant holding, hard to settle — this is the very first leap.",
+  { phase:1, windowStart:4,  windowEnd:5,  peakWeek:5,  name:"Sensory Awareness",
+    fussy:"Extra crying, wants constant holding, hard to settle — this is the very first development phase.",
     skills:["Notices differences in light, sound and smell","Reacts to new tastes","Startles at loud noises"] },
-  { leap:2, windowStart:7,  windowEnd:9,  peakWeek:8,  name:"Patterns",
+  { phase:2, windowStart:7,  windowEnd:9,  peakWeek:8,  name:"Pattern Recognition",
     fussy:"Clingy and cranky for several days, feeds more often, hard to put down.",
     skills:["Recognises simple patterns and shapes","Follows moving objects smoothly","First social smiles"] },
-  { leap:3, windowStart:11, windowEnd:12, peakWeek:12, name:"Smooth Transitions",
+  { phase:3, windowStart:11, windowEnd:12, peakWeek:12, name:"Movement Control",
     fussy:"Fussy in the evenings, wakes more at night, wants feeding for comfort.",
     skills:["Movements become smoother and more fluid","'Talks' back with coos","More aware of their own body"] },
-  { leap:4, windowStart:14, windowEnd:19, peakWeek:17, name:"Events",
-    fussy:"Longest leap so far (up to 5 weeks). Sleep regression very common, extremely clingy.",
+  { phase:4, windowStart:14, windowEnd:19, peakWeek:17, name:"Cause & Effect",
+    fussy:"Longest phase so far (up to 5 weeks). Sleep regression very common, extremely clingy.",
     skills:["Understands sequences of events","Starts to roll","Grabs objects deliberately","Babbles back and forth"] },
-  { leap:5, windowStart:22, windowEnd:26, peakWeek:24, name:"Relationships",
+  { phase:5, windowStart:22, windowEnd:26, peakWeek:24, name:"Spatial Awareness",
     fussy:"Separation anxiety begins — cries when you leave the room, very clingy.",
     skills:["Understands distance and space","Sits with support","Stranger awareness develops","Reaches for everything"] },
-  { leap:6, windowStart:33, windowEnd:37, peakWeek:35, name:"Categories",
+  { phase:6, windowStart:33, windowEnd:37, peakWeek:35, name:"Object Grouping",
     fussy:"Early temper tantrums, tests limits, fussy and unpredictable.",
     skills:["Groups things by colour, shape and size","Pulls to stand","Waves bye-bye","Understands 'no'"] },
-  { leap:7, windowStart:41, windowEnd:46, peakWeek:44, name:"Sequences",
+  { phase:7, windowStart:41, windowEnd:46, peakWeek:44, name:"Action Planning",
     fussy:"Clingy around sleep times, may refuse foods, testing independence.",
     skills:["Understands simple sequences","First steps approaching","Points to things","Says first words"] },
-  { leap:8, windowStart:51, windowEnd:54, peakWeek:52, name:"Programs",
+  { phase:8, windowStart:51, windowEnd:54, peakWeek:52, name:"Goal Directed Behaviour",
     fussy:"Cranky around the 1-year mark, big sleep disruption, strong separation anxiety.",
     skills:["Plans simple actions to reach a goal","Stacks objects","Follows instructions","Uses a few words with meaning"] },
+];
+
+// Age-appropriate activities — Kinedu-style, grouped by week range
+// Each: { id, weeks:[from,to], cat, title, how, why }
+const DEV_ACTIVITIES = [
+  // 0-8 weeks
+  { id:"a1",  weeks:[0,8],  cat:"visual",   title:"Object Tracking",        how:"Hold a high-contrast card or toy about 25cm from their face and slowly move it side to side. Follow their eyes.", why:"Trains eye muscles and builds early focus and visual tracking skills." },
+  { id:"a2",  weeks:[0,8],  cat:"social",   title:"Face Time",              how:"Hold your face 20-30cm away and make slow, exaggerated expressions. Pause and wait for a reaction.", why:"Encourages early social smiling and teaches babies about emotional cues." },
+  { id:"a3",  weeks:[0,8],  cat:"motor",    title:"Tummy Time",             how:"Place baby on their tummy on a firm surface for 1-2 minutes, 2-3 times a day. Be right next to them.", why:"Builds neck, shoulder and core strength needed for rolling and crawling." },
+  { id:"a4",  weeks:[0,8],  cat:"language", title:"Sound Mapping",          how:"Call their name softly from slightly to the left, then right. Watch for head turning toward your voice.", why:"Builds sound localisation — an early foundation of language development." },
+  // 8-16 weeks
+  { id:"a5",  weeks:[8,16], cat:"motor",    title:"Supported Sitting",      how:"Sit baby on your lap facing outward with your hands loosely supporting their torso. Let them find their balance.", why:"Builds core stability and balance in preparation for independent sitting." },
+  { id:"a6",  weeks:[8,16], cat:"visual",   title:"Colour Contrast Play",   how:"Show bright, single-colour objects one at a time — red, then yellow. Hold still and let them look for 30 seconds.", why:"Stimulates colour perception and sustained attention." },
+  { id:"a7",  weeks:[8,16], cat:"social",   title:"Serve & Return",         how:"When baby coos or makes a sound, respond with the same sound back. Wait for them to respond, then reply again.", why:"Models turn-taking and lays the groundwork for conversation." },
+  { id:"a8",  weeks:[8,16], cat:"motor",    title:"Grasp & Reach",          how:"Hold a light rattle near their open hand. Let them feel it, then move it just out of reach. Encourage reaching.", why:"Develops intentional reaching and hand-eye coordination." },
+  // 16-26 weeks
+  { id:"a9",  weeks:[16,26], cat:"motor",   title:"Roll Support",           how:"Place baby on their back on a mat. Gently bend one knee across their body to prompt a roll. Go slowly.", why:"Teaches the rotation pattern needed for rolling front-to-back." },
+  { id:"a10", weeks:[16,26], cat:"language","title":"Name Everything",      how:"As you move through the day, name objects clearly: 'spoon', 'cup', 'dog'. Pause after each word.", why:"Builds vocabulary and links words to objects before they can speak." },
+  { id:"a11", weeks:[16,26], cat:"cognitive","title":"Peek-a-Boo",          how:"Hold a cloth in front of your face, pause, then drop it and say 'boo!'. Start slow, then speed up.", why:"Introduces object permanence — the idea that things exist when hidden." },
+  { id:"a12", weeks:[16,26], cat:"social",  title:"Mirror Play",            how:"Hold baby in front of a baby-safe mirror. Point to their reflection and say their name. Make faces together.", why:"Builds self-recognition and identity awareness." },
+  // 26-40 weeks
+  { id:"a13", weeks:[26,40], cat:"motor",   title:"Supported Standing",     how:"Hold baby upright with feet flat on your lap or a firm surface. Let them push down and bear their own weight.", why:"Strengthens leg muscles and reinforces the motor pattern for standing." },
+  { id:"a14", weeks:[26,40], cat:"cognitive","title":"Object Hide & Seek",  how:"Show baby a toy, then hide it under a cup while they watch. Encourage them to lift the cup to find it.", why:"Directly develops object permanence — a key cognitive milestone." },
+  { id:"a15", weeks:[26,40], cat:"language","title":"Simple Signs",         how:"Use consistent hand signs for 'more', 'milk' and 'all done' every time you say the word. Be patient.", why:"Gives babies a way to communicate before speech develops, reducing frustration." },
+  { id:"a16", weeks:[26,40], cat:"motor",   title:"Pincer Practice",        how:"Scatter small puffs or cereal on a highchair tray. Encourage picking them up one at a time.", why:"Develops the pincer grip needed for fine motor skills and self-feeding." },
+  // 40-54 weeks
+  { id:"a17", weeks:[40,54], cat:"motor",   title:"Cruising Practice",      how:"Position yourself a step away along the sofa and hold out a favourite toy, encouraging them to side-step toward it.", why:"Builds confidence in weight-shifting — a key step before independent walking." },
+  { id:"a18", weeks:[40,54], cat:"cognitive","title":"Stacking Rings",      how:"Stack the rings together, then take them off one by one naming each. Let baby take them off and attempt to replace.", why:"Develops size discrimination, sequencing, and problem-solving." },
+  { id:"a19", weeks:[40,54], cat:"language","title":"Book Pointing",        how:"Open a simple picture book and say 'where's the dog?' Wait, then point and label. Do this with 3-4 pictures.", why:"Builds receptive language, pointing, and joint attention skills." },
+  { id:"a20", weeks:[40,54], cat:"social",  title:"Cause & Effect Toys",    how:"Offer a pop-up toy or anything with a button that makes something happen. Let them experiment freely.", why:"Reinforces goal-directed thinking and the satisfaction of cause-and-effect." },
+];
+const ACT_CATS = [
+  { key:"visual",    label:"Visual",    icon:"👁" },
+  { key:"motor",     label:"Movement",  icon:"🌿" },
+  { key:"social",    label:"Social",    icon:"💛" },
+  { key:"language",  label:"Language",  icon:"💬" },
+  { key:"cognitive", label:"Thinking",  icon:"🔆" },
 ];
 
 
@@ -545,11 +582,11 @@ function LeapBanner({ l, ageWeeks, C }) {
     <div style={{borderRadius:14,overflow:"hidden",margin:"8px 0 6px",border:isActive?`2px solid #7b68ee`:`1px solid #e0dbf5`,background:isActive?"linear-gradient(135deg,#f0eeff,#e8e4ff)":"#f8f7ff"}}>
       <div onClick={()=>setOpen(o=>!o)} style={{padding:"11px 14px",display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
         <div style={{width:30,height:30,borderRadius:"50%",background:isActive?"#7b68ee":"#c5bef5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-          <span style={{fontSize:13,color:"white",fontWeight:700}}>{l.leap}</span>
+          <span style={{fontSize:13,color:"white",fontWeight:700}}>{l.phase}</span>
         </div>
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-            <span style={{fontSize:12,fontWeight:700,color:isActive?"#4a3cb5":"#7060c0",letterSpacing:"0.05em",textTransform:"uppercase"}}>Leap {l.leap}</span>
+            <span style={{fontSize:12,fontWeight:700,color:isActive?"#4a3cb5":"#7060c0",letterSpacing:"0.05em",textTransform:"uppercase"}}>Phase {l.phase}</span>
             <span style={{fontSize:13,fontWeight:600,color:isActive?"#2d2060":"#5040a0"}}>{l.name}</span>
             {isActive && <span style={{fontSize:10,background:"#7b68ee",color:"white",borderRadius:99,padding:"2px 7px",fontWeight:700}}>NOW</span>}
             {!isActive && weeksAway > 0 && weeksAway <= 4 && <span style={{fontSize:10,background:"#e0dbf5",color:"#6050b0",borderRadius:99,padding:"2px 7px",fontWeight:700}}>in {weeksAway}w</span>}
@@ -664,9 +701,10 @@ function App(){
   const[selDay,setSelDay]=useState(todayStr);
   const[tab,setTab]=useState("day");
   const[msFilter,setMsFilter]=useState("all");
-  const[msShowPastLeaps,setMsShowPastLeaps]=useState(false);
+  const[msShowPastPhases,setMsShowPastPhases]=useState(false);
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
+  const[msShowActivities,setMsShowActivities]=useState(false);
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null); // 'feed'|'nappy'|'sleep'|null
   const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:""});
@@ -5081,17 +5119,14 @@ function App(){
         {tab==="milestones"&&(()=>{
           const ageWeeks = age ? age.totalWeeks : null;
 
-          // ── No DOB ───────────────────────────────────────────────────────
           if (!babyDob) return (
             <div style={{...card,textAlign:"center",padding:"36px 20px"}}>
               <div style={{fontSize:40,marginBottom:14}}>🎂</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Add your baby's date of birth</div>
-              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>Add your baby's date of birth in Baby Settings to unlock milestones and Wonder Weeks.</div>
+              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>Add your baby's date of birth in Baby Settings to unlock milestones and Development Phases.</div>
               <button onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:"linear-gradient(135deg,#c9705a,#a85a44)",border:"none",borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:"pointer",fontWeight:700}}>⚙️ Open Baby Settings →</button>
             </div>
           );
-
-          // ── Unborn ───────────────────────────────────────────────────────
           if (babyUnborn) {
             const daysUntil = babyDob ? Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24)) : null;
             return (
@@ -5100,46 +5135,45 @@ function App(){
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.deep,fontWeight:700,marginBottom:6}}>
                   {daysUntil > 0 ? `Due in ${daysUntil} day${daysUntil!==1?"s":""}` : "Almost here!"}
                 </div>
-                <div style={{fontSize:15,color:C.mid,lineHeight:1.6}}>Milestones and Wonder Weeks unlock once {babyName||"your baby"} arrives!</div>
+                <div style={{fontSize:15,color:C.mid,lineHeight:1.6}}>Milestones and Development Phases unlock once {babyName||"your baby"} arrives!</div>
               </div>
             );
           }
 
-          // ── Helpers ──────────────────────────────────────────────────────
+          // ── helpers ──────────────────────────────────────────────────────
           const dobDate  = new Date(babyDob + "T00:00:00");
           const wkToDate = (w) => { const d = new Date(dobDate); d.setDate(d.getDate() + w*7); return d; };
           const fmtD     = (d) => d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
           const name     = babyName || "Baby";
 
-          // ── Leap phase logic ─────────────────────────────────────────────
-          // Phases: pre-leap (within 1wk of start) → fussy storm (start→peak) → skills bloom (peak→end) → calm
-          const activeLeap  = WONDER_WEEKS.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
-          const nextLeap    = WONDER_WEEKS.find(l => l.windowStart > (activeLeap ? activeLeap.windowEnd : ageWeeks));
-          const isPreLeap   = !activeLeap && nextLeap && ageWeeks >= nextLeap.windowStart - 1;
-          const isFussy     = activeLeap && ageWeeks <  activeLeap.peakWeek;
-          const isBloom     = activeLeap && ageWeeks >= activeLeap.peakWeek;
-          const heroLeap    = activeLeap || (isPreLeap ? nextLeap : null);
-
-          const pastLeaps   = WONDER_WEEKS.filter(l => l.windowEnd < ageWeeks && !(activeLeap && l.leap===activeLeap.leap));
-          const upcomLeaps  = WONDER_WEEKS.filter(l => {
-            if (activeLeap && l.leap <= activeLeap.leap) return false;
-            if (nextLeap   && l.leap === nextLeap.leap && isPreLeap) return false;
+          // ── phase logic ──────────────────────────────────────────────────
+          const activePhase  = WONDER_WEEKS.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
+          const nextPhase    = WONDER_WEEKS.find(l => l.windowStart > (activePhase ? activePhase.windowEnd : ageWeeks));
+          const isPrePhase   = !activePhase && nextPhase && ageWeeks >= nextPhase.windowStart - 1;
+          const isFussy      = activePhase && ageWeeks <  activePhase.peakWeek;
+          const isBloom      = activePhase && ageWeeks >= activePhase.peakWeek;
+          const heroPhase    = activePhase || (isPrePhase ? nextPhase : null);
+          const pastPhases   = WONDER_WEEKS.filter(l => l.windowEnd < ageWeeks && !(activePhase && l.phase===activePhase.phase));
+          const upcomPhases  = WONDER_WEEKS.filter(l => {
+            if (activePhase && l.phase <= activePhase.phase) return false;
+            if (nextPhase && l.phase === nextPhase.phase && isPrePhase) return false;
             return l.windowStart > ageWeeks;
           });
 
-          // ── Milestone bucketing ──────────────────────────────────────────
+          // ── milestones ───────────────────────────────────────────────────
           const doneCount = MILESTONES.filter(m => milestones[m.id]?.date).length;
-          const ageParts  = [];
+          const ageParts = [];
           if (age.months > 0) ageParts.push(`${age.months}mo`);
           if (age.weeksAfterMonths > 0) ageParts.push(`${age.weeksAfterMonths}w`);
-
-          const catOk = (m) => msFilter === "all" || m.cat === msFilter;
-          // Current window: ≥ earliest age and ≤ latest+4 weeks ahead
-          const nowMs    = MILESTONES.filter(m => catOk(m) && ageWeeks >= m.weeks[0] && m.weeks[0] <= ageWeeks + 4 && m.weeks[2] >= ageWeeks - 4);
-          const pastMs   = MILESTONES.filter(m => catOk(m) && m.weeks[2] < ageWeeks - 4 && milestones[m.id]?.date);
+          const catOk   = (m) => msFilter === "all" || m.cat === msFilter;
+          const nowMs   = MILESTONES.filter(m => catOk(m) && ageWeeks >= m.weeks[0] && m.weeks[0] <= ageWeeks + 4 && m.weeks[2] >= ageWeeks - 4);
+          const pastMs  = MILESTONES.filter(m => catOk(m) && m.weeks[2] < ageWeeks - 4 && milestones[m.id]?.date);
           const futureMs = MILESTONES.filter(m => catOk(m) && m.weeks[0] > ageWeeks + 4);
 
-          // ── Sub-components ───────────────────────────────────────────────
+          // ── age-appropriate activities ───────────────────────────────────
+          const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
+
+          // ── sub-components ───────────────────────────────────────────────
           const MilestoneRow = ({m}) => {
             const done     = !!(milestones[m.id]?.date);
             const isNow    = ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[2];
@@ -5160,14 +5194,13 @@ function App(){
                   <div style={{fontSize:14,fontWeight:done?600:400,color:done?C.mint:C.deep,lineHeight:1.3}}>{m.label}</div>
                   <div style={{fontSize:11,color:C.lt,marginTop:2,display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
                     <span style={{background:"#f5f0eb",borderRadius:99,padding:"1px 6px"}}>{catInfo?.icon} {catInfo?.label}</span>
-                    {done
-                      ? <span style={{color:C.mint}}>✓ {fmtLong(milestones[m.id].date)}</span>
-                      : <span style={{fontFamily:"monospace"}}>typical wk {m.weeks[1]}</span>}
+                    {done ? <span style={{color:C.mint}}>✓ {fmtLong(milestones[m.id].date)}</span>
+                          : <span style={{fontFamily:"monospace"}}>typical wk {m.weeks[1]}</span>}
                   </div>
                 </div>
                 <div style={{flexShrink:0,paddingTop:2}}>
-                  {!done && isNow   && <span style={{fontSize:11,background:"#fdeee8",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700}}>Now</span>}
-                  {!done && isPast  && <span style={{fontSize:11,background:"#f0f8f0",color:C.mint,borderRadius:99,padding:"3px 8px",cursor:"pointer"}}>Log it</span>}
+                  {!done && isNow  && <span style={{fontSize:11,background:"#fdeee8",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700}}>Now</span>}
+                  {!done && isPast && <span style={{fontSize:11,background:"#f0f8f0",color:C.mint,borderRadius:99,padding:"3px 8px",cursor:"pointer"}}>Log it</span>}
                   {!done && isFuture && <span style={{fontSize:11,color:"#bbb",fontFamily:"monospace"}}>wk {m.weeks[0]}</span>}
                 </div>
               </div>
@@ -5176,15 +5209,15 @@ function App(){
 
           const Accordion = ({label, count, open, toggle, accent, children}) => (
             <div style={{marginBottom:8}}>
-              <button onClick={toggle} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:open?"#fdf4f0":C.warm,border:`1px solid ${open?C.blush:"#e8e0da"}`,borderRadius:open?"12px 12px 0 0":12,cursor:"pointer",fontFamily:"inherit",transition:"border-radius 0.15s"}}>
+              <button onClick={toggle} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:open?"#fdf4f0":C.warm,border:`1px solid ${open?C.blush:"#e8e0da"}`,borderRadius:open?"12px 12px 0 0":12,cursor:"pointer",fontFamily:"inherit"}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
                   <span style={{fontSize:13,fontWeight:700,color:accent||C.mid}}>{label}</span>
                   <span style={{fontSize:11,background:"#ede8e2",borderRadius:99,padding:"1px 7px",color:C.lt,fontFamily:"monospace"}}>{count}</span>
                 </div>
-                <span style={{fontSize:11,color:C.lt,transition:"transform 0.2s",display:"inline-block",transform:open?"rotate(180deg)":"rotate(0deg)"}}>▼</span>
+                <span style={{fontSize:11,color:C.lt,display:"inline-block",transform:open?"rotate(180deg)":"rotate(0)"}} >▼</span>
               </button>
               {open && (
-                <div style={{border:`1px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 12px 12px",padding:"4px 14px 8px",background:"white"}}>
+                <div style={{border:`1px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 12px 12px",padding:"4px 14px 10px",background:"white"}}>
                   {children}
                 </div>
               )}
@@ -5194,38 +5227,35 @@ function App(){
           return (
             <div>
 
-              {/* ══ LEAP HERO CARD ══════════════════════════════════════════ */}
+              {/* ══ DEVELOPMENT PHASE BANNER ════════════════════════════════ */}
               {(()=>{
-                if (!heroLeap && !nextLeap) return null;
+                if (!heroPhase && !nextPhase) return null;
 
-                // ── PRE-LEAP: storm brewing ──────────────────────────────
-                if (isPreLeap && heroLeap) {
-                  const startDate = fmtD(wkToDate(heroLeap.windowStart));
-                  const peakDate  = fmtD(wkToDate(heroLeap.peakWeek));
-                  const endDate   = fmtD(wkToDate(heroLeap.windowEnd));
+                // PRE-PHASE: storm brewing ~1 week away
+                if (isPrePhase && heroPhase) {
+                  const sd=fmtD(wkToDate(heroPhase.windowStart)), pd=fmtD(wkToDate(heroPhase.peakWeek)), ed=fmtD(wkToDate(heroPhase.windowEnd));
                   return (
                     <div style={{background:"linear-gradient(135deg,#fffbec,#fff5cc)",border:"1px solid #f0d060",borderRadius:18,padding:"16px 16px 14px",marginBottom:14}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:11}}>
-                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#f5c840,#e8a820)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,boxShadow:"0 2px 8px rgba(232,168,32,0.3)"}}>⛈</div>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#f5c840,#e8a820)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>⛈</div>
                         <div>
-                          <div style={{fontSize:10,fontFamily:"monospace",color:"#8a6808",textTransform:"uppercase",letterSpacing:"0.1em"}}>Storm brewing · Leap {heroLeap.leap} approaching</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#5a3800",lineHeight:1.2}}>{heroLeap.name}</div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#8a6808",textTransform:"uppercase",letterSpacing:"0.1em"}}>Storm brewing · Phase {heroPhase.phase} approaching</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#5a3800",lineHeight:1.2}}>{heroPhase.name}</div>
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:11}}>
-                        {[["Fussy storm",`${startDate} – ${peakDate}`],["Skills bloom",`${peakDate} – ${endDate}`]].map(([lbl,val])=>(
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+                        {[["Fussy storm",`${sd} – ${pd}`],["Skills bloom",`${pd} – ${ed}`]].map(([lbl,val])=>(
                           <div key={lbl} style={{background:"rgba(245,200,64,0.18)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
-                            <span style={{color:"#8a6808",fontWeight:600}}>{lbl} </span>
-                            <span style={{color:"#6a4808",fontFamily:"monospace"}}>{val}</span>
+                            <span style={{color:"#8a6808",fontWeight:600}}>{lbl} </span><span style={{color:"#6a4808",fontFamily:"monospace"}}>{val}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{background:"rgba(255,255,255,0.65)",borderRadius:10,padding:"9px 11px",marginBottom:10}}>
-                        <div style={{fontSize:12,fontWeight:700,color:"#6a4000",marginBottom:3}}>What to expect from {startDate}</div>
-                        <div style={{fontSize:12,color:"#6a4808",lineHeight:1.55}}>{heroLeap.fussy}</div>
+                      <div style={{background:"rgba(255,255,255,0.65)",borderRadius:10,padding:"9px 11px",marginBottom:9}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"#6a4000",marginBottom:3}}>What to expect from {sd}</div>
+                        <div style={{fontSize:12,color:"#6a4808",lineHeight:1.55}}>{heroPhase.fussy}</div>
                       </div>
-                      <div style={{fontSize:12,fontWeight:700,color:"#6a4000",marginBottom:5}}>New skills coming ({peakDate} → {endDate})</div>
-                      {heroLeap.skills.map((s,i)=>(
+                      <div style={{fontSize:12,fontWeight:700,color:"#6a4000",marginBottom:5}}>New skills coming ({pd} → {ed})</div>
+                      {heroPhase.skills.map((s,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
                           <span style={{color:"#d4a010",fontSize:13,flexShrink:0}}>✦</span>
                           <span style={{fontSize:12,color:"#5a3808"}}>{s}</span>
@@ -5235,33 +5265,31 @@ function App(){
                   );
                 }
 
-                // ── FUSSY STORM: leap active, pre-peak ───────────────────
-                if (isFussy && heroLeap) {
-                  const peakDate = fmtD(wkToDate(heroLeap.peakWeek));
-                  const endDate  = fmtD(wkToDate(heroLeap.windowEnd));
+                // FUSSY STORM: phase start → peak week
+                if (isFussy && heroPhase) {
+                  const pd=fmtD(wkToDate(heroPhase.peakWeek)), ed=fmtD(wkToDate(heroPhase.windowEnd));
                   return (
                     <div style={{background:"linear-gradient(135deg,#f0ebff,#e4d8ff)",border:"1px solid #b8a4f8",borderRadius:18,padding:"16px 16px 14px",marginBottom:14}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:11}}>
-                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#8848e0,#6030c0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,boxShadow:"0 2px 8px rgba(104,48,192,0.3)"}}>🌀</div>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#8848e0,#6030c0)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🌀</div>
                         <div>
-                          <div style={{fontSize:10,fontFamily:"monospace",color:"#5030a0",textTransform:"uppercase",letterSpacing:"0.1em"}}>Leap {heroLeap.leap} · Fussy storm</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#2e1070",lineHeight:1.2}}>{heroLeap.name}</div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#5030a0",textTransform:"uppercase",letterSpacing:"0.1em"}}>Phase {heroPhase.phase} · Fussy storm</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#2e1070",lineHeight:1.2}}>{heroPhase.name}</div>
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:11}}>
-                        {[["Fussy storm","now → "+peakDate],["Skills bloom",peakDate+" → "+endDate]].map(([lbl,val])=>(
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+                        {[["Fussy storm","now → "+pd],["Skills bloom",pd+" → "+ed]].map(([lbl,val])=>(
                           <div key={lbl} style={{background:"rgba(136,72,224,0.12)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
-                            <span style={{color:"#5030a0",fontWeight:600}}>{lbl} </span>
-                            <span style={{color:"#3a1880",fontFamily:"monospace"}}>{val}</span>
+                            <span style={{color:"#5030a0",fontWeight:600}}>{lbl} </span><span style={{color:"#3a1880",fontFamily:"monospace"}}>{val}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"9px 11px",marginBottom:10}}>
+                      <div style={{background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"9px 11px",marginBottom:9}}>
                         <div style={{fontSize:12,fontWeight:700,color:"#2e1070",marginBottom:3}}>{name} is in the fussy storm right now</div>
-                        <div style={{fontSize:12,color:"#3a1880",lineHeight:1.55}}>{heroLeap.fussy} The skills bloom starts around {peakDate}.</div>
+                        <div style={{fontSize:12,color:"#3a1880",lineHeight:1.55}}>{heroPhase.fussy} Skills bloom starts around {pd}.</div>
                       </div>
-                      <div style={{fontSize:12,fontWeight:700,color:"#3a1880",marginBottom:5}}>Skills unlocking soon ({peakDate} → {endDate})</div>
-                      {heroLeap.skills.map((s,i)=>(
+                      <div style={{fontSize:12,fontWeight:700,color:"#3a1880",marginBottom:5}}>Skills unlocking soon ({pd} → {ed})</div>
+                      {heroPhase.skills.map((s,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
                           <span style={{color:"#8848e0",fontSize:13,flexShrink:0}}>✦</span>
                           <span style={{fontSize:12,color:"#2e1070"}}>{s}</span>
@@ -5271,33 +5299,31 @@ function App(){
                   );
                 }
 
-                // ── SKILLS BLOOM: leap active, post-peak ─────────────────
-                if (isBloom && heroLeap) {
-                  const endDate      = fmtD(wkToDate(heroLeap.windowEnd));
-                  const nextStartStr = nextLeap ? fmtD(wkToDate(nextLeap.windowStart)) : null;
+                // SKILLS BLOOM: peak week → end
+                if (isBloom && heroPhase) {
+                  const ed=fmtD(wkToDate(heroPhase.windowEnd)), ns=nextPhase?fmtD(wkToDate(nextPhase.windowStart)):null;
                   return (
                     <div style={{background:"linear-gradient(135deg,#e8f8ee,#d0f0e0)",border:"1px solid #70d098",borderRadius:18,padding:"16px 16px 14px",marginBottom:14}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:11}}>
-                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#38c870,#20a050)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0,boxShadow:"0 2px 8px rgba(32,160,80,0.3)"}}>🌱</div>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                        <div style={{width:40,height:40,borderRadius:"50%",background:"linear-gradient(135deg,#38c870,#20a050)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🌱</div>
                         <div>
-                          <div style={{fontSize:10,fontFamily:"monospace",color:"#187040",textTransform:"uppercase",letterSpacing:"0.1em"}}>Leap {heroLeap.leap} · Skills blooming</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#0a4020",lineHeight:1.2}}>{heroLeap.name}</div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#187040",textTransform:"uppercase",letterSpacing:"0.1em"}}>Phase {heroPhase.phase} · Skills blooming</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:"#0a4020",lineHeight:1.2}}>{heroPhase.name}</div>
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:11}}>
-                        {[["Blooming now","→ "+endDate], nextStartStr&&["Next leap",nextStartStr]].filter(Boolean).map(([lbl,val])=>(
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+                        {[["Blooming now","→ "+ed], ns&&["Next phase",ns]].filter(Boolean).map(([lbl,val])=>(
                           <div key={lbl} style={{background:"rgba(56,200,112,0.14)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
-                            <span style={{color:"#187040",fontWeight:600}}>{lbl} </span>
-                            <span style={{color:"#0a4020",fontFamily:"monospace"}}>{val}</span>
+                            <span style={{color:"#187040",fontWeight:600}}>{lbl} </span><span style={{color:"#0a4020",fontFamily:"monospace"}}>{val}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"9px 11px",marginBottom:10}}>
+                      <div style={{background:"rgba(255,255,255,0.6)",borderRadius:10,padding:"9px 11px",marginBottom:9}}>
                         <div style={{fontSize:12,fontWeight:700,color:"#0a4020",marginBottom:3}}>The storm has cleared — skills are blooming!</div>
-                        <div style={{fontSize:12,color:"#125030",lineHeight:1.55}}>The unsettled phase of Leap {heroLeap.leap} is easing. Watch for exciting new abilities in {name} over the next few days.</div>
+                        <div style={{fontSize:12,color:"#125030",lineHeight:1.55}}>The unsettled phase is easing. Watch for new abilities in {name} over the next few days.</div>
                       </div>
-                      <div style={{fontSize:12,fontWeight:700,color:"#125030",marginBottom:5}}>Skills {name} is developing right now (until {endDate})</div>
-                      {heroLeap.skills.map((s,i)=>(
+                      <div style={{fontSize:12,fontWeight:700,color:"#125030",marginBottom:5}}>Skills {name} is developing right now (until {ed})</div>
+                      {heroPhase.skills.map((s,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
                           <span style={{color:"#38c870",fontSize:13,flexShrink:0}}>✦</span>
                           <span style={{fontSize:12,color:"#0a4020"}}>{s}</span>
@@ -5307,32 +5333,28 @@ function App(){
                   );
                 }
 
-                // ── CALM: between leaps, show next leap preview if within 8wks ──
-                if (nextLeap && (nextLeap.windowStart - ageWeeks) <= 8) {
-                  const wksAway   = nextLeap.windowStart - ageWeeks;
-                  const startDate = fmtD(wkToDate(nextLeap.windowStart));
-                  const peakDate  = fmtD(wkToDate(nextLeap.peakWeek));
-                  const endDate   = fmtD(wkToDate(nextLeap.windowEnd));
+                // CALM between phases — preview next if within 8 weeks
+                if (nextPhase && (nextPhase.windowStart - ageWeeks) <= 8) {
+                  const wksAway=nextPhase.windowStart-ageWeeks, sd=fmtD(wkToDate(nextPhase.windowStart)), pd=fmtD(wkToDate(nextPhase.peakWeek)), ed=fmtD(wkToDate(nextPhase.windowEnd));
                   return (
                     <div style={{background:"#f8f4ff",border:"1px solid #d8cef8",borderRadius:18,padding:"14px 16px 12px",marginBottom:14}}>
                       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:9}}>
                         <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#c0a8f0,#a080d8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🔭</div>
                         <div>
-                          <div style={{fontSize:10,fontFamily:"monospace",color:"#6050b0",textTransform:"uppercase",letterSpacing:"0.1em"}}>Coming in ~{wksAway} week{wksAway!==1?"s":""} · Leap {nextLeap.leap}</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#2e1870",lineHeight:1.2}}>{nextLeap.name}</div>
+                          <div style={{fontSize:10,fontFamily:"monospace",color:"#6050b0",textTransform:"uppercase",letterSpacing:"0.1em"}}>Coming in ~{wksAway} week{wksAway!==1?"s":""} · Phase {nextPhase.phase}</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#2e1870",lineHeight:1.2}}>{nextPhase.name}</div>
                         </div>
                       </div>
                       <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:9}}>
-                        {[["Fussy storm",`${startDate} – ${peakDate}`],["Skills bloom",`${peakDate} – ${endDate}`]].map(([lbl,val])=>(
+                        {[["Fussy storm",`${sd} – ${pd}`],["Skills bloom",`${pd} – ${ed}`]].map(([lbl,val])=>(
                           <div key={lbl} style={{background:"rgba(160,128,216,0.12)",borderRadius:99,padding:"3px 10px",fontSize:11}}>
-                            <span style={{color:"#5040a0",fontWeight:600}}>{lbl} </span>
-                            <span style={{color:"#3a2880",fontFamily:"monospace"}}>{val}</span>
+                            <span style={{color:"#5040a0",fontWeight:600}}>{lbl} </span><span style={{color:"#3a2880",fontFamily:"monospace"}}>{val}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{fontSize:12,color:"#3a2880",lineHeight:1.5,marginBottom:7}}>{nextLeap.fussy}</div>
-                      <div style={{fontSize:11,fontWeight:600,color:"#5040a0",marginBottom:4}}>Skills coming with this leap</div>
-                      {nextLeap.skills.map((s,i)=>(
+                      <div style={{fontSize:12,color:"#3a2880",lineHeight:1.5,marginBottom:7}}>{nextPhase.fussy}</div>
+                      <div style={{fontSize:11,fontWeight:600,color:"#5040a0",marginBottom:4}}>Skills coming with this phase</div>
+                      {nextPhase.skills.map((s,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
                           <span style={{color:"#a080d8",fontSize:12,flexShrink:0}}>✦</span>
                           <span style={{fontSize:11,color:"#3a2880"}}>{s}</span>
@@ -5344,7 +5366,7 @@ function App(){
                 return null;
               })()}
 
-              {/* ══ AGE + PROGRESS ══════════════════════════════════════════ */}
+              {/* ══ AGE + PROGRESS BAR ══════════════════════════════════════ */}
               <div style={{...card,background:"linear-gradient(135deg,#fdf4f0,#fff8f4)",marginBottom:12,padding:"12px 16px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                   <div>
@@ -5385,17 +5407,17 @@ function App(){
                 }
               </div>
 
-              {/* ══ COLLAPSIBLE PAST ════════════════════════════════════════ */}
-              {pastLeaps.length > 0 && (
-                <Accordion label="Past wonder weeks" count={pastLeaps.length} open={msShowPastLeaps} toggle={()=>setMsShowPastLeaps(v=>!v)} accent="#7060b0">
-                  {pastLeaps.map(l => (
-                    <div key={l.leap} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
+              {/* ══ PAST PHASES ═════════════════════════════════════════════ */}
+              {pastPhases.length > 0 && (
+                <Accordion label="Past development phases" count={pastPhases.length} open={msShowPastPhases} toggle={()=>setMsShowPastPhases(v=>!v)} accent="#7060b0">
+                  {pastPhases.map(l => (
+                    <div key={l.phase} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                         <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#9060e0,#7040c0)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.leap}</span>
+                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.phase}</span>
                         </div>
                         <div>
-                          <div style={{fontSize:13,fontWeight:700,color:"#4a28a0"}}>Leap {l.leap}: {l.name}</div>
+                          <div style={{fontSize:13,fontWeight:700,color:"#4a28a0"}}>Phase {l.phase}: {l.name}</div>
                           <div style={{fontSize:11,color:C.lt,fontFamily:"monospace"}}>{fmtD(wkToDate(l.windowStart))} – {fmtD(wkToDate(l.windowEnd))}</div>
                         </div>
                       </div>
@@ -5405,23 +5427,24 @@ function App(){
                 </Accordion>
               )}
 
+              {/* ══ ACHIEVED MILESTONES ═════════════════════════════════════ */}
               {pastMs.length > 0 && (
                 <Accordion label="Achieved milestones" count={pastMs.length} open={msShowPastMs} toggle={()=>setMsShowPastMs(v=>!v)} accent={C.mint}>
                   {pastMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
                 </Accordion>
               )}
 
-              {/* ══ COLLAPSIBLE UPCOMING ════════════════════════════════════ */}
-              {(upcomLeaps.length > 0 || futureMs.length > 0) && (
-                <Accordion label="What's coming up" count={upcomLeaps.length + futureMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent="#d09020">
-                  {upcomLeaps.map(l => (
-                    <div key={l.leap} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
+              {/* ══ UPCOMING ════════════════════════════════════════════════ */}
+              {(upcomPhases.length > 0 || futureMs.length > 0) && (
+                <Accordion label="What's coming up" count={upcomPhases.length + futureMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent="#d09020">
+                  {upcomPhases.map(l => (
+                    <div key={l.phase} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                         <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#f0c030,#d89010)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.leap}</span>
+                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.phase}</span>
                         </div>
                         <div>
-                          <div style={{fontSize:13,fontWeight:700,color:"#7a5000"}}>Leap {l.leap}: {l.name}</div>
+                          <div style={{fontSize:13,fontWeight:700,color:"#7a5000"}}>Phase {l.phase}: {l.name}</div>
                           <div style={{fontSize:11,color:C.lt,fontFamily:"monospace"}}>{fmtD(wkToDate(l.windowStart))} – {fmtD(wkToDate(l.windowEnd))} · wk {l.windowStart}–{l.windowEnd}</div>
                         </div>
                       </div>
@@ -5430,20 +5453,54 @@ function App(){
                     </div>
                   ))}
                   {futureMs.length > 0 && (
-                    <div style={{paddingTop:4}}>
-                      <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",padding:"8px 0 4px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>Future milestones</div>
+                    <div>
+                      <div style={{fontSize:10,fontFamily:"monospace",color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",padding:"10px 0 4px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>Future milestones</div>
                       {futureMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
                     </div>
                   )}
                 </Accordion>
               )}
 
+              {/* ══ AGE-APPROPRIATE ACTIVITIES ══════════════════════════════ */}
+              <Accordion label={`Activities for ${name} right now`} count={nowActs.length} open={msShowActivities} toggle={()=>setMsShowActivities(v=>!v)} accent={C.ter}>
+                {nowActs.length === 0
+                  ? <div style={{padding:"14px 0",textAlign:"center",color:C.lt,fontSize:13}}>No activities for this age yet — check back soon!</div>
+                  : nowActs.map(a => {
+                    const catInfo = ACT_CATS.find(c=>c.key===a.cat);
+                    return (
+                      <div key={a.id} style={{padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:9,marginBottom:6}}>
+                          <div style={{width:28,height:28,borderRadius:10,background:"#fdeee8",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:14}}>
+                            {catInfo?.icon||"✦"}
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:14,fontWeight:700,color:C.deep,lineHeight:1.2}}>{a.title}</div>
+                            <div style={{fontSize:11,color:C.lt,marginTop:1}}>
+                              <span style={{background:"#f5f0eb",borderRadius:99,padding:"1px 6px"}}>{catInfo?.icon} {catInfo?.label}</span>
+                              <span style={{fontFamily:"monospace",marginLeft:5}}>wk {a.weeks[0]}–{a.weeks[1]}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{paddingLeft:37}}>
+                          <div style={{fontSize:12,color:C.deep,lineHeight:1.6,marginBottom:5}}>
+                            <span style={{fontWeight:700,color:C.ter}}>How: </span>{a.how}
+                          </div>
+                          <div style={{fontSize:12,color:C.lt,lineHeight:1.55,background:"#faf6f2",borderRadius:8,padding:"6px 9px"}}>
+                            <span style={{fontWeight:600,color:C.mid}}>Why it helps: </span>{a.why}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                }
+              </Accordion>
+
               {/* ══ DISCLAIMER ══════════════════════════════════════════════ */}
               <div style={{background:"#f8f5f0",border:"1px solid #e8dfd4",borderRadius:12,padding:"12px 14px",marginTop:6,marginBottom:4}}>
-                <div style={{fontSize:11,color:C.mid,lineHeight:1.65}}>
+                <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
                   <span style={{fontWeight:700,color:C.deep}}>ℹ️ A note on milestones</span><br/>
                   Every baby develops at their own pace — these ranges are general guidelines, not a fixed schedule. Some babies reach milestones earlier, others later, and both are perfectly normal.<br/><br/>
-                  If you have any concerns about milestones that haven't been reached over a couple of months, or if something doesn't feel right, <span style={{fontWeight:600}}>speak to your health visitor or GP</span> — they're there to help and will always take your concerns seriously.
+                  If you have any concerns about milestones that haven't been reached over a couple of months, or if something doesn't feel right, <span style={{fontWeight:600,color:C.deep}}>speak to your health visitor or GP</span> — they're there to help and will always take your concerns seriously.
                 </div>
               </div>
 
