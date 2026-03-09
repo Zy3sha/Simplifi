@@ -240,7 +240,7 @@ function TrendLine({vals,keys,color,unit=""}){
         <g key={i}>
           <circle cx={p.x} cy={p.y} r={3} fill={color}/>
           {(i===pts.length-1||pts.length<=6)&&<text x={p.x} y={p.y-8} textAnchor="middle" fontSize={9} fill={C.mid} fontFamily="monospace">{p.v}{unit}</text>}
-          <text x={p.x} y={H+16} textAnchor="middle" fontSize={8} fill={C.lt} fontFamily="monospace">{fmtDate(keys[i]).slice(0,5)}</text>
+          <text x={p.x} y={H+16} textAnchor="middle" fontSize={8} fill={C.lt} fontFamily="monospace">{fmtDate(keys[i]).slice(0,2)}</text>
         </g>
       ))}
     </svg>
@@ -5710,7 +5710,7 @@ function App(){
                   <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                     <div style={{fontSize:9,fontFamily:_fM,color:C.lt}}>{s.ml||""}</div>
                     <div style={{width:"100%",background:`${C.ter}${s.date===selDay?"ff":"88"}`,borderRadius:"4px 4px 0 0",height:`${Math.max(4,(s.ml/maxMl)*60)}px`}}/>
-                    <div style={{fontSize:9,fontFamily:_fM,color:s.date===selDay?C.ter:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,5)}</div>
+                    <div style={{fontSize:9,fontFamily:_fM,color:s.date===selDay?C.ter:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,2)}</div>
                   </div>
                 ))}
               </div>
@@ -5722,7 +5722,7 @@ function App(){
                   <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                     <div style={{fontSize:9,fontFamily:_fM,color:C.lt}}>{s.napM||""}</div>
                     <div style={{width:"100%",background:`${C.mint}${s.date===selDay?"ff":"88"}`,borderRadius:"4px 4px 0 0",height:`${Math.max(4,(s.napM/maxNapBar)*60)}px`}}/>
-                    <div style={{fontSize:9,fontFamily:_fM,color:s.date===selDay?C.mint:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,5)}</div>
+                    <div style={{fontSize:9,fontFamily:_fM,color:s.date===selDay?C.mint:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,2)}</div>
                   </div>
                 ))}
               </div>
@@ -5970,7 +5970,7 @@ function App(){
                       <g key={i}>
                         <circle cx={p.x} cy={p.y} r={4} fill={C.ter}/>
                         <text x={p.x} y={p.y-9} textAnchor="middle" fontSize={9} fill={C.mid} fontFamily="monospace">{p.kg}kg</text>
-                        <text x={p.x} y={H+16} textAnchor="middle" fontSize={8} fill={C.lt} fontFamily="monospace">{fmtDate(p.date).slice(0,5)}</text>
+                        <text x={p.x} y={H+16} textAnchor="middle" fontSize={8} fill={C.lt} fontFamily="monospace">{fmtDate(p.date).slice(0,2)}</text>
                       </g>
                     ))}
                   </svg>
