@@ -104,15 +104,63 @@ function getAwakeWindows(entries) {
   return wins.filter(w=>w.mins>0);
 }
 
-function getNightWindows(entries) {
-  // Night stretches: from one wake to the next
-  const night=[...entries].filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+function getNightWindows(thisDayEntries, nextDayEntries) {
+  // Night wakes logged after midnight are saved on the NEXT calendar day (night:true).
+  // So for the 08/03 night: bedtime is in thisDayEntries, night wakes + morning wake are in nextDayEntries.
+  //
+  // We build three stretch types:
+  //   1. bedtime → first night wake
+  //   2. night wake → night wake (consecutive)
+  //   3. last night wake → morning wake-up
+
+  const next = nextDayEntries || [];
+
+  // Bedtime: last sleep entry on this day
+  const bedEntry = [...thisDayEntries]
+    .filter(e => e.type==="sleep" && !e.night)
+    .sort((a,b) => timeVal(a)-timeVal(b))
+    .pop();
+
+  // Night wakes: night-flagged entries on the NEXT day (before morning wake-up)
+  const morningWake = [...next]
+    .filter(e => e.type==="wake" && !e.night)
+    .sort((a,b) => timeVal(a)-timeVal(b))[0];
+  const morningMins = morningWake ? timeVal(morningWake) : 7*60;
+  const nightWakes = [...next]
+    .filter(e => e.night && timeVal(e) < morningMins)
+    .sort((a,b) => timeVal(a)-timeVal(b));
+
   const wins=[];
-  for(let i=1;i<night.length;i++){
-    let mins=minDiff(night[i-1].time,night[i].time);
+
+  // 1. Bedtime → first night wake
+  if(bedEntry && nightWakes.length>0){
+    let mins = minDiff(bedEntry.time, nightWakes[0].time);
     if(mins<=0) mins+=720; // cross-midnight
-    if(mins>0) wins.push({from:night[i-1].time,to:night[i].time,mins,night:true});
+    if(mins>0) wins.push({from:bedEntry.time, to:nightWakes[0].time, mins, night:true});
   }
+
+  // 2. Night wake → night wake
+  for(let i=1;i<nightWakes.length;i++){
+    let mins = minDiff(nightWakes[i-1].time, nightWakes[i].time);
+    if(mins<=0) mins+=720;
+    if(mins>0) wins.push({from:nightWakes[i-1].time, to:nightWakes[i].time, mins, night:true});
+  }
+
+  // 3. Last night wake → morning wake-up
+  if(nightWakes.length>0 && morningWake){
+    const last = nightWakes[nightWakes.length-1];
+    let mins = minDiff(last.time, morningWake.time);
+    if(mins<=0) mins+=720;
+    if(mins>0) wins.push({from:last.time, to:morningWake.time, mins, night:true});
+  }
+
+  // Edge case: no night wakes but bedtime + morning wake both exist — single overnight stretch
+  if(wins.length===0 && bedEntry && morningWake){
+    let mins = minDiff(bedEntry.time, morningWake.time);
+    if(mins<=0) mins+=720;
+    if(mins>0) wins.push({from:bedEntry.time, to:morningWake.time, mins, night:true});
+  }
+
   return wins;
 }
 
@@ -5029,7 +5077,8 @@ function App(){
 
               {/* Awake Windows */}
               {(()=>{
-                const nightWins = getNightWindows(entries);
+                const nextDayKey = (()=>{ const d=new Date(selDay+"T12:00:00"); d.setDate(d.getDate()+1); return d.toISOString().split("T")[0]; })();
+                const nightWins = getNightWindows(entries, days[nextDayKey]||[]);
                 if (wins.length === 0 && nightWins.length === 0) return null;
                 return (
                   <div style={{...card,marginBottom:10}}>
