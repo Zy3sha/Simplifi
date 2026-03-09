@@ -1421,27 +1421,51 @@ function App(){
     const {db, doc, onSnapshot} = window._fb;
     const unsub = onSnapshot(doc(db,"feedback","active"), snap=>{
       const currentUsername = familyUsername || localStorage.getItem("family_username") || "";
-      const currentIsAdmin = !!(currentUsername && currentUsername.toLowerCase().includes("zyesha"));
+      // Get current user's admin status from localStorage (set during login)
+      const isAdmin = localStorage.getItem("is_admin") === "true";
+      
       if(snap.exists()){
         const data = snap.data();
         const pid = data.id;
         setActiveFeedback(data);
-        if(currentIsAdmin){ setShowFeedbackCard(false); return; }
+        
+        if(isAdmin){ 
+          setShowFeedbackCard(false); 
+          return; 
+        }
+        
         try{
           const answered = localStorage.getItem("fb_answered_"+pid);
-          if(answered){ setShowFeedbackCard(false); return; }
+          if(answered){ 
+            console.log("Feedback: User already answered this survey");
+            setShowFeedbackCard(false); 
+            return; 
+          }
 
           const lastDone = localStorage.getItem("fb_last_completed");
           if(lastDone){
             const daysSince = (Date.now() - parseInt(lastDone)) / (1000*60*60*24);
-            if(daysSince < 3){ setShowFeedbackCard(false); return; }
+            if(daysSince < 3){ 
+              console.log(`Feedback: User answered ${daysSince.toFixed(1)} days ago, showing in ${(3-daysSince).toFixed(1)} days`);
+              setShowFeedbackCard(false); 
+              return; 
+            }
           }
-          setFbAnswers({}); setShowFeedbackCard(true); setFeedbackDismissed(false); setFbThankYou(false);
-        }catch{
-          setFbAnswers({}); setShowFeedbackCard(true);
+          
+          console.log("Feedback: Showing feedback card to user");
+          setFbAnswers({}); 
+          setShowFeedbackCard(true); 
+          setFeedbackDismissed(false); 
+          setFbThankYou(false);
+        }catch(e){
+          console.warn("Feedback logic error:", e);
+          setFbAnswers({}); 
+          setShowFeedbackCard(true);
         }
       } else {
-        setActiveFeedback(null); setShowFeedbackCard(false);
+        console.log("Feedback: No active feedback");
+        setActiveFeedback(null); 
+        setShowFeedbackCard(false);
       }
     });
     return()=>unsub();
@@ -1552,14 +1576,21 @@ function App(){
 
 
   async function adminLoadStats(){
-    if(!window._fb) return;
+    if(!window._fb) {
+      console.warn("Firebase not initialized");
+      return;
+    }
+    
+    console.log("adminLoadStats: Starting to load feedback stats");
     setAdminLoading(true);
+    
     try{
       const {db, collection, query, orderBy, doc, getDoc, onSnapshot} = window._fb;
       
       // Set up real-time listener for responses
       const responsesQuery = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
       const unsubscribeResponses = onSnapshot(responsesQuery, async (snap) => {
+        console.log("adminLoadStats: Responses listener fired, got", snap.docs.length, "responses");
         const responses = snap.docs.map(d=>d.data());
         
         // Now load the active document
@@ -1567,10 +1598,15 @@ function App(){
           const activeSnap = await getDoc(doc(db,"feedback","active"));
           const active = activeSnap.exists() ? activeSnap.data() : null;
           const count = responses.length;
+          
+          console.log("adminLoadStats: Active doc exists:", !!active, "Response count:", count);
 
           if(active){
+            console.log("adminLoadStats: Processing", active.questions?.length || 0, "questions");
             const qStats = (active.questions||[]).map(qq=>{
               const answers = responses.map(r=>(r.answers||{})[qq.id]).filter(a=>a!==undefined&&a!==null&&a!=="");
+              console.log("Question", qq.id, "type:", qq.type, "answers count:", answers.length);
+              
               if(qq.type==="star"){
                 const avg = answers.length ? (answers.reduce((s,a)=>s+(a||0),0)/answers.length).toFixed(1) : "—";
                 return {...qq, count:answers.length, avg};
@@ -1591,26 +1627,32 @@ function App(){
               }
               return {...qq, count:answers.length};
             });
+            console.log("adminLoadStats: Setting adminStats with", count, "responses");
             setAdminStats({title:active.title, id:active.id, count, questions:qStats, _rawResponses:responses});
+            setAdminLoading(false);
           } else if(responses.length>0){
+            console.log("adminLoadStats: No active doc but responses exist (archived)");
             setAdminStats({title:"(archived push)", id:null, count, questions:[], _rawResponses:responses});
+            setAdminLoading(false);
           } else {
+            console.log("adminLoadStats: No active feedback and no responses");
             setAdminStats(null);
+            setAdminLoading(false);
           }
         } catch(e) {
-          console.warn("Error loading active document:", e);
+          console.error("Error loading active document:", e);
+          setAdminLoading(false);
         }
       }, (err) => {
-        console.warn("Real-time responses listener error:", err);
+        console.error("Real-time responses listener error:", err);
         setAdminLoading(false);
       });
       
-      setAdminLoading(false);
-      // Return cleanup function
+      // Don't call setAdminLoading(false) here - let the listener do it
       window._adminUnsubscribe = unsubscribeResponses;
       
     }catch(e){
-      console.warn("Admin load init error:", e);
+      console.error("Admin load init error:", e);
       setAdminLoading(false);
     }
   }
