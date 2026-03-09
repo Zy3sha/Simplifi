@@ -126,14 +126,14 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
 
   if(bedEntry && nightWakes.length>0){
     let mins = minDiff(bedEntry.time, nightWakes[0].time);
-    if(mins<=0) mins+=720;
+    if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:bedEntry.time, to:nightWakes[0].time, mins, night:true});
   }
 
 
   for(let i=1;i<nightWakes.length;i++){
     let mins = minDiff(nightWakes[i-1].time, nightWakes[i].time);
-    if(mins<=0) mins+=720;
+    if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:nightWakes[i-1].time, to:nightWakes[i].time, mins, night:true});
   }
 
@@ -141,14 +141,14 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
   if(nightWakes.length>0 && morningWake){
     const last = nightWakes[nightWakes.length-1];
     let mins = minDiff(last.time, morningWake.time);
-    if(mins<=0) mins+=720;
+    if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:last.time, to:morningWake.time, mins, night:true});
   }
 
 
   if(wins.length===0 && bedEntry && morningWake){
     let mins = minDiff(bedEntry.time, morningWake.time);
-    if(mins<=0) mins+=720;
+    if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:bedEntry.time, to:morningWake.time, mins, night:true});
   }
 
@@ -3550,6 +3550,7 @@ function App(){
     const bedMins = timeVal({time: bedtime});
 
     return entries.map(e => {
+      if (e.nightLocked) return e;
       if (e.type !== "wake" && e.type !== "feed") return e;
       const t = e.time;
       if (!t) return e;
@@ -3649,7 +3650,7 @@ function App(){
     }
   }
   function saveEntry(){
-    let e={id:editEntry?editEntry.id:uid(),note:form.note||""};
+    let e={id:editEntry?editEntry.id:uid(),note:form.note||"",nightLocked:editEntry?editEntry.nightLocked:false};
     if(eType==="feed"){
       if(!form.time)return;
       if(feedType==="breast"){
@@ -3756,7 +3757,7 @@ function App(){
     dayE.forEach(e=>{
       if(e.type==="wake")ln.push(`☀️ Wake up ${fmt12(e.time)}`);
       else if(e.type==="feed")ln.push(`🍼 Feed ${e.amount}ml at ${fmt12(e.time)}${e.note?` (${e.note})`:""}`);
-      else if(e.type==="nap")ln.push(`😴 Nap ${fmt12(e.start)}–${fmt12(e.end)} (${minDiff(e.start,e.end)}min)${e.note?` (${e.note})`:""}`);
+      else if(e.type==="nap")ln.push(`😴 Nap ${fmt12(e.start)}–${fmt12(e.end)} (${hm(minDiff(e.start,e.end))})${e.note?` (${e.note})`:""}`);
       else if(e.type==="sleep")ln.push(`🌙 Bedtime ${fmt12(e.time)}`);
     });
     if(nightE.length){ln.push("");ln.push("Night:");nightE.forEach((e,i)=>ln.push(`🌟 Wake ${i+1} ${fmt12(e.time)}${e.amount?` — ${e.amount}ml`:""}${e.note?` (${e.note})`:""}`));}
@@ -5101,10 +5102,10 @@ function App(){
                                 {e.pumpL>0?`L: ${e.pumpL}ml`:""}{e.pumpL>0&&e.pumpR>0?" · ":""}{e.pumpR>0?`R: ${e.pumpR}ml`:""}
                               </div>
                             )}
-                            {e.type==="nap"&&<div style={{fontSize:15,color:C.lt,fontFamily:_fM}}>{minDiff(e.start,e.end)} min</div>}
+                            {e.type==="nap"&&<div style={{fontSize:15,color:C.lt,fontFamily:_fM}}>{hm(minDiff(e.start,e.end))}</div>}
                             {e.type==="poop"&&e.poopType&&<div style={{fontSize:15,color:"#8a7060",fontFamily:_fM}}>{e.poopType}</div>}
                             {e.note&&e.type!=="feed"&&<div style={{fontSize:15,color:C.mid,fontStyle:"italic",marginTop:1}}>{e.note}</div>}
-                            {e.note&&e.type==="feed"&&e.feedType==="solids"&&<div style={{fontSize:15,color:C.mid,fontStyle:"italic",marginTop:1}}>{e.note}</div>}
+                            {e.note&&e.type==="feed"&&<div style={{fontSize:15,color:C.mid,fontStyle:"italic",marginTop:1}}>{e.note}</div>}
                           </div>
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:7}}>
@@ -5148,7 +5149,7 @@ function App(){
                   return nightE.map((e,i)=>{
                     const fromPt=pts[i];const toPt=pts[i+1];
                     let strMins=fromPt&&toPt?minDiff(fromPt.time,toPt.time):0;
-                    if(strMins<=0&&strMins!=null&&fromPt&&toPt) strMins+=720;
+                    if(strMins<=0&&strMins!=null&&fromPt&&toPt) strMins+=1440;
                     return(
                       <div key={e.id}>
                         {fromPt&&toPt&&strMins>0&&(
@@ -5704,7 +5705,7 @@ function App(){
                   <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>This Week vs Last Week</div>
                   {[
                     {label:"Avg Daily Feed",curr:tLast.avgMl,prev:tPrev.avgMl,unit:"ml"},
-                    {label:"Avg Nap Time",curr:tLast.avgNap,prev:tPrev.avgNap,unit:"min"},
+                    {label:"Avg Nap Time",curr:tLast.avgNap,prev:tPrev.avgNap,unit:"",fmt:hm},
                     {label:"Avg Night Wakes",curr:tLast.avgNight,prev:tPrev.avgNight,unit:""},
                   ].map((row,i)=>{
                     const t=arrow(row.curr,row.prev);
@@ -5712,10 +5713,10 @@ function App(){
                       <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:i<2?`1px solid ${C.blush}`:"none"}}>
                         <div>
                           <div style={{fontSize:15,fontWeight:500}}>{row.label}</div>
-                          <div style={{fontSize:15,fontFamily:_fM,color:C.lt,marginTop:2}}>Last week: {row.prev}{row.unit}</div>
+                          <div style={{fontSize:15,fontFamily:_fM,color:C.lt,marginTop:2}}>Last week: {row.fmt?row.fmt(row.prev):row.prev}{row.unit}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.ter}}>{row.curr}<span style={{fontSize:14,color:C.lt}}>{row.unit}</span></div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.ter}}>{row.fmt?row.fmt(row.curr):row.curr}<span style={{fontSize:14,color:C.lt}}>{row.unit}</span></div>
                           {t&&<div style={{fontSize:16,color:t.color,lineHeight:1}}>{t.icon}</div>}
                         </div>
                       </div>
@@ -5766,7 +5767,7 @@ function App(){
           const W=280,H=80;
           const kgs = sortedW.map(w=>w.kg);
           const maxKg = Math.max(...kgs,1);
-          const minKg = Math.min(...kgs,0)*0.95;
+          const minKg = Math.min(...kgs)*0.95;
           const pts = sortedW.map((w,i)=>({
             x: sortedW.length===1?W/2:(i/(sortedW.length-1))*W,
             y: H-((w.kg-minKg)/(maxKg-minKg||1))*H,
@@ -5835,7 +5836,7 @@ function App(){
               {sortedW.length>=2&&(
                 <div style={{...card}}>
                   <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>Weight Over Time</div>
-                  <svg width="100%" viewBox={`0 0 ${W} ${H+20}`} style={{overflow:"visible"}}>
+                  <svg width="100%" viewBox={`0 0 ${W} ${H+36}`} style={{overflow:"visible"}}>
                     <path d={path} fill="none" stroke={C.ter} strokeWidth={2} strokeLinejoin="round"/>
                     {pts.map((p,i)=>(
                       <g key={i}>
@@ -6899,7 +6900,7 @@ function App(){
                     <div style={{flex:1}}>
                       <div style={{fontSize:15,fontWeight:500}}>{NAMES[e.type]}{e.night?" (night)":""}</div>
                       <div style={{fontSize:15,fontFamily:_fM,color:C.lt}}>
-                        {e.type==="nap"?`${fmt12(e.start)} – ${fmt12(e.end)} (${minDiff(e.start,e.end)}min)`:`${fmt12(e.time)}${e.amount?` · ${e.amount}ml`:""}`}
+                        {e.type==="nap"?`${fmt12(e.start)} – ${fmt12(e.end)} (${hm(minDiff(e.start,e.end))})`:`${fmt12(e.time)}${e.amount?` · ${e.amount}ml`:""}`}
                         {e.note?` · ${e.note}`:""}
                       </div>
                     </div>
@@ -6940,7 +6941,7 @@ function App(){
         for(let i=0;i<nightPoints.length-1;i++){
           const from=nightPoints[i];const to=nightPoints[i+1];
           let mins=minDiff(from.time,to.time);
-          if(mins<=0) mins+=720;
+          if(mins<=0) mins+=1440;
           stretches.push({from:from.label,to:to.label,mins,toTime:to.time,feed:to.feed});
         }
         function copyReport(){
