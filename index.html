@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="OBubba"/>
   <meta name="application-name" content="OBubba"/>
   <meta name="theme-color" content="#faf6f0"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https://*.googleapis.com https://*.gstatic.com https://cdn.jsdelivr.net https://*.firebaseapp.com https://*.firebaseio.com https://*.firebase.com https://*.firebasestorage.app;"/>
   <title>OBubba</title>
   <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;OBubba&quot;,&quot;short_name&quot;:&quot;OBubba&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23faf6f0&quot;,&quot;theme_color&quot;:&quot;%23faf6f0&quot;}"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
@@ -46,7 +47,7 @@
     signInAnonymously(auth).catch(e => console.warn("Auth error", e));
     onAuthStateChanged(auth, user => { if (user) window._fbUid = user.uid; });
   </script>
-  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}html,body{height:100%;overscroll-behavior:none;}body{background:#faf6f0;font-family:'DM Sans',sans-serif;}::-webkit-scrollbar{display:none;}input,select,button{font-family:inherit;}body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}body.girl header,body.girl .gender-accent{background:#fde7e4!important;}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}html{color-scheme:light;}html,body{height:100%;overscroll-behavior:none;}body{background:#faf6f0;font-family:'DM Sans',sans-serif;}::-webkit-scrollbar{display:none;}input,select,button{font-family:inherit;}body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}body.girl header,body.girl .gender-accent{background:#fde7e4!important;}</style>
 </head>
 <body>
 <div id="root"></div>
@@ -96,12 +97,6 @@ function getAwakeWindows(entries) {
 }
 
 function getNightWindows(thisDayEntries, nextDayEntries) {
-
-
-
-
-
-
 
 
   const next = nextDayEntries || [];
@@ -535,9 +530,6 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
   const [restoreStatus, setRestoreStatus] = React.useState("");
 
 
-
-
-
   if (familyUsername) {
     return (
       <div style={{borderRadius:12,border:"1px dashed #b0e8cc",overflow:"hidden",background:"#f0faf6"}}>
@@ -746,8 +738,6 @@ function App(){
   const[logPanel,setLogPanel]=useState(null);
   const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
   const[eType,setEType]=useState("feed");
-  const[nightMode,setNightMode]=useState(false);
-  const[showNightWake,setShowNightWake]=useState(false);
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[inlineWakeTime,setInlineWakeTime]=useState("");
 
@@ -756,7 +746,6 @@ function App(){
     const todayWake = (days[selDay]||[]).some(e=>e.type==="wake"&&!e.night);
     if(todayWake) setShowWakeInline(false);
   },[days, selDay, showWakeInline]);
-  const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
   const[form,setForm]=useState({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});
   const[newDate,setNewDate]=useState(todayStr());
   const[menuDay,setMenuDay]=useState(null);
@@ -937,23 +926,6 @@ function App(){
   const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
 
 
-  const isNightHour = () => { const h = new Date().getHours(); return h >= 22 || h < 6; };
-  const[autoDark,setAutoDark]=useState(()=>isNightHour());
-  useEffect(()=>{
-    const check = () => setAutoDark(isNightHour());
-    const t = setInterval(check, 60000);
-    return ()=>clearInterval(t);
-  },[]);
-  const DK = autoDark ? {
-    pageBg: "#0f0a14", cardBg: "#1a1228", cardBorder: "#2e2040",
-    headerBg: "#1a1228", textPrimary: "#e8ddf5", textSecondary: "#a898c8",
-    textMuted: "#6a5880", inputBg: "#0f0a1a", inputBorder: "#3a2e50",
-    warmBg: "#1a1228", tabBg: "#120e1c",
-  } : null;
-
-
-
-
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -967,18 +939,6 @@ function App(){
   const[recoveryWordInput,setRecoveryWordInput]=useState("");
   const[recoveryWordSaving,setRecoveryWordSaving]=useState(false);
   const[recoveryWordStatus,setRecoveryWordStatus]=useState(null);
-  const[showAdminPanel,setShowAdminPanel]=useState(false);
-  const[activeFeedback,setActiveFeedback]=useState(null);
-  const[showFeedbackCard,setShowFeedbackCard]=useState(false);
-  const[feedbackDismissed,setFeedbackDismissed]=useState(false);
-  const[fbAnswers,setFbAnswers]=useState({});
-  const[fbSubmitting,setFbSubmitting]=useState(false);
-  const[fbThankYou,setFbThankYou]=useState(false);
-
-  const[adminPush,setAdminPush]=useState({title:"",questions:[{id:"q1",type:"star",text:"",choices:[""]}]});
-  const[adminStats,setAdminStats]=useState(null);
-  const[adminLoading,setAdminLoading]=useState(false);
-  const[adminSaving,setAdminSaving]=useState(false);
   const[showChildSettings,setShowChildSettings]=useState(false);
   const[csName,setCsName]=useState("");
   const[csDob,setCsDob]=useState("");
@@ -988,6 +948,7 @@ function App(){
   const[joinError,setJoinError]=useState("");
   const[fbReady,setFbReady]=useState(false);
   const syncRef = React.useRef(null);
+  const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
 
   const possessive = (n) => {
     if (!n) return "";
@@ -1022,10 +983,6 @@ function App(){
     }, 200);
     return ()=>clearInterval(check);
   },[]);
-
-
-
-
 
 
   const pushToCloud = React.useCallback(async(code, allChildren) => {
@@ -1108,17 +1065,10 @@ function App(){
   useEffect(()=>{
 
 
-
-
     const codeToWatch = familyCode || backupCode;
     if(fbReady && codeToWatch) subscribeToFamily(codeToWatch);
     return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
   },[fbReady, familyCode, backupCode]);
-
-
-
-
-
 
 
   const [restoreDone, setRestoreDone] = React.useState(false);
@@ -1183,8 +1133,6 @@ function App(){
         }
 
 
-
-
         if(code) {
           try {
             const snap = await getDoc(doc(db,"families",code));
@@ -1196,8 +1144,6 @@ function App(){
                 if(cloud) {
                   const cloudIds = Object.keys(cloud);
                   if(cloudIds.length) {
-
-
 
 
                     setChildren(prev => {
@@ -1266,10 +1212,8 @@ function App(){
   },[fbReady]);
 
 
-
   const syncTimerRef = React.useRef(null);
 
-  const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
   const justRestoredRef = React.useRef(false);
 
 
@@ -1410,224 +1354,6 @@ function App(){
     } catch(e){}
   }
 
-  const ADMIN_USERNAMES = ["zyesha corran","zyeshacorran","zyesha_corran","zyesha"];
-  const isAdmin = !!(familyUsername && (
-    familyUsername.toLowerCase().includes("zyesha")
-  ));
-
-
-  useEffect(()=>{
-    if(!window._fb) return;
-    const {db, doc, onSnapshot} = window._fb;
-    const unsub = onSnapshot(doc(db,"feedback","active"), snap=>{
-      const currentUsername = familyUsername || localStorage.getItem("family_username") || "";
-      const currentIsAdmin = !!(currentUsername && currentUsername.toLowerCase().includes("zyesha"));
-      if(snap.exists()){
-        const data = snap.data();
-        const pid = data.id;
-        setActiveFeedback(data);
-        if(currentIsAdmin){ setShowFeedbackCard(false); return; }
-        try{
-          const answered = localStorage.getItem("fb_answered_"+pid);
-          if(answered){ setShowFeedbackCard(false); return; }
-
-          const lastDone = localStorage.getItem("fb_last_completed");
-          if(lastDone){
-            const daysSince = (Date.now() - parseInt(lastDone)) / (1000*60*60*24);
-            if(daysSince < 3){ setShowFeedbackCard(false); return; }
-          }
-          setFbAnswers({}); setShowFeedbackCard(true); setFeedbackDismissed(false); setFbThankYou(false);
-        }catch{
-          setFbAnswers({}); setShowFeedbackCard(true);
-        }
-      } else {
-        setActiveFeedback(null); setShowFeedbackCard(false);
-      }
-    });
-    return()=>unsub();
-  },[fbReady, familyUsername]);
-
-
-  function setFbAnswer(qid, value){ setFbAnswers(prev=>({...prev,[qid]:value})); }
-  function toggleFbMulti(qid, choice){
-    setFbAnswers(prev=>{
-      const cur = prev[qid]||[];
-      return {...prev,[qid]: cur.includes(choice)?cur.filter(c=>c!==choice):[...cur,choice]};
-    });
-  }
-
-
-  function fbIsComplete(){
-    if(!activeFeedback) return false;
-    return activeFeedback.questions.every(q=>{
-      const ans = fbAnswers[q.id];
-      if(q.type==="text") return true;
-      if(q.type==="star") return (ans||0)>0;
-      if(q.type==="multi") return ans && ans.length>0;
-      if(q.type==="single") return ans !== undefined && ans !== null && ans !== "";
-      if(q.type==="scale") return ans !== undefined && ans !== null && ans !== "";
-      if(q.type==="yesno") return ans !== undefined && ans !== null;
-      return true;
-    });
-  }
-
-
-  async function submitFeedback(){
-    if(!activeFeedback||fbSubmitting) return;
-    setFbSubmitting(true);
-    try{
-      const {db, collection, addDoc, serverTimestamp} = window._fb;
-      await addDoc(collection(db,"feedback","active","responses"),{
-        pushId: activeFeedback.id,
-        pushTitle: activeFeedback.title||"",
-        answers: fbAnswers,
-        uid: window._fbUid||"anon",
-        username: familyUsername||null,
-        ts: serverTimestamp(),
-      });
-      try{localStorage.setItem("fb_answered_"+activeFeedback.id,"1");}catch{}
-      try{localStorage.setItem("fb_last_completed", Date.now().toString());}catch{}
-      setFbThankYou(true);
-      setTimeout(()=>{ setShowFeedbackCard(false); setFbThankYou(false); },3000);
-    }catch(e){console.warn("Feedback submit error",e);}
-    setFbSubmitting(false);
-  }
-
-
-  function adminNewQuestion(){ return {id:"q_"+Date.now(),type:"star",text:"",choices:[""]}; }
-  function adminUpdateQ(idx,field,val){
-    setAdminPush(p=>{ const qs=[...p.questions]; qs[idx]={...qs[idx],[field]:val}; return {...p,questions:qs}; });
-  }
-  function adminUpdateChoice(qIdx,cIdx,val){
-    setAdminPush(p=>{ const qs=[...p.questions]; const cs=[...qs[qIdx].choices]; cs[cIdx]=val; qs[qIdx]={...qs[qIdx],choices:cs}; return {...p,questions:qs}; });
-  }
-  function adminAddChoice(qIdx){
-    setAdminPush(p=>{ const qs=[...p.questions]; qs[qIdx]={...qs[qIdx],choices:[...qs[qIdx].choices,""]}; return {...p,questions:qs}; });
-  }
-  function adminRemoveChoice(qIdx,cIdx){
-    setAdminPush(p=>{ const qs=[...p.questions]; qs[qIdx]={...qs[qIdx],choices:qs[qIdx].choices.filter((_,i)=>i!==cIdx)}; return {...p,questions:qs}; });
-  }
-  function adminAddQuestion(){
-    setAdminPush(p=>({...p,questions:[...p.questions,adminNewQuestion()]}));
-  }
-  function adminRemoveQuestion(idx){
-    setAdminPush(p=>({...p,questions:p.questions.filter((_,i)=>i!==idx)}));
-  }
-  function adminMoveQuestion(idx,dir){
-    setAdminPush(p=>{ const qs=[...p.questions]; const t=qs[idx]; qs[idx]=qs[idx+dir]; qs[idx+dir]=t; return {...p,questions:qs}; });
-  }
-
-
-  async function adminPushFeedback(){
-    if(!adminPush.title.trim()||adminPush.questions.length===0) return;
-    setAdminSaving(true);
-    try{
-      const {db, doc, setDoc, serverTimestamp} = window._fb;
-      const pid = "push_"+Date.now();
-      await setDoc(doc(db,"feedback","active"),{
-        id: pid,
-        title: adminPush.title.trim(),
-        questions: adminPush.questions.map(q=>({
-          id: q.id,
-          type: q.type,
-          text: q.text.trim(),
-          choices: (q.choices||[]).filter(c=>c.trim()),
-        })),
-        createdAt: serverTimestamp(),
-      });
-      setAdminPush({title:"",questions:[adminNewQuestion()]});
-      await adminLoadStats();
-    }catch(e){console.warn("Admin push error",e);}
-    setAdminSaving(false);
-  }
-
-
-  async function adminDeleteQuestion(){
-    try{
-      const {db, doc, deleteDoc} = window._fb;
-      await deleteDoc(doc(db,"feedback","active"));
-      setActiveFeedback(null); setAdminStats(null);
-    }catch(e){console.warn("Admin delete error",e);}
-  }
-
-
-  async function adminLoadStats(){
-    if(!window._fb) return;
-    setAdminLoading(true);
-    try{
-      const {db, collection, query, orderBy, doc, getDoc, onSnapshot} = window._fb;
-      
-      // Set up real-time listener for responses
-      const responsesQuery = query(collection(db,"feedback","active","responses"), orderBy("ts","desc"));
-      const unsubscribeResponses = onSnapshot(responsesQuery, async (snap) => {
-        const responses = snap.docs.map(d=>d.data());
-        
-        // Now load the active document
-        try {
-          const activeSnap = await getDoc(doc(db,"feedback","active"));
-          const active = activeSnap.exists() ? activeSnap.data() : null;
-          const count = responses.length;
-
-          if(active){
-            const qStats = (active.questions||[]).map(qq=>{
-              const answers = responses.map(r=>(r.answers||{})[qq.id]).filter(a=>a!==undefined&&a!==null&&a!=="");
-              if(qq.type==="star"){
-                const avg = answers.length ? (answers.reduce((s,a)=>s+(a||0),0)/answers.length).toFixed(1) : "—";
-                return {...qq, count:answers.length, avg};
-              } else if(qq.type==="scale"){
-                const avg = answers.length ? (answers.reduce((s,a)=>s+(parseFloat(a)||0),0)/answers.length).toFixed(1) : "—";
-                return {...qq, count:answers.length, avg};
-              } else if(qq.type==="multi" || qq.type==="single"){
-                const tally={};
-                (qq.choices||[]).forEach(c=>{tally[c]=0;});
-                answers.forEach(a=>{ (Array.isArray(a)?a:[a]).forEach(c=>{ if(tally[c]!==undefined) tally[c]++; }); });
-                return {...qq, count:answers.length, tally};
-              } else if(qq.type==="text"){
-                return {...qq, count:answers.length, texts:answers.slice(0,20)};
-              } else if(qq.type==="yesno"){
-                const yes = answers.filter(a=>a===true||a==="yes").length;
-                const no = answers.filter(a=>a===false||a==="no").length;
-                return {...qq, count:answers.length, yes, no};
-              }
-              return {...qq, count:answers.length};
-            });
-            setAdminStats({title:active.title, id:active.id, count, questions:qStats, _rawResponses:responses});
-          } else if(responses.length>0){
-            setAdminStats({title:"(archived push)", id:null, count, questions:[], _rawResponses:responses});
-          } else {
-            setAdminStats(null);
-          }
-        } catch(e) {
-          console.warn("Error loading active document:", e);
-        }
-      }, (err) => {
-        console.warn("Real-time responses listener error:", err);
-        setAdminLoading(false);
-      });
-      
-      setAdminLoading(false);
-      // Return cleanup function
-      window._adminUnsubscribe = unsubscribeResponses;
-      
-    }catch(e){
-      console.warn("Admin load init error:", e);
-      setAdminLoading(false);
-    }
-  }
-
-
-  useEffect(()=>{
-    if(showAdminPanel && isAdmin && window._fb) {
-      adminLoadStats();
-      
-      return () => {
-        if(window._adminUnsubscribe) {
-          window._adminUnsubscribe();
-          window._adminUnsubscribe = null;
-        }
-      };
-    }
-  },[showAdminPanel, isAdmin]);
 
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
@@ -1839,8 +1565,6 @@ function App(){
   },[fbReady, familyUsername, familyCode]);
 
 
-
-
   function dedupEntries(entries) {
     const seen = new Set();
     return entries.filter(e => {
@@ -1855,8 +1579,6 @@ function App(){
       return true;
     });
   }
-
-
 
 
   function mergeChildren(localCh, remoteCh) {
@@ -1926,8 +1648,6 @@ function App(){
     trackEvent("child_sync_created");
     return code;
   }
-
-
 
 
   async function pushChildSync(childId, code, childData) {
@@ -2388,7 +2108,6 @@ function App(){
   }
 
 
-
   function sleepScore() {
     const today = days[selDay] || [];
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
@@ -2478,7 +2197,6 @@ function App(){
     }
 
 
-
     const [lh2,lm2] = lastNap.end.split(":").map(Number);
     const lastNapEndMins = lh2*60+lm2;
     const earliestBed = lastNapEndMins + ww.min;
@@ -2553,8 +2271,6 @@ function App(){
     if (napMinutes > p.idealTotalMax * 1.15) return "💤 May be undertired today";
     return "✓ Wake windows look appropriate";
   }
-
-
 
 
   function napNormalRange() {
@@ -2747,7 +2463,6 @@ function App(){
       }
 
 
-
       const isLastPlannedNap = (i === napCount - 1);
       if (isLastPlannedNap) {
 
@@ -2796,8 +2511,6 @@ function App(){
     const today = days[selDay] || [];
 
 
-
-
     const nextDayStr = (() => {
       const d = new Date(selDay + "T12:00:00"); d.setDate(d.getDate()+1);
       return d.toISOString().split("T")[0];
@@ -2820,8 +2533,6 @@ function App(){
     const dayMl     = dayMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
     const nightMl   = nightMilkFeeds.reduce((s,f)=> s+(f.amount||0), 0);
     if (!totalMl) return null;
-
-
 
 
     let totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin, targetFeeds, nhsNote;
@@ -2893,7 +2604,6 @@ function App(){
     const metMinimum    = totalMl >= totalMin;
     const dayShortfall  = Math.max(totalMin - totalMl, 0);
     const totalShortfall= Math.max(totalTarget - totalMl, 0);
-
 
 
     const expectedNightFeeds = w < 8 ? "2–3" : w < 13 ? "1–2" : w < 26 ? "1–2" : "1";
@@ -3024,8 +2734,6 @@ function App(){
   }
 
   function analyseTrends() {
-
-
 
 
     const dk = Object.keys(days).sort();
@@ -3365,8 +3073,6 @@ function App(){
     const endHasSuffix   = /\d\s*(am|pm)/i.test(endRaw);
 
 
-
-
     let augmentedStart = startRaw;
     if (!startHasSuffix && endHasSuffix) {
       const endSuffix = (endRaw.match(/\d\s*(am|pm)/i) || [])[1];
@@ -3374,7 +3080,6 @@ function App(){
       const endHour   = parseInt((endRaw.match(/(\d{1,2})/)   || [])[1] || "0");
       if (startHour <= endHour) augmentedStart = startRaw + endSuffix;
     }
-
 
 
     const start = parseTime(augmentedStart, (startHasSuffix || endHasSuffix) ? null : previousMinutes);
@@ -3487,7 +3192,6 @@ function App(){
         if (rangeSep) {
 
 
-
           const startRaw = rangeSep[1].trim();
           const endRaw   = rangeSep[2].trim();
           const startHasSuffix = /\s*(am|pm)\s*$/i.test(startRaw);
@@ -3525,7 +3229,6 @@ function App(){
 
         return;
       }
-
 
 
       const shorthand = l.match(/^(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:feed|bottle|fed|f)?\s*(\d{2,3})(?:\s*ml)?$/);
@@ -3595,12 +3298,11 @@ function App(){
     setModal(null); _setParsedEntries(null); setPasteText("");
   }
 
-  function openEntry(night=false){setEditEntry(null);setNightMode(night);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
+  function openEntry(){setEditEntry(null);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
   function openLogPanel(panel){
     setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime(),feedTime:nowTime(),feedTimeSet:false});
     setLogPanel(panel);
   }
-
 
 
   function autoClassifyNight(entries) {
@@ -3653,7 +3355,7 @@ function App(){
     setEditEntry(entry);
     setEType(entry.type);
     setFeedType(entry.feedType||"milk");
-    setNightMode(!!entry.night);
+    
     setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||"",breastL:entry.breastL||"",breastR:entry.breastR||"",pumpL:entry.pumpL||"",pumpR:entry.pumpR||""});
     setModal("entry");
   }
@@ -3728,12 +3430,12 @@ function App(){
       if(!form.time)return;
       if(feedType==="breast"){
         const bL=parseInt(form.breastL)||0, bR=parseInt(form.breastR)||0;
-        e={...e,type:"feed",time:form.time,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:nightMode||form.night==="yes"};
+        e={...e,type:"feed",time:form.time,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:form.night==="yes"};
       } else if(feedType==="pump"){
         const pL=parseInt(form.pumpL)||0, pR=parseInt(form.pumpR)||0;
-        e={...e,type:"feed",time:form.time,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:nightMode||form.night==="yes"};
+        e={...e,type:"feed",time:form.time,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};
       } else {
-        e={...e,type:"feed",time:form.time,amount:parseInt(form.amount)||0,night:nightMode||form.night==="yes",feedType:feedType};
+        e={...e,type:"feed",time:form.time,amount:parseInt(form.amount)||0,night:form.night==="yes",feedType:feedType};
       }
     }
     else if(eType==="nap"){if(!form.start||!form.end)return;e={...e,type:"nap",start:form.start,end:form.end,night:false};}
@@ -3879,8 +3581,6 @@ function App(){
   }, []);
 
 
-
-
   useEffect(()=>{
     const todayDate = todayStr();
     const todayMs = new Date(todayDate + "T12:00:00").getTime();
@@ -3979,8 +3679,8 @@ function App(){
     }
   },[Object.keys(days).join(",")]);
 
-  const tabSt=t=>({flex:1,padding:"6px 2px",border:_bN,background:autoDark?"#120e1c":"none",fontSize:10,fontWeight:700,cursor:_cP,color:tab===t?C.ter:autoDark?"#6a5880":C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,letterSpacing:"0.04em",textTransform:"uppercase"});
-  const card={background:autoDark?"#1a1228":"white",border:autoDark?"1px solid #2e2040":`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:autoDark?"none":"0 2px 12px rgba(201,112,90,0.06)"};
+  const tabSt=t=>({flex:1,padding:"6px 2px",border:_bN,background:"none",fontSize:10,fontWeight:700,cursor:_cP,color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,letterSpacing:"0.04em",textTransform:"uppercase"});
+  const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
 
   const tabIcons={day:"📅",trends:"📈",growth:"📏",milestones:"⭐",develop:"🧩",settings:"👤"};
   const tabLabels={day:"Day",trends:"Trends",growth:"Growth",milestones:"Miles",develop:"Develop",settings:""};
@@ -4315,7 +4015,7 @@ function App(){
                 {obPin2.length===0&&<div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:10}}>Confirm your PIN</div>}
                 {obPin2.length>0&&obPin2.length<4&&<div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:10}}>Confirm your PIN</div>}
                 {obPin2.length===4&&obPin2!==obPin&&<div style={{fontSize:14,color:C.ter,textAlign:"center",marginBottom:10}}>PINs don't match — try again</div>}
-                {obPin2.length===4&&obPin2!==obPin&&(()=>{setTimeout(()=>setObPin2(""),600);return null;})()}
+                
                 <PinPad value={obPin2} onChange={setObPin2} onComplete={(p)=>{ if(p===obPin) completeOnboarding(); }}/>
               </div>
             )}
@@ -4524,7 +4224,7 @@ function App(){
   }
 
   return(
-    <div style={{background:autoDark?"#0f0a14":"#f7f3ee",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:autoDark?"#e8ddf5":C.deep,paddingBottom:80,transition:"background 0.5s,color 0.5s"}}>
+    <div style={{background:"#f7f3ee",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:C.deep,paddingBottom:"calc(80px + env(safe-area-inset-bottom, 0px))",transition:"background 0.5s,color 0.5s"}}>
       <style>{`
         @keyframes pulse{0%,100%{box-shadow:0 0 0 12px rgba(201,112,90,0.15)}50%{box-shadow:0 0 0 22px rgba(201,112,90,0.04)}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -4595,9 +4295,9 @@ function App(){
             icon:"👨‍👩‍👧",
             title:"Share with Your Partner",
             bodyJSX:(
-              <div style={{fontSize:15,color:autoDark?"#a898c8":C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>👨‍👩‍👧 Share</strong> in the header to sync with a partner or restore to a new phone.</div>
-                <div style={{background:autoDark?"#0f0a1a":"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>👨‍👩‍👧 Share</strong> in the header to sync with a partner, restore to a new phone, or set a recovery word for PIN resets.</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
                   <div>🔗 Tap <strong>Get code</strong> next to your child's name</div>
                   <div>📲 Partner opens Share → <strong>Link a child</strong> → enters your code</div>
                   <div>✅ Both phones stay in sync automatically</div>
@@ -4610,9 +4310,9 @@ function App(){
             icon:"👶",
             title:"Multiple Children",
             bodyJSX:(
-              <div style={{fontSize:15,color:autoDark?"#a898c8":C.mid,lineHeight:1.65}}>
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
                 <div style={{marginBottom:8}}>Each child has their own logs, growth chart and milestones.</div>
-                <div style={{background:autoDark?"#0f0a1a":"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
                   <div>👆 <strong>Swipe left/right</strong> on the header to switch children</div>
                   <div>＋ Tap the <strong>+ dot</strong> in the top left to add a child</div>
                   <div>⚙️ Tap the <strong>gear icon</strong> top right to edit name, DOB or sex</div>
@@ -4622,9 +4322,21 @@ function App(){
             location: "Top left — child dots & + button",
           },
           {
+            icon:"🔐",
+            title:"Keep Your Account Safe",
+            body:"Your data backs up to the cloud automatically and syncs across devices. If you lose your phone, sign in with your username and PIN on any device to restore everything instantly. Important: set a recovery word in the Share menu — it's the only way to reset your PIN if you forget it.",
+            location: "Share menu → Recovery word",
+          },
+          {
+            icon:"📅",
+            title:"Navigate Past Days",
+            body:"Swipe left and right on the date strip below the header to browse past days and review logs. Tap the + button to add a new date manually. Long-press any date for options like editing or deleting.",
+            location: "Date strip below the header",
+          },
+          {
             icon:"🎉",
             title:"You're all set!",
-            body:"Start by logging today's wake time, then let the countdown guide the rest of the day. Tap '? Tour' in the header anytime to revisit this.",
+            body:"Start by logging today's wake time, then let the countdown guide the rest of the day. After 7 days of logging, Smart Insights will appear with personalised observations. Tap '? Tour' in the header anytime to revisit this guide.",
             location: null,
           },
         ];
@@ -4642,11 +4354,11 @@ function App(){
         const step = TUT_STEPS[tutStep];
         const isLast = tutStep === TUT_STEPS.length - 1;
 
-        const cardBg = autoDark ? "#1a1228" : "white";
-        const cardText = autoDark ? "#e8ddf5" : C.deep;
-        const cardSub = autoDark ? "#a898c8" : C.mid;
-        const locBg = autoDark ? "#0f0a1a" : "#f5f0e8";
-        const locText = autoDark ? "#8878a8" : C.lt;
+        const cardBg = "white";
+        const cardText = C.deep;
+        const cardSub = C.mid;
+        const locBg = "#f5f0e8";
+        const locText = C.lt;
 
         return (
           <div style={{position:"fixed",inset:0,zIndex:999,pointerEvents:"auto"}}>
@@ -4694,7 +4406,7 @@ function App(){
                 {TUT_STEPS.map((_,i)=>(
                   <div key={i} onClick={()=>setTutStep(i)} style={{
                     width:i===tutStep?18:5,height:5,borderRadius:99,
-                    background:i<tutStep?"#c9705a":i===tutStep?C.ter:autoDark?"#3a2e50":C.blush,
+                    background:i<tutStep?"#c9705a":i===tutStep?C.ter:C.blush,
                     transition:"all 0.3s",cursor:_cP,flexShrink:0
                   }}/>
                 ))}
@@ -4703,7 +4415,7 @@ function App(){
               {}
               <div style={{display:"flex",gap:8}}>
                 {tutStep > 0 && (
-                  <button onClick={prevStep} style={{flex:1,padding:"9px",borderRadius:12,border:`1.5px solid ${autoDark?"#3a2e50":C.blush}`,background:autoDark?"#0f0a1a":"white",color:autoDark?"#a898c8":C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                  <button onClick={prevStep} style={{flex:1,padding:"9px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"white",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
                     ← Back
                   </button>
                 )}
@@ -4732,7 +4444,7 @@ function App(){
 
       {}
       <div
-        style={{background:autoDark?"#1a1228":theme.primary,padding:"16px 16px 0",position:"relative",transition:"background 0.5s"}}
+        style={{background:theme.primary,padding:"16px 16px 0",position:"relative",transition:"background 0.5s"}}
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
@@ -4779,9 +4491,6 @@ function App(){
         )}
 
         {}
-        {autoDark&&(
-          <div style={{position:"absolute",top:4,right:52,fontSize:10,fontFamily:_fM,color:"rgba(168,152,200,0.6)",letterSpacing:"0.06em"}}>🌙 night</div>
-        )}
         {}
         <div style={{marginBottom:7}}>
           {(()=>{
@@ -5087,127 +4796,7 @@ function App(){
               </div>
 
               {}
-              {tab==="day" && showFeedbackCard && activeFeedback && !feedbackDismissed && (
-                <div style={{background:"white",borderRadius:18,padding:"18px",marginBottom:16,border:`1.5px solid ${C.blush}`,boxShadow:"0 4px 24px rgba(201,112,90,0.13)",position:"relative"}}>
-
-                  {}
-                  {fbThankYou ? (
-                    <div style={{textAlign:"center",padding:"24px 0"}}>
-                      <div style={{fontSize:48,marginBottom:10}}>🙏</div>
-                      <div style={{fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>Thank you!</div>
-                      <div style={{fontSize:13,color:C.lt,fontFamily:_fM}}>Your feedback really helps us improve OBubba</div>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Quick feedback 💬</div>
-                      {activeFeedback.title && <div style={{fontSize:16,fontWeight:700,color:C.deep,marginBottom:14,lineHeight:1.4,paddingRight:24}}>{activeFeedback.title}</div>}
-
-                      {}
-                      {(activeFeedback.questions||[]).map((q,qi)=>(
-                        <div key={q.id} style={{marginBottom:18,paddingBottom:18,borderBottom:qi<activeFeedback.questions.length-1?`1px solid ${C.blush}`:"none"}}>
-                          <div style={{fontSize:14,fontWeight:600,color:C.deep,marginBottom:10,lineHeight:1.4}}>{qi+1}. {q.text}</div>
-
-                          {}
-                          {q.type==="star" && (
-                            <div style={{display:"flex",gap:4,justifyContent:"center"}}>
-                              {[1,2,3,4,5].map(n=>(
-                                <button key={n} onClick={()=>setFbAnswer(q.id,n)}
-                                  style={{background:_bN,border:_bN,fontSize:30,cursor:_cP,opacity:(fbAnswers[q.id]||0)>=n?1:0.2,transition:"opacity 0.15s",padding:"0 3px"}}>⭐</button>
-                              ))}
-                            </div>
-                          )}
-
-                          {}
-                          {q.type==="multi" && (
-                            <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
-                              {(q.choices||[]).map(c=>{
-                                const sel=(fbAnswers[q.id]||[]).includes(c);
-                                return(
-                                  <button key={c} onClick={()=>toggleFbMulti(q.id,c)}
-                                    style={{padding:"7px 14px",borderRadius:99,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?"#fdf0eb":C.warm,fontSize:13,fontWeight:600,color:sel?C.ter:C.mid,cursor:_cP,fontFamily:_fI,transition:"all 0.15s"}}>
-                                    {sel?"✓ ":""}{c}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {}
-                          {q.type==="single" && (
-                            <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                              {(q.choices||[]).map(c=>{
-                                const sel=fbAnswers[q.id]===c;
-                                return(
-                                  <button key={c} onClick={()=>setFbAnswer(q.id,c)}
-                                    style={{padding:"10px 14px",borderRadius:12,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?"#fdf0eb":C.warm,fontSize:13,fontWeight:600,color:sel?C.ter:C.mid,cursor:_cP,fontFamily:_fI,transition:"all 0.15s",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
-                                    <span style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${sel?C.ter:C.blush}`,background:sel?C.ter:"white",display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                                      {sel&&<span style={{width:8,height:8,borderRadius:"50%",background:"white",display:"block"}}/>}
-                                    </span>
-                                    {c}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {}
-                          {q.type==="scale" && (
-                            <div>
-                              <div style={{display:"flex",justifyContent:"space-between",gap:4,marginBottom:6}}>
-                                {[1,2,3,4,5,6,7,8,9,10].map(n=>{
-                                  const sel=fbAnswers[q.id]===n;
-                                  return(
-                                    <button key={n} onClick={()=>setFbAnswer(q.id,n)}
-                                      style={{flex:1,padding:"8px 0",borderRadius:10,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?C.ter:C.warm,color:sel?"white":C.mid,fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,transition:"all 0.15s"}}>
-                                      {n}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.lt,fontFamily:_fM}}>
-                                <span>Not at all</span><span>Extremely</span>
-                              </div>
-                            </div>
-                          )}
-
-                          {}
-                          {q.type==="text" && (
-                            <textarea value={fbAnswers[q.id]||""} onChange={e=>setFbAnswer(q.id,e.target.value)}
-                              placeholder="Type your answer here… (optional)"
-                              rows={3}
-                              style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:_fI,outline:_oN,resize:"none",boxSizing:_bBB}}/>
-                          )}
-
-                          {}
-                          {q.type==="yesno" && (
-                            <div style={{display:"flex",gap:10}}>
-                              {["yes","no"].map(v=>{
-                                const sel=fbAnswers[q.id]===v;
-                                return(
-                                  <button key={v} onClick={()=>setFbAnswer(q.id,v)}
-                                    style={{flex:1,padding:"10px",borderRadius:12,border:`1.5px solid ${sel?C.ter:C.blush}`,background:sel?"#fdf0eb":C.warm,color:sel?C.ter:C.mid,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,transition:"all 0.15s"}}>
-                                    {v==="yes"?"👍 Yes":"👎 No"}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-
-                      <button onClick={submitFeedback} disabled={fbSubmitting||!fbIsComplete()}
-                        style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:fbIsComplete()?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:fbIsComplete()?"pointer":"default",fontFamily:_fI,transition:"background 0.2s"}}>
-                        {fbSubmitting?"Sending…":"Send Feedback"}
-                      </button>
-                      <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:_fM}}>Takes 1 minute · won't appear again</div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {}
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                <div style={{width:3,height:16,background:C.gold,borderRadius:99}}/>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{fontSize:14,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Today's Log</div>
               </div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
@@ -5292,7 +4881,7 @@ function App(){
                     <div style={{width:3,height:18,background:"#8878a8",borderRadius:99}}/>
                     <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"#a898c8",fontSize:16}}>Night Wakes</span>
                   </div>
-                  <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,note:""});setShowNightWake(true);}} style={{background:"rgba(255,255,255,0.1)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#a898c8",cursor:_cP,fontWeight:600}}>+ add</button>
+                  
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"#6a5880",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -6634,15 +6223,6 @@ function App(){
                 <div style={{fontSize:12,color:C.lt,marginTop:2}}>Replay the walkthrough</div>
               </div>
             </button>
-            {isAdmin&&(
-              <button onClick={()=>{setShowAdminPanel(true);adminLoadStats();}} style={{display:"flex",alignItems:"center",gap:14,background:"rgba(201,112,90,0.08)",border:"1px solid rgba(201,112,90,0.3)",borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
-                <span style={{fontSize:24}}>⚙️</span>
-                <div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.ter}}>Admin Panel</div>
-                  <div style={{fontSize:12,color:C.lt,marginTop:2}}>Manage feedback pushes & view responses</div>
-                </div>
-              </button>
-            )}
             {familyUsername&&(
               <button onClick={logout} style={{display:"flex",alignItems:"center",gap:14,background:"white",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%",marginTop:6}}>
                 <span style={{fontSize:24}}>🚪</span>
@@ -6656,7 +6236,7 @@ function App(){
         </div>
       )}
 
-      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:autoDark?"#120e1c":"white",borderTop:autoDark?"1px solid #2e2040":`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:autoDark?"0 -4px 20px rgba(0,0,0,0.4)":"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom)"}}>
         {["day","trends","growth","milestones","develop"].map(t=>(
           <button key={t} onClick={()=>setTab(t)} style={tabSt(t)}>
             <span style={{fontSize:16}}>{tabIcons[t]}</span>
@@ -6901,10 +6481,8 @@ function App(){
                 </div>
               </div>
             )}
-            {feedType==="pump"&&null}
             {feedType==="solids"&&<Inp label="Description / amount" type="text" placeholder="e.g. porridge, half jar" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
             <Inp label="Time" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/>
-            {!nightMode&&(
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Night feed?</label>
                 <select value={form.night} onChange={e=>setForm(f=>({...f,night:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}>
@@ -6912,7 +6490,6 @@ function App(){
                   <option value="yes">Yes — night wake</option>
                 </select>
               </div>
-            )}
             {(feedType==="milk"||feedType==="breast")&&<Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
           </>}
 
@@ -7204,82 +6781,6 @@ function App(){
       })()}
 
       {}
-      {showNightWake&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(10,6,20,0.7)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNightWake(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"#1a1228",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB}}>
-            <div style={{width:36,height:4,background:"#3a2e50",borderRadius:99,margin:"0 auto 20px"}}/>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"#d8cce8",marginBottom:20}}>🌟 Log Night Wake</div>
-
-            {}
-            <div style={{fontSize:13,fontFamily:_fM,color:"#6a5880",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Wake time</div>
-            <input type="time" value={nwForm.time} onChange={e=>setNwForm(f=>({...f,time:e.target.value}))}
-              style={{width:"100%",fontSize:18,padding:"12px 14px",borderRadius:14,border:"1.5px solid #3a2e50",background:"#0f0a1a",color:"#d8cce8",outline:_oN,fontFamily:_fM,textAlign:"center",marginBottom:16,boxSizing:_bBB}}/>
-
-            {}
-            <div onClick={()=>setNwForm(f=>({...f,selfSettled:!f.selfSettled,ml:f.selfSettled?f.ml:""}))}
-              style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.selfSettled?"#50c878":"#3a2e50"}`,background:nwForm.selfSettled?"rgba(80,200,120,0.1)":"rgba(255,255,255,0.03)",cursor:_cP,marginBottom:16,transition:"all 0.2s"}}>
-              <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.selfSettled?"#50c878":"#3a2e50"}`,background:nwForm.selfSettled?"#50c878":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
-                {nwForm.selfSettled&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
-              </div>
-              <div>
-                <div style={{fontSize:15,fontWeight:600,color:nwForm.selfSettled?"#50c878":"#a898c8"}}>Self settled</div>
-                <div style={{fontSize:12,color:"#6a5880",marginTop:1}}>No feed needed</div>
-              </div>
-            </div>
-
-            {}
-            {!nwForm.selfSettled&&(
-              <div style={{marginBottom:16}}>
-                <div style={{fontSize:13,fontFamily:_fM,color:"#6a5880",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Feed amount</div>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <input type="number" inputMode="numeric" placeholder="ml" value={nwForm.ml}
-                    onChange={e=>setNwForm(f=>({...f,ml:e.target.value}))}
-                    style={{flex:1,fontSize:20,padding:"12px 14px",borderRadius:14,border:"1.5px solid #3a2e50",background:"#0f0a1a",color:"#d8cce8",outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
-                  <span style={{fontSize:16,color:"#6a5880",fontFamily:_fM}}>ml</span>
-                </div>
-                <div style={{display:"flex",gap:8,marginTop:8}}>
-                  {[60,90,120,150,180].map(ml=>(
-                    <button key={ml} onClick={()=>setNwForm(f=>({...f,ml:String(ml)}))}
-                      style={{flex:1,padding:"7px 2px",borderRadius:10,border:`1px solid ${nwForm.ml===String(ml)?"#a898c8":"#3a2e50"}`,background:nwForm.ml===String(ml)?"rgba(168,152,200,0.2)":"transparent",color:nwForm.ml===String(ml)?"#d8cce8":"#6a5880",fontSize:12,fontFamily:_fM,cursor:_cP}}>
-                      {ml}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {}
-            <div style={{fontSize:13,fontFamily:_fM,color:"#6a5880",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Notes</div>
-            <input placeholder="e.g. fussed, resettled easily…" value={nwForm.note}
-              onChange={e=>setNwForm(f=>({...f,note:e.target.value}))}
-              style={{width:"100%",fontSize:15,padding:"12px 14px",borderRadius:14,border:"1.5px solid #3a2e50",background:"#0f0a1a",color:"#d8cce8",outline:_oN,fontFamily:_fI,marginBottom:20,boxSizing:_bBB}}/>
-
-            <button onClick={()=>{
-              if(!nwForm.time) return;
-              const entry = {
-                id: uid(),
-                type: nwForm.selfSettled ? "wake" : "feed",
-                time: nwForm.time,
-                amount: nwForm.selfSettled ? 0 : (parseInt(nwForm.ml)||0),
-                feedType: "milk",
-                night: true,
-                nightLocked: true,
-                note: nwForm.selfSettled ? (nwForm.note||"Self settled") : (nwForm.note||""),
-              };
-              setDays(d=>{
-                const existing = d[selDay]||[];
-                const updated = autoClassifyNight([...existing, entry]);
-                const relocked = updated.map(e => e.nightLocked ? {...e, night: true} : e);
-                return{...d,[selDay]:relocked};
-              });
-              setShowNightWake(false);
-            }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:"linear-gradient(135deg,#8878a8,#6a5880)",color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-              Save Wake ✦
-            </button>
-          </div>
-        </div>
-      )}
-
       {}
       {showAddChild && (
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowAddChild(false)}>
@@ -7547,214 +7048,6 @@ function App(){
       )}
 
       {}
-      {showAdminPanel && isAdmin && (
-        <div onClick={()=>setShowAdminPanel(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:C.cream,borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
-            <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20}}>⚙️ Feedback Admin</div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <button onClick={()=>adminLoadStats()} style={{background:C.warm,border:`1px solid ${C.blush}`,borderRadius:99,padding:"4px 12px",fontSize:13,color:C.mid,cursor:_cP,fontFamily:_fM,fontWeight:600}}>↻ Refresh</button>
-                <button onClick={()=>setShowAdminPanel(false)} style={{background:_bN,border:_bN,fontSize:20,color:C.lt,cursor:_cP}}>✕</button>
-              </div>
-            </div>
-
-            {}
-            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Live push</div>
-            {adminLoading && <div style={{textAlign:"center",padding:"20px",color:C.lt,fontFamily:_fM}}>Loading…</div>}
-            {!adminLoading && adminStats && (
-              <div style={{background:"white",borderRadius:16,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
-                <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:4}}>{adminStats.title}</div>
-                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:12}}>{adminStats.count} response{adminStats.count!==1?"s":""}</div>
-
-                {(adminStats.questions||[]).map((q,qi)=>(
-                  <div key={q.id} style={{marginBottom:14,paddingBottom:14,borderBottom:qi<adminStats.questions.length-1?`1px solid ${C.blush}`:"none"}}>
-                    <div style={{fontSize:13,fontWeight:600,color:C.mid,marginBottom:8}}>{qi+1}. {q.text}</div>
-
-                    {}
-                    {q.type==="star" && (
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{fontSize:26,fontWeight:700,color:C.ter}}>{q.avg}⭐</div>
-                        <div style={{fontSize:12,color:C.lt,fontFamily:_fM}}>avg from {q.count} answers</div>
-                      </div>
-                    )}
-
-                    {}
-                    {q.type==="scale" && (
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{fontSize:26,fontWeight:700,color:C.ter}}>{q.avg}<span style={{fontSize:14}}>/10</span></div>
-                        <div style={{fontSize:12,color:C.lt,fontFamily:_fM}}>avg from {q.count} answers</div>
-                      </div>
-                    )}
-
-                    {}
-                    {(q.type==="multi"||q.type==="single") && (
-                      <div>
-                        {(q.choices||[]).map(c=>{
-                          const cnt=(q.tally||{})[c]||0;
-                          const pct=q.count>0?Math.round((cnt/q.count)*100):0;
-                          return(
-                            <div key={c} style={{marginBottom:6}}>
-                              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}>
-                                <span style={{color:C.mid}}>{c}</span>
-                                <span style={{fontFamily:_fM,color:C.lt}}>{cnt} ({pct}%)</span>
-                              </div>
-                              <div style={{height:6,background:C.blush,borderRadius:99,overflow:"hidden"}}>
-                                <div style={{height:"100%",width:pct+"%",background:C.ter,borderRadius:99}}/>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {}
-                    {q.type==="text" && q.texts && q.texts.length>0 && (
-                      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                        {q.texts.map((t,i)=>(
-                          <div key={i} style={{background:C.warm,borderRadius:10,padding:"8px 10px",fontSize:13,color:C.mid,fontStyle:"italic"}}>"{t}"</div>
-                        ))}
-                      </div>
-                    )}
-
-                    {}
-                    {q.type==="yesno" && (
-                      <div style={{display:"flex",gap:10}}>
-                        <div style={{flex:1,background:"#eaf6f0",borderRadius:12,padding:"10px",textAlign:"center"}}>
-                          <div style={{fontSize:22,fontWeight:700,color:"#3a8a60"}}>{q.yes||0}</div>
-                          <div style={{fontSize:11,fontFamily:_fM,color:"#5aaa80",textTransform:"uppercase"}}>Yes</div>
-                        </div>
-                        <div style={{flex:1,background:"#fdf0eb",borderRadius:12,padding:"10px",textAlign:"center"}}>
-                          <div style={{fontSize:22,fontWeight:700,color:C.ter}}>{q.no||0}</div>
-                          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase"}}>No</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                <button onClick={adminDeleteQuestion}
-                  style={{width:"100%",padding:"10px",borderRadius:99,border:`1.5px solid #e8574a`,background:"white",color:"#e8574a",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,marginTop:4}}>
-                  🗑 Archive & stop showing
-                </button>
-              </div>
-            )}
-            {!adminLoading && adminStats && adminStats._rawResponses && adminStats._rawResponses.length>0 && (
-              <div style={{background:"white",borderRadius:14,padding:"14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
-                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10,fontWeight:700}}>
-                  ✅ All responses ({adminStats._rawResponses.length})
-                </div>
-                <div style={{maxHeight:"400px",overflowY:"auto",paddingRight:4}}>
-                  {adminStats._rawResponses.map((r,ri)=>(
-                    <div key={ri} style={{background:C.warm,borderRadius:10,padding:"12px",marginBottom:10,border:`1px solid ${C.blush}`}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                        <div style={{fontSize:12,fontWeight:700,color:C.dk}}>
-                          {r.username || "Anonymous"}
-                        </div>
-                        <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>
-                          {r.ts?.toDate?(()=>{const d=r.ts.toDate();const now=new Date();const diff=now-d;if(diff<60000)return"just now";if(diff<3600000)return Math.floor(diff/60000)+"m ago";if(diff<86400000)return Math.floor(diff/3600000)+"h ago";return d.toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});})():"—"}
-                        </div>
-                      </div>
-                      <div style={{fontSize:12,color:C.mid,lineHeight:"1.5"}}>
-                        {Object.entries(r.answers||{}).length === 0 ? (
-                          <span style={{color:C.lt,fontStyle:"italic",fontFamily:_fM}}>No answers recorded</span>
-                        ) : (
-                          Object.entries(r.answers||{}).map(([qid,ans],idx)=>(
-                            <div key={idx} style={{marginBottom:idx<Object.entries(r.answers||{}).length-1?6:0}}>
-                              <span style={{fontFamily:_fM,color:C.lt,fontSize:11,fontWeight:600}}>{qid}: </span>
-                              <span style={{color:C.dk}}>{Array.isArray(ans)?ans.join(", "):String(ans)||"—"}</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {!adminLoading && !adminStats && (
-              <div style={{background:C.warm,borderRadius:14,padding:"14px",marginBottom:16,border:`1px dashed ${C.blush}`,textAlign:"center"}}>
-                <div style={{color:C.lt,fontSize:13,fontFamily:_fM,fontWeight:600}}>No active feedback yet</div>
-                <div style={{color:C.lt,fontSize:12,fontFamily:_fM,marginTop:4}}>Create and push a survey below to start collecting responses</div>
-              </div>
-            )}
-
-            {}
-            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Build new feedback push</div>
-            <div style={{background:"white",borderRadius:16,padding:"14px",border:`1px solid ${C.blush}`,marginBottom:10}}>
-
-              {}
-              <div style={{marginBottom:14}}>
-                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Feedback title (shown to users)</label>
-                <input value={adminPush.title} onChange={e=>setAdminPush(p=>({...p,title:e.target.value}))}
-                  placeholder="e.g. Help us improve OBubba 🙏"
-                  style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
-              </div>
-
-              {}
-              {adminPush.questions.map((q,qi)=>(
-                <div key={q.id} style={{background:C.warm,borderRadius:14,padding:"12px",marginBottom:10,border:`1px solid ${C.blush}`}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,fontWeight:700}}>Question {qi+1}</div>
-                    <div style={{display:"flex",gap:4}}>
-                      {qi>0&&<button onClick={()=>adminMoveQuestion(qi,-1)} style={{background:_bN,border:`1px solid ${C.blush}`,borderRadius:8,width:26,height:26,cursor:_cP,color:C.lt,fontSize:12}}>↑</button>}
-                      {qi<adminPush.questions.length-1&&<button onClick={()=>adminMoveQuestion(qi,1)} style={{background:_bN,border:`1px solid ${C.blush}`,borderRadius:8,width:26,height:26,cursor:_cP,color:C.lt,fontSize:12}}>↓</button>}
-                      {adminPush.questions.length>1&&<button onClick={()=>adminRemoveQuestion(qi)} style={{background:_bN,border:`1px solid #e8c0bb`,borderRadius:8,width:26,height:26,cursor:_cP,color:"#c07070",fontSize:12}}>✕</button>}
-                    </div>
-                  </div>
-
-                  {}
-                  <div style={{display:"flex",gap:5,marginBottom:8,flexWrap:"wrap"}}>
-                    {[{v:"star",l:"⭐ Stars"},{v:"single",l:"🔘 Single"},{v:"multi",l:"☑️ Multi"},{v:"scale",l:"📊 Scale"},{v:"text",l:"✏️ Text"},{v:"yesno",l:"👍 Yes/No"}].map(({v,l})=>(
-                      <button key={v} onClick={()=>adminUpdateQ(qi,"type",v)}
-                        style={{padding:"4px 10px",borderRadius:99,border:`1.5px solid ${q.type===v?C.ter:C.blush}`,background:q.type===v?"#fdf0eb":C.cream,color:q.type===v?C.ter:C.lt,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fM}}>
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-
-                  {}
-                  <input value={q.text} onChange={e=>adminUpdateQ(qi,"text",e.target.value)}
-                    placeholder="Your question…"
-                    style={{width:"100%",padding:"8px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"white",fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB,marginBottom:(q.type==="multi"||q.type==="single")?8:0}}/>
-
-                  {}
-                  {(q.type==="multi"||q.type==="single") && (
-                    <div>
-                      {(q.choices||[]).map((c,ci)=>(
-                        <div key={ci} style={{display:"flex",gap:5,marginBottom:5,alignItems:"center"}}>
-                          <input value={c} onChange={e=>adminUpdateChoice(qi,ci,e.target.value)}
-                            placeholder={`Option ${ci+1}`}
-                            style={{flex:1,padding:"6px 10px",borderRadius:9,border:`1.5px solid ${C.blush}`,background:"white",fontSize:12,fontFamily:_fI,outline:_oN}}/>
-                          <button onClick={()=>adminRemoveChoice(qi,ci)}
-                            style={{width:24,height:24,borderRadius:"50%",border:`1px solid ${C.blush}`,background:"white",color:C.lt,cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
-                        </div>
-                      ))}
-                      <button onClick={()=>adminAddChoice(qi)}
-                        style={{fontSize:12,color:C.lt,background:_bN,border:_bN,cursor:_cP,padding:"4px 0",fontFamily:_fI,textDecoration:"underline"}}>
-                        + Add option
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {}
-              <button onClick={adminAddQuestion}
-                style={{width:"100%",padding:"10px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"transparent",color:C.lt,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:12}}>
-                + Add another question
-              </button>
-
-              <button onClick={adminPushFeedback} disabled={adminSaving||!adminPush.title.trim()}
-                style={{width:"100%",padding:"13px",borderRadius:99,border:_bN,background:adminPush.title.trim()?C.ter:"#e0d0cc",color:"white",fontSize:14,fontWeight:700,cursor:adminPush.title.trim()?"pointer":"default",fontFamily:_fI}}>
-                {adminSaving?"Pushing…":"🚀 Push to all users"}
-              </button>
-              <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:6,fontFamily:_fM}}>Replaces any existing active push immediately</div>
-            </div>
-
-          </div>
-        </div>
-      )}
 
     </div>
   );
