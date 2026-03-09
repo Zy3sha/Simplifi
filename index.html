@@ -4760,16 +4760,17 @@ function App(){
               }
 
               const icon = isBedNow ? "🌙" : isBed ? "🌙" : "⏱️";
-              const label = isNapNow ? "Tap to start" : isBedNow ? "Tap to log" : isBed ? "Bedtime in" : "Next Nap";
+              const label = isNapNow ? "Tap to start" : isBedNow ? "Tap to log" : isBed ? "Bedtime in" : "Tap to start";
               const valueText = isNapNow ? "😴 Start nap" : isBedNow ? "Log bedtime" : countdown !== null ? fmtCountdown(countdown) : "–";
               const bg = isNapNow ? C.mint : isBedNow ? C.sky : isUrgent ? C.ter : "rgba(255,255,255,0.6)";
               const textColor = isNow || isUrgent ? "white" : isBed ? C.sky : C.ter;
               const subColor = isNow || isUrgent ? "rgba(255,255,255,0.85)" : C.lt;
               const shadow = isNapNow ? "0 0 0 3px rgba(111,168,152,0.3)" : isBedNow ? "0 0 0 3px rgba(122,171,196,0.3)" : "none";
+              const clickAction = isBedNow ? logBedtimeNow : isBed ? undefined : startNap;
 
               return (
-                <button onClick={isNapNow ? startNap : isBedNow ? logBedtimeNow : undefined}
-                  style={{marginLeft:"auto",background:bg,border:"none",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:isNow?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:"inherit"}}>
+                <button onClick={clickAction}
+                  style={{marginLeft:"auto",background:bg,border:"none",borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:clickAction?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:"inherit"}}>
                   <span style={{fontSize:13}}>{icon}</span>
                   <div style={{textAlign:"left"}}>
                     <div style={{fontSize:9,fontFamily:"monospace",color:subColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{label}</div>
