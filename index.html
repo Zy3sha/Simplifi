@@ -1026,6 +1026,16 @@ function App(){
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
+  // Bridge nap: tracks whether user added bridge nap to schedule (keyed by selDay)
+  const[bridgeNapDays,setBridgeNapDays]=useState(()=>{try{return JSON.parse(localStorage.getItem("bridge_nap_days_v1")||"{}");} catch{return {};}});
+  const bridgeNapScheduled = bridgeNapDays[selDay]===true;
+  function setBridgeNap(val){
+    setBridgeNapDays(prev=>{
+      const next={...prev,[selDay]:val};
+      try{localStorage.setItem("bridge_nap_days_v1",JSON.stringify(next));}catch{}
+      return next;
+    });
+  }
   const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
   const[inlineWakeTime,setInlineWakeTime]=useState("");
 
@@ -4166,14 +4176,12 @@ function App(){
     });
   }
   function startNap(){
-    // Bug 1: prevent multiple active timers
-    if (napOn) return;
-    if (!napStartT && !napOn) {
-      const t=nowTime();
-      try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");}catch{}
-      setNapStartT(t);setNapSec(0);setNapOn(true);
-      setTimerMode("activeSleep"); // Bug 1: switch to active sleep mode
-    }
+    if (napOn) return; // already running
+    const t=nowTime();
+    // Clear any stale start time from a previous session
+    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");}catch{}
+    setNapStartT(t);setNapSec(0);setNapOn(true);
+    setTimerMode("activeSleep");
   }
 
   function logBedtimeNow(){
@@ -5191,17 +5199,19 @@ function App(){
                 );
               }
 
-              const icon = isBedNow ? "🌙" : isBed ? "🌙" : "⏱️";
-              const label = isNapNow ? "Tap to start" : isBedNow ? "Tap to log" : isBed ? "Bedtime in" : "Next Nap";
-              const valueText = isNapNow ? "😴 Start nap" : isBedNow ? "Log bedtime" : countdown !== null ? fmtCountdown(countdown) : "–";
-              const bg = isNapNow ? C.mint : isBedNow ? C.sky : isUrgent ? C.ter : "rgba(255,255,255,0.6)";
-              const textColor = isNow || isUrgent ? "white" : isBed ? C.sky : C.ter;
-              const subColor = isNow || isUrgent ? "rgba(255,255,255,0.85)" : C.lt;
+              const icon = isBedNow ? "🌙" : isBed ? "🌙" : isNapNow ? "😴" : "⏱️";
+              // Nap countdown is always tappable — pressing it starts the nap early
+              const isNapTappable = !isBed && !isNeutral && napCountdown !== null;
+              const label = isNapNow ? "Tap to start" : isNapTappable ? "Nap in · tap to start" : isBedNow ? "Tap to log" : isBed ? "Bedtime in" : "Next Nap";
+              const valueText = isNapNow ? "😴 Start nap" : isNapTappable ? fmtCountdown(countdown) : isBedNow ? "Log bedtime" : countdown !== null ? fmtCountdown(countdown) : "–";
+              const bg = isNapNow ? C.mint : isNapTappable ? "rgba(111,168,152,0.18)" : isBedNow ? C.sky : isUrgent ? C.ter : "rgba(255,255,255,0.6)";
+              const textColor = isNapNow || isBedNow || isUrgent ? "white" : isBed ? C.sky : C.mint;
+              const subColor = isNapNow || isBedNow || isUrgent ? "rgba(255,255,255,0.85)" : C.lt;
               const shadow = isNapNow ? "0 0 0 3px rgba(111,168,152,0.3)" : isBedNow ? "0 0 0 3px rgba(122,171,196,0.3)" : "none";
 
               return (
-                <button onClick={isNapNow ? startNap : isBedNow ? logBedtimeNow : undefined}
-                  style={{marginLeft:"auto",background:bg,border:_bN,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:isNow?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
+                <button onClick={isNapTappable ? startNap : isBedNow ? logBedtimeNow : undefined}
+                  style={{marginLeft:"auto",background:bg,border:isNapTappable&&!isNapNow?`1px solid ${C.mint}`:_bN,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:isNapTappable||isBedNow?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
                   <span style={{fontSize:13}}>{icon}</span>
                   <div style={{textAlign:"left"}}>
                     <div style={{fontSize:9,fontFamily:_fM,color:subColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{label}</div>
@@ -5500,47 +5510,49 @@ function App(){
                   const isOver=dragOver===e.id;
                   const accentCol=e.type==="feed"?(e.feedType==="solids"?"#b8860b":e.feedType==="breast"?"#c07080":e.feedType==="pump"?"#7090c0":C.ter):e.type==="nap"?C.mint:e.type==="sleep"?C.sky:e.type==="poop"?"#8a7060":e.type==="wake"?C.gold:C.mid;
 
-                  // TIME — naps use start, everything else uses time
-                  const tStr = e.type==="nap" ? (e.start||"") : (e.time||e.start||"");
-                  const timeLabel = tStr ? fmt12(tStr) : "–";
-
-                  // ACTIVITY
+                  // Activity label
                   const actLabel = e.type==="feed"
-                    ? (e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breastfeed":e.feedType==="pump"?"Pump":"Bottle feed")
+                    ? (e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":e.feedType==="pump"?"Pump":"Bottle Feed")
                     : e.type==="nap"?"Nap"
                     : e.type==="sleep"?"Bedtime"
-                    : e.type==="wake"?"Wake up"
+                    : e.type==="wake"?"Wake Up"
                     : e.type==="poop"?"Nappy"
                     : NAMES[e.type]||e.type;
 
-                  // DETAIL — inline per spec: duration for naps, ml/food for feeds, type for nappies, L/R for breast/pump
-                  let detail = "";
+                  // Sub-detail (shown below activity name, replaces old duplicate lines)
+                  let subDetail = null;
+                  if(e.type==="feed"&&e.feedType==="breast"){
+                    const parts=[];
+                    if(e.breastL>0) parts.push(`L: ${e.breastL}m`);
+                    if(e.breastR>0) parts.push(`R: ${e.breastR}m`);
+                    if(parts.length) subDetail=parts.join(" · ");
+                  }
+                  if(e.type==="feed"&&e.feedType==="pump"){
+                    const parts=[];
+                    if(e.pumpL>0) parts.push(`L: ${e.pumpL}ml`);
+                    if(e.pumpR>0) parts.push(`R: ${e.pumpR}ml`);
+                    if(parts.length) subDetail=parts.join(" · ");
+                  }
                   if(e.type==="nap"&&e.start&&e.end){
                     const dur=minDiff(e.start,e.end);
-                    if(dur>0) detail=hm(dur);
-                  } else if(e.type==="feed"){
-                    if(e.feedType==="breast"){
-                      const parts=[];
-                      if(e.breastL>0) parts.push(`L ${e.breastL}m`);
-                      if(e.breastR>0) parts.push(`R ${e.breastR}m`);
-                      detail=parts.join(" · ");
-                    } else if(e.feedType==="pump"){
-                      const pTot=(e.pumpL||0)+(e.pumpR||0);
-                      const parts=[];
-                      if(pTot>0) parts.push(`${pTot}ml`);
-                      if(e.pumpL>0&&e.pumpR>0) parts.push(`L ${e.pumpL} · R ${e.pumpR}`);
-                      else if(e.pumpL>0) parts.push(`L ${e.pumpL}ml`);
-                      else if(e.pumpR>0) parts.push(`R ${e.pumpR}ml`);
-                      if(e.pumpDuration) parts.push(`${e.pumpDuration}m`);
-                      detail=parts.join(" · ");
-                    } else {
-                      if(e.amount) detail=`${e.amount}ml`;
-                    }
-                  } else if(e.type==="poop"&&e.poopType){
-                    detail=e.poopType;
+                    if(dur>0) subDetail=hm(dur);
                   }
-                  if(e.note&&detail) detail+=` · ${e.note}`;
-                  else if(e.note) detail=e.note;
+                  if(e.type==="poop"&&e.poopType) subDetail=e.poopType;
+                  if(e.note&&!subDetail) subDetail=e.note;
+                  else if(e.note&&subDetail) subDetail+=` · ${e.note}`;
+
+                  // Badge chip value (right side) — per spec
+                  let badgeVal = null;
+                  if(e.type==="feed"){
+                    if(e.feedType==="breast") badgeVal=`${(e.breastL||0)+(e.breastR||0)}m`;
+                    else if(e.feedType==="pump") badgeVal=`${(e.pumpL||0)+(e.pumpR||0)}ml`;
+                    else if(e.feedType==="solids") badgeVal=fmt12(e.time);
+                    else badgeVal=e.amount?`${e.amount}ml`:null;
+                  } else if(e.type==="nap"){
+                    badgeVal=e.start&&e.end?`${fmt12(e.start)}–${fmt12(e.end)}`:e.start?fmt12(e.start):null;
+                  } else {
+                    badgeVal=fmt12(e.time||e.start||"");
+                  }
 
                   return(
                     <div key={e.id}
@@ -5550,18 +5562,20 @@ function App(){
                       onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
                       onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
                       onDrop={ev=>{ev.preventDefault();}}
-                      style={{background:isOver?"#f5ede8":C.warm,borderRadius:12,padding:"8px 11px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,transition:"opacity 0.15s,background 0.15s"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span data-drag-handle="1" style={{fontSize:14,cursor:"grab",color:C.lt,touchAction:"none",flexShrink:0,userSelect:"none",WebkitUserSelect:"none",opacity:0.45}}>⠿</span>
-                        <div style={{flex:1,minWidth:0,display:"flex",alignItems:"baseline",gap:"0 4px",flexWrap:"wrap"}}>
-                          <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:accentCol,flexShrink:0,whiteSpace:"nowrap"}}>{timeLabel}</span>
-                          <span style={{fontSize:12,color:C.lt,flexShrink:0,fontFamily:_fM,margin:"0 1px"}}>—</span>
-                          <span style={{fontSize:14,fontWeight:600,color:C.deep,flexShrink:0}}>{actLabel}</span>
-                          {detail&&<span style={{fontSize:13,color:C.mid,fontFamily:_fM,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>· {detail}</span>}
+                      style={{background:isOver?"#f5ede8":C.warm,borderRadius:14,padding:"11px 12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,transition:"opacity 0.15s,background 0.15s"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:9}}>
+                          <span data-drag-handle="1" style={{fontSize:18,cursor:"grab",color:C.lt,letterSpacing:-1,touchAction:"none",padding:"6px 4px",userSelect:"none",WebkitUserSelect:"none"}}>&#x2261;</span>
+                          <span style={{fontSize:17}}>{ICONS[e.type]||"📝"}</span>
+                          <div>
+                            <div style={{fontSize:14,fontWeight:500}}>{actLabel}</div>
+                            {subDetail&&<div style={{fontSize:13,color:C.lt,fontFamily:_fM,marginTop:1}}>{subDetail}</div>}
+                          </div>
                         </div>
-                        <div style={{display:"flex",gap:4,flexShrink:0}}>
-                          <button onClick={()=>openEdit(e)} style={{background:"#f0e8e0",border:_bN,borderRadius:"50%",width:26,height:26,color:C.mid,cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>
-                          <button onClick={()=>delEntry(e.id)} style={{background:"#f0e5e0",border:_bN,borderRadius:"50%",width:26,height:26,color:C.lt,cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                        <div style={{display:"flex",alignItems:"center",gap:7}}>
+                          {badgeVal&&<Badge type={e.type}>{badgeVal}</Badge>}
+                          <button onClick={()=>openEdit(e)} style={{background:"#f0e8e0",border:_bN,borderRadius:"50%",width:23,height:23,color:C.mid,cursor:_cP,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>
+                          <button onClick={()=>delEntry(e.id)} style={{background:"#f0e5e0",border:_bN,borderRadius:"50%",width:23,height:23,color:C.lt,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                         </div>
                       </div>
                     </div>
@@ -5769,13 +5783,60 @@ function App(){
 
                       
 
-                      {/* Bridge nap suggestion */}
-                      {ebr && ebr.suggestBridge && (
-                        <div style={{background:"#fff8f0",border:"1px solid #f0d8b0",borderLeft:"4px solid #d4a855",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
-                          <div style={{fontSize:13,fontWeight:700,color:"#8a6020",marginBottom:3}}>🌉 Bridge Nap Suggested</div>
-                          <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>Today's naps were shorter than usual. A short bridge nap (15–30 min) may help extend the day and support a balanced bedtime.</div>
-                        </div>
-                      )}
+                      {/* Bridge nap suggestion — interactive */}
+                      {(()=>{
+                        if (!ebr) return null;
+                        const dss2 = getDaySleepSummary();
+                        const dayMet = dss2 && (dss2.status === "normal" || dss2.status === "above");
+
+                        // If bridge was scheduled but day sleep is now met — prompt removal
+                        if (bridgeNapScheduled && dayMet) {
+                          return (
+                            <div style={{background:"#edfaf4",border:"1px solid #a0ddc0",borderLeft:"4px solid #50a888",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
+                              <div style={{fontSize:13,fontWeight:700,color:"#2a7055",marginBottom:4}}>✅ Day sleep target met!</div>
+                              <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:8}}>Baby has now reached the recommended day sleep. The bridge nap you added may no longer be needed. Would you like to remove it?</div>
+                              <div style={{display:"flex",gap:7}}>
+                                <button onClick={()=>setBridgeNap(false)} style={{flex:1,background:"linear-gradient(135deg,#50a888,#3a8870)",border:"none",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:700,color:"white",cursor:"pointer"}}>Remove bridge nap</button>
+                                <button onClick={()=>setBridgeNap(true)} style={{flex:1,background:"#f0faf6",border:"1px solid #a0ddc0",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:600,color:"#2a7055",cursor:"pointer"}}>Keep it in</button>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Bridge still needed
+                        if (ebr.suggestBridge) {
+                          return (
+                            <div style={{background:"#fff8f0",border:"1px solid #f0d8b0",borderLeft:"4px solid #d4a855",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
+                              <div style={{fontSize:13,fontWeight:700,color:"#8a6020",marginBottom:3}}>🌉 Bridge Nap Suggested</div>
+                              <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:bridgeNapScheduled?6:8}}>Today's naps were shorter than usual. A short bridge nap (15–30 min) may help extend the day and support a balanced bedtime.</div>
+                              {bridgeNapScheduled ? (
+                                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                                    <span style={{fontSize:13}}>✅</span>
+                                    <span style={{fontSize:12,fontFamily:_fM,color:"#8a6020",fontWeight:700}}>Added to today's schedule</span>
+                                  </div>
+                                  <button onClick={()=>setBridgeNap(false)} style={{background:"rgba(212,168,85,0.15)",border:"1px solid #d4a855",borderRadius:99,padding:"4px 11px",fontSize:12,fontWeight:600,color:"#8a6020",cursor:"pointer"}}>Remove</button>
+                                </div>
+                              ) : (
+                                <button onClick={()=>setBridgeNap(true)} style={{width:"100%",background:"linear-gradient(135deg,#d4a855,#b8902a)",border:"none",borderRadius:99,padding:"8px 0",fontSize:13,fontWeight:700,color:"white",cursor:"pointer"}}>+ Add bridge nap to schedule</button>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        // Bridge was scheduled but conditions no longer apply (not suggestBridge, not dayMet)
+                        if (bridgeNapScheduled) {
+                          return (
+                            <div style={{background:"#f8f5ee",border:"1px solid #e8d8a0",borderLeft:"4px solid #c8b060",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
+                              <div style={{fontSize:13,fontWeight:700,color:"#7a6010",marginBottom:3}}>🌉 Bridge nap scheduled</div>
+                              <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:6}}>Conditions have changed — a bridge nap may no longer be necessary, but it's still in your schedule.</div>
+                              <button onClick={()=>setBridgeNap(false)} style={{background:"rgba(200,176,96,0.15)",border:"1px solid #c8b060",borderRadius:99,padding:"5px 14px",fontSize:12,fontWeight:600,color:"#7a6010",cursor:"pointer"}}>Remove from schedule</button>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })()}
 
                       {/* Advanced dual-method bedtime */}
                       {actualBedEntry ? (
