@@ -1163,7 +1163,6 @@ function App(){
   const[breastStartTime,setBreastStartTime]=useState(()=>{try{return localStorage.getItem("breast_startTime")||null;}catch{return null;}});
   const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null);
-  const[timerEndPrompt,setTimerEndPrompt]=useState(null); // {start, end, durMins} when timer stopped
   // Bug 1: explicit timer mode — 'prediction' | 'activeSleep'
   const[timerMode,setTimerMode]=useState(()=> {
     try { return localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction"); } catch { return "prediction"; }
@@ -4388,29 +4387,22 @@ function App(){
   }
   function endNap(){
     if(!napOn) return;
+    // Bug 1: require valid start time before saving
     if (!napStartT) { setNapOn(false); setTimerMode("prediction"); return; }
     setNapOn(false);
     const end=nowTime();
+    // Bug 1: compute duration from stored start time for accuracy
     const [sh,sm]=napStartT.split(":").map(Number);
     const [eh,em]=end.split(":").map(Number);
     let durMins = (eh*60+em) - (sh*60+sm);
-    if (durMins < 0) durMins += 24*60;
-    const h = new Date().getHours();
-    const isNightTime = h >= 19 || h < 6;
-    const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
-    if (isNightTime || hasBedtime) {
-      // Show prompt: night wake, morning wake, or nap?
-      setTimerEndPrompt({start: napStartT, end, durMins});
-    } else {
-      // Daytime with no bedtime — log as nap directly
-      setDays(d=>{
-        const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,duration:durMins,night:false,note:""}];
-        const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-        return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
-      });
-    }
+    if (durMins < 0) durMins += 24*60; // midnight rollover
+    setDays(d=>{
+      const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,duration:durMins,night:false,note:""}];
+      const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+      return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+    });
     setNapStartT(null);setNapSec(0);
-    setTimerMode("prediction");
+    setTimerMode("prediction"); // Bug 1: reset to prediction mode, triggers next nap recalc
     try{["nap_on","nap_startT","nap_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
   function copySummary(){
@@ -5435,18 +5427,12 @@ function App(){
               const bedBtnTappable = isBed || isBedNow || napOn;
               const handleBedBtn = () => {
                 if (napOn) {
-                  // Second tap: stop timer — show prompt for what to log
-                  const end = nowTime();
-                  const start = napStartT || end;
-                  const [sh2,sm2]=start.split(":").map(Number);
-                  const [eh2,em2]=end.split(":").map(Number);
-                  let dur = (eh2*60+em2) - (sh2*60+sm2);
-                  if (dur < 0) dur += 24*60;
+                  // Second tap: stop timer & log bedtime
                   setNapOn(false);
                   setNapStartT(null); setNapSec(0);
                   setTimerMode("prediction");
                   try{["nap_on","nap_startT","nap_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
-                  setTimerEndPrompt({start, end, durMins: dur, fromBedTimer: true});
+                  logBedtimeNow();
                 } else if (isBedNow || isBed) {
                   // First tap: start sleep timer (counts up)
                   startNap();
@@ -5632,9 +5618,6 @@ function App(){
 
                   // Activity label: "time - Activity (type)" format
                   const actLabel = (() => {
-                    if (e.type === "nap" && e.start && e.end) {
-                      return `${fmt12(e.start)}-${fmt12(e.end)} - Nap`;
-                    }
                     const timeStr = e.time || e.start || "";
                     const timeDisplay = timeStr ? fmt12(timeStr) : "";
                     const name = e.type==="feed"
@@ -7313,70 +7296,6 @@ function App(){
           </button>
         ))}
       </div>
-      {/* Timer end prompt — night wake or morning wake? */}
-      {timerEndPrompt && (
-        <Sheet onClose={()=>setTimerEndPrompt(null)} title="">
-          <div style={{textAlign:"center",marginBottom:16}}>
-            <div style={{fontSize:36,marginBottom:8}}>⏱️</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:4}}>Timer stopped</div>
-            <div style={{fontSize:14,color:C.mid}}>{fmt12(timerEndPrompt.start)} → {fmt12(timerEndPrompt.end)} · {hm(timerEndPrompt.durMins)}</div>
-          </div>
-          <div style={{fontSize:14,color:C.mid,textAlign:"center",marginBottom:16}}>What was this?</div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            <button onClick={()=>{
-              // Log as night wake on current day
-              quickAddLog("wake",{type:"wake",time:timerEndPrompt.end,night:true,note:""});
-              setTimerEndPrompt(null);
-              setShowNightWake(true);
-            }} style={{padding:"14px",borderRadius:14,border:"1.5px solid #c5bef5",background:"linear-gradient(135deg,#f0eeff,#e8e4ff)",cursor:_cP,fontFamily:_fI,display:"flex",alignItems:"center",gap:12}}>
-              <span style={{fontSize:24}}>🌙</span>
-              <div style={{textAlign:"left"}}>
-                <div style={{fontSize:15,fontWeight:700,color:"#4a3cb5"}}>Night Wake</div>
-                <div style={{fontSize:12,color:"#7060c0"}}>Baby woke during the night — log a night wake</div>
-              </div>
-            </button>
-            <button onClick={()=>{
-              // Morning wake — if bedtime already logged today, create next day and log wake there
-              const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
-              if (hasBedtime) {
-                const nextDay = (()=>{ const d=new Date(selDay+"T12:00:00"); d.setDate(d.getDate()+1); return d.toISOString().split("T")[0]; })();
-                setDays(d=>{
-                  const existing = d[nextDay] || [];
-                  const hasWake = existing.some(e=>e.type==="wake"&&!e.night);
-                  if (hasWake) return d;
-                  const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:""}];
-                  return {...d, [nextDay]: updated};
-                });
-                setSelDay((()=>{ const d=new Date(selDay+"T12:00:00"); d.setDate(d.getDate()+1); return d.toISOString().split("T")[0]; })());
-              } else {
-                quickAddLog("wake",{type:"wake",time:timerEndPrompt.end,night:false,note:""});
-              }
-              setTimerEndPrompt(null);
-            }} style={{padding:"14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"linear-gradient(135deg,#fdf8f0,#fff4e8)",cursor:_cP,fontFamily:_fI,display:"flex",alignItems:"center",gap:12}}>
-              <span style={{fontSize:24}}>☀️</span>
-              <div style={{textAlign:"left"}}>
-                <div style={{fontSize:15,fontWeight:700,color:C.gold}}>Morning Wake Up</div>
-                <div style={{fontSize:12,color:C.mid}}>Baby's up for the day — logs on the next day</div>
-              </div>
-            </button>
-            <button onClick={()=>{
-              // Log as nap on current day
-              setDays(d=>{
-                const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:timerEndPrompt.start,end:timerEndPrompt.end,duration:timerEndPrompt.durMins,night:false,note:""}];
-                const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-                return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
-              });
-              setTimerEndPrompt(null);
-            }} style={{padding:"14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:C.warm,cursor:_cP,fontFamily:_fI,display:"flex",alignItems:"center",gap:12}}>
-              <span style={{fontSize:24}}>😴</span>
-              <div style={{textAlign:"left"}}>
-                <div style={{fontSize:15,fontWeight:700,color:C.mint}}>Nap</div>
-                <div style={{fontSize:12,color:C.mid}}>Just a late nap — log it as a nap</div>
-              </div>
-            </button>
-          </div>
-        </Sheet>
-      )}
       {logPanel==="feed"&&(
         <Sheet onClose={()=>setLogPanel(null)} title="🍼 Log Feed">
           <div style={{display:"flex",gap:8,marginBottom:16}}>
