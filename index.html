@@ -305,7 +305,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
       {label&&<label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{label}</label>}
       <button onClick={openPicker} type="button"
         style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${borderColor}`,background:bgColor,fontSize:15,fontFamily:_fI,textAlign:"left",cursor:_cP,display:"flex",alignItems:"center",justifyContent:"space-between",boxSizing:_bBB,...inputStyle}}>
-        <span style={{color:parsed?C.deep:C.lt}}>{parsed ? fmt12(parsed) : "Tap to set time"}</span>
+        <span style={{color:parsed?C.deep:"#c8beb8"}}>{parsed ? fmt12(parsed) : fmt12(nowTime())}</span>
         <span style={{fontSize:14,opacity:0.5}}>🕐</span>
       </button>
 
@@ -2386,12 +2386,17 @@ function App(){
   const entries=days[selDay]||[];
   const _bedtimeCount = entries.filter(e=>e.type==="sleep").length;
 
-  // Auto-reclassify night entries whenever entries change (e.g. bedtime logged after a feed)
+  // Auto-reclassify night entries whenever entries or selected day changes
   React.useEffect(()=>{
-    if(!entries.length || !_bedtimeCount) return;
+    if(!entries.length) return;
+    const hasBed = entries.some(e=>e.type==="sleep"&&!e.night);
+    if(!hasBed) return;
     const prevD = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().split("T")[0];})();
-    const reclassified = autoClassifyNight(entries, days[prevD]||null);
-    const changed = reclassified.some((e,i) => e.night !== entries[i]?.night);
+    const reclassified = autoClassifyNight([...entries], days[prevD]||null);
+    let changed = false;
+    for(let i=0;i<reclassified.length;i++){
+      if(reclassified[i].night !== entries[i]?.night){ changed=true; break; }
+    }
     if(changed) setDays(d=>({...d,[selDay]:reclassified}));
   },[selDay, entries.length, _bedtimeCount]);
 
@@ -4148,7 +4153,7 @@ function App(){
     setModal(null); _setParsedEntries(null); setPasteText("");
   }
 
-  function openEntry(night=false){setEditEntry(null);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
+  function openEntry(night=false){setEditEntry(null);setEType("feed");setFeedType("milk");setForm({amount:"",time:"",start:"",end:"",note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
   function openLogPanel(panel){
     setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
     setLogPanel(panel);
@@ -4298,21 +4303,23 @@ function App(){
   }
   function saveEntry(){
     let e={id:editEntry?editEntry.id:uid(),note:form.note||"",nightLocked:editEntry?editEntry.nightLocked:false};
+    const formTime = form.time || nowTime();
+    const formStart = form.start || nowTime();
+    const formEnd = form.end || nowTime();
     if(eType==="feed"){
-      if(!form.time)return;
       if(feedType==="breast"){
         const bL=parseInt(form.breastL)||0, bR=parseInt(form.breastR)||0;
-        e={...e,type:"feed",time:form.time,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:form.night==="yes"};
+        e={...e,type:"feed",time:formTime,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:form.night==="yes"};
       } else if(feedType==="pump"){
         const pL=parseInt(form.pumpL)||0, pR=parseInt(form.pumpR)||0;
-        e={...e,type:"feed",time:form.time,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};
+        e={...e,type:"feed",time:formTime,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};
       } else {
-        e={...e,type:"feed",time:form.time,amount:parseInt(form.amount)||0,night:form.night==="yes",feedType:feedType};
+        e={...e,type:"feed",time:formTime,amount:parseInt(form.amount)||0,night:form.night==="yes",feedType:feedType};
       }
     }
-    else if(eType==="nap"){if(!form.start||!form.end)return;e={...e,type:"nap",start:form.start,end:form.end,night:false};}
-    else if(eType==="poop"){if(!form.time)return;e={...e,type:"poop",time:form.time,poopType:form.poopType||"",night:false};}
-    else{if(!form.time)return;e={...e,type:eType,time:form.time,night:false};}
+    else if(eType==="nap"){e={...e,type:"nap",start:formStart,end:formEnd,night:false};}
+    else if(eType==="poop"){e={...e,type:"poop",time:formTime,poopType:form.poopType||"",night:false};}
+    else{e={...e,type:eType,time:formTime,night:false};}
     if(editEntry){
       setDays(d=>{
         const updated = (d[selDay]||[]).map(x=>x.id===editEntry.id?e:x);
@@ -5564,7 +5571,7 @@ function App(){
               {/* 5. Today's summary stats */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[
-                  {big:totalMl||dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?"ml":"meals",label:totalMl?"Milk":"Solids",color:C.ter,bg:"#fdf0eb"},
+                  {big:totalMl||dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?"ml":"meals",label:totalMl?"Total Milk":"Solids",color:C.ter,bg:"#fdf0eb"},
                   {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:"#8a7060",bg:"#f0ece6"},
                   {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},
                   {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"},
