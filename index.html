@@ -5136,7 +5136,7 @@ function App(){
             <div>
               {/* Personal/NHS toggle pill — anchored under date strip */}
               {usePersonalRecs !== null && (
-                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:-6,marginTop:-6,position:"relative",zIndex:10}}>
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:-14,marginTop:-22,position:"relative",zIndex:10}}>
                   <div style={{display:"inline-flex",background:"white",borderRadius:99,boxShadow:"0 2px 10px rgba(0,0,0,0.10)",border:`1px solid ${C.blush}`,overflow:"hidden"}}>
                     <button onClick={()=>{setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:usePersonalRecs===true?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:usePersonalRecs===true?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap"}}>✨ Personal</button>
                     <div style={{width:1,background:C.blush}}/>
