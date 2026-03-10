@@ -2379,8 +2379,9 @@ function App(){
   }
   const ageStage = getAgeStage();
 
-  const dayKeys=Object.keys(days).sort();
-  const displayDayKeys=[...dayKeys].reverse();
+  const today_str = todayStr();
+  const dayKeys=Object.keys(days).sort().filter(d => d <= today_str);
+  const displayDayKeys=[...Object.keys(days).sort()].reverse();
   const entries=days[selDay]||[];
 
 
