@@ -1210,6 +1210,7 @@ function App(){
   const[authPin2,setAuthPin2]=useState("");
   const[authError,setAuthError]=useState("");
   const[authLoading,setAuthLoading]=useState(false);
+  const[agreedToTerms,setAgreedToTerms]=useState(false);
   const authUsernameCheckRef = React.useRef(null);
   const[showForgotPin,setShowForgotPin]=useState(false);
   const[forgotPinStep,setForgotPinStep]=useState("word");
@@ -4590,7 +4591,7 @@ function App(){
 
   if (authScreen) {
     const isLogin = authMode === "login";
-    const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin : true);
+    const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin && agreedToTerms : true);
 
     async function handleAuth(pinArg, pin2Arg) {
       const pin = typeof pinArg === "string" ? pinArg : authPin;
@@ -4626,7 +4627,7 @@ function App(){
         </div>
         <div style={{display:"flex",background:C.warm,borderRadius:99,padding:4,marginBottom:16,gap:4}}>
           {[["login","Sign In"],["create","Create Account"]].map(([m,l])=>(
-            <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");setAuthUsernameStatus("idle");}}
+            <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");setAuthUsernameStatus("idle");setAgreedToTerms(false);}}
               style={{padding:"7px 16px",borderRadius:99,border:_bN,background:authMode===m?"white":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
               {l}
             </button>
@@ -4673,13 +4674,22 @@ function App(){
               Sign in with PIN →
             </button>
           ) : !isLogin && !authLoading ? (
-            <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit}
-              style={{width:"100%",marginTop:14,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                border:_bN,borderRadius:99,padding:"13px",color:canSubmit&&!authLoading?"white":"#b89890",
-                fontSize:15,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:_fI,
-                boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-              Create Account
-            </button>
+            <div>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:14,marginBottom:12,padding:"10px 12px",background:C.warm,borderRadius:12,border:`1.5px solid ${agreedToTerms?C.mint:C.blush}`}}>
+                <input type="checkbox" checked={agreedToTerms} onChange={e=>setAgreedToTerms(e.target.checked)}
+                  style={{marginTop:3,width:18,height:18,accentColor:C.ter,flexShrink:0,cursor:_cP}}/>
+                <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>
+                  I agree to the <a href="terms.html" target="_blank" style={{color:C.ter,fontWeight:600,textDecoration:"underline"}}>Terms & Conditions</a> and <a href="privacy.html" target="_blank" style={{color:C.ter,fontWeight:600,textDecoration:"underline"}}>Privacy Policy</a>
+                </div>
+              </div>
+              <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit}
+                style={{width:"100%",background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                  border:_bN,borderRadius:99,padding:"13px",color:canSubmit&&!authLoading?"white":"#b89890",
+                  fontSize:15,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:_fI,
+                  boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
+                Create Account
+              </button>
+            </div>
           ) : null}
 
           {isLogin && !authLoading && (
