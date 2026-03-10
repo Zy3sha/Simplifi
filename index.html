@@ -5214,8 +5214,8 @@ function App(){
               const shadow = isNapNow ? "0 0 0 3px rgba(111,168,152,0.3)" : isBedNow ? "0 0 0 3px rgba(122,171,196,0.3)" : "none";
 
               if (isNapTappable || isNapNow) {
-                const label = isNapNow ? "Tap to start" : "Nap in · tap to start";
-                const valueText = isNapNow ? "😴 Start nap" : fmtCountdown(countdown);
+                const label = isNapNow ? "Tap to start" : "Tap to start";
+                const valueText = isNapNow ? "😴 Now!" : "Nap " + fmtCountdown(countdown);
                 return (
                   <button onClick={startNap}
                     style={{marginLeft:"auto",background:bg,border:`1px solid ${C.mint}`,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
