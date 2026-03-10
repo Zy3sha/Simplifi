@@ -1065,6 +1065,10 @@ function App(){
   const[breastStartTime,setBreastStartTime]=useState(()=>{try{return localStorage.getItem("breast_startTime")||null;}catch{return null;}});
   const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null);
+  // Bug 1: explicit timer mode — 'prediction' | 'activeSleep'
+  const[timerMode,setTimerMode]=useState(()=> {
+    try { return localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction"; } catch { return "prediction"; }
+  });
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
   const[nameIn,setNameIn]=useState("");
@@ -1994,7 +1998,7 @@ function App(){
               if(!local.length){ mergedDays[date] = entries; return; }
               const seen = new Set(local.map(e=>e.id));
               const extra = (entries||[]).filter(e=>e.id && !seen.has(e.id));
-              if(extra.length) mergedDays[date] = [...local, ...extra];
+              if(extra.length) mergedDays[date] = autoClassifyNight([...local, ...extra]);
             });
             return {...prev, [childId]: {...remoteChild, id:childId, days:mergedDays}};
           });
@@ -2165,13 +2169,31 @@ function App(){
 
   const countdownRef = React.useRef(null);
   useEffect(()=>{
+    // Bug 1 Fix: timerMode-aware tick
+    // activeSleep mode: counts up every second (handled by existing napSec interval)
+    // prediction mode: counts down to next nap/bedtime, updates every 60s
+    // Both handle midnight rollover and restore from localStorage on reload
+
+    if (timerMode === "activeSleep") {
+      // Active sleep tracking — napSec interval handles the upward count
+      // Just clear any stale prediction countdowns
+      setNapCountdown(null);
+      setBedCountdown(null);
+      clearInterval(countdownRef.current);
+      return;
+    }
+
+    // Prediction countdown mode
     function tick(){
       const now = new Date();
+      // Bug 1: midnight rollover — compute nowMins fresh each tick
       const nowMins = now.getHours()*60 + now.getMinutes();
       const { hasBedtime, bed, bedMins, napsDone, expectedNaps, pred } = tickDataRef.current;
 
       const napsComplete = napsDone >= expectedNaps;
-      const minsUntilBed = bedMins !== null ? bedMins - nowMins : null;
+
+      // Bug 1: clamp minsUntilBed to 0 (no negative)
+      const minsUntilBed = bedMins !== null ? Math.max(0, bedMins - nowMins) : null;
 
       const bedtimeConditionMet = napsComplete && !hasBedtime && bed;
 
@@ -2183,9 +2205,8 @@ function App(){
 
       if (bedtimeConditionMet) {
         setNapCountdown(null);
-        let diff = Math.round(minsUntilBed * 60);
-        if (diff < 0) diff = 0;
-        setBedCountdown(diff);
+        // Bug 1: bedtime countdown in seconds, clamped ≥ 0
+        setBedCountdown(Math.round(minsUntilBed * 60));
         return;
       }
 
@@ -2197,18 +2218,25 @@ function App(){
           const [h,m] = pred.napStart_min.split(":").map(Number);
           const target = new Date();
           target.setHours(h,m,0,0);
+          // Bug 1: handle midnight rollover (target may be next day)
           let diff = Math.round((target - now)/1000);
-          if (diff < 0) diff = 0;
-          setNapCountdown(diff);
+          if (diff < 0) {
+            // try adding 24h in case of rollover
+            const targetNext = new Date(target.getTime() + 24*60*60*1000);
+            diff = Math.round((targetNext - now)/1000);
+          }
+          setNapCountdown(Math.max(0, diff));
         }
       } else {
         setNapCountdown(-1);
       }
     }
+
     tick();
+    // Prediction mode: still update every second for smooth countdown display
     countdownRef.current = setInterval(tick, 1000);
     return()=>clearInterval(countdownRef.current);
-  },[selDay, days, age]);
+  },[selDay, days, age, timerMode]);
 
 
   function getAgeStage(){
@@ -2231,7 +2259,7 @@ function App(){
   const entries=days[selDay]||[];
 
 
-  const dayE=entries.filter(e=>!e.night);
+  const dayE=entries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
   const nightE=entries.filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
   const totalMl=entries.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
   const naps=dayE.filter(e=>e.type==="nap");
@@ -2268,15 +2296,19 @@ function App(){
   }
 
   function getWakeWindow(ageWeeks) {
-    if (ageWeeks < 6)  return { min:45,  max:60,  label:"45–60 min" };
-    if (ageWeeks < 10) return { min:60,  max:90,  label:"1–1.5 hrs" };
-    if (ageWeeks < 16) return { min:75,  max:105, label:"1.25–1.75 hrs" };
-    if (ageWeeks < 20) return { min:90,  max:120, label:"1.5–2 hrs" };
-    if (ageWeeks < 24) return { min:105, max:135, label:"1.75–2.25 hrs" };
-    if (ageWeeks < 32) return { min:120, max:150, label:"2–2.5 hrs" };
-    if (ageWeeks < 40) return { min:150, max:180, label:"2.5–3 hrs" };
-    if (ageWeeks < 52) return { min:180, max:210, label:"3–3.5 hrs" };
-    return { min:210, max:270, label:"3.5–4.5 hrs" };
+    // Age-adaptive wake windows with hard guardrails (Bug 3 fix)
+    // Returns {min, max, label} in minutes
+    const months = ageWeeks / 4.33;
+    let min, max, label;
+    if (months < 3)       { min=45;  max=75;  label="45–75 min"; }
+    else if (months < 5)  { min=75;  max=150; label="1.25–2.5 hrs"; }
+    else if (months < 8)  { min=120; max=180; label="2–3 hrs"; }
+    else if (months < 11) { min=150; max=210; label="2.5–3.5 hrs"; }
+    else if (months < 15) { min=180; max=240; label="3–4 hrs"; }
+    else if (months < 19) { min=240; max=300; label="4–5 hrs"; }
+    else if (months < 25) { min=300; max=360; label="5–6 hrs"; }
+    else                  { min=300; max=420; label="5–7 hrs"; }
+    return { min, max, label, midpoint: Math.round((min+max)/2) };
   }
 
 
@@ -2313,63 +2345,80 @@ function App(){
     const ageWeeks = age ? age.totalWeeks : null;
     if (!ageWeeks || !selDay) return null;
 
-
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
     if (hasBedtime) return null;
 
-    const napProfile2 = age ? getAgeNapProfile(ageWeeks) : null;
+    // Bug 4: check expected nap count by age — if all done, no more naps
+    const napProfile2 = getAgeNapProfile(ageWeeks);
     const napsDoneToday = (days[selDay]||[]).filter(e => e.type==="nap" && !e.night).length;
-    if (napProfile2 && napsDoneToday >= napProfile2.expectedNaps) return null;
+    if (napsDoneToday >= napProfile2.expectedNaps) return null;
 
+    // Bug 3: age-appropriate wake window guardrails
+    const ww = getWakeWindow(ageWeeks);
+    const fallback = ww.midpoint;
+
+    // Bug 3: blend personal average (last 5 days) with age guidance
     let wakeWindowMin, wakeWindowMax, sourceLabel;
     const loggedDays = Object.keys(days).filter(d => (days[d]||[]).some(e=>!e.night)).sort();
-
     const napDays = loggedDays.filter(d => (days[d]||[]).some(e => e.type==="nap" && !e.night && e.start && e.end));
 
-
-    if (usePersonalRecs === true) {
-      const pb = computePersonalBaselines();
-      if (pb && pb.personalWWMin && pb.personalWWMax) {
-        wakeWindowMin = pb.personalWWMin;
-        wakeWindowMax = pb.personalWWMax;
-        sourceLabel = `${possessive(babyName||"Baby")} personal avg wake window (${pb.personalAvgWW>=60?`${Math.floor(pb.personalAvgWW/60)}h ${pb.personalAvgWW%60}m`:pb.personalAvgWW+"min"})`;
-      } else {
-        const ww = getWakeWindow(ageWeeks);
-        wakeWindowMin = ww.min; wakeWindowMax = ww.max;
-        sourceLabel = `age-appropriate wake windows for ${fmtAge(age)}`;
-      }
-    } else if (napDays.length < 7) {
-      const ww = getWakeWindow(ageWeeks);
-      wakeWindowMin = ww.min;
-      wakeWindowMax = ww.max;
-      sourceLabel = `age-appropriate wake windows for ${fmtAge(age)}`;
-    } else {
-      const recent = napDays.slice(-7);
+    if (usePersonalRecs === true && napDays.length >= 5) {
+      // Personal mode: blend baby's avg with age guidance
+      const recent5 = napDays.slice(-5);
       let windows = [];
-      recent.forEach(d => {
+      recent5.forEach(d => {
         const ws = getAwakeWindows(days[d]||[]);
         ws.forEach(w => { if (w.mins && w.mins >= 20) windows.push(w.mins); });
       });
-      if (windows.length < 3) {
-
-        const ww = getWakeWindow(ageWeeks);
-        wakeWindowMin = ww.min;
-        wakeWindowMax = ww.max;
-        sourceLabel = `age-appropriate wake windows for ${fmtAge(age)}`;
+      if (windows.length >= 3) {
+        const sorted2 = [...windows].sort((a,b)=>a-b);
+        const trim = Math.max(1, Math.floor(sorted2.length * 0.1));
+        const trimmed = sorted2.slice(trim, sorted2.length - trim);
+        const babyAvgWW = Math.round(trimmed.reduce((a,b)=>a+b,0) / trimmed.length);
+        // Bug 3 Step 4: blend 60% personal + 40% age midpoint, then clamp to [min, max]
+        const blended = Math.round(0.6 * babyAvgWW + 0.4 * fallback);
+        const clamped = Math.max(ww.min, Math.min(ww.max, blended));
+        wakeWindowMin = Math.max(ww.min, Math.round(clamped * 0.9));
+        wakeWindowMax = Math.min(ww.max, Math.round(clamped * 1.1));
+        sourceLabel = `${possessive(babyName||"Baby")} personal avg (${babyAvgWW}min blended with age guidance)`;
       } else {
-
+        wakeWindowMin = ww.min; wakeWindowMax = ww.max;
+        sourceLabel = `age-appropriate wake windows for ${fmtAge(age)}`;
+      }
+    } else if (usePersonalRecs !== true && napDays.length >= 7) {
+      // NHS mode with historical context
+      const recent7 = napDays.slice(-7);
+      let windows = [];
+      recent7.forEach(d => {
+        const ws = getAwakeWindows(days[d]||[]);
+        ws.forEach(w => { if (w.mins && w.mins >= 20) windows.push(w.mins); });
+      });
+      if (windows.length >= 3) {
         const sorted2 = [...windows].sort((a,b)=>a-b);
         const trim = Math.max(1, Math.floor(sorted2.length * 0.1));
         const trimmed = sorted2.slice(trim, sorted2.length - trim);
         const avgWindow = Math.round(trimmed.reduce((a,b)=>a+b,0) / trimmed.length);
-        wakeWindowMin = Math.max(30, Math.round(avgWindow * 0.88));
-        wakeWindowMax = Math.max(wakeWindowMin + 15, Math.round(avgWindow * 1.12));
+        // Bug 3 Step 5: clamp to age-appropriate range — prevents 9hr window bug
+        const clamped = Math.max(ww.min, Math.min(ww.max, avgWindow));
+        wakeWindowMin = Math.max(ww.min, Math.round(clamped * 0.88));
+        wakeWindowMax = Math.min(ww.max, Math.round(clamped * 1.12));
         sourceLabel = `your avg wake window (${avgWindow}min) · last 7 days`;
+      } else {
+        wakeWindowMin = ww.min; wakeWindowMax = ww.max;
+        sourceLabel = `age-appropriate wake windows for ${fmtAge(age)}`;
       }
+    } else {
+      wakeWindowMin = ww.min; wakeWindowMax = ww.max;
+      sourceLabel = `age-appropriate wake windows for ${fmtAge(age)}`;
     }
 
+    // Bug 5: find last awake start from sorted entries
     const sorted = [...(days[selDay]||[])].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
     if (!sorted.length) return null;
+
+    // Bug 5: nap cannot be before baby's wake time
+    const wakeEntry = sorted.find(e => e.type==="wake");
+    if (!wakeEntry) return null; // require wake to be logged for prediction
 
     let lastAwakeStart = null;
     sorted.forEach(function(e) {
@@ -2378,26 +2427,41 @@ function App(){
     });
     if (!lastAwakeStart) return null;
 
-    const napStart_min = addMinutes(lastAwakeStart, wakeWindowMin);
-    const napStart_max = addMinutes(lastAwakeStart, wakeWindowMax);
+    // Bug 5: minimum 30 min after waking
+    const [law_h, law_m] = lastAwakeStart.split(":").map(Number);
+    const lastAwakeMins = law_h*60 + law_m;
+    const earliestNapMins = lastAwakeMins + 30;
+    const rawMinMins = lastAwakeMins + wakeWindowMin;
+    const rawMaxMins = lastAwakeMins + wakeWindowMax;
 
+    // Enforce 30-min minimum
+    const finalMinMins = Math.max(rawMinMins, earliestNapMins);
+    const finalMaxMins = Math.max(rawMaxMins, finalMinMins + 15);
+
+    const napStart_min = (()=>{ const h=Math.floor(finalMinMins/60)%24; const m=finalMinMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+    const napStart_max = (()=>{ const h=Math.floor(finalMaxMins/60)%24; const m=finalMaxMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
 
     const now = new Date();
     const nowMins = now.getHours()*60 + now.getMinutes();
-    const [maxH, maxM] = napStart_max.split(":").map(Number);
-    const napMaxMins = maxH*60 + maxM;
-    const isOverdue = nowMins > napMaxMins;
-
+    const isOverdue = nowMins > finalMaxMins;
 
     if (!isOverdue) {
       const bed = bedtimePrediction();
       if (bed) {
         const [bh, bm] = bed.time.split(":").map(Number);
         const bedMins = bh*60 + bm;
-        const [minH, minM] = napStart_min.split(":").map(Number);
-        const napMinMins = minH*60 + minM;
-        if (bedMins - napMinMins < wakeWindowMax) return null;
+        // Bug 4: if predicted nap is within 90 min of bedtime, skip to bedtime
+        if (bedMins - finalMinMins < 90) return null;
+        // Bug 4: also skip if nap end would be too close to bedtime
+        if (bedMins - finalMinMins < wakeWindowMax) return null;
       }
+    }
+
+    // Bug 5: final sanity — nap must not exceed maxWake; fall back to midpoint if violated
+    if (wakeWindowMax > ww.max || wakeWindowMin < 30) {
+      wakeWindowMin = ww.min;
+      wakeWindowMax = ww.max;
+      sourceLabel += " (safety fallback)";
     }
 
     return { napStart_min, napStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart, isOverdue };
@@ -2590,8 +2654,21 @@ function App(){
     const dayEffectivelyOver = nowMins >= 18 * 60;
     let status, color, bg, icon, message;
     if (totalMins < range.min) {
+      // Bug 2 Fix: only trigger alert when it's impossible to reach target before bedtime
+      // remainingDayMinutes = estimated bedtime - now; if current + remaining < min → warn
+      const bed2 = bedtimePrediction();
+      const bed2Mins = bed2
+        ? (()=>{ const [bh,bm]=bed2.time.split(":").map(Number); return bh*60+bm; })()
+        : 19*60; // default 7pm
+      const remainingBeforeBed = isToday ? Math.max(0, bed2Mins - nowMins) : 0;
+      const maxPossibleAdditional = remainingBeforeBed; // can't sleep more than time left
+      const couldStillReach = (totalMins + maxPossibleAdditional) >= range.min;
 
-      if (!napsComplete && !dayEffectivelyOver) return "suppressed";
+      // Suppress if: naps still incomplete AND there's still time to reach target
+      if (!napsComplete && !dayEffectivelyOver && couldStillReach) return "suppressed";
+      // Also suppress if there's still plenty of day left regardless
+      if (isToday && !dayEffectivelyOver && couldStillReach && napsComplete === false) return "suppressed";
+
       status = "below"; color = C.ter; bg = "#fff3f0";
       icon = "⚠️";
       const gap = range.min - totalMins;
@@ -3263,8 +3340,20 @@ function App(){
 
         const feedsLeft = Math.max(remainingFeeds, 1);
         const topUpEach = remainingFeeds > 0 ? Math.round(dayShortfall / feedsLeft / 10) * 10 : dayShortfall;
-        status="low"; color=C.ter; bg="#fff3f0"; icon="⚠️";
-        statusMsg=`${totalMl}ml so far — ${dayShortfall}ml to go to reach the minimum of ${totalMin}ml before bedtime.`;
+        // Bug 2 Fix: only show "low" if it's actually impossible to reach target before bed
+        // maxFeedRemaining = remainingMins of day (rough proxy: 1 feed per ~feedInterval)
+        const feedIntervalMins = dayLenMins / Math.max(targetFeeds, 1);
+        const maxFeedsLeft = Math.max(Math.floor(remainingMins / feedIntervalMins), 0);
+        const typicalPerFeed = totalMl / Math.max(dayMilkFeeds.length, 1);
+        const maxPossibleIntake = totalMl + maxFeedsLeft * typicalPerFeed;
+        if (maxPossibleIntake >= totalMin) {
+          // Still achievable — show as "on track" not "low"
+          status="ontrack"; color=C.mint; bg="#f0faf6"; icon="☀️";
+          statusMsg=`${totalMl}ml so far — ${dayShortfall}ml to go. Plenty of time to reach the minimum of ${totalMin}ml.`;
+        } else {
+          status="low"; color=C.ter; bg="#fff3f0"; icon="⚠️";
+          statusMsg=`${totalMl}ml so far — ${dayShortfall}ml to go to reach the minimum of ${totalMin}ml before bedtime.`;
+        }
         if (hasFrequentNightWakes) {
           sleepLink = {
             icon:"💤",
@@ -3889,22 +3978,38 @@ function App(){
   }
 
 
-  function autoClassifyNight(entries) {
+  function autoClassifyNight(entries, prevDayEntries) {
     const sorted = [...entries].sort((a,b) => timeVal(a) - timeVal(b));
 
-
     const bedtimes = sorted.filter(e => e.type === "sleep" && !e.night);
-    const bedtime = bedtimes.length ? bedtimes[bedtimes.length-1].time : null;
+    let bedtime = bedtimes.length ? bedtimes[bedtimes.length-1].time : null;
 
+    // Phantom-entry fix: if no bedtime logged today, fall back to previous day's bedtime
+    // so early-morning entries (e.g. 3am feed) still get classified as night:true
+    if (!bedtime && prevDayEntries) {
+      const prevBeds = prevDayEntries.filter(e => e.type === "sleep" && !e.night);
+      if (prevBeds.length) bedtime = prevBeds[prevBeds.length-1].time;
+    }
+    // If still no bedtime, use a safe default of 19:00 for classification purposes
+    if (!bedtime) {
+      // Only reclassify entries that are clearly overnight (midnight–05:59)
+      return entries.map(e => {
+        if (e.nightLocked) return e;
+        if (e.type !== "wake" && e.type !== "feed") return e;
+        const t = e.time; if (!t) return e;
+        const h = parseInt(t.split(":")[0]);
+        if (h >= 0 && h < 5) return {...e, night: true};
+        return e;
+      });
+    }
 
-    const wakes = sorted.filter(e => e.type === "wake");
+    // Only consider non-locked day wakes for the morning anchor
+    const wakes = sorted.filter(e => e.type === "wake" && !e.nightLocked);
     const morningWake = wakes.find(e => {
       const h = parseInt((e.time||"00:00").split(":")[0]);
       return h >= 5 && h < 12;
     });
     const morningWakeTime = morningWake ? morningWake.time : null;
-
-    if (!bedtime) return entries;
 
     const bedMins = timeVal({time: bedtime});
 
@@ -3948,7 +4053,8 @@ function App(){
     const dayForEntry = selDay;
     setDays(d=>{
       const updated=(d[dayForEntry]||[]).filter(e=>e.id!==id);
-      return {...d,[dayForEntry]:autoClassifyNight(updated)};
+      const prevD2 = dayForEntry ? (()=>{ const dt=new Date(dayForEntry+"T12:00:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().slice(0,10); })() : null;
+      return {...d,[dayForEntry]:autoClassifyNight(updated, prevD2 ? d[prevD2] : null)};
     });
 
     setTimeout(()=>{ if(backupCode) pushToCloud(backupCode, childrenRef.current); }, 600);
@@ -3963,7 +4069,8 @@ function App(){
     lastLogRef.current = {time: now, key};
     setDays(d=>{
       const u=[...(d[selDay]||[]),{id:uid(),night:false,...data}];
-      return{...d,[selDay]:autoClassifyNight(u)};
+      const prevD = selDay ? (d=>{ const dt=new Date(selDay+"T12:00:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().slice(0,10); })() : null;
+      return{...d,[selDay]:autoClassifyNight(u, prevD ? d[prevD] : null)};
     });
     setLogPanel(null);
   }
@@ -4059,9 +4166,14 @@ function App(){
     });
   }
   function startNap(){
-    const t=nowTime();
-    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");}catch{}
-    setNapStartT(t);setNapSec(0);setNapOn(true);
+    // Bug 1: prevent multiple active timers
+    if (napOn) return;
+    if (!napStartT && !napOn) {
+      const t=nowTime();
+      try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");}catch{}
+      setNapStartT(t);setNapSec(0);setNapOn(true);
+      setTimerMode("activeSleep"); // Bug 1: switch to active sleep mode
+    }
   }
 
   function logBedtimeNow(){
@@ -4103,12 +4215,21 @@ function App(){
   }
   function endNap(){
     if(!napOn) return;
-    setNapOn(false);const end=nowTime();
+    // Bug 1: require valid start time before saving
+    if (!napStartT) { setNapOn(false); setTimerMode("prediction"); return; }
+    setNapOn(false);
+    const end=nowTime();
+    // Bug 1: compute duration from stored start time for accuracy
+    const [sh,sm]=napStartT.split(":").map(Number);
+    const [eh,em]=end.split(":").map(Number);
+    let durMins = (eh*60+em) - (sh*60+sm);
+    if (durMins < 0) durMins += 24*60; // midnight rollover
     setDays(d=>{
-      const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,night:false,note:""}];
+      const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,duration:durMins,night:false,note:""}];
       return {...d,[selDay]:autoClassifyNight(updated)};
     });
     setNapStartT(null);setNapSec(0);
+    setTimerMode("prediction"); // Bug 1: reset to prediction mode, triggers next nap recalc
     try{["nap_on","nap_startT","nap_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
   function copySummary(){
@@ -5136,7 +5257,7 @@ function App(){
             <div>
               {/* Personal/NHS toggle pill — anchored under date strip */}
               {usePersonalRecs !== null && (
-                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:-14,marginTop:-22,position:"relative",zIndex:10}}>
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:-6,marginTop:-6,position:"relative",zIndex:10}}>
                   <div style={{display:"inline-flex",background:"white",borderRadius:99,boxShadow:"0 2px 10px rgba(0,0,0,0.10)",border:`1px solid ${C.blush}`,overflow:"hidden"}}>
                     <button onClick={()=>{setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:usePersonalRecs===true?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:usePersonalRecs===true?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap"}}>✨ Personal</button>
                     <div style={{width:1,background:C.blush}}/>
@@ -5374,10 +5495,53 @@ function App(){
                     </div>
                   </div>
                 )}
-                {dayE.map(e=>{
+                {[...dayE].sort((a,b)=>timeVal(a)-timeVal(b)).map(e=>{
                   const isDragging=dragId===e.id;
                   const isOver=dragOver===e.id;
-                  const borderCol=e.type==="feed"?(e.feedType==="solids"?"#b8860b":C.ter):e.type==="nap"?C.mint:e.type==="sleep"?C.sky:e.type==="poop"?"#8a7060":C.gold;
+                  const accentCol=e.type==="feed"?(e.feedType==="solids"?"#b8860b":e.feedType==="breast"?"#c07080":e.feedType==="pump"?"#7090c0":C.ter):e.type==="nap"?C.mint:e.type==="sleep"?C.sky:e.type==="poop"?"#8a7060":e.type==="wake"?C.gold:C.mid;
+
+                  // TIME — naps use start, everything else uses time
+                  const tStr = e.type==="nap" ? (e.start||"") : (e.time||e.start||"");
+                  const timeLabel = tStr ? fmt12(tStr) : "–";
+
+                  // ACTIVITY
+                  const actLabel = e.type==="feed"
+                    ? (e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breastfeed":e.feedType==="pump"?"Pump":"Bottle feed")
+                    : e.type==="nap"?"Nap"
+                    : e.type==="sleep"?"Bedtime"
+                    : e.type==="wake"?"Wake up"
+                    : e.type==="poop"?"Nappy"
+                    : NAMES[e.type]||e.type;
+
+                  // DETAIL — inline per spec: duration for naps, ml/food for feeds, type for nappies, L/R for breast/pump
+                  let detail = "";
+                  if(e.type==="nap"&&e.start&&e.end){
+                    const dur=minDiff(e.start,e.end);
+                    if(dur>0) detail=hm(dur);
+                  } else if(e.type==="feed"){
+                    if(e.feedType==="breast"){
+                      const parts=[];
+                      if(e.breastL>0) parts.push(`L ${e.breastL}m`);
+                      if(e.breastR>0) parts.push(`R ${e.breastR}m`);
+                      detail=parts.join(" · ");
+                    } else if(e.feedType==="pump"){
+                      const pTot=(e.pumpL||0)+(e.pumpR||0);
+                      const parts=[];
+                      if(pTot>0) parts.push(`${pTot}ml`);
+                      if(e.pumpL>0&&e.pumpR>0) parts.push(`L ${e.pumpL} · R ${e.pumpR}`);
+                      else if(e.pumpL>0) parts.push(`L ${e.pumpL}ml`);
+                      else if(e.pumpR>0) parts.push(`R ${e.pumpR}ml`);
+                      if(e.pumpDuration) parts.push(`${e.pumpDuration}m`);
+                      detail=parts.join(" · ");
+                    } else {
+                      if(e.amount) detail=`${e.amount}ml`;
+                    }
+                  } else if(e.type==="poop"&&e.poopType){
+                    detail=e.poopType;
+                  }
+                  if(e.note&&detail) detail+=` · ${e.note}`;
+                  else if(e.note) detail=e.note;
+
                   return(
                     <div key={e.id}
                       data-entry-id={e.id}
@@ -5386,49 +5550,18 @@ function App(){
                       onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
                       onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
                       onDrop={ev=>{ev.preventDefault();}}
-                      style={{background:isOver?"#f5ede8":C.warm,borderRadius:14,padding:"11px 12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${borderCol}`,opacity:isDragging?0.45:1,transition:"opacity 0.15s,background 0.15s"}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:9}}>
-                          <span
-                            data-drag-handle="1"
-                            style={{fontSize:18,cursor:"grab",color:C.lt,letterSpacing:-1,touchAction:"none",padding:"6px 4px",userSelect:"none",WebkitUserSelect:"none"}}>&#x2261;</span>
-                          <span style={{fontSize:17}}>{ICONS[e.type]}</span>
-                          <div>
-                            <div style={{fontSize:14,fontWeight:500}}>
-                              {e.type==="feed"?(e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":e.feedType==="pump"?"Pumped":"Bottle Feed"):NAMES[e.type]}
-                            </div>
-                            {e.type==="feed"&&e.feedType==="breast"&&(
-                              <div style={{fontSize:15,color:C.lt,fontFamily:_fM}}>
-                                {e.breastL>0?`L: ${e.breastL}m`:""}{e.breastL>0&&e.breastR>0?" · ":""}{e.breastR>0?`R: ${e.breastR}m`:""}
-                              </div>
-                            )}
-                            {e.type==="feed"&&e.feedType==="pump"&&(
-                              <div style={{fontSize:15,color:C.lt,fontFamily:_fM}}>
-                                {e.pumpL>0?`L: ${e.pumpL}ml`:""}{e.pumpL>0&&e.pumpR>0?" · ":""}{e.pumpR>0?`R: ${e.pumpR}ml`:""}
-                              </div>
-                            )}
-                            {e.type==="nap"&&<div style={{fontSize:15,color:C.lt,fontFamily:_fM}}>{hm(minDiff(e.start,e.end))}</div>}
-                            {e.type==="poop"&&e.poopType&&<div style={{fontSize:15,color:"#8a7060",fontFamily:_fM}}>{e.poopType}</div>}
-                            {e.note&&e.type!=="feed"&&<div style={{fontSize:15,color:C.mid,fontStyle:"italic",marginTop:1}}>{e.note}</div>}
-                            {e.note&&e.type==="feed"&&<div style={{fontSize:15,color:C.mid,fontStyle:"italic",marginTop:1}}>{e.note}</div>}
-                          </div>
+                      style={{background:isOver?"#f5ede8":C.warm,borderRadius:12,padding:"8px 11px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,transition:"opacity 0.15s,background 0.15s"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span data-drag-handle="1" style={{fontSize:14,cursor:"grab",color:C.lt,touchAction:"none",flexShrink:0,userSelect:"none",WebkitUserSelect:"none",opacity:0.45}}>⠿</span>
+                        <div style={{flex:1,minWidth:0,display:"flex",alignItems:"baseline",gap:"0 4px",flexWrap:"wrap"}}>
+                          <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:accentCol,flexShrink:0,whiteSpace:"nowrap"}}>{timeLabel}</span>
+                          <span style={{fontSize:12,color:C.lt,flexShrink:0,fontFamily:_fM,margin:"0 1px"}}>—</span>
+                          <span style={{fontSize:14,fontWeight:600,color:C.deep,flexShrink:0}}>{actLabel}</span>
+                          {detail&&<span style={{fontSize:13,color:C.mid,fontFamily:_fM,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>· {detail}</span>}
                         </div>
-                        <div style={{display:"flex",alignItems:"center",gap:7}}>
-                          <Badge type={e.type}>
-                            {e.type==="feed"
-                              ? (e.feedType==="breast"
-                                  ? `${(e.breastL||0)+(e.breastR||0)}m`
-                                  : e.feedType==="pump"
-                                    ? `${(e.pumpL||0)+(e.pumpR||0)}ml`
-                                    : e.feedType==="solids"
-                                      ? fmt12(e.time)
-                                      : `${e.amount}ml`)
-                              : e.type==="nap"
-                                ? `${fmt12(e.start)}-${fmt12(e.end)}`
-                                : fmt12(e.time)}
-                          </Badge>
-                          <button onClick={()=>openEdit(e)} style={{background:"#f0e8e0",border:_bN,borderRadius:"50%",width:23,height:23,color:C.mid,cursor:_cP,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>
-                          <button onClick={()=>delEntry(e.id)} style={{background:"#f0e5e0",border:_bN,borderRadius:"50%",width:23,height:23,color:C.lt,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                        <div style={{display:"flex",gap:4,flexShrink:0}}>
+                          <button onClick={()=>openEdit(e)} style={{background:"#f0e8e0",border:_bN,borderRadius:"50%",width:26,height:26,color:C.mid,cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>
+                          <button onClick={()=>delEntry(e.id)} style={{background:"#f0e5e0",border:_bN,borderRadius:"50%",width:26,height:26,color:C.lt,cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                         </div>
                       </div>
                     </div>
