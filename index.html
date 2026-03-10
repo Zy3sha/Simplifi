@@ -4556,11 +4556,11 @@ function App(){
     }
   },[Object.keys(days).join(",")]);
 
-  const tabSt=t=>({flex:1,padding:"6px 2px",border:_bN,background:"none",fontSize:10,fontWeight:700,cursor:_cP,color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,letterSpacing:"0.04em",textTransform:"uppercase"});
+  const tabSt=t=>({flex:1,padding:"8px 2px 6px",border:_bN,background:"none",fontSize:9,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:C.lt,display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative"});
   const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
 
   const tabIcons={day:"📅",insights:"💡",milestones:"⭐",develop:"🧩",settings:"👤"};
-  const tabLabels={day:"Day",insights:"Insights",milestones:"Miles",develop:"Develop",settings:""};
+  const tabLabels={day:"Day",insights:"Insights",milestones:"Milestones",develop:"Development",settings:""};
 
 
   if (authScreen) {
@@ -7286,11 +7286,12 @@ function App(){
         </div>
       )}
 
-      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.06)",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom,0)"}}>
         {["day","insights","milestones","develop"].map(t=>(
           <button key={t} onClick={()=>{setTab(t);setLogPanel(null);}} style={tabSt(t)}>
-            <span style={{fontSize:16}}>{tabIcons[t]}</span>
+            <span style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
+            {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
           </button>
         ))}
       </div>
