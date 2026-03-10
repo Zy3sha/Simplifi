@@ -9,7 +9,7 @@
   <meta name="application-name" content="OBubba"/>
   <meta name="theme-color" content="#faf6f0"/>
   <title>OBubba</title>
-  <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;OBubba&quot;,&quot;short_name&quot;:&quot;OBubba&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23faf6f0&quot;,&quot;theme_color&quot;:&quot;%23faf6f0&quot;}"/>
+  <link rel="manifest" href="manifest.json"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
@@ -5921,10 +5921,10 @@ function App(){
 
                   {/* Log inputs */}
                   <div style={{marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-                      <Inp label="Date" type="date" value={growthForm.date} onChange={e=>{setGrowthForm(f=>({...f,date:e.target.value}));setHeightForm(f=>({...f,date:e.target.value}));}} style={{marginBottom:0}}/>
-                      <Inp label="Weight (kg)" type="number" step="0.01" placeholder="5.2" value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
-                      <Inp label="Height (cm)" type="number" step="0.1" placeholder="62" value={heightForm.cm} onChange={e=>setHeightForm(f=>({...f,cm:e.target.value}))} style={{marginBottom:0}}/>
+                    <Inp label="Date" type="date" value={growthForm.date} onChange={e=>{setGrowthForm(f=>({...f,date:e.target.value}));setHeightForm(f=>({...f,date:e.target.value}));}} style={{marginBottom:10}}/>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
+                      <Inp label="Weight (kg)" type="number" step="0.01" placeholder="e.g. 5.2" value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
+                      <Inp label="Height (cm)" type="number" step="0.1" placeholder="e.g. 62" value={heightForm.cm} onChange={e=>setHeightForm(f=>({...f,cm:e.target.value}))} style={{marginBottom:0}}/>
                     </div>
                     <PBtn onClick={()=>{
                       if(growthForm.kg){
