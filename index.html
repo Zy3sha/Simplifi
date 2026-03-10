@@ -58,16 +58,16 @@ const STORAGE_KEY = "babyTracker_v6";
 const params = new URLSearchParams(window.location.search);
 const quickAction = params.get("action");
 
-const uid = () => Math.random().toString(36).slice(2,9);
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const fmt12 = t => { if(!t)return""; const[h,m]=t.split(":").map(Number); return`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`; };
-const minDiff = (s,e) => { if(!s||!e)return 0; const[sh,sm]=s.split(":").map(Number),[eh,em]=e.split(":").map(Number); return Math.max(0,eh*60+em-sh*60-sm); };
+const minDiff = (s,e) => { if(!s||!e)return 0; const[sh,sm]=s.split(":").map(Number),[eh,em]=e.split(":").map(Number); let d=eh*60+em-sh*60-sm; if(d<0)d+=1440; return d; };
 const timeVal = e => { const t=e.time||e.start||"00:00"; const[h,m]=t.split(":").map(Number); return h*60+m; };
-const fmtDate = d => { const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
+const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
 const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
 const sleepDefault = () => { const h=new Date().getHours(); return (h>=6 && h<20) ? "nap" : "bed"; };
 const todayStr = () => new Date().toISOString().split("T")[0];
-const hm = m => m>=60?`${Math.floor(m/60)}h ${m%60}m`:m?`${m}m`:"—";
+const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 const fmtSec = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 const fmtCountdown = s => {
   if(s <= 0) return "Now!";
@@ -1017,8 +1017,7 @@ function App(){
   const[msShowPastPhases,setMsShowPastPhases]=useState(false);
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
-  const[msShowActivities,setMsShowActivities]=useState(false);
-  const[growthLogOpen,setGrowthLogOpen]=useState(false);
+    const[growthLogOpen,setGrowthLogOpen]=useState(false);
   const[devActFilter,setDevActFilter]=useState("all");
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null);
@@ -1032,8 +1031,11 @@ function App(){
   function setBridgeNap(val){
     setBridgeNapDays(prev=>{
       const next={...prev,[selDay]:val};
-      try{localStorage.setItem("bridge_nap_days_v1",JSON.stringify(next));}catch{}
-      return next;
+      // Prune entries older than 30 days to prevent localStorage bloat
+      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-30);
+      const pruned=Object.fromEntries(Object.entries(next).filter(([d])=>new Date(d)>=cutoff));
+      try{localStorage.setItem("bridge_nap_days_v1",JSON.stringify(pruned));}catch{}
+      return pruned;
     });
   }
   const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
@@ -1062,6 +1064,8 @@ function App(){
         const [sh,sm]=startT.split(":").map(Number);
         const startDate=new Date(); startDate.setHours(sh,sm,0,0);
         const elapsed=Math.floor((now-startDate)/1000);
+        // Cap at 23h — if negative (start was yesterday), fall back to savedSec
+        if(elapsed<0||elapsed>23*3600) return savedSec;
         return elapsed>0?elapsed:savedSec;
       }
       return savedSec;
@@ -1137,8 +1141,7 @@ function App(){
   const obUsernameCheckRef = React.useRef(null);
   const[editEntry,setEditEntry]=useState(null);
   const[insightDismissed,setInsightDismissed]=useState(()=>{try{return!!localStorage.getItem("ins_v1");}catch{return false;}});
-  const[showInsights,setShowInsights]=useState(false);
-  const[showPersonalPopup,setShowPersonalPopup]=useState(()=>{
+    const[showPersonalPopup,setShowPersonalPopup]=useState(()=>{
     try{const v=localStorage.getItem("use_personal_recs_v1");return v===null;}catch{return true;}
   });
 
@@ -1146,8 +1149,7 @@ function App(){
   const[usePersonalRecs,setUsePersonalRecs]=useState(()=>{
     try{const v=localStorage.getItem("use_personal_recs_v1");return v===null?null:JSON.parse(v);}catch{return null;}
   });
-  const[showPersonalPrompt,setShowPersonalPrompt]=useState(false);
-  const[pasteText,setPasteText]=useState("");
+    const[pasteText,setPasteText]=useState("");
   const[parsedEntries,setParsedEntries]=useState(null);
   const parsedEntriesRef = React.useRef(null);
   const _setParsedEntries = (v) => { parsedEntriesRef.current = v; setParsedEntries(v); };
@@ -2333,6 +2335,7 @@ function App(){
     return               { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:90,  idealTotalMin:60,  idealTotalMax:90  };
   }
   function addMinutes(time, mins) {
+    if(!time) return "00:00";
     const [h,m] = time.split(":").map(Number);
     const total = h*60 + m + mins;
     const hh = Math.floor(total/60)%24;
@@ -4145,12 +4148,14 @@ function App(){
     if(editEntry){
       setDays(d=>{
         const updated = (d[selDay]||[]).map(x=>x.id===editEntry.id?e:x);
-        return {...d,[selDay]:autoClassifyNight(updated)};
+        const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+        return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
       });
     } else {
       setDays(d=>{
         const updated = [...(d[selDay]||[]), e];
-        return {...d,[selDay]:autoClassifyNight(updated)};
+        const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+        return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
       });
       trackEvent("entry_logged", {type: eType});
     }
@@ -4159,7 +4164,8 @@ function App(){
   function quickFeed(ml){
     setDays(d=>{
       const updated=[...(d[selDay]||[]),{id:uid(),type:"feed",time:nowTime(),amount:ml,feedType:"milk",night:false,note:""}];
-      return {...d,[selDay]:autoClassifyNight(updated)};
+      const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+      return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
     });
   }
 
@@ -4214,7 +4220,7 @@ function App(){
 
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
     try{["breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));}catch{}
-    setDays(d=>{const updated=[...(d[selDay]||[]),entry];return{...d,[selDay]:autoClassifyNight(updated)};});
+    setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
     trackEvent("entry_logged",{type:"breast_feed"});
   }
   function cancelBreastTimer(){
@@ -4234,7 +4240,8 @@ function App(){
     if (durMins < 0) durMins += 24*60; // midnight rollover
     setDays(d=>{
       const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,duration:durMins,night:false,note:""}];
-      return {...d,[selDay]:autoClassifyNight(updated)};
+      const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+      return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
     });
     setNapStartT(null);setNapSec(0);
     setTimerMode("prediction"); // Bug 1: reset to prediction mode, triggers next nap recalc
@@ -6108,7 +6115,7 @@ function App(){
                 );
               })()}
               {/* One-time insights nudge — dismissed permanently once tapped */}
-              {Object.keys(days).length >= 7 && !insightDismissed && (
+              {Object.keys(days).filter(d=>(days[d]||[]).some(e=>!e.night)).length >= 7 && !insightDismissed && (
                 <div style={{display:"flex",alignItems:"center",gap:10,background:"linear-gradient(135deg,#fdf4f0,#f8ede8)",border:`1px solid ${C.rose}`,borderRadius:14,padding:"10px 14px",marginBottom:10}}>
                   <span style={{fontSize:16,flexShrink:0}}>✨</span>
                   <div style={{flex:1,fontSize:13,color:C.ter,fontWeight:600,lineHeight:1.4}}>Sleep & feed insights now in Day Report</div>
@@ -7061,7 +7068,7 @@ function App(){
 
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto"}}>
         {["day","trends","growth","milestones","develop"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={tabSt(t)}>
+          <button key={t} onClick={()=>{setTab(t);setLogPanel(null);}} style={tabSt(t)}>
             <span style={{fontSize:16}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
           </button>
