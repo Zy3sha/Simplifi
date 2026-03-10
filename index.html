@@ -4284,7 +4284,7 @@ function App(){
           {
             icon:"🍼",
             title:"Log Feeds, Nappies & Sleep",
-            body:"The buttons below the header are your main logging tools. Tap Feed for bottle, breast or solids. Pump for pumping sessions. Nappy for changes. Sleep for naps or bedtime. Wake Up to log the morning. Notes to paste a summary from elsewhere.",
+            body:"The buttons below the header are your main logging tools. Tap Feed for bottle, breast or solids. Pump for pumping sessions. Nappy for changes. Sleep for naps or bedtime. Wake Up to log the morning.",
             location: "Centre of screen",
           },
           {
@@ -4304,6 +4304,29 @@ function App(){
             title:"Browse Past Days",
             body:"The date strip below the header lets you scroll through past days. Tap any date to see that day's log. You can edit or delete entries, and use the ✎ button on any date to rename, copy or delete the whole day.",
             location: "Date strip below header",
+          },
+          {
+            icon:"📋",
+            title:"Notes — Your Secret Weapon",
+            bodyJSX:(
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>Too busy to log each feed and nap one by one? Just <strong style={{color:C.ter}}>tap 📋 Notes</strong> and type or paste your day in plain English — OBubba reads it and logs everything for you.</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Example — just type something like:</div>
+                  <div style={{fontSize:14,color:C.deep,lineHeight:1.7,fontStyle:"italic"}}>
+                    Woke up 6:30am<br/>
+                    7am 180ml<br/>
+                    Nap 9:15 - 10:00<br/>
+                    11:30 150ml<br/>
+                    Nap 1pm - 2:15pm<br/>
+                    5pm 180ml<br/>
+                    Bedtime 7pm
+                  </div>
+                </div>
+                <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>It understands wake times, feeds with amounts, nap ranges, bedtime, night wakes, and dream feeds. You can even include dates. Perfect for catching up at the end of the day or pasting notes from a partner.</div>
+              </div>
+            ),
+            location: "Log bar — Notes button",
           },
           {
             icon:"📈",
