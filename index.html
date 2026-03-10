@@ -8,7 +8,6 @@
   <meta name="apple-mobile-web-app-title" content="OBubba"/>
   <meta name="application-name" content="OBubba"/>
   <meta name="theme-color" content="#faf6f0"/>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data: https://*.googleapis.com https://*.gstatic.com https://cdn.jsdelivr.net https://*.firebaseapp.com https://*.firebaseio.com https://*.firebase.com https://*.firebasestorage.app;"/>
   <title>OBubba</title>
   <link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;OBubba&quot;,&quot;short_name&quot;:&quot;OBubba&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23faf6f0&quot;,&quot;theme_color&quot;:&quot;%23faf6f0&quot;}"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
@@ -291,6 +290,40 @@ function getPercentile(kg, ageMonths, sex) {
   return Math.round(pct * 10) / 10;
 }
 
+
+function invNormalCDF(p) {
+  if (p <= 0) return -3.5;
+  if (p >= 1) return 3.5;
+  const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02, 1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
+  const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02, 6.680131188771972e+01, -1.328068155288572e+01];
+  const c2 = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00, -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
+  const d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00];
+  const pLow = 0.02425, pHigh = 1 - pLow;
+  let q, r;
+  if (p < pLow) {
+    q = Math.sqrt(-2*Math.log(p));
+    return (((((c2[0]*q+c2[1])*q+c2[2])*q+c2[3])*q+c2[4])*q+c2[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  } else if (p <= pHigh) {
+    q = p - 0.5; r = q*q;
+    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+  } else {
+    q = Math.sqrt(-2*Math.log(1-p));
+    return -(((((c2[0]*q+c2[1])*q+c2[2])*q+c2[3])*q+c2[4])*q+c2[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+}
+
+function weightForPercentile(ageMonths, pct, sex) {
+  const table = sex === "girl" ? WHO_LMS_GIRLS : WHO_LMS_BOYS;
+  const mo = Math.min(Math.round(ageMonths), 24);
+  if (mo < 0) return null;
+  const row = table[mo];
+  if (!row) return null;
+  const [, L, M, S] = row;
+  const z = invNormalCDF(pct / 100);
+  if (Math.abs(L) < 0.0001) return M * Math.exp(S * z);
+  return M * Math.pow(1 + L * S * z, 1 / L);
+}
+
 function percentileColor(p) {
   if (p == null) return C.lt;
   if (p < 2 || p > 98) return "#e8574a";
@@ -308,10 +341,10 @@ function ordinal(p) {
 
 function percentileNote(p) {
   if (p == null) return "";
-  if (p < 2) return "Below 2nd — discuss with your health visitor";
-  if (p < 9) return "Between 2nd–9th — monitor with your health visitor";
-  if (p > 98) return "Above 98th — discuss with your health visitor";
-  if (p > 91) return "Between 91st–98th — mention at next check-up";
+  if (p < 2) return "Below 2nd — worth mentioning at your next health visitor check";
+  if (p < 9) return "Between 2nd–9th — your health visitor can keep an eye on this";
+  if (p > 98) return "Above 98th — worth mentioning at your next health visitor check";
+  if (p > 91) return "Between 91st–98th — you might mention this at your next check-up";
   return "Within normal range ✓";
 }
 
@@ -395,7 +428,7 @@ const WONDER_WEEKS = [
     fussy:"Fussy in the evenings, wakes more at night, wants feeding for comfort.",
     skills:["Movements become smoother and more fluid","'Talks' back with coos","More aware of their own body"] },
   { phase:4, windowStart:14, windowEnd:19, peakWeek:17, name:"Cause & Effect",
-    fussy:"Longest phase so far (up to 5 weeks). Sleep regression very common, extremely clingy.",
+    fussy:"Longest phase so far (up to 5 weeks). Sleep can be more unsettled, and baby may be extra clingy.",
     skills:["Understands sequences of events","Starts to roll","Grabs objects deliberately","Babbles back and forth"] },
   { phase:5, windowStart:22, windowEnd:26, peakWeek:24, name:"Spatial Awareness",
     fussy:"Separation anxiety begins — cries when you leave the room, very clingy.",
@@ -948,7 +981,6 @@ function App(){
   const[joinError,setJoinError]=useState("");
   const[fbReady,setFbReady]=useState(false);
   const syncRef = React.useRef(null);
-  const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
 
   const possessive = (n) => {
     if (!n) return "";
@@ -1214,6 +1246,7 @@ function App(){
 
   const syncTimerRef = React.useRef(null);
 
+  const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
   const justRestoredRef = React.useRef(false);
 
 
@@ -1801,19 +1834,24 @@ function App(){
 
 
   const swipeStartX = React.useRef(null);
+  const swipeStartY = React.useRef(null);
 
   function handleSwipeStart(e) {
-    swipeStartX.current = (e.touches ? e.touches[0] : e).clientX;
+    const touch = e.touches ? e.touches[0] : e;
+    swipeStartX.current = touch.clientX;
+    swipeStartY.current = touch.clientY;
   }
   function handleSwipeEnd(e) {
     if(swipeStartX.current === null) return;
-    const endX = (e.changedTouches ? e.changedTouches[0] : e).clientX;
-    const diff = swipeStartX.current - endX;
-    if(Math.abs(diff) < 50) return;
-    const idx = childIds.indexOf(resolvedActiveId);
-    if(diff > 0 && idx < childIds.length-1) setActiveChildId(childIds[idx+1]);
-    else if(diff < 0 && idx > 0) setActiveChildId(childIds[idx-1]);
+    const touch = e.changedTouches ? e.changedTouches[0] : e;
+    const diffX = swipeStartX.current - touch.clientX;
+    const diffY = Math.abs(swipeStartY.current - touch.clientY);
     swipeStartX.current = null;
+    swipeStartY.current = null;
+    if(Math.abs(diffX) < 80 || diffY > Math.abs(diffX) * 0.6) return;
+    const idx = childIds.indexOf(resolvedActiveId);
+    if(diffX > 0 && idx < childIds.length-1) setActiveChildId(childIds[idx+1]);
+    else if(diffX < 0 && idx > 0) setActiveChildId(childIds[idx-1]);
   }
 
 
@@ -2237,7 +2275,7 @@ function App(){
     if (napMinutes < p.idealTotalMin) {
       const shortfall = Math.round(p.idealTotalMin - napMinutes);
       if (shortNaps.length) {
-        return `Total nap time ${hrs}h — short of the ~${Math.round(p.idealTotalMin/60*10)/10}h ideal for this age. Short naps detected — consider an earlier bedtime tonight.`;
+        return `Total nap time ${hrs}h — a little under the ~${Math.round(p.idealTotalMin/60*10)/10}h ideal for this age. Naps were a little shorter than usual — try an earlier bedtime tonight.`;
       }
       return `Total nap time ${hrs}h — a little under the ~${Math.round(p.idealTotalMin/60*10)/10}h ideal. Move bedtime earlier by 20–30 mins to avoid overtiredness.`;
     }
@@ -2264,12 +2302,12 @@ function App(){
     const dayEffectivelyOver = nowMins >= 18 * 60;
     if (!napsComplete && !dayEffectivelyOver) {
 
-      if (napMinutes > p.idealTotalMax * 1.15) return "💤 May be undertired today";
+      if (napMinutes > p.idealTotalMax * 1.15) return "💤 Plenty of sleep today — bedtime might be a little later";
       return null;
     }
-    if (napMinutes < p.idealTotalMin * 0.75) return "⚠️ May be overtired today";
-    if (napMinutes > p.idealTotalMax * 1.15) return "💤 May be undertired today";
-    return "✓ Wake windows look appropriate";
+    if (napMinutes < p.idealTotalMin * 0.75) return "😴 Looks like a tired day — an earlier bedtime may help";
+    if (napMinutes > p.idealTotalMax * 1.15) return "💤 Plenty of sleep today — bedtime might be a little later";
+    return "✓ Wake windows look good today";
   }
 
 
@@ -2308,8 +2346,8 @@ function App(){
       icon = "⚠️";
       const gap = range.min - totalMins;
       message = gap > 60
-        ? "Naps are quite low today. Consider an earlier bedtime to prevent overtiredness."
-        : "Naps are a little low today. An earlier bedtime tonight may help.";
+        ? "Naps have been a bit shorter today. An earlier bedtime tonight could help your little one catch up."
+        : "Naps were a little lighter today — an earlier bedtime tonight could help.";
     } else if (totalMins > range.max) {
       status = "above"; color = "#b88a20"; bg = "#fffbf0";
       icon = "💤";
@@ -2346,14 +2384,14 @@ function App(){
     if (recentWakes > prevWakes + 1.2) {
       alerts.push({
         title: "More night wakes recently",
-        body: "Night wakes have increased over the last 3 days. This can happen during developmental leaps or sleep regressions — most phases pass within 1–2 weeks. Keeping bedtime consistent really helps.",
+        body: "Night wakes have picked up a bit over the last 3 days. This often happens during developmental leaps — it's very normal and usually settles within 1–2 weeks. Keeping bedtime consistent really helps.",
         icon: "🌙"
       });
     }
     if (prevNaps > 30 && recentNaps < prevNaps * 0.65) {
       alerts.push({
         title: "Shorter naps this week",
-        body: "Naps have been shorter than usual. Baby may be going through a developmental phase or nap transition. Consistent wake windows and a calming pre-nap routine can help.",
+        body: "Naps have been a little shorter than usual. This sometimes happens during a developmental phase or nap transition — it usually passes. A calming pre-nap routine can help.",
         icon: "😴"
       });
     }
@@ -2621,7 +2659,7 @@ function App(){
         statusMsg=`Good day — ${totalMl}ml total, meeting the minimum recommended intake of ${totalMin}ml. Day feeds: ${dayMl}ml, night feeds: ${nightMl}ml.`;
       } else {
         status="low"; color=C.ter; bg="#fff3f0"; icon="⚠️";
-        statusMsg=`Total intake was ${totalMl}ml — ${dayShortfall}ml below the minimum of ${totalMin}ml. Day feeds: ${dayMl}ml, night feeds: ${nightMl}ml. One low day isn't usually a concern.`;
+        statusMsg=`Total intake was ${totalMl}ml — ${dayShortfall}ml a little under the recommended ${totalMin}ml. Day feeds: ${dayMl}ml, night feeds: ${nightMl}ml. One low day is nothing to worry about.`;
       }
 
 
@@ -2639,7 +2677,7 @@ function App(){
         sleepLink = {
           icon:"🌙",
           title:"Expect a hunger wake tonight",
-          body:`With intake a little short today, baby may wake ${expectedNightFeeds} time${expectedNightFeeds==="1"?"":"s"} from genuine hunger overnight — that's completely normal. Responding to those feeds will help make up today's shortfall. One low day isn't concerning; if low intake continues for several days, mention it to your health visitor.`
+          body:`With intake a little short today, baby may wake ${expectedNightFeeds} time${expectedNightFeeds==="1"?"":"s"} from genuine hunger overnight — that's completely normal. Responding to those feeds will help make up today's shortfall. One low day is nothing to worry about; if low intake continues for several days, mention it to your health visitor.`
         };
       }
 
@@ -2660,7 +2698,7 @@ function App(){
         sleepLink = {
           icon:"🍼",
           title:"Top up before bed",
-          body:`With ${feedsLeft} feed${feedsLeft!==1?"s":""} left before bedtime, try offering an extra ~${topUpEach}ml at each to hit the minimum. A fuller tummy before bed reduces the chance of hunger-driven night waking. If baby doesn't take it, don't worry — one short day isn't a concern.`
+          body:`With ${feedsLeft} feed${feedsLeft!==1?"s":""} left before bedtime, try offering an extra ~${topUpEach}ml at each to hit the minimum. A fuller tummy before bed reduces the chance of hunger-driven night waking. If baby doesn't take it, don't worry — one short day is nothing to worry about.`
         };
       }
 
@@ -3298,7 +3336,7 @@ function App(){
     setModal(null); _setParsedEntries(null); setPasteText("");
   }
 
-  function openEntry(){setEditEntry(null);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
+  function openEntry(night=false){setEditEntry(null);setEType("feed");setFeedType("milk");setForm({amount:"",time:nowTime(),start:nowTime(),end:nowTime(),note:"",night:"no",poopType:"",breastL:"",breastR:"",pumpL:"",pumpR:""});setModal("entry");}
   function openLogPanel(panel){
     setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:nowTime(),napEnd:nowTime(),bedTime:nowTime(),feedTime:nowTime(),feedTimeSet:false});
     setLogPanel(panel);
@@ -3680,7 +3718,7 @@ function App(){
   },[Object.keys(days).join(",")]);
 
   const tabSt=t=>({flex:1,padding:"6px 2px",border:_bN,background:"none",fontSize:10,fontWeight:700,cursor:_cP,color:tab===t?C.ter:C.lt,borderTop:tab===t?`2px solid ${C.ter}`:"2px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",gap:1,letterSpacing:"0.04em",textTransform:"uppercase"});
-  const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
+  const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:22,padding:"18px",marginBottom:16,boxShadow:"0 2px 14px rgba(201,112,90,0.05)"};
 
   const tabIcons={day:"📅",trends:"📈",growth:"📏",milestones:"⭐",develop:"🧩",settings:"👤"};
   const tabLabels={day:"Day",trends:"Trends",growth:"Growth",milestones:"Miles",develop:"Develop",settings:""};
@@ -3772,21 +3810,21 @@ function App(){
           {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
 
           {}
-          {isLogin ? (
-            <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4||authLoading}
-              style={{width:"100%",marginTop:10,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                border:_bN,borderRadius:99,padding:"13px",color:authPin.length===4&&!authLoading?"white":"#b89890",
-                fontSize:15,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:_fI,
+          {isLogin && !authLoading ? (
+            <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4}
+              style={{width:"100%",marginTop:10,background:authPin.length===4?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                border:_bN,borderRadius:99,padding:"13px",color:authPin.length===4?"white":"#b89890",
+                fontSize:15,fontWeight:700,cursor:authPin.length===4?"pointer":"not-allowed",fontFamily:_fI,
                 boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-              {authLoading?"⏳ Signing in…":"Sign in with PIN →"}
+              Sign in with PIN →
             </button>
-          ) : !isLogin ? (
-            <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit||authLoading}
-              style={{width:"100%",marginTop:14,background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                border:_bN,borderRadius:99,padding:"13px",color:canSubmit&&!authLoading?"white":"#b89890",
-                fontSize:15,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:_fI,
+          ) : !isLogin && !authLoading ? (
+            <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit}
+              style={{width:"100%",marginTop:14,background:canSubmit?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
+                border:_bN,borderRadius:99,padding:"13px",color:canSubmit?"white":"#b89890",
+                fontSize:15,fontWeight:700,cursor:canSubmit?"pointer":"not-allowed",fontFamily:_fI,
                 boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-              {authLoading?"⏳ Please wait…":"Create Account"}
+              Create Account
             </button>
           ) : null}
 
@@ -4224,7 +4262,7 @@ function App(){
   }
 
   return(
-    <div style={{background:"#f7f3ee",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:C.deep,paddingBottom:"calc(80px + env(safe-area-inset-bottom, 0px))",transition:"background 0.5s,color 0.5s"}}>
+    <div style={{background:"#faf7f2",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:C.deep,paddingBottom:80,transition:"background 0.5s,color 0.5s"}}>
       <style>{`
         @keyframes pulse{0%,100%{box-shadow:0 0 0 12px rgba(201,112,90,0.15)}50%{box-shadow:0 0 0 22px rgba(201,112,90,0.04)}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
@@ -4240,71 +4278,66 @@ function App(){
           {
             icon:"👋",
             title:"Welcome to OBubba!",
-            body:"A quick tour of every feature — takes about 60 seconds. Tap anywhere or 'Next' to move through it.",
+            body:"A quick tour of how everything works — takes about 90 seconds. Tap anywhere or 'Next' to continue.",
             location: null,
           },
           {
             icon:"🍼",
-            title:"Log Feed, Nappy, Sleep & More",
-            body:"The six buttons in the log bar are your core logging tools. Tap Feed for bottle, breast or solids. Pump to log a pumping session. Nappy for wet or dirty. Sleep for naps or bedtime. Wake Up for morning wake time. Notes to paste a rough summary.",
+            title:"Log Feeds, Nappies & Sleep",
+            body:"The buttons below the header are your main logging tools. Tap Feed for bottle, breast or solids. Pump for pumping sessions. Nappy for changes. Sleep for naps or bedtime. Wake Up to log the morning. Notes to paste a summary from elsewhere.",
             location: "Centre of screen",
           },
           {
             icon:"⏱️",
             title:"Nap & Bedtime Countdown",
-            body:"The pill in the top right shows when the next nap is due based on your baby's age and wake windows. Tap it when it hits zero to start a nap timer or log bedtime instantly.",
+            body:"The countdown pill in the top right shows when the next nap is due — based on your baby's age and wake windows. Once all naps are done it switches to a bedtime countdown. Tap it to start a nap timer or log bedtime.",
             location: "Top right of screen",
           },
           {
             icon:"🤱",
-            title:"Breastfeed Timer",
-            body:"Tap 🤱 Start Feed in the top left to begin a live breastfeed session. Switch between Left and Right sides, then Save when done — it logs time, duration and both sides automatically.",
-            location: "Top left of screen",
+            title:"Breastfeed & Pump Timers",
+            body:"Tap 🤱 Start Feed in the header to begin a live breastfeed — switch sides and save when done. Tap 🫙 Pump in the log bar to record a pumping session with time, duration and amount. Both log automatically.",
+            location: "Header & log bar",
           },
           {
-            icon:"🫙",
-            title:"Log a Pump Session",
-            body:"Tap 🫙 Pump in the log bar to record a pumping session. Enter the start time, how long you pumped, and the total amount — it automatically splits ml equally between left and right. You can adjust per side individually and add a note (e.g. freezer stash, morning session).",
-            location: "Log bar — second row",
+            icon:"📅",
+            title:"Browse Past Days",
+            body:"The date strip below the header lets you scroll through past days. Tap any date to see that day's log. You can edit or delete entries, and use the ✎ button on any date to rename, copy or delete the whole day.",
+            location: "Date strip below header",
           },
           {
             icon:"📈",
-            title:"Trends & Insights",
-            body:"The Trends tab shows bedtime, wake time, nap duration and feed totals over time as charts. After 7 days, Smart Insights appear with personalised observations based on your baby's own patterns.",
-            location: "Bottom navigation — first tab",
+            title:"Trends & Smart Insights",
+            body:"The Trends tab shows your baby's patterns over time — nap totals, feed amounts, bedtimes and more. After 7 days of logging, Smart Insights appear with personalised observations based on your baby's own rhythms.",
+            location: "Bottom navigation",
           },
           {
             icon:"📏",
             title:"Growth Chart",
-            body:"The Growth tab lets you log your baby's weight and see their WHO percentile on a chart. Tap any entry to edit it. Covers 0–24 months with all major percentile bands.",
-            location: "Bottom navigation — second tab",
+            body:"The Growth tab shows your baby's weight plotted on an NHS-style WHO percentile chart. Log weights after each weigh-in to track progress between health visitor appointments.",
+            location: "Bottom navigation",
           },
           {
             icon:"⭐",
-            title:"Milestones",
-            body:"The Milestones tab shows age-appropriate developmental milestones automatically. Tap any to mark it done and record the date. Wonder Weeks leaps are flagged, and gentle activity tips appear for overdue milestones.",
-            location: "Bottom navigation — third tab",
-          },
-          {
-            icon:"🧩",
-            title:"Development Activities",
-            body:"The Develop tab shows age-appropriate play and activity ideas from NHS and WHO guidelines, updated as your baby grows. Each activity explains what it builds and why it matters.",
-            location: "Bottom navigation — fourth tab",
+            title:"Milestones & Development",
+            body:"The Milestones tab shows age-appropriate developmental milestones from NHS guidelines. Tap to mark them done. Wonder Weeks developmental leaps are highlighted too. The Develop tab has age-specific play ideas.",
+            location: "Bottom navigation",
           },
           {
             icon:"👨‍👩‍👧",
             title:"Share with Your Partner",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>👨‍👩‍👧 Share</strong> in the header to sync with a partner, restore to a new phone, or set a recovery word for PIN resets.</div>
+                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>👨‍👩‍👧 Share</strong> in the header to open the sync menu.</div>
                 <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>🔗 Tap <strong>Get code</strong> next to your child's name</div>
-                  <div>📲 Partner opens Share → <strong>Link a child</strong> → enters your code</div>
-                  <div>✅ Both phones stay in sync automatically</div>
+                  <div>🔗 Tap <strong>Get code</strong> next to your child's name — this creates a 6-letter <strong>child sync code</strong></div>
+                  <div>📲 Your partner opens Share → <strong>Link a child</strong> → enters that code</div>
+                  <div>✅ Both phones stay in sync automatically from then on</div>
                 </div>
+                <div style={{marginTop:8,fontSize:13,color:C.lt}}>Your <strong>family code</strong> (shown at the top of the Share menu) backs up ALL your data and can restore it on any device.</div>
               </div>
             ),
-            location: "Top row of header",
+            location: "👤 Account → Share menu",
           },
           {
             icon:"👶",
@@ -4313,9 +4346,9 @@ function App(){
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
                 <div style={{marginBottom:8}}>Each child has their own logs, growth chart and milestones.</div>
                 <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>👆 <strong>Swipe left/right</strong> on the header to switch children</div>
-                  <div>＋ Tap the <strong>+ dot</strong> in the top left to add a child</div>
-                  <div>⚙️ Tap the <strong>gear icon</strong> top right to edit name, DOB or sex</div>
+                  <div>👆 <strong>Swipe left/right</strong> on the header to switch between children</div>
+                  <div>＋ Tap the <strong>+ button</strong> in the top left to add another child</div>
+                  <div>⚙️ Tap the <strong>gear icon</strong> next to any child to edit their details</div>
                 </div>
               </div>
             ),
@@ -4323,20 +4356,24 @@ function App(){
           },
           {
             icon:"🔐",
-            title:"Keep Your Account Safe",
-            body:"Your data backs up to the cloud automatically and syncs across devices. If you lose your phone, sign in with your username and PIN on any device to restore everything instantly. Important: set a recovery word in the Share menu — it's the only way to reset your PIN if you forget it.",
+            title:"Keep Your Data Safe",
+            bodyJSX:(
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>Your data backs up automatically to the cloud and works offline. Here's how to keep it safe:</div>
+                <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:7,fontSize:14}}>
+                  <div>🔑 <strong>Set a recovery word</strong> in the Share menu — this lets you reset your PIN if you forget it</div>
+                  <div>📱 To move to a new phone, just sign in with your <strong>username & PIN</strong></div>
+                  <div>☁️ Everything backs up automatically — nothing to export or save manually</div>
+                </div>
+                <div style={{marginTop:10,padding:"9px 12px",background:"#fff3f0",borderRadius:10,fontSize:13,color:C.ter,fontWeight:600,lineHeight:1.5}}>⚠️ Without a recovery word, a forgotten PIN means losing access to your account. Set one as soon as you finish this tour!</div>
+              </div>
+            ),
             location: "Share menu → Recovery word",
-          },
-          {
-            icon:"📅",
-            title:"Navigate Past Days",
-            body:"Swipe left and right on the date strip below the header to browse past days and review logs. Tap the + button to add a new date manually. Long-press any date for options like editing or deleting.",
-            location: "Date strip below the header",
           },
           {
             icon:"🎉",
             title:"You're all set!",
-            body:"Start by logging today's wake time, then let the countdown guide the rest of the day. After 7 days of logging, Smart Insights will appear with personalised observations. Tap '? Tour' in the header anytime to revisit this guide.",
+            body:"Start by logging today's wake time — the countdown will guide nap and bedtime from there. Tap '? Tour' in the header anytime to revisit this guide. Happy tracking!",
             location: null,
           },
         ];
@@ -4609,7 +4646,7 @@ function App(){
         )}
 
         {}
-        <div style={{display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",paddingBottom:14}}>
+        <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",gap:6,overflowX:"auto",scrollbarWidth:"none",paddingBottom:14}}>
           <div style={{flexShrink:0}}>
             <button onClick={()=>{setNewDate(todayStr());setModal("addDay");}} style={{background:"rgba(255,255,255,0.5)",border:`1px dashed ${C.lt}`,borderRadius:20,padding:"5px 12px",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP,whiteSpace:"nowrap"}}>+ Date</button>
           </div>
@@ -4875,15 +4912,15 @@ function App(){
               </div>
 
               {}
-              <div style={{background:"#1a1228",borderRadius:20,padding:"14px 17px",marginBottom:18}}>
+              <div style={{background:"#f0eeff",borderRadius:20,padding:"14px 17px",marginBottom:18,border:"1px solid #d8d2f0"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",gap:7}}>
-                    <div style={{width:3,height:18,background:"#8878a8",borderRadius:99}}/>
-                    <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"#a898c8",fontSize:16}}>Night Wakes</span>
+                    <div style={{width:3,height:18,background:"#7b68ee",borderRadius:99}}/>
+                    <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"#5040a0",fontSize:16}}>Night Wakes</span>
                   </div>
                   
                 </div>
-                {nightE.length===0&&<div style={{textAlign:"center",color:"#6a5880",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
+                {nightE.length===0&&<div style={{textAlign:"center",color:"#9080c8",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
                   const sleepEv=dayE.find(e=>e.type==="sleep");
                   const pts=[];
@@ -4897,21 +4934,21 @@ function App(){
                       <div key={e.id}>
                         {fromPt&&toPt&&strMins>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,padding:"3px 4px 5px",opacity:0.7}}>
-                            <div style={{flex:1,height:1,background:"#3a2e50"}}/>
-                            <span style={{fontSize:14,fontFamily:_fM,color:strMins>=180?"#6fa898":strMins>=120?"#d4a855":"#8878a8"}}>{hm(strMins)}</span>
-                            <div style={{flex:1,height:1,background:"#3a2e50"}}/>
+                            <div style={{flex:1,height:1,background:"#d8d2f0"}}/>
+                            <span style={{fontSize:14,fontFamily:_fM,color:strMins>=180?"#6fa898":strMins>=120?"#d4a855":"#7b68ee"}}>{hm(strMins)}</span>
+                            <div style={{flex:1,height:1,background:"#d8d2f0"}}/>
                           </div>
                         )}
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",background:"rgba(255,255,255,0.04)",borderRadius:10,border:"1px solid #3a2e50",marginBottom:5}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",background:"white",borderRadius:10,border:"1px solid #d8d2f0",marginBottom:5}}>
                           <div>
-                            <span style={{color:"#d8cce8",fontSize:15}}>🌟 Wake {i+1}</span>
-                            {e.note&&<div style={{fontSize:15,color:"#6a5880",fontStyle:"italic",marginTop:1}}>{e.note}</div>}
+                            <span style={{color:"#5040a0",fontSize:15}}>🌟 Wake {i+1}</span>
+                            {e.note&&<div style={{fontSize:15,color:"#9080c8",fontStyle:"italic",marginTop:1}}>{e.note}</div>}
                           </div>
                           <div style={{display:"flex",alignItems:"center",gap:7}}>
                             {e.amount>0&&<span style={{background:"rgba(212,168,85,0.2)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{e.amount} ml</span>}
-                            <span style={{color:"#8878a8",fontFamily:_fM,fontSize:15}}>{fmt12(e.time)}</span>
-                            <button onClick={()=>openEdit(e)} style={{background:"rgba(255,255,255,0.07)",border:_bN,borderRadius:"50%",width:21,height:21,color:"#a898c8",cursor:_cP,fontSize:15}}>✎</button>
-                            <button onClick={()=>delEntry(e.id)} style={{background:"rgba(255,255,255,0.07)",border:_bN,borderRadius:"50%",width:21,height:21,color:"#8878a8",cursor:_cP,fontSize:14}}>✕</button>
+                            <span style={{color:"#7060c0",fontFamily:_fM,fontSize:15}}>{fmt12(e.time)}</span>
+                            <button onClick={()=>openEdit(e)} style={{background:"#e8e4ff",border:_bN,borderRadius:"50%",width:21,height:21,color:"#7b68ee",cursor:_cP,fontSize:15}}>✎</button>
+                            <button onClick={()=>delEntry(e.id)} style={{background:"#e8e4ff",border:_bN,borderRadius:"50%",width:21,height:21,color:"#9080c8",cursor:_cP,fontSize:14}}>✕</button>
                           </div>
                         </div>
                       </div>
@@ -4951,7 +4988,7 @@ function App(){
                       </div>
                       {fc.nightMl > 0 && (
                         <div style={{flex:1,background:"rgba(42,31,58,0.07)",borderRadius:12,padding:"10px 12px"}}>
-                          <div style={{fontSize:12,fontFamily:_fM,color:"#8878a8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
+                          <div style={{fontSize:12,fontFamily:_fM,color:"#7060c0",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
                           <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:"#7a6898",lineHeight:1}}>{fc.nightMl}ml</div>
                           <div style={{fontSize:12,color:"#9888b8",marginTop:2}}>total {fc.totalMl}ml</div>
                         </div>
@@ -5056,8 +5093,8 @@ function App(){
                     {tired&&<div style={{display:"inline-block",fontSize:15,fontFamily:_fM,padding:"4px 12px",borderRadius:99,background:tired.startsWith("⚠️")||tired.startsWith("💤")?`${C.ter}18`:`${C.mint}18`,color:tired.startsWith("✓")?C.mint:C.ter,marginBottom:12}}>{tired}</div>}
                     {actualBedEntry ? (
                       <div style={{background:"linear-gradient(135deg,#ede8f5,#f5f0fa)",borderRadius:14,padding:"12px 14px"}}>
-                        <div style={{fontSize:14,fontFamily:_fM,color:"#8878a8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Bedtime Logged 🌙</div>
-                        <div style={{fontSize:15,color:"#a898c8"}}>Sleep tight!</div>
+                        <div style={{fontSize:14,fontFamily:_fM,color:"#7060c0",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Bedtime Logged 🌙</div>
+                        <div style={{fontSize:15,color:"#9080c8"}}>Sleep tight!</div>
                       </div>
                     ) : pred ? (
                       <div style={{background:"linear-gradient(135deg,#e8f5ef,#f0faf6)",borderRadius:14,padding:"12px 14px"}}>
@@ -5190,10 +5227,10 @@ function App(){
                     )}
                     {nightWins.length>0&&(
                       <div>
-                        <div style={{fontSize:12,fontFamily:_fM,color:"#8878a8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Night Stretches</div>
+                        <div style={{fontSize:12,fontFamily:_fM,color:"#7060c0",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Night Stretches</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                           {nightWins.map((w,i)=>(
-                            <div key={i} style={{background:"#2a1f3a",borderRadius:10,padding:"5px 10px",fontSize:14,color:"#c8b8e8",fontFamily:_fM}}>
+                            <div key={i} style={{background:"#e8e4ff",borderRadius:10,padding:"5px 10px",fontSize:14,color:"#5040a0",fontFamily:_fM}}>
                               {fmt12(w.from)} → {fmt12(w.to)} <strong>{hm(w.mins)}</strong>
                             </div>
                           ))}
@@ -5214,7 +5251,7 @@ function App(){
                       <div key={i} style={{background:"#fff8f0",border:"1px solid #f0d8b0",borderLeft:"4px solid #d4a855",borderRadius:16,padding:"14px 16px",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                           <span style={{fontSize:18}}>{a.icon}</span>
-                          <div style={{fontSize:14,fontWeight:700,color:"#8a6020"}}>Sleep Pattern Change Detected</div>
+                          <div style={{fontSize:14,fontWeight:700,color:"#8a6020"}}>We've Noticed a Pattern Shift</div>
                         </div>
                         <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:5}}>{a.title}</div>
                         <div style={{fontSize:14,color:C.mid,lineHeight:1.6}}>{a.body}</div>
@@ -5576,21 +5613,85 @@ function App(){
                 }}>Save Weight</PBtn>
               </div>
 
-              {sortedW.length>=2&&(
-                <div style={{...card}}>
-                  <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>Weight Over Time</div>
-                  <svg width="100%" viewBox={`0 0 ${W} ${H+36}`} style={{overflow:"visible"}}>
-                    <path d={path} fill="none" stroke={C.ter} strokeWidth={2} strokeLinejoin="round"/>
-                    {pts.map((p,i)=>(
-                      <g key={i}>
-                        <circle cx={p.x} cy={p.y} r={4} fill={C.ter}/>
-                        <text x={p.x} y={p.y-9} textAnchor="middle" fontSize={9} fill={C.mid} fontFamily="monospace">{p.kg}kg</text>
-                        <text x={p.x} y={H+16} textAnchor="middle" fontSize={8} fill={C.lt} fontFamily="monospace">{fmtDate(p.date).slice(0,2)}</text>
-                      </g>
-                    ))}
-                  </svg>
-                </div>
-              )}
+              {sortedW.length>=1&&babySex&&babyDob&&(()=>{
+                const PCTL_LINES = [2,9,25,50,75,91,98];
+                const PCTL_COLORS = {2:"#e8b4a0",9:"#e8c4b0",25:"#d4ede6",50:"#6fa898",75:"#d4ede6",91:"#e8c4b0",98:"#e8b4a0"};
+                const maxMo = Math.min(Math.max(...wWithPct.filter(w=>w.ageMo!=null).map(w=>w.ageMo), 6) + 2, 24);
+                const minMo = 0;
+                const CW=300, CH=180, PAD_L=32, PAD_R=12, PAD_T=14, PAD_B=28;
+                const plotW = CW-PAD_L-PAD_R, plotH = CH-PAD_T-PAD_B;
+
+                const allKgs = [];
+                for(let mo=minMo;mo<=maxMo;mo++){
+                  PCTL_LINES.forEach(p=>{const kg=weightForPercentile(mo,p,babySex);if(kg)allKgs.push(kg);});
+                }
+                sortedW.forEach(w=>allKgs.push(w.kg));
+                const kgMin = Math.floor(Math.min(...allKgs)*0.95*10)/10;
+                const kgMax = Math.ceil(Math.max(...allKgs)*1.05*10)/10;
+                const kgRange = kgMax - kgMin || 1;
+
+                const toX = mo => PAD_L + ((mo-minMo)/(maxMo-minMo))*plotW;
+                const toY = kg => PAD_T + (1-(kg-kgMin)/kgRange)*plotH;
+
+                const pctlPaths = {};
+                PCTL_LINES.forEach(p=>{
+                  const pts2=[];
+                  for(let mo=minMo;mo<=maxMo;mo++){
+                    const kg=weightForPercentile(mo,p,babySex);
+                    if(kg) pts2.push(`${mo===minMo?"M":"L"}${toX(mo).toFixed(1)},${toY(kg).toFixed(1)}`);
+                  }
+                  pctlPaths[p]=pts2.join(" ");
+                });
+
+                const babyPts = wWithPct.filter(w=>w.ageMo!=null&&w.ageMo>=minMo&&w.ageMo<=maxMo);
+                const babyPath = babyPts.map((w,i)=>`${i===0?"M":"L"}${toX(w.ageMo).toFixed(1)},${toY(w.kg).toFixed(1)}`).join(" ");
+
+                const bands = [[2,9],[9,25],[25,50],[50,75],[75,91],[91,98]];
+                const bandFills = ["rgba(232,180,160,0.15)","rgba(232,196,176,0.12)","rgba(212,237,230,0.2)","rgba(212,237,230,0.2)","rgba(232,196,176,0.12)","rgba(232,180,160,0.15)"];
+
+                return(
+                  <div style={{...card}}>
+                    <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>Growth Chart · WHO Percentiles</div>
+                    <div style={{fontSize:12,color:C.lt,marginBottom:8}}>{babySex==="boy"?"👦 Boys":"👧 Girls"} · 0–{maxMo} months</div>
+                    <svg width="100%" viewBox={`0 0 ${CW} ${CH}`} style={{overflow:"visible"}}>
+                      {bands.map(([lo,hi],bi)=>{
+                        const pts2=[];
+                        for(let mo=minMo;mo<=maxMo;mo++){
+                          const kgHi=weightForPercentile(mo,hi,babySex);
+                          if(kgHi) pts2.push(`${toX(mo).toFixed(1)},${toY(kgHi).toFixed(1)}`);
+                        }
+                        for(let mo=maxMo;mo>=minMo;mo--){
+                          const kgLo=weightForPercentile(mo,lo,babySex);
+                          if(kgLo) pts2.push(`${toX(mo).toFixed(1)},${toY(kgLo).toFixed(1)}`);
+                        }
+                        return <polygon key={bi} points={pts2.join(" ")} fill={bandFills[bi]} stroke="none"/>;
+                      })}
+
+                      {PCTL_LINES.map(p=>(
+                        <g key={p}>
+                          <path d={pctlPaths[p]} fill="none" stroke={PCTL_COLORS[p]} strokeWidth={p===50?1.5:0.8} strokeDasharray={p===50?"":"3,3"} opacity={0.8}/>
+                          <text x={CW-PAD_R+3} y={toY(weightForPercentile(maxMo,p,babySex))+3} fontSize={7} fill={C.lt} fontFamily="monospace">{p===50?"50th":p+"th"}</text>
+                        </g>
+                      ))}
+
+                      {[0,3,6,9,12,15,18,21,24].filter(m=>m<=maxMo).map(m=>(
+                        <g key={m}>
+                          <line x1={toX(m)} y1={PAD_T} x2={toX(m)} y2={CH-PAD_B} stroke={C.blush} strokeWidth={0.5}/>
+                          <text x={toX(m)} y={CH-PAD_B+12} textAnchor="middle" fontSize={8} fill={C.lt} fontFamily="monospace">{m}m</text>
+                        </g>
+                      ))}
+
+                      {babyPts.length>1&&<path d={babyPath} fill="none" stroke={C.ter} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"/>}
+                      {babyPts.map((w,i)=>(
+                        <g key={i}>
+                          <circle cx={toX(w.ageMo)} cy={toY(w.kg)} r={4.5} fill="white" stroke={C.ter} strokeWidth={2}/>
+                          <text x={toX(w.ageMo)} y={toY(w.kg)-8} textAnchor="middle" fontSize={8} fill={C.deep} fontFamily="monospace" fontWeight="600">{w.kg}kg</text>
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+                );
+              })()}
 
               {wWithPct.filter(w=>w.pct!==null).length>0&&(
                 <div style={{...card}}>
@@ -6236,7 +6337,7 @@ function App(){
         </div>
       )}
 
-      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom)"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.08)",maxWidth:520,margin:"0 auto"}}>
         {["day","trends","growth","milestones","develop"].map(t=>(
           <button key={t} onClick={()=>setTab(t)} style={tabSt(t)}>
             <span style={{fontSize:16}}>{tabIcons[t]}</span>
@@ -6750,27 +6851,27 @@ function App(){
                 </div>
               ))}
             </div>
-            <div style={{background:"#1a1228",borderRadius:14,padding:"12px",marginBottom:10}}>
-              <div style={{fontSize:15,fontFamily:_fM,color:"#6a5880",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>🌟 Night Wakes</div>
+            <div style={{background:"#f0eeff",borderRadius:14,padding:"12px",marginBottom:10,border:"1px solid #d8d2f0"}}>
+              <div style={{fontSize:15,fontFamily:_fM,color:"#7060c0",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>🌟 Night Wakes</div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:stretches.length?10:0}}>
-                <span style={{fontSize:15,color:"#d8cce8"}}>{nEs.length} wake{nEs.length!==1?"s":""}</span>
+                <span style={{fontSize:15,color:"#5040a0"}}>{nEs.length} wake{nEs.length!==1?"s":""}</span>
                 {nightFeedMl>0&&<span style={{background:"rgba(212,168,85,0.2)",color:C.gold,fontFamily:_fM,fontSize:14,padding:"2px 8px",borderRadius:99}}>{nightFeedMl}ml total</span>}
               </div>
               {stretches.length>0&&(
                 <>
-                  <div style={{fontSize:14,fontFamily:_fM,color:"#6a5880",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Stretches between wakes</div>
+                  <div style={{fontSize:14,fontFamily:_fM,color:"#7060c0",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Stretches between wakes</div>
                   {stretches.map((s,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",background:"rgba(255,255,255,0.04)",borderRadius:10,border:"1px solid #3a2e50",marginBottom:5}}>
+                    <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",background:"white",borderRadius:10,border:"1px solid #d8d2f0",marginBottom:5}}>
                       <div>
-                        <div style={{fontSize:14,color:"#d8cce8"}}>{s.from} → {s.to}</div>
-                        <div style={{fontSize:14,fontFamily:_fM,color:"#6a5880",marginTop:2}}>{fmt12(s.toTime)}{s.feed?` · ${s.feed}ml`:""}</div>
+                        <div style={{fontSize:14,color:"#5040a0"}}>{s.from} → {s.to}</div>
+                        <div style={{fontSize:14,fontFamily:_fM,color:"#9080c8",marginTop:2}}>{fmt12(s.toTime)}{s.feed?` · ${s.feed}ml`:""}</div>
                       </div>
                       <span style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:s.mins>=180?"#6fa898":s.mins>=120?"#d4a855":"#c9705a",fontWeight:700}}>{hm(s.mins)}</span>
                     </div>
                   ))}
                 </>
               )}
-              {stretches.length===0&&nEs.length===0&&<div style={{fontSize:14,color:"#6a5880",fontFamily:_fM,textAlign:"center",padding:"4px 0"}}>No night wakes logged</div>}
+              {stretches.length===0&&nEs.length===0&&<div style={{fontSize:14,color:"#9080c8",fontFamily:_fM,textAlign:"center",padding:"4px 0"}}>No night wakes logged</div>}
             </div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={copyReport} style={{flex:1,padding:"11px",borderRadius:99,border:`1px dashed ${C.rose}`,background:_bN,color:C.ter,fontSize:15,cursor:_cP,fontFamily:_fI,fontWeight:500}}>{copied?"✓ Copied!":"📋 Copy Report"}</button>
