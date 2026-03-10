@@ -2492,6 +2492,14 @@ function App(){
       wakeWindowMax = ww.max;
       sourceLabel += " (safety fallback)";
     }
+    // Extra hard cap: predicted nap window must not start more than ww.max from last awake start
+    if (finalMinMins - lastAwakeMins > ww.max) {
+      const safeMid = lastAwakeMins + ww.midpoint;
+      const safeMin = lastAwakeMins + ww.min;
+      const safeMax = lastAwakeMins + ww.max;
+      const capStart = (()=>{ const h=Math.floor(safeMid/60)%24; const m=safeMid%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+      return { napStart_min: capStart, napStart_max: (()=>{ const h=Math.floor(safeMax/60)%24; const m=safeMax%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })(), wakeWindowMin:ww.min, wakeWindowMax:ww.max, sourceLabel: `age-appropriate wake windows for ${fmtAge(age)} (capped)`, lastAwakeStart, isOverdue };
+    }
 
     return { napStart_min, napStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart, isOverdue };
   }
@@ -2681,21 +2689,22 @@ function App(){
     const isToday = selDay === todayStr();
     const nowMins = isToday ? (() => { const n = new Date(); return n.getHours()*60+n.getMinutes(); })() : 24*60;
     const dayEffectivelyOver = nowMins >= 18 * 60;
+    const afterAfternoon = nowMins >= 15 * 60;
     let status, color, bg, icon, message;
     if (totalMins < range.min) {
+      // Only show low sleep warning after 3pm — before that there's still plenty of nap time ahead
+      if (isToday && !afterAfternoon) return "suppressed";
       // Bug 2 Fix: only trigger alert when it's impossible to reach target before bedtime
-      // remainingDayMinutes = estimated bedtime - now; if current + remaining < min → warn
       const bed2 = bedtimePrediction();
       const bed2Mins = bed2
         ? (()=>{ const [bh,bm]=bed2.time.split(":").map(Number); return bh*60+bm; })()
-        : 19*60; // default 7pm
+        : 19*60;
       const remainingBeforeBed = isToday ? Math.max(0, bed2Mins - nowMins) : 0;
-      const maxPossibleAdditional = remainingBeforeBed; // can't sleep more than time left
+      const maxPossibleAdditional = remainingBeforeBed;
       const couldStillReach = (totalMins + maxPossibleAdditional) >= range.min;
 
       // Suppress if: naps still incomplete AND there's still time to reach target
       if (!napsComplete && !dayEffectivelyOver && couldStillReach) return "suppressed";
-      // Also suppress if there's still plenty of day left regardless
       if (isToday && !dayEffectivelyOver && couldStillReach && napsComplete === false) return "suppressed";
 
       status = "below"; color = C.ter; bg = "#fff3f0";
@@ -3370,12 +3379,17 @@ function App(){
         const feedsLeft = Math.max(remainingFeeds, 1);
         const topUpEach = remainingFeeds > 0 ? Math.round(dayShortfall / feedsLeft / 10) * 10 : dayShortfall;
         // Bug 2 Fix: only show "low" if it's actually impossible to reach target before bed
-        // maxFeedRemaining = remainingMins of day (rough proxy: 1 feed per ~feedInterval)
+        // Also suppress low feed warning before 1pm — too early to judge intake
         const feedIntervalMins = dayLenMins / Math.max(targetFeeds, 1);
         const maxFeedsLeft = Math.max(Math.floor(remainingMins / feedIntervalMins), 0);
         const typicalPerFeed = totalMl / Math.max(dayMilkFeeds.length, 1);
         const maxPossibleIntake = totalMl + maxFeedsLeft * typicalPerFeed;
-        if (maxPossibleIntake >= totalMin) {
+        const currentHour = new Date().getHours();
+        if (!isPastDay && currentHour < 13) {
+          // Before 1pm — too early to flag low intake
+          status="ontrack"; color=C.mint; bg="#f0faf6"; icon="☀️";
+          statusMsg=`${totalMl}ml so far — the day is still young. Goal: reach ${totalMin}ml before bedtime.`;
+        } else if (maxPossibleIntake >= totalMin) {
           // Still achievable — show as "on track" not "low"
           status="ontrack"; color=C.mint; bg="#f0faf6"; icon="☀️";
           statusMsg=`${totalMl}ml so far — ${dayShortfall}ml to go. Plenty of time to reach the minimum of ${totalMin}ml.`;
@@ -4054,9 +4068,10 @@ function App(){
 
       const afterBed = tMins > bedMins;
 
-
-      const morningMins = morningWakeTime ? timeVal({time: morningWakeTime}) : 720;
-      const crossMidnight = tMins < bedMins && tMins < morningMins;
+      const morningMins = morningWakeTime ? timeVal({time: morningWakeTime}) : 6*60; // default 6am, not 12pm
+      // crossMidnight: only flag entries that are genuinely early-morning (midnight–05:59)
+      // AND before the morning wake anchor. This prevents daytime entries (6am+) being misclassified.
+      const crossMidnight = tMins < bedMins && tMins < morningMins && h >= 0 && h < 6;
 
       const shouldBeNight = afterBed || crossMidnight;
 
@@ -5230,15 +5245,18 @@ function App(){
               const shadow = isNapNow ? "0 0 0 3px rgba(111,168,152,0.3)" : isBedNow ? "0 0 0 3px rgba(122,171,196,0.3)" : "none";
 
               if (isNapTappable || isNapNow) {
-                const label = isNapNow ? "Tap to start" : "Tap to start";
-                const valueText = isNapNow ? "😴 Now!" : "Nap " + fmtCountdown(countdown);
+                const label = napOn ? "Tap to stop" : isNapNow ? "Tap to start" : "Tap to start";
+                const valueText = napOn ? "😴 " + fmtSec(napSec) : isNapNow ? "😴 Now!" : "Nap " + fmtCountdown(countdown);
+                const handleNapBtn = () => {
+                  if (napOn) { endNap(); } else { startNap(); }
+                };
                 return (
-                  <button onClick={startNap}
-                    style={{marginLeft:"auto",background:bg,border:`1px solid ${C.mint}`,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
-                    <span style={{fontSize:13}}>{icon}</span>
+                  <button onClick={handleNapBtn}
+                    style={{marginLeft:"auto",background:napOn?C.mint:bg,border:`1px solid ${C.mint}`,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
+                    <span style={{fontSize:13}}>{napOn?"😴":icon}</span>
                     <div style={{textAlign:"left"}}>
-                      <div style={{fontSize:9,fontFamily:_fM,color:labelColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{label}</div>
-                      <div style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:timeColor,lineHeight:1.3}}>{valueText}</div>
+                      <div style={{fontSize:9,fontFamily:_fM,color:napOn?"rgba(255,255,255,0.8)":labelColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{label}</div>
+                      <div style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napOn?"white":timeColor,lineHeight:1.3}}>{valueText}</div>
                     </div>
                   </button>
                 );
@@ -5246,14 +5264,17 @@ function App(){
 
               // Bed countdown / fallback
               const label = isBedNow ? "Tap to log" : isBed ? "Bedtime in" : "Next Nap";
-              const valueText = isBedNow ? "Log bedtime" : countdown !== null ? fmtCountdown(countdown) : "–";
+              const valueText = isBedNow ? "🌙 Log now" : countdown !== null ? fmtCountdown(countdown) : "–";
+              const handleBedBtn = () => {
+                if (isBedNow) { logBedtimeNow(); }
+              };
               return (
-                <button onClick={isBedNow ? logBedtimeNow : undefined}
-                  style={{marginLeft:"auto",background:bg,border:_bN,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:isBedNow?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
+                <button onClick={handleBedBtn}
+                  style={{marginLeft:"auto",background:isBedNow?C.sky:bg,border:isBedNow?`1px solid ${C.sky}`:_bN,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:isBedNow?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
                   <span style={{fontSize:13}}>{icon}</span>
                   <div style={{textAlign:"left"}}>
-                    <div style={{fontSize:9,fontFamily:_fM,color:labelColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{label}</div>
-                    <div style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:timeColor,lineHeight:1.3}}>{valueText}</div>
+                    <div style={{fontSize:9,fontFamily:_fM,color:isBedNow?"rgba(255,255,255,0.8)":labelColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{label}</div>
+                    <div style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:isBedNow?"white":timeColor,lineHeight:1.3}}>{valueText}</div>
                   </div>
                 </button>
               );
@@ -5549,47 +5570,71 @@ function App(){
                   const accentCol=e.type==="feed"?(e.feedType==="solids"?"#b8860b":e.feedType==="breast"?"#c07080":e.feedType==="pump"?"#7090c0":C.ter):e.type==="nap"?C.mint:e.type==="sleep"?C.sky:e.type==="poop"?"#8a7060":e.type==="wake"?C.gold:C.mid;
 
                   // Activity label
-                  const actLabel = e.type==="feed"
-                    ? (e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":e.feedType==="pump"?"Pump":"Bottle Feed")
-                    : e.type==="nap"?"Nap"
-                    : e.type==="sleep"?"Bedtime"
-                    : e.type==="wake"?"Wake Up"
-                    : e.type==="poop"?"Nappy"
-                    : NAMES[e.type]||e.type;
+                  const actLabel = (() => {
+                    const timeStr = e.time || e.start || "";
+                    const timeDisplay = timeStr ? fmt12(timeStr) : "";
+                    const name = e.type==="feed"
+                      ? (e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast Feed":e.feedType==="pump"?"Pump":"Bottle Feed")
+                      : e.type==="nap"?"Nap"
+                      : e.type==="sleep"?"Bedtime"
+                      : e.type==="wake"?"Wake Up"
+                      : e.type==="poop"?"Nappy"
+                      : NAMES[e.type]||e.type;
+                    return timeDisplay ? `${timeDisplay} — ${name}` : name;
+                  })();
 
-                  // Sub-detail (shown below activity name, replaces old duplicate lines)
+                  // Sub-detail (duration / ml / type)
                   let subDetail = null;
                   if(e.type==="feed"&&e.feedType==="breast"){
                     const parts=[];
-                    if(e.breastL>0) parts.push(`L: ${e.breastL}m`);
-                    if(e.breastR>0) parts.push(`R: ${e.breastR}m`);
+                    if(e.breastL>0) parts.push(`L: ${e.breastL}min`);
+                    if(e.breastR>0) parts.push(`R: ${e.breastR}min`);
+                    const total = (e.breastL||0)+(e.breastR||0);
+                    if(total>0) parts.unshift(`${total}min`);
                     if(parts.length) subDetail=parts.join(" · ");
-                  }
-                  if(e.type==="feed"&&e.feedType==="pump"){
+                  } else if(e.type==="feed"&&e.feedType==="pump"){
                     const parts=[];
+                    const total=(e.pumpL||0)+(e.pumpR||0)||e.amount||0;
+                    if(total>0) parts.push(`${total}ml`);
                     if(e.pumpL>0) parts.push(`L: ${e.pumpL}ml`);
                     if(e.pumpR>0) parts.push(`R: ${e.pumpR}ml`);
+                    if(e.pumpDuration>0) parts.push(`${e.pumpDuration}min`);
                     if(parts.length) subDetail=parts.join(" · ");
+                  } else if(e.type==="feed"&&e.feedType==="solids"){
+                    subDetail = e.note||null;
+                  } else if(e.type==="feed"){
+                    // bottle
+                    if(e.amount>0) subDetail=`${e.amount}ml`;
+                  } else if(e.type==="nap"&&e.start){
+                    const parts=[];
+                    if(e.start&&e.end){
+                      const dur=minDiff(e.start,e.end);
+                      if(dur>0) parts.push(hm(dur));
+                      parts.unshift(`${fmt12(e.start)} – ${fmt12(e.end)}`);
+                    } else if(e.start){
+                      parts.push(`From ${fmt12(e.start)}`);
+                    }
+                    subDetail=parts.join(" · ")||null;
+                  } else if(e.type==="poop"){
+                    subDetail=e.poopType||null;
                   }
-                  if(e.type==="nap"&&e.start&&e.end){
-                    const dur=minDiff(e.start,e.end);
-                    if(dur>0) subDetail=hm(dur);
-                  }
-                  if(e.type==="poop"&&e.poopType) subDetail=e.poopType;
                   if(e.note&&!subDetail) subDetail=e.note;
                   else if(e.note&&subDetail) subDetail+=` · ${e.note}`;
 
-                  // Badge chip value (right side) — per spec
+                  // Badge chip value (right side) — show key metric only, no time duplication
                   let badgeVal = null;
                   if(e.type==="feed"){
-                    if(e.feedType==="breast") badgeVal=`${(e.breastL||0)+(e.breastR||0)}m`;
-                    else if(e.feedType==="pump") badgeVal=`${(e.pumpL||0)+(e.pumpR||0)}ml`;
-                    else if(e.feedType==="solids") badgeVal=fmt12(e.time);
+                    if(e.feedType==="breast") badgeVal=`${(e.breastL||0)+(e.breastR||0)}min`;
+                    else if(e.feedType==="pump") badgeVal=`${(e.pumpL||0)+(e.pumpR||0)||e.amount||0}ml`;
+                    else if(e.feedType==="solids") badgeVal=null;
                     else badgeVal=e.amount?`${e.amount}ml`:null;
                   } else if(e.type==="nap"){
-                    badgeVal=e.start&&e.end?`${fmt12(e.start)}–${fmt12(e.end)}`:e.start?fmt12(e.start):null;
+                    const dur=e.start&&e.end?minDiff(e.start,e.end):0;
+                    badgeVal=dur>0?hm(dur):null;
+                  } else if(e.type==="poop"){
+                    badgeVal=e.poopType||null;
                   } else {
-                    badgeVal=fmt12(e.time||e.start||"");
+                    badgeVal=null; // time is already in actLabel
                   }
 
                   return(
