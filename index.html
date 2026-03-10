@@ -4722,6 +4722,125 @@ function App(){
               )}
 
               {}
+              {(()=>{
+                if (!age || dayE.length === 0) return null;
+                const isToday = selDay === todayStr();
+                const name = babyName || "Baby";
+                const ageWeeks = age.totalWeeks;
+                const dayLabel = isToday ? "Today" : fmtLong(selDay);
+
+                const napCount = naps.length;
+                const p = getAgeNapProfile(ageWeeks);
+                const range = napNormalRange();
+                let sleepLine = "";
+                if (napCount === 0) {
+                  sleepLine = "No naps logged yet.";
+                } else if (napMins < (range ? range.min : 60)) {
+                  sleepLine = `Naps were a little shorter today (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
+                } else if (napMins > (range ? range.max : 300)) {
+                  sleepLine = `Plenty of nap time today (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
+                } else {
+                  sleepLine = `Nap time looks good (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
+                }
+                const bedEntry = dayE.find(e => e.type === "sleep");
+                if (bedEntry) sleepLine += ` Bedtime logged at ${fmt12(bedEntry.time)}.`;
+
+                const dayMlTotal = entries.filter(e => e.type === "feed" && !e.night).reduce((s,f) => s+(f.amount||0), 0);
+                const feedCount = dayE.filter(e => e.type === "feed").length;
+                let feedLine = "";
+                if (feedCount === 0) {
+                  feedLine = "No feeds logged yet.";
+                } else if (dayMlTotal > 0) {
+                  feedLine = `${dayMlTotal}ml across ${feedCount} feed${feedCount!==1?"s":""}`;
+                  const solids = dayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
+                  if (solids > 0) feedLine += ` + ${solids} solid${solids!==1?"s":""}`;
+                  feedLine += ".";
+                } else {
+                  const breast = dayE.filter(e => e.type === "feed" && e.feedType === "breast").length;
+                  const solids = dayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
+                  const parts = [];
+                  if (breast > 0) parts.push(`${breast} breastfeed${breast!==1?"s":""}`);
+                  if (solids > 0) parts.push(`${solids} solid${solids!==1?"s":""}`);
+                  feedLine = parts.length ? parts.join(" + ") + "." : `${feedCount} feed${feedCount!==1?"s":""}.`;
+                }
+
+                const devSkills = MILESTONES.filter(m => ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[1] && !milestones[m.id]?.date);
+                const cats = [...new Set(devSkills.map(m => m.cat))];
+                const catNames = {social:"social skills",language:"communication",motor:"movement",cognitive:"thinking & play"};
+                let devLine = "";
+                if (cats.length > 0) {
+                  const catList = cats.slice(0,2).map(c => catNames[c]||c).join(" and ");
+                  devLine = `Working on ${catList}.`;
+                }
+
+                const activePhase = DEV_PHASES.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
+                const nextPhase = DEV_PHASES.find(l => l.windowStart > ageWeeks);
+                let phaseLine = "";
+                let phaseDetail = "";
+                if (activePhase) {
+                  const weeksLeft = activePhase.windowEnd - ageWeeks;
+                  phaseLine = `In developmental phase ${activePhase.phase}: ${activePhase.name}`;
+                  phaseDetail = `${activePhase.fussy} New skills emerging: ${activePhase.skills.slice(0,2).join(", ")}.`;
+                } else if (nextPhase) {
+                  const weeksUntil = nextPhase.windowStart - ageWeeks;
+                  if (weeksUntil <= 3) {
+                    phaseLine = `Phase ${nextPhase.phase} (${nextPhase.name}) starting in ~${weeksUntil} week${weeksUntil!==1?"s":""}`;
+                    phaseDetail = `What to expect: ${nextPhase.fussy} Afterwards, look out for: ${nextPhase.skills.slice(0,2).join(", ")}.`;
+                  }
+                }
+
+                return (
+                  <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:22,padding:"18px",marginBottom:16,boxShadow:"0 2px 14px rgba(201,112,90,0.05)"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep,marginBottom:2}}>{dayLabel} with {name}</div>
+                    <div style={{fontSize:13,color:C.lt,fontFamily:_fM,marginBottom:14}}>{fmtAge(age)} · week {ageWeeks}</div>
+
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {sleepLine && (
+                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>😴</span>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sleep</div>
+                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{sleepLine}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {feedLine && (
+                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>🍼</span>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Feeding</div>
+                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{feedLine}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {devLine && (
+                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>🧠</span>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Development</div>
+                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{devLine}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {phaseLine && (
+                        <div style={{background:activePhase?"linear-gradient(135deg,#f0eeff,#e8e4ff)":"#f8f7ff",borderRadius:14,padding:"12px 14px",border:activePhase?"1.5px solid #c5bef5":"1px solid #e0dbf5",marginTop:2}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                            <div style={{width:24,height:24,borderRadius:"50%",background:activePhase?"#7b68ee":"#c5bef5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                              <span style={{fontSize:10,color:"white",fontWeight:700}}>{activePhase?activePhase.phase:nextPhase.phase}</span>
+                            </div>
+                            <div style={{fontSize:14,fontWeight:700,color:activePhase?"#4a3cb5":"#7060c0"}}>{phaseLine}</div>
+                          </div>
+                          {phaseDetail && <div style={{fontSize:13,color:"#5040a0",lineHeight:1.55}}>{phaseDetail}</div>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {}
               {(()=>{
                 const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
