@@ -1081,7 +1081,7 @@ function App(){
   const[bedCountdown,setBedCountdown]=useState(null);
   // Bug 1: explicit timer mode — 'prediction' | 'activeSleep'
   const[timerMode,setTimerMode]=useState(()=> {
-    try { return localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction"; } catch { return "prediction"; }
+    try { return localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction"); } catch { return "prediction"; }
   });
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
@@ -1874,7 +1874,21 @@ function App(){
 
   function dedupEntries(entries) {
     const seen = new Set();
+    const seenContentKeys = new Set();
     return entries.filter(e => {
+      // First: dedup by content signature (catches entries with different IDs but same data)
+      let contentKey;
+      if (e.type === "nap")  contentKey = `nap|${e.start}|${e.end}`;
+      else if (e.type === "feed" && e.feedType === "breast") contentKey = `breast|${e.time}|${e.breastL}|${e.breastR}`;
+      else if (e.type === "feed") contentKey = `feed|${e.time}|${e.amount}`;
+      else if (e.type === "poop") contentKey = `poop|${e.time}|${e.poopType}`;
+      else if (e.type === "wake") contentKey = `wake|${e.time}|${e.night?'n':'d'}`;
+      else if (e.type === "sleep") contentKey = `sleep|${e.time}`;
+      else contentKey = `${e.type}|${e.time}`;
+      if (seenContentKeys.has(contentKey)) return false;
+      seenContentKeys.add(contentKey);
+
+      // Second: legacy dedup by structural key
       let key;
       if (e.type === "nap")  key = `nap|${e.start}|${e.end}`;
       else if (e.type === "feed" && e.feedType === "breast") key = `breast|${e.time}|${e.breastL}|${e.breastR}`;
@@ -2156,6 +2170,7 @@ function App(){
 
 
   useEffect(()=>{try{localStorage.setItem("nap_on",napOn?"1":"0");}catch{}},[ napOn]);
+  useEffect(()=>{try{localStorage.setItem("timer_mode_v1",timerMode);}catch{}},[timerMode]);
   useEffect(()=>{try{if(napStartT)localStorage.setItem("nap_startT",napStartT);else localStorage.removeItem("nap_startT");}catch{}},[ napStartT]);
   useEffect(()=>{try{localStorage.setItem("nap_sec",String(napSec));}catch{}},[napSec]);
 
@@ -2394,7 +2409,7 @@ function App(){
       let windows = [];
       recent5.forEach(d => {
         const ws = getAwakeWindows(days[d]||[]);
-        ws.forEach(w => { if (w.mins && w.mins >= 20) windows.push(w.mins); });
+        ws.forEach(w => { if (w.mins && w.mins >= 20 && w.mins <= 300) windows.push(w.mins); });
       });
       if (windows.length >= 3) {
         const sorted2 = [...windows].sort((a,b)=>a-b);
@@ -2417,7 +2432,7 @@ function App(){
       let windows = [];
       recent7.forEach(d => {
         const ws = getAwakeWindows(days[d]||[]);
-        ws.forEach(w => { if (w.mins && w.mins >= 20) windows.push(w.mins); });
+        ws.forEach(w => { if (w.mins && w.mins >= 20 && w.mins <= 300) windows.push(w.mins); });
       });
       if (windows.length >= 3) {
         const sorted2 = [...windows].sort((a,b)=>a-b);
@@ -2491,6 +2506,14 @@ function App(){
       wakeWindowMin = ww.min;
       wakeWindowMax = ww.max;
       sourceLabel += " (safety fallback)";
+    }
+    // Absolute hard cap: no prediction should ever suggest more than 5h wake window for any baby
+    const ABSOLUTE_MAX_WAKE_MINS = 300; // 5 hours
+    if (finalMinMins - lastAwakeMins > ABSOLUTE_MAX_WAKE_MINS) {
+      const safeMid = lastAwakeMins + Math.min(ww.midpoint, ABSOLUTE_MAX_WAKE_MINS);
+      const safeMax = lastAwakeMins + Math.min(ww.max, ABSOLUTE_MAX_WAKE_MINS);
+      const capStart = (()=>{ const h=Math.floor(safeMid/60)%24; const m=safeMid%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+      return { napStart_min: capStart, napStart_max: (()=>{ const h=Math.floor(safeMax/60)%24; const m=safeMax%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })(), wakeWindowMin:ww.min, wakeWindowMax:ww.max, sourceLabel: `age-appropriate wake windows for ${fmtAge(age)} (hard cap)`, lastAwakeStart, isOverdue: true };
     }
     // Extra hard cap: predicted nap window must not start more than ww.max from last awake start
     if (finalMinMins - lastAwakeMins > ww.max) {
@@ -2692,7 +2715,12 @@ function App(){
     const afterAfternoon = nowMins >= 15 * 60;
     let status, color, bg, icon, message;
     if (totalMins < range.min) {
-      // Only show low sleep warning after 3pm — before that there's still plenty of nap time ahead
+      // Suppress low sleep warning based on time of day:
+      // Before noon: always suppress (way too early to judge)
+      // Before 3pm: suppress (still plenty of nap time ahead)
+      // After 3pm: only show if it's mathematically impossible to reach target before bedtime
+      const beforeNoon = isToday && nowMins < 12 * 60;
+      if (beforeNoon) return "suppressed";
       if (isToday && !afterAfternoon) return "suppressed";
       // Bug 2 Fix: only trigger alert when it's impossible to reach target before bedtime
       const bed2 = bedtimePrediction();
@@ -3385,7 +3413,12 @@ function App(){
         const typicalPerFeed = totalMl / Math.max(dayMilkFeeds.length, 1);
         const maxPossibleIntake = totalMl + maxFeedsLeft * typicalPerFeed;
         const currentHour = new Date().getHours();
-        if (!isPastDay && currentHour < 13) {
+        const currentMin = new Date().getMinutes();
+        if (!isPastDay && (currentHour < 12 || (currentHour === 12 && currentMin === 0))) {
+          // Before noon — way too early to flag low intake
+          status="ontrack"; color=C.mint; bg="#f0faf6"; icon="☀️";
+          statusMsg=`${totalMl}ml so far — the day is just getting started. Goal: reach ${totalMin}ml before bedtime.`;
+        } else if (!isPastDay && currentHour < 13) {
           // Before 1pm — too early to flag low intake
           status="ontrack"; color=C.mint; bg="#f0faf6"; icon="☀️";
           statusMsg=`${totalMl}ml so far — the day is still young. Goal: reach ${totalMin}ml before bedtime.`;
@@ -4035,13 +4068,16 @@ function App(){
     }
     // If still no bedtime, use a safe default of 19:00 for classification purposes
     if (!bedtime) {
-      // Only reclassify entries that are clearly overnight (midnight–05:59)
+      // Only reclassify entries that are clearly overnight (midnight–04:59)
+      // NEVER create phantom classifications for 5am+ entries
       return entries.map(e => {
         if (e.nightLocked) return e;
         if (e.type !== "wake" && e.type !== "feed") return e;
         const t = e.time; if (!t) return e;
         const h = parseInt(t.split(":")[0]);
         if (h >= 0 && h < 5) return {...e, night: true};
+        // Explicitly ensure anything 5am+ stays as daytime
+        if (h >= 5 && e.night) return {...e, night: false};
         return e;
       });
     }
@@ -5262,19 +5298,37 @@ function App(){
                 );
               }
 
-              // Bed countdown / fallback
-              const label = isBedNow ? "Tap to log" : isBed ? "Bedtime in" : "Next Nap";
-              const valueText = isBedNow ? "🌙 Log now" : countdown !== null ? fmtCountdown(countdown) : "–";
+              // Bed countdown / fallback — tappable: first tap starts sleep timer, second tap logs bedtime
+              const bedTimerLabel = napOn
+                ? "Tap to log bedtime"
+                : isBedNow ? "Tap to start"
+                : isBed ? "Bedtime in"
+                : "Next Nap";
+              const bedTimerValue = napOn
+                ? "🌙 " + fmtSec(napSec)
+                : isBedNow ? "🌙 Now!"
+                : countdown !== null ? fmtCountdown(countdown) : "–";
+              const bedBtnTappable = isBed || isBedNow || napOn;
               const handleBedBtn = () => {
-                if (isBedNow) { logBedtimeNow(); }
+                if (napOn) {
+                  // Second tap: stop timer & log bedtime
+                  setNapOn(false);
+                  setNapStartT(null); setNapSec(0);
+                  setTimerMode("prediction");
+                  try{["nap_on","nap_startT","nap_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+                  logBedtimeNow();
+                } else if (isBedNow || isBed) {
+                  // First tap: start sleep timer (counts up)
+                  startNap();
+                }
               };
               return (
                 <button onClick={handleBedBtn}
-                  style={{marginLeft:"auto",background:isBedNow?C.sky:bg,border:isBedNow?`1px solid ${C.sky}`:_bN,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:isBedNow?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
-                  <span style={{fontSize:13}}>{icon}</span>
+                  style={{marginLeft:"auto",background:napOn?C.sky:isBedNow?C.sky:bg,border:napOn||isBedNow?`1px solid ${C.sky}`:_bN,borderRadius:99,padding:"5px 11px",display:"flex",alignItems:"center",gap:5,cursor:bedBtnTappable?"pointer":"default",boxShadow:shadow,transition:"all 0.2s",fontFamily:_fI}}>
+                  <span style={{fontSize:13}}>{napOn?"🌙":icon}</span>
                   <div style={{textAlign:"left"}}>
-                    <div style={{fontSize:9,fontFamily:_fM,color:isBedNow?"rgba(255,255,255,0.8)":labelColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{label}</div>
-                    <div style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:isBedNow?"white":timeColor,lineHeight:1.3}}>{valueText}</div>
+                    <div style={{fontSize:9,fontFamily:_fM,color:napOn||isBedNow?"rgba(255,255,255,0.8)":labelColor,textTransform:"uppercase",letterSpacing:"0.06em",lineHeight:1}}>{bedTimerLabel}</div>
+                    <div style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napOn||isBedNow?"white":timeColor,lineHeight:1.3}}>{bedTimerValue}</div>
                   </div>
                 </button>
               );
@@ -5569,7 +5623,7 @@ function App(){
                   const isOver=dragOver===e.id;
                   const accentCol=e.type==="feed"?(e.feedType==="solids"?"#b8860b":e.feedType==="breast"?"#c07080":e.feedType==="pump"?"#7090c0":C.ter):e.type==="nap"?C.mint:e.type==="sleep"?C.sky:e.type==="poop"?"#8a7060":e.type==="wake"?C.gold:C.mid;
 
-                  // Activity label
+                  // Activity label: "time - Activity (type)" format
                   const actLabel = (() => {
                     const timeStr = e.time || e.start || "";
                     const timeDisplay = timeStr ? fmt12(timeStr) : "";
@@ -5580,17 +5634,18 @@ function App(){
                       : e.type==="wake"?"Wake Up"
                       : e.type==="poop"?"Nappy"
                       : NAMES[e.type]||e.type;
-                    return timeDisplay ? `${timeDisplay} — ${name}` : name;
+                    return timeDisplay ? `${timeDisplay} - ${name}` : name;
                   })();
 
-                  // Sub-detail (duration / ml / type)
+                  // Sub-detail: key info per type
+                  // Nap: duration | Feed: ml or food desc | Nappy: poop type | Pump: amount pumped | Breast: duration + L/R
                   let subDetail = null;
                   if(e.type==="feed"&&e.feedType==="breast"){
                     const parts=[];
+                    const total = (e.breastL||0)+(e.breastR||0);
+                    if(total>0) parts.push(`${total}min`);
                     if(e.breastL>0) parts.push(`L: ${e.breastL}min`);
                     if(e.breastR>0) parts.push(`R: ${e.breastR}min`);
-                    const total = (e.breastL||0)+(e.breastR||0);
-                    if(total>0) parts.unshift(`${total}min`);
                     if(parts.length) subDetail=parts.join(" · ");
                   } else if(e.type==="feed"&&e.feedType==="pump"){
                     const parts=[];
@@ -5874,10 +5929,19 @@ function App(){
 
                         // If bridge was scheduled but day sleep is now met — prompt removal
                         if (bridgeNapScheduled && dayMet) {
+                          // Find the last nap to show specific duration
+                          const todayNaps3 = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night);
+                          const lastNap2 = todayNaps3.length ? todayNaps3[todayNaps3.length-1] : null;
+                          const lastNapDur = lastNap2 && lastNap2.start && lastNap2.end ? minDiff(lastNap2.start, lastNap2.end) : 0;
                           return (
                             <div style={{background:"#edfaf4",border:"1px solid #a0ddc0",borderLeft:"4px solid #50a888",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
                               <div style={{fontSize:13,fontWeight:700,color:"#2a7055",marginBottom:4}}>✅ Day sleep target met!</div>
-                              <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:8}}>Baby has now reached the recommended day sleep. The bridge nap you added may no longer be needed. Would you like to remove it?</div>
+                              <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:8}}>
+                                {lastNapDur >= 90
+                                  ? `Baby slept ${hm(lastNapDur)} on the last nap and has now reached the NHS recommended day sleep for this age. The bridge nap you added is no longer needed.`
+                                  : `Baby has now reached the recommended day sleep for this age. The bridge nap you added may no longer be needed. Would you like to remove it?`
+                                }
+                              </div>
                               <div style={{display:"flex",gap:7}}>
                                 <button onClick={()=>setBridgeNap(false)} style={{flex:1,background:"linear-gradient(135deg,#50a888,#3a8870)",border:"none",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:700,color:"white",cursor:"pointer"}}>Remove bridge nap</button>
                                 <button onClick={()=>setBridgeNap(true)} style={{flex:1,background:"#f0faf6",border:"1px solid #a0ddc0",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:600,color:"#2a7055",cursor:"pointer"}}>Keep it in</button>
