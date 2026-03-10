@@ -831,6 +831,8 @@ function App(){
   const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
+  const[showNightWake,setShowNightWake]=useState(false);
+  const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
   const[inlineWakeTime,setInlineWakeTime]=useState("");
 
   React.useEffect(()=>{
@@ -5049,7 +5051,7 @@ function App(){
                     <div style={{width:3,height:18,background:"#7b68ee",borderRadius:99}}/>
                     <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"#5040a0",fontSize:16}}>Night Wakes</span>
                   </div>
-                  
+                  <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,note:""});setShowNightWake(true);}} style={{background:"#e8e4ff",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"#9080c8",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -6980,6 +6982,78 @@ function App(){
 
       {}
       {}
+      {showNightWake&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNightWake(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:C.cream,borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB}}>
+            <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 Log Night Wake</div>
+
+            <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Wake time</div>
+            <input type="time" value={nwForm.time} onChange={e=>setNwForm(f=>({...f,time:e.target.value}))}
+              style={{width:"100%",fontSize:18,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:C.warm,color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",marginBottom:16,boxSizing:_bBB}}/>
+
+            <div onClick={()=>setNwForm(f=>({...f,selfSettled:!f.selfSettled,ml:f.selfSettled?f.ml:""}))}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"rgba(80,200,120,0.08)":C.warm,cursor:_cP,marginBottom:16,transition:"all 0.2s"}}>
+              <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"#50c878":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                {nwForm.selfSettled&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
+              </div>
+              <div>
+                <div style={{fontSize:15,fontWeight:600,color:nwForm.selfSettled?"#50c878":C.mid}}>Self settled</div>
+                <div style={{fontSize:12,color:C.lt,marginTop:1}}>No feed needed</div>
+              </div>
+            </div>
+
+            {!nwForm.selfSettled&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Feed amount</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <input type="number" inputMode="numeric" placeholder="ml" value={nwForm.ml}
+                    onChange={e=>setNwForm(f=>({...f,ml:e.target.value}))}
+                    style={{flex:1,fontSize:20,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:C.warm,color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                  <span style={{fontSize:16,color:C.lt,fontFamily:_fM}}>ml</span>
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:8}}>
+                  {[60,90,120,150,180].map(ml=>(
+                    <button key={ml} onClick={()=>setNwForm(f=>({...f,ml:String(ml)}))}
+                      style={{flex:1,padding:"7px 2px",borderRadius:10,border:`1px solid ${nwForm.ml===String(ml)?"#7b68ee":C.blush}`,background:nwForm.ml===String(ml)?"#f0eeff":C.warm,color:nwForm.ml===String(ml)?"#5040a0":C.lt,fontSize:12,fontFamily:_fM,cursor:_cP}}>
+                      {ml}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Notes</div>
+            <input placeholder="e.g. fussed, resettled easily…" value={nwForm.note}
+              onChange={e=>setNwForm(f=>({...f,note:e.target.value}))}
+              style={{width:"100%",fontSize:15,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:C.warm,color:C.deep,outline:_oN,fontFamily:_fI,marginBottom:20,boxSizing:_bBB}}/>
+
+            <button onClick={()=>{
+              if(!nwForm.time) return;
+              const entry = {
+                id: uid(),
+                type: nwForm.selfSettled ? "wake" : "feed",
+                time: nwForm.time,
+                amount: nwForm.selfSettled ? 0 : (parseInt(nwForm.ml)||0),
+                feedType: "milk",
+                night: true,
+                nightLocked: true,
+                note: nwForm.selfSettled ? (nwForm.note||"Self settled") : (nwForm.note||""),
+              };
+              setDays(d=>{
+                const existing = d[selDay]||[];
+                const updated = autoClassifyNight([...existing, entry]);
+                const relocked = updated.map(e => e.nightLocked ? {...e, night: true} : e);
+                return{...d,[selDay]:relocked};
+              });
+              setShowNightWake(false);
+            }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+              Save Wake ✦
+            </button>
+          </div>
+        </div>
+      )}
+
       {showAddChild && (
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowAddChild(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"#faf6f0",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%"}}>
