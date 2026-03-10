@@ -2384,7 +2384,16 @@ function App(){
   const dayKeys=Object.keys(days).sort().filter(d => d <= today_str);
   const displayDayKeys=[...Object.keys(days).sort()].reverse();
   const entries=days[selDay]||[];
+  const _bedtimeCount = entries.filter(e=>e.type==="sleep").length;
 
+  // Auto-reclassify night entries whenever entries change (e.g. bedtime logged after a feed)
+  React.useEffect(()=>{
+    if(!entries.length || !_bedtimeCount) return;
+    const prevD = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().split("T")[0];})();
+    const reclassified = autoClassifyNight(entries, days[prevD]||null);
+    const changed = reclassified.some((e,i) => e.night !== entries[i]?.night);
+    if(changed) setDays(d=>({...d,[selDay]:reclassified}));
+  },[selDay, entries.length, _bedtimeCount]);
 
   const dayE=entries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
   const nightE=entries.filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
