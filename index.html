@@ -5921,10 +5921,10 @@ function App(){
 
                   {/* Log inputs */}
                   <div style={{marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-                      <Inp label="Date" type="date" value={growthForm.date} onChange={e=>{setGrowthForm(f=>({...f,date:e.target.value}));setHeightForm(f=>({...f,date:e.target.value}));}} style={{marginBottom:0}}/>
-                      <Inp label="Weight (kg)" type="number" step="0.01" placeholder="5.2" value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
-                      <Inp label="Height (cm)" type="number" step="0.1" placeholder="62" value={heightForm.cm} onChange={e=>setHeightForm(f=>({...f,cm:e.target.value}))} style={{marginBottom:0}}/>
+                    <Inp label="Date" type="date" value={growthForm.date} onChange={e=>{setGrowthForm(f=>({...f,date:e.target.value}));setHeightForm(f=>({...f,date:e.target.value}));}} style={{marginBottom:10}}/>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
+                      <Inp label="Weight (kg)" type="number" step="0.01" placeholder="e.g. 5.2" value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
+                      <Inp label="Height (cm)" type="number" step="0.1" placeholder="e.g. 62" value={heightForm.cm} onChange={e=>setHeightForm(f=>({...f,cm:e.target.value}))} style={{marginBottom:0}}/>
                     </div>
                     <PBtn onClick={()=>{
                       if(growthForm.kg){
