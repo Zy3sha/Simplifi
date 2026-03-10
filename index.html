@@ -46,7 +46,7 @@
     signInAnonymously(auth).catch(e => console.warn("Auth error", e));
     onAuthStateChanged(auth, user => { if (user) window._fbUid = user.uid; });
   </script>
-  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}html{color-scheme:light;}html,body{height:100%;overscroll-behavior:none;}body{background:#faf6f0;font-family:'DM Sans',sans-serif;}::-webkit-scrollbar{display:none;}input,select,button{font-family:inherit;}body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}body.girl header,body.girl .gender-accent{background:#fde7e4!important;}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}html{color-scheme:light;}html,body{height:100%;overscroll-behavior:none;}body{background:#faf6f0;font-family:'DM Sans',sans-serif;}::-webkit-scrollbar{display:none;}input,select,button{font-family:inherit;}body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}body.girl header,body.girl .gender-accent{background:#fde7e4!important;}input::placeholder{color:#c8beb8;opacity:1;}</style>
 </head>
 <body>
 <div id="root"></div>
@@ -320,7 +320,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
                 ref={tRef}
                 type="text"
                 inputMode="text"
-                placeholder="e.g. 7:30am, 2pm, 14:00"
+                placeholder={fmt12(nowTime())}
                 value={typeBuf}
                 onChange={e=>handleType(e.target.value)}
                 onKeyDown={e=>{if(e.key==="Enter") handleDone();}}
