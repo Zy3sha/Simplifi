@@ -2188,14 +2188,15 @@ function App(){
   React.useEffect(()=>{
     const ageWeeks = age ? age.totalWeeks : null;
     const napProfileTick = getAgeNapProfile(ageWeeks);
-    const expectedNaps = napProfileTick.expectedNaps;
+    // If bridge nap is scheduled, add 1 to expected naps so countdown shows "Next Nap" instead of "Bedtime in"
+    const expectedNaps = napProfileTick.expectedNaps + (bridgeNapScheduled ? 1 : 0);
     const bed = bedtimePrediction();
     const pred = predictNextNap();
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
     const napsDone = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).length;
     const bedMins = bed ? (()=>{ const [bh,bm]=bed.time.split(":").map(Number); return bh*60+bm; })() : null;
     tickDataRef.current = { hasBedtime, bed, bedMins, napsDone, expectedNaps, pred };
-  },[selDay, days, age]);
+  },[selDay, days, age, bridgeNapScheduled]);
 
 
   const countdownRef = React.useRef(null);
@@ -2390,9 +2391,11 @@ function App(){
     if (hasBedtime) return null;
 
     // Bug 4: check expected nap count by age — if all done, no more naps
+    // But if bridge nap is scheduled, allow one extra nap
     const napProfile2 = getAgeNapProfile(ageWeeks);
+    const adjustedExpected = napProfile2.expectedNaps + (bridgeNapScheduled ? 1 : 0);
     const napsDoneToday = (days[selDay]||[]).filter(e => e.type==="nap" && !e.night).length;
-    if (napsDoneToday >= napProfile2.expectedNaps) return null;
+    if (napsDoneToday >= adjustedExpected) return null;
 
     // Bug 3: age-appropriate wake window guardrails
     const ww = getWakeWindow(ageWeeks);
@@ -2409,7 +2412,7 @@ function App(){
       let windows = [];
       recent5.forEach(d => {
         const ws = getAwakeWindows(days[d]||[]);
-        ws.forEach(w => { if (w.mins && w.mins >= 20 && w.mins <= 300) windows.push(w.mins); });
+        ws.forEach(w => { if (w.mins && w.mins >= 20 && w.mins <= ww.max * 1.3) windows.push(w.mins); });
       });
       if (windows.length >= 3) {
         const sorted2 = [...windows].sort((a,b)=>a-b);
@@ -2432,7 +2435,7 @@ function App(){
       let windows = [];
       recent7.forEach(d => {
         const ws = getAwakeWindows(days[d]||[]);
-        ws.forEach(w => { if (w.mins && w.mins >= 20 && w.mins <= 300) windows.push(w.mins); });
+        ws.forEach(w => { if (w.mins && w.mins >= 20 && w.mins <= ww.max * 1.3) windows.push(w.mins); });
       });
       if (windows.length >= 3) {
         const sorted2 = [...windows].sort((a,b)=>a-b);
@@ -2507,13 +2510,14 @@ function App(){
       wakeWindowMax = ww.max;
       sourceLabel += " (safety fallback)";
     }
-    // Absolute hard cap: no prediction should ever suggest more than 5h wake window for any baby
-    const ABSOLUTE_MAX_WAKE_MINS = 300; // 5 hours
-    if (finalMinMins - lastAwakeMins > ABSOLUTE_MAX_WAKE_MINS) {
-      const safeMid = lastAwakeMins + Math.min(ww.midpoint, ABSOLUTE_MAX_WAKE_MINS);
-      const safeMax = lastAwakeMins + Math.min(ww.max, ABSOLUTE_MAX_WAKE_MINS);
+    // Age-aware hard cap: predicted nap must not start beyond ww.max + 20% tolerance from last awake
+    // This catches erroneous predictions without clipping legitimate long wake windows for older toddlers
+    const AGE_CAP = Math.round(ww.max * 1.2);
+    if (finalMinMins - lastAwakeMins > AGE_CAP) {
+      const safeMid = lastAwakeMins + ww.midpoint;
+      const safeMax = lastAwakeMins + ww.max;
       const capStart = (()=>{ const h=Math.floor(safeMid/60)%24; const m=safeMid%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
-      return { napStart_min: capStart, napStart_max: (()=>{ const h=Math.floor(safeMax/60)%24; const m=safeMax%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })(), wakeWindowMin:ww.min, wakeWindowMax:ww.max, sourceLabel: `age-appropriate wake windows for ${fmtAge(age)} (hard cap)`, lastAwakeStart, isOverdue: true };
+      return { napStart_min: capStart, napStart_max: (()=>{ const h=Math.floor(safeMax/60)%24; const m=safeMax%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })(), wakeWindowMin:ww.min, wakeWindowMax:ww.max, sourceLabel: `age-appropriate wake windows for ${fmtAge(age)} (capped)`, lastAwakeStart, isOverdue: true };
     }
     // Extra hard cap: predicted nap window must not start more than ww.max from last awake start
     if (finalMinMins - lastAwakeMins > ww.max) {
@@ -2562,7 +2566,8 @@ function App(){
     if (!age) return null;
 
     const napProfile = getAgeNapProfile(age.totalWeeks);
-    if (todayNaps.length < napProfile.expectedNaps) return null;
+    const adjustedExpectedBed = napProfile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
+    if (todayNaps.length < adjustedExpectedBed) return null;
     const ww = getWakeWindow(age.totalWeeks);
     const lastNap = todayNaps[todayNaps.length - 1];
     if (!lastNap.end) return null;
@@ -2632,17 +2637,18 @@ function App(){
       return `Baby napped ${hrs}h today.`;
     }
     const p = getAgeNapProfile(age.totalWeeks);
+    const adjustedExpectedAdv = p.expectedNaps + (bridgeNapScheduled ? 1 : 0);
     const hrs = (napMinutes / 60).toFixed(1);
     const napsDone = todayNaps.length;
-    const napsComplete = napsDone >= p.expectedNaps;
+    const napsComplete = napsDone >= adjustedExpectedAdv;
 
 
     const shortNaps = todayNaps.filter(n => minDiff(n.start, n.end) < p.idealNapDurMin && minDiff(n.start, n.end) > 0);
     const longNaps  = todayNaps.filter(n => minDiff(n.start, n.end) > p.idealNapDurMax);
 
     if (!napsComplete) {
-      const remaining = p.expectedNaps - napsDone;
-      return `${napsDone} of ${p.expectedNaps} naps done (${hrs}h). ${remaining} more nap${remaining>1?"s":""} expected — keep going before bedtime.`;
+      const remaining = adjustedExpectedAdv - napsDone;
+      return `${napsDone} of ${adjustedExpectedAdv} naps done (${hrs}h). ${remaining} more nap${remaining>1?"s":""} expected${bridgeNapScheduled?" (incl. bridge nap)":""} — keep going before bedtime.`;
     }
 
 
@@ -2669,7 +2675,7 @@ function App(){
     if (napMinutes === 0) return null;
     const p = age ? getAgeNapProfile(age.totalWeeks) : { idealTotalMin:90, idealTotalMax:240 };
 
-    const napsComplete = todayNaps.length >= p.expectedNaps;
+    const napsComplete = todayNaps.length >= (p.expectedNaps + (bridgeNapScheduled ? 1 : 0));
     const isToday = selDay === todayStr();
     const nowMins = isToday ? (() => { const n = new Date(); return n.getHours()*60+n.getMinutes(); })() : 24*60;
 
@@ -2708,7 +2714,7 @@ function App(){
     if (!range) return null;
 
     const p = age ? getAgeNapProfile(age.totalWeeks) : null;
-    const napsComplete = p ? naps.length >= p.expectedNaps : true;
+    const napsComplete = p ? naps.length >= (p.expectedNaps + (bridgeNapScheduled ? 1 : 0)) : true;
     const isToday = selDay === todayStr();
     const nowMins = isToday ? (() => { const n = new Date(); return n.getHours()*60+n.getMinutes(); })() : 24*60;
     const dayEffectivelyOver = nowMins >= 18 * 60;
@@ -5661,15 +5667,8 @@ function App(){
                     // bottle
                     if(e.amount>0) subDetail=`${e.amount}ml`;
                   } else if(e.type==="nap"&&e.start){
-                    const parts=[];
-                    if(e.start&&e.end){
-                      const dur=minDiff(e.start,e.end);
-                      if(dur>0) parts.push(hm(dur));
-                      parts.unshift(`${fmt12(e.start)} – ${fmt12(e.end)}`);
-                    } else if(e.start){
-                      parts.push(`From ${fmt12(e.start)}`);
-                    }
-                    subDetail=parts.join(" · ")||null;
+                    // Duration shown in badge chip; sub-detail is empty to avoid duplication
+                    subDetail = null;
                   } else if(e.type==="poop"){
                     subDetail=e.poopType||null;
                   }
