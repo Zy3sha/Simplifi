@@ -1,7 +1,7 @@
 {
   "name": "OBubba — Baby Tracker",
   "short_name": "OBubba",
-  "description": "Track feeds, sleep, nappies, growth and milestones. Smart insights powered by NHS & WHO guidelines.",
+  "description": "Track feeds, sleep, nappies, growth and milestones in one simple app. Smart sleep insights and nap predictions powered by NHS & WHO guidance help you understand your baby's rhythms.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
