@@ -267,7 +267,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
     if(!str || !str.trim()) return null;
     const result = parseTimeFree(str, previousMinutes);
     if(!result) return null;
-    if(nightOnly){ const [h] = result.split(":").map(Number); if(h >= 7 && h < 19) return null; }
+    if(nightOnly){ const [h] = result.split(":").map(Number); if(h >= 8 && h < 18) return null; }
     return result;
   }
 
@@ -7480,7 +7480,7 @@ function App(){
           )}
           {logForm.sleepType==="bed"&&(
             <div style={{marginBottom:12}}>
-              <TimeInput label="Bedtime" value={logForm.bedTime} onChange={t=>setLogForm(f=>({...f,bedTime:t}))} nightOnly={true}/>
+              <TimeInput label="Bedtime" value={logForm.bedTime} onChange={t=>setLogForm(f=>({...f,bedTime:t}))}/>
               <div style={{fontSize:11,color:C.lt,marginTop:-8}}>Leave empty to log as now</div>
             </div>
           )}
@@ -7955,7 +7955,7 @@ function App(){
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 Log Night Wake</div>
 
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Wake time</div>
-            <TimeInput value={nwForm.time} onChange={t=>setNwForm(f=>({...f,time:t}))} nightOnly={true} style={{marginBottom:16}} inputStyle={{fontSize:18,padding:"12px 14px",borderRadius:14,color:C.deep,fontFamily:_fM,textAlign:"center"}}/>
+            <TimeInput value={nwForm.time} onChange={t=>setNwForm(f=>({...f,time:t}))} style={{marginBottom:16}} inputStyle={{fontSize:18,padding:"12px 14px",borderRadius:14,color:C.deep,fontFamily:_fM,textAlign:"center"}}/>
 
             {/* Soothing options */}
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Soothing</div>
