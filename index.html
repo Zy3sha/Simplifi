@@ -5751,30 +5751,6 @@ function App(){
                   </div>
                 );
               })()}
-                              <div>
-                                <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                                <div style={{fontSize:14,color:C.mid,lineHeight:1.4,maxWidth:160}}>{suggestedBed.adjustReason||(suggestedBed.bedSource==="avg"?"Based on your recent routine":"Based on last nap + wake window")}</div>
-                              </div>
-                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : suggestedBed ? (
-                      <div style={{background:"linear-gradient(135deg,#d5e7f2,#e8f3fa)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:suggestedBed.adjustReason?6:0}}>
-                          <div>
-                            <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                            <div style={{fontSize:14,color:C.mid}}>{suggestedBed.bedSource==="avg"?"Based on your recent routine":"Based on last nap + wake window"}</div>
-                          </div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                        </div>
-                        {suggestedBed.adjustReason&&<div style={{fontSize:15,color:C.sky,background:"rgba(122,171,196,0.15)",borderRadius:8,padding:"5px 9px",lineHeight:1.4}}>&#9888; {suggestedBed.adjustReason}</div>}
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })()}
               {(()=>{
                 const sc = sleepNormalCard();
                 if (!sc) return (
