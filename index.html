@@ -78,48 +78,6 @@ const fmtCountdown = s => {
 };
 const avgArr = arr => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : 0;
 
-// Global time parser for use in TimeInput component (outside App scope)
-function parseTimeFree(str, previousMinutes=null) {
-  if (!str) return null;
-  str = str.trim().toLowerCase();
-  str = str.replace(/(\d+)(st|nd|rd|th)/g,"$1");
-  let m = str.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/);
-  if (m) {
-    let h = parseInt(m[1]), min = parseInt(m[2]);
-    const suffix = m[3];
-    if (suffix==="pm" && h<12) h+=12;
-    if (suffix==="am" && h===12) h=0;
-    // No suffix: if ambiguous, use previousMinutes to resolve
-    if (!suffix && previousMinutes!==null && h*60+min <= previousMinutes) {
-      const total0 = h*60+min;
-      const crossedMidnight = previousMinutes >= 1080 && total0 < 720;
-      let total = total0;
-      if (!crossedMidnight) { while(total <= previousMinutes && total < 24*60) total+=12*60; }
-      total = total % (24*60);
-      return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
-    }
-    // No suffix, no context: if h<8 assume pm (afternoon), otherwise keep as-is
-    if (!suffix && h>0 && h<=6 && previousMinutes===null) h+=12;
-    const total = (h*60+min) % (24*60);
-    return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
-  }
-  m = str.match(/^(\d{1,2})\s*(am|pm)$/);
-  if (m) {
-    let h = parseInt(m[1]), min = 0;
-    const suffix = m[2];
-    if (suffix==="pm" && h<12) h+=12;
-    if (suffix==="am" && h===12) h=0;
-    return `${String(h).padStart(2,"0")}:00`;
-  }
-  // bare number: e.g. "7" or "14"
-  m = str.match(/^(\d{1,2})$/);
-  if (m) {
-    const h = parseInt(m[1]);
-    if (h >= 0 && h <= 23) return `${String(h).padStart(2,"0")}:00`;
-  }
-  return null;
-}
-
 function getAwakeWindows(entries) {
 
   const sorted=[...entries].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -139,81 +97,51 @@ function getAwakeWindows(entries) {
 
 function getNightWindows(thisDayEntries, nextDayEntries) {
 
+
   const next = nextDayEntries || [];
 
-  // Bedtime from current day
+
   const bedEntry = [...thisDayEntries]
     .filter(e => e.type==="sleep" && !e.night)
     .sort((a,b) => timeVal(a)-timeVal(b))
     .pop();
 
-  // Morning wake from next day
+
   const morningWake = [...next]
     .filter(e => e.type==="wake" && !e.night)
     .sort((a,b) => timeVal(a)-timeVal(b))[0];
   const morningMins = morningWake ? timeVal(morningWake) : 7*60;
-
-  // Night wakes: combine those stored on this day (night:true, time after bedtime or before morning)
-  // AND those on the next day (night:true). Deduplicate by id.
-  const bedMins = bedEntry ? timeVal(bedEntry) : 22*60;
-  const nightWakesThisDay = [...thisDayEntries]
-    .filter(e => e.night && (e.type==="wake" || e.type==="feed"))
-    .filter(e => {
-      // Include wakes that are after bedtime (cross-midnight on same day) or very early morning (00:00-07:00)
-      const t = timeVal(e);
-      return t >= bedMins || t < morningMins;
-    });
-  const nightWakesNextDay = [...next]
-    .filter(e => e.night && timeVal(e) < morningMins);
-
-  // Merge, sort by absolute time (thisDay wakes after midnight wrap around)
-  const allNightWakes = [...nightWakesThisDay, ...nightWakesNextDay];
-  // Assign sort key: thisDay entries with t >= bedMins are "early night" (same night),
-  // entries with t < 12*60 are "late night / early morning"
-  const sortKey = (e, isThisDay) => {
-    const t = timeVal(e);
-    if(isThisDay && t >= bedMins) return t; // e.g. 22:00 → 1320
-    return t + 1440; // wrap-around: e.g. 02:00 → 1560
-  };
-  const taggedWakes = [
-    ...nightWakesThisDay.map(e=>({...e, _sk: sortKey(e, true)})),
-    ...nightWakesNextDay.map(e=>({...e, _sk: sortKey(e, false)}))
-  ];
-  // Deduplicate by id
-  const seenIds = new Set();
-  const nightWakes = taggedWakes
-    .filter(e => { if(seenIds.has(e.id)) return false; seenIds.add(e.id); return true; })
-    .sort((a,b) => a._sk - b._sk);
+  const nightWakes = [...next]
+    .filter(e => e.night && timeVal(e) < morningMins)
+    .sort((a,b) => timeVal(a)-timeVal(b));
 
   const wins=[];
 
-  // bedtime → first night wake
+
   if(bedEntry && nightWakes.length>0){
-    let mins = nightWakes[0]._sk - bedMins;
+    let mins = minDiff(bedEntry.time, nightWakes[0].time);
     if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:bedEntry.time, to:nightWakes[0].time, mins, night:true});
   }
 
-  // between night wakes
+
   for(let i=1;i<nightWakes.length;i++){
-    let mins = nightWakes[i]._sk - nightWakes[i-1]._sk;
+    let mins = minDiff(nightWakes[i-1].time, nightWakes[i].time);
     if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:nightWakes[i-1].time, to:nightWakes[i].time, mins, night:true});
   }
 
-  // last night wake → morning wake
+
   if(nightWakes.length>0 && morningWake){
     const last = nightWakes[nightWakes.length-1];
-    let mins = morningMins + 1440 - last._sk;
-    if(morningMins > last._sk) mins = morningMins - last._sk;
+    let mins = minDiff(last.time, morningWake.time);
     if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:last.time, to:morningWake.time, mins, night:true});
   }
 
-  // no wakes at all — full bedtime to morning
+
   if(wins.length===0 && bedEntry && morningWake){
-    let mins = morningMins + 1440 - bedMins;
-    if(morningMins > bedMins) mins = morningMins - bedMins;
+    let mins = minDiff(bedEntry.time, morningWake.time);
     if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:bedEntry.time, to:morningWake.time, mins, night:true});
   }
@@ -245,85 +173,6 @@ function Inp({label,...p}){
     <div style={{marginBottom:12}}>
       {label&&<label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{label}</label>}
       <input {...p} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB,...(p.style||{})}}/>
-    </div>
-  );
-}
-
-// TimeInput: free-text time entry with live parsing preview
-// value = stored HH:MM string, onChange(parsedHHMM) called on blur/enter
-function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=false, style={}, inputStyle={}}){
-  const [raw, setRaw] = React.useState(value ? fmt12(value) : "");
-  const [parsed, setParsed] = React.useState(value || null);
-  const [error, setError] = React.useState(false);
-
-  // Sync external value changes (e.g. when form resets)
-  React.useEffect(()=>{
-    if(value && value !== parsed){
-      setRaw(fmt12(value));
-      setParsed(value);
-      setError(false);
-    } else if(!value && raw===""){
-      setParsed(null);
-      setError(false);
-    }
-  },[value]);
-
-  function tryParse(str){
-    if(!str || !str.trim()) return null;
-    // Use the app's parseTime with previousMinutes context
-    const result = parseTimeFree(str, previousMinutes);
-    if(!result) return null;
-    if(nightOnly){
-      // Restrict to 19:00–07:00 window
-      const [h] = result.split(":").map(Number);
-      if(h >= 7 && h < 19) return null;
-    }
-    return result;
-  }
-
-  function commit(str){
-    const r = tryParse(str);
-    if(r){
-      setParsed(r);
-      setError(false);
-      onChange(r);
-    } else if(str && str.trim()){
-      setError(true);
-      setParsed(null);
-    } else {
-      // empty
-      setError(false);
-      setParsed(null);
-      onChange("");
-    }
-  }
-
-  const previewText = parsed ? fmt12(parsed) : null;
-  const showPreview = parsed && raw && fmt12(raw.trim())!==previewText;
-  const borderColor = error ? "#e8574a" : parsed ? C.ter : C.blush;
-  const bgColor = error ? "#fff5f5" : parsed ? "#fdf0eb" : C.warm;
-
-  return(
-    <div style={{marginBottom:12,...style}}>
-      {label&&<label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{label}</label>}
-      <input
-        type="text"
-        inputMode="text"
-        placeholder="e.g. 7:30, 2pm, 14:00"
-        value={raw}
-        onChange={e=>{
-          setRaw(e.target.value);
-          // Live parse as user types
-          const r = tryParse(e.target.value);
-          if(r){ setParsed(r); setError(false); onChange(r); }
-          else if(!e.target.value.trim()){ setParsed(null); setError(false); onChange(""); }
-        }}
-        onBlur={()=>commit(raw)}
-        onKeyDown={e=>{if(e.key==="Enter"||e.key==="Tab") commit(raw);}}
-        style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${borderColor}`,background:bgColor,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB,...inputStyle}}
-      />
-      {error&&<div style={{fontSize:12,color:"#e8574a",marginTop:3,fontFamily:_fM}}>⚠ Couldn't parse — try "7:30am" or "19:00"</div>}
-      {showPreview&&!error&&<div style={{fontSize:12,color:C.ter,marginTop:3,fontFamily:_fM}}>→ {previewText}</div>}
     </div>
   );
 }
@@ -595,36 +444,6 @@ const MILESTONES = [
   { id:"m90", cat:"cognitive", label:"Counts to 3 (with objects)",      weeks:[104, 120, 150] },
   { id:"m91", cat:"cognitive", label:"Knows own name and age",          weeks:[96, 110, 130] },
   { id:"m92", cat:"cognitive", label:"Engages in pretend play with storylines", weeks:[104, 130, 156] },
-
-  // 3–4 years (weeks 156–208)
-  { id:"m93",  cat:"motor",     label:"Walks up stairs alternating feet",          weeks:[156, 182, 208] },
-  { id:"m94",  cat:"motor",     label:"Hops on one foot",                           weeks:[156, 182, 208] },
-  { id:"m95",  cat:"motor",     label:"Draws a person with 2–4 body parts",         weeks:[156, 182, 208] },
-  { id:"m96",  cat:"motor",     label:"Uses scissors with help",                    weeks:[156, 195, 221] },
-  { id:"m97",  cat:"language",  label:"Speaks in sentences of 4–6 words",           weeks:[156, 175, 208] },
-  { id:"m98",  cat:"language",  label:"Tells a simple story about their day",       weeks:[156, 182, 221] },
-  { id:"m99",  cat:"language",  label:"Understands 'same' and 'different'",         weeks:[156, 182, 208] },
-  { id:"m100", cat:"language",  label:"Uses plurals and past tense in speech",      weeks:[156, 182, 208] },
-  { id:"m101", cat:"social",    label:"Plays cooperatively and takes turns",         weeks:[156, 182, 208] },
-  { id:"m102", cat:"social",    label:"Has preferred friendships",                   weeks:[156, 195, 221] },
-  { id:"m103", cat:"social",    label:"Separates from parents more easily",          weeks:[156, 182, 208] },
-  { id:"m104", cat:"cognitive", label:"Names most colours correctly",                weeks:[156, 175, 208] },
-  { id:"m105", cat:"cognitive", label:"Counts 5–10 objects with understanding",     weeks:[156, 182, 221] },
-  { id:"m106", cat:"cognitive", label:"Understands today and tomorrow",             weeks:[156, 195, 221] },
-  { id:"m107", cat:"cognitive", label:"Completes 4–6 piece puzzles independently",  weeks:[156, 182, 208] },
-
-  // 4–5 years (weeks 208–260)
-  { id:"m108", cat:"motor",     label:"Runs, skips and hops with coordination",     weeks:[208, 234, 260] },
-  { id:"m109", cat:"motor",     label:"Draws recognisable pictures of things",      weeks:[208, 234, 260] },
-  { id:"m110", cat:"motor",     label:"Dresses and undresses mostly independently", weeks:[208, 234, 260] },
-  { id:"m111", cat:"language",  label:"Retells a story from a book in sequence",    weeks:[208, 234, 260] },
-  { id:"m112", cat:"language",  label:"Speech mostly understood by strangers",      weeks:[208, 234, 260] },
-  { id:"m113", cat:"language",  label:"Asks and answers why and how questions",     weeks:[208, 234, 260] },
-  { id:"m114", cat:"social",    label:"Follows simple rules of games",              weeks:[208, 234, 260] },
-  { id:"m115", cat:"social",    label:"Shows empathy and concern for friends",      weeks:[208, 234, 260] },
-  { id:"m116", cat:"cognitive", label:"Recognises own name in writing",             weeks:[208, 234, 260] },
-  { id:"m117", cat:"cognitive", label:"Counts reliably to 20",                      weeks:[208, 234, 260] },
-  { id:"m118", cat:"cognitive", label:"Sorts objects by two attributes",            weeks:[208, 234, 260] },
 ];
 
 const DEV_PHASES = [
@@ -695,18 +514,7 @@ const DEV_ACTIVITIES = [
   { id:"a30", weeks:[104,156], cat:"language",  title:"Storytelling Together", how:"Tell simple stories using toys or puppets. Pause and ask 'what happens next?' or 'where did teddy go?'.", why:"NHS guidelines for 2–3 years emphasise narrative skills and asking questions to build 3–5 word sentences." },
   { id:"a31", weeks:[104,156], cat:"cognitive", title:"Counting Games",      how:"Count stairs as you climb, count grapes on the plate, count toes. Use fingers to show numbers.", why:"WHO early learning goals include counting to 3–5 with objects by age 3. Daily counting makes it natural." },
   { id:"a32", weeks:[104,156], cat:"social",    title:"Feelings & Emotions",  how:"Name emotions as they happen: 'you look frustrated', 'that made you happy'. Use picture books about feelings.", why:"Emotional literacy is a key NHS developmental focus for 2–3 year olds. Naming feelings helps self-regulation." },
-
-  // 3–4 years (weeks 156–208)
-  { id:"a33", weeks:[156,208], cat:"motor",    title:"Hopscotch & Balance",   how:"Draw a simple hopscotch grid with chalk. Show how to hop on one foot and jump with two. Take turns.", why:"Builds single-leg balance, coordination and gross motor confidence — key milestones for this age." },
-  { id:"a34", weeks:[156,208], cat:"language", title:"Story Sequencing",      how:"After reading a favourite book, ask 'what happened first? What came next?' Use 3 simple picture cards to re-order.", why:"Narrative sequencing builds language, memory and early literacy — an NHS focus for 3–4 year olds." },
-  { id:"a35", weeks:[156,208], cat:"cognitive",title:"Colour Sorting Games",  how:"Mix buttons, pompoms or blocks of 4–5 colours. Ask them to sort into groups, then count each pile together.", why:"Sorting and counting consolidates early maths concepts aligned with EYFS numeracy goals." },
-  { id:"a36", weeks:[156,208], cat:"social",   title:"Role Play Corner",      how:"Set up a simple 'shop' or 'kitchen' with props. Take a role yourself — be the customer. Let them lead.", why:"Imaginative role play develops empathy, language and social understanding — a WHO early learning goal." },
-
-  // 4–5 years (weeks 208–260)
-  { id:"a37", weeks:[208,260], cat:"motor",    title:"Cutting Practice",      how:"Provide child-safe scissors and strips of paper. Start with single snips, progress to cutting along a line.", why:"Scissor use develops fine motor control, bilateral coordination and school-readiness skills." },
-  { id:"a38", weeks:[208,260], cat:"language", title:"Rhyming & Word Play",   how:"Read rhyming books together and pause before the last word. Make up silly rhymes: 'cat, bat, hat, splat!'.", why:"Phonological awareness — recognising rhyme and sound patterns — is a key foundation for learning to read." },
-  { id:"a39", weeks:[208,260], cat:"cognitive",title:"Counting Stories",      how:"Weave counting into stories: 'Three bears ate 3 bowls of porridge. If baby bear ate 1, how many are left?'", why:"Simple number problems build early maths reasoning aligned with EYFS and school-readiness expectations." },
-  { id:"a40", weeks:[208,260], cat:"social",   title:"Cooperative Building",  how:"Work together to build a tower or Duplo structure with a shared goal. Talk through decisions: 'which piece next?'", why:"Collaborative problem-solving builds communication, negotiation and turn-taking — core reception skills." },
+];
 const ACT_CATS = [
   { key:"visual",    label:"Visual",    icon:"👁" },
   { key:"motor",     label:"Movement",  icon:"🌿" },
@@ -1024,7 +832,7 @@ function App(){
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
-  const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+  const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,note:""});
   const[inlineWakeTime,setInlineWakeTime]=useState("");
 
   React.useEffect(()=>{
@@ -4873,7 +4681,8 @@ function App(){
             <span style={{fontSize:18}}>☀️</span>
             <div style={{flex:1}}>
               <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Morning wake time</div>
-              <TimeInput value={inlineWakeTime} onChange={t=>setInlineWakeTime(t)} style={{marginBottom:0}} inputStyle={{padding:"7px 10px",borderRadius:10,fontSize:15}}/>
+              <input type="time" value={inlineWakeTime} onChange={e=>setInlineWakeTime(e.target.value)}
+                style={{width:"100%",padding:"7px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
             </div>
             <button onClick={()=>{
               const t = inlineWakeTime || nowTime();
@@ -4899,7 +4708,7 @@ function App(){
             </div>
           ):(
             <div>
-              {/* 2. Age guidance */}
+              {}
               {ageStage&&(
                 <div style={{background:`linear-gradient(135deg,${C.warm},#fff4ee)`,border:`1px solid ${C.blush}`,borderLeft:`4px solid ${C.ter}`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
                   <div style={{flex:1}}>
@@ -4914,73 +4723,127 @@ function App(){
                 </div>
               )}
 
-              {/* 3. Quick actions */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:16}}>
-                {[
-                  {id:"feed",  icon:"🍼", label:"Feed"},
-                  {id:"nappy", icon:"💩", label:"Nappy"},
-                  {id:"sleep", icon:"😴", label:"Sleep"},
-                  {id:"pump",  icon:"🫙", label:"Pump"},
-                  {id:"wake",  icon:"☀️", label:"Wake Up"},
-                  {id:"paste", icon:"📋", label:"Notes"},
-                ].map(({id,icon,label})=>(
-                  <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?C.ter:C.blush}`,background:logPanel===id?"#fdf0eb":C.warm,cursor:_cP,fontFamily:_fI,transition:"all 0.15s"}}>
-                    <span style={{fontSize:22}}>{icon}</span>
-                    <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:C.mid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2}}>{label}</span>
-                  </button>
-                ))}
-              </div>
+              {}
+              {(()=>{
+                if (!age || dayE.length === 0) return null;
+                const isToday = selDay === todayStr();
+                const name = babyName || "Baby";
+                const ageWeeks = age.totalWeeks;
+                const dayLabel = isToday ? "Today" : fmtLong(selDay);
 
-              {/* 5. Today's summary stats */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
-                {[
-                  {big:totalMl||dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?"ml":"meals",label:totalMl?"Milk":"Solids",color:C.ter,bg:"#fdf0eb"},
-                  {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:"#8a7060",bg:"#f0ece6"},
-                  {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},
-                  {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"},
-                ].map((s,i)=>(
-                  <div key={i} style={{background:s.bg,borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:s.color,lineHeight:1}}>{s.big}</div>
-                    {s.unit&&<div style={{fontSize:14,fontFamily:_fM,color:s.color,opacity:0.7,marginTop:1}}>{s.unit}</div>}
-                    <div style={{fontSize:8,color:C.mid,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
+                const napCount = naps.length;
+                const p = getAgeNapProfile(ageWeeks);
+                const range = napNormalRange();
+                let sleepLine = "";
+                if (napCount === 0) {
+                  sleepLine = "No naps logged yet.";
+                } else if (napMins < (range ? range.min : 60)) {
+                  sleepLine = `Naps were a little shorter today (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
+                } else if (napMins > (range ? range.max : 300)) {
+                  sleepLine = `Plenty of nap time today (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
+                } else {
+                  sleepLine = `Nap time looks good (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
+                }
+                const bedEntry = dayE.find(e => e.type === "sleep");
+                if (bedEntry) sleepLine += ` Bedtime logged at ${fmt12(bedEntry.time)}.`;
 
-              {/* Personal recs banners */}
-              {usePersonalRecs === true && (()=>{
-                const pb = computePersonalBaselines();
-                if (!pb) return null;
+                const dayMlTotal = entries.filter(e => e.type === "feed" && !e.night).reduce((s,f) => s+(f.amount||0), 0);
+                const feedCount = dayE.filter(e => e.type === "feed").length;
+                let feedLine = "";
+                if (feedCount === 0) {
+                  feedLine = "No feeds logged yet.";
+                } else if (dayMlTotal > 0) {
+                  feedLine = `${dayMlTotal}ml across ${feedCount} feed${feedCount!==1?"s":""}`;
+                  const solids = dayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
+                  if (solids > 0) feedLine += ` + ${solids} solid${solids!==1?"s":""}`;
+                  feedLine += ".";
+                } else {
+                  const breast = dayE.filter(e => e.type === "feed" && e.feedType === "breast").length;
+                  const solids = dayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
+                  const parts = [];
+                  if (breast > 0) parts.push(`${breast} breastfeed${breast!==1?"s":""}`);
+                  if (solids > 0) parts.push(`${solids} solid${solids!==1?"s":""}`);
+                  feedLine = parts.length ? parts.join(" + ") + "." : `${feedCount} feed${feedCount!==1?"s":""}.`;
+                }
+
+                const devSkills = MILESTONES.filter(m => ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[1] && !milestones[m.id]?.date);
+                const cats = [...new Set(devSkills.map(m => m.cat))];
+                const catNames = {social:"social skills",language:"communication",motor:"movement",cognitive:"thinking & play"};
+                let devLine = "";
+                if (cats.length > 0) {
+                  const catList = cats.slice(0,2).map(c => catNames[c]||c).join(" and ");
+                  devLine = `Working on ${catList}.`;
+                }
+
+                const activePhase = DEV_PHASES.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
+                const nextPhase = DEV_PHASES.find(l => l.windowStart > ageWeeks);
+                let phaseLine = "";
+                let phaseDetail = "";
+                if (activePhase) {
+                  const weeksLeft = activePhase.windowEnd - ageWeeks;
+                  phaseLine = `In developmental phase ${activePhase.phase}: ${activePhase.name}`;
+                  phaseDetail = `${activePhase.fussy} New skills emerging: ${activePhase.skills.slice(0,2).join(", ")}.`;
+                } else if (nextPhase) {
+                  const weeksUntil = nextPhase.windowStart - ageWeeks;
+                  if (weeksUntil <= 3) {
+                    phaseLine = `Phase ${nextPhase.phase} (${nextPhase.name}) starting in ~${weeksUntil} week${weeksUntil!==1?"s":""}`;
+                    phaseDetail = `What to expect: ${nextPhase.fussy} Afterwards, look out for: ${nextPhase.skills.slice(0,2).join(", ")}.`;
+                  }
+                }
+
                 return (
-                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8fff5)",border:`1px solid #a0d8c0`,borderRadius:14,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:700,color:"#2a7060",marginBottom:2}}>✨ Personal recommendations active</div>
-                      <div style={{fontSize:12,color:"#4a9080",lineHeight:1.4}}>Based on {pb.activeDays} days of {possessive(babyName||"Baby")} data · updates as you log more</div>
+                  <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:22,padding:"18px",marginBottom:16,boxShadow:"0 2px 14px rgba(201,112,90,0.05)"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep,marginBottom:2}}>{dayLabel} with {name}</div>
+                    <div style={{fontSize:13,color:C.lt,fontFamily:_fM,marginBottom:14}}>{fmtAge(age)} · week {ageWeeks}</div>
+
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {sleepLine && (
+                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>😴</span>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sleep</div>
+                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{sleepLine}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {feedLine && (
+                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>🍼</span>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Feeding</div>
+                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{feedLine}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {devLine && (
+                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>🧠</span>
+                          <div>
+                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Development</div>
+                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{devLine}</div>
+                          </div>
+                        </div>
+                      )}
+
+                      {phaseLine && (
+                        <div style={{background:activePhase?"linear-gradient(135deg,#f0eeff,#e8e4ff)":"#f8f7ff",borderRadius:14,padding:"12px 14px",border:activePhase?"1.5px solid #c5bef5":"1px solid #e0dbf5",marginTop:2}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                            <div style={{width:24,height:24,borderRadius:"50%",background:activePhase?"#7b68ee":"#c5bef5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                              <span style={{fontSize:10,color:"white",fontWeight:700}}>{activePhase?activePhase.phase:nextPhase.phase}</span>
+                            </div>
+                            <div style={{fontSize:14,fontWeight:700,color:activePhase?"#4a3cb5":"#7060c0"}}>{phaseLine}</div>
+                          </div>
+                          {phaseDetail && <div style={{fontSize:13,color:"#5040a0",lineHeight:1.55}}>{phaseDetail}</div>}
+                        </div>
+                      )}
                     </div>
-                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}}
-                      style={{background:_bN,border:`1px solid #b0d8c8`,borderRadius:99,padding:"5px 10px",color:"#5a9080",fontSize:12,cursor:_cP,whiteSpace:"nowrap",flexShrink:0,fontFamily:_fI}}>
-                      Change
-                    </button>
                   </div>
                 );
               })()}
 
-              {usePersonalRecs === false && (()=>{
-                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
-                if (activeDays.length < 7) return null;
-                return (
-                  <div style={{background:"#f5f8ff",border:`1px solid #c8d8f0`,borderRadius:14,padding:"11px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                    <div style={{fontSize:13,color:"#4a5a80"}}>Using NHS guidelines · {babyName||"Baby"}'s personal patterns available</div>
-                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}}
-                      style={{background:_bN,border:`1px solid #c0cce8`,borderRadius:99,padding:"5px 10px",color:"#5a6a90",fontSize:12,cursor:_cP,whiteSpace:"nowrap",flexShrink:0,fontFamily:_fI}}>
-                      Change
-                    </button>
-                  </div>
-                );
-              })()}
-
-              {/* 7-day data personalisation prompt */}
+              {}
               {(()=>{
                 const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
                 if (activeDays.length < 7 || usePersonalRecs !== null) return null;
@@ -5035,170 +4898,72 @@ function App(){
                 );
               })()}
 
-              {/* 5. Today's narrative summary */}
-              {(()=>{
-                if (!age || dayE.length === 0) return null;
-                const isToday = selDay === todayStr();
-                const name = babyName || "Baby";
-                const ageWeeks = age.totalWeeks;
-                const dayLabel = isToday ? "Today" : fmtLong(selDay);
-
-                const napCount = naps.length;
-                const p = getAgeNapProfile(ageWeeks);
-                const range = napNormalRange();
-                let sleepLine = "";
-                if (napCount === 0) {
-                  sleepLine = "No naps logged yet.";
-                } else if (napMins < (range ? range.min : 60)) {
-                  sleepLine = `Naps were a little shorter today (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
-                } else if (napMins > (range ? range.max : 300)) {
-                  sleepLine = `Plenty of nap time today (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
-                } else {
-                  sleepLine = `Nap time looks good (${hm(napMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
-                }
-                const bedEntry = dayE.find(e => e.type === "sleep");
-                if (bedEntry) sleepLine += ` Bedtime logged at ${fmt12(bedEntry.time)}.`;
-
-                const dayMlTotal = entries.filter(e => e.type === "feed" && !e.night).reduce((s,f) => s+(f.amount||0), 0);
-                const feedCount = dayE.filter(e => e.type === "feed").length;
-                let feedLine = "";
-                if (feedCount === 0) {
-                  feedLine = "No feeds logged yet.";
-                } else if (dayMlTotal > 0) {
-                  feedLine = `${dayMlTotal}ml across ${feedCount} feed${feedCount!==1?"s":""}`;
-                  const solids = dayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
-                  if (solids > 0) feedLine += ` + ${solids} solid${solids!==1?"s":""}`;
-                  feedLine += ".";
-                } else {
-                  const breast = dayE.filter(e => e.type === "feed" && e.feedType === "breast").length;
-                  const solids = dayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
-                  const parts = [];
-                  if (breast > 0) parts.push(`${breast} breastfeed${breast!==1?"s":""}`);
-                  if (solids > 0) parts.push(`${solids} solid${solids!==1?"s":""}`);
-                  feedLine = parts.length ? parts.join(" + ") + "." : `${feedCount} feed${feedCount!==1?"s":""}.`;
-                }
-
-                const devSkills = MILESTONES.filter(m => ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[1] && !milestones[m.id]?.date);
-                const cats = [...new Set(devSkills.map(m => m.cat))];
-                const catNames = {social:"social skills",language:"communication",motor:"movement",cognitive:"thinking & play"};
-                let devLine = "";
-                if (cats.length > 0) {
-                  const catList = cats.slice(0,2).map(c => catNames[c]||c).join(" and ");
-                  devLine = `Working on ${catList}.`;
-                }
-
+              {}
+              {usePersonalRecs === true && (()=>{
+                const pb = computePersonalBaselines();
+                if (!pb) return null;
                 return (
-                  <div style={{background:"white",border:`1px solid ${C.blush}`,borderRadius:22,padding:"18px",marginBottom:16,boxShadow:"0 2px 14px rgba(201,112,90,0.05)"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep,marginBottom:2}}>{dayLabel} with {name}</div>
-                    <div style={{fontSize:13,color:C.lt,fontFamily:_fM,marginBottom:14}}>{fmtAge(age)} · week {ageWeeks}</div>
-
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {sleepLine && (
-                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>😴</span>
-                          <div>
-                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sleep</div>
-                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{sleepLine}</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {feedLine && (
-                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>🍼</span>
-                          <div>
-                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Feeding</div>
-                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{feedLine}</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {devLine && (
-                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                          <span style={{fontSize:16,flexShrink:0,marginTop:1}}>🧠</span>
-                          <div>
-                            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Development</div>
-                            <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{devLine}</div>
-                          </div>
-                        </div>
-                      )}
+                  <div style={{background:"linear-gradient(135deg,#f0faf5,#e8fff5)",border:`1px solid #a0d8c0`,borderRadius:14,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#2a7060",marginBottom:2}}>✨ Personal recommendations active</div>
+                      <div style={{fontSize:12,color:"#4a9080",lineHeight:1.4}}>Based on {pb.activeDays} days of {possessive(babyName||"Baby")} data · updates as you log more</div>
                     </div>
+                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}}
+                      style={{background:_bN,border:`1px solid #b0d8c8`,borderRadius:99,padding:"5px 10px",color:"#5a9080",fontSize:12,cursor:_cP,whiteSpace:"nowrap",flexShrink:0,fontFamily:_fI}}>
+                      Change
+                    </button>
                   </div>
                 );
               })()}
 
-              {/* 6. Leap / development insight */}
-              {(()=>{
-                if (!age) return null;
-                const ageWeeks = age.totalWeeks;
-                const activePhase = DEV_PHASES.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
-                const nextPhase = DEV_PHASES.find(l => l.windowStart > ageWeeks);
-                let phaseLine = "";
-                let phaseDetail = "";
-                if (activePhase) {
-                  phaseLine = `In developmental phase ${activePhase.phase}: ${activePhase.name}`;
-                  phaseDetail = `${activePhase.fussy} New skills emerging: ${activePhase.skills.slice(0,2).join(", ")}.`;
-                } else if (nextPhase) {
-                  const weeksUntil = nextPhase.windowStart - ageWeeks;
-                  if (weeksUntil <= 3) {
-                    phaseLine = `Phase ${nextPhase.phase} (${nextPhase.name}) starting in ~${weeksUntil} week${weeksUntil!==1?"s":""}`;
-                    phaseDetail = `What to expect: ${nextPhase.fussy} Afterwards, look out for: ${nextPhase.skills.slice(0,2).join(", ")}.`;
-                  }
-                }
-                if (!phaseLine) return null;
+              {}
+              {usePersonalRecs === false && (()=>{
+                const activeDays = Object.keys(days).filter(d => (days[d]||[]).some(e => !e.night && (e.type==="nap"||e.type==="feed")));
+                if (activeDays.length < 7) return null;
                 return (
-                  <div style={{background:activePhase?"linear-gradient(135deg,#f0eeff,#e8e4ff)":"#f8f7ff",borderRadius:16,padding:"14px",marginBottom:14,border:activePhase?"1.5px solid #c5bef5":"1px solid #e0dbf5"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                      <div style={{width:26,height:26,borderRadius:"50%",background:activePhase?"#7b68ee":"#c5bef5",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        <span style={{fontSize:11,color:"white",fontWeight:700}}>{activePhase?activePhase.phase:nextPhase.phase}</span>
-                      </div>
-                      <div style={{fontSize:14,fontWeight:700,color:activePhase?"#4a3cb5":"#7060c0"}}>{phaseLine}</div>
-                    </div>
-                    {phaseDetail && <div style={{fontSize:13,color:"#5040a0",lineHeight:1.55,paddingLeft:34}}>{phaseDetail}</div>}
+                  <div style={{background:"#f5f8ff",border:`1px solid #c8d8f0`,borderRadius:14,padding:"11px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <div style={{fontSize:13,color:"#4a5a80"}}>Using NHS guidelines · {babyName||"Baby"}'s personal patterns available</div>
+                    <button onClick={()=>{setUsePersonalRecs(null);try{localStorage.removeItem("use_personal_recs_v1");}catch{};}}
+                      style={{background:_bN,border:`1px solid #c0cce8`,borderRadius:99,padding:"5px 10px",color:"#5a6a90",fontSize:12,cursor:_cP,whiteSpace:"nowrap",flexShrink:0,fontFamily:_fI}}>
+                      Change
+                    </button>
                   </div>
                 );
               })()}
 
-              {/* 7. Daily timeline header */}
-
-              {/* Compact next nap / bedtime card */}
-              {(()=>{
-                const hasBed = dayE.some(e=>e.type==="sleep");
-                const pred = predictNextNap();
-                const suggestedBed = bedtimePrediction();
-                if(hasBed) return null;
-                if(!pred && !suggestedBed) return null;
-                return (
-                  <div style={{background:"linear-gradient(135deg,#eaf6f3,#f0faf6)",border:`1px solid ${C.mint}44`,borderRadius:16,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-                    {pred ? (
-                      <>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontSize:20}}>⏱️</span>
-                          <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>Next Nap</div>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mint}}>{napCountdown!==null&&napCountdown<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
-                          </div>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:C.mint}}>{fmt12(pred.napStart_min)}</div>
-                          <div style={{fontSize:12,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
-                        </div>
-                      </>
-                    ) : suggestedBed ? (
-                      <>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontSize:20}}>🌙</span>
-                          <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.4}}>{suggestedBed.adjustReason||"Based on today's naps"}</div>
-                          </div>
-                        </div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                      </>
-                    ) : null}
+              {}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:18}}>
+                {[
+                  {big:totalMl||dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?"ml":"meals",label:totalMl?"Milk":"Solids",color:C.ter,bg:"#fdf0eb"},
+                  {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:"#8a7060",bg:"#f0ece6"},
+                  {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},
+                  {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"},
+                ].map((s,i)=>(
+                  <div key={i} style={{background:s.bg,borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:s.color,lineHeight:1}}>{s.big}</div>
+                    {s.unit&&<div style={{fontSize:14,fontFamily:_fM,color:s.color,opacity:0.7,marginTop:1}}>{s.unit}</div>}
+                    <div style={{fontSize:8,color:C.mid,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
                   </div>
-                );
-              })()}
+                ))}
+              </div>
+
+              {}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:16}}>
+                {[
+                  {id:"feed",  icon:"🍼", label:"Feed"},
+                  {id:"nappy", icon:"💩", label:"Nappy"},
+                  {id:"sleep", icon:"😴", label:"Sleep"},
+                  {id:"pump",  icon:"🫙", label:"Pump"},
+                  {id:"wake",  icon:"☀️", label:"Wake Up"},
+                  {id:"paste", icon:"📋", label:"Notes"},
+                ].map(({id,icon,label})=>(
+                  <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?C.ter:C.blush}`,background:logPanel===id?"#fdf0eb":C.warm,cursor:_cP,fontFamily:_fI,transition:"all 0.15s"}}>
+                    <span style={{fontSize:22}}>{icon}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:C.mid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2}}>{label}</span>
+                  </button>
+                ))}
+              </div>
 
               {}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
@@ -5307,22 +5072,16 @@ function App(){
                             <div style={{flex:1,height:1,background:"#d8d2f0"}}/>
                           </div>
                         )}
-                        <div style={{padding:"7px 10px",background:"white",borderRadius:10,border:"1px solid #d8d2f0",marginBottom:5}}>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                            <div>
-                              <span style={{color:"#5040a0",fontSize:15}}>🌟 {fmt12(e.time)} wake</span>
-                              {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
-                              {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
-                                Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
-                                {e.assistedDuration?<span> · Duration: {e.assistedDuration}m</span>:null}
-                              </div>}
-                              {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:14,color:"#9080c8",fontStyle:"italic",marginTop:1}}>{e.note}</div>}
-                            </div>
-                            <div style={{display:"flex",alignItems:"center",gap:7}}>
-                              {e.amount>0&&<span style={{background:"rgba(212,168,85,0.2)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{e.amount} ml</span>}
-                              <button onClick={()=>openEdit(e)} style={{background:"#e8e4ff",border:_bN,borderRadius:"50%",width:21,height:21,color:"#7b68ee",cursor:_cP,fontSize:15}}>✎</button>
-                              <button onClick={()=>delEntry(e.id)} style={{background:"#e8e4ff",border:_bN,borderRadius:"50%",width:21,height:21,color:"#9080c8",cursor:_cP,fontSize:14}}>✕</button>
-                            </div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",background:"white",borderRadius:10,border:"1px solid #d8d2f0",marginBottom:5}}>
+                          <div>
+                            <span style={{color:"#5040a0",fontSize:15}}>🌟 Wake {i+1}</span>
+                            {e.note&&<div style={{fontSize:15,color:"#9080c8",fontStyle:"italic",marginTop:1}}>{e.note}</div>}
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:7}}>
+                            {e.amount>0&&<span style={{background:"rgba(212,168,85,0.2)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{e.amount} ml</span>}
+                            <span style={{color:"#7060c0",fontFamily:_fM,fontSize:15}}>{fmt12(e.time)}</span>
+                            <button onClick={()=>openEdit(e)} style={{background:"#e8e4ff",border:_bN,borderRadius:"50%",width:21,height:21,color:"#7b68ee",cursor:_cP,fontSize:15}}>✎</button>
+                            <button onClick={()=>delEntry(e.id)} style={{background:"#e8e4ff",border:_bN,borderRadius:"50%",width:21,height:21,color:"#9080c8",cursor:_cP,fontSize:14}}>✕</button>
                           </div>
                         </div>
                       </div>
@@ -6016,25 +5775,8 @@ function App(){
                       })}
                       {PCTL.map(p=><g key={p}><path d={pp[p]} fill="none" stroke={PC[p]} strokeWidth={p===50?1.8:0.7} strokeDasharray={p===50?"":"4,3"} opacity={0.85}/><text x={CW-PR+4} y={tY(weightForPercentile(maxMo,p,babySex))+3} fontSize={8} fill={C.lt} fontFamily="monospace">{p===50?"50th":p}</text></g>)}
                       {[0,3,6,9,12,15,18,21,24].filter(m=>m<=maxMo).map(m=><g key={m}><line x1={tX(m)} y1={PT} x2={tX(m)} y2={CH-PB} stroke={C.blush} strokeWidth={0.4}/><text x={tX(m)} y={CH-PB+14} textAnchor="middle" fontSize={9} fill={C.lt} fontFamily="monospace">{m}m</text></g>)}
-                      {bp.length>1&&<path d={bPath} fill="none" stroke={C.ter} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>}
-                      {(()=>{
-                        // Collision avoidance: jitter overlapping points vertically
-                        const R=3.5;
-                        const positioned=bp.map(w=>({cx:tX(w.ageMo),cy:tY(w.kg),w}));
-                        for(let i=1;i<positioned.length;i++){
-                          for(let j=0;j<i;j++){
-                            const dx=Math.abs(positioned[i].cx-positioned[j].cx);
-                            const dy=Math.abs(positioned[i].cy-positioned[j].cy);
-                            if(dx<R*2&&dy<R*2) positioned[i].cy=positioned[j].cy-R*2.2;
-                          }
-                        }
-                        return positioned.map((p,i)=>(
-                          <g key={i}>
-                            <circle cx={p.cx} cy={p.cy} r={R} fill="white" stroke={C.ter} strokeWidth={2}/>
-                            {i===positioned.length-1&&<text x={p.cx} y={p.cy-R-2} textAnchor="middle" fontSize={7} fill={C.ter} fontFamily="monospace">{p.w.kg}kg</text>}
-                          </g>
-                        ));
-                      })()}
+                      {bp.length>1&&<path d={bPath} fill="none" stroke={C.ter} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"/>}
+                      {bp.map((w,i)=><circle key={i} cx={tX(w.ageMo)} cy={tY(w.kg)} r={5} fill="white" stroke={C.ter} strokeWidth={2.5}/>)}
                     </svg>
                   </div>
                 );
@@ -6726,7 +6468,8 @@ function App(){
               </button>
             </div>
             {logForm.feedTimeSet ? (
-              <TimeInput value={logForm.feedTime} onChange={t=>setLogForm(f=>({...f,feedTime:t}))} style={{marginBottom:0}} inputStyle={{border:`2px solid ${C.ter}`,background:"#fdf0eb"}}/>
+              <input type="time" value={logForm.feedTime} onChange={e=>setLogForm(f=>({...f,feedTime:e.target.value}))}
+                style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`2px solid ${C.ter}`,background:"#fdf0eb",fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
             ) : (
               <div style={{fontSize:13,color:C.lt,background:C.warm,borderRadius:12,padding:"9px 11px",border:`1px dashed ${C.blush}`}}>
                 📍 Will log as <strong style={{color:C.mid}}>{fmt12(nowTime())}</strong> — tap "Set time" to change
@@ -6807,14 +6550,17 @@ function App(){
               {[["napStart","Start"],["napEnd","End"]].map(([k,lbl])=>(
                 <div key={k}>
                   <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{lbl}</label>
-                  <TimeInput value={logForm[k]} onChange={t=>setLogForm(f=>({...f,[k]:t}))} style={{marginBottom:0}}/>
+                  <input type="time" value={logForm[k]} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
+                    style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
                 </div>
               ))}
             </div>
           )}
           {logForm.sleepType==="bed"&&(
             <div style={{marginBottom:12}}>
-              <TimeInput label="Bedtime" value={logForm.bedTime} onChange={t=>setLogForm(f=>({...f,bedTime:t}))} nightOnly={true}/>
+              <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Bedtime</label>
+              <input type="time" value={logForm.bedTime} onChange={e=>setLogForm(f=>({...f,bedTime:e.target.value}))}
+                style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
             </div>
           )}
           <PBtn onClick={saveLogSleep}>✓ Log Sleep</PBtn>
@@ -6824,7 +6570,9 @@ function App(){
       {logPanel==="wake"&&(
         <Sheet onClose={()=>setLogPanel(null)} title="☀️ Log Wake Up">
           <div style={{marginBottom:12}}>
-            <TimeInput label="Wake Time" value={logForm.feedTime} onChange={t=>setLogForm(f=>({...f,feedTime:t}))}/>
+            <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Wake Time</label>
+            <input type="time" value={logForm.feedTime} onChange={e=>setLogForm(f=>({...f,feedTime:e.target.value}))}
+              style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
           </div>
           <div style={{background:"#f5f0e8",borderRadius:12,padding:"10px 12px",marginBottom:14,fontSize:13,color:C.mid,lineHeight:1.55}}>
             ☀️ Logs morning wake time — used to calculate wake windows and today's nap schedule.
@@ -6842,7 +6590,9 @@ function App(){
 
           {}
           <div style={{marginBottom:14}}>
-            <TimeInput label="Start time" value={logForm.pumpStart||nowTime()} onChange={t=>setLogForm(f=>({...f,pumpStart:t}))} style={{marginBottom:0}}/>
+            <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Start time</label>
+            <input type="time" value={logForm.pumpStart||nowTime()} onChange={e=>setLogForm(f=>({...f,pumpStart:e.target.value}))}
+              style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
           </div>
 
           {}
@@ -6932,7 +6682,7 @@ function App(){
               </div>
             )}
             {feedType==="solids"&&<Inp label="Description / amount" type="text" placeholder="e.g. porridge, half jar" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>}
-            <TimeInput label="Time" value={form.time} onChange={t=>setForm(f=>({...f,time:t}))}/>
+            <Inp label="Time" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/>
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Night feed?</label>
                 <select value={form.night} onChange={e=>setForm(f=>({...f,night:e.target.value}))} style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}>
@@ -6949,7 +6699,7 @@ function App(){
                 {["start","end"].map(k=>(
                   <div key={k}>
                     <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{k}</label>
-                    <TimeInput value={form[k]} onChange={t=>setForm(f=>({...f,[k]:t}))} style={{marginBottom:0}}/>
+                    <input type="time" value={form[k]} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))} style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
                   </div>
                 ))}
               </div>
@@ -6959,14 +6709,14 @@ function App(){
 
           {(eType==="wake"||eType==="sleep")&&(
             <>
-              <TimeInput label="Time" value={form.time} onChange={t=>setForm(f=>({...f,time:t}))}/>
+              <Inp label="Time" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/>
               <Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>
             </>
           )}
 
           {eType==="poop"&&(
             <>
-              <TimeInput label="Time" value={form.time} onChange={t=>setForm(f=>({...f,time:t}))}/>
+              <Inp label="Time" type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/>
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Colour / type</label>
                 <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
@@ -7239,87 +6989,23 @@ function App(){
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 Log Night Wake</div>
 
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Wake time</div>
-            <TimeInput value={nwForm.time} onChange={t=>setNwForm(f=>({...f,time:t}))} nightOnly={true} style={{marginBottom:16}} inputStyle={{fontSize:18,padding:"12px 14px",borderRadius:14,color:C.deep,fontFamily:_fM,textAlign:"center"}}/>
+            <input type="time" value={nwForm.time} onChange={e=>setNwForm(f=>({...f,time:e.target.value}))}
+              style={{width:"100%",fontSize:18,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:C.warm,color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",marginBottom:16,boxSizing:_bBB}}/>
 
-            {/* Soothing options */}
-            <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Soothing</div>
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-              {/* Self settled */}
-              <div onClick={()=>setNwForm(f=>({...f,selfSettled:!f.selfSettled,assisted:false}))}
-                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"rgba(80,200,120,0.08)":C.warm,cursor:_cP,transition:"all 0.2s"}}>
-                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"#50c878":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
-                  {nwForm.selfSettled&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
-                </div>
-                <div>
-                  <div style={{fontSize:15,fontWeight:600,color:nwForm.selfSettled?"#50c878":C.mid}}>Self settled</div>
-                  <div style={{fontSize:12,color:C.lt,marginTop:1}}>No help needed</div>
-                </div>
+            <div onClick={()=>setNwForm(f=>({...f,selfSettled:!f.selfSettled,ml:f.selfSettled?f.ml:""}))}
+              style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"rgba(80,200,120,0.08)":C.warm,cursor:_cP,marginBottom:16,transition:"all 0.2s"}}>
+              <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"#50c878":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                {nwForm.selfSettled&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
               </div>
-              {/* Assisted soothing */}
-              <div onClick={()=>setNwForm(f=>({...f,assisted:!f.assisted,selfSettled:false,ml:""}))}
-                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.assisted?"#7b68ee":C.blush}`,background:nwForm.assisted?"rgba(123,104,238,0.08)":C.warm,cursor:_cP,transition:"all 0.2s"}}>
-                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.assisted?"#7b68ee":C.blush}`,background:nwForm.assisted?"#7b68ee":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
-                  {nwForm.assisted&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
-                </div>
-                <div>
-                  <div style={{fontSize:15,fontWeight:600,color:nwForm.assisted?"#7b68ee":C.mid}}>Assisted soothing</div>
-                  <div style={{fontSize:12,color:C.lt,marginTop:1}}>Parent helped to resettle</div>
-                </div>
+              <div>
+                <div style={{fontSize:15,fontWeight:600,color:nwForm.selfSettled?"#50c878":C.mid}}>Self settled</div>
+                <div style={{fontSize:12,color:C.lt,marginTop:1}}>No feed needed</div>
               </div>
             </div>
 
-            {/* Assisted soothing details */}
-            {nwForm.assisted&&(
-              <div style={{background:"rgba(123,104,238,0.06)",borderRadius:14,padding:"14px",marginBottom:16,border:"1px solid #d8d2f0"}}>
-                <div style={{fontSize:13,fontFamily:_fM,color:"#7060c0",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Type</div>
-                <div style={{display:"flex",gap:8,marginBottom:12}}>
-                  {[["milk","🍼 Milk"],["other","💬 Other"]].map(([v,l])=>(
-                    <button key={v} onClick={()=>setNwForm(f=>({...f,assistedType:v,ml:"",assistedNote:""}))}
-                      style={{flex:1,padding:"9px",borderRadius:10,border:`1.5px solid ${nwForm.assistedType===v?"#7b68ee":C.blush}`,background:nwForm.assistedType===v?"#f0eeff":C.warm,color:nwForm.assistedType===v?"#5040a0":C.mid,fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                {nwForm.assistedType==="milk"&&(
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Amount</div>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <input type="number" inputMode="numeric" placeholder="ml" value={nwForm.ml}
-                        onChange={e=>setNwForm(f=>({...f,ml:e.target.value}))}
-                        style={{flex:1,fontSize:18,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
-                      <span style={{fontSize:15,color:C.lt,fontFamily:_fM}}>ml</span>
-                    </div>
-                    <div style={{display:"flex",gap:6,marginTop:7}}>
-                      {[60,90,120,150,180].map(ml=>(
-                        <button key={ml} onClick={()=>setNwForm(f=>({...f,ml:String(ml)}))}
-                          style={{flex:1,padding:"6px 2px",borderRadius:9,border:`1px solid ${nwForm.ml===String(ml)?"#7b68ee":C.blush}`,background:nwForm.ml===String(ml)?"#f0eeff":C.warm,color:nwForm.ml===String(ml)?"#5040a0":C.lt,fontSize:11,fontFamily:_fM,cursor:_cP}}>
-                          {ml}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {nwForm.assistedType==="other"&&(
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Notes (e.g. rocked, dummy…)</div>
-                    <input placeholder="How did you resettle?" value={nwForm.assistedNote}
-                      onChange={e=>setNwForm(f=>({...f,assistedNote:e.target.value}))}
-                      style={{width:"100%",fontSize:14,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,color:C.deep,outline:_oN,fontFamily:_fI,boxSizing:_bBB}}/>
-                  </div>
-                )}
-                <div>
-                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Duration soothed (optional)</div>
-                  <input type="number" inputMode="numeric" placeholder="minutes" value={nwForm.assistedDuration}
-                    onChange={e=>setNwForm(f=>({...f,assistedDuration:e.target.value}))}
-                    style={{width:"100%",fontSize:14,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:C.warm,color:C.deep,outline:_oN,fontFamily:_fM,boxSizing:_bBB}}/>
-                </div>
-              </div>
-            )}
-
-            {/* Feed amount for non-assisted, non-self-settled */}
-            {!nwForm.selfSettled&&!nwForm.assisted&&(
+            {!nwForm.selfSettled&&(
               <div style={{marginBottom:16}}>
-                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Feed amount (if applicable)</div>
+                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Feed amount</div>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <input type="number" inputMode="numeric" placeholder="ml" value={nwForm.ml}
                     onChange={e=>setNwForm(f=>({...f,ml:e.target.value}))}
@@ -7344,27 +7030,15 @@ function App(){
 
             <button onClick={()=>{
               if(!nwForm.time) return;
-              const isMilkAssisted = nwForm.assisted && nwForm.assistedType==="milk";
-              const ml = nwForm.selfSettled ? 0 : isMilkAssisted ? (parseInt(nwForm.ml)||0) : (parseInt(nwForm.ml)||0);
-              const noteStr = nwForm.selfSettled
-                ? (nwForm.note||"Self settled")
-                : nwForm.assisted
-                  ? [nwForm.assistedType==="milk"?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.assistedDuration?`Duration: ${nwForm.assistedDuration}m`:"", nwForm.note].filter(Boolean).join(" · ")
-                  : (nwForm.note||"");
               const entry = {
                 id: uid(),
-                type: (nwForm.selfSettled||nwForm.assisted) ? "wake" : "feed",
+                type: nwForm.selfSettled ? "wake" : "feed",
                 time: nwForm.time,
-                amount: ml,
+                amount: nwForm.selfSettled ? 0 : (parseInt(nwForm.ml)||0),
                 feedType: "milk",
                 night: true,
                 nightLocked: true,
-                selfSettled: nwForm.selfSettled,
-                assisted: nwForm.assisted,
-                assistedType: nwForm.assisted ? nwForm.assistedType : undefined,
-                assistedNote: nwForm.assisted ? nwForm.assistedNote : undefined,
-                assistedDuration: nwForm.assisted && nwForm.assistedDuration ? parseInt(nwForm.assistedDuration) : undefined,
-                note: noteStr,
+                note: nwForm.selfSettled ? (nwForm.note||"Self settled") : (nwForm.note||""),
               };
               setDays(d=>{
                 const existing = d[selDay]||[];
