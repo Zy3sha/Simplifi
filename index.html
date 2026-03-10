@@ -5134,6 +5134,17 @@ function App(){
             </div>
           ):(
             <div>
+              {/* Personal/NHS toggle pill — anchored under date strip */}
+              {usePersonalRecs !== null && (
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:-6,marginTop:-6,position:"relative",zIndex:10}}>
+                  <div style={{display:"inline-flex",background:"white",borderRadius:99,boxShadow:"0 2px 10px rgba(0,0,0,0.10)",border:`1px solid ${C.blush}`,overflow:"hidden"}}>
+                    <button onClick={()=>{setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:usePersonalRecs===true?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:usePersonalRecs===true?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap"}}>✨ Personal</button>
+                    <div style={{width:1,background:C.blush}}/>
+                    <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:usePersonalRecs===false?"#4a5a80":"transparent",color:usePersonalRecs===false?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap"}}>NHS</button>
+                  </div>
+                </div>
+              )}
+
               {/* 2. Age guidance */}
               {ageStage&&(
                 <div style={{background:`linear-gradient(135deg,${C.warm},#fff4ee)`,border:`1px solid ${C.blush}`,borderLeft:`4px solid ${C.ter}`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
@@ -7435,14 +7446,6 @@ function App(){
         );
       })()}
 
-      {/* ── NHS / Personal toggle pill — fixed bottom-right after choice made ── */}
-      {usePersonalRecs !== null && (
-        <div style={{position:"fixed",bottom:76,right:12,zIndex:250,background:"white",borderRadius:99,boxShadow:"0 2px 16px rgba(0,0,0,0.15)",border:`1px solid ${C.blush}`,display:"flex",overflow:"hidden",userSelect:"none"}}>
-          <button onClick={()=>{setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};}} style={{padding:"7px 13px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:usePersonalRecs===true?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:usePersonalRecs===true?"white":C.lt,cursor:"pointer"}}>✨ Personal</button>
-          <div style={{width:1,background:C.blush}}/>
-          <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};}} style={{padding:"7px 13px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:usePersonalRecs===false?"#4a5a80":"transparent",color:usePersonalRecs===false?"white":C.lt,cursor:"pointer"}}>NHS</button>
-        </div>
-      )}
 
       {showNightWake&&(
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNightWake(false)}>
