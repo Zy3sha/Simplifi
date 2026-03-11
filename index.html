@@ -1509,7 +1509,10 @@ function App(){
           }
 
 
-          if(!code && window._fbUid) {
+          // SECURITY: Only fall back to UID lookup if user has a verified username on this device
+          // This prevents a new account from accidentally loading another user's data
+          const hasVerifiedUser = localStorage.getItem("auth_verified") && (familyUsername || localStorage.getItem("family_username"));
+          if(!code && window._fbUid && hasVerifiedUser) {
             try {
               const uidSnap2 = await getDoc(doc(db,"uid_to_backup",window._fbUid));
               if(uidSnap2.exists()) {
@@ -1874,15 +1877,33 @@ function App(){
     try {
       const snap = await getDoc(doc(db,"usernames",key));
       if(snap.exists()) return false;
+      // Generate a fresh backup code for this new account — NEVER reuse existing codes
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let newCode;
+      for(let attempt=0;attempt<20;attempt++){
+        newCode = "BK"+Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+        const codeSnap = await getDoc(doc(db,"families",newCode));
+        if(!codeSnap.exists()) break;
+      }
+      // Clear any previous account data from this device — CRITICAL for multi-account safety
+      const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],milestones:{}};
+      setChildren({[blankChild.id]:blankChild});
+      setActiveChildId(blankChild.id);
+      try{ localStorage.setItem("children_v1", JSON.stringify({[blankChild.id]:blankChild})); }catch{}
+      try{ localStorage.removeItem("family_code"); }catch{}
+      setBackupCode(newCode);
+      try{ localStorage.setItem("backup_code", newCode); }catch{}
       await setDoc(doc(db,"usernames",key), {
         pinHash: hashPin(pin||"0000"),
-        backupCode: backupCode,
-        familyCode: familyCode || null,
+        backupCode: newCode,
+        familyCode: null,
         createdAt: serverTimestamp(),
         displayName: username.trim()
       });
       setFamilyUsername(username.trim());
+      setFamilyCode(null);
       try{ localStorage.setItem("family_username", username.trim()); }catch{}
+      try{ localStorage.removeItem("family_code"); }catch{}
       try{ localStorage.setItem("auth_verified","1"); }catch{}
       trackEvent("username_created");
       return true;
@@ -4211,15 +4232,14 @@ function App(){
 
       const afterBed = tMins > bedMins;
 
-      const morningMins = morningWakeTime ? timeVal({time: morningWakeTime}) : 6*60; // default 6am, not 12pm
-      // crossMidnight: only flag entries that are genuinely early-morning (midnight–05:59)
-      // AND before the morning wake anchor. This prevents daytime entries (6am+) being misclassified.
+      const morningMins = morningWakeTime ? timeVal({time: morningWakeTime}) : 6*60;
       const crossMidnight = tMins < bedMins && tMins < morningMins && h >= 0 && h < 6;
 
       const shouldBeNight = afterBed || crossMidnight;
 
-
-      const isMorningOrAfter = morningWakeTime && tMins >= morningMins;
+      // isMorningOrAfter only applies to early-morning entries (before bedtime),
+      // NOT to entries after bedtime — those are always night
+      const isMorningOrAfter = morningWakeTime && tMins >= morningMins && tMins <= bedMins;
 
       if (shouldBeNight && !isMorningOrAfter) return {...e, night: true};
 
@@ -4660,7 +4680,7 @@ function App(){
           {!isLogin && !authLoading && authPin.length===4 && (
             <div style={{marginTop:16}}>
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:10}}>Confirm PIN</label>
-              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={p2=>handleAuth(authPin,p2)}/>
+              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={null}/>
             </div>
           )}
 
@@ -5755,7 +5775,7 @@ function App(){
                     <div style={{width:3,height:18,background:"#7b68ee",borderRadius:99}}/>
                     <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"#5040a0",fontSize:16}}>Night Wakes</span>
                   </div>
-                  <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,note:""});setShowNightWake(true);}} style={{background:"#e8e4ff",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
+                  <button onClick={()=>{setNwForm({time:"",ml:"",selfSettled:false,note:""});setShowNightWake(true);}} style={{background:"#e8e4ff",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"#9080c8",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
