@@ -7240,7 +7240,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 
 <script>
 window.onerror = function(msg, src, line, col, err) {
-  document.getElementById('root').innerHTML = '<div style="padding:30px;font-family:monospace;font-size:13px;background:#fff;color:#333;word-break:break-all"><b>Error:</b> ' + msg + '<br><b>Line:</b> ' + line + '<br><b>Detail:</b> ' + (err&&err.stack?err.stack:'') + '</div>';
+  document.getElementById('root').innerHTML = '<div style="padding:30px;font-family:monospace;font-size:13px;background:#fff;color:#333;word-break:break-all"><b>Error:</b> ' + msg + '<br><b>Line:</b> ' + line + '<br><b>Col:</b> ' + col + '<br><b>Detail:</b> ' + (err&&err.stack?err.stack:'none') + '</div>';
 };
 (function() {
   try {
@@ -7248,15 +7248,12 @@ window.onerror = function(msg, src, line, col, err) {
     if (typeof React === 'undefined') throw new Error('React not loaded');
     var src = document.getElementById('jsx-src').textContent;
     var result = Babel.transform(src, { presets: ['react'] });
-    var blob = new Blob([result.code], { type: 'application/javascript' });
-    var url = URL.createObjectURL(blob);
+    // Use inline script instead of blob URL so errors have line numbers
     var s = document.createElement('script');
-    s.src = url;
-    s.onload = function() { URL.revokeObjectURL(url); };
-    s.onerror = function(e) { console.error('JSX load error', e); };
+    s.textContent = result.code;
     document.body.appendChild(s);
   } catch(e) {
-    document.getElementById('root').innerHTML = '<div style="padding:30px;font-family:monospace;font-size:13px;background:#fff;color:#333;word-break:break-all"><b>Loader error:</b> ' + e.message + '<br>' + e.stack + '</div>';
+    document.getElementById('root').innerHTML = '<div style="padding:30px;font-family:monospace;font-size:13px;background:#fff;color:#333;word-break:break-all"><b>Loader error:</b> ' + e.message + '<br><b>Stack:</b> ' + (e.stack||'') + '</div>';
   }
 })();
 </script>
