@@ -140,18 +140,23 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     if(mins>0) wins.push({from:bedEntry.time, to:nightWakes[0].time, mins, night:true});
   }
 
-  // between night wakes
+  // between night wakes — account for soothing duration
   for(let i=1;i<nightWakes.length;i++){
-    let mins = nightWakes[i]._sk - nightWakes[i-1]._sk;
+    const prevWake = nightWakes[i-1];
+    const dur = parseInt(prevWake.assistedDuration) || 0;
+    let fromSk = prevWake._sk + dur; // sleep resumes after soothing
+    let mins = nightWakes[i]._sk - fromSk;
     if(mins<=0) mins+=1440;
-    if(mins>0) wins.push({from:nightWakes[i-1].time, to:nightWakes[i].time, mins, night:true});
+    if(mins>0) wins.push({from:prevWake.time, to:nightWakes[i].time, mins, night:true});
   }
 
-  // last night wake → morning wake
+  // last night wake → morning wake — account for soothing duration
   if(nightWakes.length>0 && morningWake){
     const last = nightWakes[nightWakes.length-1];
-    let mins = morningMins + 1440 - last._sk;
-    if(morningMins > last._sk) mins = morningMins - last._sk;
+    const dur = parseInt(last.assistedDuration) || 0;
+    let fromSk = last._sk + dur;
+    let mins = morningMins + 1440 - fromSk;
+    if(morningMins > fromSk) mins = morningMins - fromSk;
     if(mins<=0) mins+=1440;
     if(mins>0) wins.push({from:last.time, to:morningWake.time, mins, night:true});
   }
@@ -238,7 +243,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
   }
 
   function openPicker(){
-    setTypeBuf(parsed ? fmt12(parsed) : "");
+    setTypeBuf("");
     setTypeErr(false);
     setShowPicker(true);
     setTimeout(()=>{ if(tRef.current) tRef.current.focus(); }, 150);
@@ -275,8 +280,8 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
         <span style={{fontSize:14,opacity:0.5}}>🕐</span>
       </button>
 
-      {showPicker && (
-        <div onClick={()=>setShowPicker(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(3px)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      {showPicker && ReactDOM.createPortal(
+        <div onClick={()=>setShowPicker(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(3px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:20,padding:"20px",width:"100%",maxWidth:300,boxShadow:"0 12px 40px rgba(0,0,0,0.2)"}}>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:14,textAlign:"center"}}>Set Time</div>
 
@@ -319,7 +324,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
@@ -502,6 +507,15 @@ function weightForPercentile(ageMonths,pct,sex){
   return M*Math.pow(1+L*S*z,1/L);
 }
 
+function lengthForPercentile(ageMonths,pct,sex){
+  const table=sex==="girl"?WHO_LENGTH_LMS_GIRLS:WHO_LENGTH_LMS_BOYS;
+  const mo=Math.min(Math.round(ageMonths),24);if(mo<0)return null;
+  const row=table[mo];if(!row)return null;const[,L,M,S]=row;
+  const z=invNormalCDF(pct/100);
+  if(Math.abs(L)<0.0001)return M*Math.exp(S*z);
+  return M*Math.pow(1+L*S*z,1/L);
+}
+
 function percentileColor(p) {
   if (p == null) return C.lt;
   if (p < 2 || p > 98) return "#e8574a";
@@ -525,6 +539,131 @@ function percentileNote(p) {
   if (p > 91) return "Between 91st–98th — mention at next check-up";
   return "Within normal range ✓";
 }
+
+// ── WHO Growth Chart (SVG) ──
+function GrowthChart({lmsTable, babyData, yLabel, unit, sex, color}) {
+  const W=320, H=200, PAD={t:20,r:16,b:32,l:36};
+  const cW=W-PAD.l-PAD.r, cH=H-PAD.t-PAD.b;
+  const maxMo=Math.min(24, Math.max(12, ...babyData.map(d=>d.mo+2)));
+  const pctLines=[3,15,50,85,97];
+  const pctZ=[-1.881,-1.036,0,1.036,1.881];
+  const pctColors=["rgba(192,112,136,0.15)","rgba(192,112,136,0.25)","rgba(192,112,136,0.5)","rgba(192,112,136,0.25)","rgba(192,112,136,0.15)"];
+  const pctLabels=["3rd","15th","50th","85th","97th"];
+
+  // Calculate value at given month and z-score from LMS
+  function lmsVal(mo,z){
+    if(mo<0)mo=0;if(mo>24)mo=24;
+    const idx=Math.floor(mo); const frac=mo-idx;
+    const getRow=(i)=>lmsTable[Math.min(i,lmsTable.length-1)];
+    const r0=getRow(idx), r1=getRow(Math.min(idx+1,lmsTable.length-1));
+    const L=r0[1]+(r1[1]-r0[1])*frac;
+    const M=r0[2]+(r1[2]-r0[2])*frac;
+    const S=r0[3]+(r1[3]-r0[3])*frac;
+    if(L===0) return M*Math.exp(S*z);
+    return M*Math.pow(1+L*S*z,1/L);
+  }
+
+  // Y range from P1 to P99
+  const yMin=lmsVal(0,-2.326)*0.95;
+  const yMax=lmsVal(maxMo,2.326)*1.02;
+  const x=mo=>PAD.l+(mo/maxMo)*cW;
+  const y=v=>PAD.t+cH-(((v-yMin)/(yMax-yMin))*cH);
+
+  // Generate curve path
+  function curvePath(zScore){
+    let pts=[];
+    for(let m=0;m<=maxMo;m+=0.5){
+      pts.push(`${m===0?"M":"L"}${x(m).toFixed(1)},${y(lmsVal(m,zScore)).toFixed(1)}`);
+    }
+    return pts.join(" ");
+  }
+
+  // Baby data path
+  const sorted=[...babyData].sort((a,b)=>a.mo-b.mo);
+  const babyPath=sorted.map((d,i)=>`${i===0?"M":"L"}${x(d.mo).toFixed(1)},${y(d.val).toFixed(1)}`).join(" ");
+
+  // Grid lines
+  const yTicks=[];
+  const yStep=yLabel==="Weight"?1:5;
+  for(let v=Math.ceil(yMin/yStep)*yStep;v<=yMax;v+=yStep) yTicks.push(v);
+  const xTicks=[];
+  for(let m=0;m<=maxMo;m+=3) xTicks.push(m);
+
+  return React.createElement("svg",{viewBox:`0 0 ${W} ${H}`,style:{width:"100%",height:"auto",display:"block"}},
+    // Grid
+    yTicks.map(v=>React.createElement("g",{key:"gy"+v},
+      React.createElement("line",{x1:PAD.l,y1:y(v),x2:W-PAD.r,y2:y(v),stroke:"var(--card-border)",strokeWidth:0.5}),
+      React.createElement("text",{x:PAD.l-4,y:y(v)+3,textAnchor:"end",fontSize:8,fill:"var(--text-lt)",fontFamily:"monospace"},v+(unit==="kg"?"":""))
+    )),
+    xTicks.map(m=>React.createElement("g",{key:"gx"+m},
+      React.createElement("line",{x1:x(m),y1:PAD.t,x2:x(m),y2:H-PAD.b,stroke:"var(--card-border)",strokeWidth:0.5}),
+      React.createElement("text",{x:x(m),y:H-PAD.b+12,textAnchor:"middle",fontSize:8,fill:"var(--text-lt)",fontFamily:"monospace"},m+"mo")
+    )),
+    // Percentile fills (shaded bands)
+    [0,1,2,3].map(i=>{
+      const top=curvePath(pctZ[i+1]);
+      const botPts=[];
+      for(let m=maxMo;m>=0;m-=0.5) botPts.push(`L${x(m).toFixed(1)},${y(lmsVal(m,pctZ[i])).toFixed(1)}`);
+      return React.createElement("path",{key:"band"+i,d:top+" "+botPts.join(" ")+"Z",fill:i===1||i===2?"rgba(246,221,227,0.20)":"rgba(217,207,243,0.12)",stroke:"none"});
+    }),
+    // Percentile curves
+    pctZ.map((z,i)=>React.createElement("path",{key:"pct"+i,d:curvePath(z),fill:"none",stroke:pctColors[i],strokeWidth:i===2?1.5:0.8})),
+    // Percentile labels on right
+    pctZ.map((z,i)=>React.createElement("text",{key:"pl"+i,x:W-PAD.r+2,y:y(lmsVal(maxMo,z))+3,fontSize:7,fill:"var(--text-lt)",fontFamily:"monospace"},pctLabels[i])),
+    // Baby data line
+    sorted.length>1 && React.createElement("path",{d:babyPath,fill:"none",stroke:color||"var(--ter)",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"}),
+    // Baby data points
+    sorted.map((d,i)=>React.createElement("circle",{key:"bp"+i,cx:x(d.mo),cy:y(d.val),r:4,fill:color||"var(--ter)",stroke:"white",strokeWidth:1.5})),
+    // Baby data labels
+    sorted.map((d,i)=>React.createElement("text",{key:"bl"+i,x:x(d.mo),y:y(d.val)-8,textAnchor:"middle",fontSize:8,fill:"var(--text-deep)",fontWeight:700,fontFamily:"monospace"},d.val+unit))
+  );
+}
+
+// ── CSV Export ──
+/* exportCSV moved inside App component for state access */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const MILESTONE_CATS = [
   { key:"social",    label:"Social & Emotional",      icon:"💛" },
@@ -1009,7 +1148,7 @@ function App(){
     } catch(e) {
       const cid = uid();
       const d = {}; d[todayStr()] = [];
-      return { [cid]: { id:cid, name:"", dob:"", sex:"", unborn:false, days:d, weights:[], milestones:{} }};
+      return { [cid]: { id:cid, name:"", dob:"", sex:"", unborn:false, days:d, weights:[], heights:[], photos:[], milestones:{} }};
     }
   });
   const[activeChildId,setActiveChildId]=useState(()=>{
@@ -1025,7 +1164,7 @@ function App(){
 
   const childIds = Object.keys(children);
   const resolvedActiveId = (activeChildId && children[activeChildId]) ? activeChildId : childIds[0];
-  const activeChild = children[resolvedActiveId] || { id:"", name:"", dob:"", sex:"", unborn:false, days:{}, weights:[], milestones:{} };
+  const activeChild = children[resolvedActiveId] || { id:"", name:"", dob:"", sex:"", unborn:false, days:{}, weights:[], heights:[], photos:[], milestones:{} };
 
 
   const babyName    = activeChild.name;
@@ -1061,6 +1200,91 @@ function App(){
     const next = typeof fn === "function" ? fn(cur.heights || []) : fn;
     return {...prev, [resolvedActiveId]: {...cur, heights: next}};
   });
+  const photos = activeChild.photos || [];
+  const setPhotos = (fn) => setChildren(prev => {
+    const cur = prev[resolvedActiveId];
+    const next = typeof fn === "function" ? fn(cur.photos || []) : fn;
+    return {...prev, [resolvedActiveId]: {...cur, photos: next}};
+  });
+  const photoInputRef = useRef(null);
+
+  function exportCSV(){
+    const rows=[["Date","Time","Type","Detail","Amount","Duration","Note"]];
+    Object.keys(days).sort().forEach(date=>{
+      (days[date]||[]).forEach(e=>{
+        const time=e.time||e.start||"";
+        let detail="",amount="",duration="",note=e.note||"";
+        if(e.type==="feed"){
+          detail=e.feedType||"milk";
+          amount=e.feedType==="breast"?`L:${e.breastL||0}m R:${e.breastR||0}m`:(e.amount?e.amount+"ml":"");
+        }else if(e.type==="poop"){
+          detail=e.poopType||"wet";
+        }else if(e.type==="nap"){
+          detail="nap";duration=e.duration?e.duration+"min":"";
+          if(e.end) amount=`${e.start||""}-${e.end}`;
+        }else if(e.type==="sleep"){
+          detail=e.night?"night wake":"bedtime";
+        }else if(e.type==="wake"){
+          detail="wake";
+        }
+        rows.push([date,time,e.type||"",detail,amount,duration,note].map(v=>'"'+String(v).replace(/"/g,'""')+'"'));
+      });
+    });
+    // Add weight/height
+    rows.push([]);rows.push(["Date","Weight (kg)","Height (cm)","Weight %ile","Height %ile"]);
+    const allDates=[...new Set([...weights.map(w=>w.date),...heights.map(h=>h.date)])].sort();
+    allDates.forEach(d=>{
+      const w=weights.find(x=>x.date===d);
+      const h=heights.find(x=>x.date===d);
+      let wp="",hp="";
+      if(w&&babyDob){const mo=Math.floor((new Date(d)-new Date(babyDob))/(1000*60*60*24*30.44));wp=getPercentile(w.kg,mo,babySex)||"";}
+      if(h&&babyDob){const mo=Math.floor((new Date(d)-new Date(babyDob))/(1000*60*60*24*30.44));hp=getHeightPercentile(h.cm,mo,babySex)||"";}
+      rows.push([d,w?w.kg:"",h?h.cm:"",wp,hp].map(v=>'"'+String(v)+'"'));
+    });
+    const csv=rows.map(r=>r.join(",")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=`${babyName||"baby"}-data-${todayStr()}.csv`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+    trackEvent("data_exported",{format:"csv"});
+  }
+
+  function capturePhoto(forMilestone){
+    if(photoInputRef.current){
+      photoInputRef.current._forMilestone=forMilestone||null;
+      photoInputRef.current.click();
+    }
+  }
+  function handlePhotoCapture(e){
+    const file=e.target.files&&e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      // Resize to max 400px for storage
+      const img=new Image();
+      img.onload=function(){
+        const max=400;
+        let w=img.width,h=img.height;
+        if(w>max||h>max){const r=Math.min(max/w,max/h);w*=r;h*=r;}
+        const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);
+        const dataUrl=canvas.toDataURL("image/jpeg",0.7);
+        const milestoneId=photoInputRef.current._forMilestone;
+        if(milestoneId){
+          // Attach to milestone
+          setMilestones(prev=>({...prev,[milestoneId]:{...prev[milestoneId],photo:dataUrl}}));
+        }else{
+          // Add to photo diary
+          setPhotos(prev=>[...prev,{id:uid(),date:selDay||todayStr(),time:nowTime(),dataUrl,note:""}]);
+        }
+        try{navigator.vibrate&&navigator.vibrate(30);}catch{}
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value="";
+  }
   const setMilestones  = (fn) => setChildren(prev => {
     const cur = prev[resolvedActiveId];
     const next = typeof fn === "function" ? fn(cur.milestones) : fn;
@@ -1086,6 +1310,9 @@ function App(){
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
+  const[showWakePrompt,setShowWakePrompt]=useState(false);
+  const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
+  const[wakeEditEntry,setWakeEditEntry]=useState(null);
   // Bridge nap: tracks whether user added bridge nap to schedule (keyed by selDay)
   const[bridgeNapDays,setBridgeNapDays]=useState(()=>{try{return JSON.parse(localStorage.getItem("bridge_nap_days_v1")||"{}");} catch{return {};}});
   const bridgeNapScheduled = bridgeNapDays[selDay]===true;
@@ -1872,7 +2099,7 @@ function App(){
         if(!codeSnap.exists()) break;
       }
       // Clear any previous account data from this device — CRITICAL for multi-account safety
-      const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],milestones:{}};
+      const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
       setChildren({[blankChild.id]:blankChild});
       setActiveChildId(blankChild.id);
       try{ localStorage.setItem("children_v1", JSON.stringify({[blankChild.id]:blankChild})); }catch{}
@@ -2199,7 +2426,7 @@ function App(){
     const d = {}; d[todayStr()] = [];
     setChildren(prev => ({
       ...prev,
-      [cid]: { id:cid, name, dob, sex, unborn, days:d, weights:[], milestones:{} }
+      [cid]: { id:cid, name, dob, sex, unborn, days:d, weights:[], heights:[], photos:[], milestones:{} }
     }));
     setActiveChildId(cid);
     trackEvent("child_added");
@@ -2419,7 +2646,19 @@ function App(){
   },[selDay, entries.length, _bedtimeCount]);
 
   const dayE=entries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
-  const nightE=entries.filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+  const nightE=(()=>{
+    const raw=entries.filter(e=>e.night);
+    // Sort chronologically from bedtime: PM wakes first, then AM (cross-midnight)
+    const bedEntry=entries.find(e=>e.type==="sleep"&&!e.night);
+    const bedMins=bedEntry?timeVal(bedEntry):22*60;
+    return raw.sort((a,b)=>{
+      const ta=timeVal(a), tb=timeVal(b);
+      // Assign sort key: times >= bedMins stay as-is (evening), times < 12:00 get +1440 (post-midnight)
+      const ka = ta >= bedMins ? ta : (ta < 12*60 ? ta + 1440 : ta);
+      const kb = tb >= bedMins ? tb : (tb < 12*60 ? tb + 1440 : tb);
+      return ka - kb;
+    });
+  })();
   const totalMl=entries.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
   const naps=dayE.filter(e=>e.type==="nap");
   const napMins=naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
@@ -4244,6 +4483,16 @@ function App(){
     });
   }
   function openEdit(entry){
+    // If editing a wake entry and bedtime is logged, ask day/night
+    if(entry.type==="wake" && !entry.night){
+      const dayEntries = days[selDay]||[];
+      const hasBedtime = dayEntries.some(e=>e.type==="sleep"&&!e.night);
+      if(hasBedtime){
+        setWakeEditEntry(entry);
+        setShowWakeEditPrompt(true);
+        return;
+      }
+    }
     setEditEntry(entry);
     setEType(entry.type);
     setFeedType(entry.feedType||"milk");
@@ -4264,6 +4513,7 @@ function App(){
   }
 
   const lastLogRef = React.useRef({time:0, key:""});
+  const[quickFlash,setQuickFlash]=useState(null);
   function quickAddLog(type, data){
 
     const key = type + JSON.stringify(data);
@@ -4276,6 +4526,12 @@ function App(){
       return{...d,[selDay]:autoClassifyNight(u, prevD ? d[prevD] : null)};
     });
     setLogPanel(null);
+    // Haptic feedback — strong triple pulse
+    try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
+    // Visual flash — brief confirmation
+    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
+    setQuickFlash(label);
+    setTimeout(()=>setQuickFlash(null),900);
   }
 
   function saveLogFeed(){
@@ -4373,6 +4629,43 @@ function App(){
       return {...d,[selDay]:arr};
     });
   }
+  function handleSmartWake(){
+    const dayEntries = days[selDay]||[];
+    const hasBedtime = dayEntries.some(e=>e.type==="sleep"&&!e.night);
+    const h = new Date().getHours();
+    
+    if(!hasBedtime){
+      // No bedtime logged — just log morning wake
+      quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
+      return;
+    }
+    
+    // Bedtime IS logged
+    if(h >= 12){
+      // It's PM after bedtime — assume night wake
+      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+      setShowNightWake(true);
+    } else {
+      // It's AM — could be night wake or start of day
+      setShowWakePrompt(true);
+    }
+  }
+
+  function logMorningWakeNextDay(){
+    // Log wake on the next day
+    const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
+    const entry = {id:uid(),type:"wake",time:nowTime(),night:false,note:""};
+    setDays(d=>{
+      const existing = d[nextDay]||[];
+      return {...d,[nextDay]:[...existing,entry]};
+    });
+    setShowWakePrompt(false);
+    setSelDay(nextDay);
+    try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
+    setQuickFlash("☀️ Wake logged on "+fmtDate(nextDay));
+    setTimeout(()=>setQuickFlash(null),1200);
+  }
+
   function startNap(){
     if (napOn) return; // already running
     const t=nowTime();
@@ -4406,14 +4699,19 @@ function App(){
   }
   function saveBreastFeed(){
     if(!breastStartTime && breastSec.L===0 && breastSec.R===0) return;
-    const lMins=Math.round(breastSec.L/60), rMins=Math.round(breastSec.R/60);
-    if(lMins===0&&rMins===0)return;
+    const totalSec = breastSec.L + breastSec.R;
+    // Allow saving even with 0 seconds — logs as breastfeed at start time
+    const lMins=breastSec.L > 0 ? Math.max(1, Math.round(breastSec.L/60)) : 0;
+    const rMins=breastSec.R > 0 ? Math.max(1, Math.round(breastSec.R/60)) : 0;
     const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:false,note:""};
 
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
     try{["breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));}catch{}
     setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
     trackEvent("entry_logged",{type:"breast_feed"});
+    try{navigator.vibrate&&navigator.vibrate([40,30,40]);}catch{}
+    setQuickFlash("🤱 Feed Logged ✓");
+    setTimeout(()=>setQuickFlash(null),1200);
   }
   function cancelBreastTimer(){
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
@@ -5114,6 +5412,7 @@ function App(){
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes popIn{from{opacity:0;transform:scale(0.6)}to{opacity:1;transform:scale(1)}}
         @keyframes tutPop{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
         @keyframes tutPulse{0%,100%{box-shadow:0 0 0 0 rgba(201,112,90,0.5)}70%{box-shadow:0 0 0 14px rgba(201,112,90,0)}}
       `}</style>
@@ -5340,6 +5639,8 @@ function App(){
           <span>You're offline — entries are saved locally and will sync when you reconnect</span>
         </div>
       )}
+      {/* Hidden photo input for diary/milestones */}
+      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhotoCapture}/>
       <div
         style={{background:theme.primary,padding:"16px 16px 0",position:"relative",backdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",WebkitBackdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",boxShadow:"var(--card-shadow)",borderBottom:"1px solid var(--card-border)"}}
         onTouchStart={handleSwipeStart}
@@ -5406,14 +5707,8 @@ function App(){
             return <div style={{background:"var(--card-bg)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🎂 {fmtAge(age)} · {age.totalWeeks}wk</div>;
           })()}
         </div>
-        {tab === "day" && (napOn || breastStartTime) && (
+        {tab === "day" && breastStartTime && (
           <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-            {napOn && (
-              <div style={{display:"flex",alignItems:"center",gap:6,background:"var(--card-bg-solid)",borderRadius:99,padding:"5px 6px 5px 12px",boxShadow:"0 2px 8px rgba(44,31,26,0.12)"}}>
-                <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:C.mint}}>😴 {fmtSec(napSec)}</span>
-                <button onClick={endNap} style={{background:C.mint,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:12,color:"white",cursor:_cP,fontWeight:700}}>Save</button>
-              </div>
-            )}
             {breastStartTime && (
               <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"7px 10px",boxShadow:"0 2px 8px rgba(44,31,26,0.12)",display:"flex",flexDirection:"column",gap:5}}>
                 <div style={{display:"flex",gap:5}}>
@@ -5500,7 +5795,7 @@ function App(){
           {displayDayKeys.map(d=>(
             <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"white":"rgba(255,255,255,0.35)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?"none":`1px solid rgba(255,255,255,0.45)`}}>
               <button onClick={()=>setSelDay(d)} style={{background:_bN,border:_bN,color:d===selDay?C.ter:C.mid,fontSize:13,fontFamily:_fM,cursor:_cP,padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
-              <button onClick={e=>{setMenuDay(d);setEditDate(d);setConfirmDeleteDay(false);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?"#f2d9cc":"rgba(255,255,255,0.4)",border:_bN,borderRadius:"50%",width:18,height:18,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:9,color:d===selDay?C.mid:C.lt}}>✎</button>
+              <button onClick={e=>{setMenuDay(d);setEditDate(d);setConfirmDeleteDay(false);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?"rgba(243,211,218,0.60)":"rgba(255,255,255,0.55)",border:"1px solid rgba(255,255,255,0.45)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:10,color:d===selDay?C.ter:C.mid}}>✎</button>
             </div>
           ))}
           {!displayDayKeys.length&&<span style={{color:C.lt,fontSize:13,fontFamily:_fM,alignSelf:"center"}}>No days yet</span>}
@@ -5546,20 +5841,28 @@ function App(){
                     if(napOn){ endNap(); } else { startNap(); }
                   }},
                   {emoji:"🫙",label:"Pump",action:()=>openLogPanel("pump")},
-                  {emoji:"☀️",label:"Wake",action:()=>quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""})},
+                  {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
+                  {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                 ].map(({emoji,label,action})=>(
                   <button key={label} onClick={action}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flex:1,padding:"6px 2px",borderRadius:12,border:"none",background:"transparent",cursor:_cP,transition:"background 0.1s"}}
-                    onMouseDown={e=>e.currentTarget.style.background="var(--chip-bg-active)"}
-                    onMouseUp={e=>e.currentTarget.style.background="transparent"}
-                    onTouchStart={e=>e.currentTarget.style.background="var(--chip-bg-active)"}
-                    onTouchEnd={e=>{e.currentTarget.style.background="transparent";}}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flex:1,padding:"6px 2px",borderRadius:12,border:"none",background:"transparent",cursor:_cP,transition:"transform 0.1s ease, background 0.1s ease"}}
+                    onMouseDown={e=>{e.currentTarget.style.background="var(--chip-bg-active)";e.currentTarget.style.transform="scale(0.85)";}}
+                    onMouseUp={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
+                    onTouchStart={e=>{e.currentTarget.style.background="var(--chip-bg-active)";e.currentTarget.style.transform="scale(0.85)";}}
+                    onTouchEnd={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
                   >
                     <span style={{fontSize:24,lineHeight:1}}>{emoji}</span>
                     <span style={{fontSize:9,fontWeight:700,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.02em"}}>{label}</span>
                   </button>
                 ))}
               </div>
+
+              {/* Quick log confirmation toast */}
+              {quickFlash&&(
+                <div style={{textAlign:"center",padding:"6px 0",marginBottom:6}}>
+                  <span style={{display:"inline-block",background:"var(--card-bg-solid)",border:"1.5px solid var(--ter)",borderRadius:99,padding:"7px 20px",fontSize:14,fontWeight:700,color:C.ter,fontFamily:_fM,boxShadow:"0 0 20px rgba(246,221,227,0.40), 0 4px 12px rgba(192,112,136,0.15)",animation:"popIn 0.2s cubic-bezier(0.34,1.56,0.64,1)"}}>{quickFlash}</span>
+                </div>
+              )}
 
               {/* Age guidance */}
               {ageStage&&(
@@ -5588,12 +5891,36 @@ function App(){
                   {id:"paste", icon:"📋", label:"Notes"},
                 ].map(({id,icon,label})=>(
                   <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?C.ter:C.blush}`,background:logPanel===id?"var(--chip-bg-active)":"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",cursor:_cP,fontFamily:_fI,transition:"all 0.15s",boxShadow:"var(--chip-shadow)"}}>
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?"var(--ter)":"rgba(255,255,255,0.45)"}`,background:logPanel===id?"var(--chip-bg-active)":"radial-gradient(ellipse 100% 100% at 50% 30%, rgba(246,221,227,0.22), transparent 65%), radial-gradient(ellipse 80% 80% at 50% 90%, rgba(217,207,243,0.16), transparent 55%), var(--card-bg)",cursor:_cP,fontFamily:_fI,transition:"all 0.15s, transform 0.1s",boxShadow:logPanel===id?"0 0 24px rgba(192,112,136,0.30), 0 0 48px rgba(246,221,227,0.20), inset 0 1px 0 rgba(255,255,255,0.60)":"0 0 18px rgba(255,255,255,0.50), 0 0 36px rgba(246,221,227,0.28), 0 0 56px rgba(217,207,243,0.16), inset 0 1px 0 rgba(255,255,255,0.55)"}}
+                    onMouseDown={e=>{e.currentTarget.style.transform="scale(0.92)";}}
+                    onMouseUp={e=>{e.currentTarget.style.transform="scale(1)";}}
+                    onTouchStart={e=>{e.currentTarget.style.transform="scale(0.92)";}}
+                    onTouchEnd={e=>{e.currentTarget.style.transform="scale(1)";}}>
                     <span style={{fontSize:22}}>{icon}</span>
                     <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:C.mid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2}}>{label}</span>
                   </button>
                 ))}
               </div>
+
+              {/* Photo diary for this day */}
+              {(()=>{
+                const dayPhotos = photos.filter(p=>p.date===selDay);
+                if(!dayPhotos.length) return null;
+                return (
+                  <div style={{marginBottom:12}}>
+                    <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>📷 Photos · {fmtDate(selDay)}</div>
+                    <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
+                      {dayPhotos.map((p,i)=>(
+                        <div key={p.id||i} style={{flexShrink:0,width:72,height:72,borderRadius:12,overflow:"hidden",border:`1px solid ${C.blush}`,position:"relative"}}>
+                          <img src={p.dataUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                          <button onClick={()=>setPhotos(prev=>prev.filter(x=>x.id!==p.id))} style={{position:"absolute",top:2,right:2,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,0.5)",border:"none",color:"white",fontSize:10,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                          <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.45)",color:"white",fontSize:8,fontFamily:_fM,padding:"1px 4px",textAlign:"center"}}>{fmt12(p.time)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 5. Today's summary stats */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
@@ -5758,8 +6085,8 @@ function App(){
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:7}}>
                           {badgeVal&&<Badge type={e.type}>{badgeVal}</Badge>}
-                          <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:23,height:23,color:C.mid,cursor:_cP,fontSize:15,display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>
-                          <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:23,height:23,color:C.lt,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                          <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:26,height:26,color:C.ter,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(246,221,227,0.30)"}}>✎</button>
+                          <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:26,height:26,color:"#e06070",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                         </div>
                       </div>
                     </div>
@@ -5776,17 +6103,58 @@ function App(){
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"var(--text-lt)",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
-                  const sleepEv=dayE.find(e=>e.type==="sleep");
-                  const pts=[];
-                  if(sleepEv) pts.push({label:"Bedtime",time:sleepEv.time});
-                  nightE.forEach((e,i)=>pts.push({label:`Wake ${i+1}`,time:e.time,id:e.id,amount:e.amount,note:e.note}));
+                  const sleepEv=dayE.find(e=>e.type==="sleep"&&!e.night);
+                  const bedMins=sleepEv?timeVal(sleepEv):22*60;
+                  
+                  // Build timeline points: bedtime, then each wake
+                  // Sort key: PM times after bed stay as-is, AM times get +1440
+                  const sk = (t) => {
+                    const m = typeof t === "string" ? (()=>{const[h,mn]=t.split(":").map(Number);return h*60+mn;})() : t;
+                    return m >= bedMins ? m : (m < 12*60 ? m + 1440 : m);
+                  };
+
                   return nightE.map((e,i)=>{
-                    const fromPt=pts[i];const toPt=pts[i+1];
-                    let strMins=fromPt&&toPt?minDiff(fromPt.time,toPt.time):0;
-                    if(strMins<=0&&strMins!=null&&fromPt&&toPt) strMins+=1440;
+                    // Calculate stretch FROM previous point TO this wake
+                    const prevTime = i === 0 
+                      ? (sleepEv ? sleepEv.time : null)
+                      : nightE[i-1].time;
+                    
+                    if(!prevTime) return (
+                      <div key={e.id}>
+                        <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                            <div>
+                              <span style={{color:"var(--text-mid)",fontSize:15}}>🌟 {fmt12(e.time)} wake</span>
+                              {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
+                              {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
+                                Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
+                                {e.assistedDuration?<span> · Duration: {e.assistedDuration}m</span>:null}
+                              </div>}
+                              {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:14,color:"var(--text-lt)",fontStyle:"italic",marginTop:1}}>{e.note}</div>}
+                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:7}}>
+                              {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{e.amount} ml</span>}
+                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:24,height:24,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}}>✎</button>
+                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:24,height:24,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+
+                    // If previous wake had assistedDuration, stretch starts from (prevWake + duration)
+                    let fromMins = sk(prevTime);
+                    if(i > 0) {
+                      const prevWake = nightE[i-1];
+                      const dur = parseInt(prevWake.assistedDuration) || 0;
+                      if(dur > 0) fromMins += dur;
+                    }
+                    let strMins = sk(e.time) - fromMins;
+                    if(strMins <= 0) strMins += 1440;
+                    
                     return(
                       <div key={e.id}>
-                        {fromPt&&toPt&&strMins>0&&(
+                        {strMins>0&&(
                           <div style={{display:"flex",alignItems:"center",gap:6,padding:"3px 4px 5px",opacity:0.7}}>
                             <div style={{flex:1,height:1,background:"var(--card-bg-alt)"}}/>
                             <span style={{fontSize:14,fontFamily:_fM,color:strMins>=180?"#6fa898":strMins>=120?"#d4a855":"#7b68ee"}}>{hm(strMins)}</span>
@@ -5806,8 +6174,8 @@ function App(){
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{e.amount} ml</span>}
-                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:21,height:21,color:"#7b68ee",cursor:_cP,fontSize:15}}>✎</button>
-                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:21,height:21,color:"var(--text-lt)",cursor:_cP,fontSize:14}}>✕</button>
+                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:24,height:24,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}}>✎</button>
+                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:24,height:24,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                             </div>
                           </div>
                         </div>
@@ -5995,6 +6363,42 @@ function App(){
                   {latestW && (
                     <div style={{fontSize:12,padding:"5px 12px",borderRadius:99,display:"inline-block",background:percentileColor(latestW.pct)+"22",color:percentileColor(latestW.pct),fontFamily:_fM,fontWeight:600}}>
                       {percentileNote(latestW.pct)}
+                    </div>
+                  )}
+
+                  {/* WHO Growth Charts */}
+                  {babyDob && (weights.length > 0 || heights.length > 0) && (
+                    <div style={{marginTop:14}}>
+                      {weights.length > 0 && (()=>{
+                        const wData = weights.map(w => {
+                          const mo = Math.round(((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10;
+                          return {mo: Math.max(0,mo), val: w.kg};
+                        }).filter(d=>d.mo>=0&&d.mo<=24);
+                        const lms = babySex==="girl" ? WHO_LMS_GIRLS : WHO_LMS_BOYS;
+                        return (
+                          <div style={{marginBottom:12}}>
+                            <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Weight · WHO Percentile Curves</div>
+                            <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"10px 6px 4px",border:`1px solid ${C.blush}`}}>
+                              <GrowthChart lmsTable={lms} babyData={wData} yLabel="Weight" unit="kg" sex={babySex} color={C.ter}/>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {heights.length > 0 && (()=>{
+                        const hData = heights.map(h => {
+                          const mo = Math.round(((new Date(h.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10;
+                          return {mo: Math.max(0,mo), val: h.cm};
+                        }).filter(d=>d.mo>=0&&d.mo<=24);
+                        const lms = babySex==="girl" ? WHO_LENGTH_LMS_GIRLS : WHO_LENGTH_LMS_BOYS;
+                        return (
+                          <div style={{marginBottom:12}}>
+                            <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Height · WHO Percentile Curves</div>
+                            <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"10px 6px 4px",border:`1px solid ${C.blush}`}}>
+                              <GrowthChart lmsTable={lms} babyData={hData} yLabel="Height" unit="cm" sex={babySex} color={C.sky}/>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -6245,6 +6649,50 @@ function App(){
                   })()}
 
                   {/* Feed & Nap Trends */}
+
+                  {/* Height/Length Chart */}
+                  {sortedH.length>=1&&babySex&&babyDob&&(()=>{
+                    const PCTL=[2,9,25,50,75,91,98];
+                    const PC={2:"#e8b4a0",9:"#e8c4b0",25:"#d4ede6",50:"#6fa898",75:"#d4ede6",91:"#e8c4b0",98:"#e8b4a0"};
+                    const maxMo=Math.min(Math.max(...hWithPct.filter(h=>h.ageMo!=null).map(h=>h.ageMo),6)+2,24);
+                    const CW=320,CH=240,PL=30,PR=28,PT=12,PB=24;
+                    const pW2=CW-PL-PR,pH3=CH-PT-PB;
+                    const allCm=[];
+                    for(let mo=0;mo<=maxMo;mo++) PCTL.forEach(p=>{const cm=lengthForPercentile(mo,p,babySex);if(cm)allCm.push(cm);});
+                    sortedH.forEach(h=>allCm.push(h.cm));
+                    const cMin=Math.floor(Math.min(...allCm)*0.97*10)/10;
+                    const cMax=Math.ceil(Math.max(...allCm)*1.03*10)/10;
+                    const cR=cMax-cMin||1;
+                    const tX2=mo=>PL+((mo)/(maxMo))*pW2;
+                    const tY2=cm=>PT+(1-(cm-cMin)/cR)*pH3;
+                    const hPaths={};
+                    PCTL.forEach(p=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const cm=lengthForPercentile(mo,p,babySex);if(cm)d.push(`${mo===0?"M":"L"}${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}hPaths[p]=d.join(" ");});
+                    const hbp=hWithPct.filter(h=>h.ageMo!=null&&h.ageMo<=maxMo);
+                    const hBabyPath=hbp.map((h,i)=>`${i===0?"M":"L"}${tX2(h.ageMo).toFixed(1)},${tY2(h.cm).toFixed(1)}`).join(" ");
+                    const hBands=[[2,9],[9,25],[25,50],[50,75],[75,91],[91,98]];
+                    const hBf=["rgba(232,180,160,0.18)","rgba(232,196,176,0.12)","rgba(212,237,230,0.22)","rgba(212,237,230,0.22)","rgba(232,196,176,0.12)","rgba(232,180,160,0.18)"];
+                    return(
+                      <div style={{marginBottom:14}}>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Height Chart · WHO Percentiles</div>
+                        <div style={{fontSize:11,color:C.lt,marginBottom:10}}>{babySex==="boy"?"👦 Boys":"👧 Girls"} · 0–{maxMo} months</div>
+                        <svg width="100%" viewBox={`0 0 ${CW} ${CH}`} style={{display:"block"}}>
+                          {hBands.map(([lo,hi],bi)=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const cm=lengthForPercentile(mo,hi,babySex);if(cm)d.push(`${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}for(let mo=maxMo;mo>=0;mo--){const cm=lengthForPercentile(mo,lo,babySex);if(cm)d.push(`${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}return<polygon key={bi} points={d.join(" ")} fill={hBf[bi]} stroke="none"/>;
+                          })}
+                          {PCTL.map(p=><g key={p}><path d={hPaths[p]} fill="none" stroke={PC[p]} strokeWidth={p===50?1.8:0.7} strokeDasharray={p===50?"":"4,3"} opacity={0.85}/><text x={CW-PR+4} y={tY2(lengthForPercentile(maxMo,p,babySex))+3} fontSize={8} fill={C.lt} fontFamily="monospace">{p===50?"50th":p}</text></g>)}
+                          {[0,3,6,9,12,15,18,21,24].filter(m=>m<=maxMo).map(m=><g key={m}><line x1={tX2(m)} y1={PT} x2={tX2(m)} y2={CH-PB} stroke={C.blush} strokeWidth={0.4}/><text x={tX2(m)} y={CH-PB+14} textAnchor="middle" fontSize={9} fill={C.lt} fontFamily="monospace">{m}m</text></g>)}
+                          {hbp.length>1&&<path d={hBabyPath} fill="none" stroke={C.sky} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>}
+                          {hbp.map((h,i)=>(
+                            <g key={i}>
+                              <circle cx={tX2(h.ageMo)} cy={tY2(h.cm)} r={3.5} fill="white" stroke={C.sky} strokeWidth={2}/>
+                              {i===hbp.length-1&&<text x={tX2(h.ageMo)} y={tY2(h.cm)-5} textAnchor="middle" fontSize={7} fill={C.sky} fontFamily="monospace">{h.cm}cm</text>}
+                            </g>
+                          ))}
+                        </svg>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Feed & Nap Trends (original) */}
                   {dayKeys.length<3?(
                     <div style={{textAlign:"center",padding:"24px 10px",color:C.lt}}>
                       <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.mid,marginBottom:6}}>Not enough data yet</div>
@@ -6899,7 +7347,13 @@ function App(){
                       <span style={{background:"var(--chip-bg)",borderRadius:99,padding:"1px 6px"}}>{catInfo?.icon} {catInfo?.label}</span>
                       {done ? <span style={{color:C.mint}}>✓ {fmtLong(milestones[m.id].date)}</span>
                             : <span style={{fontFamily:_fM}}>typical wk {m.weeks[1]}</span>}
+                      {done && <button onClick={e=>{e.stopPropagation();capturePhoto(m.id);}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"1px 7px",fontSize:11,color:C.mid,cursor:_cP}}>📷</button>}
                     </div>
+                    {done && milestones[m.id]?.photo && (
+                      <div style={{marginTop:6,width:64,height:64,borderRadius:10,overflow:"hidden",border:`1px solid ${C.blush}`}}>
+                        <img src={milestones[m.id].photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                      </div>
+                    )}
                   </div>
                   <div style={{flexShrink:0,paddingTop:2}}>
                     {!done && isNow  && <span style={{fontSize:11,background:"var(--chip-bg-active)",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700}}>Now</span>}
@@ -7327,6 +7781,34 @@ function App(){
                 <div style={{fontSize:12,color:C.lt,marginTop:2}}>Replay the walkthrough</div>
               </div>
             </button>
+            {/* Export Data */}
+            <button onClick={()=>exportCSV()} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
+              <span style={{fontSize:24}}>📊</span>
+              <div>
+                <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Export Data</div>
+                <div style={{fontSize:12,color:C.lt,marginTop:2}}>Download CSV — feeds, sleep, growth &amp; more</div>
+              </div>
+            </button>
+            {/* Photo Diary */}
+            {photos.length>0&&(
+              <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%"}}>
+                <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
+                  <span style={{fontSize:24}}>📷</span>
+                  <div>
+                    <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Photo Diary</div>
+                    <div style={{fontSize:12,color:C.lt,marginTop:2}}>{photos.length} photo{photos.length!==1?"s":""}</div>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+                  {photos.slice(-12).map((p,i)=>(
+                    <div key={p.id||i} style={{position:"relative",paddingBottom:"100%",borderRadius:10,overflow:"hidden",border:`1px solid ${C.blush}`}}>
+                      <img src={p.dataUrl} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.5)",color:"white",fontSize:8,fontFamily:_fM,padding:"2px 4px",textAlign:"center"}}>{fmtDate(p.date)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Sleep Recommendations Mode */}
             <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%"}}>
               <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
@@ -7563,14 +8045,49 @@ function App(){
           <div style={{marginBottom:12}}>
             <TimeInput label="Wake Time" value={logForm.feedTime} onChange={t=>setLogForm(f=>({...f,feedTime:t}))}/>
           </div>
-          <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:14,fontSize:13,color:C.mid,lineHeight:1.55}}>
-            ☀️ Logs morning wake time — used to calculate wake windows and today's nap schedule.
-          </div>
-          <PBtn onClick={()=>{
-            const t = logForm.feedTime || nowTime();
-            quickAddLog("wake",{type:"wake",time:t,night:false,note:""});
-            setLogPanel(null);
-          }}>✓ Log Wake Up</PBtn>
+          {(()=>{
+            const dayEntries = days[selDay]||[];
+            const hasBedtime = dayEntries.some(e=>e.type==="sleep"&&!e.night);
+            if(!hasBedtime){
+              return (
+                <div>
+                  <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:14,fontSize:13,color:C.mid,lineHeight:1.55}}>
+                    ☀️ Logs morning wake time — used to calculate wake windows and today's nap schedule.
+                  </div>
+                  <PBtn onClick={()=>{
+                    const t = logForm.feedTime || nowTime();
+                    quickAddLog("wake",{type:"wake",time:t,night:false,note:""});
+                    setLogPanel(null);
+                  }}>✓ Log Wake Up</PBtn>
+                </div>
+              );
+            }
+            return (
+              <div>
+                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:14,fontSize:13,color:C.mid,lineHeight:1.55}}>
+                  🌙 Bedtime has been logged. Is this a night wake or start of the next day?
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <PBtn v="pri" onClick={()=>{
+                    setLogPanel(null);
+                    setNwForm({time:logForm.feedTime||nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                    setShowNightWake(true);
+                  }}>🌙 Night Wake</PBtn>
+                  <PBtn v="ghost" onClick={()=>{
+                    const t = logForm.feedTime || nowTime();
+                    const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
+                    const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
+                    setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
+                    setLogPanel(null);
+                    setSelDay(nextDay);
+                    try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
+                    setQuickFlash("☀️ Wake logged on "+fmtDate(nextDay));
+                    setTimeout(()=>setQuickFlash(null),1200);
+                  }}>☀️ Start of New Day</PBtn>
+                </div>
+              </div>
+            );
+          })()}
         </Sheet>
       )}
 
@@ -7977,6 +8494,86 @@ function App(){
       {}
       {/* Personal/NHS toggle moved to Account → Sleep Recommendations */}
 
+
+      {/* Wake Prompt — AM after bedtime: night wake or new day? */}
+      {showWakePrompt&&(
+        <div onClick={()=>setShowWakePrompt(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:340,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>☀️</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>What kind of wake?</div>
+            <div style={{fontSize:14,color:C.mid,marginBottom:20,lineHeight:1.5}}>Bedtime has been logged. Is this a night wake or the start of a new day?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <button onClick={()=>{
+                setShowWakePrompt(false);
+                setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                setShowNightWake(true);
+              }} style={{width:"100%",padding:"14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                🌙 Night Wake
+              </button>
+              <button onClick={()=>{
+                setShowWakePrompt(false);
+                logMorningWakeNextDay();
+              }} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                ☀️ Start of New Day
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wake Edit Prompt — when editing a wake entry after bedtime */}
+      {showWakeEditPrompt&&wakeEditEntry&&(
+        <div onClick={()=>{setShowWakeEditPrompt(false);setWakeEditEntry(null);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:340,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>☀️</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Edit as day or night wake?</div>
+            <div style={{fontSize:14,color:C.mid,marginBottom:6,lineHeight:1.5}}>Logged at {fmt12(wakeEditEntry.time)}</div>
+            <div style={{fontSize:13,color:C.lt,marginBottom:20,lineHeight:1.5}}>Bedtime has been logged. Would you like to edit this as a regular wake or convert it to a night wake?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <button onClick={()=>{
+                setShowWakeEditPrompt(false);
+                // Convert to night wake and open night wake panel
+                const entry = wakeEditEntry;
+                delEntry(entry.id);
+                setNwForm({time:entry.time,ml:entry.amount||"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:entry.note||""});
+                setWakeEditEntry(null);
+                setShowNightWake(true);
+              }} style={{width:"100%",padding:"14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                🌙 Night Wake
+              </button>
+              <button onClick={()=>{
+                // Move to next day as morning wake
+                setShowWakeEditPrompt(false);
+                const entry = wakeEditEntry;
+                delEntry(entry.id);
+                const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
+                const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||""};
+                setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),newEntry]}));
+                setWakeEditEntry(null);
+                setSelDay(nextDay);
+                try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
+                setQuickFlash("☀️ Moved to "+fmtDate(nextDay));
+                setTimeout(()=>setQuickFlash(null),1200);
+              }} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                ☀️ Morning Wake (Next Day)
+              </button>
+              <button onClick={()=>{
+                // Keep as-is, open normal edit
+                setShowWakeEditPrompt(false);
+                const entry = wakeEditEntry;
+                setWakeEditEntry(null);
+                setEditEntry(entry);
+                setEType(entry.type);
+                setFeedType(entry.feedType||"milk");
+                setForm({amount:entry.amount||"",time:entry.time||nowTime(),start:entry.start||nowTime(),end:entry.end||nowTime(),note:entry.note||"",night:entry.night?"yes":"no",poopType:entry.poopType||"",breastL:entry.breastL||"",breastR:entry.breastR||"",pumpL:entry.pumpL||"",pumpR:entry.pumpR||""});
+                setModal("entry");
+              }} style={{width:"100%",padding:"10px",borderRadius:99,border:_bN,background:"transparent",color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>
+                Just edit time/note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showNightWake&&(
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNightWake(false)}>
