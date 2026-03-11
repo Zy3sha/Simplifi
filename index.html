@@ -46,7 +46,101 @@
     signInAnonymously(auth).catch(e => console.warn("Auth error", e));
     onAuthStateChanged(auth, user => { if (user) window._fbUid = user.uid; });
   </script>
-  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}html{color-scheme:light;}html,body{height:100%;overscroll-behavior:none;}body{background:#faf6f0;font-family:'DM Sans',sans-serif;}::-webkit-scrollbar{display:none;}input,select,button{font-family:inherit;}body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}body.girl header,body.girl .gender-accent{background:#fde7e4!important;}input::placeholder{color:#c8beb8;opacity:1;}</style>
+  <style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{color-scheme:light;}
+html,body{height:100%;overscroll-behavior:none;}
+body{background:#faf6f0;font-family:'DM Sans',sans-serif;transition:background-color 0.4s ease,color 0.4s ease;}
+::-webkit-scrollbar{display:none;}
+input,select,button{font-family:inherit;}
+body.boy header,body.boy .gender-accent{background:#eaf3fb!important;}
+body.girl header,body.girl .gender-accent{background:#fde7e4!important;}
+input::placeholder{color:#c8beb8;opacity:1;}
+
+/* ─── GLOBAL TRANSITIONS ─── */
+button,a,[role="button"]{
+  transition:transform 0.18s ease,box-shadow 0.18s ease,background-color 0.18s ease,opacity 0.18s ease;
+}
+
+/* ─── SQUISH PRESS ─── */
+button:active,
+[role="button"]:active{
+  transform:scale(0.94)!important;
+}
+
+/* ─── CARD TAP ─── */
+.ob-card:active{transform:scale(0.98)!important;}
+
+/* ─── DESKTOP HOVER ─── */
+@media(hover:hover){
+  .ob-card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 14px 32px rgba(0,0,0,0.10),0 4px 8px rgba(0,0,0,0.06)!important;
+  }
+}
+
+/* ─── AMBIENT GLOW BEHIND CARDS (light mode) ─── */
+.ob-card{
+  position:relative;
+  transition:transform 0.18s ease,box-shadow 0.18s ease;
+}
+.ob-card::before{
+  content:'';
+  position:absolute;
+  inset:-8px;
+  border-radius:28px;
+  background:radial-gradient(circle at top,rgba(255,220,190,0.25),transparent 70%);
+  z-index:-1;
+  pointer-events:none;
+}
+
+/* ─── FLOATING NAV (light) ─── */
+.ob-nav{
+  background:rgba(255,255,255,0.85)!important;
+  backdrop-filter:blur(12px)!important;
+  -webkit-backdrop-filter:blur(12px)!important;
+  border-top:none!important;
+  border-radius:24px 24px 0 0!important;
+  box-shadow:0 -8px 25px rgba(0,0,0,0.10)!important;
+  transition:background 0.4s ease,box-shadow 0.4s ease;
+}
+
+/* ─── THEME TOGGLE BUTTON ─── */
+.ob-theme-toggle{
+  background:rgba(255,255,255,0.5);
+  border:none;
+  border-radius:99px;
+  width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  font-size:16px;
+  transition:transform 0.18s ease,background 0.3s ease;
+  flex-shrink:0;
+}
+.ob-theme-toggle:active{transform:scale(0.88)!important;}
+
+/* ─── NIGHT MODE ─── */
+body.dark-mode{
+  background:#0F172A!important;
+  color:#E5E7EB;
+  color-scheme:dark;
+}
+body.dark-mode .ob-theme-toggle{
+  background:rgba(255,255,255,0.12);
+}
+body.dark-mode .ob-nav{
+  background:rgba(30,41,59,0.88)!important;
+  box-shadow:0 -8px 25px rgba(0,0,0,0.35)!important;
+  border-top:1px solid rgba(51,65,85,0.5)!important;
+}
+body.dark-mode .ob-card::before{
+  background:radial-gradient(circle at top,rgba(240,180,140,0.08),transparent 70%);
+}
+
+/* ─── NIGHT MODE ANIMATION ─── */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
 </head>
 <body>
 <div id="root"></div>
@@ -1002,6 +1096,42 @@ function LeapBanner({ l, ageWeeks, C }) {
 function App(){
   const timerRef = React.useRef(null);
 
+  // ─── Night mode state ───
+  const[nightMode,setNightMode]=useState(()=>{try{return localStorage.getItem("obubba_theme")==="dark";}catch{return false;}});
+  useEffect(()=>{
+    if(nightMode){document.body.classList.add("dark-mode");document.body.classList.remove("light-mode");try{document.querySelector('meta[name="theme-color"]').content="#0F172A";}catch{}}
+    else{document.body.classList.remove("dark-mode");document.body.classList.add("light-mode");try{document.querySelector('meta[name="theme-color"]').content="#faf6f0";}catch{}}
+    try{localStorage.setItem("obubba_theme",nightMode?"dark":"light");}catch{}
+  },[nightMode]);
+
+  // ─── Night mode color resolver ───
+  const N={
+    cardBg:nightMode?"#1E293B":"white",
+    cardBg2:nightMode?"#243449":"#fff8f4",
+    cardBorder:nightMode?"#334155":C.blush,
+    text:nightMode?"#E5E7EB":C.deep,
+    textMid:nightMode?"#94A3B8":C.mid,
+    textLt:nightMode?"#64748B":C.lt,
+    bg:nightMode?"#0F172A":C.cream,
+    warm:nightMode?"#1E293B":C.warm,
+    headerBg:nightMode?"#1E293B":undefined,
+    inputBg:nightMode?"#243449":C.warm,
+    inputBorder:nightMode?"#334155":C.blush,
+    overlayBg:nightMode?"rgba(15,23,42,0.7)":"rgba(44,31,26,0.55)",
+    sheetBg:nightMode?"#1E293B":C.cream,
+    cardShadow:nightMode
+      ?"0 10px 30px rgba(0,0,0,0.5),0 0 12px rgba(240,180,140,0.12)"
+      :"0 0 0 1px rgba(255,255,255,0.5) inset,0 10px 25px rgba(0,0,0,0.08),0 2px 6px rgba(0,0,0,0.04),0 0 30px rgba(230,170,140,0.18)",
+    chipShadow:nightMode
+      ?"0 2px 8px rgba(0,0,0,0.3)"
+      :"0 2px 6px rgba(0,0,0,0.05)",
+    chipActiveShadow:nightMode
+      ?"0 0 10px rgba(240,180,140,0.3),0 2px 8px rgba(0,0,0,0.3)"
+      :"0 0 10px rgba(240,180,140,0.35),0 2px 6px rgba(0,0,0,0.05)",
+    navBg:nightMode?"rgba(30,41,59,0.88)":"rgba(255,255,255,0.85)",
+    glassBg:nightMode?"rgba(30,41,59,0.65)":"rgba(255,255,255,0.65)",
+  };
+
 
   const[children,setChildren]=useState(()=>{
     try {
@@ -1171,7 +1301,9 @@ function App(){
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
   const[nameIn,setNameIn]=useState("");
-  const theme = babySex==="girl"
+  const theme = nightMode
+    ? {primary:"#1E293B",secondary:"#243449",grad:"linear-gradient(135deg,#1E293B,#243449)"}
+    : babySex==="girl"
     ? {primary:"#fde7e4",secondary:"#f5ccc7",grad:"linear-gradient(135deg,#fde7e4,#f5ccc7)"}
     : babySex==="boy"
     ? {primary:"#eaf3fb",secondary:"#d0e6f5",grad:"linear-gradient(135deg,#eaf3fb,#d0e6f5)"}
@@ -4621,8 +4753,8 @@ function App(){
     }
   },[Object.keys(days).join(",")]);
 
-  const tabSt=t=>({flex:1,padding:"8px 2px 6px",border:_bN,background:"none",fontSize:9,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:C.lt,display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative"});
-  const card={background:"white",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"};
+  const tabSt=t=>({flex:1,padding:"8px 2px 6px",border:_bN,background:"none",fontSize:9,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:N.textLt,display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative",transition:"transform 0.18s ease"});
+  const card={background:N.cardBg,border:`1px solid ${nightMode?"rgba(51,65,85,0.6)":"rgba(220,150,120,0.25)"}`,borderRadius:22,padding:"16px",marginBottom:14,boxShadow:N.cardShadow,transition:"transform 0.18s ease,box-shadow 0.18s ease"};
 
   const tabIcons={day:"📅",insights:"💡",milestones:"⭐",develop:"🧩",settings:"👤"};
   const tabLabels={day:"Day",insights:"Insights",milestones:"Milestones",develop:"Development",settings:""};
@@ -5351,11 +5483,16 @@ function App(){
               display:"flex",alignItems:"center",justifyContent:"center"
             }}>+</button>
           </div>
-          <button onClick={e=>{e.stopPropagation();setTab("settings");}}
-            style={{background:"rgba(255,255,255,0.5)",border:_bN,borderRadius:99,padding:"4px 10px 4px 7px",display:"flex",alignItems:"center",gap:5,cursor:_cP,maxWidth:140}}>
-            <span style={{fontSize:14}}>👤</span>
-            <span style={{fontSize:11,fontFamily:_fM,fontWeight:700,color:C.mid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{familyUsername||"Account"}</span>
-          </button>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button className="ob-theme-toggle" onClick={()=>setNightMode(m=>!m)} title={nightMode?"Switch to light mode":"Switch to night mode"}>
+              {nightMode?"☀️":"🌙"}
+            </button>
+            <button onClick={e=>{e.stopPropagation();setTab("settings");}}
+              style={{background:nightMode?"rgba(255,255,255,0.12)":"rgba(255,255,255,0.5)",border:_bN,borderRadius:99,padding:"4px 10px 4px 7px",display:"flex",alignItems:"center",gap:5,cursor:_cP,maxWidth:140}}>
+              <span style={{fontSize:14}}>👤</span>
+              <span style={{fontSize:11,fontFamily:_fM,fontWeight:700,color:N.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{familyUsername||"Account"}</span>
+            </button>
+          </div>
         </div>
         {!nameEdit ? (
           <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}} style={{cursor:_cP,marginBottom:6,display:"flex",alignItems:"center",gap:10}}>
@@ -5363,7 +5500,7 @@ function App(){
               <img src="icon.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
                 onError={e=>{e.target.style.display="none";e.target.parentNode.style.background=C.ter;e.target.parentNode.style.display="flex";e.target.parentNode.style.alignItems="center";e.target.parentNode.style.justifyContent="center";e.target.parentNode.innerHTML="🍼";}}/>
             </div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:C.deep,fontWeight:700,lineHeight:1.1}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:N.text,fontWeight:700,lineHeight:1.1}}>
               {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
             </div>
           </div>
@@ -5586,10 +5723,10 @@ function App(){
 
               {/* 2. Age guidance */}
               {ageStage&&(
-                <div style={{background:`linear-gradient(135deg,${C.warm},#fff4ee)`,border:`1px solid ${C.blush}`,borderLeft:`4px solid ${C.ter}`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
+                <div style={{background:nightMode?"linear-gradient(135deg,#243449,#1E293B)":`linear-gradient(135deg,${C.warm},#fff4ee)`,border:`1px solid ${nightMode?"rgba(220,150,120,0.3)":C.blush}`,borderLeft:`4px solid ${C.ter}`,borderRadius:16,padding:"12px 14px",marginBottom:14,boxShadow:nightMode?"0 0 18px rgba(240,180,140,0.15)":"0 0 18px rgba(240,180,140,0.12)"}}>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:14,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:3}}>{ageStage.label}</div>
-                    <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{ageStage.tip}</div>
+                    <div style={{fontSize:14,fontFamily:_fM,color:N.textLt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:3}}>{ageStage.label}</div>
+                    <div style={{fontSize:14,color:N.textMid,lineHeight:1.5}}>{ageStage.tip}</div>
                     <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:7}}>
                       {[{icon:"😴",val:ageStage.napGoal},{icon:"🍼",val:ageStage.feedGoal},{icon:"🌙",val:ageStage.nightNote}].map((x,i)=>(
                         <span key={i} style={{fontSize:14,fontFamily:_fM,background:"rgba(201,112,90,0.1)",color:C.ter,padding:"2px 8px",borderRadius:99}}>{x.icon} {x.val}</span>
@@ -5600,8 +5737,8 @@ function App(){
               )}
 
               {/* ONE-TAP QUICK LOG ROW */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff8f4",border:`1px solid ${C.blush}`,borderRadius:18,padding:"10px 14px",marginBottom:10,gap:4}}>
-                <span style={{fontSize:10,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:_fM,whiteSpace:"nowrap",marginRight:6}}>Quick</span>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:N.cardBg2,border:`1px solid ${N.cardBorder}`,borderRadius:18,padding:"10px 14px",marginBottom:10,gap:4,boxShadow:N.chipShadow}}>
+                <span style={{fontSize:10,fontWeight:700,color:N.textLt,textTransform:"uppercase",letterSpacing:"0.08em",fontFamily:_fM,whiteSpace:"nowrap",marginRight:6}}>Quick</span>
                 {[
                   {emoji:"🍼",label:"Feed",action:()=>quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""})},
                   {emoji:"💩",label:"Nappy",action:()=>quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
@@ -5639,9 +5776,9 @@ function App(){
                   {id:"paste", icon:"📋", label:"Notes"},
                 ].map(({id,icon,label})=>(
                   <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?C.ter:C.blush}`,background:logPanel===id?"#fdf0eb":C.warm,cursor:_cP,fontFamily:_fI,transition:"all 0.15s"}}>
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?C.ter:N.cardBorder}`,background:logPanel===id?(nightMode?"#2a2040":C.warm+"e0"):N.warm,cursor:_cP,fontFamily:_fI,transition:"all 0.15s",boxShadow:N.chipShadow}}>
                     <span style={{fontSize:22}}>{icon}</span>
-                    <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:C.mid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2}}>{label}</span>
+                    <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:N.textMid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2}}>{label}</span>
                   </button>
                 ))}
               </div>
@@ -5654,10 +5791,10 @@ function App(){
                   {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"#eaf6f3"},
                   {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"#eaf3f8"},
                 ].map((s,i)=>(
-                  <div key={i} style={{background:s.bg,borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}>
+                  <div key={i} style={{background:nightMode?"#243449":s.bg,borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:nightMode?"0 2px 8px rgba(0,0,0,0.2)":"0 2px 8px rgba(0,0,0,0.04)",transition:"transform 0.18s ease"}}>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:s.color,lineHeight:1}}>{s.big}</div>
                     {s.unit&&<div style={{fontSize:14,fontFamily:_fM,color:s.color,opacity:0.7,marginTop:1}}>{s.unit}</div>}
-                    <div style={{fontSize:8,color:C.mid,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
+                    <div style={{fontSize:8,color:N.textMid,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -7398,7 +7535,7 @@ function App(){
         </div>
       )}
 
-      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"white",borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.06)",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom,0)"}}>
+      <div className="ob-nav" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:N.navBg,borderTop:`1px solid ${N.cardBorder}`,display:"flex",alignItems:"stretch",boxShadow:"0 -4px 20px rgba(44,31,26,0.06)",maxWidth:520,margin:"0 auto",paddingBottom:"env(safe-area-inset-bottom,0)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",borderRadius:"24px 24px 0 0"}}>
         {["day","insights","milestones","develop"].map(t=>(
           <button key={t} onClick={()=>{setTab(t);setLogPanel(null);}} style={tabSt(t)}>
             <span style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
