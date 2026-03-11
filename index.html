@@ -1586,16 +1586,22 @@ function App(){
 
           let foundExisting = false;
           if(!foundExisting) {
-
-            const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            let newCode, exists = true;
-            while(exists){
-              newCode = "BK"+Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
-              try{ const s = await getDoc(doc(db,"families",newCode)); exists = s.exists(); }
-              catch{ exists = false; }
+            // SAFETY: Only generate a new backup code for genuinely new users
+            // who have no username. If they have a username, verifyLogin will
+            // fetch their correct backup code when they sign in.
+            const hasUsername = familyUsername || localStorage.getItem("family_username");
+            const hasVerified = localStorage.getItem("auth_verified");
+            if(!hasUsername && !hasVerified) {
+              const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+              let newCode, exists = true;
+              while(exists){
+                newCode = "BK"+Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+                try{ const s = await getDoc(doc(db,"families",newCode)); exists = s.exists(); }
+                catch{ exists = false; }
+              }
+              setBackupCode(newCode);
+              try{ localStorage.setItem("backup_code",newCode); }catch{}
             }
-            setBackupCode(newCode);
-            try{ localStorage.setItem("backup_code",newCode); }catch{}
           }
         }
 
@@ -1631,6 +1637,9 @@ function App(){
   }
   useEffect(()=>{
     if(!fbReady || !restoreDone || !backupCode) return;
+
+    // SAFETY: Don't push until user has authenticated
+    if(!localStorage.getItem("auth_verified")) return;
 
     if(!justRestoredRef.current) { justRestoredRef.current = true; return; }
     clearTimeout(syncTimerRef.current);
