@@ -208,10 +208,31 @@ button[style*="borderRadius:99"][style*="card-bg-solid"]{
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.6),0 2px 8px rgba(160,100,70,0.06),0 0 14px rgba(255,180,100,0.10)!important;
 }
 
-/* Theme toggle */
-#theme-toggle{position:fixed;top:12px;right:12px;z-index:100;width:40px;height:40px;border-radius:50%;border:none;
-  background:var(--card-bg);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));-webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
-  box-shadow:var(--card-shadow);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;}
+/* Theme toggle — MUST stay visible above everything */
+#theme-toggle{
+  position:fixed;top:12px;right:12px;z-index:9999;
+  width:44px;height:44px;border-radius:50%;
+  border:1.5px solid rgba(255,200,240,0.50);
+  background:rgba(255,250,253,0.72);
+  backdrop-filter:blur(30px) saturate(2.0);
+  -webkit-backdrop-filter:blur(30px) saturate(2.0);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.70),
+    0 2px 10px rgba(220,160,220,0.18),
+    0 0 24px rgba(240,180,240,0.15),
+    0 4px 14px rgba(210,150,200,0.10);
+  cursor:pointer;font-size:18px;
+  display:flex;align-items:center;justify-content:center;
+}
+body.dark-mode #theme-toggle{
+  background:rgba(24,34,56,0.75);
+  border-color:rgba(255,180,80,0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,130,0.10),
+    0 2px 10px rgba(0,0,0,0.35),
+    0 0 24px rgba(255,170,60,0.08),
+    0 4px 14px rgba(0,0,0,0.20);
+}
 #theme-toggle:active{transform:scale(0.85)!important;}
 
 /* Selection */
@@ -460,19 +481,8 @@ body.dark-mode div[style*="borderRadius:24px 24px 0 0"]{
   box-shadow:0 -8px 40px rgba(0,0,0,0.40),inset 0 1px 0 rgba(255,200,130,0.08)!important;
 }
 
-/* ── Theme toggle ── */
-#theme-toggle{
-  backdrop-filter:blur(30px) saturate(2.0)!important;
-  -webkit-backdrop-filter:blur(30px) saturate(2.0)!important;
-}
-body.light-mode #theme-toggle,body:not(.dark-mode) #theme-toggle{
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.60),0 2px 10px rgba(220,160,220,0.15),0 0 20px rgba(240,180,240,0.12)!important;
-  border:1px solid rgba(255,210,245,0.40)!important;
-}
-body.dark-mode #theme-toggle{
-  box-shadow:inset 0 1px 0 rgba(255,200,130,0.08),0 2px 10px rgba(0,0,0,0.30),0 0 20px rgba(255,170,60,0.06)!important;
-  border:1px solid rgba(255,180,80,0.15)!important;
-}
+/* ── Theme toggle — already styled above with solid bg, just ensure z-index ── */
+#theme-toggle{z-index:9999!important;}
 
 /* ── PIN pad buttons ── */
 div[style*="gridTemplateColumns:\"1fr 1fr 1fr\""] button{
@@ -493,43 +503,349 @@ div[style*="borderRadius:18"][style*="gap:4"]{
   -webkit-backdrop-filter:blur(30px) saturate(2.0)!important;
 }
 
-/* ── Welcome / Onboarding pages ── */
-div[style*="borderRadius:22"][style*="padding:\"22px 18px\""]{
-  backdrop-filter:blur(32px) saturate(1.9)!important;
-  -webkit-backdrop-filter:blur(32px) saturate(1.9)!important;
-}
-/* Hero image frame */
+/* ═══════════════════════════════════════════════════════════
+   WELCOME / ONBOARDING — Full Liquid Glass + Gradient Glow
+   Everything: pink/purple glow
+   Get Started button: YELLOW / ORANGE glow
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Hero baby image frame — pink/purple glass frame with floating glow ── */
 div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"]{
-  border:2px solid rgba(255,210,245,0.45)!important;
+  border:2px solid rgba(255,200,240,0.55)!important;
+  backdrop-filter:blur(20px) saturate(1.8);
+  -webkit-backdrop-filter:blur(20px) saturate(1.8);
 }
 body.light-mode div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"],
 body:not(.dark-mode) div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"]{
-  box-shadow:0 24px 48px rgba(220,160,230,0.25),inset 0 1px 0 rgba(255,255,255,0.80),0 0 40px rgba(240,180,240,0.18)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.80),
+    0 12px 28px rgba(220,160,230,0.22),
+    0 24px 52px rgba(210,150,220,0.15),
+    0 0 40px rgba(240,180,240,0.22),
+    0 0 70px rgba(230,160,250,0.12),
+    0 0 100px rgba(220,150,240,0.06)!important;
 }
 body.dark-mode div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"]{
-  box-shadow:0 24px 48px rgba(0,0,0,0.40),inset 0 1px 0 rgba(255,200,130,0.10),0 0 40px rgba(255,170,60,0.08)!important;
-  border-color:rgba(255,180,80,0.20)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,130,0.12),
+    0 12px 28px rgba(0,0,0,0.35),
+    0 24px 52px rgba(0,0,0,0.25),
+    0 0 40px rgba(255,170,60,0.10),
+    0 0 70px rgba(255,150,40,0.06)!important;
+  border-color:rgba(255,180,80,0.25)!important;
 }
-/* Get Started button */
+
+/* ── App icon on welcome header (borderRadius:13, 44x44) ── */
+div[style*="borderRadius:13"][style*="width:44"]{
+  backdrop-filter:blur(20px) saturate(1.8)!important;
+  -webkit-backdrop-filter:blur(20px) saturate(1.8)!important;
+  overflow:hidden!important;
+  position:relative!important;
+}
+body.light-mode div[style*="borderRadius:13"][style*="width:44"],
+body:not(.dark-mode) div[style*="borderRadius:13"][style*="width:44"]{
+  background:
+    radial-gradient(circle at 50% 35%, rgba(240,180,240,0.22), transparent 65%),
+    var(--card-bg-solid)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.65),
+    0 4px 16px rgba(220,160,220,0.20),
+    0 0 24px rgba(240,180,240,0.15),
+    0 0 44px rgba(230,160,250,0.08)!important;
+  border-color:rgba(255,200,240,0.50)!important;
+}
+body.dark-mode div[style*="borderRadius:13"][style*="width:44"]{
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255,180,60,0.10), transparent 65%),
+    var(--card-bg-solid)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,130,0.10),
+    0 4px 16px rgba(0,0,0,0.30),
+    0 0 24px rgba(255,170,60,0.08)!important;
+}
+
+/* ── GET STARTED BUTTON — YELLOW / ORANGE GLOW (both modes) ── */
 button[style*="borderRadius:18"][style*="padding:\"19px\""]{
   backdrop-filter:blur(20px) saturate(1.8)!important;
   -webkit-backdrop-filter:blur(20px) saturate(1.8)!important;
+  position:relative!important;
+  overflow:hidden!important;
 }
+/* Light mode: warm yellow/orange halo */
 body.light-mode button[style*="borderRadius:18"][style*="padding:\"19px\""],
 body:not(.dark-mode) button[style*="borderRadius:18"][style*="padding:\"19px\""]{
-  box-shadow:0 8px 32px rgba(220,160,220,0.35),0 0 50px rgba(240,180,240,0.18)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.30),
+    0 4px 14px rgba(220,140,50,0.25),
+    0 8px 32px rgba(240,170,50,0.30),
+    0 0 44px rgba(255,190,70,0.25),
+    0 0 72px rgba(255,170,40,0.18),
+    0 0 110px rgba(255,160,30,0.10)!important;
 }
+/* Dark mode: intense orange/amber halo */
 body.dark-mode button[style*="borderRadius:18"][style*="padding:\"19px\""]{
-  box-shadow:0 8px 32px rgba(255,170,60,0.25),0 0 50px rgba(255,150,40,0.10)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,220,150,0.20),
+    0 4px 14px rgba(255,160,40,0.28),
+    0 8px 32px rgba(255,150,30,0.35),
+    0 0 44px rgba(255,180,50,0.28),
+    0 0 72px rgba(255,160,30,0.20),
+    0 0 110px rgba(255,140,20,0.12)!important;
 }
-/* Feature pills on welcome */
+
+/* ── Feature pills on welcome (Feeds & intake, Sleep tracking, etc) ── */
 div[style*="borderRadius:99"][style*="padding:\"7px 13px\""]{
-  backdrop-filter:blur(18px) saturate(1.7)!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.7)!important;
+  backdrop-filter:blur(20px) saturate(1.8)!important;
+  -webkit-backdrop-filter:blur(20px) saturate(1.8)!important;
+  position:relative!important;
+  overflow:hidden!important;
 }
 body.light-mode div[style*="borderRadius:99"][style*="padding:\"7px 13px\""],
 body:not(.dark-mode) div[style*="borderRadius:99"][style*="padding:\"7px 13px\""]{
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.50),0 2px 8px rgba(220,160,220,0.12),0 0 14px rgba(240,180,240,0.08)!important;
+  background:
+    radial-gradient(ellipse 120% 160% at 50% 40%, rgba(240,180,240,0.18), transparent 60%),
+    radial-gradient(ellipse 80% 100% at 20% 80%, rgba(210,160,235,0.10), transparent 50%),
+    var(--card-bg-solid)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    0 2px 8px rgba(220,160,220,0.14),
+    0 0 18px rgba(240,180,240,0.12),
+    0 0 36px rgba(230,160,250,0.06)!important;
+  border-color:rgba(255,200,240,0.45)!important;
+}
+body.dark-mode div[style*="borderRadius:99"][style*="padding:\"7px 13px\""]{
+  background:
+    radial-gradient(ellipse 120% 160% at 50% 40%, rgba(255,175,55,0.08), transparent 60%),
+    var(--card-bg-solid)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,130,0.07),
+    0 2px 8px rgba(0,0,0,0.25),
+    0 0 18px rgba(255,170,60,0.06)!important;
+}
+
+/* ── Onboarding step card container (borderRadius:22, padding "22px 18px") ── */
+div[style*="borderRadius:22"][style*="padding:\"22px 18px\""]{
+  backdrop-filter:blur(34px) saturate(2.0)!important;
+  -webkit-backdrop-filter:blur(34px) saturate(2.0)!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+body.light-mode div[style*="borderRadius:22"][style*="padding:\"22px 18px\""],
+body:not(.dark-mode) div[style*="borderRadius:22"][style*="padding:\"22px 18px\""]{
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 5%, rgba(240,180,240,0.20), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 50% 95%, rgba(210,160,235,0.12), transparent 50%),
+    radial-gradient(ellipse 60% 80% at 10% 50%, rgba(230,170,240,0.08), transparent 40%),
+    var(--card-bg-solid)!important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,0.70),
+    0 4px 14px rgba(220,160,220,0.12),
+    0 12px 36px rgba(210,150,210,0.08),
+    0 0 28px rgba(240,180,240,0.16),
+    0 0 56px rgba(230,160,250,0.08)!important;
+  border-color:rgba(255,200,240,0.45)!important;
+}
+body.dark-mode div[style*="borderRadius:22"][style*="padding:\"22px 18px\""]{
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 5%, rgba(255,180,60,0.10), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 50% 95%, rgba(255,150,40,0.06), transparent 50%),
+    var(--card-bg-solid)!important;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,200,130,0.10),
+    0 4px 14px rgba(0,0,0,0.25),
+    0 12px 36px rgba(0,0,0,0.18),
+    0 0 28px rgba(255,170,60,0.08)!important;
+}
+
+/* ── Auth screen — Sign In / Create Account toggle pill ── */
+div[style*="borderRadius:99"][style*="padding:4"]{
+  backdrop-filter:blur(22px) saturate(1.8)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(1.8)!important;
+}
+body.light-mode div[style*="borderRadius:99"][style*="padding:4"],
+body:not(.dark-mode) div[style*="borderRadius:99"][style*="padding:4"]{
+  background:
+    radial-gradient(ellipse 100% 150% at 50% 50%, rgba(235,175,240,0.14), transparent 60%),
+    var(--card-bg-alt)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.45),
+    0 2px 10px rgba(220,160,220,0.12),
+    0 0 20px rgba(240,180,240,0.10)!important;
+}
+body.dark-mode div[style*="borderRadius:99"][style*="padding:4"]{
+  background:
+    radial-gradient(ellipse 100% 150% at 50% 50%, rgba(255,175,55,0.06), transparent 60%),
+    var(--card-bg-alt)!important;
+}
+
+/* ── Auth/Login oliver image ── */
+img[style*="borderRadius:14"][style*="width:56"]{
+  box-shadow:
+    0 4px 16px rgba(220,160,220,0.20),
+    0 0 28px rgba(240,180,240,0.15),
+    0 0 48px rgba(230,160,250,0.08)!important;
+}
+body.dark-mode img[style*="borderRadius:14"][style*="width:56"]{
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.30),
+    0 0 28px rgba(255,170,60,0.08)!important;
+}
+
+/* ── Onboarding back button (borderRadius:11) ── */
+button[style*="borderRadius:11"]{
+  backdrop-filter:blur(18px) saturate(1.7)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(1.7)!important;
+}
+body.light-mode button[style*="borderRadius:11"],
+body:not(.dark-mode) button[style*="borderRadius:11"]{
+  background:
+    radial-gradient(circle at 50% 40%, rgba(240,180,240,0.15), transparent 65%),
+    var(--card-bg-solid)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.50),
+    0 2px 8px rgba(220,160,220,0.12),
+    0 0 14px rgba(240,180,240,0.10)!important;
+}
+body.dark-mode button[style*="borderRadius:11"]{
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255,180,60,0.07), transparent 65%),
+    var(--card-bg-solid)!important;
+}
+
+/* ── Onboarding progress bar glow ── */
+div[style*="linear-gradient(90deg,#c9705a"]{
+  box-shadow:0 0 12px rgba(240,180,240,0.30), 0 0 24px rgba(230,160,250,0.15)!important;
+}
+body.dark-mode div[style*="linear-gradient(90deg,#c9705a"]{
+  box-shadow:0 0 12px rgba(255,170,60,0.20), 0 0 24px rgba(255,150,40,0.10)!important;
+}
+
+/* ── Onboarding "Welcome back or new here" choice buttons ── */
+button[style*="borderRadius:16"][style*="padding:\"18px\""]{
+  backdrop-filter:blur(24px) saturate(1.8)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(1.8)!important;
+  position:relative!important;
+  overflow:hidden!important;
+}
+body.light-mode button[style*="borderRadius:16"][style*="padding:\"18px\""],
+body:not(.dark-mode) button[style*="borderRadius:16"][style*="padding:\"18px\""]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.40),
+    0 4px 16px rgba(220,160,220,0.15),
+    0 0 24px rgba(240,180,240,0.12),
+    0 0 44px rgba(230,160,250,0.06)!important;
+}
+body.dark-mode button[style*="borderRadius:16"][style*="padding:\"18px\""]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,130,0.08),
+    0 4px 16px rgba(0,0,0,0.28),
+    0 0 24px rgba(255,170,60,0.08)!important;
+}
+/* The CTA "Create new account" one with gradient gets extra glow */
+button[style*="borderRadius:16"][style*="padding:\"18px\""][style*="linear-gradient"]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.30),
+    0 4px 16px rgba(220,160,220,0.20),
+    0 0 32px rgba(240,180,240,0.18),
+    0 0 56px rgba(230,160,250,0.10)!important;
+}
+
+/* ── PIN pad dots (the 4 circles showing entered digits) ── */
+div[style*="borderRadius:\"50%\""][style*="width:18"][style*="height:18"]{
+  box-shadow:0 0 10px rgba(240,180,240,0.25);
+}
+body.dark-mode div[style*="borderRadius:\"50%\""][style*="width:18"][style*="height:18"]{
+  box-shadow:0 0 10px rgba(255,170,60,0.15);
+}
+
+/* ── Username input on auth screen ── */
+input[style*="borderRadius:12"][style*="fontSize:16"]{
+  backdrop-filter:blur(18px) saturate(1.7)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(1.7)!important;
+}
+body.light-mode input[style*="borderRadius:12"],
+body:not(.dark-mode) input[style*="borderRadius:12"]{
+  box-shadow:
+    inset 0 1px 3px rgba(210,150,210,0.10),
+    0 0 14px rgba(240,180,240,0.10),
+    0 0 28px rgba(230,160,250,0.05)!important;
+}
+
+/* ── Child setup oliver image ── */
+img[style*="borderRadius:20"][style*="width:100"]{
+  box-shadow:
+    0 8px 24px rgba(220,160,220,0.22),
+    0 0 36px rgba(240,180,240,0.15),
+    0 0 60px rgba(230,160,250,0.08)!important;
+}
+body.dark-mode img[style*="borderRadius:20"][style*="width:100"]{
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.30),
+    0 0 36px rgba(255,170,60,0.10)!important;
+}
+
+/* ── Child setup gender buttons (Boy/Girl/Not set) ── */
+button[style*="borderRadius:14"][style*="flexDirection:\"column\""][style*="gap:4"]{
+  backdrop-filter:blur(18px) saturate(1.7)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(1.7)!important;
+}
+body.light-mode button[style*="borderRadius:14"][style*="flexDirection:\"column\""][style*="gap:4"],
+body:not(.dark-mode) button[style*="borderRadius:14"][style*="flexDirection:\"column\""][style*="gap:4"]{
+  background:
+    radial-gradient(circle at 50% 35%, rgba(240,180,240,0.14), transparent 60%),
+    white!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    0 2px 10px rgba(220,160,220,0.12),
+    0 0 18px rgba(240,180,240,0.10)!important;
+}
+
+/* ── Born/Unborn toggle on child setup ── */
+button[style*="borderRadius:99"][style*="borderRadius:99"][style*="width:\"100%\""][style*="padding:\"11px\""]{
+  backdrop-filter:blur(18px) saturate(1.7)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(1.7)!important;
+}
+
+/* ── Child setup CTA ("Let's go!" / "Continue") ── */
+button[style*="borderRadius:99"][style*="padding:\"14px\""][style*="linear-gradient"]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 4px 16px rgba(220,160,220,0.20),
+    0 0 32px rgba(240,180,240,0.18),
+    0 0 56px rgba(230,160,250,0.10)!important;
+}
+
+/* ── Link code input on child setup ── */
+input[style*="fontSize:28"][style*="letterSpacing"]{
+  backdrop-filter:blur(18px) saturate(1.7)!important;
+  -webkit-backdrop-filter:blur(18px) saturate(1.7)!important;
+}
+body.light-mode input[style*="fontSize:28"],
+body:not(.dark-mode) input[style*="fontSize:28"]{
+  box-shadow:
+    inset 0 1px 3px rgba(210,150,210,0.08),
+    0 0 18px rgba(240,180,240,0.12),
+    0 0 36px rgba(230,160,250,0.06)!important;
+}
+
+/* ── "Link child" green CTA button ── */
+button[style*="linear-gradient(135deg,#50c878"]{
+  box-shadow:
+    0 4px 16px rgba(80,200,120,0.25),
+    0 0 28px rgba(80,200,120,0.15),
+    0 0 48px rgba(60,180,100,0.08)!important;
+}
+
+/* ── Terms checkbox area ── */
+div[style*="borderRadius:12"][style*="alignItems:\"flex-start\""][style*="gap:8"]{
+  backdrop-filter:blur(14px) saturate(1.5);
+  -webkit-backdrop-filter:blur(14px) saturate(1.5);
+}
+body.light-mode div[style*="borderRadius:12"][style*="alignItems:\"flex-start\""][style*="gap:8"],
+body:not(.dark-mode) div[style*="borderRadius:12"][style*="alignItems:\"flex-start\""][style*="gap:8"]{
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 50%, rgba(235,175,240,0.08), transparent 55%),
+    var(--card-bg-alt)!important;
 }
 
 /* ── Tutorial overlay ── */
@@ -610,6 +926,318 @@ div[style*="maxHeight:\"85vh\""][style*="overflowY"]{
 div[style*="maxWidth:480"][style*="borderRadius:\"24px 24px 0 0\""]{
   backdrop-filter:blur(40px) saturate(2.0)!important;
   -webkit-backdrop-filter:blur(40px) saturate(2.0)!important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ✨ GRADIENT GLOW BACKGROUNDS
+   Soft colored halo behind every box/button/pill/entry
+   Light: Pink → Purple   |   Dark: Yellow → Orange
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── GLASS CARDS — soft inner gradient glow ── */
+body.light-mode .glass-card,
+body:not(.dark-mode) .glass-card{
+  background:
+    radial-gradient(ellipse 120% 80% at 30% 20%, rgba(240,180,240,0.14), transparent 60%),
+    radial-gradient(ellipse 100% 90% at 70% 80%, rgba(200,150,230,0.10), transparent 55%),
+    var(--card-bg)!important;
+}
+body.dark-mode .glass-card{
+  background:
+    radial-gradient(ellipse 120% 80% at 30% 20%, rgba(255,180,60,0.08), transparent 60%),
+    radial-gradient(ellipse 100% 90% at 70% 80%, rgba(255,150,40,0.05), transparent 55%),
+    var(--card-bg)!important;
+}
+
+/* ── GLASS ENTRIES / LOG ROWS — colored edge glow ── */
+body.light-mode .glass-entry,
+body:not(.dark-mode) .glass-entry{
+  background:
+    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(230,170,240,0.12), transparent 50%),
+    radial-gradient(ellipse 60% 100% at 100% 50%, rgba(210,160,230,0.08), transparent 45%),
+    var(--card-bg)!important;
+}
+body.dark-mode .glass-entry{
+  background:
+    radial-gradient(ellipse 80% 100% at 0% 50%, rgba(255,170,60,0.06), transparent 50%),
+    radial-gradient(ellipse 60% 100% at 100% 50%, rgba(255,150,40,0.04), transparent 45%),
+    var(--card-bg)!important;
+}
+
+/* ── DATA ENTRY ROWS — gradient glow behind each row ── */
+body.light-mode div[data-entry-id],
+body:not(.dark-mode) div[data-entry-id]{
+  background:
+    radial-gradient(ellipse 70% 120% at 0% 50%, rgba(235,175,240,0.12), transparent 45%),
+    radial-gradient(ellipse 80% 100% at 100% 30%, rgba(210,160,235,0.08), transparent 50%),
+    var(--card-bg)!important;
+}
+body.dark-mode div[data-entry-id]{
+  background:
+    radial-gradient(ellipse 70% 120% at 0% 50%, rgba(255,175,55,0.06), transparent 45%),
+    radial-gradient(ellipse 80% 100% at 100% 30%, rgba(255,150,40,0.04), transparent 50%),
+    var(--card-bg)!important;
+}
+
+/* ── ACTION GRID BUTTONS (Feed, Nappy, Sleep, Notes, Pump, Wake) ── */
+body.light-mode button[style*="borderRadius:14"][style*="flexDirection"],
+body:not(.dark-mode) button[style*="borderRadius:14"][style*="flexDirection"]{
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 30%, rgba(240,180,240,0.18), transparent 65%),
+    radial-gradient(ellipse 80% 80% at 50% 90%, rgba(200,150,230,0.10), transparent 55%),
+    var(--card-bg)!important;
+}
+body.dark-mode button[style*="borderRadius:14"][style*="flexDirection"]{
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 30%, rgba(255,180,60,0.10), transparent 65%),
+    radial-gradient(ellipse 80% 80% at 50% 90%, rgba(255,150,40,0.06), transparent 55%),
+    var(--card-bg)!important;
+}
+
+/* ── PILL BUTTONS (borderRadius:99) ── */
+body.light-mode button[style*="borderRadius:99"],
+body:not(.dark-mode) button[style*="borderRadius:99"]{
+  background:
+    radial-gradient(ellipse 120% 150% at 50% 0%, rgba(240,180,240,0.16), transparent 60%),
+    radial-gradient(ellipse 100% 120% at 50% 100%, rgba(210,160,235,0.10), transparent 55%),
+    var(--chip-bg)!important;
+}
+body.dark-mode button[style*="borderRadius:99"]{
+  background:
+    radial-gradient(ellipse 120% 150% at 50% 0%, rgba(255,180,60,0.08), transparent 60%),
+    radial-gradient(ellipse 100% 120% at 50% 100%, rgba(255,150,40,0.05), transparent 55%),
+    var(--chip-bg)!important;
+}
+
+/* ── CTA GRADIENT BUTTONS — enhanced glow halo ── */
+body.light-mode button[style*="linear-gradient(135deg"],
+body:not(.dark-mode) button[style*="linear-gradient(135deg"]{
+  box-shadow:
+    0 4px 18px rgba(201,112,90,0.30),
+    0 0 32px rgba(240,180,230,0.22),
+    0 0 56px rgba(230,170,250,0.12),
+    0 0 80px rgba(220,160,240,0.06)!important;
+}
+body.dark-mode button[style*="linear-gradient(135deg"]{
+  box-shadow:
+    0 4px 18px rgba(217,139,114,0.34),
+    0 0 32px rgba(255,170,60,0.20),
+    0 0 56px rgba(255,150,40,0.10),
+    0 0 80px rgba(255,140,30,0.04)!important;
+}
+/* GET STARTED BUTTON — override generic CTA with YELLOW/ORANGE glow */
+body.light-mode button[style*="borderRadius:18"][style*="padding:\"19px\""],
+body:not(.dark-mode) button[style*="borderRadius:18"][style*="padding:\"19px\""]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.30),
+    0 4px 14px rgba(220,140,50,0.25),
+    0 8px 32px rgba(240,170,50,0.30),
+    0 0 44px rgba(255,190,70,0.25),
+    0 0 72px rgba(255,170,40,0.18),
+    0 0 110px rgba(255,160,30,0.10)!important;
+}
+body.dark-mode button[style*="borderRadius:18"][style*="padding:\"19px\""]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,220,150,0.20),
+    0 4px 14px rgba(255,160,40,0.28),
+    0 8px 32px rgba(255,150,30,0.35),
+    0 0 44px rgba(255,180,50,0.28),
+    0 0 72px rgba(255,160,30,0.20),
+    0 0 110px rgba(255,140,20,0.12)!important;
+}
+
+/* ── STAT BOXES (the grid of 4 — Total Milk, Nappies, Naps, Nap Time) ── */
+body.light-mode div[style*="textAlign:\"center\""][style*="borderRadius:16"],
+body:not(.dark-mode) div[style*="textAlign:\"center\""][style*="borderRadius:16"]{
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 25%, rgba(240,180,240,0.16), transparent 60%),
+    radial-gradient(ellipse 80% 80% at 50% 85%, rgba(210,160,235,0.10), transparent 50%),
+    var(--card-bg)!important;
+}
+body.dark-mode div[style*="textAlign:\"center\""][style*="borderRadius:16"]{
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 25%, rgba(255,180,60,0.08), transparent 60%),
+    radial-gradient(ellipse 80% 80% at 50% 85%, rgba(255,150,40,0.05), transparent 50%),
+    var(--card-bg)!important;
+}
+
+/* ── QUICK LOG ROW (the horizontal quick-tap bar) ── */
+body.light-mode div[style*="borderRadius:18"][style*="gap:4"],
+body:not(.dark-mode) div[style*="borderRadius:18"][style*="gap:4"]{
+  background:
+    radial-gradient(ellipse 60% 100% at 15% 50%, rgba(240,180,240,0.12), transparent 50%),
+    radial-gradient(ellipse 60% 100% at 85% 50%, rgba(210,160,235,0.10), transparent 50%),
+    var(--card-bg)!important;
+}
+body.dark-mode div[style*="borderRadius:18"][style*="gap:4"]{
+  background:
+    radial-gradient(ellipse 60% 100% at 15% 50%, rgba(255,180,60,0.06), transparent 50%),
+    radial-gradient(ellipse 60% 100% at 85% 50%, rgba(255,150,40,0.05), transparent 50%),
+    var(--card-bg)!important;
+}
+
+/* ── CHIP / TAG PILLS ── */
+body.light-mode span[style*="borderRadius:99"][style*="padding"],
+body:not(.dark-mode) span[style*="borderRadius:99"][style*="padding"]{
+  background:
+    radial-gradient(ellipse 120% 150% at 50% 50%, rgba(235,180,240,0.14), transparent 65%),
+    var(--chip-bg)!important;
+}
+body.dark-mode span[style*="borderRadius:99"][style*="padding"]{
+  background:
+    radial-gradient(ellipse 120% 150% at 50% 50%, rgba(255,175,55,0.06), transparent 65%),
+    var(--chip-bg)!important;
+}
+
+/* ── DATE STRIP PILLS ── */
+body.light-mode div[style*="overflowX:\"auto\""] > div[style*="borderRadius:20"],
+body:not(.dark-mode) div[style*="overflowX:\"auto\""] > div[style*="borderRadius:20"]{
+  background:
+    radial-gradient(ellipse 100% 150% at 50% 30%, rgba(240,180,240,0.14), transparent 60%),
+    rgba(255,245,252,0.40)!important;
+}
+body.dark-mode div[style*="overflowX:\"auto\""] > div[style*="borderRadius:20"]{
+  background:
+    radial-gradient(ellipse 100% 150% at 50% 30%, rgba(255,180,60,0.07), transparent 60%),
+    rgba(20,28,48,0.45)!important;
+}
+
+/* ── NAVIGATION BAR — soft glow from center ── */
+body.light-mode div[style*="position:\"fixed\""][style*="bottom:0"],
+body:not(.dark-mode) div[style*="position:\"fixed\""][style*="bottom:0"]{
+  background:
+    radial-gradient(ellipse 50% 100% at 50% 0%, rgba(240,180,240,0.12), transparent 60%),
+    rgba(255,248,253,0.45)!important;
+}
+body.dark-mode div[style*="position:\"fixed\""][style*="bottom:0"]{
+  background:
+    radial-gradient(ellipse 50% 100% at 50% 0%, rgba(255,180,60,0.06), transparent 60%),
+    rgba(10,16,30,0.68)!important;
+}
+
+/* ── THEME TOGGLE — gradient glow ring ── */
+body.light-mode #theme-toggle,body:not(.dark-mode) #theme-toggle{
+  background:
+    radial-gradient(circle at 50% 40%, rgba(240,180,240,0.20), transparent 65%),
+    rgba(255,250,253,0.72)!important;
+}
+body.dark-mode #theme-toggle{
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255,180,60,0.12), transparent 65%),
+    rgba(24,34,56,0.75)!important;
+}
+
+/* ── PIN PAD BUTTONS — soft colored center glow ── */
+body.light-mode div[style*="gridTemplateColumns:\"1fr 1fr 1fr\""] button,
+body:not(.dark-mode) div[style*="gridTemplateColumns:\"1fr 1fr 1fr\""] button{
+  background:
+    radial-gradient(circle at 50% 40%, rgba(240,180,240,0.12), transparent 60%),
+    var(--card-bg-solid)!important;
+}
+body.dark-mode div[style*="gridTemplateColumns:\"1fr 1fr 1fr\""] button{
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255,180,60,0.06), transparent 60%),
+    var(--card-bg-solid)!important;
+}
+
+/* ── SHEETS / MODALS — top glow ── */
+body.light-mode div[style*="borderRadius:\"24px 24px 0 0\""],
+body:not(.dark-mode) div[style*="borderRadius:\"24px 24px 0 0\""],
+body.light-mode div[style*="borderRadius:24px 24px 0 0"],
+body:not(.dark-mode) div[style*="borderRadius:24px 24px 0 0"]{
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(240,180,240,0.14), transparent 55%),
+    rgba(252,246,253,0.90)!important;
+}
+body.dark-mode div[style*="borderRadius:\"24px 24px 0 0\""],
+body.dark-mode div[style*="borderRadius:24px 24px 0 0"]{
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255,180,60,0.07), transparent 55%),
+    rgba(14,22,42,0.92)!important;
+}
+
+/* ── ALERT / INSIGHT CARDS — left-edge colored glow ── */
+body.light-mode div[style*="borderLeft:\"4px solid\""],
+body:not(.dark-mode) div[style*="borderLeft:\"4px solid\""]{
+  background:
+    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(235,175,240,0.12), transparent 45%),
+    var(--card-bg)!important;
+}
+body.dark-mode div[style*="borderLeft:\"4px solid\""]{
+  background:
+    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(255,175,55,0.06), transparent 45%),
+    var(--card-bg)!important;
+}
+body.light-mode div[style*="borderLeft:\"3px solid\""],
+body:not(.dark-mode) div[style*="borderLeft:\"3px solid\""]{
+  background:
+    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(235,175,240,0.10), transparent 40%),
+    var(--card-bg)!important;
+}
+body.dark-mode div[style*="borderLeft:\"3px solid\""]{
+  background:
+    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(255,175,55,0.05), transparent 40%),
+    var(--card-bg)!important;
+}
+
+/* ── ONBOARDING FEATURE PILLS — pink/purple gradient glow ── */
+body.light-mode div[style*="borderRadius:99"][style*="padding:\"7px 13px\""],
+body:not(.dark-mode) div[style*="borderRadius:99"][style*="padding:\"7px 13px\""]{
+  background:
+    radial-gradient(ellipse 120% 160% at 50% 40%, rgba(240,180,240,0.18), transparent 60%),
+    radial-gradient(ellipse 80% 100% at 20% 80%, rgba(210,160,235,0.10), transparent 50%),
+    var(--card-bg-solid)!important;
+}
+body.dark-mode div[style*="borderRadius:99"][style*="padding:\"7px 13px\""]{
+  background:
+    radial-gradient(ellipse 120% 160% at 50% 40%, rgba(255,175,55,0.08), transparent 60%),
+    var(--card-bg-solid)!important;
+}
+
+/* ── ONBOARDING CARD CONTAINER — pink/purple halo top + bottom ── */
+body.light-mode div[style*="borderRadius:22"][style*="padding:\"22px 18px\""],
+body:not(.dark-mode) div[style*="borderRadius:22"][style*="padding:\"22px 18px\""]{
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 5%, rgba(240,180,240,0.20), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 50% 95%, rgba(210,160,235,0.12), transparent 50%),
+    radial-gradient(ellipse 60% 80% at 10% 50%, rgba(230,170,240,0.08), transparent 40%),
+    var(--card-bg-solid)!important;
+}
+body.dark-mode div[style*="borderRadius:22"][style*="padding:\"22px 18px\""]{
+  background:
+    radial-gradient(ellipse 100% 60% at 50% 5%, rgba(255,180,60,0.10), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 50% 95%, rgba(255,150,40,0.06), transparent 50%),
+    var(--card-bg-solid)!important;
+}
+
+/* ── GET STARTED BUTTON — YELLOW/ORANGE gradient glow background ── */
+button[style*="borderRadius:18"][style*="padding:\"19px\""]{
+  background:
+    radial-gradient(ellipse 120% 150% at 50% 40%, rgba(255,200,80,0.18), transparent 55%),
+    radial-gradient(ellipse 100% 100% at 30% 80%, rgba(255,170,40,0.12), transparent 50%),
+    radial-gradient(ellipse 80% 120% at 70% 20%, rgba(255,190,60,0.10), transparent 50%),
+    linear-gradient(135deg,#c9705a 0%,#e0825f 100%)!important;
+}
+
+/* ── NIGHT WAKES PANEL ── */
+body.light-mode div[style*="borderRadius:\"24px 24px 0 0\""][style*="width:\"100%\""],
+body:not(.dark-mode) div[style*="borderRadius:\"24px 24px 0 0\""][style*="width:\"100%\""]{
+  background:
+    radial-gradient(ellipse 80% 35% at 50% 0%, rgba(240,180,240,0.14), transparent 50%),
+    var(--sheet-bg)!important;
+}
+
+/* ── COLLAPSIBLE SECTION BODIES ── */
+body.light-mode div[style*="borderRadius:\"0 0 16px 16px\""],
+body:not(.dark-mode) div[style*="borderRadius:\"0 0 16px 16px\""]{
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 100%, rgba(230,170,240,0.10), transparent 50%),
+    var(--card-bg-solid)!important;
+}
+body.dark-mode div[style*="borderRadius:\"0 0 16px 16px\""]{
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 100%, rgba(255,170,55,0.05), transparent 50%),
+    var(--card-bg-solid)!important;
 }
 
 /* ── Smooth transitions for glass elements ── */
