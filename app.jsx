@@ -6079,7 +6079,7 @@ function App(){
               const isNapTappable = !isBed && !isNeutral && napCountdown !== null;
               const handleTap = () => {
                 if(isNapTappable || isNapNow){ startNap(); }
-                else if(isBedNow || isBed){ startNap(); }
+                else if(isBedNow || isBed){ startNap(); logBedtimeNow(); }
               };
               const icon = isBedNow||isBed ? "🌙" : isNapNow ? "😴" : "⏱️";
               const pillBg = isNow ? (isBedNow?C.sky:C.mint) : "var(--card-bg)";
