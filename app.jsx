@@ -1319,12 +1319,18 @@ function App(){
         const ctx=canvas.getContext("2d");ctx.drawImage(img,0,0,w,h);
         const dataUrl=canvas.toDataURL("image/jpeg",0.5);
         const milestoneId=photoInputRef.current._forMilestone;
+        const isBottle=photoInputRef.current._bottleSnap;
+        photoInputRef.current._bottleSnap=false;
         if(milestoneId){
           // Attach to milestone
           setMilestones(prev=>({...prev,[milestoneId]:{...prev[milestoneId],photo:dataUrl}}));
         }else{
           // Add to photo diary
-          setPhotos(prev=>[...prev,{id:uid(),date:selDay||todayStr(),time:nowTime(),dataUrl,note:""}]);
+          setPhotos(prev=>[...prev,{id:uid(),date:selDay||todayStr(),time:nowTime(),dataUrl,note:isBottle?"🍼 Bottle":""}]);
+          if(isBottle){
+            setQuickFlash("📸 Bottle saved ✓");
+            setTimeout(()=>setQuickFlash(null),1200);
+          }
         }
         try{navigator.vibrate&&navigator.vibrate(30);}catch{}
       };
@@ -1334,86 +1340,6 @@ function App(){
     e.target.value="";
   }
 
-  // ── Bottle Snap & Review — take photos at night, review in morning ──
-  const SCAN_URL = window._OBUBBA_SCAN_URL || "";
-
-  // Persist pending bottles
-  React.useEffect(()=>{
-    try{localStorage.setItem("pending_bottles_v1",JSON.stringify(pendingBottles));}catch{}
-  },[pendingBottles]);
-
-  function openBottleScan(){
-    if(bottleScanRef.current) bottleScanRef.current.click();
-  }
-  function handleBottleScan(e){
-    const file=e.target.files&&e.target.files[0];
-    if(!file)return;
-    const reader=new FileReader();
-    reader.onload=function(ev){
-      const img=new Image();
-      img.onload=function(){
-        const max=500;
-        let w=img.width,h=img.height;
-        if(w>max||h>max){const r=Math.min(max/w,max/h);w*=r;h*=r;}
-        const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
-        canvas.getContext("2d").drawImage(img,0,0,w,h);
-        const dataUrl=canvas.toDataURL("image/jpeg",0.7);
-        setPendingBottles(prev=>[...prev,{id:uid(),dataUrl,time:nowTime(),date:todayStr(),analyzedMl:null}]);
-        setQuickFlash("📷 Bottle saved ✓");
-        setTimeout(()=>setQuickFlash(null),1200);
-        try{navigator.vibrate&&navigator.vibrate([25,15,25]);}catch{}
-      };
-      img.src=ev.target.result;
-    };
-    reader.readAsDataURL(file);
-    e.target.value="";
-  }
-
-  async function analyzeBottles(){
-    if(!pendingBottles.length)return;
-    setBottleReviewLoading(true);
-    const results=[];
-    for(const b of pendingBottles){
-      if(!SCAN_URL){
-        results.push({...b,ml:0,note:"Scan URL not configured"});
-        continue;
-      }
-      try{
-        const resp=await fetch(SCAN_URL,{
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({image:b.dataUrl})
-        });
-        const data=await resp.json();
-        results.push({...b,ml:data.consumedMl||0,note:data.note||""});
-      }catch{
-        results.push({...b,ml:0,note:"Could not analyze"});
-      }
-    }
-    setBottleReview(results);
-    setBottleReviewLoading(false);
-  }
-
-  function logAllBottles(){
-    if(!bottleReview)return;
-    bottleReview.forEach(b=>{
-      const amt=displayToMl(b.ml,FU);
-      if(amt>0){
-        setDays(d=>{
-          const dayKey=b.date||todayStr();
-          const entry={id:uid(),type:"feed",time:b.time,feedType:"milk",amount:amt,night:false,note:"📷 Bottle snap"};
-          const updated=[...(d[dayKey]||[]),entry];
-          const _pd=(()=>{const dt=new Date(dayKey+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-          return{...d,[dayKey]:autoClassifyNight(updated,d[_pd]||null)};
-        });
-      }
-    });
-    setPendingBottles([]);
-    setBottleReview(null);
-    setQuickFlash(`✓ ${bottleReview.filter(b=>b.ml>0).length} feeds logged`);
-    setTimeout(()=>setQuickFlash(null),1500);
-    try{navigator.vibrate&&navigator.vibrate([30,20,30]);}catch{}
-  }
   const setMilestones  = (fn) => setChildren(prev => {
     const cur = prev[resolvedActiveId];
     const next = typeof fn === "function" ? fn(cur.milestones) : fn;
@@ -4680,12 +4606,6 @@ function App(){
   const[quickFlash,setQuickFlash]=useState(null);
   const[mascotPopup,setMascotPopup]=useState(null); // {type:'celebration'|'thinking'|'loading', message:'...'}
   const[viewPhoto,setViewPhoto]=useState(null);
-  const[pendingBottles,setPendingBottles]=useState(()=>{
-    try{const v=localStorage.getItem("pending_bottles_v1");return v?JSON.parse(v):[];}catch{return [];}
-  }); // [{id, dataUrl, time, date, analyzedMl:null}]
-  const[bottleReview,setBottleReview]=useState(null); // [{id, dataUrl, time, date, ml, note}] — review screen
-  const[bottleReviewLoading,setBottleReviewLoading]=useState(false);
-  const bottleScanRef=useRef(null);
 
   function showMascot(type, message, duration=3000){
     setMascotPopup({type, message});
@@ -5835,7 +5755,6 @@ function App(){
       )}
       {/* Hidden photo input for diary/milestones */}
       <input ref={photoInputRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhotoCapture}/>
-      <input ref={bottleScanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handleBottleScan}/>
       <div
         style={{background:theme.primary,padding:"16px 16px 0",position:"relative",backdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",WebkitBackdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",boxShadow:"var(--card-shadow)",borderBottom:"1px solid var(--card-border)"}}
         onTouchStart={handleSwipeStart}
@@ -6038,7 +5957,14 @@ function App(){
                   }},
                   {emoji:"🫙",label:"Pump",action:()=>openLogPanel("pump")},
                   {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
-                  {emoji:"📸",label:"Snap",action:openBottleScan},
+                  {emoji:"📸",label:"Bottle",action:()=>{
+                    // Snap bottle photo — saves to photo diary tagged as bottle
+                    if(photoInputRef.current){
+                      photoInputRef.current._forMilestone=null;
+                      photoInputRef.current._bottleSnap=true;
+                      photoInputRef.current.click();
+                    }
+                  }},
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                 ].map(({emoji,label,action})=>(
                   <button key={label} onClick={action}
@@ -6062,18 +5988,6 @@ function App(){
               )}
 
               {/* Pending bottle snaps banner */}
-              {pendingBottles.length>0&&(
-                <button onClick={analyzeBottles} style={{width:"100%",display:"flex",alignItems:"center",gap:12,background:"var(--card-bg)",border:`1.5px solid ${C.gold}40`,borderRadius:14,padding:"12px 14px",marginBottom:12,cursor:_cP,boxShadow:"var(--card-shadow)",textAlign:"left"}}>
-                  <div style={{width:40,height:40,borderRadius:12,background:`${C.gold}18`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span style={{fontSize:22}}>📷</span>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{pendingBottles.length} bottle{pendingBottles.length!==1?"s":""} to review</div>
-                    <div style={{fontSize:12,color:C.lt,marginTop:2}}>Tap to analyze & log feeds</div>
-                  </div>
-                  <span style={{fontSize:13,color:C.ter,fontWeight:700,fontFamily:_fM}}>Review →</span>
-                </button>
-              )}
 
               {/* Age guidance */}
               {ageStage&&(
@@ -8125,8 +8039,14 @@ function App(){
           )}
           <PBtn onClick={saveLogFeed}>✓ Log Feed</PBtn>
           {logForm.feedType==="bottle"&&(
-            <button onClick={openBottleScan} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.mid,fontFamily:_fI,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-              <span style={{fontSize:18}}>📷</span> Snap Bottle — log later
+            <button onClick={()=>{
+              if(photoInputRef.current){
+                photoInputRef.current._forMilestone=null;
+                photoInputRef.current._bottleSnap=true;
+                photoInputRef.current.click();
+              }
+            }} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.mid,fontFamily:_fI,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span style={{fontSize:18}}>📸</span> Snap Bottle — save photo for later
             </button>
           )}
         </Sheet>
@@ -9120,62 +9040,7 @@ function App(){
         </div>
       )}
 
-      {/* ═══ Bottle Review Overlay ═══ */}
-      {(bottleReview || bottleReviewLoading) && (
-        <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
-          {bottleReviewLoading ? (
-            <div style={{textAlign:"center"}}>
-              <img src="obubba-loading.png" alt="" style={{width:120,height:120,objectFit:"contain",animation:"mascotFloat 2s ease-in-out infinite",marginBottom:16}}/>
-              <div style={{fontSize:18,fontWeight:700,color:"white",marginBottom:8}}>Analyzing {pendingBottles.length} bottle{pendingBottles.length!==1?"s":""}...</div>
-              <div style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>This takes a few seconds</div>
-            </div>
-          ) : bottleReview && (
-            <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:400,width:"100%",maxHeight:"85vh",background:"var(--sheet-bg)",borderRadius:24,padding:"20px 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.5)",overflowY:"auto"}}>
-              <div style={{textAlign:"center",marginBottom:16}}>
-                <div style={{fontSize:24,marginBottom:6}}>🍼</div>
-                <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep}}>Review Bottles</div>
-                <div style={{fontSize:13,color:C.lt,marginTop:4}}>{bottleReview.length} bottle{bottleReview.length!==1?"s":""} from overnight</div>
-              </div>
-              <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
-                {bottleReview.map((b,i)=>(
-                  <div key={b.id} style={{display:"flex",gap:10,background:"var(--card-bg)",borderRadius:14,padding:"10px",border:`1px solid ${C.blush}`}}>
-                    <img src={b.dataUrl} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",flexShrink:0}}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:4}}>{fmt12(b.time)} · {fmtDate(b.date)}</div>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <input type="number" inputMode="numeric"
-                          value={b.ml}
-                          onChange={e=>{const v=e.target.value;setBottleReview(prev=>prev.map((x,j)=>j===i?{...x,ml:v}:x));}}
-                          style={{width:70,fontSize:18,fontWeight:700,padding:"6px 8px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
-                        <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>{volLabel(FU)}</span>
-                      </div>
-                      {b.note && <div style={{fontSize:11,color:C.lt,marginTop:3}}>{b.note}</div>}
-                    </div>
-                    <button onClick={()=>setBottleReview(prev=>prev.filter((_,j)=>j!==i))} style={{alignSelf:"center",width:24,height:24,borderRadius:"50%",border:"none",background:"rgba(224,96,112,0.15)",color:"#e06070",fontSize:12,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
-                  </div>
-                ))}
-              </div>
-              {bottleReview.length===0 ? (
-                <div style={{textAlign:"center",padding:"12px",color:C.lt,fontSize:14}}>All bottles removed</div>
-              ) : (
-                <div style={{fontSize:13,color:C.mid,textAlign:"center",marginBottom:12,fontFamily:_fM}}>
-                  Total: {bottleReview.reduce((s,b)=>s+(parseFloat(b.ml)||0),0)} {volLabel(FU)}
-                </div>
-              )}
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>{setBottleReview(null);}} style={{flex:1,padding:"12px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Cancel</button>
-                {bottleReview.length>0 && (
-                  <button onClick={logAllBottles} style={{flex:2,padding:"12px",borderRadius:14,border:`1.5px solid rgba(192,112,136,0.35)`,background:"var(--card-bg)",color:C.ter,fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"inset 0 0 8px rgba(201,112,90,0.15), 0 0 6px rgba(201,112,90,0.20)"}}>
-                    ✓ Log All Feeds
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ Photo Viewer Overlay ═══ */}
+            {/* ═══ Photo Viewer Overlay ═══ */}
       {viewPhoto && (
         <div onClick={()=>setViewPhoto(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:"100%",maxHeight:"80vh",position:"relative"}}>
