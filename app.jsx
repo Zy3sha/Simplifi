@@ -4551,6 +4551,7 @@ function App(){
   const lastLogRef = React.useRef({time:0, key:""});
   const[quickFlash,setQuickFlash]=useState(null);
   const[mascotPopup,setMascotPopup]=useState(null); // {type:'celebration'|'thinking'|'loading', message:'...'}
+  const[viewPhoto,setViewPhoto]=useState(null); // {id, dataUrl, date, time} — full-screen photo viewer
 
   function showMascot(type, message, duration=3000){
     setMascotPopup({type, message});
@@ -5473,6 +5474,7 @@ function App(){
                   <div>😴 <strong>Nap</strong> — starts the nap timer</div>
                   <div>🫙 <strong>Pump</strong> — opens pump session form</div>
                   <div>☀️ <strong>Wake</strong> — logs morning wake time</div>
+                  <div>📷 <strong>Photo</strong> — snaps a photo for the day's diary</div>
                 </div>
                 <div style={{fontSize:13,color:C.lt,lineHeight:1.5,marginTop:8}}>Everything logs at the current time. Tap ✎ on any entry to edit the details afterwards.</div>
               </div>
@@ -5541,6 +5543,19 @@ function App(){
                 <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>It understands wake times, feeds with amounts, nap ranges, bedtime, night wakes, and dream feeds.</div>
               </div>
             ), location:"Log buttons — Notes" },
+          { icon:"📷", title:"Photo Diary",
+            bodyJSX:(
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>Capture moments throughout the day with the <strong style={{color:C.ter}}>📷 Photo</strong> button in the quick log bar:</div>
+                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
+                  <div>📷 <strong>Quick snap</strong> — opens your camera instantly, photo saves to today's diary</div>
+                  <div>🗓️ <strong>Day view</strong> — photos appear below the detailed log buttons for that day</div>
+                  <div>🖼️ <strong>Tap to view</strong> — tap any photo to see it full-size with the option to delete</div>
+                  <div>⭐ <strong>Milestones</strong> — add photos to completed milestones with the 📷 button</div>
+                </div>
+                <div style={{fontSize:13,color:C.lt,lineHeight:1.5,marginTop:8}}>Your full photo diary is also visible in Account settings, showing your most recent snapshots.</div>
+              </div>
+            ), location:"Quick log bar — Photo" },
           { icon:"💡", title:"Insights",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
@@ -5956,9 +5971,8 @@ function App(){
                     <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>📷 Photos · {fmtDate(selDay)}</div>
                     <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
                       {dayPhotos.map((p,i)=>(
-                        <div key={p.id||i} style={{flexShrink:0,width:72,height:72,borderRadius:12,overflow:"hidden",border:`1px solid ${C.blush}`,position:"relative"}}>
+                        <div key={p.id||i} onClick={()=>setViewPhoto(p)} style={{flexShrink:0,width:72,height:72,borderRadius:12,overflow:"hidden",border:`1px solid ${C.blush}`,position:"relative",cursor:_cP}}>
                           <img src={p.dataUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                          <button onClick={()=>setPhotos(prev=>prev.filter(x=>x.id!==p.id))} style={{position:"absolute",top:2,right:2,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,0.5)",border:"none",color:"white",fontSize:10,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                           <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.45)",color:"white",fontSize:8,fontFamily:_fM,padding:"1px 4px",textAlign:"center"}}>{fmt12(p.time)}</div>
                         </div>
                       ))}
@@ -6083,8 +6097,8 @@ function App(){
                   } else if(e.type==="feed"&&e.feedType==="solids"){
                     subDetail = e.note||null;
                   } else if(e.type==="feed"){
-                    // bottle
-                    if(e.amount>0) subDetail=`${e.amount}ml`;
+                    // bottle — ml shown in badge chip, no subtitle needed
+                    subDetail=null;
                   } else if(e.type==="nap"&&e.start){
                     // Duration shown in badge chip; sub-detail is empty to avoid duplication
                     subDetail = null;
@@ -6119,16 +6133,16 @@ function App(){
                       onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
                       onDrop={ev=>{ev.preventDefault();}}
                       style={{background:isOver?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:14,padding:"11px 12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,backdropFilter:"blur(16px) saturate(1.6)",WebkitBackdropFilter:"blur(16px) saturate(1.6)",boxShadow:"var(--card-shadow)"}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:9}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                        <div style={{display:"flex",alignItems:"center",gap:9,flex:1,minWidth:0}}>
                           <span data-drag-handle="1" style={{fontSize:18,cursor:"grab",color:C.lt,letterSpacing:-1,touchAction:"none",padding:"6px 4px",userSelect:"none",WebkitUserSelect:"none"}}>&#x2261;</span>
-                          <span style={{fontSize:17}}>{ICONS[e.type]||"📝"}</span>
-                          <div>
+                          <span style={{fontSize:17,flexShrink:0}}>{ICONS[e.type]||"📝"}</span>
+                          <div style={{minWidth:0}}>
                             <div style={{fontSize:14,fontWeight:500}}>{actLabel}</div>
                             {subDetail&&<div style={{fontSize:13,color:C.lt,fontFamily:_fM,marginTop:1}}>{subDetail}</div>}
                           </div>
                         </div>
-                        <div style={{display:"flex",alignItems:"center",gap:7}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
                           {badgeVal&&<Badge type={e.type}>{badgeVal}</Badge>}
                           <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:26,height:26,color:C.ter,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(246,221,227,0.30)"}}>✎</button>
                           <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:26,height:26,color:"#e06070",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
@@ -6641,104 +6655,7 @@ function App(){
               {insightSection.trends && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
 
-                  {/* Growth Chart */}
-                  {sortedW.length>=1&&babySex&&babyDob&&(()=>{
-                    const PCTL=[2,9,25,50,75,91,98];
-                    const PC={2:"#e8b4a0",9:"#e8c4b0",25:"#d4ede6",50:"#6fa898",75:"#d4ede6",91:"#e8c4b0",98:"#e8b4a0"};
-                    const maxMo=Math.min(Math.max(...wWithPct.filter(w=>w.ageMo!=null).map(w=>w.ageMo),6)+2,24);
-                    const CW=320,CH=240,PL=30,PR=28,PT=12,PB=24;
-                    const pW=CW-PL-PR,pH2=CH-PT-PB;
-                    const allKg=[];
-                    for(let mo=0;mo<=maxMo;mo++) PCTL.forEach(p=>{const kg=weightForPercentile(mo,p,babySex);if(kg)allKg.push(kg);});
-                    sortedW.forEach(w=>allKg.push(w.kg));
-                    const kMin=Math.floor(Math.min(...allKg)*0.92*10)/10;
-                    const kMax=Math.ceil(Math.max(...allKg)*1.05*10)/10;
-                    const kR=kMax-kMin||1;
-                    const tX=mo=>PL+((mo)/(maxMo))*pW;
-                    const tY=kg=>PT+(1-(kg-kMin)/kR)*pH2;
-                    const pp={};
-                    PCTL.forEach(p=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const kg=weightForPercentile(mo,p,babySex);if(kg)d.push(`${mo===0?"M":"L"}${tX(mo).toFixed(1)},${tY(kg).toFixed(1)}`);}pp[p]=d.join(" ");});
-                    const bp=wWithPct.filter(w=>w.ageMo!=null&&w.ageMo<=maxMo);
-                    const bPath=bp.map((w,i)=>`${i===0?"M":"L"}${tX(w.ageMo).toFixed(1)},${tY(w.kg).toFixed(1)}`).join(" ");
-                    const bands=[[2,9],[9,25],[25,50],[50,75],[75,91],[91,98]];
-                    const bf=["rgba(232,180,160,0.18)","rgba(232,196,176,0.12)","rgba(212,237,230,0.22)","rgba(212,237,230,0.22)","rgba(232,196,176,0.12)","rgba(232,180,160,0.18)"];
-                    return(
-                      <div style={{marginBottom:14}}>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Growth Chart · WHO Percentiles</div>
-                        <div style={{fontSize:11,color:C.lt,marginBottom:10}}>{babySex==="boy"?"👦 Boys":"👧 Girls"} · 0–{maxMo} months</div>
-                        <svg width="100%" viewBox={`0 0 ${CW} ${CH}`} style={{display:"block"}}>
-                          {bands.map(([lo,hi],bi)=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const k=weightForPercentile(mo,hi,babySex);if(k)d.push(`${tX(mo).toFixed(1)},${tY(k).toFixed(1)}`);}for(let mo=maxMo;mo>=0;mo--){const k=weightForPercentile(mo,lo,babySex);if(k)d.push(`${tX(mo).toFixed(1)},${tY(k).toFixed(1)}`);}return<polygon key={bi} points={d.join(" ")} fill={bf[bi]} stroke="none"/>;
-                          })}
-                          {PCTL.map(p=><g key={p}><path d={pp[p]} fill="none" stroke={PC[p]} strokeWidth={p===50?1.8:0.7} strokeDasharray={p===50?"":"4,3"} opacity={0.85}/><text x={CW-PR+4} y={tY(weightForPercentile(maxMo,p,babySex))+3} fontSize={8} fill={C.lt} fontFamily="monospace">{p===50?"50th":p}</text></g>)}
-                          {[0,3,6,9,12,15,18,21,24].filter(m=>m<=maxMo).map(m=><g key={m}><line x1={tX(m)} y1={PT} x2={tX(m)} y2={CH-PB} stroke={C.blush} strokeWidth={0.4}/><text x={tX(m)} y={CH-PB+14} textAnchor="middle" fontSize={9} fill={C.lt} fontFamily="monospace">{m}m</text></g>)}
-                          {bp.length>1&&<path d={bPath} fill="none" stroke={C.ter} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>}
-                          {(()=>{
-                            const R=3.5;
-                            const positioned=bp.map(w=>({cx:tX(w.ageMo),cy:tY(w.kg),w}));
-                            for(let i=1;i<positioned.length;i++){
-                              for(let j=0;j<i;j++){
-                                const dx=Math.abs(positioned[i].cx-positioned[j].cx);
-                                const dy=Math.abs(positioned[i].cy-positioned[j].cy);
-                                if(dx<R*2&&dy<R*2) positioned[i].cy=positioned[j].cy-R*2.2;
-                              }
-                            }
-                            return positioned.map((p,i)=>(
-                              <g key={i}>
-                                <circle cx={p.cx} cy={p.cy} r={R} fill="white" stroke={C.ter} strokeWidth={2}/>
-                                {i===positioned.length-1&&<text x={p.cx} y={p.cy-R-2} textAnchor="middle" fontSize={7} fill={C.ter} fontFamily="monospace">{p.w.kg}kg</text>}
-                              </g>
-                            ));
-                          })()}
-                        </svg>
-                      </div>
-                    );
-                  })()}
-
                   {/* Feed & Nap Trends */}
-
-                  {/* Height/Length Chart */}
-                  {sortedH.length>=1&&babySex&&babyDob&&(()=>{
-                    const PCTL=[2,9,25,50,75,91,98];
-                    const PC={2:"#e8b4a0",9:"#e8c4b0",25:"#d4ede6",50:"#6fa898",75:"#d4ede6",91:"#e8c4b0",98:"#e8b4a0"};
-                    const maxMo=Math.min(Math.max(...hWithPct.filter(h=>h.ageMo!=null).map(h=>h.ageMo),6)+2,24);
-                    const CW=320,CH=240,PL=30,PR=28,PT=12,PB=24;
-                    const pW2=CW-PL-PR,pH3=CH-PT-PB;
-                    const allCm=[];
-                    for(let mo=0;mo<=maxMo;mo++) PCTL.forEach(p=>{const cm=lengthForPercentile(mo,p,babySex);if(cm)allCm.push(cm);});
-                    sortedH.forEach(h=>allCm.push(h.cm));
-                    const cMin=Math.floor(Math.min(...allCm)*0.97*10)/10;
-                    const cMax=Math.ceil(Math.max(...allCm)*1.03*10)/10;
-                    const cR=cMax-cMin||1;
-                    const tX2=mo=>PL+((mo)/(maxMo))*pW2;
-                    const tY2=cm=>PT+(1-(cm-cMin)/cR)*pH3;
-                    const hPaths={};
-                    PCTL.forEach(p=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const cm=lengthForPercentile(mo,p,babySex);if(cm)d.push(`${mo===0?"M":"L"}${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}hPaths[p]=d.join(" ");});
-                    const hbp=hWithPct.filter(h=>h.ageMo!=null&&h.ageMo<=maxMo);
-                    const hBabyPath=hbp.map((h,i)=>`${i===0?"M":"L"}${tX2(h.ageMo).toFixed(1)},${tY2(h.cm).toFixed(1)}`).join(" ");
-                    const hBands=[[2,9],[9,25],[25,50],[50,75],[75,91],[91,98]];
-                    const hBf=["rgba(232,180,160,0.18)","rgba(232,196,176,0.12)","rgba(212,237,230,0.22)","rgba(212,237,230,0.22)","rgba(232,196,176,0.12)","rgba(232,180,160,0.18)"];
-                    return(
-                      <div style={{marginBottom:14}}>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Height Chart · WHO Percentiles</div>
-                        <div style={{fontSize:11,color:C.lt,marginBottom:10}}>{babySex==="boy"?"👦 Boys":"👧 Girls"} · 0–{maxMo} months</div>
-                        <svg width="100%" viewBox={`0 0 ${CW} ${CH}`} style={{display:"block"}}>
-                          {hBands.map(([lo,hi],bi)=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const cm=lengthForPercentile(mo,hi,babySex);if(cm)d.push(`${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}for(let mo=maxMo;mo>=0;mo--){const cm=lengthForPercentile(mo,lo,babySex);if(cm)d.push(`${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}return<polygon key={bi} points={d.join(" ")} fill={hBf[bi]} stroke="none"/>;
-                          })}
-                          {PCTL.map(p=><g key={p}><path d={hPaths[p]} fill="none" stroke={PC[p]} strokeWidth={p===50?1.8:0.7} strokeDasharray={p===50?"":"4,3"} opacity={0.85}/><text x={CW-PR+4} y={tY2(lengthForPercentile(maxMo,p,babySex))+3} fontSize={8} fill={C.lt} fontFamily="monospace">{p===50?"50th":p}</text></g>)}
-                          {[0,3,6,9,12,15,18,21,24].filter(m=>m<=maxMo).map(m=><g key={m}><line x1={tX2(m)} y1={PT} x2={tX2(m)} y2={CH-PB} stroke={C.blush} strokeWidth={0.4}/><text x={tX2(m)} y={CH-PB+14} textAnchor="middle" fontSize={9} fill={C.lt} fontFamily="monospace">{m}m</text></g>)}
-                          {hbp.length>1&&<path d={hBabyPath} fill="none" stroke={C.sky} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>}
-                          {hbp.map((h,i)=>(
-                            <g key={i}>
-                              <circle cx={tX2(h.ageMo)} cy={tY2(h.cm)} r={3.5} fill="white" stroke={C.sky} strokeWidth={2}/>
-                              {i===hbp.length-1&&<text x={tX2(h.ageMo)} y={tY2(h.cm)-5} textAnchor="middle" fontSize={7} fill={C.sky} fontFamily="monospace">{h.cm}cm</text>}
-                            </g>
-                          ))}
-                        </svg>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Feed & Nap Trends (original) */}
                   {dayKeys.length<3?(
                     <div style={{textAlign:"center",padding:"24px 10px",color:C.lt}}>
                       <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.mid,marginBottom:6}}>Not enough data yet</div>
@@ -7861,7 +7778,7 @@ function App(){
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
                   {photos.slice(-12).map((p,i)=>(
-                    <div key={p.id||i} style={{position:"relative",paddingBottom:"100%",borderRadius:10,overflow:"hidden",border:`1px solid ${C.blush}`}}>
+                    <div key={p.id||i} onClick={()=>setViewPhoto(p)} style={{position:"relative",paddingBottom:"100%",borderRadius:10,overflow:"hidden",border:`1px solid ${C.blush}`,cursor:_cP}}>
                       <img src={p.dataUrl} alt="" style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>
                       <div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.5)",color:"white",fontSize:8,fontFamily:_fM,padding:"2px 4px",textAlign:"center"}}>{fmtDate(p.date)}</div>
                     </div>
@@ -9009,22 +8926,40 @@ function App(){
         </div>
       )}
 
+      {/* ═══ Photo Viewer Overlay ═══ */}
+      {viewPhoto && (
+        <div onClick={()=>setViewPhoto(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:"100%",maxHeight:"80vh",position:"relative"}}>
+            <img src={viewPhoto.dataUrl} alt="" style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:16,objectFit:"contain",boxShadow:"0 0 40px rgba(0,0,0,0.5)"}}/>
+          </div>
+          <div style={{marginTop:16,display:"flex",alignItems:"center",gap:10}}>
+            <div style={{color:"white",fontSize:13,fontFamily:_fM,opacity:0.7}}>
+              {viewPhoto.date&&fmtDate(viewPhoto.date)}{viewPhoto.time&&` · ${fmt12(viewPhoto.time)}`}
+            </div>
+          </div>
+          <div onClick={ev=>ev.stopPropagation()} style={{marginTop:16,display:"flex",gap:12}}>
+            <button onClick={()=>setViewPhoto(null)} style={{padding:"10px 28px",borderRadius:99,background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.25)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:"inherit"}}>Close</button>
+            <button onClick={()=>{setPhotos(prev=>prev.filter(x=>x.id!==viewPhoto.id));setViewPhoto(null);try{navigator.vibrate&&navigator.vibrate(30);}catch{}}} style={{padding:"10px 28px",borderRadius:99,background:"rgba(224,96,112,0.25)",border:"1.5px solid rgba(224,96,112,0.45)",color:"#ff8a95",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:"inherit"}}>Delete Photo</button>
+          </div>
+        </div>
+      )}
+
       {/* ═══ Mascot Popup Overlay ═══ */}
       {mascotPopup && (
         <div style={{position:"fixed",inset:0,zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-          <div style={{pointerEvents:"auto",textAlign:"center",animation:"mascotPop 0.4s cubic-bezier(0.34,1.56,0.64,1)"}}>
+          <div style={{pointerEvents:"auto",textAlign:"center",animation:"mascotPop 0.5s cubic-bezier(0.22,1.2,0.36,1) both"}}>
             <style>{`
-              @keyframes mascotPop{from{opacity:0;transform:scale(0.5) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
-              @keyframes mascotConfetti{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(-40px) rotate(180deg)}}
-              @keyframes mascotBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+              @keyframes mascotPop{from{opacity:0;transform:scale(0.3) translateY(30px)}60%{opacity:1;transform:scale(1.05) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+              @keyframes mascotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+              @keyframes mascotTextIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
             `}</style>
             <img
               src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
               alt=""
-              style={{width:220,height:220,objectFit:"contain",animation:"mascotBounce 1.5s ease-in-out infinite",filter:"drop-shadow(0 16px 36px rgba(217,207,243,0.45))"}}
+              style={{width:220,height:220,objectFit:"contain",animation:"mascotFloat 2s ease-in-out 0.5s infinite",filter:"drop-shadow(0 16px 36px rgba(217,207,243,0.45))"}}
             />
-            <div style={{marginTop:14,background:"rgba(255,255,255,0.92)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderRadius:99,padding:"12px 28px",boxShadow:"0 0 28px rgba(246,221,227,0.50), 0 4px 20px rgba(217,207,243,0.30)",display:"inline-block"}}>
-              <div style={{fontSize:15,fontWeight:700,color:"#5B4F5F",fontFamily:"'DM Sans',sans-serif"}}>{mascotPopup.message}</div>
+            <div className="mascot-pill" style={{marginTop:14,background:document.body.classList.contains("dark-mode")?"rgba(30,40,60,0.92)":"rgba(255,255,255,0.95)",borderRadius:99,padding:"12px 28px",boxShadow:"0 0 28px rgba(246,221,227,0.50), 0 4px 20px rgba(217,207,243,0.30), inset 0 1px 0 rgba(255,255,255,0.25)",display:"inline-block",border:"1.5px solid rgba(255,255,255,0.18)",animation:"mascotTextIn 0.4s ease 0.3s both"}}>
+              <div style={{fontSize:16,fontWeight:700,color:document.body.classList.contains("dark-mode")?"#F0F2F5":"#5B4F5F",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.01em"}}>{mascotPopup.message}</div>
             </div>
           </div>
         </div>
