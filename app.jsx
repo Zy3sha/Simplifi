@@ -5795,7 +5795,11 @@ function App(){
 
         </div>
         {!nameEdit ? (
-          <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}} style={{cursor:_cP,marginBottom:2,textAlign:"center"}}>
+          <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}} style={{cursor:_cP,marginBottom:2,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+            <div style={{width:38,height:38,borderRadius:10,overflow:"hidden",flexShrink:0,border:"1.5px solid rgba(255,255,255,0.75)",boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
+              <img src="obubba-happy.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
+                onError={e=>{e.target.style.display="none";e.target.parentNode.style.background=C.ter;e.target.parentNode.style.display="flex";e.target.parentNode.style.alignItems="center";e.target.parentNode.style.justifyContent="center";e.target.parentNode.textContent="🍼";}}/>
+            </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.deep,fontWeight:700,lineHeight:1.2}}>
               {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
             </div>
