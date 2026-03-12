@@ -4979,8 +4979,8 @@ function App(){
   const tabSt=t=>({flex:"none",padding:"8px 14px 6px",border:_bN,background:"none",fontSize:9,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:"var(--text-lt)",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative",transition:"transform 0.2s cubic-bezier(.23,1,.32,1)",borderRadius:12});
   const card={background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"var(--card-shadow)",transition:"transform 0.2s cubic-bezier(.23,1,.32,1),box-shadow 0.25s ease"};
 
-  const tabIcons={day:"📅",insights:"💡",milestones:"⭐",develop:"🧩",settings:"👤"};
-  const tabLabels={day:"Day",insights:"Insights",milestones:"Milestones",develop:"Development",settings:""};
+  const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
+  const tabLabels={day:"Day",insights:"Insights",develop:"Development",settings:""};
 
 
   if (authScreen) {
@@ -5364,7 +5364,7 @@ function App(){
                 Sleep, feeds, nappies, growth and smart insights — built for the reality of new parenthood.
               </div>
               <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:6}}>
-                {[["🍼","Feeds & intake"],["😴","Sleep tracking"],["🧠","Smart insights"],["📏","Growth & WHO"],["⭐","Milestones"],["🔗","Partner sync"]].map(([ico,lbl],i)=>(
+                {[["🍼","Feeds & intake"],["😴","Sleep tracking"],["🧠","Smart insights"],["📏","Growth & WHO"],["🧩","Development"],["🔗","Partner sync"]].map(([ico,lbl],i)=>(
                   <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:99,padding:"7px 13px",boxShadow:"0 1px 4px rgba(201,112,90,0.08)"}}>
                     <span style={{fontSize:13}}>{ico}</span>
                     <span style={{fontSize:12,color:C.mid,fontWeight:500}}>{lbl}</span>
@@ -5625,16 +5625,17 @@ function App(){
                 </div>
               </div>
             ), location:"Bottom navigation — Insights" },
-          { icon:"⭐", title:"Milestones & Development",
+          { icon:"🧩", title:"Development & Milestones",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Two tabs for tracking your baby's growth:</div>
+                <div style={{marginBottom:8}}>Everything about your baby's growth in one place:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>⭐ <strong>Milestones</strong> — age-appropriate milestones from NHS guidelines. Tap to mark achieved. Filter by social, language, movement or cognitive.</div>
-                  <div>🧩 <strong>Development</strong> — current developmental phase, age-appropriate activities, and NHS/WHO expert guidance for your baby's exact age.</div>
+                  <div>🌀 <strong>Development Phases</strong> — tracks wonder weeks and leap phases, showing fussy periods and new skills emerging.</div>
+                  <div>⭐ <strong>Milestones</strong> — NHS-based checklist filtered by social, language, movement or cognitive. Tap to mark achieved, add photos.</div>
+                  <div>🎯 <strong>Activities</strong> — age-appropriate play ideas with NHS/WHO guidance for your baby's exact age.</div>
                 </div>
               </div>
-            ), location:"Bottom navigation" },
+            ), location:"Bottom navigation — Development tab" },
           { icon:"🌙", title:"Day & Night Mode", body:"Tap the 🌙 / ☀️ toggle in the top-right of the header to switch between day and night mode. It sits right next to your account button for quick access.", location:"Header — top right" },
           { icon:"👨‍👩‍👧", title:"Share & Sync",
             bodyJSX:(
@@ -5678,24 +5679,26 @@ function App(){
         const step = TUT_STEPS[tutStep];
         const isLast = tutStep === TUT_STEPS.length - 1;
 
-        const cardBg = "var(--card-bg-solid)";
+        const cardBg = isDark ? "rgba(20,34,58,0.97)" : "rgba(255,250,245,0.97)";
         const cardText = C.deep;
         const cardSub = C.mid;
-        const locBg = "#f5f0e8";
+        const locBg = isDark ? "rgba(30,46,72,0.80)" : "#f5f0e8";
         const locText = C.lt;
 
         return (
           <div style={{position:"fixed",inset:0,zIndex:999,pointerEvents:"auto"}}>
             <div style={{position:"absolute",inset:0,background:"rgba(16,8,4,0.85)",backdropFilter:"blur(3px)"}}
               onClick={nextStep}/>
-            <div className="tour-card" style={{
+            <div style={{
               position:"fixed",
               left:"50%",
               top:"50%",
               transform:"translate(-50%, -50%)",
               width:"min(370px, calc(100vw - 28px))",
+              background:cardBg,
               borderRadius:24,
               padding:"22px 20px 18px",
+              boxShadow:"0 28px 72px rgba(0,0,0,0.55)",
               animation:"tutPop 0.3s ease",
               zIndex:1002,
               pointerEvents:"auto",
@@ -5905,9 +5908,9 @@ function App(){
             <button onClick={()=>{setNewDate(todayStr());setModal("addDay");}} style={{background:"var(--card-bg)",border:`1px dashed ${C.lt}`,borderRadius:20,padding:"5px 12px",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP,whiteSpace:"nowrap"}}>+ Date</button>
           </div>
           {displayDayKeys.map(d=>(
-            <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"white":"rgba(255,255,255,0.35)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?"none":`1px solid rgba(255,255,255,0.45)`}}>
+            <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?`1.5px solid ${C.ter}`:`1px solid var(--card-border)`}}>
               <button onClick={()=>setSelDay(d)} style={{background:_bN,border:_bN,color:d===selDay?C.ter:C.mid,fontSize:13,fontFamily:_fM,cursor:_cP,padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
-              <button onClick={e=>{setMenuDay(d);setEditDate(d);setConfirmDeleteDay(false);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?"rgba(243,211,218,0.60)":"rgba(255,255,255,0.55)",border:"1px solid rgba(255,255,255,0.45)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:10,color:d===selDay?C.ter:C.mid}}>✎</button>
+              <button onClick={e=>{setMenuDay(d);setEditDate(d);setConfirmDeleteDay(false);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?`${C.ter}22`:"var(--card-bg-alt)",border:`1px solid var(--card-border)`,borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:10,color:d===selDay?C.ter:C.mid}}>✎</button>
             </div>
           ))}
           {!displayDayKeys.length&&<span style={{color:C.lt,fontSize:13,fontFamily:_fM,alignSelf:"center"}}>No days yet</span>}
@@ -5955,6 +5958,14 @@ function App(){
                   }},
                   {emoji:"🫙",label:"Pump",action:()=>openLogPanel("pump")},
                   {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
+                  {emoji:"📸",label:"Bottle",action:()=>{
+                    // Snap bottle photo — saves to photo diary tagged as bottle
+                    if(photoInputRef.current){
+                      photoInputRef.current._forMilestone=null;
+                      photoInputRef.current._bottleSnap=true;
+                      photoInputRef.current.click();
+                    }
+                  }},
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                 ].map(({emoji,label,action})=>(
                   <button key={label} onClick={action}
@@ -7240,51 +7251,71 @@ function App(){
             </div>
           );
         })()}
-        {tab==="milestones"&&(()=>{
+        {tab==="develop"&&(()=>{
           const ageWeeks = age ? age.totalWeeks : null;
+          const name = babyName || "Baby";
 
-          if (!babyDob) return (
-            <div className="glass-card" style={{...card,textAlign:"center",padding:"36px 20px"}}>
-              <div style={{fontSize:40,marginBottom:14}}>🎂</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.mid,marginBottom:8}}>Add your baby's date of birth</div>
-              <div style={{fontSize:15,color:C.lt,marginBottom:20,lineHeight:1.7}}>Add your baby's date of birth in Baby Settings to unlock milestones and Development Phases.</div>
-              <button onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{background:"linear-gradient(135deg,#c9705a,#a85a44)",border:_bN,borderRadius:99,padding:"12px 28px",color:"white",fontSize:14,cursor:_cP,fontWeight:700}}>⚙️ Open Baby Settings →</button>
-            </div>
-          );
-          if (babyUnborn) {
-            const daysUntil = babyDob ? Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24)) : null;
-            return (
-              <div className="glass-card" style={{...card,textAlign:"center",padding:"36px 20px"}}>
-                <div style={{fontSize:36,marginBottom:10}}>🤰</div>
-                <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.deep,fontWeight:700,marginBottom:6}}>
-                  {daysUntil > 0 ? `Due in ${daysUntil} day${daysUntil!==1?"s":""}` : "Almost here!"}
-                </div>
-                <div style={{fontSize:15,color:C.mid,lineHeight:1.6}}>Milestones and Development Phases unlock once {babyName||"your baby"} arrives!</div>
-              </div>
-            );
+
+          function getDevAdvice(ageWeeks) {
+            if (!ageWeeks) return [];
+            if (ageWeeks < 6) return [
+              { icon:"👁", title:"Visual stimulation", body:"Babies can only focus 20–30cm away. Hold high-contrast black-and-white patterns near their face. Mobiles above the cot help develop tracking." },
+              { icon:"🗣", title:"Talk constantly", body:"Narrate everything you do. Your voice is the most important stimulus. Babies recognise parents' voices from birth and respond to tone before words." },
+              { icon:"🤱", title:"Skin-to-skin", body:"WHO recommends daily skin-to-skin contact in early weeks. Regulates baby's temperature, heart rate and stress hormones, and supports bonding." },
+              { icon:"🏋️", title:"Tummy time from day one", body:"NHS recommends starting supervised tummy time from birth. Even 1–2 minutes several times daily builds neck and shoulder strength essential for later motor development." },
+            ];
+            if (ageWeeks < 13) return [
+              { icon:"😄", title:"Respond to smiles", body:"First social smiles appear around 6–8 weeks. Mirror them immediately — this serve-and-return interaction is foundational for emotional development per WHO guidelines." },
+              { icon:"🎵", title:"Singing and rhythm", body:"Singing the same simple songs repeatedly helps babies begin to recognise patterns in language. NHS encourages nursery rhymes from birth for speech development." },
+              { icon:"👐", title:"Grasp play", body:"Place a rattle or your finger lightly in their palm. The grasp reflex is transitioning to intentional grasping — repeated practice builds hand strength." },
+              { icon:"🏋️", title:"Increase tummy time", body:"Work up to 30 minutes of tummy time per day spread across multiple sessions. This is the NHS and WHO recommendation for building strength before rolling." },
+            ];
+            if (ageWeeks < 26) return [
+              { icon:"🔊", title:"Sound cause & effect", body:"Shake a rattle and watch them follow it. Let baby hold the rattle to discover they make the sound. This builds early understanding of cause and effect." },
+              { icon:"📚", title:"Board books daily", body:"NHS Start4Life recommends daily shared book reading from birth. At this age, simple faces and high-contrast illustrations are most engaging." },
+              { icon:"🪞", title:"Mirror exploration", body:"Hold baby in front of a baby-safe mirror. They won't recognise themselves yet but will engage with the other baby — supporting social and visual development." },
+              { icon:"🎶", title:"Baby music classes", body:"WHO developmental guidance notes that rhythmic movement and music together accelerate auditory processing. Even gentle bouncing to music counts." },
+            ];
+            if (ageWeeks < 40) return [
+              { icon:"🧩", title:"Object permanence games", body:"This is the peak age for developing object permanence. Cover a toy with a cloth while they watch and encourage them to find it. Start simple, get more complex." },
+              { icon:"🍽️", title:"Weaning begins", body:"NHS and WHO recommend introducing solid foods at around 6 months (26 weeks). Start with smooth purees, offering a wide variety of tastes early reduces fussiness." },
+              { icon:"🗣", title:"Babbling back", body:"When baby babbles (ba-ba, da-da), respond with the same sounds. This conversational turn-taking is the direct precursor to first words." },
+              { icon:"🚶", title:"Supported standing", body:"Hold baby upright with feet flat and let them bounce and bear weight. NHS guidelines note this builds the leg strength needed for walking later." },
+            ];
+            if (ageWeeks < 54) return [
+              { icon:"👋", title:"Simple signs", body:"NHS recommends teaching simple baby sign language (more, milk, all done) alongside spoken words. Signs give pre-verbal babies a way to communicate and reduce frustration." },
+              { icon:"📖", title:"Interactive reading", body:"Point to pictures and ask where is the dog? Pause and wait. This builds pointing, joint attention and receptive vocabulary — all key WHO language milestones." },
+              { icon:"🧱", title:"Stacking and sorting", body:"Stacking cups and shape sorters build fine motor control, spatial reasoning and problem-solving. NHS developmental checks look for these skills at the 1-year review." },
+              { icon:"🏃", title:"Walking support", body:"Encourage cruising along furniture. NHS guidance is that most babies walk independently by 18 months — provide safe furniture routes and celebrate every step." },
+            ];
+            if (ageWeeks < 78) return [
+              { icon:"💬", title:"First words & naming", body:"Encourage labelling everything consistently. WHO speech milestones expect 2–3 meaningful words by 12–15 months and 10+ by 18 months. Respond enthusiastically to any attempt." },
+              { icon:"🎭", title:"Pretend play", body:"Introduce simple pretend play — feeding a teddy, talking on a toy phone. NHS 2-year check looks for symbolic play as a key cognitive indicator." },
+              { icon:"🌍", title:"Social play", body:"Organise playdates or baby groups. WHO guidelines emphasise that from 12 months, exposure to other children significantly advances social development." },
+              { icon:"🏃", title:"Physical confidence", body:"WHO recommends at least 180 minutes of physical activity per day for 1–2 year olds. Encourage walking on different surfaces, climbing safely, and dancing." },
+            ];
+            if (ageWeeks < 104) return [
+              { icon:"📚", title:"Expand vocabulary", body:"NHS expects 50+ words and two-word phrases by age 2. Read together daily, name new things, and expand what they say — if they say car, you say yes, big red car." },
+              { icon:"🧩", title:"Puzzles & problem-solving", body:"Simple 2–4 piece puzzles build spatial reasoning. Shape sorters and stacking toys develop the problem-solving skills assessed at the NHS 2-year review." },
+              { icon:"🎨", title:"Mark-making", body:"Offer chunky crayons and large paper. Scribbling is a fine motor milestone and the precursor to drawing and writing. NHS looks for mark-making at the 2-year check." },
+              { icon:"🤝", title:"Turn-taking", body:"Practice my turn, your turn with rolling a ball, building blocks, or simple games. Turn-taking is a key social skill that NHS assesses at age 2." },
+            ];
+            return [
+              { icon:"🗣", title:"Sentences & stories", body:"NHS expects 3–5 word sentences by age 3. Tell stories together, ask open-ended questions like what happened? and model full sentences back." },
+              { icon:"🏃", title:"Active play", body:"WHO recommends at least 60 minutes of energetic physical activity daily for 2–3 year olds, plus no more than 1 hour of sedentary screen time." },
+              { icon:"🎭", title:"Imaginative play", body:"Pretend play with storylines (shops, kitchens, doctors) shows advanced cognitive development. NHS 2.5-year check looks for this as a key indicator." },
+              { icon:"😊", title:"Emotional literacy", body:"Name emotions as they happen: you look cross, that was exciting. NHS guidance for 2–3 year olds emphasises that naming feelings helps children learn self-regulation." },
+            ];
           }
 
-          // ── helpers ──────────────────────────────────────────────────────
-          const dobDate  = new Date(babyDob + "T00:00:00");
-          const wkToDate = (w) => { const d = new Date(dobDate); d.setDate(d.getDate() + w*7); return d; };
-          const fmtD     = (d) => d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
-          const name     = babyName || "Baby";
+          const devAdvice = getDevAdvice(ageWeeks);
 
-          // ── phase logic ──────────────────────────────────────────────────
-          const activePhase  = DEV_PHASES.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
-          const nextPhase    = DEV_PHASES.find(l => l.windowStart > (activePhase ? activePhase.windowEnd : ageWeeks));
-          const isPrePhase   = !activePhase && nextPhase && ageWeeks >= nextPhase.windowStart - 1;
-          const isFussy      = activePhase && ageWeeks <  activePhase.peakWeek;
-          const isBloom      = activePhase && ageWeeks >= activePhase.peakWeek;
-          const heroPhase    = activePhase || (isPrePhase ? nextPhase : null);
-          const pastPhases   = DEV_PHASES.filter(l => l.windowEnd < ageWeeks && !(activePhase && l.phase===activePhase.phase));
-          const upcomPhases  = DEV_PHASES.filter(l => {
-            if (activePhase && l.phase <= activePhase.phase) return false;
-            if (nextPhase && l.phase === nextPhase.phase && isPrePhase) return false;
-            return l.windowStart > ageWeeks;
-          });
+          
 
-          // ── milestones ───────────────────────────────────────────────────
+          const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks !== null && ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
+          const filteredActs = devActFilter === "all" ? nowActs : nowActs.filter(a => a.cat === devActFilter);
+
+          // ── Milestone components ──
           const doneCount = MILESTONES.filter(m => milestones[m.id]?.date).length;
           const ageLabel = fmtAge(age);
           const catOk   = (m) => msFilter === "all" || m.cat === msFilter;
@@ -7292,11 +7323,6 @@ function App(){
           const pastMs  = MILESTONES.filter(m => catOk(m) && m.weeks[2] < ageWeeks - 4 && milestones[m.id]?.date);
           const futureMs = MILESTONES.filter(m => catOk(m) && m.weeks[0] > ageWeeks + 4);
 
-          // ── age-appropriate activities ───────────────────────────────────
-          const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
-
-          // ── sub-components ───────────────────────────────────────────────
-          // Exercise suggestions per milestone category (NHS/WHO/developmental guidelines)
           const MILESTONE_EXERCISES = {
             m1:  ["Try gentle face-to-face time 20–30cm away and smile back whenever baby makes eye contact — mirroring is the key trigger for social smiling."],
             m2:  ["Talk and sing close to baby's face; use a calm, high-pitched voice (motherese) — recognition develops through repeated, close exposure."],
@@ -7356,21 +7382,7 @@ function App(){
                 <div onClick={()=>{
                   if(isFuture) return;
                   if(done){ if(window.confirm(`Remove "${m.label}"?`)) setMilestones(ms=>({...ms,[m.id]:{}}))}
-                  else {
-                    setMilestones(ms=>{
-                      const updated = {...ms,[m.id]:{date:todayStr()}};
-                      setTimeout(()=>{
-                        const catMs = MILESTONES.filter(mi=>mi.cat===m.cat && age && age.totalWeeks >= mi.weeks[0] && age.totalWeeks <= mi.weeks[2]);
-                        const allDone = catMs.length >= 3 && catMs.every(mi=>updated[mi.id]?.date);
-                        if(allDone){
-                          const catLabel = MILESTONE_CATS.find(c=>c.key===m.cat)?.label || m.cat;
-                          showMascot("celebration", `All ${catLabel} milestones hit! 🎉`, 3500);
-                        }
-                      }, 100);
-                      return updated;
-                    });
-                    try{navigator.vibrate&&navigator.vibrate([30,20,30]);}catch{}
-                  }
+                  else setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
                 }} style={{display:"flex",alignItems:"flex-start",gap:11,padding:"10px 0",cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1}}>
                   <div style={{width:21,height:21,borderRadius:"50%",border:`2px solid ${tick}`,background:done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2}}>
                     {done && <span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}
@@ -7381,13 +7393,7 @@ function App(){
                       <span style={{background:"var(--chip-bg)",borderRadius:99,padding:"1px 6px"}}>{catInfo?.icon} {catInfo?.label}</span>
                       {done ? <span style={{color:C.mint}}>✓ {fmtLong(milestones[m.id].date)}</span>
                             : <span style={{fontFamily:_fM}}>typical wk {m.weeks[1]}</span>}
-                      {done && <button onClick={e=>{e.stopPropagation();capturePhoto(m.id);}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"1px 7px",fontSize:11,color:C.mid,cursor:_cP}}>📷</button>}
                     </div>
-                    {done && milestones[m.id]?.photo && (
-                      <div style={{marginTop:6,width:64,height:64,borderRadius:10,overflow:"hidden",border:`1px solid ${C.blush}`}}>
-                        <img src={milestones[m.id].photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                      </div>
-                    )}
                   </div>
                   <div style={{flexShrink:0,paddingTop:2}}>
                     {!done && isNow  && <span style={{fontSize:11,background:"var(--chip-bg-active)",color:C.ter,borderRadius:99,padding:"3px 8px",fontWeight:700}}>Now</span>}
@@ -7422,162 +7428,7 @@ function App(){
             </div>
           );
 
-          return (
-            <div>
-              <div className="glass-card" style={{...card,marginBottom:12,padding:"12px 16px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <div>
-                    <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>{possessive(name)} age</div>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.ter,lineHeight:1}}>
-                      {ageLabel} <span style={{fontSize:12,color:C.lt,fontFamily:_fM,fontWeight:400}}>· wk {ageWeeks}</span>
-                    </div>
-                  </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.mint,lineHeight:1}}>{doneCount}</div>
-                    <div style={{fontSize:10,fontFamily:_fM,color:C.lt}}>milestones logged</div>
-                  </div>
-                </div>
-                <div style={{background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
-                  <div style={{height:"100%",borderRadius:99,background:`linear-gradient(90deg,${C.ter},${C.mint})`,width:`${Math.round(doneCount/MILESTONES.length*100)}%`,transition:"width 0.4s"}}/>
-                </div>
-                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,marginTop:3}}>{doneCount} of {MILESTONES.length} logged</div>
-              </div>
-              <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:4,marginBottom:12,WebkitOverflowScrolling:"touch"}}>
-                {[{key:"all",icon:"⭐",label:"All"},...MILESTONE_CATS].map(c=>(
-                  <button key={c.key} onClick={()=>setMsFilter(c.key)}
-                    style={{flexShrink:0,padding:"7px 14px",borderRadius:999,border:`1px solid ${msFilter===c.key?"var(--card-border)":"var(--card-border)"}`,background:msFilter===c.key?"var(--chip-bg-active)":"var(--chip-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",color:msFilter===c.key?C.ter:C.mid,fontSize:12,fontWeight:msFilter===c.key?700:400,cursor:_cP,fontFamily:_fI,whiteSpace:"nowrap",boxShadow:msFilter===c.key?"var(--chip-shadow-active)":"var(--chip-shadow)"}}>
-                    {c.icon} {c.label}
-                  </button>
-                ))}
-              </div>
-              <div className="glass-card" style={{...card,padding:"4px 14px 8px",marginBottom:10}}>
-                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,padding:"8px 0 6px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>
-                  Happening now · tap to mark achieved
-                </div>
-                {nowMs.length === 0
-                  ? <div style={{textAlign:"center",padding:"18px 0",color:C.lt,fontSize:13}}>No milestones in this window for this category.</div>
-                  : nowMs.map(m => <MilestoneRow key={m.id} m={m}/>)
-                }
-              </div>
-              {pastPhases.length > 0 && (
-                <Accordion label="Past development phases" count={pastPhases.length} open={msShowPastPhases} toggle={()=>setMsShowPastPhases(v=>!v)} accent="#7060b0">
-                  {pastPhases.map(l => (
-                    <div key={l.phase} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                        <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#9060e0,#7040c0)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.phase}</span>
-                        </div>
-                        <div>
-                          <div style={{fontSize:13,fontWeight:700,color:"#4a28a0"}}>Phase {l.phase}: {l.name}</div>
-                          <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{fmtD(wkToDate(l.windowStart))} – {fmtD(wkToDate(l.windowEnd))}</div>
-                        </div>
-                      </div>
-                      <div style={{fontSize:11,color:C.lt,paddingLeft:32,lineHeight:1.6}}>{l.skills.join(" · ")}</div>
-                    </div>
-                  ))}
-                </Accordion>
-              )}
-              {pastMs.length > 0 && (
-                <Accordion label="Achieved milestones" count={pastMs.length} open={msShowPastMs} toggle={()=>setMsShowPastMs(v=>!v)} accent={C.mint}>
-                  {pastMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
-                </Accordion>
-              )}
-              {(upcomPhases.length > 0 || futureMs.length > 0) && (
-                <Accordion label="What's coming up" count={upcomPhases.length + futureMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent="#d09020">
-                  {upcomPhases.map(l => (
-                    <div key={l.phase} style={{padding:"10px 0",borderBottom:`1px solid ${C.blush}`}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                        <div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#f0c030,#d89010)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                          <span style={{fontSize:10,color:"white",fontWeight:700}}>{l.phase}</span>
-                        </div>
-                        <div>
-                          <div style={{fontSize:13,fontWeight:700,color:"var(--gold)"}}>Phase {l.phase}: {l.name}</div>
-                          <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{fmtD(wkToDate(l.windowStart))} – {fmtD(wkToDate(l.windowEnd))} · wk {l.windowStart}–{l.windowEnd}</div>
-                        </div>
-                      </div>
-                      <div style={{fontSize:11,color:"var(--gold)",paddingLeft:32,marginBottom:3,lineHeight:1.5}}>{l.fussy}</div>
-                      <div style={{fontSize:11,color:C.lt,paddingLeft:32,lineHeight:1.6}}>{l.skills.join(" · ")}</div>
-                    </div>
-                  ))}
-                  {futureMs.length > 0 && (
-                    <div>
-                      <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,padding:"10px 0 4px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>Future milestones</div>
-                      {futureMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
-                    </div>
-                  )}
-                </Accordion>
-              )}
-              <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:12,padding:"12px 14px",marginTop:6,marginBottom:4}}>
-                <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
-                  <span style={{fontWeight:700,color:C.deep}}>ℹ️ A note on milestones</span><br/>
-                  Every baby develops at their own pace — these ranges are general guidelines, not a fixed schedule. Some babies reach milestones earlier, others later, and both are perfectly normal.<br/><br/>
-                  If you have any concerns about milestones that haven't been reached over a couple of months, or if something doesn't feel right, <span style={{fontWeight:600,color:C.deep}}>speak to your health visitor or GP</span> — they're there to help and will always take your concerns seriously.
-                </div>
-              </div>
 
-            </div>
-          );
-        })()}
-        {tab==="develop"&&(()=>{
-          const ageWeeks = age ? age.totalWeeks : null;
-          const name = babyName || "Baby";
-
-
-          function getDevAdvice(ageWeeks) {
-            if (!ageWeeks) return [];
-            if (ageWeeks < 6) return [
-              { icon:"👁", title:"Visual stimulation", body:"Babies can only focus 20–30cm away. Hold high-contrast black-and-white patterns near their face. Mobiles above the cot help develop tracking." },
-              { icon:"🗣", title:"Talk constantly", body:"Narrate everything you do. Your voice is the most important stimulus. Babies recognise parents' voices from birth and respond to tone before words." },
-              { icon:"🤱", title:"Skin-to-skin", body:"WHO recommends daily skin-to-skin contact in early weeks. Regulates baby's temperature, heart rate and stress hormones, and supports bonding." },
-              { icon:"🏋️", title:"Tummy time from day one", body:"NHS recommends starting supervised tummy time from birth. Even 1–2 minutes several times daily builds neck and shoulder strength essential for later motor development." },
-            ];
-            if (ageWeeks < 13) return [
-              { icon:"😄", title:"Respond to smiles", body:"First social smiles appear around 6–8 weeks. Mirror them immediately — this serve-and-return interaction is foundational for emotional development per WHO guidelines." },
-              { icon:"🎵", title:"Singing and rhythm", body:"Singing the same simple songs repeatedly helps babies begin to recognise patterns in language. NHS encourages nursery rhymes from birth for speech development." },
-              { icon:"👐", title:"Grasp play", body:"Place a rattle or your finger lightly in their palm. The grasp reflex is transitioning to intentional grasping — repeated practice builds hand strength." },
-              { icon:"🏋️", title:"Increase tummy time", body:"Work up to 30 minutes of tummy time per day spread across multiple sessions. This is the NHS and WHO recommendation for building strength before rolling." },
-            ];
-            if (ageWeeks < 26) return [
-              { icon:"🔊", title:"Sound cause & effect", body:"Shake a rattle and watch them follow it. Let baby hold the rattle to discover they make the sound. This builds early understanding of cause and effect." },
-              { icon:"📚", title:"Board books daily", body:"NHS Start4Life recommends daily shared book reading from birth. At this age, simple faces and high-contrast illustrations are most engaging." },
-              { icon:"🪞", title:"Mirror exploration", body:"Hold baby in front of a baby-safe mirror. They won't recognise themselves yet but will engage with the other baby — supporting social and visual development." },
-              { icon:"🎶", title:"Baby music classes", body:"WHO developmental guidance notes that rhythmic movement and music together accelerate auditory processing. Even gentle bouncing to music counts." },
-            ];
-            if (ageWeeks < 40) return [
-              { icon:"🧩", title:"Object permanence games", body:"This is the peak age for developing object permanence. Cover a toy with a cloth while they watch and encourage them to find it. Start simple, get more complex." },
-              { icon:"🍽️", title:"Weaning begins", body:"NHS and WHO recommend introducing solid foods at around 6 months (26 weeks). Start with smooth purees, offering a wide variety of tastes early reduces fussiness." },
-              { icon:"🗣", title:"Babbling back", body:"When baby babbles (ba-ba, da-da), respond with the same sounds. This conversational turn-taking is the direct precursor to first words." },
-              { icon:"🚶", title:"Supported standing", body:"Hold baby upright with feet flat and let them bounce and bear weight. NHS guidelines note this builds the leg strength needed for walking later." },
-            ];
-            if (ageWeeks < 54) return [
-              { icon:"👋", title:"Simple signs", body:"NHS recommends teaching simple baby sign language (more, milk, all done) alongside spoken words. Signs give pre-verbal babies a way to communicate and reduce frustration." },
-              { icon:"📖", title:"Interactive reading", body:"Point to pictures and ask where is the dog? Pause and wait. This builds pointing, joint attention and receptive vocabulary — all key WHO language milestones." },
-              { icon:"🧱", title:"Stacking and sorting", body:"Stacking cups and shape sorters build fine motor control, spatial reasoning and problem-solving. NHS developmental checks look for these skills at the 1-year review." },
-              { icon:"🏃", title:"Walking support", body:"Encourage cruising along furniture. NHS guidance is that most babies walk independently by 18 months — provide safe furniture routes and celebrate every step." },
-            ];
-            if (ageWeeks < 78) return [
-              { icon:"💬", title:"First words & naming", body:"Encourage labelling everything consistently. WHO speech milestones expect 2–3 meaningful words by 12–15 months and 10+ by 18 months. Respond enthusiastically to any attempt." },
-              { icon:"🎭", title:"Pretend play", body:"Introduce simple pretend play — feeding a teddy, talking on a toy phone. NHS 2-year check looks for symbolic play as a key cognitive indicator." },
-              { icon:"🌍", title:"Social play", body:"Organise playdates or baby groups. WHO guidelines emphasise that from 12 months, exposure to other children significantly advances social development." },
-              { icon:"🏃", title:"Physical confidence", body:"WHO recommends at least 180 minutes of physical activity per day for 1–2 year olds. Encourage walking on different surfaces, climbing safely, and dancing." },
-            ];
-            if (ageWeeks < 104) return [
-              { icon:"📚", title:"Expand vocabulary", body:"NHS expects 50+ words and two-word phrases by age 2. Read together daily, name new things, and expand what they say — if they say car, you say yes, big red car." },
-              { icon:"🧩", title:"Puzzles & problem-solving", body:"Simple 2–4 piece puzzles build spatial reasoning. Shape sorters and stacking toys develop the problem-solving skills assessed at the NHS 2-year review." },
-              { icon:"🎨", title:"Mark-making", body:"Offer chunky crayons and large paper. Scribbling is a fine motor milestone and the precursor to drawing and writing. NHS looks for mark-making at the 2-year check." },
-              { icon:"🤝", title:"Turn-taking", body:"Practice my turn, your turn with rolling a ball, building blocks, or simple games. Turn-taking is a key social skill that NHS assesses at age 2." },
-            ];
-            return [
-              { icon:"🗣", title:"Sentences & stories", body:"NHS expects 3–5 word sentences by age 3. Tell stories together, ask open-ended questions like what happened? and model full sentences back." },
-              { icon:"🏃", title:"Active play", body:"WHO recommends at least 60 minutes of energetic physical activity daily for 2–3 year olds, plus no more than 1 hour of sedentary screen time." },
-              { icon:"🎭", title:"Imaginative play", body:"Pretend play with storylines (shops, kitchens, doctors) shows advanced cognitive development. NHS 2.5-year check looks for this as a key indicator." },
-              { icon:"😊", title:"Emotional literacy", body:"Name emotions as they happen: you look cross, that was exciting. NHS guidance for 2–3 year olds emphasises that naming feelings helps children learn self-regulation." },
-            ];
-          }
-
-          const devAdvice = getDevAdvice(ageWeeks);
-          const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks !== null && ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
-          const filteredActs = devActFilter === "all" ? nowActs : nowActs.filter(a => a.cat === devActFilter);
 
           return (
             <div>
@@ -7707,6 +7558,63 @@ function App(){
                   <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:3}}>Based on NHS & WHO guidelines</div>
                 </div>
               </div>
+              
+              {/* ── Milestones ── */}
+              {ageWeeks && (
+                <>
+                <div className="glass-card" style={{...card,marginBottom:12,padding:"12px 16px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div>
+                      <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>Milestones</div>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.ter,lineHeight:1}}>
+                        {ageLabel} <span style={{fontSize:12,color:C.lt,fontFamily:_fM,fontWeight:400}}>· wk {ageWeeks}</span>
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.mint,lineHeight:1}}>{doneCount}</div>
+                      <div style={{fontSize:10,fontFamily:_fM,color:C.lt}}>logged</div>
+                    </div>
+                  </div>
+                  <div style={{background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
+                    <div style={{height:"100%",borderRadius:99,background:`linear-gradient(90deg,${C.ter},${C.mint})`,width:`${Math.round(doneCount/MILESTONES.length*100)}%`,transition:"width 0.4s"}}/>
+                  </div>
+                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,marginTop:3}}>{doneCount} of {MILESTONES.length} logged</div>
+                </div>
+                <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:4,marginBottom:12,WebkitOverflowScrolling:"touch"}}>
+                  {[{key:"all",icon:"⭐",label:"All"},...MILESTONE_CATS].map(c=>(
+                    <button key={c.key} onClick={()=>setMsFilter(c.key)}
+                      style={{flexShrink:0,padding:"7px 14px",borderRadius:999,border:"1px solid var(--card-border)",background:msFilter===c.key?"var(--chip-bg-active)":"var(--chip-bg)",color:msFilter===c.key?C.ter:C.mid,fontSize:12,fontWeight:msFilter===c.key?700:400,cursor:_cP,fontFamily:_fI,whiteSpace:"nowrap"}}>
+                      {c.icon} {c.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="glass-card" style={{...card,padding:"4px 14px 8px",marginBottom:10}}>
+                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,padding:"8px 0 6px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>
+                    Happening now · tap to mark achieved
+                  </div>
+                  {nowMs.length === 0
+                    ? <div style={{textAlign:"center",padding:"18px 0",color:C.lt,fontSize:13}}>No milestones in this window for this category.</div>
+                    : nowMs.map(m => <MilestoneRow key={m.id} m={m}/>)
+                  }
+                </div>
+                {pastMs.length > 0 && (
+                  <Accordion label="Achieved milestones" count={pastMs.length} open={msShowPastMs} toggle={()=>setMsShowPastMs(v=>!v)} accent={C.mint}>
+                    {pastMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
+                  </Accordion>
+                )}
+                {futureMs.length > 0 && (
+                  <Accordion label="Upcoming milestones" count={futureMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent={"#d09020"}>
+                    {futureMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
+                  </Accordion>
+                )}
+                <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:12,padding:"12px 14px",marginTop:6,marginBottom:14}}>
+                  <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
+                    <span style={{fontWeight:700,color:C.deep}}>ℹ️ A note on milestones</span><br/>
+                    Every baby develops at their own pace — these ranges are general guidelines. If you have concerns, speak to your health visitor or GP.
+                  </div>
+                </div>
+                </>
+              )}
               <div className="glass-card" style={{...card, marginBottom:14}}>
                 <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🎯 Activities for right now</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
@@ -7927,7 +7835,7 @@ function App(){
       )}
 
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:520,margin:"0 auto",borderRadius:"22px 22px 0 0",paddingBottom:"env(safe-area-inset-bottom,0)",padding:"4px 8px env(safe-area-inset-bottom,0)"}}>
-        {["day","insights","milestones","develop"].map(t=>(
+        {["day","insights","develop"].map(t=>(
           <button key={t} onClick={()=>{setTab(t);setLogPanel(null);}} style={tabSt(t)}>
             <span style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
@@ -9051,19 +8959,19 @@ function App(){
       {/* ═══ Mascot Popup Overlay ═══ */}
       {mascotPopup && (
         <div style={{position:"fixed",inset:0,zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-          <div style={{pointerEvents:"auto",animation:"mascotPop 0.5s cubic-bezier(0.22,1.2,0.36,1) both",width:"min(320px, calc(100vw - 40px))"}}>
+          <div style={{pointerEvents:"auto",textAlign:"center",animation:"mascotPop 0.5s cubic-bezier(0.22,1.2,0.36,1) both"}}>
             <style>{`
               @keyframes mascotPop{from{opacity:0;transform:scale(0.3) translateY(30px)}60%{opacity:1;transform:scale(1.05) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
               @keyframes mascotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
               @keyframes mascotTextIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
             `}</style>
-            <div className="mascot-glass-box" style={{textAlign:"center"}}>
-              <img
-                src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
-                alt=""
-                style={{width:180,height:180,objectFit:"contain",animation:"mascotFloat 2s ease-in-out 0.5s infinite",filter:"drop-shadow(0 12px 28px rgba(217,207,243,0.40))",marginBottom:12}}
-              />
-              <div style={{fontSize:17,fontWeight:700,color:document.body.classList.contains("dark-mode")?"#F0F2F5":"#5B4F5F",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.01em",lineHeight:1.4,animation:"mascotTextIn 0.4s ease 0.3s both"}}>{mascotPopup.message}</div>
+            <img
+              src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
+              alt=""
+              style={{width:220,height:220,objectFit:"contain",animation:"mascotFloat 2s ease-in-out 0.5s infinite",filter:"drop-shadow(0 16px 36px rgba(217,207,243,0.45))"}}
+            />
+            <div className="mascot-pill" style={{marginTop:14,background:document.body.classList.contains("dark-mode")?"rgba(30,40,60,0.92)":"rgba(255,255,255,0.95)",borderRadius:99,padding:"12px 28px",boxShadow:"0 0 28px rgba(246,221,227,0.50), 0 4px 20px rgba(217,207,243,0.30), inset 0 1px 0 rgba(255,255,255,0.25)",display:"inline-block",border:"1.5px solid rgba(255,255,255,0.18)",animation:"mascotTextIn 0.4s ease 0.3s both"}}>
+              <div style={{fontSize:16,fontWeight:700,color:document.body.classList.contains("dark-mode")?"#F0F2F5":"#5B4F5F",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.01em"}}>{mascotPopup.message}</div>
             </div>
           </div>
         </div>
