@@ -33,6 +33,22 @@ const displayToMl = (val, unit) => unit === "oz" ? ozToMl(parseFloat(val) || 0) 
 const volLabel = (unit) => unit === "oz" ? "oz" : "ml";
 const fmtVol = (ml, unit) => ml ? `${mlToDisplay(ml, unit)}${volLabel(unit)}` : "";
 
+// ── Weight/Height unit conversion (always store kg/cm internally) ──
+const KG_PER_LB = 0.453592;
+const CM_PER_IN = 2.54;
+const kgToLb = kg => Math.round(kg / KG_PER_LB * 10) / 10;
+const lbToKg = lb => Math.round(parseFloat(lb) * KG_PER_LB * 1000) / 1000;
+const cmToIn = cm => Math.round(cm / CM_PER_IN * 10) / 10;
+const inToCm = inch => Math.round(parseFloat(inch) * CM_PER_IN * 10) / 10;
+const kgToDisplay = (kg, unit) => unit === "lbs" ? kgToLb(kg) : Math.round(kg * 1000) / 1000;
+const displayToKg = (val, unit) => unit === "lbs" ? lbToKg(val) : parseFloat(val) || 0;
+const cmToDisplay = (cm, unit) => unit === "lbs" ? cmToIn(cm) : Math.round(cm * 10) / 10;
+const displayToCm = (val, unit) => unit === "lbs" ? inToCm(val) : parseFloat(val) || 0;
+const wtLabel = (unit) => unit === "lbs" ? "lbs" : "kg";
+const htLabel = (unit) => unit === "lbs" ? "in" : "cm";
+const fmtWt = (kg, unit) => kg ? `${kgToDisplay(kg, unit)}${wtLabel(unit)}` : "";
+const fmtHt = (cm, unit) => cm ? `${cmToDisplay(cm, unit)}${htLabel(unit)}` : "";
+
 // Global time parser for use in TimeInput component (outside App scope)
 function parseTimeFree(str, previousMinutes=null) {
   if (!str) return null;
@@ -1263,7 +1279,7 @@ function App(){
       });
     });
     // Add weight/height
-    rows.push([]);rows.push(["Date","Weight (kg)","Height (cm)","Weight %ile","Height %ile"]);
+    rows.push([]);rows.push(["Date","Weight ("+wtLabel(MU)+")","Height ("+htLabel(MU)+")","Weight %ile","Height %ile"]);
     const allDates=[...new Set([...weights.map(w=>w.date),...heights.map(h=>h.date)])].sort();
     allDates.forEach(d=>{
       const w=weights.find(x=>x.date===d);
@@ -1271,7 +1287,7 @@ function App(){
       let wp="",hp="";
       if(w&&babyDob){const mo=Math.floor((new Date(d)-new Date(babyDob))/(1000*60*60*24*30.44));wp=getPercentile(w.kg,mo,babySex)||"";}
       if(h&&babyDob){const mo=Math.floor((new Date(d)-new Date(babyDob))/(1000*60*60*24*30.44));hp=getHeightPercentile(h.cm,mo,babySex)||"";}
-      rows.push([d,w?w.kg:"",h?h.cm:"",wp,hp].map(v=>'"'+String(v)+'"'));
+      rows.push([d,w?kgToDisplay(w.kg,MU):"",h?cmToDisplay(h.cm,MU):"",wp,hp].map(v=>'"'+String(v)+'"'));
     });
     const csv=rows.map(r=>r.join(",")).join("\n");
     const blob=new Blob([csv],{type:"text/csv"});
@@ -1316,6 +1332,87 @@ function App(){
     };
     reader.readAsDataURL(file);
     e.target.value="";
+  }
+
+  // ── Bottle Snap & Review — take photos at night, review in morning ──
+  const SCAN_URL = window._OBUBBA_SCAN_URL || "";
+
+  // Persist pending bottles
+  React.useEffect(()=>{
+    try{localStorage.setItem("pending_bottles_v1",JSON.stringify(pendingBottles));}catch{}
+  },[pendingBottles]);
+
+  function openBottleScan(){
+    if(bottleScanRef.current) bottleScanRef.current.click();
+  }
+  function handleBottleScan(e){
+    const file=e.target.files&&e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      const img=new Image();
+      img.onload=function(){
+        const max=500;
+        let w=img.width,h=img.height;
+        if(w>max||h>max){const r=Math.min(max/w,max/h);w*=r;h*=r;}
+        const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        const dataUrl=canvas.toDataURL("image/jpeg",0.7);
+        setPendingBottles(prev=>[...prev,{id:uid(),dataUrl,time:nowTime(),date:todayStr(),analyzedMl:null}]);
+        setQuickFlash("📷 Bottle saved ✓");
+        setTimeout(()=>setQuickFlash(null),1200);
+        try{navigator.vibrate&&navigator.vibrate([25,15,25]);}catch{}
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value="";
+  }
+
+  async function analyzeBottles(){
+    if(!pendingBottles.length)return;
+    setBottleReviewLoading(true);
+    const results=[];
+    for(const b of pendingBottles){
+      if(!SCAN_URL){
+        results.push({...b,ml:0,note:"Scan URL not configured"});
+        continue;
+      }
+      try{
+        const resp=await fetch(SCAN_URL,{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({image:b.dataUrl})
+        });
+        const data=await resp.json();
+        results.push({...b,ml:data.consumedMl||0,note:data.note||""});
+      }catch{
+        results.push({...b,ml:0,note:"Could not analyze"});
+      }
+    }
+    setBottleReview(results);
+    setBottleReviewLoading(false);
+  }
+
+  function logAllBottles(){
+    if(!bottleReview)return;
+    bottleReview.forEach(b=>{
+      const amt=displayToMl(b.ml,FU);
+      if(amt>0){
+        setDays(d=>{
+          const dayKey=b.date||todayStr();
+          const entry={id:uid(),type:"feed",time:b.time,feedType:"milk",amount:amt,night:false,note:"📷 Bottle snap"};
+          const updated=[...(d[dayKey]||[]),entry];
+          const _pd=(()=>{const dt=new Date(dayKey+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+          return{...d,[dayKey]:autoClassifyNight(updated,d[_pd]||null)};
+        });
+      }
+    });
+    setPendingBottles([]);
+    setBottleReview(null);
+    setQuickFlash(`✓ ${bottleReview.filter(b=>b.ml>0).length} feeds logged`);
+    setTimeout(()=>setQuickFlash(null),1500);
+    try{navigator.vibrate&&navigator.vibrate([30,20,30]);}catch{}
   }
   const setMilestones  = (fn) => setChildren(prev => {
     const cur = prev[resolvedActiveId];
@@ -1474,7 +1571,11 @@ function App(){
   const[fluidUnit,setFluidUnit]=useState(()=>{
     try{return localStorage.getItem("fluid_unit_v1")||"ml";}catch{return "ml";}
   });
+  const[measureUnit,setMeasureUnit]=useState(()=>{
+    try{return localStorage.getItem("measure_unit_v1")||"metric";}catch{return "metric";}
+  });
   const FU=fluidUnit; // shorthand for templates
+  const MU=measureUnit; // "metric" or "lbs"
     const[pasteText,setPasteText]=useState("");
   const[parsedEntries,setParsedEntries]=useState(null);
   const parsedEntriesRef = React.useRef(null);
@@ -4183,6 +4284,10 @@ function App(){
     try{localStorage.setItem("fluid_unit_v1",fluidUnit);}catch{}
   },[fluidUnit]);
 
+  React.useEffect(()=>{
+    try{localStorage.setItem("measure_unit_v1",measureUnit);}catch{}
+  },[measureUnit]);
+
 
   function parseTime(str, previousMinutes=null) {
     if (!str) return null;
@@ -4574,7 +4679,13 @@ function App(){
   const lastLogRef = React.useRef({time:0, key:""});
   const[quickFlash,setQuickFlash]=useState(null);
   const[mascotPopup,setMascotPopup]=useState(null); // {type:'celebration'|'thinking'|'loading', message:'...'}
-  const[viewPhoto,setViewPhoto]=useState(null); // {id, dataUrl, date, time} — full-screen photo viewer
+  const[viewPhoto,setViewPhoto]=useState(null);
+  const[pendingBottles,setPendingBottles]=useState(()=>{
+    try{const v=localStorage.getItem("pending_bottles_v1");return v?JSON.parse(v):[];}catch{return [];}
+  }); // [{id, dataUrl, time, date, analyzedMl:null}]
+  const[bottleReview,setBottleReview]=useState(null); // [{id, dataUrl, time, date, ml, note}] — review screen
+  const[bottleReviewLoading,setBottleReviewLoading]=useState(false);
+  const bottleScanRef=useRef(null);
 
   function showMascot(type, message, duration=3000){
     setMascotPopup({type, message});
@@ -4932,7 +5043,8 @@ function App(){
   }
   function addWeight(){
     if(!wForm.kg)return;
-    const updated=[...weights.filter(x=>x.date!==wForm.date),{date:wForm.date,kg:parseFloat(wForm.kg)}].sort((a,b)=>a.date.localeCompare(b.date));
+    const kgVal = displayToKg(wForm.kg, MU);
+    const updated=[...weights.filter(x=>x.date!==wForm.date),{date:wForm.date,kg:kgVal}].sort((a,b)=>a.date.localeCompare(b.date));
     setWeights(updated);setWForm({date:todayStr(),kg:""});
   }
 
@@ -5344,7 +5456,7 @@ function App(){
               <button onClick={()=>setObStep(1)} style={{width:"100%",background:"rgba(201,112,90,0.55)",backdropFilter:"blur(20px) saturate(1.8)",WebkitBackdropFilter:"blur(20px) saturate(1.8)",border:"1.5px solid rgba(255,200,180,0.40)",borderRadius:18,padding:"19px",color:"white",fontSize:17,fontWeight:700,cursor:_cP,boxShadow:"0 8px 32px rgba(201,112,90,0.3), 0 0 44px rgba(255,190,70,0.20), 0 0 72px rgba(255,170,40,0.12)",letterSpacing:"0.01em",transition:"transform 0.12s",fontFamily:_fI}}>
                 Get Started →
               </button>
-              <div style={{textAlign:"center",marginTop:12,fontSize:12,color:C.lt,letterSpacing:"0.02em"}}>Free · No ads · Your data stays private</div>
+
             </div>
           </div>
         ) : (
@@ -5723,6 +5835,7 @@ function App(){
       )}
       {/* Hidden photo input for diary/milestones */}
       <input ref={photoInputRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhotoCapture}/>
+      <input ref={bottleScanRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handleBottleScan}/>
       <div
         style={{background:theme.primary,padding:"16px 16px 0",position:"relative",backdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",WebkitBackdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",boxShadow:"var(--card-shadow)",borderBottom:"1px solid var(--card-border)"}}
         onTouchStart={handleSwipeStart}
@@ -5925,6 +6038,7 @@ function App(){
                   }},
                   {emoji:"🫙",label:"Pump",action:()=>openLogPanel("pump")},
                   {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
+                  {emoji:"📸",label:"Snap",action:openBottleScan},
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                 ].map(({emoji,label,action})=>(
                   <button key={label} onClick={action}
@@ -5945,6 +6059,20 @@ function App(){
                 <div style={{textAlign:"center",padding:"6px 0",marginBottom:6}}>
                   <span style={{display:"inline-block",background:"var(--card-bg-solid)",border:"1.5px solid var(--ter)",borderRadius:99,padding:"7px 20px",fontSize:14,fontWeight:700,color:C.ter,fontFamily:_fM,boxShadow:"0 0 20px rgba(246,221,227,0.40), 0 4px 12px rgba(192,112,136,0.15)",animation:"popIn 0.2s cubic-bezier(0.34,1.56,0.64,1)"}}>{quickFlash}</span>
                 </div>
+              )}
+
+              {/* Pending bottle snaps banner */}
+              {pendingBottles.length>0&&(
+                <button onClick={analyzeBottles} style={{width:"100%",display:"flex",alignItems:"center",gap:12,background:"var(--card-bg)",border:`1.5px solid ${C.gold}40`,borderRadius:14,padding:"12px 14px",marginBottom:12,cursor:_cP,boxShadow:"var(--card-shadow)",textAlign:"left"}}>
+                  <div style={{width:40,height:40,borderRadius:12,background:`${C.gold}18`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                    <span style={{fontSize:22}}>📷</span>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{pendingBottles.length} bottle{pendingBottles.length!==1?"s":""} to review</div>
+                    <div style={{fontSize:12,color:C.lt,marginTop:2}}>Tap to analyze & log feeds</div>
+                  </div>
+                  <span style={{fontSize:13,color:C.ter,fontWeight:700,fontFamily:_fM}}>Review →</span>
+                </button>
               )}
 
               {/* Age guidance */}
@@ -6422,9 +6550,9 @@ function App(){
                             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                               <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Weight · WHO Curves</div>
                               {latestW && <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{latestW.kg}kg</span>
+                                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{fmtWt(latestW.kg,MU)}</span>
                                 <span style={{fontSize:12,fontWeight:700,color:percentileColor(latestW.pct),background:percentileColor(latestW.pct)+"18",padding:"2px 8px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestW.pct)}</span>
-                                {weightGain !== null && <span style={{fontSize:11,color:weightGain>=0?C.mint:C.ter,fontFamily:_fM,fontWeight:700}}>{weightGain>=0?"↑":"↓"}{Math.abs(weightGain*1000)}g</span>}
+                                {weightGain !== null && <span style={{fontSize:11,color:weightGain>=0?C.mint:C.ter,fontFamily:_fM,fontWeight:700}}>{weightGain>=0?"↑":"↓"}{MU==="lbs"?Math.abs(Math.round(weightGain/KG_PER_LB*16*10)/10)+"oz":Math.abs(weightGain*1000)+"g"}</span>}
                               </div>}
                             </div>
                             <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"10px 6px 4px",border:`1px solid ${C.blush}`}}>
@@ -6444,7 +6572,7 @@ function App(){
                             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                               <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Height · WHO Curves</div>
                               {latestH && <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{latestH.cm}cm</span>
+                                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{fmtHt(latestH.cm,MU)}</span>
                                 <span style={{fontSize:12,fontWeight:700,color:percentileColor(latestH.pct),background:percentileColor(latestH.pct)+"18",padding:"2px 8px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestH.pct)}</span>
                               </div>}
                             </div>
@@ -6459,12 +6587,12 @@ function App(){
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                       <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"12px",border:`1px solid ${C.blush}`}}>
                         <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Weight</div>
-                        {latestW ? <div><span style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:percentileColor(latestW.pct)}}>{ordinal(latestW.pct)}</span> <span style={{fontSize:12,color:C.lt}}>· {latestW.kg}kg</span></div>
+                        {latestW ? <div><span style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:percentileColor(latestW.pct)}}>{ordinal(latestW.pct)}</span> <span style={{fontSize:12,color:C.lt}}>· {fmtWt(latestW.kg,MU)}</span></div>
                         : <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>Not logged</div>}
                       </div>
                       <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"12px",border:`1px solid ${C.blush}`}}>
                         <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Height</div>
-                        {latestH ? <div><span style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:percentileColor(latestH.pct)}}>{ordinal(latestH.pct)}</span> <span style={{fontSize:12,color:C.lt}}>· {latestH.cm}cm</span></div>
+                        {latestH ? <div><span style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:percentileColor(latestH.pct)}}>{ordinal(latestH.pct)}</span> <span style={{fontSize:12,color:C.lt}}>· {fmtHt(latestH.cm,MU)}</span></div>
                         : <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>Not logged</div>}
                       </div>
                     </div>
@@ -6481,20 +6609,22 @@ function App(){
                   <div style={{marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
                     <Inp label="Date" type="date" value={growthForm.date} onChange={e=>{setGrowthForm(f=>({...f,date:e.target.value}));setHeightForm(f=>({...f,date:e.target.value}));}} style={{marginBottom:10}}/>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
-                      <Inp label="Weight (kg)" type="number" step="0.01" placeholder="e.g. 5.2" value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
-                      <Inp label="Height (cm)" type="number" step="0.1" placeholder="e.g. 62" value={heightForm.cm} onChange={e=>setHeightForm(f=>({...f,cm:e.target.value}))} style={{marginBottom:0}}/>
+                      <Inp label={`Weight (${wtLabel(MU)})`} type="number" step="0.01" placeholder={MU==="lbs"?"e.g. 11.5":"e.g. 5.2"} value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
+                      <Inp label={`Height (${htLabel(MU)})`} type="number" step="0.1" placeholder={MU==="lbs"?"e.g. 24.4":"e.g. 62"} value={heightForm.cm} onChange={e=>setHeightForm(f=>({...f,cm:e.target.value}))} style={{marginBottom:0}}/>
                     </div>
                     <PBtn onClick={()=>{
                       let saved = false;
                       if(growthForm.kg){
-                        const kg = parseFloat(growthForm.kg);
-                        if(kg < 0.3 || kg > 35){ alert("Weight should be between 0.3kg and 35kg. Please check your entry."); return; }
+                        const kg = displayToKg(growthForm.kg, MU);
+                        const minW = MU==="lbs" ? 0.3 : 0.3;
+                        const maxW = MU==="lbs" ? 35 : 35;
+                        if(kg < minW || kg > maxW){ alert(`Weight should be between ${fmtWt(0.3,MU)} and ${fmtWt(35,MU)}. Please check your entry.`); return; }
                         const updated=[...weights.filter(x=>x.date!==growthForm.date),{date:growthForm.date,kg}].sort((a,b)=>a.date.localeCompare(b.date));
                         setWeights(updated); saved = true;
                       }
                       if(heightForm.cm){
-                        const cm = parseFloat(heightForm.cm);
-                        if(cm < 25 || cm > 140){ alert("Height should be between 25cm and 140cm. Please check your entry."); return; }
+                        const cm = displayToCm(heightForm.cm, MU);
+                        if(cm < 25 || cm > 140){ alert(`Height should be between ${fmtHt(25,MU)} and ${fmtHt(140,MU)}. Please check your entry.`); return; }
                         const updated=[...heights.filter(x=>x.date!==heightForm.date),{date:heightForm.date,cm}].sort((a,b)=>a.date.localeCompare(b.date));
                         setHeights(updated); saved = true;
                       }
@@ -7827,6 +7957,24 @@ function App(){
                 {fluidUnit==="oz"?"Volumes shown in fluid ounces. Data is stored in ml internally — you can switch back anytime.":"Volumes shown in millilitres (default)."}
               </div>
             </div>
+            {/* Weight & Height Units */}
+            <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
+                <span style={{fontSize:24}}>📏</span>
+                <div>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Weight & Height</div>
+                  <div style={{fontSize:12,color:C.lt,marginTop:2}}>Choose how growth measurements are displayed</div>
+                </div>
+              </div>
+              <div style={{display:"inline-flex",background:"var(--card-bg)",borderRadius:99,border:`1px solid ${C.blush}`,overflow:"hidden",marginBottom:8}}>
+                <button onClick={()=>setMeasureUnit("metric")} style={{padding:"7px 16px",fontSize:13,fontFamily:_fM,fontWeight:700,border:"none",background:measureUnit==="metric"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:measureUnit==="metric"?"white":C.lt,cursor:"pointer",borderRadius:99}}>kg / cm</button>
+                <div style={{width:1,background:C.blush}}/>
+                <button onClick={()=>setMeasureUnit("lbs")} style={{padding:"7px 16px",fontSize:13,fontFamily:_fM,fontWeight:700,border:"none",background:measureUnit==="lbs"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:measureUnit==="lbs"?"white":C.lt,cursor:"pointer",borderRadius:99}}>lbs / in</button>
+              </div>
+              <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>
+                {measureUnit==="lbs"?"Growth shown in pounds & inches. Data stored in kg/cm internally.":"Growth shown in kilograms & centimetres (default)."}
+              </div>
+            </div>
             {/* Sleep Recommendations Mode */}
             <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%"}}>
               <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
@@ -7976,6 +8124,11 @@ function App(){
             <Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={logForm.note} onChange={e=>setLogForm(f=>({...f,note:e.target.value}))}/>
           )}
           <PBtn onClick={saveLogFeed}>✓ Log Feed</PBtn>
+          {logForm.feedType==="bottle"&&(
+            <button onClick={openBottleScan} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.mid,fontFamily:_fI,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span style={{fontSize:18}}>📷</span> Snap Bottle — log later
+            </button>
+          )}
         </Sheet>
       )}
 
@@ -8964,6 +9117,61 @@ function App(){
             )}
 
           </div>
+        </div>
+      )}
+
+      {/* ═══ Bottle Review Overlay ═══ */}
+      {(bottleReview || bottleReviewLoading) && (
+        <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+          {bottleReviewLoading ? (
+            <div style={{textAlign:"center"}}>
+              <img src="obubba-loading.png" alt="" style={{width:120,height:120,objectFit:"contain",animation:"mascotFloat 2s ease-in-out infinite",marginBottom:16}}/>
+              <div style={{fontSize:18,fontWeight:700,color:"white",marginBottom:8}}>Analyzing {pendingBottles.length} bottle{pendingBottles.length!==1?"s":""}...</div>
+              <div style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>This takes a few seconds</div>
+            </div>
+          ) : bottleReview && (
+            <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:400,width:"100%",maxHeight:"85vh",background:"var(--sheet-bg)",borderRadius:24,padding:"20px 16px",boxShadow:"0 20px 60px rgba(0,0,0,0.5)",overflowY:"auto"}}>
+              <div style={{textAlign:"center",marginBottom:16}}>
+                <div style={{fontSize:24,marginBottom:6}}>🍼</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep}}>Review Bottles</div>
+                <div style={{fontSize:13,color:C.lt,marginTop:4}}>{bottleReview.length} bottle{bottleReview.length!==1?"s":""} from overnight</div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+                {bottleReview.map((b,i)=>(
+                  <div key={b.id} style={{display:"flex",gap:10,background:"var(--card-bg)",borderRadius:14,padding:"10px",border:`1px solid ${C.blush}`}}>
+                    <img src={b.dataUrl} alt="" style={{width:56,height:56,borderRadius:10,objectFit:"cover",flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:4}}>{fmt12(b.time)} · {fmtDate(b.date)}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <input type="number" inputMode="numeric"
+                          value={b.ml}
+                          onChange={e=>{const v=e.target.value;setBottleReview(prev=>prev.map((x,j)=>j===i?{...x,ml:v}:x));}}
+                          style={{width:70,fontSize:18,fontWeight:700,padding:"6px 8px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                        <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>{volLabel(FU)}</span>
+                      </div>
+                      {b.note && <div style={{fontSize:11,color:C.lt,marginTop:3}}>{b.note}</div>}
+                    </div>
+                    <button onClick={()=>setBottleReview(prev=>prev.filter((_,j)=>j!==i))} style={{alignSelf:"center",width:24,height:24,borderRadius:"50%",border:"none",background:"rgba(224,96,112,0.15)",color:"#e06070",fontSize:12,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+                  </div>
+                ))}
+              </div>
+              {bottleReview.length===0 ? (
+                <div style={{textAlign:"center",padding:"12px",color:C.lt,fontSize:14}}>All bottles removed</div>
+              ) : (
+                <div style={{fontSize:13,color:C.mid,textAlign:"center",marginBottom:12,fontFamily:_fM}}>
+                  Total: {bottleReview.reduce((s,b)=>s+(parseFloat(b.ml)||0),0)} {volLabel(FU)}
+                </div>
+              )}
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{setBottleReview(null);}} style={{flex:1,padding:"12px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Cancel</button>
+                {bottleReview.length>0 && (
+                  <button onClick={logAllBottles} style={{flex:2,padding:"12px",borderRadius:14,border:`1.5px solid rgba(192,112,136,0.35)`,background:"var(--card-bg)",color:C.ter,fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"inset 0 0 8px rgba(201,112,90,0.15), 0 0 6px rgba(201,112,90,0.20)"}}>
+                    ✓ Log All Feeds
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
