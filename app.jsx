@@ -5688,16 +5688,14 @@ function App(){
           <div style={{position:"fixed",inset:0,zIndex:999,pointerEvents:"auto"}}>
             <div style={{position:"absolute",inset:0,background:"rgba(16,8,4,0.85)",backdropFilter:"blur(3px)"}}
               onClick={nextStep}/>
-            <div style={{
+            <div className="tour-card" style={{
               position:"fixed",
               left:"50%",
               top:"50%",
               transform:"translate(-50%, -50%)",
               width:"min(370px, calc(100vw - 28px))",
-              background:cardBg,
               borderRadius:24,
               padding:"22px 20px 18px",
-              boxShadow:"0 28px 72px rgba(0,0,0,0.55)",
               animation:"tutPop 0.3s ease",
               zIndex:1002,
               pointerEvents:"auto",
@@ -5957,14 +5955,6 @@ function App(){
                   }},
                   {emoji:"🫙",label:"Pump",action:()=>openLogPanel("pump")},
                   {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
-                  {emoji:"📸",label:"Bottle",action:()=>{
-                    // Snap bottle photo — saves to photo diary tagged as bottle
-                    if(photoInputRef.current){
-                      photoInputRef.current._forMilestone=null;
-                      photoInputRef.current._bottleSnap=true;
-                      photoInputRef.current.click();
-                    }
-                  }},
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                 ].map(({emoji,label,action})=>(
                   <button key={label} onClick={action}
@@ -9061,19 +9051,19 @@ function App(){
       {/* ═══ Mascot Popup Overlay ═══ */}
       {mascotPopup && (
         <div style={{position:"fixed",inset:0,zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
-          <div style={{pointerEvents:"auto",textAlign:"center",animation:"mascotPop 0.5s cubic-bezier(0.22,1.2,0.36,1) both"}}>
+          <div style={{pointerEvents:"auto",animation:"mascotPop 0.5s cubic-bezier(0.22,1.2,0.36,1) both",width:"min(320px, calc(100vw - 40px))"}}>
             <style>{`
               @keyframes mascotPop{from{opacity:0;transform:scale(0.3) translateY(30px)}60%{opacity:1;transform:scale(1.05) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
               @keyframes mascotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
               @keyframes mascotTextIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
             `}</style>
-            <img
-              src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
-              alt=""
-              style={{width:220,height:220,objectFit:"contain",animation:"mascotFloat 2s ease-in-out 0.5s infinite",filter:"drop-shadow(0 16px 36px rgba(217,207,243,0.45))"}}
-            />
-            <div className="mascot-pill" style={{marginTop:14,background:document.body.classList.contains("dark-mode")?"rgba(30,40,60,0.92)":"rgba(255,255,255,0.95)",borderRadius:99,padding:"12px 28px",boxShadow:"0 0 28px rgba(246,221,227,0.50), 0 4px 20px rgba(217,207,243,0.30), inset 0 1px 0 rgba(255,255,255,0.25)",display:"inline-block",border:"1.5px solid rgba(255,255,255,0.18)",animation:"mascotTextIn 0.4s ease 0.3s both"}}>
-              <div style={{fontSize:16,fontWeight:700,color:document.body.classList.contains("dark-mode")?"#F0F2F5":"#5B4F5F",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.01em"}}>{mascotPopup.message}</div>
+            <div className="mascot-glass-box" style={{textAlign:"center"}}>
+              <img
+                src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
+                alt=""
+                style={{width:180,height:180,objectFit:"contain",animation:"mascotFloat 2s ease-in-out 0.5s infinite",filter:"drop-shadow(0 12px 28px rgba(217,207,243,0.40))",marginBottom:12}}
+              />
+              <div style={{fontSize:17,fontWeight:700,color:document.body.classList.contains("dark-mode")?"#F0F2F5":"#5B4F5F",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.01em",lineHeight:1.4,animation:"mascotTextIn 0.4s ease 0.3s both"}}>{mascotPopup.message}</div>
             </div>
           </div>
         </div>
