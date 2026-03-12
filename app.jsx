@@ -183,9 +183,9 @@ function getC(){
     ter:v('--ter')||"#C07088",
     mid:v('--text-mid')||"#7A6B7E",
     lt:v('--text-lt')||"#A898AC",
-    blush:v('--blush')||"#F0E4E0",
+    blush:v('--blush')||"#F0D0C8",
     rose:v('--rose')||"#E8B4C0",
-    cream:v('--cream')||"#FFFEFD",
+    cream:v('--cream')||"#FFF8F2",
     warm:v('--warm')||"#FFFAF6",
     mint:v('--mint')||"#6fa898",
     sky:v('--sky')||"#7aabc4",
@@ -5684,7 +5684,7 @@ function App(){
                     ← Back
                   </button>
                 )}
-                <button onClick={nextStep} style={{flex:2,padding:"10px",borderRadius:12,border:_bN,background:`linear-gradient(135deg,#c9705a,#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"0 4px 14px rgba(201,112,90,0.35)"}}>
+                <button onClick={nextStep} style={{flex:2,padding:"10px",borderRadius:12,border:"1.5px solid rgba(201,112,90,0.35)",background:"var(--card-bg)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:C.ter,fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"inset 0 0 8px rgba(201,112,90,0.15), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 6px rgba(201,112,90,0.20), 0 0 14px rgba(201,112,90,0.12)"}}>
                   {isLast ? "🎉 Start Tracking!" : "Next →"}
                 </button>
               </div>
@@ -8981,7 +8981,7 @@ class ErrorBoundary extends React.Component{
   componentDidCatch(error,info){console.error("OBubba error boundary:",error,info);}
   render(){
     if(this.state.hasError){
-      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFFEFD 0%,#FDFAF9 40%,#FBF9F8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
+      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
         // Soft background orbs
         React.createElement("div",{style:{position:"absolute",top:"-10%",left:"10%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(246,221,227,0.40),transparent 70%)",pointerEvents:"none"}}),
         React.createElement("div",{style:{position:"absolute",bottom:"5%",right:"5%",width:250,height:250,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(217,207,243,0.35),transparent 70%)",pointerEvents:"none"}}),
