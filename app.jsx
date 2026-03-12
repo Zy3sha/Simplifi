@@ -1977,9 +1977,28 @@ function App(){
 
 
   function logout() {
-    try{ localStorage.removeItem("auth_verified"); }catch{}
-    try{ localStorage.removeItem("family_username"); }catch{}
+    // Unsubscribe from Firestore listener — prevents old data leaking to new account
+    if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
+
+    // Clear ALL localStorage
+    const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
+      "children_v1","active_child","onboarded_v2","tut_v2","install_date_v1",
+      "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1"];
+    keysToRemove.forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
+
+    // Reset ALL app state — blank slate
+    const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
+    setChildren({[blankChild.id]:blankChild});
+    setActiveChildId(blankChild.id);
+    setBackupCode(null);
+    setFamilyCode(null);
     setFamilyUsername(null);
+    setSyncStatus("idle");
+    setOnboarded(true);
+    setNeedsChildSetup(false);
+    setTab("day");
+
+    // Show auth screen with Sign In / Create Account
     setAuthScreen("login");
     setAuthMode("login");
     setAuthUsername("");
@@ -1987,6 +2006,7 @@ function App(){
     setAuthPin2("");
     setAuthError("");
     setAuthUsernameStatus("idle");
+    setAuthLoading(false);
   }
 
   async function restoreFromBackup(code) {
@@ -2151,6 +2171,10 @@ function App(){
 
   async function reserveUsername(username, pin) {
     if(!window._fb || !username.trim()) return false;
+    // Disconnect any previous listener to prevent data crossover
+    if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
+    // Disconnect any previous account's listener to prevent data crossover
+    if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
     const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const key = normaliseUsername(username);
     try {
@@ -4998,7 +5022,7 @@ function App(){
         const ok = await verifyLogin(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          setOnboarded(true); setAuthScreen(null);
+          setOnboarded(true); setAuthScreen(null); setTab("day");
         } else {
           setAuthError("Wrong PIN — try again");
           setAuthPin(""); setAuthLoading(false);
@@ -5008,7 +5032,7 @@ function App(){
         const ok = await reserveUsername(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null);
+          setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); setTab("day");
         } else { setAuthError("That username is taken — try another"); setAuthLoading(false); }
       }
     }
@@ -5020,10 +5044,10 @@ function App(){
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:3}}>OBubba</div>
           <div style={{fontSize:14,color:C.lt}}>{isLogin?"Welcome back":"Create your account"}</div>
         </div>
-        <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:99,padding:4,marginBottom:16,gap:4}}>
+        <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:99,padding:4,marginBottom:16,gap:4,flexShrink:0}}>
           {[["login","Sign In"],["create","Create Account"]].map(([m,l])=>(
             <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");setAuthUsernameStatus("idle");setAgreedToTerms(false);}}
-              style={{padding:"7px 16px",borderRadius:99,border:_bN,background:authMode===m?"var(--card-bg-solid)":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
+              style={{padding:"7px 18px",borderRadius:99,border:_bN,background:authMode===m?"var(--card-bg-solid)":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none",whiteSpace:"nowrap",flexShrink:0}}>
               {l}
             </button>
           ))}
@@ -5790,7 +5814,7 @@ function App(){
 
         </div>
         {!nameEdit ? (
-          <div onClick={()=>{setNameIn(babyName);setNameEdit(true);}} style={{cursor:_cP,marginBottom:2,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+          <div onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{cursor:_cP,marginBottom:2,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
             <div style={{width:38,height:38,borderRadius:10,overflow:"hidden",flexShrink:0,border:"1.5px solid rgba(255,255,255,0.75)",boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
               <img src="obubba-happy.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
                 onError={e=>{e.target.style.display="none";e.target.parentNode.style.background=C.ter;e.target.parentNode.style.display="flex";e.target.parentNode.style.alignItems="center";e.target.parentNode.style.justifyContent="center";e.target.parentNode.textContent="🍼";}}/>
@@ -5810,9 +5834,8 @@ function App(){
         <div style={{marginBottom:7,textAlign:"center"}}>
           {(()=>{
             if (!age && !babyUnborn) return (
-              <div onClick={e=>{e.stopPropagation();setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}}
-                style={{fontSize:13,color:C.mid,cursor:_cP,background:"var(--chip-bg)",borderRadius:99,padding:"5px 12px",fontFamily:_fM,display:"inline-block"}}>
-                ⚙️ Add date of birth
+              <div style={{fontSize:13,color:C.mid,background:"var(--chip-bg)",borderRadius:99,padding:"5px 12px",fontFamily:_fM,display:"inline-block"}}>
+                Tap name to add date of birth
               </div>
             );
             if (babyUnborn && babyDob) {
