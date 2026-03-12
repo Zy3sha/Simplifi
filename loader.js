@@ -1,6 +1,11 @@
-// ── Global error handler ──
+// ── Global error handler — styled sleeping baby page ──
 window.onerror = function(msg, src, line, col, err) {
-  document.getElementById('root').innerHTML = '<div style="min-height:100vh;background:linear-gradient(135deg,#FFF6F0 0%,#F6DDE3 40%,#E8E0FF 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;font-family:DM Sans,sans-serif;text-align:center;position:relative;overflow:hidden">'
+  // Try to get real error message if cross-origin obscured it
+  var detail = msg;
+  if (err && err.message) detail = err.message;
+  if (err && err.stack) detail += '\n' + err.stack.split('\n').slice(0,3).join('\n');
+
+  document.getElementById('root').innerHTML = '<div style="min-height:100vh;background:linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;font-family:DM Sans,sans-serif;text-align:center;position:relative;overflow:hidden">'
     + '<style>'
     + '@keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}'
     + '@keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}'
@@ -18,33 +23,39 @@ window.onerror = function(msg, src, line, col, err) {
     + '<div style="font-size:15px;color:#7A6B7E;line-height:1.65;max-width:300px;margin-bottom:6px">Looks like OBubba fell asleep...</div>'
     + '<div style="font-size:14px;color:#A898AC;line-height:1.5;max-width:280px;margin-bottom:28px">Hold tight — we\'ll be back from our nap ASAP. Your data is safe.</div>'
     + '<button onclick="window.location.reload()" style="padding:14px 36px;border-radius:99px;border:none;background:rgba(192,112,136,0.55);backdrop-filter:blur(16px);color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 0 24px rgba(246,221,227,0.40),0 0 48px rgba(217,207,243,0.25);animation:floatUp 3s ease-in-out infinite">Wake Up & Refresh</button>'
-    + '<div style="font-size:10px;color:#C8B8C0;margin-top:24px;font-family:monospace;max-width:300px;word-break:break-all">' + msg + ' (line ' + line + ')</div>'
+    + '<div style="font-size:10px;color:#C8B8C0;margin-top:24px;font-family:monospace;max-width:300px;word-break:break-all">' + detail + ' (line ' + line + ')</div>'
     + '</div>';
 };
 
 // ── Load and compile JSX from external file ──
 (function() {
+  var errorPage = function(title, detail) {
+    document.getElementById('root').innerHTML = '<div style="min-height:100vh;background:linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;font-family:DM Sans,sans-serif;text-align:center">'
+      + '<style>@keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}@keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}@keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}@keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}@keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}</style>'
+      + '<div style="position:relative;margin-bottom:28px"><img src="sleep-baby.png" alt="" style="width:200px;height:200px;object-fit:contain;animation:babyBreathe 3.5s ease-in-out infinite;filter:drop-shadow(0 16px 32px rgba(217,207,243,0.35))"><span style="position:absolute;top:8px;right:-5px;font-size:18px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz1 2.8s ease-in-out infinite">z</span><span style="position:absolute;top:-8px;right:12px;font-size:24px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz2 2.8s ease-in-out 0.5s infinite">z</span><span style="position:absolute;top:-28px;right:28px;font-size:16px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz3 2.8s ease-in-out 1s infinite">z</span></div>'
+      + '<div style="font-family:Playfair Display,serif;font-size:26px;font-weight:700;color:#5B4F5F;margin-bottom:10px">Uh oh!</div>'
+      + '<div style="font-size:15px;color:#7A6B7E;line-height:1.65;max-width:300px;margin-bottom:6px">Looks like OBubba fell asleep...</div>'
+      + '<div style="font-size:14px;color:#A898AC;line-height:1.5;max-width:280px;margin-bottom:28px">Hold tight — we\'ll be back from our nap ASAP. Your data is safe.</div>'
+      + '<button onclick="window.location.reload()" style="padding:14px 36px;border-radius:99px;border:none;background:rgba(192,112,136,0.55);backdrop-filter:blur(16px);color:white;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 0 24px rgba(246,221,227,0.40);animation:floatUp 3s ease-in-out infinite">Wake Up & Refresh</button>'
+      + '<div style="font-size:10px;color:#C8B8C0;margin-top:24px;font-family:monospace;max-width:300px;word-break:break-all">' + title + ': ' + detail + '</div>'
+      + '</div>';
+  };
+
   function compile(src) {
     try {
       if (typeof Babel === 'undefined') throw new Error('Babel not loaded');
       if (typeof React === 'undefined') throw new Error('React not loaded');
       var result = Babel.transform(src, { presets: ['react'] });
+      // Use Blob URL — do NOT wrap code in try/catch as it breaks const/let/class scoping
       var blob = new Blob([result.code], { type: 'application/javascript' });
       var url = URL.createObjectURL(blob);
       var s = document.createElement('script');
       s.src = url;
       s.onload = function() { URL.revokeObjectURL(url); };
-      s.onerror = function(e) { console.error('JSX load error', e); };
+      s.onerror = function(e) { errorPage('Script load', 'Failed to execute compiled code'); };
       document.body.appendChild(s);
     } catch(e) {
-      document.getElementById('root').innerHTML = '<div style="min-height:100vh;background:linear-gradient(135deg,#FFF6F0 0%,#F6DDE3 40%,#E8E0FF 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;font-family:DM Sans,sans-serif;text-align:center">'
-        + '<style>@keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}@keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}@keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}@keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}@keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}</style>'
-        + '<div style="position:relative;margin-bottom:28px"><img src="sleep-baby.png" alt="" style="width:200px;height:200px;object-fit:contain;animation:babyBreathe 3.5s ease-in-out infinite;filter:drop-shadow(0 16px 32px rgba(217,207,243,0.35))"><span style="position:absolute;top:8px;right:-5px;font-size:18px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz1 2.8s ease-in-out infinite">z</span><span style="position:absolute;top:-8px;right:12px;font-size:24px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz2 2.8s ease-in-out 0.5s infinite">z</span><span style="position:absolute;top:-28px;right:28px;font-size:16px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz3 2.8s ease-in-out 1s infinite">z</span></div>'
-        + '<div style="font-family:Playfair Display,serif;font-size:26px;font-weight:700;color:#5B4F5F;margin-bottom:10px">Uh oh!</div>'
-        + '<div style="font-size:15px;color:#7A6B7E;line-height:1.65;max-width:300px;margin-bottom:6px">Looks like OBubba fell asleep...</div>'
-        + '<div style="font-size:14px;color:#A898AC;line-height:1.5;max-width:280px;margin-bottom:28px">Hold tight — we\'ll be back from our nap ASAP. Your data is safe.</div>'
-        + '<button onclick="window.location.reload()" style="padding:14px 36px;border-radius:99px;border:none;background:rgba(192,112,136,0.55);backdrop-filter:blur(16px);color:white;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 0 24px rgba(246,221,227,0.40);animation:floatUp 3s ease-in-out infinite">Wake Up & Refresh</button>'
-        + '</div>';
+      errorPage('Compile', e.message);
     }
   }
 
@@ -59,14 +70,7 @@ window.onerror = function(msg, src, line, col, err) {
       if (embedded) {
         compile(embedded.textContent);
       } else {
-        document.getElementById('root').innerHTML = '<div style="min-height:100vh;background:linear-gradient(135deg,#FFF6F0 0%,#F6DDE3 40%,#E8E0FF 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;font-family:DM Sans,sans-serif;text-align:center">'
-          + '<style>@keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}@keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}@keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}@keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}@keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}</style>'
-          + '<div style="position:relative;margin-bottom:28px"><img src="sleep-baby.png" alt="" style="width:200px;height:200px;object-fit:contain;animation:babyBreathe 3.5s ease-in-out infinite;filter:drop-shadow(0 16px 32px rgba(217,207,243,0.35))"><span style="position:absolute;top:8px;right:-5px;font-size:18px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz1 2.8s ease-in-out infinite">z</span><span style="position:absolute;top:-8px;right:12px;font-size:24px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz2 2.8s ease-in-out 0.5s infinite">z</span><span style="position:absolute;top:-28px;right:28px;font-size:16px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz3 2.8s ease-in-out 1s infinite">z</span></div>'
-          + '<div style="font-family:Playfair Display,serif;font-size:26px;font-weight:700;color:#5B4F5F;margin-bottom:10px">Uh oh!</div>'
-          + '<div style="font-size:15px;color:#7A6B7E;line-height:1.65;max-width:300px;margin-bottom:6px">Looks like OBubba fell asleep...</div>'
-          + '<div style="font-size:14px;color:#A898AC;line-height:1.5;max-width:280px;margin-bottom:28px">Hold tight — we\'ll be back from our nap ASAP. Your data is safe.</div>'
-          + '<button onclick="window.location.reload()" style="padding:14px 36px;border-radius:99px;border:none;background:rgba(192,112,136,0.55);backdrop-filter:blur(16px);color:white;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 0 24px rgba(246,221,227,0.40);animation:floatUp 3s ease-in-out infinite">Wake Up & Refresh</button>'
-          + '</div>';
+        errorPage('Fetch', err.message);
       }
     });
 })();

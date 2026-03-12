@@ -183,9 +183,9 @@ function getC(){
     ter:v('--ter')||"#C07088",
     mid:v('--text-mid')||"#7A6B7E",
     lt:v('--text-lt')||"#A898AC",
-    blush:v('--blush')||"#F3D3DA",
+    blush:v('--blush')||"#F0D0C8",
     rose:v('--rose')||"#E8B4C0",
-    cream:v('--cream')||"#FFF6F0",
+    cream:v('--cream')||"#FFF8F2",
     warm:v('--warm')||"#FFFAF6",
     mint:v('--mint')||"#6fa898",
     sky:v('--sky')||"#7aabc4",
@@ -5957,7 +5957,7 @@ function App(){
                   {id:"paste", icon:"📋", label:"Notes"},
                 ].map(({id,icon,label})=>(
                   <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?"var(--ter)":"rgba(255,255,255,0.45)"}`,background:logPanel===id?"var(--chip-bg-active)":"radial-gradient(ellipse 100% 100% at 50% 30%, rgba(246,221,227,0.22), transparent 65%), radial-gradient(ellipse 80% 80% at 50% 90%, rgba(217,207,243,0.16), transparent 55%), var(--card-bg)",cursor:_cP,fontFamily:_fI,transition:"all 0.15s, transform 0.1s",boxShadow:logPanel===id?"0 0 24px rgba(192,112,136,0.30), 0 0 48px rgba(246,221,227,0.20), inset 0 1px 0 rgba(255,255,255,0.60)":"0 0 18px rgba(255,255,255,0.50), 0 0 36px rgba(246,221,227,0.28), 0 0 56px rgba(217,207,243,0.16), inset 0 1px 0 rgba(255,255,255,0.55)"}}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?"var(--ter)":"rgba(255,255,255,0.45)"}`,background:logPanel===id?"var(--chip-bg-active)":"var(--card-bg)",cursor:_cP,fontFamily:_fI,transition:"all 0.15s, transform 0.1s",boxShadow:logPanel===id?"0 0 12px rgba(192,112,136,0.30), inset 0 1px 0 rgba(255,255,255,0.60)":"inset 0 0 5px rgba(246,221,227,0.35), inset 0 1px 0 rgba(255,255,255,0.50), 0 0 4px rgba(243,211,218,0.35), 0 0 8px rgba(217,168,192,0.18)"}}
                     onMouseDown={e=>{e.currentTarget.style.transform="scale(0.92)";}}
                     onMouseUp={e=>{e.currentTarget.style.transform="scale(1)";}}
                     onTouchStart={e=>{e.currentTarget.style.transform="scale(0.92)";}}
@@ -8981,7 +8981,7 @@ class ErrorBoundary extends React.Component{
   componentDidCatch(error,info){console.error("OBubba error boundary:",error,info);}
   render(){
     if(this.state.hasError){
-      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFF6F0 0%,#F6DDE3 40%,#E8E0FF 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
+      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
         // Soft background orbs
         React.createElement("div",{style:{position:"absolute",top:"-10%",left:"10%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(246,221,227,0.40),transparent 70%)",pointerEvents:"none"}}),
         React.createElement("div",{style:{position:"absolute",bottom:"5%",right:"5%",width:250,height:250,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(217,207,243,0.35),transparent 70%)",pointerEvents:"none"}}),
