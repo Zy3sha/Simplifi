@@ -6696,47 +6696,6 @@ function App(){
 
                   {/* Feed & Nap Trends */}
 
-                  {/* Height/Length Chart */}
-                  {sortedH.length>=1&&babySex&&babyDob&&(()=>{
-                    const PCTL=[2,9,25,50,75,91,98];
-                    const PC={2:"#e8b4a0",9:"#e8c4b0",25:"#d4ede6",50:"#6fa898",75:"#d4ede6",91:"#e8c4b0",98:"#e8b4a0"};
-                    const maxMo=Math.min(Math.max(...hWithPct.filter(h=>h.ageMo!=null).map(h=>h.ageMo),6)+2,24);
-                    const CW=320,CH=240,PL=30,PR=28,PT=12,PB=24;
-                    const pW2=CW-PL-PR,pH3=CH-PT-PB;
-                    const allCm=[];
-                    for(let mo=0;mo<=maxMo;mo++) PCTL.forEach(p=>{const cm=lengthForPercentile(mo,p,babySex);if(cm)allCm.push(cm);});
-                    sortedH.forEach(h=>allCm.push(h.cm));
-                    const cMin=Math.floor(Math.min(...allCm)*0.97*10)/10;
-                    const cMax=Math.ceil(Math.max(...allCm)*1.03*10)/10;
-                    const cR=cMax-cMin||1;
-                    const tX2=mo=>PL+((mo)/(maxMo))*pW2;
-                    const tY2=cm=>PT+(1-(cm-cMin)/cR)*pH3;
-                    const hPaths={};
-                    PCTL.forEach(p=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const cm=lengthForPercentile(mo,p,babySex);if(cm)d.push(`${mo===0?"M":"L"}${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}hPaths[p]=d.join(" ");});
-                    const hbp=hWithPct.filter(h=>h.ageMo!=null&&h.ageMo<=maxMo);
-                    const hBabyPath=hbp.map((h,i)=>`${i===0?"M":"L"}${tX2(h.ageMo).toFixed(1)},${tY2(h.cm).toFixed(1)}`).join(" ");
-                    const hBands=[[2,9],[9,25],[25,50],[50,75],[75,91],[91,98]];
-                    const hBf=["rgba(232,180,160,0.18)","rgba(232,196,176,0.12)","rgba(212,237,230,0.22)","rgba(212,237,230,0.22)","rgba(232,196,176,0.12)","rgba(232,180,160,0.18)"];
-                    return(
-                      <div style={{marginBottom:14}}>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Height Chart · WHO Percentiles</div>
-                        <div style={{fontSize:11,color:C.lt,marginBottom:10}}>{babySex==="boy"?"👦 Boys":"👧 Girls"} · 0–{maxMo} months</div>
-                        <svg width="100%" viewBox={`0 0 ${CW} ${CH}`} style={{display:"block"}}>
-                          {hBands.map(([lo,hi],bi)=>{const d=[];for(let mo=0;mo<=maxMo;mo++){const cm=lengthForPercentile(mo,hi,babySex);if(cm)d.push(`${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}for(let mo=maxMo;mo>=0;mo--){const cm=lengthForPercentile(mo,lo,babySex);if(cm)d.push(`${tX2(mo).toFixed(1)},${tY2(cm).toFixed(1)}`);}return<polygon key={bi} points={d.join(" ")} fill={hBf[bi]} stroke="none"/>;
-                          })}
-                          {PCTL.map(p=><g key={p}><path d={hPaths[p]} fill="none" stroke={PC[p]} strokeWidth={p===50?1.8:0.7} strokeDasharray={p===50?"":"4,3"} opacity={0.85}/><text x={CW-PR+4} y={tY2(lengthForPercentile(maxMo,p,babySex))+3} fontSize={8} fill={C.lt} fontFamily="monospace">{p===50?"50th":p}</text></g>)}
-                          {[0,3,6,9,12,15,18,21,24].filter(m=>m<=maxMo).map(m=><g key={m}><line x1={tX2(m)} y1={PT} x2={tX2(m)} y2={CH-PB} stroke={C.blush} strokeWidth={0.4}/><text x={tX2(m)} y={CH-PB+14} textAnchor="middle" fontSize={9} fill={C.lt} fontFamily="monospace">{m}m</text></g>)}
-                          {hbp.length>1&&<path d={hBabyPath} fill="none" stroke={C.sky} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/>}
-                          {hbp.map((h,i)=>(
-                            <g key={i}>
-                              <circle cx={tX2(h.ageMo)} cy={tY2(h.cm)} r={3.5} fill="white" stroke={C.sky} strokeWidth={2}/>
-                              {i===hbp.length-1&&<text x={tX2(h.ageMo)} y={tY2(h.cm)-5} textAnchor="middle" fontSize={7} fill={C.sky} fontFamily="monospace">{h.cm}cm</text>}
-                            </g>
-                          ))}
-                        </svg>
-                      </div>
-                    );
-                  })()}
 
                   {/* Feed & Nap Trends (original) */}
                   {dayKeys.length<3?(
