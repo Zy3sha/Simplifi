@@ -1352,12 +1352,16 @@ function App(){
   }); // [{id, text, createdDate, pinned}]
   const[showAddAppt,setShowAddAppt]=useState(false);
   const[showAddPin,setShowAddPin]=useState(false);
-  const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:""});
+  const[showAddReminder,setShowAddReminder]=useState(false);
+  const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0});
+  const[reminderForm,setReminderForm]=useState({text:"",date:"",time:""});
+  const[reminders,setReminders]=useState(()=>{
+    try{const v=localStorage.getItem("reminders_v1");return v?JSON.parse(v):[];}catch{return [];}
+  });
   const[pinForm,setPinForm]=useState("");
   const[notifPermission,setNotifPermission]=useState(()=>{
     try{return Notification.permission;}catch{return "denied";}
   });
-  const[msShowPastPhases,setMsShowPastPhases]=useState(false);
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
     const[growthLogOpen,setGrowthLogOpen]=useState(false);
@@ -1493,10 +1497,6 @@ function App(){
   const[obChildMode,setObChildMode]=useState("new");
   const obUsernameCheckRef = React.useRef(null);
   const[editEntry,setEditEntry]=useState(null);
-  const[insightDismissed,setInsightDismissed]=useState(()=>{try{return!!localStorage.getItem("ins_v1");}catch{return false;}});
-    const[showPersonalPopup,setShowPersonalPopup]=useState(()=>{
-    try{const v=localStorage.getItem("use_personal_recs_v1");return v===null;}catch{return true;}
-  });
 
 
   const[usePersonalRecs,setUsePersonalRecs]=useState(()=>{
@@ -1616,7 +1616,6 @@ function App(){
   const[csDob,setCsDob]=useState("");
   const[csSex,setCsSex]=useState("");
   const[csConfirmDelete,setCsConfirmDelete]=useState(false);
-  const[joinCodeInput,setJoinCodeInput]=useState("");
   const[joinError,setJoinError]=useState("");
   const[fbReady,setFbReady]=useState(false);
   const syncRef = React.useRef(null);
@@ -1996,7 +1995,7 @@ function App(){
     // Clear ALL localStorage
     const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
       "children_v1","active_child","onboarded_v2","tut_v2","install_date_v1",
-      "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1"];
+      "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1"];
     keysToRemove.forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
 
     // Reset ALL app state — blank slate
@@ -3929,14 +3928,14 @@ function App(){
 
       if (!bedLogged && (status==="low") && remainingFeeds > 0 && dayShortfall > 80) {
         const topUp = Math.round(dayShortfall / remainingFeeds / 10) * 10;
-        suggestions.push({ icon:"🍼", body:`${remainingFeeds} feed${remainingFeeds!==1?"s":""} left today. Adding ~${topUp}ml to each would reach the minimum.` });
+        suggestions.push({ icon:"🍼", body:`${remainingFeeds} feed${remainingFeeds!==1?"s":""} left today. Adding ~${fmtVol(topUp,FU)} to each would reach the minimum.` });
       }
 
 
       const maxF=Math.max(...amounts), minF=Math.min(...amounts);
       if (dayMilkFeeds.length>=3 && maxF>avgFeed*1.5 && minF<avgFeed*0.6) {
         const even = Math.round(dayMl/dayMilkFeeds.length/10)*10;
-        suggestions.push({ icon:"⚖️", body:`Day feeds range from ${minF}ml to ${maxF}ml. More consistent feeds of ~${even}ml reduce wind and keep hunger steady.` });
+        suggestions.push({ icon:"⚖️", body:`Day feeds range from ${fmtVol(minF,FU)} to ${fmtVol(maxF,FU)}. More consistent feeds of ~${fmtVol(even,FU)} reduce wind and keep hunger steady.` });
       }
 
 
@@ -4105,12 +4104,12 @@ function App(){
       if (feedTrend === "falling" && mlRecent3 < 400) {
         insights.push({
           type:"warn", icon:"🍼", title:"Milk Intake Dropping",
-          body:`The last 3 days have averaged ${Math.round(mlRecent3)}ml — down from ${Math.round(mlOlder)}ml earlier in the week${weekLabel}. A sustained drop below 400ml/day is worth monitoring; if it continues for more than 3–4 days, mention it to your health visitor.`
+          body:`The last 3 days have averaged ${fmtVol(Math.round(mlRecent3),FU)} — down from ${Math.round(mlOlder)}ml earlier in the week${weekLabel}. A sustained drop below 400ml/day is worth monitoring; if it continues for more than 3–4 days, mention it to your health visitor.`
         });
       } else if (feedTrend === "rising" && mlRecent3 > 1100) {
         insights.push({
           type:"info", icon:"🍼", title:"Milk Intake Rising",
-          body:`Daily intake has climbed to ~${Math.round(mlRecent3)}ml in the last 3 days. This may reflect a growth spurt — a short-term increase is completely normal. If it continues beyond 5–7 days above 1200ml, it can sometimes indicate comfort feeding replacing sleep associations.`
+          body:`Daily intake has climbed to ~${fmtVol(Math.round(mlRecent3),FU)} in the last 3 days. This may reflect a growth spurt — a short-term increase is completely normal. If it continues beyond 5–7 days above 1200ml, it can sometimes indicate comfort feeding replacing sleep associations.`
         });
       }
     }
@@ -4256,9 +4255,23 @@ function App(){
     try{localStorage.setItem("pinned_notes_v1",JSON.stringify(pinnedNotes));}catch{}
   },[pinnedNotes]);
 
+  React.useEffect(()=>{
+    try{localStorage.setItem("reminders_v1",JSON.stringify(reminders));}catch{}
+  },[reminders]);
+
   // ── Notification scheduling ──
   React.useEffect(()=>{
     if(notifPermission!=="granted") return;
+    // Schedule notifications for reminders
+    reminders.filter(r=>!r.done&&r.date&&r.time).forEach(r=>{
+      const rTime=new Date(r.date+"T"+r.time).getTime();
+      if(rTime>now && rTime<now+24*60*60*1000){
+        setTimeout(()=>{
+          try{new Notification("OBubba Reminder",{body:r.text,icon:"obubba-happy.png",tag:"rem-"+r.id});}catch{}
+        },rTime-now);
+      }
+    });
+
     // Schedule notifications for upcoming appointments
     const now=Date.now();
     appointments.forEach(a=>{
@@ -4266,13 +4279,15 @@ function App(){
       const apptTime=new Date(a.date+"T"+(a.time||"09:00")).getTime();
       const remind30=apptTime-30*60*1000; // 30 min before
       const remindDay=new Date(a.date+"T08:00:00").getTime(); // morning of
-      [remind30,remindDay].forEach(t=>{
+      const travelMs = (a.travelMins||0)*60*1000;
+      const remindTravel = travelMs>0 ? apptTime-travelMs : 0;
+      [remind30,remindDay,remindTravel].filter(Boolean).forEach(t=>{
         if(t>now && t<now+24*60*60*1000){
           const delay=t-now;
           setTimeout(()=>{
             try{
               new Notification("OBubba Reminder",{
-                body:`${a.title}${a.time?" at "+fmt12(a.time):""}${a.date===todayStr()?" today":" on "+fmtDate(a.date)}`,
+                body:`${t===remindTravel?"Time to leave! ":""}${a.title}${a.time?" at "+fmt12(a.time):""}${a.date===todayStr()?" today":" on "+fmtDate(a.date)}`,
                 icon:"obubba-happy.png",
                 tag:"appt-"+a.id
               });
@@ -4680,12 +4695,67 @@ function App(){
     setMascotPopup({type, message});
     if(duration > 0) setTimeout(()=>setMascotPopup(null), duration);
   }
-  function addAppointment(){
+  // ── Social share card generator ──
+  async function shareCard(title, lines, emoji){
+    const W=640,H=400;
+    const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
+    const ctx=canvas.getContext("2d");
+    const grad=ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0,"#FFF8F2");grad.addColorStop(0.5,"#F5E1D8");grad.addColorStop(1,"#F0DDD6");
+    ctx.fillStyle=grad;ctx.beginPath();ctx.roundRect(0,0,W,H,24);ctx.fill();
+    ctx.font="48px serif";ctx.textAlign="center";ctx.fillText(emoji||"👶",W/2,88);
+    ctx.font="bold 26px 'DM Sans',sans-serif";ctx.fillStyle="#5B4F4F";ctx.fillText(title,W/2,140);
+    ctx.font="18px 'DM Sans',sans-serif";ctx.fillStyle="#7A6B6B";
+    lines.forEach((l,i)=>ctx.fillText(l,W/2,180+i*28));
+    ctx.font="13px 'DM Sans',sans-serif";ctx.fillStyle="#C0A8A0";ctx.fillText("Tracked with OBubba · obubba.com",W/2,H-20);
+    try{
+      const blob=await new Promise(r=>canvas.toBlob(r,"image/png"));
+      const file=new File([blob],title.replace(/[^a-z0-9]/gi,"_")+".png",{type:"image/png"});
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title,text:title});
+      } else if(navigator.share){
+        await navigator.share({title,text:lines.join(" · ")+" — Tracked with OBubba"});
+      } else {
+        const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=file.name;a.click();
+      }
+    }catch(e){if(e.name!=="AbortError")console.warn("Share error",e);}
+  }
+
+    function addAppointment(){
     if(!apptForm.title.trim()||!apptForm.date) return;
-    setAppointments(prev=>[...prev,{id:uid(),date:apptForm.date,time:apptForm.time,title:apptForm.title.trim(),note:apptForm.note.trim(),reminded:false}]);
-    setApptForm({date:"",time:"",title:"",note:""});
+    const base={title:apptForm.title.trim(),time:apptForm.time,note:apptForm.note.trim(),repeat:apptForm.repeat||"none",travelMins:parseInt(apptForm.travelMins)||0,reminded:false};
+    const newAppts=[{...base,id:uid(),date:apptForm.date}];
+    // Generate recurring instances
+    if(apptForm.repeat&&apptForm.repeat!=="none"){
+      const d=new Date(apptForm.date+"T12:00:00");
+      for(let i=1;i<=12;i++){
+        const next=new Date(d);
+        if(apptForm.repeat==="weekly") next.setDate(next.getDate()+7*i);
+        else if(apptForm.repeat==="fortnightly") next.setDate(next.getDate()+14*i);
+        else if(apptForm.repeat==="monthly") next.setMonth(next.getMonth()+i);
+        newAppts.push({...base,id:uid(),date:next.toISOString().slice(0,10)});
+      }
+    }
+    setAppointments(prev=>[...prev,...newAppts]);
+    setApptForm({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0});
     setShowAddAppt(false);
     try{navigator.vibrate&&navigator.vibrate(30);}catch{}
+  }
+
+  function addReminder(){
+    if(!reminderForm.text.trim()) return;
+    setReminders(prev=>[...prev,{id:uid(),text:reminderForm.text.trim(),date:reminderForm.date||todayStr(),time:reminderForm.time||"",done:false}]);
+    setReminderForm({text:"",date:"",time:""});
+    setShowAddReminder(false);
+    try{navigator.vibrate&&navigator.vibrate(30);}catch{}
+  }
+
+  function toggleReminder(id){
+    setReminders(prev=>prev.map(r=>r.id===id?{...r,done:!r.done}:r));
+  }
+
+  function deleteReminder(id){
+    setReminders(prev=>prev.filter(r=>r.id!==id));
   }
 
   function deleteAppointment(id){
@@ -5756,9 +5826,10 @@ function App(){
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
                 <div style={{marginBottom:8}}>Keep track of health visits, vaccinations, and GP appointments:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>📅 <strong>Add appointments</strong> — tap the dashed button on the Day view or go to Account → Appointments</div>
-                  <div>🔔 <strong>Reminders</strong> — enable notifications to get alerts the morning of and 30 minutes before</div>
-                  <div>📌 <strong>Pin important notes</strong> — allergies, medical info, or partner reminders that show at the top of every day</div>
+                  <div>📅 <strong>Appointments</strong> — add one-off or recurring (weekly/monthly) appointments with travel time reminders</div>
+                  <div>🔔 <strong>Reminders</strong> — "Give Calpol at 2pm" style to-do items with optional timed notifications</div>
+                  <div>📌 <strong>Pinned notes</strong> — allergies, medical info, or partner reminders that stay at the top of every day</div>
+                  <div>🚗 <strong>Travel time</strong> — set travel time on appointments and get a "time to leave" alert</div>
                 </div>
               </div>
             ), location:"Day view — above age guidance" },
@@ -6097,7 +6168,29 @@ function App(){
 
               {/* Pending bottle snaps banner */}
 
-              {/* Appointments */}
+              {/* ═══ Planner ═══ */}
+              {/* Dashed add buttons — only show for empty sections */}
+              {(appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length===0||reminders.filter(r=>!r.done).length===0||pinnedNotes.length===0)&&(
+                <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                  {appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length===0&&(
+                    <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:"",repeat:"none",travelMins:0});setShowAddAppt(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                      📅 Appointment
+                    </button>
+                  )}
+                  {reminders.filter(r=>!r.done).length===0&&(
+                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:""});setShowAddReminder(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                      🔔 Reminder
+                    </button>
+                  )}
+                  {pinnedNotes.length===0&&(
+                    <button onClick={()=>setShowAddPin(true)} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                      📌 Pin Note
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Upcoming Appointments card */}
               {(()=>{
                 const upcoming=appointments.filter(a=>{
                   const d=new Date(a.date+"T23:59:59");
@@ -6105,24 +6198,23 @@ function App(){
                 }).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
                 if(!upcoming.length) return null;
                 return (
-                  <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:12}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📅 Upcoming</div>
-                      <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:""});setShowAddAppt(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
+                  <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📅 Upcoming Appointments</div>
+                      <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:"",repeat:"none",travelMins:0});setShowAddAppt(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                     </div>
                     {upcoming.map(a=>{
                       const isToday=a.date===todayStr();
                       const isTomorrow=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
                       const dayLabel=isToday?"Today":isTomorrow?"Tomorrow":fmtLong(a.date);
                       return (
-                        <div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.blush}`}}>
-                          <div style={{width:36,height:36,borderRadius:10,background:isToday?`${C.ter}18`:"var(--chip-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:16}}>
+                        <div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"7px 0",borderBottom:`1px solid ${C.blush}`}}>
+                          <div style={{width:32,height:32,borderRadius:9,background:isToday?`${C.ter}18`:"var(--chip-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:14}}>
                             {isToday?"🔔":"📅"}
                           </div>
                           <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:14,fontWeight:700,color:isToday?C.ter:C.deep}}>{a.title}</div>
-                            <div style={{fontSize:12,color:C.lt,fontFamily:_fM}}>{dayLabel}{a.time?" · "+fmt12(a.time):""}</div>
-                            {a.note&&<div style={{fontSize:12,color:C.mid,marginTop:2}}>{a.note}</div>}
+                            <div style={{fontSize:13,fontWeight:700,color:isToday?C.ter:C.deep}}>{a.title}</div>
+                            <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{dayLabel}{a.time?" · "+fmt12(a.time):""}{a.repeat&&a.repeat!=="none"?" · 🔄 "+a.repeat:""}{a.travelMins>0?" · 🚗 "+a.travelMins+"min":""}</div>
                           </div>
                           <button onClick={()=>deleteAppointment(a.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
                         </div>
@@ -6132,16 +6224,50 @@ function App(){
                 );
               })()}
 
-              {/* Pinned Notes */}
-              {pinnedNotes.length>0&&(
-                <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:12}}>
+              {/* Reminders card */}
+              {reminders.filter(r=>!r.done).length>0&&(
+                <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:10}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📌 Important Notes</div>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🔔 Reminders</div>
+                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:""});setShowAddReminder(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
+                  </div>
+                  {reminders.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(r=>(
+                    <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
+                      <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${C.mint}`,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,color:C.deep,lineHeight:1.4}}>{r.text}</div>
+                        {(r.time||r.date!==todayStr())&&<div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{r.date===todayStr()?"Today":fmtLong(r.date)}{r.time?" · "+fmt12(r.time):""}</div>}
+                      </div>
+                      <button onClick={()=>deleteReminder(r.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
+                    </div>
+                  ))}
+                  {reminders.filter(r=>r.done).length>0&&(
+                    <div style={{marginTop:6,paddingTop:4,borderTop:`1px solid ${C.blush}`}}>
+                      <div style={{fontSize:10,color:C.lt,fontFamily:_fM,marginBottom:3}}>Done</div>
+                      {reminders.filter(r=>r.done).map(r=>(
+                        <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"3px 0",opacity:0.45}}>
+                          <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${C.mint}`,background:C.mint,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}>
+                            <span style={{color:"white",fontSize:10,fontWeight:700}}>✓</span>
+                          </div>
+                          <div style={{flex:1,fontSize:12,color:C.lt,textDecoration:"line-through"}}>{r.text}</div>
+                          <button onClick={()=>deleteReminder(r.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP}}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Important Notes card */}
+              {pinnedNotes.length>0&&(
+                <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📌 {babyName?possessive(babyName)+" ":""}Important Notes</div>
                     <button onClick={()=>setShowAddPin(true)} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                   </div>
                   {pinnedNotes.map(n=>(
-                    <div key={n.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.blush}`}}>
-                      <span style={{fontSize:13,flexShrink:0,marginTop:1}}>📌</span>
+                    <div key={n.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
+                      <span style={{fontSize:12,flexShrink:0,marginTop:1}}>📌</span>
                       <div style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5}}>{n.text}</div>
                       <button onClick={()=>deletePinnedNote(n.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
                     </div>
@@ -6149,19 +6275,7 @@ function App(){
                 </div>
               )}
 
-              {/* Quick add buttons for appointments/notes when empty */}
-              {appointments.length===0&&pinnedNotes.length===0&&(
-                <div style={{display:"flex",gap:8,marginBottom:12}}>
-                  <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:""});setShowAddAppt(true);}} style={{flex:1,padding:"10px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
-                    📅 Add Appointment
-                  </button>
-                  <button onClick={()=>setShowAddPin(true)} style={{flex:1,padding:"10px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
-                    📌 Pin a Note
-                  </button>
-                </div>
-              )}
-
-              {/* Age guidance */}
+                                          {/* Age guidance */}
               {ageStage&&(
                 <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"12px 14px",marginBottom:14,boxShadow:"var(--card-shadow)"}}>
                   <div style={{flex:1}}>
@@ -6539,51 +6653,6 @@ function App(){
             </div>
           )
         )}
-        {tab==="week"&&(
-          <div>
-            <div className="glass-card" style={card}>
-              <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Avg Daily Feed (last 7 days)</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:30,fontWeight:700,color:C.ter}}>{mlToDisplay(avgMl,FU)}<span style={{fontSize:15,color:C.lt,fontWeight:400}}> {volLabel(FU)}</span></div>
-            </div>
-            <div className="glass-card" style={card}>
-              <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>Feed Total by Day</div>
-              <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
-                {wStats.map((s,i)=>(
-                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                    <div style={{fontSize:9,fontFamily:_fM,color:C.lt}}>{s.ml||""}</div>
-                    <div style={{width:"100%",background:`${C.ter}${s.date===selDay?"ff":"88"}`,borderRadius:"4px 4px 0 0",height:`${Math.max(4,(s.ml/maxMl)*60)}px`}}/>
-                    <div style={{fontSize:9,fontFamily:_fM,color:s.date===selDay?C.ter:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,2)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="glass-card" style={card}>
-              <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>Nap Time by Day (mins)</div>
-              <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
-                {wStats.map((s,i)=>(
-                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                    <div style={{fontSize:9,fontFamily:_fM,color:C.lt}}>{s.napM||""}</div>
-                    <div style={{width:"100%",background:`${C.mint}${s.date===selDay?"ff":"88"}`,borderRadius:"4px 4px 0 0",height:`${Math.max(4,(s.napM/maxNapBar)*60)}px`}}/>
-                    <div style={{fontSize:9,fontFamily:_fM,color:s.date===selDay?C.mint:C.lt,fontWeight:s.date===selDay?700:400}}>{fmtDate(s.date).slice(0,2)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="glass-card" style={card}>
-              <div style={{fontSize:15,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>Day Summary</div>
-              {wStats.map((s,i)=>(
-                <div key={i} onClick={()=>{setSelDay(s.date);setTab("day");}} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:i<wStats.length-1?`1px solid ${C.blush}`:"none",cursor:_cP}}>
-                  <span style={{fontSize:15,color:s.date===selDay?C.ter:C.deep,fontWeight:s.date===selDay?600:400}}>{fmtLong(s.date)}</span>
-                  <div style={{display:"flex",gap:8}}>
-                    <span style={{fontSize:14,fontFamily:_fM,color:C.ter}}>{fmtVol(s.ml,FU)}</span>
-                    <span style={{fontSize:14,fontFamily:_fM,color:C.mint}}>{s.naps} naps</span>
-                    <span style={{fontSize:14,fontFamily:_fM,color:C.lt}}>{s.nightW}🌙</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         {tab==="insights"&&(()=>{
           const ageMonths = babyDob ? Math.floor((new Date() - new Date(babyDob)) / (1000*60*60*24*30.44)) : null;
           const sortedW = [...weights].sort((a,b)=>a.date.localeCompare(b.date));
@@ -6642,7 +6711,7 @@ function App(){
                 let feedLine = "";
                 if (feedCount === 0) feedLine = "No feeds logged yet.";
                 else if (dayMlTotal > 0) {
-                  feedLine = `${dayMlTotal}ml across ${feedCount} feed${feedCount!==1?"s":""}`;
+                  feedLine = `${fmtVol(dayMlTotal,FU)} across ${feedCount} feed${feedCount!==1?"s":""}`;
                   const solids = todayDayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
                   if (solids > 0) feedLine += ` + ${solids} solid${solids!==1?"s":""}`;
                   feedLine += ".";
@@ -6710,14 +6779,14 @@ function App(){
                         <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Daytime</div>
                         <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:fc.color,lineHeight:1}}>{fc.dayMl}ml</div>
                         <div style={{fontSize:11,color:fc.metMinimum?C.mint:fc.approachingBed?C.ter:C.lt,marginTop:2,fontWeight:fc.approachingBed&&!fc.metMinimum?600:400}}>
-                          {fc.metMinimum ? `✓ min ${fc.totalMin}ml reached` : `min ${fc.totalMin}ml by bedtime`}
+                          {fc.metMinimum ? `✓ min ${fmtVol(fc.totalMin,FU)} reached` : `min ${fmtVol(fc.totalMin,FU)} by bedtime`}
                         </div>
                       </div>
                       {fc.nightMl > 0 && (
                         <div style={{flex:1,background:"var(--chip-bg)",borderRadius:12,padding:"10px 12px"}}>
                           <div style={{fontSize:11,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
                           <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--text-mid)",lineHeight:1}}>{fc.nightMl}ml</div>
-                          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fc.totalMl}ml</div>
+                          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fmtVol(fc.totalMl,FU)}ml</div>
                         </div>
                       )}
                       {fc.nightMl === 0 && (
@@ -7363,11 +7432,11 @@ function App(){
                           </div>
                           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.mid,borderTop:`1px solid ${C.blush}`,paddingTop:4}}>
                             <span>Daytime · {dayFeeds.length} feeds</span>
-                            <span style={{fontFamily:_fM}}>{totalFeedMl-nightFeedMl}ml</span>
+                            <span style={{fontFamily:_fM}}>{fmtVol(totalFeedMl-nightFeedMl,FU)}</span>
                           </div>
                           {rNightE.filter(e=>e.type==="feed").length>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:C.mid,marginTop:3}}>
                             <span>Night · {rNightE.filter(e=>e.type==="feed").length} feeds</span>
-                            <span style={{fontFamily:_fM}}>{nightFeedMl}ml</span>
+                            <span style={{fontFamily:_fM}}>{fmtVol(nightFeedMl,FU)}</span>
                           </div>}
                         </div>
                         <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderLeft:`3px solid ${C.mint}`,borderRadius:12,padding:"10px",marginBottom:8}}>
@@ -7387,7 +7456,7 @@ function App(){
                           <div style={{fontSize:13,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>🌟 Night Wakes</div>
                           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                             <span style={{fontSize:14,color:"var(--text-mid)"}}>{rNightE.length} wake{rNightE.length!==1?"s":""}</span>
-                            {nightFeedMl>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:13,padding:"2px 7px",borderRadius:99}}>{nightFeedMl}ml</span>}
+                            {nightFeedMl>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:13,padding:"2px 7px",borderRadius:99}}>{fmtVol(nightFeedMl,FU)}</span>}
                           </div>
                         </div>
                         {/* Sleep & Feed Insights from analyseTrends */}
@@ -7563,6 +7632,8 @@ function App(){
                       <span style={{background:"var(--chip-bg)",borderRadius:99,padding:"1px 6px"}}>{catInfo?.icon} {catInfo?.label}</span>
                       {done ? <span style={{color:C.mint}}>✓ {fmtLong(milestones[m.id].date)}</span>
                             : <span style={{fontFamily:_fM}}>typical wk {m.weeks[1]}</span>}
+                      {done && <button onClick={e=>{e.stopPropagation();capturePhoto(m.id);}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"1px 7px",fontSize:11,color:C.mid,cursor:_cP}}>📷</button>}
+                      {done && <button onClick={e=>{e.stopPropagation();shareCard(`${babyName||"Baby"} achieved a milestone!`,[m.label,`at ${fmtAge(age)} old`],"⭐");}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"1px 7px",fontSize:11,color:C.mid,cursor:_cP}}>📤</button>}
                     </div>
                   </div>
                   <div style={{flexShrink:0,paddingTop:2}}>
@@ -7913,7 +7984,34 @@ function App(){
                 </div>
               </button>
             )}
-            {/* All Appointments */}
+            {/* Reminders */}
+            <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>🔔</span>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Reminders</div>
+                </div>
+                <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:""});setShowAddReminder(true);}} style={{fontSize:12,color:C.ter,fontWeight:700,background:_bN,border:_bN,cursor:_cP,fontFamily:_fM}}>+ Add</button>
+              </div>
+              {reminders.length===0?(
+                <div style={{fontSize:13,color:C.lt,padding:"8px 0"}}>No reminders yet</div>
+              ):(
+                reminders.map(r=>(
+                  <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.blush}`,opacity:r.done?0.5:1}}>
+                    <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${r.done?C.mint:C.ter}`,background:r.done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}>
+                      {r.done&&<span style={{color:"white",fontSize:10,fontWeight:700}}>✓</span>}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:C.deep,textDecoration:r.done?"line-through":"none"}}>{r.text}</div>
+                      {r.time&&<div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{fmtLong(r.date)} · {fmt12(r.time)}</div>}
+                    </div>
+                    <button onClick={()=>deleteReminder(r.id)} style={{background:_bN,border:_bN,fontSize:13,color:"#e06070",cursor:_cP}}>✕</button>
+                  </div>
+                ))
+              )}
+            </div>
+
+                        {/* All Appointments */}
             <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%",marginBottom:10}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -8599,9 +8697,9 @@ function App(){
           ln.push(`☀️ Wake up: ${wakeEv?fmt12(wakeEv.time):"—"}`);
           ln.push(`🌙 Bedtime: ${sleepEv?fmt12(sleepEv.time):"—"}`);
           ln.push(``);
-          ln.push(`🍼 Total feed: ${totalFeedMl}ml`);
-          ln.push(`   Daytime: ${totalFeedMl-nightFeedMl}ml over ${dayFeeds.length} feed${dayFeeds.length!==1?"s":""}`);
-          if(nEs.length) ln.push(`   Night: ${nightFeedMl}ml over ${nEs.filter(e=>e.type==="feed").length} feed${nEs.filter(e=>e.type==="feed").length!==1?"s":""}`);
+          ln.push(`🍼 Total feed: ${fmtVol(totalFeedMl,FU)}`);
+          ln.push(`   Daytime: ${fmtVol(totalFeedMl-nightFeedMl,FU)} over ${dayFeeds.length} feed${dayFeeds.length!==1?"s":""}`);
+          if(nEs.length) ln.push(`   Night: ${fmtVol(nightFeedMl,FU)} over ${nEs.filter(e=>e.type==="feed").length} feed${nEs.filter(e=>e.type==="feed").length!==1?"s":""}`);
           ln.push(``);
           ln.push(`😴 Naps: ${dayNaps.length} nap${dayNaps.length!==1?"s":""} (${hm(totalNapM)} total)`);
           ln.push(``);
@@ -8639,11 +8737,11 @@ function App(){
               </div>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:14,color:C.mid,borderTop:`1px solid ${C.blush}`,paddingTop:6}}>
                 <span>Daytime · {dayFeeds.length} feeds</span>
-                <span style={{fontFamily:_fM}}>{totalFeedMl-nightFeedMl}ml</span>
+                <span style={{fontFamily:_fM}}>{fmtVol(totalFeedMl-nightFeedMl,FU)}</span>
               </div>
               {nEs.length>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:14,color:C.mid,marginTop:4}}>
                 <span>Night · {nEs.filter(e=>e.type==="feed").length} feeds</span>
-                <span style={{fontFamily:_fM}}>{nightFeedMl}ml</span>
+                <span style={{fontFamily:_fM}}>{fmtVol(nightFeedMl,FU)}</span>
               </div>}
             </div>
             <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderLeft:`3px solid ${C.mint}`,borderRadius:14,padding:"12px",marginBottom:10}}>
@@ -8663,7 +8761,7 @@ function App(){
               <div style={{fontSize:15,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>🌟 Night Wakes</div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:stretches.length?10:0}}>
                 <span style={{fontSize:15,color:"var(--text-mid)"}}>{nEs.length} wake{nEs.length!==1?"s":""}</span>
-                {nightFeedMl>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:14,padding:"2px 8px",borderRadius:99}}>{nightFeedMl}ml total</span>}
+                {nightFeedMl>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:14,padding:"2px 8px",borderRadius:99}}>{fmtVol(nightFeedMl,FU)} total</span>}
               </div>
               {stretches.length>0&&(
                 <>
@@ -9181,6 +9279,28 @@ function App(){
               <div style={{flex:1}}><Inp label="Time" type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))}/></div>
             </div>
             <Inp label="Note (optional)" type="text" placeholder="e.g. bring red book" value={apptForm.note} onChange={e=>setApptForm(f=>({...f,note:e.target.value}))}/>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Repeat</label>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {[["none","One-off"],["weekly","Weekly"],["fortnightly","Fortnightly"],["monthly","Monthly"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setApptForm(f=>({...f,repeat:v}))} style={{padding:"6px 12px",borderRadius:99,border:`1.5px solid ${apptForm.repeat===v?C.ter:C.blush}`,background:apptForm.repeat===v?"var(--chip-bg-active)":"var(--card-bg)",color:apptForm.repeat===v?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {apptForm.repeat!=="none"&&<div style={{fontSize:11,color:C.lt,marginTop:4}}>Creates 12 {apptForm.repeat} appointments from the date above</div>}
+            </div>
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Travel time reminder</label>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {[[0,"None"],[10,"10 min"],[15,"15 min"],[20,"20 min"],[30,"30 min"],[45,"45 min"],[60,"1 hour"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>setApptForm(f=>({...f,travelMins:v}))} style={{padding:"6px 10px",borderRadius:99,border:`1.5px solid ${apptForm.travelMins===v?C.sky:C.blush}`,background:apptForm.travelMins===v?"rgba(122,171,196,0.12)":"var(--card-bg)",color:apptForm.travelMins===v?C.sky:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {apptForm.travelMins>0&&<div style={{fontSize:11,color:C.sky,marginTop:4}}>You'll get a "time to leave" notification {apptForm.travelMins} min before</div>}
+            </div>
             {notifPermission!=="granted"&&(
               <button onClick={requestNotifications} style={{width:"100%",padding:"10px",borderRadius:12,border:`1.5px solid ${C.gold}40`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.gold,fontFamily:_fI,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                 🔔 Enable reminders for appointments
@@ -9206,7 +9326,29 @@ function App(){
         </div>
       )}
 
-      {/* ═══ Photo Viewer Overlay ═══ */}
+      {/* ═══ Add Reminder Modal ═══ */}
+      {showAddReminder&&(
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setShowAddReminder(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🔔 Add Reminder</div>
+            <Inp label="Reminder" type="text" placeholder="e.g. Give Oliver Calpol after vaccine" value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:e.target.value}))}/>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:1}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
+              <div style={{flex:1}}><Inp label="Time (optional)" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
+            </div>
+            <div style={{fontSize:12,color:C.lt,marginBottom:10,lineHeight:1.5}}>Set a time to get a notification reminder. Leave blank for a simple checklist item.</div>
+            {notifPermission!=="granted"&&reminderForm.time&&(
+              <button onClick={requestNotifications} style={{width:"100%",padding:"10px",borderRadius:12,border:`1.5px solid ${C.gold}40`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.gold,fontFamily:_fI,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                🔔 Enable notifications
+              </button>
+            )}
+            <PBtn onClick={addReminder}>Save Reminder</PBtn>
+            <button onClick={()=>setShowAddReminder(false)} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:`1px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.lt,fontFamily:_fI}}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+            {/* ═══ Photo Viewer Overlay ═══ */}
       {viewPhoto && (
         <div onClick={()=>setViewPhoto(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:"100%",maxHeight:"80vh",position:"relative"}}>
