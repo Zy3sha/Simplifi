@@ -1365,7 +1365,7 @@ function App(){
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
     const[growthLogOpen,setGrowthLogOpen]=useState(false);
-  const[insightSection,setInsightSection]=useState({trends:true,sleep:false,reports:false});
+  const[insightSection,setInsightSection]=useState({trends:true,sleep:true,reports:false});
   const toggleInsight=(k)=>setInsightSection(p=>({...p,[k]:!p[k]}));
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
   const[devActFilter,setDevActFilter]=useState("all");
@@ -2775,6 +2775,15 @@ function App(){
     });
   })();
   const totalMl=entries.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
+  // Include night feeds (this day's night entries + next day's cross-midnight entries)
+  const totalMlWithNight=(()=>{
+    const thisDayNightWakeMl=entries.filter(e=>e.night&&e.type==="wake"&&(e.amount||0)>0).reduce((s,f)=>s+(f.amount||0),0);
+    const nextD=new Date(selDay+"T12:00:00");nextD.setDate(nextD.getDate()+1);
+    const nextStr=nextD.toISOString().split("T")[0];
+    const nextE=days[nextStr]||[];
+    const nextNightMl=nextE.filter(e=>e.night&&((e.type==="feed")||(e.type==="wake"&&(e.amount||0)>0))).reduce((s,f)=>s+(f.amount||0),0);
+    return totalMl+thisDayNightWakeMl+nextNightMl;
+  })();
   const naps=dayE.filter(e=>e.type==="nap");
   const napMins=naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
   const wins=getAwakeWindows(entries);
@@ -6335,7 +6344,7 @@ function App(){
               {/* 5. Today's summary stats */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[
-                  {big:totalMl?mlToDisplay(totalMl,FU):dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMl?volLabel(FU):"meals",label:totalMl?"Total Milk":"Solids",color:C.ter,bg:"var(--card-bg)"},
+                  {big:totalMlWithNight?mlToDisplay(totalMlWithNight,FU):dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMlWithNight?volLabel(FU):"meals",label:totalMlWithNight?"Total Milk":"Solids",color:C.ter,bg:"var(--card-bg)"},
                   {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:C.mid,bg:"var(--card-bg)"},
                   {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"var(--card-bg)"},
                   {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"var(--card-bg)"},
@@ -6786,7 +6795,7 @@ function App(){
                         <div style={{flex:1,background:"var(--chip-bg)",borderRadius:12,padding:"10px 12px"}}>
                           <div style={{fontSize:11,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
                           <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--text-mid)",lineHeight:1}}>{fc.nightMl}ml</div>
-                          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fmtVol(fc.totalMl,FU)}ml</div>
+                          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fmtVol(fc.totalMl,FU)}</div>
                         </div>
                       )}
                       {fc.nightMl === 0 && (
@@ -9263,9 +9272,9 @@ function App(){
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🔔 Add Reminder</div>
             <Inp label="Reminder" type="text" placeholder="e.g. Give Oliver Calpol after vaccine" value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:e.target.value}))}/>
-            <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+            <div style={{display:"flex",gap:8}}>
               <div style={{flex:1}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
-              <div style={{flex:1}}><Inp label="Time (optional)" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
+              <div style={{flex:1}}><Inp label="Time" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
             </div>
             <div style={{fontSize:12,color:C.lt,marginBottom:10,lineHeight:1.5}}>Set a time to get a notification reminder. Leave blank for a simple checklist item.</div>
             {notifPermission!=="granted"&&reminderForm.time&&(
