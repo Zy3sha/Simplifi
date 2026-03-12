@@ -1344,6 +1344,19 @@ function App(){
   const[selDay,setSelDay]=useState(todayStr);
   const[tab,setTab]=useState("day");
   const[msFilter,setMsFilter]=useState("all");
+  const[appointments,setAppointments]=useState(()=>{
+    try{const v=localStorage.getItem("appointments_v1");return v?JSON.parse(v):[];}catch{return [];}
+  }); // [{id, date, time, title, note, reminded}]
+  const[pinnedNotes,setPinnedNotes]=useState(()=>{
+    try{const v=localStorage.getItem("pinned_notes_v1");return v?JSON.parse(v):[];}catch{return [];}
+  }); // [{id, text, createdDate, pinned}]
+  const[showAddAppt,setShowAddAppt]=useState(false);
+  const[showAddPin,setShowAddPin]=useState(false);
+  const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:""});
+  const[pinForm,setPinForm]=useState("");
+  const[notifPermission,setNotifPermission]=useState(()=>{
+    try{return Notification.permission;}catch{return "denied";}
+  });
   const[msShowPastPhases,setMsShowPastPhases]=useState(false);
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
@@ -4235,6 +4248,41 @@ function App(){
     try{localStorage.setItem("measure_unit_v1",measureUnit);}catch{}
   },[measureUnit]);
 
+  React.useEffect(()=>{
+    try{localStorage.setItem("appointments_v1",JSON.stringify(appointments));}catch{}
+  },[appointments]);
+
+  React.useEffect(()=>{
+    try{localStorage.setItem("pinned_notes_v1",JSON.stringify(pinnedNotes));}catch{}
+  },[pinnedNotes]);
+
+  // ── Notification scheduling ──
+  React.useEffect(()=>{
+    if(notifPermission!=="granted") return;
+    // Schedule notifications for upcoming appointments
+    const now=Date.now();
+    appointments.forEach(a=>{
+      if(a.reminded) return;
+      const apptTime=new Date(a.date+"T"+(a.time||"09:00")).getTime();
+      const remind30=apptTime-30*60*1000; // 30 min before
+      const remindDay=new Date(a.date+"T08:00:00").getTime(); // morning of
+      [remind30,remindDay].forEach(t=>{
+        if(t>now && t<now+24*60*60*1000){
+          const delay=t-now;
+          setTimeout(()=>{
+            try{
+              new Notification("OBubba Reminder",{
+                body:`${a.title}${a.time?" at "+fmt12(a.time):""}${a.date===todayStr()?" today":" on "+fmtDate(a.date)}`,
+                icon:"obubba-happy.png",
+                tag:"appt-"+a.id
+              });
+            }catch{}
+          },delay);
+        }
+      });
+    });
+  },[appointments,notifPermission]);
+
 
   function parseTime(str, previousMinutes=null) {
     if (!str) return null;
@@ -4632,7 +4680,38 @@ function App(){
     setMascotPopup({type, message});
     if(duration > 0) setTimeout(()=>setMascotPopup(null), duration);
   }
-  function quickAddLog(type, data){
+  function addAppointment(){
+    if(!apptForm.title.trim()||!apptForm.date) return;
+    setAppointments(prev=>[...prev,{id:uid(),date:apptForm.date,time:apptForm.time,title:apptForm.title.trim(),note:apptForm.note.trim(),reminded:false}]);
+    setApptForm({date:"",time:"",title:"",note:""});
+    setShowAddAppt(false);
+    try{navigator.vibrate&&navigator.vibrate(30);}catch{}
+  }
+
+  function deleteAppointment(id){
+    setAppointments(prev=>prev.filter(a=>a.id!==id));
+  }
+
+  function addPinnedNote(){
+    if(!pinForm.trim()) return;
+    setPinnedNotes(prev=>[...prev,{id:uid(),text:pinForm.trim(),createdDate:todayStr(),pinned:true}]);
+    setPinForm("");
+    setShowAddPin(false);
+    try{navigator.vibrate&&navigator.vibrate(30);}catch{}
+  }
+
+  function deletePinnedNote(id){
+    setPinnedNotes(prev=>prev.filter(n=>n.id!==id));
+  }
+
+  async function requestNotifications(){
+    try{
+      const p=await Notification.requestPermission();
+      setNotifPermission(p);
+    }catch{}
+  }
+
+    function quickAddLog(type, data){
     setSessionLogs(c=>{
       const n=c+1;
       try{if(n===3 && !localStorage.getItem("tut_v2") && tutStep===-1) setTimeout(()=>setShowTutPrompt(true),800);}catch{}
@@ -5672,6 +5751,17 @@ function App(){
                 </div>
               </div>
             ), location:"Bottom navigation — Development tab" },
+          { icon:"📅", title:"Appointments & Reminders",
+            bodyJSX:(
+              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
+                <div style={{marginBottom:8}}>Keep track of health visits, vaccinations, and GP appointments:</div>
+                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
+                  <div>📅 <strong>Add appointments</strong> — tap the dashed button on the Day view or go to Account → Appointments</div>
+                  <div>🔔 <strong>Reminders</strong> — enable notifications to get alerts the morning of and 30 minutes before</div>
+                  <div>📌 <strong>Pin important notes</strong> — allergies, medical info, or partner reminders that show at the top of every day</div>
+                </div>
+              </div>
+            ), location:"Day view — above age guidance" },
           { icon:"🌙", title:"Day & Night Mode", body:"OBubba auto-switches to night mode at 7pm and day mode at 7am. You can manually toggle in Account (bottom nav) — the theme switch is right at the top.", location:"Account tab" },
           { icon:"👨‍👩‍👧", title:"Share & Sync",
             bodyJSX:(
@@ -6006,6 +6096,70 @@ function App(){
               )}
 
               {/* Pending bottle snaps banner */}
+
+              {/* Appointments */}
+              {(()=>{
+                const upcoming=appointments.filter(a=>{
+                  const d=new Date(a.date+"T23:59:59");
+                  return d>=new Date()&&d<=new Date(Date.now()+7*24*60*60*1000);
+                }).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+                if(!upcoming.length) return null;
+                return (
+                  <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📅 Upcoming</div>
+                      <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:""});setShowAddAppt(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
+                    </div>
+                    {upcoming.map(a=>{
+                      const isToday=a.date===todayStr();
+                      const isTomorrow=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
+                      const dayLabel=isToday?"Today":isTomorrow?"Tomorrow":fmtLong(a.date);
+                      return (
+                        <div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.blush}`}}>
+                          <div style={{width:36,height:36,borderRadius:10,background:isToday?`${C.ter}18`:"var(--chip-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:16}}>
+                            {isToday?"🔔":"📅"}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:14,fontWeight:700,color:isToday?C.ter:C.deep}}>{a.title}</div>
+                            <div style={{fontSize:12,color:C.lt,fontFamily:_fM}}>{dayLabel}{a.time?" · "+fmt12(a.time):""}</div>
+                            {a.note&&<div style={{fontSize:12,color:C.mid,marginTop:2}}>{a.note}</div>}
+                          </div>
+                          <button onClick={()=>deleteAppointment(a.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Pinned Notes */}
+              {pinnedNotes.length>0&&(
+                <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📌 Important Notes</div>
+                    <button onClick={()=>setShowAddPin(true)} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
+                  </div>
+                  {pinnedNotes.map(n=>(
+                    <div key={n.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 0",borderBottom:`1px solid ${C.blush}`}}>
+                      <span style={{fontSize:13,flexShrink:0,marginTop:1}}>📌</span>
+                      <div style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5}}>{n.text}</div>
+                      <button onClick={()=>deletePinnedNote(n.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Quick add buttons for appointments/notes when empty */}
+              {appointments.length===0&&pinnedNotes.length===0&&(
+                <div style={{display:"flex",gap:8,marginBottom:12}}>
+                  <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:""});setShowAddAppt(true);}} style={{flex:1,padding:"10px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    📅 Add Appointment
+                  </button>
+                  <button onClick={()=>setShowAddPin(true)} style={{flex:1,padding:"10px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    📌 Pin a Note
+                  </button>
+                </div>
+              )}
 
               {/* Age guidance */}
               {ageStage&&(
@@ -7722,6 +7876,20 @@ function App(){
               {isDark?"☀️ Day":"🌙 Night"}
             </button>
           </div>
+          {notifPermission!=="granted"&&(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"12px 16px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:22}}>🔔</span>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Notifications</div>
+                  <div style={{fontSize:11,color:C.lt}}>Get reminders for naps & appointments</div>
+                </div>
+              </div>
+              <button onClick={requestNotifications} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:_bN,borderRadius:99,padding:"8px 16px",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                Enable
+              </button>
+            </div>
+          )}
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:4}}>👤 {familyUsername||"Account"}</div>
           {familyUsername&&<div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:20}}>{syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync error":"☁️ "+familyUsername}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -7745,7 +7913,52 @@ function App(){
                 </div>
               </button>
             )}
-            <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
+            {/* All Appointments */}
+            <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>📅</span>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Appointments</div>
+                </div>
+                <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:""});setShowAddAppt(true);}} style={{fontSize:12,color:C.ter,fontWeight:700,background:_bN,border:_bN,cursor:_cP,fontFamily:_fM}}>+ Add</button>
+              </div>
+              {appointments.length===0?(
+                <div style={{fontSize:13,color:C.lt,padding:"8px 0"}}>No appointments yet</div>
+              ):(
+                appointments.sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(a=>(
+                  <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.blush}`}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,fontWeight:600,color:C.deep}}>{a.title}</div>
+                      <div style={{fontSize:12,color:C.lt,fontFamily:_fM}}>{fmtLong(a.date)}{a.time?" · "+fmt12(a.time):""}</div>
+                    </div>
+                    <button onClick={()=>deleteAppointment(a.id)} style={{background:_bN,border:_bN,fontSize:13,color:"#e06070",cursor:_cP}}>✕</button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Pinned Notes Management */}
+            <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>📌</span>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Pinned Notes</div>
+                </div>
+                <button onClick={()=>setShowAddPin(true)} style={{fontSize:12,color:C.ter,fontWeight:700,background:_bN,border:_bN,cursor:_cP,fontFamily:_fM}}>+ Add</button>
+              </div>
+              {pinnedNotes.length===0?(
+                <div style={{fontSize:13,color:C.lt,padding:"8px 0"}}>No pinned notes</div>
+              ):(
+                pinnedNotes.map(n=>(
+                  <div key={n.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 0",borderBottom:`1px solid ${C.blush}`}}>
+                    <div style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5}}>{n.text}</div>
+                    <button onClick={()=>deletePinnedNote(n.id)} style={{background:_bN,border:_bN,fontSize:13,color:"#e06070",cursor:_cP}}>✕</button>
+                  </div>
+                ))
+              )}
+            </div>
+
+                        <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
               <span style={{fontSize:24}}>❓</span>
               <div>
                 <div style={{fontSize:15,fontWeight:700,color:C.deep}}>App Tour</div>
@@ -8957,7 +9170,43 @@ function App(){
         </div>
       )}
 
-            {/* ═══ Photo Viewer Overlay ═══ */}
+            {/* ═══ Add Appointment Modal ═══ */}
+      {showAddAppt&&(
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setShowAddAppt(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📅 Add Appointment</div>
+            <Inp label="Title" type="text" placeholder="e.g. Health visitor, GP, vaccination" value={apptForm.title} onChange={e=>setApptForm(f=>({...f,title:e.target.value}))}/>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:1}}><Inp label="Date" type="date" value={apptForm.date} onChange={e=>setApptForm(f=>({...f,date:e.target.value}))}/></div>
+              <div style={{flex:1}}><Inp label="Time" type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))}/></div>
+            </div>
+            <Inp label="Note (optional)" type="text" placeholder="e.g. bring red book" value={apptForm.note} onChange={e=>setApptForm(f=>({...f,note:e.target.value}))}/>
+            {notifPermission!=="granted"&&(
+              <button onClick={requestNotifications} style={{width:"100%",padding:"10px",borderRadius:12,border:`1.5px solid ${C.gold}40`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.gold,fontFamily:_fI,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                🔔 Enable reminders for appointments
+              </button>
+            )}
+            <PBtn onClick={addAppointment}>Save Appointment</PBtn>
+            <button onClick={()=>setShowAddAppt(false)} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:`1px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.lt,fontFamily:_fI}}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Add Pinned Note Modal ═══ */}
+      {showAddPin&&(
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setShowAddPin(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📌 Pin an Important Note</div>
+            <div style={{fontSize:13,color:C.lt,marginBottom:12,lineHeight:1.5}}>This note will appear at the top of every day. Use it for allergies, medical info, or reminders.</div>
+            <textarea value={pinForm} onChange={e=>setPinForm(e.target.value)} placeholder="e.g. Oliver allergic to dairy — confirmed by GP"
+              style={{width:"100%",fontSize:15,padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fI,resize:"vertical",minHeight:80,boxSizing:_bBB}}/>
+            <div style={{marginTop:10}}><PBtn onClick={addPinnedNote}>Pin Note</PBtn></div>
+            <button onClick={()=>setShowAddPin(false)} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:`1px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.lt,fontFamily:_fI}}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Photo Viewer Overlay ═══ */}
       {viewPhoto && (
         <div onClick={()=>setViewPhoto(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:"100%",maxHeight:"80vh",position:"relative"}}>
