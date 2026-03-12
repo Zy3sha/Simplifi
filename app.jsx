@@ -6786,7 +6786,7 @@ function App(){
                     <div style={{display:"flex",gap:10,marginBottom:10}}>
                       <div style={{flex:1,background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:12,padding:"10px 12px"}}>
                         <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Daytime</div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:fc.color,lineHeight:1}}>{fc.dayMl}ml</div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:fc.color,lineHeight:1}}>{fmtVol(fc.dayMl,FU)}</div>
                         <div style={{fontSize:11,color:fc.metMinimum?C.mint:fc.approachingBed?C.ter:C.lt,marginTop:2,fontWeight:fc.approachingBed&&!fc.metMinimum?600:400}}>
                           {fc.metMinimum ? `✓ min ${fmtVol(fc.totalMin,FU)} reached` : `min ${fmtVol(fc.totalMin,FU)} by bedtime`}
                         </div>
@@ -6794,7 +6794,7 @@ function App(){
                       {fc.nightMl > 0 && (
                         <div style={{flex:1,background:"var(--chip-bg)",borderRadius:12,padding:"10px 12px"}}>
                           <div style={{fontSize:11,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--text-mid)",lineHeight:1}}>{fc.nightMl}ml</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--text-mid)",lineHeight:1}}>{fmtVol(fc.nightMl,FU)}</div>
                           <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fmtVol(fc.totalMl,FU)}</div>
                         </div>
                       )}
@@ -8646,7 +8646,7 @@ function App(){
           ln.push(`🌟 Night: ${nEs.length} wake${nEs.length!==1?"s":""}`);
           if(stretches.length){
             ln.push(`   Stretches between wakes:`);
-            stretches.forEach(s=>ln.push(`   ${s.from} → ${s.to} (${fmt12(s.toTime)}): ${hm(s.mins)}${s.feed?` · ${s.feed}ml`:""}`));
+            stretches.forEach(s=>ln.push(`   ${s.from} → ${s.to} (${fmt12(s.toTime)}): ${hm(s.mins)}${s.feed?` · ${fmtVol(s.feed,FU)}`:""}`));
           }
           navigator.clipboard.writeText(ln.join("\n")).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
         }
@@ -8710,7 +8710,7 @@ function App(){
                     <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
                       <div>
                         <div style={{fontSize:14,color:"var(--text-mid)"}}>{s.from} → {s.to}</div>
-                        <div style={{fontSize:14,fontFamily:_fM,color:"var(--text-lt)",marginTop:2}}>{fmt12(s.toTime)}{s.feed?` · ${s.feed}ml`:""}</div>
+                        <div style={{fontSize:14,fontFamily:_fM,color:"var(--text-lt)",marginTop:2}}>{fmt12(s.toTime)}{s.feed?` · ${fmtVol(s.feed,FU)}`:""}</div>
                       </div>
                       <span style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:s.mins>=180?"#6fa898":s.mins>=120?"#d4a855":"#c9705a",fontWeight:700}}>{hm(s.mins)}</span>
                     </div>
@@ -9031,7 +9031,7 @@ function App(){
         </div>
       )}
       {showChildSettings&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowChildSettings(false)}>
+        <div style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowChildSettings(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--card-bg-solid)",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:480,boxShadow:"0 -8px 40px rgba(0,0,0,0.15)"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 24px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:24}}>Child Settings</div>
