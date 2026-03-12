@@ -185,7 +185,7 @@ function getC(){
     lt:v('--text-lt')||"#A898AC",
     blush:v('--blush')||"#F0E4E0",
     rose:v('--rose')||"#E8B4C0",
-    cream:v('--cream')||"#FFFDFC",
+    cream:v('--cream')||"#FFFEFD",
     warm:v('--warm')||"#FFFAF6",
     mint:v('--mint')||"#6fa898",
     sky:v('--sky')||"#7aabc4",
@@ -5932,7 +5932,7 @@ function App(){
 
               {/* Age guidance */}
               {ageStage&&(
-                <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderLeft:`3px solid ${isDark?"rgba(217,139,114,0.35)":C.ter+"55"}`,borderRadius:16,padding:"12px 14px",marginBottom:14,boxShadow:"var(--card-shadow)"}}>
+                <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"12px 14px",marginBottom:14,boxShadow:"var(--card-shadow)"}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:3}}>{ageStage.label}</div>
                     <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{ageStage.tip}</div>
@@ -8981,7 +8981,7 @@ class ErrorBoundary extends React.Component{
   componentDidCatch(error,info){console.error("OBubba error boundary:",error,info);}
   render(){
     if(this.state.hasError){
-      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFFDFC 0%,#FBF5F3 40%,#F9F3F1 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
+      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFFEFD 0%,#FDFAF9 40%,#FBF9F8 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
         // Soft background orbs
         React.createElement("div",{style:{position:"absolute",top:"-10%",left:"10%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(246,221,227,0.40),transparent 70%)",pointerEvents:"none"}}),
         React.createElement("div",{style:{position:"absolute",bottom:"5%",right:"5%",width:250,height:250,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(217,207,243,0.35),transparent 70%)",pointerEvents:"none"}}),
