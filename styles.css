@@ -136,14 +136,14 @@ body.dark-mode .glass-card::after{background:linear-gradient(90deg,transparent,r
   position:relative;
   backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);
   box-shadow:
-    -5px -5px 8px -3px rgba(217,168,192,0.28),
-    5px 5px 8px -3px rgba(192,160,220,0.20)!important;
+    -4px -4px 6px -5px rgba(217,168,192,0.35),
+    4px 4px 6px -5px rgba(192,160,220,0.25)!important;
   contain:content;
 }
 body.dark-mode .glass-entry{box-shadow:
-    -5px -5px 8px -3px rgba(255,170,60,0.20),
-    5px 5px 8px -3px rgba(255,150,40,0.14),
-    0 2px 6px rgba(0,0,0,0.22)!important}
+    -4px -4px 6px -5px rgba(255,170,60,0.28),
+    4px 4px 6px -5px rgba(255,150,40,0.20),
+    0 2px 4px rgba(0,0,0,0.18)!important}
 .glass-entry::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;pointer-events:none;z-index:3;background:var(--specular);opacity:0.4}
 
 /* ═══════════════════════════════════════════════════════════
@@ -189,64 +189,52 @@ button{position:relative!important;overflow:visible!important}
   50%{opacity:1}
 }
 
-/* Light mode — corner glow: top-left + bottom-right only */
+/* Light mode — corner glow: top-left + bottom-right only, tight fade */
 body.light-mode button,body:not(.dark-mode) button{
-  border:1.5px solid rgba(255,225,235,0.45)!important;
+  border:1.5px solid rgba(255,225,235,0.40)!important;
   box-shadow:
-    -8px -8px 12px -4px rgba(217,168,192,0.50),
-    -4px -4px 6px -2px rgba(243,211,218,0.40),
-    8px 8px 12px -4px rgba(192,160,220,0.40),
-    4px 4px 6px -2px rgba(180,150,210,0.30)!important;
+    -5px -5px 7px -5px rgba(217,168,192,0.50),
+    5px 5px 7px -5px rgba(192,160,220,0.40)!important;
   animation:candlePulse 4s ease-in-out infinite!important}
 
-/* Dark mode — corner glow: top-left + bottom-right amber */
+/* Dark mode — corner glow: top-left + bottom-right amber, tight fade */
 body.dark-mode button{
-  border:1.5px solid rgba(255,190,90,0.32)!important;
+  border:1.5px solid rgba(255,190,90,0.28)!important;
   box-shadow:
-    -8px -8px 12px -4px rgba(255,170,60,0.45),
-    -4px -4px 6px -2px rgba(255,180,70,0.35),
-    8px 8px 12px -4px rgba(255,150,40,0.35),
-    4px 4px 6px -2px rgba(255,160,50,0.25)!important;
+    -5px -5px 7px -5px rgba(255,170,60,0.48),
+    5px 5px 7px -5px rgba(255,150,40,0.38)!important;
   animation:candlePulse 4s ease-in-out infinite!important}
 
-/* CTA gradient buttons — corner glow, stronger */
+/* CTA gradient buttons — corner glow, slightly stronger */
 body.light-mode button[style*="linear-gradient(135deg"],body:not(.dark-mode) button[style*="linear-gradient(135deg"]{
   box-shadow:
-    -10px -10px 16px -5px rgba(217,168,192,0.55),
-    -5px -5px 8px -3px rgba(243,211,218,0.45),
-    10px 10px 16px -5px rgba(192,160,220,0.45),
-    5px 5px 8px -3px rgba(180,150,210,0.35)!important}
+    -7px -7px 10px -6px rgba(217,168,192,0.55),
+    7px 7px 10px -6px rgba(192,160,220,0.45)!important}
 body.dark-mode button[style*="linear-gradient(135deg"]{
   box-shadow:
-    -10px -10px 16px -5px rgba(255,170,60,0.50),
-    -5px -5px 8px -3px rgba(255,180,70,0.40),
-    10px 10px 16px -5px rgba(255,150,40,0.40),
-    5px 5px 8px -3px rgba(255,160,50,0.30)!important}
+    -7px -7px 10px -6px rgba(255,170,60,0.52),
+    7px 7px 10px -6px rgba(255,150,40,0.42)!important}
 
 /* Pill buttons — corner glow */
 body.light-mode button[style*="borderRadius:99"],body:not(.dark-mode) button[style*="borderRadius:99"]{
   box-shadow:
-    -7px -7px 10px -4px rgba(217,168,192,0.42),
-    -3px -3px 5px -2px rgba(243,211,218,0.32),
-    7px 7px 10px -4px rgba(192,160,220,0.35),
-    3px 3px 5px -2px rgba(180,150,210,0.22)!important}
+    -5px -5px 7px -5px rgba(217,168,192,0.45),
+    5px 5px 7px -5px rgba(192,160,220,0.35)!important}
 body.dark-mode button[style*="borderRadius:99"]{
   box-shadow:
-    -7px -7px 10px -4px rgba(255,170,60,0.38),
-    -3px -3px 5px -2px rgba(255,180,70,0.28),
-    7px 7px 10px -4px rgba(255,150,40,0.30),
-    3px 3px 5px -2px rgba(255,160,50,0.20)!important}
+    -5px -5px 7px -5px rgba(255,170,60,0.40),
+    5px 5px 7px -5px rgba(255,150,40,0.30)!important}
 
-/* Action grid buttons (borderRadius:14 + flexDirection) — NO outer bleed */
+/* Action grid buttons (borderRadius:14 + flexDirection) — very tight corners */
 body.light-mode button[style*="borderRadius:14"][style*="flexDirection"],
 body:not(.dark-mode) button[style*="borderRadius:14"][style*="flexDirection"]{
   box-shadow:
-    inset 0 0 5px rgba(246,221,227,0.40),
-    inset 0 1px 0 rgba(255,255,255,0.55)!important}
+    -3px -3px 5px -4px rgba(217,168,192,0.50),
+    3px 3px 5px -4px rgba(192,160,220,0.40)!important}
 body.dark-mode button[style*="borderRadius:14"][style*="flexDirection"]{
   box-shadow:
-    inset 0 0 4px rgba(255,190,90,0.25),
-    inset 0 1px 0 rgba(255,220,150,0.20)!important}
+    -3px -3px 5px -4px rgba(255,170,60,0.45),
+    3px 3px 5px -4px rgba(255,150,40,0.35)!important}
 
 /* Hide fixed toggle (inline in header now) */
 #theme-toggle{display:none!important}
@@ -271,20 +259,16 @@ body.light-mode .glass-entry,body:not(.dark-mode) .glass-entry{
 
 /* Entry rows */
 body.light-mode div[data-entry-id],body:not(.dark-mode) div[data-entry-id]{
-  border:1.5px solid rgba(255,225,235,0.42)!important;
+  border:1.5px solid rgba(255,225,235,0.38)!important;
   box-shadow:
-    -6px -6px 10px -4px rgba(217,168,192,0.35),
-    -3px -3px 5px -2px rgba(243,211,218,0.25),
-    6px 6px 10px -4px rgba(192,160,220,0.28),
-    3px 3px 5px -2px rgba(180,150,210,0.16)!important}
+    -4px -4px 6px -5px rgba(217,168,192,0.42),
+    4px 4px 6px -5px rgba(192,160,220,0.32)!important}
 body.dark-mode div[data-entry-id]{
-  border:1.5px solid rgba(255,190,90,0.24)!important;
+  border:1.5px solid rgba(255,190,90,0.22)!important;
   box-shadow:
-    -6px -6px 10px -4px rgba(255,170,60,0.25),
-    -3px -3px 5px -2px rgba(255,180,70,0.18),
-    6px 6px 10px -4px rgba(255,150,40,0.18),
-    3px 3px 5px -2px rgba(255,160,50,0.12),
-    0 2px 6px rgba(0,0,0,0.20)!important}
+    -4px -4px 6px -5px rgba(255,170,60,0.35),
+    4px 4px 6px -5px rgba(255,150,40,0.25),
+    0 2px 4px rgba(0,0,0,0.18)!important}
 div[data-entry-id]::after{content:"";position:absolute;top:0;left:0;right:0;height:40%;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%);pointer-events:none;z-index:4;border-radius:inherit}
 body.dark-mode div[data-entry-id]::after{background:linear-gradient(180deg,rgba(255,200,120,0.08) 0%,transparent 100%)}
 
@@ -342,20 +326,28 @@ body.light-mode div[style*="display:\"inline-flex\""][style*="borderRadius:99"],
   box-shadow:0 0 18px rgba(255,255,255,0.55),0 0 36px rgba(246,221,227,0.25),0 0 52px rgba(217,207,243,0.12)!important}
 
 /* PIN pad — no blur */
-/* Grid children — packed close, NO outer bleed */
+/* Grid children — very tight corners, no bleed between neighbours */
 body.light-mode div[style*="gridTemplateColumns:\"1fr 1fr 1fr\""] button,
 body:not(.dark-mode) div[style*="gridTemplateColumns:\"1fr 1fr 1fr\""] button{
-  box-shadow:inset 0 0 4px rgba(246,221,227,0.35),inset 0 1px 0 rgba(255,255,255,0.50)!important;
+  box-shadow:
+    -3px -3px 5px -4px rgba(217,168,192,0.50),
+    3px 3px 5px -4px rgba(192,160,220,0.40)!important;
   background:var(--card-bg-solid)!important}
 body.dark-mode div[style*="gridTemplateColumns:\"1fr 1fr 1fr\""] button{
-  box-shadow:inset 0 0 4px rgba(255,190,90,0.22),inset 0 1px 0 rgba(255,220,150,0.16)!important}
+  box-shadow:
+    -3px -3px 5px -4px rgba(255,170,60,0.45),
+    3px 3px 5px -4px rgba(255,150,40,0.35)!important}
 
-/* Stats grid (4-column) — NO outer bleed */
+/* Stats grid (4-column) — very tight corners */
 body.light-mode div[style*="gridTemplateColumns:\"1fr 1fr 1fr 1fr\""]>div,
 body:not(.dark-mode) div[style*="gridTemplateColumns:\"1fr 1fr 1fr 1fr\""]>div{
-  box-shadow:inset 0 0 4px rgba(246,221,227,0.35),inset 0 1px 0 rgba(255,255,255,0.50)!important}
+  box-shadow:
+    -3px -3px 5px -4px rgba(217,168,192,0.45),
+    3px 3px 5px -4px rgba(192,160,220,0.35)!important}
 body.dark-mode div[style*="gridTemplateColumns:\"1fr 1fr 1fr 1fr\""]>div{
-  box-shadow:inset 0 0 4px rgba(255,190,90,0.22),inset 0 1px 0 rgba(255,220,150,0.16)!important}
+  box-shadow:
+    -3px -3px 5px -4px rgba(255,170,60,0.40),
+    3px 3px 5px -4px rgba(255,150,40,0.30)!important}
 
 /* Tutorial / Forgot PIN — blur only on overlay */
 div[style*="animation:\"tutPop"]{backdrop-filter:blur(30px) saturate(1.6);-webkit-backdrop-filter:blur(30px) saturate(1.6)}
@@ -375,16 +367,12 @@ body.dark-mode div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style
 /* Get Started — yellow/orange glow */
 body.light-mode button[style*="borderRadius:18"][style*="padding:\"19px\""],body:not(.dark-mode) button[style*="borderRadius:18"][style*="padding:\"19px\""]{
   box-shadow:
-    -12px -12px 20px -6px rgba(217,168,192,0.55),
-    -6px -6px 10px -3px rgba(243,211,218,0.40),
-    12px 12px 20px -6px rgba(192,160,220,0.45),
-    6px 6px 10px -3px rgba(180,150,210,0.30)!important}
+    -8px -8px 12px -7px rgba(217,168,192,0.55),
+    8px 8px 12px -7px rgba(192,160,220,0.45)!important}
 body.dark-mode button[style*="borderRadius:18"][style*="padding:\"19px\""]{
   box-shadow:
-    -12px -12px 20px -6px rgba(255,170,60,0.48),
-    -6px -6px 10px -3px rgba(255,180,70,0.35),
-    12px 12px 20px -6px rgba(255,150,40,0.38),
-    6px 6px 10px -3px rgba(255,160,50,0.25)!important}
+    -8px -8px 12px -7px rgba(255,170,60,0.50),
+    8px 8px 12px -7px rgba(255,150,40,0.40)!important}
 
 /* Feature pills */
 body.light-mode div[style*="borderRadius:99"][style*="padding:\"7px 13px\""],body:not(.dark-mode) div[style*="borderRadius:99"][style*="padding:\"7px 13px\""]{
@@ -434,53 +422,43 @@ body.dark-mode [style*="backdropFilter"]{background-color:rgba(8,14,28,0.30)}
 /* All elements with inline border-radius and card-bg get edge glow */
 body.light-mode div[style*="borderRadius"][style*="card-bg"],
 body:not(.dark-mode) div[style*="borderRadius"][style*="card-bg"]{
-  border:1.5px solid rgba(255,225,235,0.45)!important;
+  border:1.5px solid rgba(255,225,235,0.40)!important;
   box-shadow:
-    -7px -7px 10px -4px rgba(217,168,192,0.38),
-    -3px -3px 5px -2px rgba(243,211,218,0.28),
-    7px 7px 10px -4px rgba(192,160,220,0.30),
-    3px 3px 5px -2px rgba(180,150,210,0.18)!important}
+    -5px -5px 7px -5px rgba(217,168,192,0.45),
+    5px 5px 7px -5px rgba(192,160,220,0.35)!important}
 body.dark-mode div[style*="borderRadius"][style*="card-bg"]{
-  border:1.5px solid rgba(255,190,90,0.28)!important;
+  border:1.5px solid rgba(255,190,90,0.25)!important;
   box-shadow:
-    -7px -7px 10px -4px rgba(255,170,60,0.30),
-    -3px -3px 5px -2px rgba(255,180,70,0.22),
-    7px 7px 10px -4px rgba(255,150,40,0.22),
-    3px 3px 5px -2px rgba(255,160,50,0.14)!important}
+    -5px -5px 7px -5px rgba(255,170,60,0.38),
+    5px 5px 7px -5px rgba(255,150,40,0.28)!important}
 
 /* All elements with chip-bg */
 body.light-mode div[style*="borderRadius"][style*="chip-bg"],
 body:not(.dark-mode) div[style*="borderRadius"][style*="chip-bg"]{
-  border:1px solid rgba(255,225,235,0.40)!important;
+  border:1px solid rgba(255,225,235,0.35)!important;
   box-shadow:
-    -5px -5px 8px -3px rgba(217,168,192,0.30),
-    5px 5px 8px -3px rgba(192,160,220,0.22)!important}
+    -3px -3px 5px -4px rgba(217,168,192,0.38),
+    3px 3px 5px -4px rgba(192,160,220,0.28)!important}
 
 /* Buttons with card-bg */
 body.light-mode button[style*="card-bg"],body:not(.dark-mode) button[style*="card-bg"]{
-  border:1.5px solid rgba(255,225,235,0.48)!important;
+  border:1.5px solid rgba(255,225,235,0.42)!important;
   box-shadow:
-    -8px -8px 12px -4px rgba(217,168,192,0.45),
-    -4px -4px 6px -2px rgba(243,211,218,0.35),
-    8px 8px 12px -4px rgba(192,160,220,0.35),
-    4px 4px 6px -2px rgba(180,150,210,0.25)!important}
+    -5px -5px 7px -5px rgba(217,168,192,0.48),
+    5px 5px 7px -5px rgba(192,160,220,0.38)!important}
 body.dark-mode button[style*="card-bg"]{
-  border:1.5px solid rgba(255,190,90,0.32)!important;
+  border:1.5px solid rgba(255,190,90,0.28)!important;
   box-shadow:
-    -8px -8px 12px -4px rgba(255,170,60,0.38),
-    -4px -4px 6px -2px rgba(255,180,70,0.28),
-    8px 8px 12px -4px rgba(255,150,40,0.28),
-    4px 4px 6px -2px rgba(255,160,50,0.18)!important}
+    -5px -5px 7px -5px rgba(255,170,60,0.42),
+    5px 5px 7px -5px rgba(255,150,40,0.32)!important}
 
 /* All solid-bg elements */
 body.light-mode div[style*="card-bg-solid"][style*="borderRadius"],
 body:not(.dark-mode) div[style*="card-bg-solid"][style*="borderRadius"]{
-  border:1.5px solid rgba(255,225,235,0.42)!important;
+  border:1.5px solid rgba(255,225,235,0.38)!important;
   box-shadow:
-    -6px -6px 10px -4px rgba(217,168,192,0.32),
-    -3px -3px 5px -2px rgba(243,211,218,0.22),
-    6px 6px 10px -4px rgba(192,160,220,0.24),
-    3px 3px 5px -2px rgba(180,150,210,0.14)!important}
+    -5px -5px 7px -5px rgba(217,168,192,0.40),
+    5px 5px 7px -5px rgba(192,160,220,0.30)!important}
 
 /* Header bar itself */
 body.light-mode div[style*="backdropFilter"][style*="borderBottom"],
