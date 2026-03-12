@@ -136,20 +136,17 @@ body.dark-mode .glass-card::after{background:linear-gradient(90deg,transparent,r
   position:relative;
   backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);
   box-shadow:
-    inset 0 0 14px rgba(255,235,220,0.30),
-    inset 0 0 28px rgba(246,221,227,0.14),
-    inset 0 0.5px 0 rgba(255,255,255,0.60),
-    0 0 10px rgba(243,211,218,0.28),
-    0 0 24px rgba(217,168,192,0.18),
-    0 0 42px rgba(192,160,220,0.10)!important;
+    inset 0 0 5px rgba(246,221,227,0.35),
+    inset 0 0.5px 0 rgba(255,255,255,0.55),
+    0 0 5px rgba(243,211,218,0.32),
+    0 0 12px rgba(217,168,192,0.20)!important;
   contain:content;
 }
 body.dark-mode .glass-entry{box-shadow:
-    inset 0 0 16px rgba(255,190,90,0.18),
-    inset 0 0 32px rgba(255,160,60,0.10),
-    inset 0 0.5px 0 rgba(255,220,150,0.22),
-    0 0 12px rgba(255,180,70,0.28),
-    0 0 28px rgba(255,155,45,0.18),
+    inset 0 0 6px rgba(255,190,90,0.22),
+    inset 0 0.5px 0 rgba(255,220,150,0.18),
+    0 0 6px rgba(255,180,70,0.32),
+    0 0 12px rgba(255,155,45,0.20),
     0 2px 10px rgba(0,0,0,0.28)!important}
 .glass-entry::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;pointer-events:none;z-index:3;background:var(--specular);opacity:0.4}
 
@@ -190,106 +187,84 @@ button,a,[role="button"]{-webkit-user-select:none;user-select:none}
 button:active{transform:scale(0.95)!important}
 button{position:relative!important;overflow:visible!important}
 
-/* ═══ CANDLELIGHT GLOW — warm light within + breathing halo ═══ */
+/* ═══ EDGE GLOW — light concentrated at the border, not filling interior ═══ */
 @keyframes candlePulse{
-  0%,100%{opacity:0.75}
+  0%,100%{opacity:0.8}
   50%{opacity:1}
 }
 
-/* Light mode — purple-pink halo, warm cream inner light */
+/* Light mode — purple-pink edge glow */
 body.light-mode button,body:not(.dark-mode) button{
-  background-image:
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(255,240,230,0.45), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 50% 80%, rgba(246,221,227,0.30), transparent 60%),
-    radial-gradient(ellipse 100% 80% at 50% 20%, rgba(255,255,255,0.25), transparent 55%)!important;
-  border:1.5px solid rgba(255,235,240,0.55)!important;
+  border:1.5px solid rgba(255,225,235,0.65)!important;
   box-shadow:
-    inset 0 0 18px rgba(255,235,220,0.40),
-    inset 0 0 36px rgba(246,221,227,0.20),
-    inset 0 -8px 24px rgba(243,211,218,0.18),
+    inset 0 0 6px rgba(246,221,227,0.45),
     inset 0 1px 0 rgba(255,255,255,0.65),
-    0 0 10px rgba(243,211,218,0.35),
-    0 0 24px rgba(217,168,192,0.25),
-    0 0 48px rgba(192,160,220,0.18),
-    0 0 72px rgba(180,150,210,0.08)!important;
+    0 0 6px rgba(243,211,218,0.45),
+    0 0 14px rgba(217,168,192,0.35),
+    0 0 28px rgba(192,160,220,0.20)!important;
   animation:candlePulse 4s ease-in-out infinite!important}
 
-/* Dark mode — orange-amber halo, golden inner light */
+/* Dark mode — orange-amber edge glow */
 body.dark-mode button{
-  background-image:
-    radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255,180,80,0.22), transparent 65%),
-    radial-gradient(ellipse 70% 60% at 50% 75%, rgba(255,150,50,0.16), transparent 55%),
-    radial-gradient(ellipse 110% 80% at 50% 15%, rgba(255,210,140,0.12), transparent 50%)!important;
-  border:1.5px solid rgba(255,190,90,0.35)!important;
+  border:1.5px solid rgba(255,190,90,0.45)!important;
   box-shadow:
-    inset 0 0 22px rgba(255,190,90,0.30),
-    inset 0 0 44px rgba(255,160,60,0.18),
-    inset 0 -10px 28px rgba(255,140,40,0.14),
-    inset 0 1px 0 rgba(255,220,150,0.35),
-    0 0 12px rgba(255,180,70,0.40),
-    0 0 28px rgba(255,155,45,0.32),
-    0 0 52px rgba(255,130,20,0.22),
-    0 0 80px rgba(255,110,10,0.12)!important;
+    inset 0 0 7px rgba(255,190,90,0.35),
+    inset 0 1px 0 rgba(255,220,150,0.30),
+    0 0 6px rgba(255,180,70,0.50),
+    0 0 14px rgba(255,155,45,0.38),
+    0 0 28px rgba(255,130,20,0.20)!important;
   animation:candlePulse 4s ease-in-out infinite!important}
 
-/* CTA gradient buttons — extra strong inner fire */
+/* CTA gradient buttons — stronger edge fire */
 body.light-mode button[style*="linear-gradient(135deg"],body:not(.dark-mode) button[style*="linear-gradient(135deg"]{
   box-shadow:
-    inset 0 0 22px rgba(255,235,220,0.50),
-    inset 0 0 44px rgba(246,221,227,0.28),
+    inset 0 0 8px rgba(246,221,227,0.55),
     inset 0 1px 0 rgba(255,255,255,0.70),
-    0 0 16px rgba(243,211,218,0.40),
-    0 0 36px rgba(217,168,192,0.30),
-    0 0 60px rgba(192,160,220,0.22),
-    0 4px 18px rgba(192,112,136,0.25)!important}
+    0 0 8px rgba(243,211,218,0.50),
+    0 0 18px rgba(217,168,192,0.40),
+    0 0 34px rgba(192,160,220,0.25),
+    0 4px 14px rgba(192,112,136,0.22)!important}
 body.dark-mode button[style*="linear-gradient(135deg"]{
   box-shadow:
-    inset 0 0 26px rgba(255,190,90,0.35),
-    inset 0 0 50px rgba(255,160,60,0.22),
+    inset 0 0 8px rgba(255,190,90,0.45),
     inset 0 1px 0 rgba(255,220,150,0.40),
-    0 0 18px rgba(255,180,70,0.48),
-    0 0 40px rgba(255,155,45,0.38),
-    0 0 68px rgba(255,130,20,0.26),
-    0 4px 18px rgba(217,139,114,0.30)!important}
+    0 0 8px rgba(255,180,70,0.55),
+    0 0 18px rgba(255,155,45,0.45),
+    0 0 34px rgba(255,130,20,0.28),
+    0 4px 14px rgba(217,139,114,0.25)!important}
 
 /* Pill buttons */
 body.light-mode button[style*="borderRadius:99"],body:not(.dark-mode) button[style*="borderRadius:99"]{
   box-shadow:
-    inset 0 0 16px rgba(255,235,220,0.38),
-    inset 0 0 32px rgba(246,221,227,0.18),
+    inset 0 0 6px rgba(246,221,227,0.40),
     inset 0 1px 0 rgba(255,255,255,0.60),
-    0 0 12px rgba(243,211,218,0.32),
-    0 0 28px rgba(217,168,192,0.22),
-    0 0 48px rgba(192,160,220,0.14)!important}
+    0 0 6px rgba(243,211,218,0.42),
+    0 0 14px rgba(217,168,192,0.30),
+    0 0 26px rgba(192,160,220,0.16)!important}
 body.dark-mode button[style*="borderRadius:99"]{
   box-shadow:
-    inset 0 0 20px rgba(255,190,90,0.28),
-    inset 0 0 38px rgba(255,160,60,0.16),
-    inset 0 1px 0 rgba(255,220,150,0.30),
-    0 0 14px rgba(255,180,70,0.38),
-    0 0 32px rgba(255,155,45,0.28),
-    0 0 54px rgba(255,130,20,0.16)!important}
+    inset 0 0 6px rgba(255,190,90,0.32),
+    inset 0 1px 0 rgba(255,220,150,0.28),
+    0 0 6px rgba(255,180,70,0.45),
+    0 0 14px rgba(255,155,45,0.34),
+    0 0 26px rgba(255,130,20,0.16)!important}
 
 /* Action grid buttons (borderRadius:14 + flexDirection) */
 body.light-mode button[style*="borderRadius:14"][style*="flexDirection"],
 body:not(.dark-mode) button[style*="borderRadius:14"][style*="flexDirection"]{
   box-shadow:
-    inset 0 0 20px rgba(255,235,220,0.45),
-    inset 0 0 40px rgba(246,221,227,0.22),
-    inset 0 -10px 28px rgba(243,211,218,0.20),
+    inset 0 0 8px rgba(246,221,227,0.50),
     inset 0 1px 0 rgba(255,255,255,0.65),
-    0 0 14px rgba(243,211,218,0.38),
-    0 0 30px rgba(217,168,192,0.28),
-    0 0 56px rgba(192,160,220,0.18)!important}
+    0 0 8px rgba(243,211,218,0.48),
+    0 0 16px rgba(217,168,192,0.36),
+    0 0 30px rgba(192,160,220,0.22)!important}
 body.dark-mode button[style*="borderRadius:14"][style*="flexDirection"]{
   box-shadow:
-    inset 0 0 24px rgba(255,190,90,0.32),
-    inset 0 0 46px rgba(255,160,60,0.20),
-    inset 0 -12px 32px rgba(255,140,40,0.16),
+    inset 0 0 8px rgba(255,190,90,0.40),
     inset 0 1px 0 rgba(255,220,150,0.35),
-    0 0 16px rgba(255,180,70,0.44),
-    0 0 36px rgba(255,155,45,0.34),
-    0 0 62px rgba(255,130,20,0.22)!important}
+    0 0 8px rgba(255,180,70,0.52),
+    0 0 16px rgba(255,155,45,0.40),
+    0 0 30px rgba(255,130,20,0.22)!important}
 
 /* Hide fixed toggle (inline in header now) */
 #theme-toggle{display:none!important}
@@ -304,47 +279,31 @@ body.dark-mode ::selection{background:rgba(217,139,114,0.4);color:white}
 
 /* Glass cards — gradient glow */
 body.light-mode .glass-card,body:not(.dark-mode) .glass-card{
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 55%,rgba(255,240,230,0.35),transparent 70%),
-    radial-gradient(ellipse 60% 50% at 50% 80%,rgba(246,221,227,0.22),transparent 60%),
-    radial-gradient(ellipse 120% 80% at 30% 20%,rgba(246,221,227,0.16),transparent 60%),
-    var(--card-bg)!important}
+  background:var(--card-bg)!important}
 body.dark-mode .glass-card{
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 50%,rgba(255,180,80,0.12),transparent 65%),
-    radial-gradient(ellipse 70% 60% at 50% 75%,rgba(255,150,50,0.08),transparent 55%),
-    var(--card-bg)!important}
+  background:var(--card-bg)!important}
 
 /* Glass entries */
 body.light-mode .glass-entry,body:not(.dark-mode) .glass-entry{
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 55%,rgba(255,240,230,0.30),transparent 70%),
-    radial-gradient(ellipse 60% 50% at 50% 80%,rgba(246,221,227,0.18),transparent 60%),
-    var(--card-bg)!important}
+  background:var(--card-bg)!important}
 
 /* Entry rows */
 body.light-mode div[data-entry-id],body:not(.dark-mode) div[data-entry-id]{
+  border:1.5px solid rgba(255,225,235,0.55)!important;
   box-shadow:
-    inset 0 0 16px rgba(255,235,220,0.35),
-    inset 0 0 32px rgba(246,221,227,0.16),
-    inset 0 1px 0 rgba(255,255,255,0.60),
-    0 0 12px rgba(243,211,218,0.30),
-    0 0 28px rgba(217,168,192,0.20),
-    0 0 48px rgba(192,160,220,0.10)!important;
-  border:1.5px solid rgba(255,235,240,0.50)!important;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(255,240,230,0.35), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 50% 80%, rgba(246,221,227,0.22), transparent 60%),
-    var(--card-bg)!important}
+    inset 0 0 6px rgba(246,221,227,0.40),
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    0 0 6px rgba(243,211,218,0.38),
+    0 0 14px rgba(217,168,192,0.24),
+    0 0 26px rgba(192,160,220,0.10)!important}
 body.dark-mode div[data-entry-id]{
+  border:1.5px solid rgba(255,190,90,0.32)!important;
   box-shadow:
-    inset 0 0 18px rgba(255,190,90,0.22),
-    inset 0 0 36px rgba(255,160,60,0.12),
-    inset 0 1px 0 rgba(255,220,150,0.25),
-    0 0 12px rgba(255,180,70,0.32),
-    0 0 28px rgba(255,155,45,0.22),
-    0 2px 8px rgba(0,0,0,0.25)!important;
-  border:1.5px solid rgba(255,190,90,0.28)!important}
+    inset 0 0 7px rgba(255,190,90,0.25),
+    inset 0 1px 0 rgba(255,220,150,0.20),
+    0 0 6px rgba(255,180,70,0.38),
+    0 0 14px rgba(255,155,45,0.26),
+    0 2px 8px rgba(0,0,0,0.25)!important}
 div[data-entry-id]::after{content:"";position:absolute;top:0;left:0;right:0;height:40%;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 100%);pointer-events:none;z-index:4;border-radius:inherit}
 body.dark-mode div[data-entry-id]::after{background:linear-gradient(180deg,rgba(255,200,120,0.08) 0%,transparent 100%)}
 
@@ -412,22 +371,20 @@ body.dark-mode div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style
 /* Get Started — yellow/orange glow */
 body.light-mode button[style*="borderRadius:18"][style*="padding:\"19px\""],body:not(.dark-mode) button[style*="borderRadius:18"][style*="padding:\"19px\""]{
   box-shadow:
-    inset 0 0 24px rgba(255,235,220,0.55),
-    inset 0 0 48px rgba(246,221,227,0.30),
-    inset 0 1px 0 rgba(255,255,255,0.45),
-    0 0 20px rgba(243,211,218,0.40),
-    0 0 44px rgba(217,168,192,0.35),
-    0 0 72px rgba(192,160,220,0.25),
-    0 0 100px rgba(180,150,210,0.14)!important}
+    inset 0 0 10px rgba(246,221,227,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.50),
+    0 0 10px rgba(243,211,218,0.50),
+    0 0 22px rgba(217,168,192,0.40),
+    0 0 42px rgba(192,160,220,0.28),
+    0 0 64px rgba(180,150,210,0.14)!important}
 body.dark-mode button[style*="borderRadius:18"][style*="padding:\"19px\""]{
   box-shadow:
-    inset 0 0 28px rgba(255,190,90,0.38),
-    inset 0 0 56px rgba(255,160,60,0.24),
-    inset 0 1px 0 rgba(255,220,150,0.40),
-    0 0 24px rgba(255,180,70,0.48),
-    0 0 48px rgba(255,155,45,0.40),
-    0 0 80px rgba(255,130,20,0.28),
-    0 0 110px rgba(255,110,10,0.14)!important}
+    inset 0 0 10px rgba(255,190,90,0.45),
+    inset 0 1px 0 rgba(255,220,150,0.38),
+    0 0 10px rgba(255,180,70,0.55),
+    0 0 22px rgba(255,155,45,0.45),
+    0 0 42px rgba(255,130,20,0.30),
+    0 0 64px rgba(255,110,10,0.14)!important}
 
 /* Feature pills */
 body.light-mode div[style*="borderRadius:99"][style*="padding:\"7px 13px\""],body:not(.dark-mode) div[style*="borderRadius:99"][style*="padding:\"7px 13px\""]{
@@ -474,90 +431,63 @@ body.dark-mode [style*="backdropFilter"]{background-color:rgba(8,14,28,0.30)}
    UNIVERSAL GLOW — every rounded element with card-bg
    ═══════════════════════════════════════════════════════════ */
 
-/* All elements with inline border-radius and card-bg get candlelight glow */
+/* All elements with inline border-radius and card-bg get edge glow */
 body.light-mode div[style*="borderRadius"][style*="card-bg"],
 body:not(.dark-mode) div[style*="borderRadius"][style*="card-bg"]{
-  background-image:
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(255,240,230,0.40), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 50% 80%, rgba(246,221,227,0.25), transparent 60%),
-    radial-gradient(ellipse 100% 80% at 50% 20%, rgba(255,255,255,0.22), transparent 55%)!important;
-  border:1.5px solid rgba(255,235,240,0.50)!important;
+  border:1.5px solid rgba(255,225,235,0.55)!important;
   box-shadow:
-    inset 0 0 16px rgba(255,235,220,0.35),
-    inset 0 0 32px rgba(246,221,227,0.16),
-    inset 0 1px 0 rgba(255,255,255,0.60),
-    0 0 12px rgba(243,211,218,0.30),
-    0 0 28px rgba(217,168,192,0.20),
-    0 0 50px rgba(192,160,220,0.12)!important}
+    inset 0 0 6px rgba(246,221,227,0.40),
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    0 0 6px rgba(243,211,218,0.38),
+    0 0 14px rgba(217,168,192,0.25),
+    0 0 28px rgba(192,160,220,0.12)!important}
 body.dark-mode div[style*="borderRadius"][style*="card-bg"]{
-  background-image:
-    radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255,180,80,0.16), transparent 65%),
-    radial-gradient(ellipse 70% 60% at 50% 75%, rgba(255,150,50,0.10), transparent 55%),
-    radial-gradient(ellipse 110% 80% at 50% 15%, rgba(255,210,140,0.08), transparent 50%)!important;
-  border:1.5px solid rgba(255,190,90,0.30)!important;
+  border:1.5px solid rgba(255,190,90,0.35)!important;
   box-shadow:
-    inset 0 0 18px rgba(255,190,90,0.24),
-    inset 0 0 36px rgba(255,160,60,0.14),
-    inset 0 1px 0 rgba(255,220,150,0.28),
-    0 0 12px rgba(255,180,70,0.35),
-    0 0 28px rgba(255,155,45,0.25),
-    0 0 50px rgba(255,130,20,0.14)!important}
+    inset 0 0 7px rgba(255,190,90,0.28),
+    inset 0 1px 0 rgba(255,220,150,0.22),
+    0 0 6px rgba(255,180,70,0.42),
+    0 0 14px rgba(255,155,45,0.30),
+    0 0 28px rgba(255,130,20,0.14)!important}
 
 /* All elements with chip-bg */
 body.light-mode div[style*="borderRadius"][style*="chip-bg"],
 body:not(.dark-mode) div[style*="borderRadius"][style*="chip-bg"]{
-  background-image:
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(255,240,230,0.32), transparent 70%),
-    radial-gradient(ellipse 100% 80% at 50% 20%, rgba(255,255,255,0.18), transparent 55%)!important;
-  border:1px solid rgba(255,235,240,0.45)!important;
+  border:1px solid rgba(255,225,235,0.50)!important;
   box-shadow:
-    inset 0 0 12px rgba(255,235,220,0.28),
-    inset 0 1px 0 rgba(255,255,255,0.55),
-    0 0 10px rgba(243,211,218,0.25),
-    0 0 24px rgba(217,168,192,0.16),
-    0 0 42px rgba(192,160,220,0.10)!important}
+    inset 0 0 5px rgba(246,221,227,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.50),
+    0 0 5px rgba(243,211,218,0.32),
+    0 0 12px rgba(217,168,192,0.20)!important}
 
 /* Buttons with card-bg */
 body.light-mode button[style*="card-bg"],body:not(.dark-mode) button[style*="card-bg"]{
-  background-image:
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(255,240,230,0.45), transparent 70%),
-    radial-gradient(ellipse 60% 50% at 50% 80%, rgba(246,221,227,0.30), transparent 60%),
-    radial-gradient(ellipse 100% 80% at 50% 20%, rgba(255,255,255,0.25), transparent 55%)!important;
-  border:1.5px solid rgba(255,235,240,0.55)!important;
+  border:1.5px solid rgba(255,225,235,0.60)!important;
   box-shadow:
-    inset 0 0 18px rgba(255,235,220,0.40),
-    inset 0 0 36px rgba(246,221,227,0.20),
+    inset 0 0 6px rgba(246,221,227,0.45),
     inset 0 1px 0 rgba(255,255,255,0.65),
-    0 0 12px rgba(243,211,218,0.32),
-    0 0 28px rgba(217,168,192,0.22),
-    0 0 50px rgba(192,160,220,0.14)!important}
+    0 0 6px rgba(243,211,218,0.42),
+    0 0 14px rgba(217,168,192,0.30),
+    0 0 28px rgba(192,160,220,0.16)!important}
 body.dark-mode button[style*="card-bg"]{
-  background-image:
-    radial-gradient(ellipse 90% 70% at 50% 50%, rgba(255,180,80,0.22), transparent 65%),
-    radial-gradient(ellipse 70% 60% at 50% 75%, rgba(255,150,50,0.16), transparent 55%),
-    radial-gradient(ellipse 110% 80% at 50% 15%, rgba(255,210,140,0.12), transparent 50%)!important;
-  border:1.5px solid rgba(255,190,90,0.35)!important;
+  border:1.5px solid rgba(255,190,90,0.45)!important;
   box-shadow:
-    inset 0 0 22px rgba(255,190,90,0.30),
-    inset 0 0 44px rgba(255,160,60,0.18),
-    inset 0 1px 0 rgba(255,220,150,0.35),
-    0 0 12px rgba(255,180,70,0.40),
-    0 0 28px rgba(255,155,45,0.32),
-    0 0 50px rgba(255,130,20,0.18)!important}
+    inset 0 0 7px rgba(255,190,90,0.35),
+    inset 0 1px 0 rgba(255,220,150,0.30),
+    0 0 6px rgba(255,180,70,0.50),
+    0 0 14px rgba(255,155,45,0.38),
+    0 0 28px rgba(255,130,20,0.18)!important}
 
 /* All solid-bg elements */
 body.light-mode div[style*="card-bg-solid"][style*="borderRadius"],
 body:not(.dark-mode) div[style*="card-bg-solid"][style*="borderRadius"]{
-  background-image:
-    radial-gradient(ellipse 80% 60% at 50% 55%, rgba(255,240,230,0.35), transparent 70%),
-    radial-gradient(ellipse 100% 80% at 50% 20%, rgba(255,255,255,0.20), transparent 55%)!important;
-  border:1.5px solid rgba(255,235,240,0.50)!important;
+  border:1.5px solid rgba(255,225,235,0.50)!important;
   box-shadow:
-    inset 0 0 14px rgba(255,235,220,0.30),
-    inset 0 1px 0 rgba(255,255,255,0.55),
-    0 0 10px rgba(243,211,218,0.28),
-    0 0 24px rgba(217,168,192,0.18),
-    0 0 44px rgba(192,160,220,0.10)!important}
+    inset 0 0 5px rgba(246,221,227,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.50),
+    0 0 5px rgba(243,211,218,0.35),
+    0 0 12px rgba(217,168,192,0.22),
+    0 0 24px rgba(192,160,220,0.10)!important}
 
 /* Header bar itself */
 body.light-mode div[style*="backdropFilter"][style*="borderBottom"],
