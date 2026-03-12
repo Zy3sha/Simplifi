@@ -8980,10 +8980,10 @@ function App(){
             <img
               src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
               alt=""
-              style={{width:220,height:220,objectFit:"contain",animation:"mascotBounce 1.5s ease-in-out infinite",filter:"drop-shadow(0 16px 36px rgba(217,207,243,0.45))"}}
+              style={{width:320,height:320,objectFit:"contain",filter:"drop-shadow(0 20px 44px rgba(217,207,243,0.55))"}}
             />
-            <div style={{marginTop:14,background:"rgba(255,255,255,0.92)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderRadius:99,padding:"12px 28px",boxShadow:"0 0 28px rgba(246,221,227,0.50), 0 4px 20px rgba(217,207,243,0.30)",display:"inline-block"}}>
-              <div style={{fontSize:15,fontWeight:700,color:"#5B4F5F",fontFamily:"'DM Sans',sans-serif"}}>{mascotPopup.message}</div>
+            <div style={{marginTop:18,background:"var(--card-bg-solid)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",borderRadius:99,padding:"14px 32px",boxShadow:"0 0 32px rgba(246,221,227,0.55), 0 6px 24px rgba(217,207,243,0.35)",display:"inline-block",border:`1.5px solid ${C.blush}`}}>
+              <div style={{fontSize:18,fontWeight:800,color:"var(--text-deep)",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.01em"}}>{mascotPopup.message}</div>
             </div>
           </div>
         </div>
