@@ -1,19 +1,34 @@
-// ── Theme System: instant atomic swap ──
-// Exposed globally: applyTheme, getThemePref, toggleTheme, isDark
+// ── Theme System: auto time-switch + manual override ──
+// 7pm (19:00) → dark mode, 7am (07:00) → light mode
+// Manual toggle overrides until the next 7am/7pm boundary
 
 var isDark = false;
+
+function getTimeTheme() {
+  var h = new Date().getHours();
+  return (h >= 19 || h < 7) ? 'dark' : 'light';
+}
+
+function getNextBoundary() {
+  var now = new Date();
+  var h = now.getHours();
+  var next = new Date(now);
+  if (h >= 19) {
+    next.setDate(next.getDate() + 1);
+    next.setHours(7, 0, 0, 0);
+  } else if (h < 7) {
+    next.setHours(7, 0, 0, 0);
+  } else {
+    next.setHours(19, 0, 0, 0);
+  }
+  return next.getTime();
+}
 
 function applyTheme(mode) {
   var body = document.body;
   var meta = document.querySelector('meta[name="theme-color"]');
-  if (mode === 'auto') {
-    isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
-  } else {
-    isDark = (mode === 'dark');
-  }
+  isDark = (mode === 'dark');
 
-  // Atomic swap — never remove without immediately adding
-  // This prevents the "no class" flash
   if (isDark) {
     body.classList.add('dark-mode');
     body.classList.remove('light-mode');
@@ -22,33 +37,65 @@ function applyTheme(mode) {
     body.classList.remove('dark-mode');
   }
 
-  // Force synchronous layout commit — browser applies variables NOW
   void body.offsetHeight;
 
-  if (meta) meta.content = isDark ? '#080e1c' : '#FFF6F0';
+  if (meta) meta.content = isDark ? '#080e1c' : '#F0DDD6';
 
-  // Update any visible toggle buttons (hidden #theme-toggle + inline header button)
   var btn = document.getElementById('theme-toggle');
   if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+
+  try { localStorage.setItem('theme_v1', mode); } catch (e) {}
+
+  if (typeof window._themeCallback === 'function') window._themeCallback();
 }
 
-function getThemePref() {
-  try { return localStorage.getItem('theme') || 'auto'; } catch (e) { return 'auto'; }
+function resolveTheme() {
+  try {
+    var override = localStorage.getItem('theme_override');
+    if (override) {
+      var parsed = JSON.parse(override);
+      if (parsed.until && Date.now() < parsed.until) {
+        return parsed.mode;
+      }
+      localStorage.removeItem('theme_override');
+    }
+  } catch (e) {}
+  return getTimeTheme();
 }
 
 function toggleTheme() {
-  var current = getThemePref();
-  var next;
-  if (current === 'auto') next = 'light';
-  else if (current === 'light') next = 'dark';
-  else next = 'auto';
-  try { localStorage.setItem('theme', next); } catch (e) {}
+  var current = isDark ? 'dark' : 'light';
+  var next = current === 'dark' ? 'light' : 'dark';
+
+  try {
+    localStorage.setItem('theme_override', JSON.stringify({
+      mode: next,
+      until: getNextBoundary()
+    }));
+  } catch (e) {}
+
   applyTheme(next);
 }
 
-window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function () {
-  if (getThemePref() === 'auto') applyTheme('auto');
-});
+// Check every 60s if override expired or time boundary crossed
+setInterval(function() {
+  try {
+    var override = localStorage.getItem('theme_override');
+    if (override) {
+      var parsed = JSON.parse(override);
+      if (parsed.until && Date.now() >= parsed.until) {
+        localStorage.removeItem('theme_override');
+        applyTheme(getTimeTheme());
+      }
+    } else {
+      var timeTheme = getTimeTheme();
+      var currentTheme = isDark ? 'dark' : 'light';
+      if (timeTheme !== currentTheme) {
+        applyTheme(timeTheme);
+      }
+    }
+  } catch (e) {}
+}, 60000);
 
-// Apply immediately on load — no flash
-(function () { applyTheme(getThemePref()); })();
+// Apply immediately — no flash
+(function () { applyTheme(resolveTheme()); })();
