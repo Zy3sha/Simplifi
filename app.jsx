@@ -2844,7 +2844,7 @@ function App(){
     const months = ageWeeks / 4.33;
     let min, max, label;
     if (months < 3)       { min=45;  max=75;  label="45–75 min"; }
-    else if (months < 5)  { min=75;  max=150; label="1.25–2.5 hrs"; }
+    else if (months < 5)  { min=75;  max=120; label="1.25–2 hrs"; }
     else if (months < 8)  { min=120; max=180; label="2–3 hrs"; }
     else if (months < 11) { min=150; max=210; label="2.5–3.5 hrs"; }
     else if (months < 15) { min=180; max=240; label="3–4 hrs"; }
@@ -2852,6 +2852,15 @@ function App(){
     else if (months < 25) { min=300; max=360; label="5–6 hrs"; }
     else                  { min=300; max=420; label="5–7 hrs"; }
     return { min, max, label, midpoint: Math.round((min+max)/2) };
+  }
+
+  // Progressive wake windows: WW increases through the day
+  function progressiveWW(ageWeeks, napIndex, totalNaps) {
+    const ww = getWakeWindow(ageWeeks);
+    const range = ww.max - ww.min;
+    if (totalNaps <= 1) return ww.midpoint;
+    const ratio = Math.min(napIndex / totalNaps, 1);
+    return Math.round(ww.min + range * ratio);
   }
 
 
@@ -3340,7 +3349,103 @@ function App(){
     return { min: 60, max: 90, label: "1–1.5 hrs" };
   }
 
-  // 1 & 2. Circadian rhythm detection + gradual adjustment
+  // ── Sleep regression detection ──
+  function detectSleepRegression() {
+    if (!age) return null;
+    const w = age.totalWeeks;
+    const name = babyName || "Baby";
+    const regressions = [
+      { weeks:[15,19], label:"4-Month Sleep Regression", emoji:"\u{1F30A}",
+        desc:`${name}'s sleep architecture is maturing from newborn cycles to adult-style 4-stage sleep. This is permanent brain development — not a setback.`,
+        advice:"Expect 2–4 weeks of disrupted sleep. Keep routines consistent, offer extra feeds if needed, and avoid introducing new sleep props. This regression means the brain is developing normally." },
+      { weeks:[34,42], label:"8–10 Month Sleep Regression", emoji:"\u{1F9D7}",
+        desc:`Separation anxiety + major motor milestones (crawling, pulling up) are disrupting ${name}'s sleep. The brain is practising new skills even during sleep.`,
+        advice:"Usually lasts 2–6 weeks. Practice new skills during the day, maintain bedtime routine, offer reassurance without creating new habits." },
+      { weeks:[50,54], label:"12-Month Sleep Regression", emoji:"\u{1F6B6}",
+        desc:`Walking, first words, and a cognitive leap are happening simultaneously. This is NOT the time to drop to 1 nap — most babies aren't ready until 13–18 months.`,
+        advice:"Keep 2 naps. This regression typically lasts 2–4 weeks. Wait for 2+ weeks of consistent nap refusal before considering a transition." },
+      { weeks:[76,80], label:"18-Month Sleep Regression", emoji:"\u{1F5E3}",
+        desc:`Language explosion + peak separation anxiety + growing independence are all competing for ${name}'s brain power.`,
+        advice:"Firm, consistent boundaries at bedtime are key. This is often the toughest regression but usually resolves in 2–4 weeks with consistency." },
+      { weeks:[102,108], label:"2-Year Sleep Regression", emoji:"\u{1F3AD}",
+        desc:"Toddler independence and developing imagination (possible night fears) are disrupting sleep.",
+        advice:"Validate fears calmly, keep routine predictable, consider a nightlight. If nap resistance lasts 2+ weeks consistently, it may be time for quiet time instead." },
+    ];
+    const match = regressions.find(r => w >= r.weeks[0] && w <= r.weeks[1]);
+    if (!match) return null;
+    const dk = Object.keys(days).sort().slice(-7);
+    const nightWakes = dk.map(d => {
+      const next = (()=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})();
+      return (days[next]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;
+    });
+    const avgWakes = nightWakes.length ? nightWakes.reduce((a,b)=>a+b,0)/nightWakes.length : 0;
+    if (avgWakes < 1.5) return null;
+    return {...match, avgWakes: Math.round(avgWakes*10)/10};
+  }
+
+  // ── Nap transition detection ──
+  function detectNapTransition() {
+    if (!age) return null;
+    const w = age.totalWeeks;
+    const name = babyName || "Baby";
+    const profile = getAgeNapProfile(w);
+    const dk = Object.keys(days).sort().slice(-10);
+    if (dk.length < 5) return null;
+    const napCounts = dk.map(d => (days[d]||[]).filter(e=>e.type==="nap"&&!e.night).length);
+    const daysWithFewer = napCounts.filter(n => n < profile.expectedNaps).length;
+    const transitions = [
+      { from:4, to:3, ageRange:[17,26], ww:"2–3 hrs" },
+      { from:3, to:2, ageRange:[26,35], ww:"2.5–3.5 hrs" },
+      { from:2, to:1, ageRange:[56,78], ww:"4–6 hrs" },
+    ];
+    const match = transitions.find(t => w >= t.ageRange[0] && w <= t.ageRange[1] && profile.expectedNaps === t.from);
+    if (!match || daysWithFewer < 4) return null;
+    return {
+      from: match.from, to: match.to, ww: match.ww, daysWithFewer,
+      message: `${name} may be ready to transition from ${match.from} naps to ${match.to}. In ${daysWithFewer} of the last ${dk.length} days, fewer than ${match.from} naps were taken.`,
+      advice: `Gradually extend wake windows toward ${match.ww}. Expect 2–4 weeks of adjustment. Use an earlier bedtime (as early as 6pm) on short-nap days.`
+    };
+  }
+
+  // ── Sleep debt tracking ──
+  function sleepDebtCheck() {
+    if (!age) return null;
+    const target = getAgeTotalSleepHours(age.totalWeeks);
+    const name = babyName || "Baby";
+    const dk = Object.keys(days).sort().slice(-3);
+    if (dk.length < 2) return null;
+    const dailySleep = dk.map(d => {
+      const entries = days[d]||[];
+      const napMins = entries.filter(e=>e.type==="nap"&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0);
+      const bedEntry = entries.find(e=>e.type==="sleep"&&!e.night);
+      const wakeEntry = entries.find(e=>e.type==="wake"&&!e.night);
+      if (!bedEntry || !wakeEntry) return null;
+      const nextDay = (()=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})();
+      const nextWake = (days[nextDay]||[]).find(e=>e.type==="wake"&&!e.night);
+      let nightMins = 0;
+      if (nextWake) {
+        const [bh,bm] = bedEntry.time.split(":").map(Number);
+        const [wh,wm] = nextWake.time.split(":").map(Number);
+        nightMins = (wh*60+wm+1440) - (bh*60+bm);
+        if (nightMins > 1440) nightMins -= 1440;
+      }
+      return (napMins + nightMins) / 60;
+    }).filter(v => v !== null);
+    if (dailySleep.length < 2) return null;
+    const avg = dailySleep.reduce((a,b)=>a+b,0)/dailySleep.length;
+    const deficit = target - avg;
+    if (deficit < 0.5) return null;
+    const consecutive = dailySleep.filter(h => h < target - 0.5).length;
+    if (consecutive < 2) return null;
+    return {
+      avgSleep: Math.round(avg*10)/10, target: Math.round(target*10)/10,
+      deficit: Math.round(deficit*10)/10, days: consecutive,
+      message: `${name} has averaged ${Math.round(avg*10)/10}h of total sleep over the last ${dk.length} days — about ${Math.round(deficit*10)/10}h below the recommended ${Math.round(target*10)/10}h.`,
+      advice: "Sleep debt accumulates over consecutive days. An extra-early bedtime tonight (as early as 6:00pm) can help reset. Even 30 minutes earlier makes a measurable difference."
+    };
+  }
+
+    // 1 & 2. Circadian rhythm detection + gradual adjustment
   function circadianAnalysis() {
     const dk = Object.keys(days).sort().slice(-5);
     if (dk.length < 3) return null;
@@ -3739,7 +3844,7 @@ function App(){
       if (napEnd + ww.min > anchorBed && i < napCount-1) break;
       schedule.push({ label:`Nap ${napsDone+1}`, time:`${mtp(cursor)} – ${mtp(napEnd)}`, icon:"😴", type:"nap" });
       napsDone++;
-      cursor = napEnd + wwMid;
+      cursor = napEnd + progressiveWW(age.totalWeeks, napsDone, napCount);
       if (cursor >= anchorBed - 15) break;
     }
 
@@ -6579,7 +6684,7 @@ function App(){
                 // Show bridge nap suggestion if needed
                 if(!pred && suggestedBed?.needsBridge && bridgeRisk?.suggestBridge) {
                   return (
-                    <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.gold}44`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
+                    <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"12px 14px",marginBottom:14}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:20}}>🌉</span>
@@ -7366,7 +7471,60 @@ function App(){
                           );
                         })()}
 
-                        {/* Tomorrow's Predicted Rhythm */}
+                        {/* Sleep Regression Alert */}
+                        {(()=>{
+                          const reg = detectSleepRegression();
+                          if (!reg) return null;
+                          return (
+                            <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"14px",marginBottom:12}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                                <span style={{fontSize:24}}>{reg.emoji}</span>
+                                <div>
+                                  <div style={{fontSize:14,fontWeight:700,color:C.gold}}>{reg.label}</div>
+                                  <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Avg {reg.avgWakes} night wakes this week</div>
+                                </div>
+                              </div>
+                              <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{reg.desc}</div>
+                              <div style={{background:"var(--card-bg)",borderRadius:12,padding:"10px 12px",fontSize:13,color:C.deep,lineHeight:1.6}}>
+                                <div style={{fontWeight:700,marginBottom:4}}>What to do:</div>
+                                {reg.advice}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Nap Transition Alert */}
+                        {(()=>{
+                          const trans = detectNapTransition();
+                          if (!trans) return null;
+                          return (
+                            <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"14px",marginBottom:12}}>
+                              <div style={{fontSize:14,fontWeight:700,color:C.mint,marginBottom:6}}>\u{1F504} Nap Transition — {trans.from} → {trans.to} naps</div>
+                              <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{trans.message}</div>
+                              <div style={{background:"var(--card-bg)",borderRadius:12,padding:"10px 12px",fontSize:13,color:C.deep,lineHeight:1.6}}>
+                                <div style={{fontWeight:700,marginBottom:4}}>How to transition:</div>
+                                {trans.advice}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Sleep Debt Warning */}
+                        {(()=>{
+                          const debt = sleepDebtCheck();
+                          if (!debt) return null;
+                          return (
+                            <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"14px",marginBottom:12}}>
+                              <div style={{fontSize:14,fontWeight:700,color:C.ter,marginBottom:6}}>\u{1F634} Sleep Debt — {debt.deficit}h below target</div>
+                              <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{debt.message}</div>
+                              <div style={{background:"var(--card-bg)",borderRadius:12,padding:"10px 12px",fontSize:13,color:C.deep,lineHeight:1.6}}>
+                                {debt.advice}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                                                {/* Tomorrow's Predicted Rhythm */}
                         {(()=>{
                           const flex = tomorrowFlexSchedule();
                           const sched = flex ? flex.schedule : null;
@@ -8194,6 +8352,34 @@ function App(){
                   Activities and advice are based on NHS Start4Life and WHO Child Development guidelines, as well as Kinedu-style developmental play principles. Every baby develops at their own pace — use these as inspiration, not a checklist. If you have concerns about development, speak to your health visitor or GP.
                 </div>
               </div>
+
+                {/* Safe Sleep Guidance */}
+                <div style={{marginTop:16}}>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>\u{1F6CF} Safe Sleep — NHS & AAP Guidelines</div>
+                  <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px"}}>
+                    {[
+                      ["\u{1F519}","Always on their back","Place baby on their back for every sleep — naps and night. The single most important step to reduce SIDS risk."],
+                      ["\u{1F6CF}","Firm, flat surface","Use a firm, flat mattress in a cot or moses basket meeting safety standards. No inclined sleepers or car seats for routine sleep."],
+                      ["\u{1F321}","Room temperature 16–20°C","Overheating increases SIDS risk. Feel baby's tummy or back of neck — if clammy, remove a layer. No hats indoors."],
+                      ["\u{1F3E0}","Same room for 6 months","NHS and AAP recommend baby sleeps in your room (not your bed) for at least the first 6 months — naps and night."],
+                      ["\u{1F9F8}","Clear sleep space","No pillows, duvets, bumpers, toys, or loose bedding. Use an appropriate sleeping bag instead of blankets."],
+                      ["\u{1F931}","Breastfeeding helps","Breastfeeding for at least 2 months significantly reduces SIDS risk, even if partially breastfed."],
+                      ["\u{1F6AD}","Smoke-free environment","Never smoke around baby or in rooms where baby sleeps. Applies to all caregivers."],
+                      ["\u{1F9F7}","Feet to foot position","Place baby with feet touching the foot of the cot so they can't wriggle under bedding."],
+                    ].map((item,i)=>(
+                      <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:i<7?`1px solid ${C.blush}`:"none"}}>
+                        <span style={{fontSize:18,flexShrink:0,marginTop:2}}>{item[0]}</span>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{item[1]}</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{item[2]}</div>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{fontSize:11,color:C.lt,marginTop:10,lineHeight:1.5}}>
+                      Sources: NHS Safe Sleep Guidelines, AAP Safe Sleep Policy (2022), Lullaby Trust
+                    </div>
+                  </div>
+                </div>
 
             </div>
           );
