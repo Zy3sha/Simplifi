@@ -1409,6 +1409,7 @@ function App(){
   const[confirmDeleteDay,setConfirmDeleteDay]=useState(false);
   const[napOn,setNapOn]=useState(()=>{try{return localStorage.getItem("nap_on")==="1";}catch{return false;}});
   const[napStartT,setNapStartT]=useState(()=>{try{return localStorage.getItem("nap_startT")||null;}catch{return null;}});
+  const[napEntryId,setNapEntryId]=useState(()=>{try{return localStorage.getItem("nap_entry_id")||null;}catch{return null;}});
   const[napSec,setNapSec]=useState(()=>{
     try{
       const on=localStorage.getItem("nap_on")==="1";
@@ -2589,7 +2590,23 @@ function App(){
   const[newChildSex,setNewChildSex]=useState("");
   const[newChildUnborn,setNewChildUnborn]=useState(false);
   useEffect(()=>{
-    if(napOn)timerRef.current=setInterval(()=>setNapSec(s=>s+1),1000);
+    if(napOn){
+      timerRef.current=setInterval(()=>{
+        setNapSec(s=>{
+          const next=s+1;
+          // Update live nap entry end time every 30 seconds
+          if(next%30===0 && napEntryId){
+            setDays(d=>{
+              const entries=d[selDay]||[];
+              if(!entries.some(e=>e.id===napEntryId)) return d;
+              const now=nowTime();
+              return{...d,[selDay]:entries.map(e=>e.id===napEntryId?{...e,end:now}:e)};
+            });
+          }
+          return next;
+        });
+      },1000);
+    }
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
   },[napOn]);
@@ -2610,6 +2627,7 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("nap_on",napOn?"1":"0");}catch{}},[ napOn]);
   useEffect(()=>{try{localStorage.setItem("timer_mode_v1",timerMode);}catch{}},[timerMode]);
   useEffect(()=>{try{if(napStartT)localStorage.setItem("nap_startT",napStartT);else localStorage.removeItem("nap_startT");}catch{}},[ napStartT]);
+  useEffect(()=>{try{if(napEntryId)localStorage.setItem("nap_entry_id",napEntryId);else localStorage.removeItem("nap_entry_id");}catch{}},[ napEntryId]);
   useEffect(()=>{try{localStorage.setItem("nap_sec",String(napSec));}catch{}},[napSec]);
 
 
@@ -5112,9 +5130,15 @@ function App(){
   function startNap(){
     if (napOn) return; // already running
     const t=nowTime();
-    // Clear any stale start time from a previous session
-    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");}catch{}
-    setNapStartT(t);setNapSec(0);setNapOn(true);
+    const entryId=uid();
+    // Log nap entry immediately with start time (end will be filled when timer stops)
+    setDays(d=>{
+      const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,end:t,duration:0,night:false,note:"",_active:true}];
+      const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+      return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+    });
+    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",entryId);}catch{}
+    setNapStartT(t);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
   }
 
@@ -5173,19 +5197,36 @@ function App(){
     const isNightTime = h >= 19 || h < 6;
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
     if (isNightTime || hasBedtime) {
-      // Show prompt: night wake, morning wake, or nap?
+      // Remove the in-progress entry before showing prompt (prompt will create final entry)
+      if(napEntryId){
+        setDays(d=>{
+          const updated=(d[selDay]||[]).filter(e=>e.id!==napEntryId);
+          return{...d,[selDay]:updated};
+        });
+      }
       setTimerEndPrompt({start: napStartT, end, durMins});
     } else {
-      // Daytime with no bedtime — log as nap directly
-      setDays(d=>{
-        const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,duration:durMins,night:false,note:""}];
-        const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-        return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
-      });
+      // Update the existing nap entry with end time
+      if(napEntryId){
+        setDays(d=>{
+          const updated=(d[selDay]||[]).map(e=>
+            e.id===napEntryId?{...e,end,duration:durMins,_active:false}:e
+          );
+          const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+          return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+        });
+      } else {
+        // Fallback: create new entry if ID lost
+        setDays(d=>{
+          const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,duration:durMins,night:false,note:""}];
+          const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+          return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+        });
+      }
     }
-    setNapStartT(null);setNapSec(0);
+    setNapStartT(null);setNapSec(0);setNapEntryId(null);
     setTimerMode("prediction");
-    try{["nap_on","nap_startT","nap_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+    try{["nap_on","nap_startT","nap_sec","nap_entry_id"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
   function copySummary(){
     const ln=[`${fmtLong(selDay)} — ${possessive(babyName||"Baby")} Day`,""];
