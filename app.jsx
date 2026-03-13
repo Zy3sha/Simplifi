@@ -365,7 +365,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
 
 function PBtn({children,onClick,v="pri",style={}}){
   const vs={pri:{background:C.ter,color:"white"},ghost:{background:C.blush,color:C.mid},danger:{background:"#e8574a",color:"white"}};
-  return <button onClick={onClick} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:6,...vs[v],...style}}>{children}</button>;
+  return <button onClick={e=>{haptic();onClick&&onClick(e);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:6,...vs[v],...style}}>{children}</button>;
 }
 
 function Badge({type,children}){
@@ -376,8 +376,9 @@ function Badge({type,children}){
 
 function PinPad({value, onChange, onComplete}){
   const digits = [1,2,3,4,5,6,7,8,9,null,0,"⌫"];
+  const pinTap=()=>haptic(8);
   function tap(d){
-    if(d==="⌫"){ onChange(value.slice(0,-1)); return; }
+    if(d==="⌫"){ pinTap(); onChange(value.slice(0,-1)); return; }
     if(d===null) return;
     const next = value + String(d);
     if(next.length > 4) return;
@@ -3067,7 +3068,8 @@ function App(){
 
     const napProfile = getAgeNapProfile(age.totalWeeks);
     const adjustedExpectedBed = napProfile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
-    if (todayNaps.length < adjustedExpectedBed) return null;
+    // Don't block prediction — show bedtime even if not all naps done yet
+    // This prevents the prediction from disappearing mid-day
     const ww = getWakeWindow(age.totalWeeks);
     const lastNap = todayNaps[todayNaps.length - 1];
     if (!lastNap.end) return null;
@@ -3118,13 +3120,20 @@ function App(){
     const lastNapEndMins = lh2*60+lm2;
     const earliestBed = lastNapEndMins + ww.min;
     const latestBed   = lastNapEndMins + ww.max;
-    const finalMins = Math.min(latestBed, Math.max(earliestBed, baseBedMins + adjustMins));
+    let finalMins = Math.min(latestBed, Math.max(earliestBed, baseBedMins + adjustMins));
+
+    // Clamp to reasonable bedtime window (6pm–8:30pm)
+    finalMins = clampBedtime(finalMins);
+
+    // Check if this creates an excessively long wake window → suggest bridge nap
+    const lastWW = finalMins - lastNapEndMins;
+    const needsBridge = lastWW > ww.max + 20 && !bridgeNapScheduled;
 
     const hh = Math.floor(finalMins/60)%24;
     const mm = finalMins%60;
     const bedTime = `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
 
-    return { time: bedTime, adjustReason, bedSource, baseBedMins, adjustMins };
+    return { time: bedTime, adjustReason, bedSource, baseBedMins, adjustMins, needsBridge, lastNapEndMins, lastWW };
   }
 
   function sleepAdvice() {
@@ -3383,12 +3392,22 @@ function App(){
     const [lh,lm] = lastNap.end.split(":").map(Number);
     const lastNapEndMins = lh*60+lm;
     const method1BedMins = lastNapEndMins + ww.max;
-    const earlyThreshold = 18*60+15; // 6:15pm
+    const clampedBed = clampBedtime(method1BedMins);
+    const earlyThreshold = 18*60+15;
     const isEarlyRisk = method1BedMins < earlyThreshold;
     const dss = getDaySleepSummary();
     const belowDaySleep = dss && dss.status === "below";
-    const suggestBridge = isEarlyRisk && belowDaySleep;
-    return { isEarlyRisk, method1BedMins, suggestBridge, lastNapEndMins };
+    const lastNapDur = minDiff(lastNap.start, lastNap.end);
+    const p = getAgeNapProfile(age.totalWeeks);
+    const lastNapShort = lastNapDur < p.idealNapDurMin;
+    // Wake window from last nap to clamped bedtime
+    const wwToBed = clampedBed - lastNapEndMins;
+    const wwTooLong = wwToBed > ww.max + 15;
+    // Suggest bridge nap if: wake window too long OR (early risk AND below day sleep) OR (short last nap AND long gap)
+    const suggestBridge = !bridgeNapScheduled && (wwTooLong || (isEarlyRisk && belowDaySleep) || (lastNapShort && wwToBed > ww.max));
+    const bridgeStart = lastNapEndMins + ww.min;
+    const bridgeEnd = bridgeStart + 20; // 20 min bridge nap
+    return { isEarlyRisk, method1BedMins, suggestBridge, lastNapEndMins, bridgeStart, bridgeEnd, wwToBed, lastNapShort };
   }
 
   // 7. Track consecutive early bedtime risk days for nap structure change
@@ -4971,6 +4990,7 @@ function App(){
   }
 
     function quickAddLog(type, data){
+    haptic(15);
     setSessionLogs(c=>{
       const n=c+1;
       try{if(n===3 && !localStorage.getItem("tut_v2") && tutStep===-1) setTimeout(()=>setShowTutPrompt(true),800);}catch{}
@@ -6173,7 +6193,7 @@ function App(){
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:6,gap:6}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             {childIds.map(cid=>(
-              <button key={cid} onClick={()=>setActiveChildId(cid)} style={{
+              <button key={cid} onClick={()=>{haptic();setActiveChildId(cid);}} style={{
                 width:cid===resolvedActiveId?22:8,height:8,borderRadius:99,border:_bN,cursor:_cP,
                 background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.18)",transition:"all 0.25s",padding:0
               }}/>
@@ -6249,7 +6269,7 @@ function App(){
         {tab === "day" && !breastStartTime && (
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:10}}>
             {!napOn && (
-              <button onClick={()=>startBreastTimer("L")} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
+              <button onClick={()=>{haptic();startBreastTimer("L");}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
                 🤱 Start Feed
               </button>
             )}
@@ -6257,7 +6277,7 @@ function App(){
             {napOn && (
               <div style={{display:"flex",alignItems:"center",gap:5,background:C.mint,borderRadius:99,padding:"5px 6px 5px 14px"}}>
                 <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white"}}>😴 {fmtSec(napSec)}</span>
-                <button onClick={endNap} style={{background:"rgba(255,255,255,0.3)",border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>Stop</button>
+                <button onClick={()=>{haptic();endNap();}} style={{background:"rgba(255,255,255,0.3)",border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>Stop</button>
               </div>
             )}
             {/* Nap/Bed countdown pill — right side */}
@@ -6281,6 +6301,7 @@ function App(){
               }
               const isNapTappable = !isBed && !isNeutral && napCountdown !== null;
               const handleTap = () => {
+                haptic(20);
                 if(isNapTappable || isNapNow){ startNap(); }
                 else if(isBedNow || isBed){ startNap(); logBedtimeNow(); }
               };
@@ -6306,7 +6327,7 @@ function App(){
           </div>
           {displayDayKeys.map(d=>(
             <div key={d} style={{flexShrink:0,display:"flex",alignItems:"center",gap:2,background:d===selDay?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:20,padding:"4px 4px 4px 11px",border:d===selDay?`1.5px solid ${C.ter}`:`1px solid var(--card-border)`}}>
-              <button onClick={()=>setSelDay(d)} style={{background:_bN,border:_bN,color:d===selDay?C.ter:C.mid,fontSize:13,fontFamily:_fM,cursor:_cP,padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
+              <button onClick={()=>{haptic();setSelDay(d);}} style={{background:_bN,border:_bN,color:d===selDay?C.ter:C.mid,fontSize:13,fontFamily:_fM,cursor:_cP,padding:"1px 0",whiteSpace:"nowrap",fontWeight:d===selDay?700:400}}>{fmtDate(d)}</button>
               <button onClick={e=>{setMenuDay(d);setEditDate(d);setConfirmDeleteDay(false);setModal("dayMenu");e.stopPropagation();}} style={{background:d===selDay?`${C.ter}22`:"var(--card-bg-alt)",border:`1px solid var(--card-border)`,borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:10,color:d===selDay?C.ter:C.mid}}>✎</button>
             </div>
           ))}
@@ -6513,7 +6534,7 @@ function App(){
                   {id:"wake",  icon:"☀️", label:"Wake Up"},
                   {id:"paste", icon:"📋", label:"Notes"},
                 ].map(({id,icon,label})=>(
-                  <button key={id} onClick={()=>id==="paste"?openPaste():openLogPanel(id)}
+                  <button key={id} onClick={()=>{haptic();id==="paste"?openPaste():openLogPanel(id);}}
                     style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?"var(--ter)":"rgba(255,255,255,0.45)"}`,background:logPanel===id?"var(--chip-bg-active)":"var(--card-bg)",cursor:_cP,fontFamily:_fI,transition:"all 0.15s, transform 0.1s",boxShadow:logPanel===id?"0 0 12px rgba(192,112,136,0.30), inset 0 1px 0 rgba(255,255,255,0.60)":"inset 0 0 5px rgba(246,221,227,0.35), inset 0 1px 0 rgba(255,255,255,0.50)"}}
                     onMouseDown={e=>{e.currentTarget.style.transform="scale(0.92)";}}
                     onMouseUp={e=>{e.currentTarget.style.transform="scale(1)";}}
@@ -6550,8 +6571,37 @@ function App(){
                 const hasBed = dayE.some(e=>e.type==="sleep");
                 const pred = predictNextNap();
                 const suggestedBed = bedtimePrediction();
+                const bridgeRisk = earlyBedtimeRisk();
                 if(hasBed) return null;
-                if(!pred && !suggestedBed) return null;
+                if(!pred && !suggestedBed && !bridgeRisk?.suggestBridge) return null;
+
+                // Show bridge nap suggestion if needed
+                if(!pred && suggestedBed?.needsBridge && bridgeRisk?.suggestBridge) {
+                  return (
+                    <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.gold}44`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:20}}>🌉</span>
+                          <div>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.gold,textTransform:"uppercase",letterSpacing:_ls08}}>Bridge Nap Suggested</div>
+                            <div style={{fontSize:13,color:C.mid,lineHeight:1.4,marginTop:2}}>
+                              {bridgeRisk.lastNapShort?"Short last nap":"Long wake window"} — a 15–20 min bridge nap would prevent overtiredness before bedtime
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>{haptic();startNap();}} style={{flex:1,padding:"8px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.gold},#b89020)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                          Start Bridge Nap
+                        </button>
+                        <div style={{textAlign:"center",padding:"8px 12px"}}>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Then bedtime</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.mint}44`,borderRadius:16,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
                     {pred ? (
@@ -6888,7 +6938,7 @@ function App(){
           const weightGain = latestW && prevW ? Math.round((latestW.kg - prevW.kg)*1000)/1000 : null;
 
           const collHead = (key, icon, label) => (
-            <button onClick={()=>toggleInsight(key)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderRadius:16,marginBottom:insightSection[key]?0:12,borderBottomLeftRadius:insightSection[key]?0:16,borderBottomRightRadius:insightSection[key]?0:16,cursor:_cP,boxShadow:"0 2px 8px rgba(201,112,90,0.05)"}}>
+            <button onClick={()=>{haptic();toggleInsight(key);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderRadius:16,marginBottom:insightSection[key]?0:12,borderBottomLeftRadius:insightSection[key]?0:16,borderBottomRightRadius:insightSection[key]?0:16,cursor:_cP,boxShadow:"0 2px 8px rgba(201,112,90,0.05)"}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:16}}>{icon}</span>
                 <span style={{fontSize:14,fontWeight:700,color:C.deep,letterSpacing:"0.02em"}}>{label}</span>
@@ -7182,15 +7232,16 @@ function App(){
                                   <div style={{fontSize:15,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
                                 </div>
                               </div>
-                              {adv && (
+                              {suggestedBed && (
                                 <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
                                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                                     <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>Predicted Bedtime</div>
-                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12((() => { const m=adv.combined; return `${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`; })())}</div>
+                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
                                   </div>
+                                  {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}</div>}
                                 </div>
                               )}
-                              {!adv && suggestedBed && (
+                              {!suggestedBed && adv && (
                                 <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
                                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                                     <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
@@ -7199,14 +7250,15 @@ function App(){
                                 </div>
                               )}
                             </div>
-                          ) : adv ? (
+                          ) : suggestedBed ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
                               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                                 <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>Predicted Bedtime</div>
-                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12((() => { const m=adv.combined; return `${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`; })())}</div>
+                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
                               </div>
+                              {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}</div>}
                             </div>
-                          ) : suggestedBed ? (
+                          ) : adv ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
                               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                                 <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
@@ -8159,7 +8211,7 @@ function App(){
                 <div style={{fontSize:11,color:C.lt}}>Auto-switches 7pm / 7am</div>
               </div>
             </div>
-            <button onClick={toggleTheme} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:_bN,borderRadius:99,padding:"8px 16px",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+            <button onClick={()=>{haptic();toggleTheme();}} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:_bN,borderRadius:99,padding:"8px 16px",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
               {isDark?"☀️ Day":"🌙 Night"}
             </button>
           </div>
@@ -8323,7 +8375,7 @@ function App(){
 
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:50,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:520,margin:"0 auto",borderRadius:"22px 22px 0 0",paddingBottom:"env(safe-area-inset-bottom,0)",padding:"4px 8px env(safe-area-inset-bottom,0)"}}>
         {["day","insights","develop","settings"].map(t=>(
-          <button key={t} onClick={()=>{setTab(t);setLogPanel(null);}} style={tabSt(t)}>
+          <button key={t} onClick={()=>{haptic();setTab(t);setLogPanel(null);}} style={tabSt(t)}>
             <span style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
             {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
