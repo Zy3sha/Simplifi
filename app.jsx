@@ -6409,89 +6409,89 @@ function App(){
 
             {tutStep >= 0 && (()=>{
         const TUT_STEPS = [
-          { icon:"\u{1F44B}", title:"Welcome to OBubba!", body:"A quick tour of how everything works \u2014 takes about 60 seconds. Tap anywhere or Next to continue.", location:null },
-          { icon:"\u{1F37C}", title:"Quick Log Bar",
+          { icon:"👋", title:"Welcome to OBubba!", body:"A quick tour of how everything works — takes about 60 seconds. Tap anywhere or Next to continue.", location:null },
+          { icon:"🍼", title:"Quick Log Bar",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>The row of icons at the top is your <strong style={{color:C.ter}}>quick log bar</strong> \u2014 one tap logs instantly:</div>
+                <div style={{marginBottom:8}}>The row of icons at the top is your <strong style={{color:C.ter}}>quick log bar</strong> — one tap logs instantly:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>\u{1F37C} <strong>Feed</strong> \u2014 logs a bottle feed</div>
-                  <div>\u{1F931} <strong>Breast</strong> \u2014 logs a breastfeed</div>
-                  <div>\u{1F4A9} <strong>Nappy</strong> \u2014 logs a wet nappy</div>
-                  <div>\u{1F634} <strong>Nap</strong> \u2014 starts the nap timer + logs entry</div>
-                  <div>\u{1FAD9} <strong>Pump</strong> \u2014 opens pump form</div>
-                  <div>\u2600\uFE0F <strong>Wake</strong> \u2014 logs morning wake time</div>
+                  <div>🍼 <strong>Feed</strong> — logs a bottle feed</div>
+                  <div>🤱 <strong>Breast</strong> — logs a breastfeed</div>
+                  <div>💩 <strong>Nappy</strong> — logs a wet nappy</div>
+                  <div>😴 <strong>Nap</strong> — starts the nap timer + logs entry</div>
+                  <div>🫙 <strong>Pump</strong> — opens pump form</div>
+                  <div>☀️ <strong>Wake</strong> — logs morning wake time</div>
                 </div>
               </div>
             ), location:"Below the header" },
-          { icon:"\u23F1\uFE0F", title:"Nap & Bedtime Predictions",
+          { icon:"⏱️", title:"Nap & Bedtime Predictions",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
                 <div style={{marginBottom:8}}>OBubba predicts naps and bedtime by blending NHS guidelines with your baby's patterns:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>\u23F1\uFE0F <strong>Nap countdown</strong> \u2014 shows when the next nap is due</div>
-                  <div>\u{1F319} <strong>Bedtime</strong> \u2014 adjusts based on today's actual naps</div>
-                  <div>\u{1F309} <strong>Bridge nap</strong> \u2014 suggested when the gap to bedtime is too long</div>
-                  <div>\u{1F4C5} <strong>Tomorrow's rhythm</strong> \u2014 full predicted schedule</div>
+                  <div>⏱️ <strong>Nap countdown</strong> — shows when the next nap is due</div>
+                  <div>🌙 <strong>Bedtime</strong> — adjusts based on today's actual naps</div>
+                  <div>🌉 <strong>Bridge nap</strong> — suggested when the gap to bedtime is too long</div>
+                  <div>📅 <strong>Tomorrow's rhythm</strong> — full predicted schedule</div>
                 </div>
-                <div style={{fontSize:13,color:C.lt,marginTop:8}}>Accuracy improves with 3\u20135 days of logging.</div>
+                <div style={{fontSize:13,color:C.lt,marginTop:8}}>Accuracy improves with 3–5 days of logging.</div>
               </div>
             ), location:"Day view" },
-          { icon:"\u{1F4C5}", title:"Appointments & Reminders",
+          { icon:"📅", title:"Appointments & Reminders",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
                 <div style={{marginBottom:8}}>Stay on top of health visits and daily tasks:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>\u{1F4C5} <strong>Appointments</strong> \u2014 one-off or recurring with travel time reminders</div>
-                  <div>\u{1F514} <strong>Reminders</strong> \u2014 timed to-dos with notifications</div>
-                  <div>\u{1F4CC} <strong>Pinned notes</strong> \u2014 allergies, medical info \u2014 always visible on Day view</div>
+                  <div>📅 <strong>Appointments</strong> — one-off or recurring with travel time reminders</div>
+                  <div>🔔 <strong>Reminders</strong> — timed to-dos with notifications</div>
+                  <div>📌 <strong>Pinned notes</strong> — allergies, medical info — always visible on Day view</div>
                 </div>
               </div>
             ), location:"Day view" },
-          { icon:"\u{1F4A1}", title:"Insights & Analysis",
+          { icon:"💡", title:"Insights & Analysis",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>\u{1F4A1} Insights</strong> in the bottom nav:</div>
+                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>💡 Insights</strong> in the bottom nav:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>\u{1F37C} <strong>Today with {babyName||"Baby"}</strong> \u2014 smart daily summary</div>
-                  <div>\u{1F634} <strong>Sleep Analysis</strong> \u2014 stability score, regression alerts, sleep debt</div>
-                  <div>\u{1F4CF} <strong>Growth</strong> \u2014 WHO percentile charts</div>
-                  <div>\u{1F4C8} <strong>Trends</strong> \u2014 weekly patterns and comparisons</div>
+                  <div>🍼 <strong>Today with {babyName||"Baby"}</strong> — smart daily summary</div>
+                  <div>😴 <strong>Sleep Analysis</strong> — stability score, regression alerts, sleep debt</div>
+                  <div>📏 <strong>Growth</strong> — WHO percentile charts</div>
+                  <div>📈 <strong>Trends</strong> — weekly patterns and comparisons</div>
                 </div>
               </div>
-            ), location:"Bottom nav \u2014 Insights" },
-          { icon:"\u{1F9E9}", title:"Development & Milestones",
+            ), location:"Bottom nav — Insights" },
+          { icon:"🧩", title:"Development & Milestones",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>\u{1F9E9} Development</strong>:</div>
+                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>🧩 Development</strong>:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>\u2B50 <strong>Milestones</strong> \u2014 NHS checklist with shareable achievement cards</div>
-                  <div>\u{1F3AF} <strong>Activities</strong> \u2014 age-appropriate play ideas</div>
-                  <div>\u{1F6CF}\uFE0F <strong>Safe Sleep</strong> \u2014 NHS & AAP guidelines</div>
+                  <div>⭐ <strong>Milestones</strong> — NHS checklist with shareable achievement cards</div>
+                  <div>🎯 <strong>Activities</strong> — age-appropriate play ideas</div>
+                  <div>🛏️\uFE0F <strong>Safe Sleep</strong> — NHS & AAP guidelines</div>
                 </div>
               </div>
-            ), location:"Bottom nav \u2014 Development" },
-          { icon:"\u{1F319}", title:"Day & Night Mode", body:"OBubba auto-switches to night mode at 7pm and day mode at 7am. Toggle manually in Account \u2014 the switch is right at the top.", location:"Account tab" },
-          { icon:"\u{1F468}\u200D\u{1F469}\u200D\u{1F467}", title:"Share & Sync",
+            ), location:"Bottom nav — Development" },
+          { icon:"🌙", title:"Day & Night Mode", body:"OBubba auto-switches to night mode at 7pm and day mode at 7am. Toggle manually in Account — the switch is right at the top.", location:"Account tab" },
+          { icon:"👨‍👩‍👧", title:"Share & Sync",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
                 <div style={{marginBottom:8}}>In <strong style={{color:C.ter}}>Account \u2192 Share & Sync</strong>:</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>\u{1F4E4} Share your backup code with your partner</div>
-                  <div>\u{1F4F2} Partner enters it in Link a Child</div>
-                  <div>\u{1F504} Both parents see the same data in real time</div>
+                  <div>📤 Share your backup code with your partner</div>
+                  <div>📲 Partner enters it in Link a Child</div>
+                  <div>🔄 Both parents see the same data in real time</div>
                 </div>
               </div>
             ), location:"Account \u2192 Share & Sync" },
-          { icon:"\u{1F389}", title:"You're all set!",
+          { icon:"🎉", title:"You're all set!",
             bodyJSX:(
               <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Log a wake time to start \u2014 nap predictions appear automatically.</div>
+                <div style={{marginBottom:8}}>Log a wake time to start — nap predictions appear automatically.</div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>\u2705 Predictions improve with 3\u20135 days of data</div>
-                  <div>\u2705 Sleep regression alerts trigger automatically</div>
-                  <div>\u2705 Tap the mascot to add your baby's photo</div>
-                  <div>\u2705 Set a recovery word in Account to keep data safe</div>
+                  <div>✅ Predictions improve with 3–5 days of data</div>
+                  <div>✅ Sleep regression alerts trigger automatically</div>
+                  <div>✅ Tap the mascot to add your baby's photo</div>
+                  <div>✅ Set a recovery word in Account to keep data safe</div>
                 </div>
                 <div style={{fontSize:13,color:C.lt,marginTop:8}}>Replay this tour anytime from Account \u2192 App Tour.</div>
               </div>
