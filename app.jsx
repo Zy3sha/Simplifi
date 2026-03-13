@@ -645,7 +645,7 @@ function GrowthChart({lmsTable, babyData, yLabel, unit, sex, color}) {
     // Percentile curves
     pctZ.map((z,i)=>React.createElement("path",{key:"pct"+i,d:curvePath(z),fill:"none",stroke:pctColors[i],strokeWidth:i===2?1.5:0.8})),
     // Percentile labels on right
-    pctZ.map((z,i)=>React.createElement("text",{key:"pl"+i,x:W-PAD.r+2,y:y(lmsVal(maxMo,z))+3,fontSize:7,fill:"var(--text-lt)",fontFamily:"monospace"},pctLabels[i])),
+    pctZ.map((z,i)=>React.createElement("text",{key:"pl"+i,x:W-PAD.r+2,y:y(lmsVal(maxMo,z))+3,fontSize:9,fontWeight:700,fill:"var(--text-lt)",fontFamily:"monospace"},pctLabels[i])),
     // Baby data line
     sorted.length>1 && React.createElement("path",{d:babyPath,fill:"none",stroke:color||"var(--ter)",strokeWidth:2,strokeLinecap:"round",strokeLinejoin:"round"}),
     // Baby data points
@@ -3355,19 +3355,19 @@ function App(){
     const w = age.totalWeeks;
     const name = babyName || "Baby";
     const regressions = [
-      { weeks:[15,19], label:"4-Month Sleep Regression", emoji:"\u{1F30A}",
+      { weeks:[15,19], label:"4-Month Sleep Regression", emoji:"🌊",
         desc:`${name}'s sleep architecture is maturing from newborn cycles to adult-style 4-stage sleep. This is permanent brain development — not a setback.`,
         advice:"Expect 2–4 weeks of disrupted sleep. Keep routines consistent, offer extra feeds if needed, and avoid introducing new sleep props. This regression means the brain is developing normally." },
-      { weeks:[34,42], label:"8–10 Month Sleep Regression", emoji:"\u{1F9D7}",
+      { weeks:[34,42], label:"8–10 Month Sleep Regression", emoji:"🧗",
         desc:`Separation anxiety + major motor milestones (crawling, pulling up) are disrupting ${name}'s sleep. The brain is practising new skills even during sleep.`,
         advice:"Usually lasts 2–6 weeks. Practice new skills during the day, maintain bedtime routine, offer reassurance without creating new habits." },
-      { weeks:[50,54], label:"12-Month Sleep Regression", emoji:"\u{1F6B6}",
+      { weeks:[50,54], label:"12-Month Sleep Regression", emoji:"🚶",
         desc:`Walking, first words, and a cognitive leap are happening simultaneously. This is NOT the time to drop to 1 nap — most babies aren't ready until 13–18 months.`,
         advice:"Keep 2 naps. This regression typically lasts 2–4 weeks. Wait for 2+ weeks of consistent nap refusal before considering a transition." },
-      { weeks:[76,80], label:"18-Month Sleep Regression", emoji:"\u{1F5E3}",
+      { weeks:[76,80], label:"18-Month Sleep Regression", emoji:"🗣️",
         desc:`Language explosion + peak separation anxiety + growing independence are all competing for ${name}'s brain power.`,
         advice:"Firm, consistent boundaries at bedtime are key. This is often the toughest regression but usually resolves in 2–4 weeks with consistency." },
-      { weeks:[102,108], label:"2-Year Sleep Regression", emoji:"\u{1F3AD}",
+      { weeks:[102,108], label:"2-Year Sleep Regression", emoji:"🎭",
         desc:"Toddler independence and developing imagination (possible night fears) are disrupting sleep.",
         advice:"Validate fears calmly, keep routine predictable, consider a nightlight. If nap resistance lasts 2+ weeks consistently, it may be time for quiet time instead." },
     ];
@@ -7499,7 +7499,7 @@ function App(){
                           if (!trans) return null;
                           return (
                             <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"14px",marginBottom:12}}>
-                              <div style={{fontSize:14,fontWeight:700,color:C.mint,marginBottom:6}}>\u{1F504} Nap Transition — {trans.from} → {trans.to} naps</div>
+                              <div style={{fontSize:14,fontWeight:700,color:C.mint,marginBottom:6}}>🔄 Nap Transition — {trans.from} → {trans.to} naps</div>
                               <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{trans.message}</div>
                               <div style={{background:"var(--card-bg)",borderRadius:12,padding:"10px 12px",fontSize:13,color:C.deep,lineHeight:1.6}}>
                                 <div style={{fontWeight:700,marginBottom:4}}>How to transition:</div>
@@ -7515,7 +7515,7 @@ function App(){
                           if (!debt) return null;
                           return (
                             <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"14px",marginBottom:12}}>
-                              <div style={{fontSize:14,fontWeight:700,color:C.ter,marginBottom:6}}>\u{1F634} Sleep Debt — {debt.deficit}h below target</div>
+                              <div style={{fontSize:14,fontWeight:700,color:C.ter,marginBottom:6}}>😴 Sleep Debt — {debt.deficit}h below target</div>
                               <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{debt.message}</div>
                               <div style={{background:"var(--card-bg)",borderRadius:12,padding:"10px 12px",fontSize:13,color:C.deep,lineHeight:1.6}}>
                                 {debt.advice}
@@ -7534,7 +7534,7 @@ function App(){
                             <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px"}}>
                               <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div>
                               <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:10}}>
-                                "NHS guidance + " + (babyName||"baby") + "'s sleep patterns"
+                                {`NHS guidance + ${babyName||"baby"}'s sleep patterns`}
                               </div>
                               <div style={{display:"flex",flexDirection:"column",gap:0}}>
                                 {sched.map((item,i)=>{
@@ -7634,13 +7634,15 @@ function App(){
                         const lms = babySex==="girl" ? WHO_LMS_GIRLS : WHO_LMS_BOYS;
                         return (
                           <div style={{marginBottom:12}}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Weight · WHO Curves</div>
-                              {latestW && <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{fmtWt(latestW.kg,MU)}</span>
-                                <span style={{fontSize:12,fontWeight:700,color:percentileColor(latestW.pct),background:percentileColor(latestW.pct)+"18",padding:"2px 8px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestW.pct)}</span>
-                                {weightGain !== null && <span style={{fontSize:11,color:weightGain>=0?C.mint:C.ter,fontFamily:_fM,fontWeight:700}}>{weightGain>=0?"↑":"↓"}{MU==="lbs"?Math.abs(Math.round(weightGain/KG_PER_LB*16*10)/10)+"oz":Math.abs(weightGain*1000)+"g"}</span>}
-                              </div>}
+                            <div style={{marginBottom:10}}>
+                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>⚖️ Weight · WHO Growth Curves</div>
+                              {latestW && (
+                                <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
+                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:C.deep}}>{fmtWt(latestW.kg,MU)}</span>
+                                  <span style={{fontSize:18,fontWeight:800,color:percentileColor(latestW.pct),background:percentileColor(latestW.pct)+"18",padding:"4px 14px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestW.pct)}</span>
+                                  {weightGain !== null && <span style={{fontSize:14,color:weightGain>=0?C.mint:C.ter,fontFamily:_fM,fontWeight:700}}>{weightGain>=0?"↑":"↓"}{MU==="lbs"?Math.abs(Math.round(weightGain/KG_PER_LB*16*10)/10)+"oz":Math.abs(weightGain*1000)+"g"}</span>}
+                                </div>
+                              )}
                             </div>
                             <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"10px 6px 4px",border:`1px solid ${C.blush}`}}>
                               <GrowthChart lmsTable={lms} babyData={wData} yLabel="Weight" unit="kg" sex={babySex} color={C.ter}/>
@@ -7656,12 +7658,14 @@ function App(){
                         const lms = babySex==="girl" ? WHO_LENGTH_LMS_GIRLS : WHO_LENGTH_LMS_BOYS;
                         return (
                           <div style={{marginBottom:12}}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Height · WHO Curves</div>
-                              {latestH && <div style={{display:"flex",alignItems:"center",gap:6}}>
-                                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{fmtHt(latestH.cm,MU)}</span>
-                                <span style={{fontSize:12,fontWeight:700,color:percentileColor(latestH.pct),background:percentileColor(latestH.pct)+"18",padding:"2px 8px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestH.pct)}</span>
-                              </div>}
+                            <div style={{marginBottom:10}}>
+                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>📏 Height · WHO Growth Curves</div>
+                              {latestH && (
+                                <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
+                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:C.deep}}>{fmtHt(latestH.cm,MU)}</span>
+                                  <span style={{fontSize:18,fontWeight:800,color:percentileColor(latestH.pct),background:percentileColor(latestH.pct)+"18",padding:"4px 14px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestH.pct)}</span>
+                                </div>
+                              )}
                             </div>
                             <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"10px 6px 4px",border:`1px solid ${C.blush}`}}>
                               <GrowthChart lmsTable={lms} babyData={hData} yLabel="Height" unit="cm" sex={babySex} color={C.sky}/>
@@ -7687,8 +7691,8 @@ function App(){
 
                   {/* Overall status */}
                   {latestW && (
-                    <div style={{fontSize:12,padding:"5px 12px",borderRadius:99,display:"inline-block",background:percentileColor(latestW.pct)+"22",color:percentileColor(latestW.pct),fontFamily:_fM,fontWeight:600,marginBottom:8}}>
-                      {percentileNote(latestW.pct)}
+                    <div style={{fontSize:14,padding:"8px 18px",borderRadius:99,display:"inline-block",background:percentileColor(latestW.pct)+"22",color:percentileColor(latestW.pct),fontFamily:_fM,fontWeight:700,marginBottom:8}}>
+                      {percentileNote(latestW.pct)} ✓
                     </div>
                   )}
 
@@ -8355,17 +8359,17 @@ function App(){
 
                 {/* Safe Sleep Guidance */}
                 <div style={{marginTop:16}}>
-                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>\u{1F6CF} Safe Sleep — NHS & AAP Guidelines</div>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>🛏️ Safe Sleep — NHS & AAP Guidelines</div>
                   <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px"}}>
                     {[
-                      ["\u{1F519}","Always on their back","Place baby on their back for every sleep — naps and night. The single most important step to reduce SIDS risk."],
-                      ["\u{1F6CF}","Firm, flat surface","Use a firm, flat mattress in a cot or moses basket meeting safety standards. No inclined sleepers or car seats for routine sleep."],
-                      ["\u{1F321}","Room temperature 16–20°C","Overheating increases SIDS risk. Feel baby's tummy or back of neck — if clammy, remove a layer. No hats indoors."],
-                      ["\u{1F3E0}","Same room for 6 months","NHS and AAP recommend baby sleeps in your room (not your bed) for at least the first 6 months — naps and night."],
-                      ["\u{1F9F8}","Clear sleep space","No pillows, duvets, bumpers, toys, or loose bedding. Use an appropriate sleeping bag instead of blankets."],
-                      ["\u{1F931}","Breastfeeding helps","Breastfeeding for at least 2 months significantly reduces SIDS risk, even if partially breastfed."],
-                      ["\u{1F6AD}","Smoke-free environment","Never smoke around baby or in rooms where baby sleeps. Applies to all caregivers."],
-                      ["\u{1F9F7}","Feet to foot position","Place baby with feet touching the foot of the cot so they can't wriggle under bedding."],
+                      ["🔙","Always on their back","Place baby on their back for every sleep — naps and night. The single most important step to reduce SIDS risk."],
+                      ["🛏️","Firm, flat surface","Use a firm, flat mattress in a cot or moses basket meeting safety standards. No inclined sleepers or car seats for routine sleep."],
+                      ["🌡️","Room temperature 16–20°C","Overheating increases SIDS risk. Feel baby's tummy or back of neck — if clammy, remove a layer. No hats indoors."],
+                      ["🏠","Same room for 6 months","NHS and AAP recommend baby sleeps in your room (not your bed) for at least the first 6 months — naps and night."],
+                      ["🧸","Clear sleep space","No pillows, duvets, bumpers, toys, or loose bedding. Use an appropriate sleeping bag instead of blankets."],
+                      ["🤱","Breastfeeding helps","Breastfeeding for at least 2 months significantly reduces SIDS risk, even if partially breastfed."],
+                      ["🚭","Smoke-free environment","Never smoke around baby or in rooms where baby sleeps. Applies to all caregivers."],
+                      ["🧷","Feet to foot position","Place baby with feet touching the foot of the cot so they can't wriggle under bedding."],
                     ].map((item,i)=>(
                       <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:i<7?`1px solid ${C.blush}`:"none"}}>
                         <span style={{fontSize:18,flexShrink:0,marginTop:2}}>{item[0]}</span>
