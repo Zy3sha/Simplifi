@@ -179,8 +179,8 @@ body.dark-mode input::placeholder{color:#4a5a72!important}
 /* ═══════════════════════════════════════════════════════════
    BUTTONS — no backdrop-filter, just glow shadows
    ═══════════════════════════════════════════════════════════ */
-button,a,[role="button"]{-webkit-user-select:none;user-select:none}
-button:active{transform:scale(0.95)!important}
+button,a,[role="button"]{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button:active{transform:scale(0.96)!important;transition:transform 0.06s ease!important}
 button{position:relative!important;overflow:visible!important}
 
 /* ═══ EDGE GLOW — light concentrated at the border, not filling interior ═══ */
