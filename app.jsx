@@ -370,6 +370,26 @@ function PBtn({children,onClick,v="pri",style={}}){
   return <button onClick={e=>{haptic();onClick&&onClick(e);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:6,...vs[v],...style}}>{children}</button>;
 }
 
+function HelpTip({title,body,style={}}){
+  const[open,setOpen]=React.useState(false);
+  return(
+    <>
+      <button onClick={e=>{e.stopPropagation();setOpen(true);}} style={{width:20,height:20,borderRadius:"50%",border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.lt,fontSize:11,fontWeight:700,cursor:_cP,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0,lineHeight:1,fontFamily:_fM,...style}}>?</button>
+      {open&&ReactDOM.createPortal(
+        <div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.45)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:20,padding:"22px 20px",width:"100%",maxWidth:340,boxShadow:`0 0 40px rgba(201,112,90,0.15), 0 0 80px rgba(201,112,90,0.08), 0 12px 40px rgba(0,0,0,0.15)`,border:`1px solid ${C.blush}`,animation:"fadeUp 0.2s ease"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{title}</div>
+              <button onClick={()=>setOpen(false)} style={{width:28,height:28,borderRadius:"50%",border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.lt,fontSize:14,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+            </div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.65}}>{body}</div>
+          </div>
+        </div>
+      ,document.body)}
+    </>
+  );
+}
+
 function Badge({type,children}){
   const bg={feed:"#f5e0d8",nap:"#d4ede6",sleep:"#d5e7f2",wake:"#f5eccb",poop:"#e8e0d4"};
   const fg={feed:C.ter,nap:C.mint,sleep:C.sky,wake:"#b88a20",poop:"#8a7060"};
@@ -5450,6 +5470,14 @@ function App(){
         action: feedWasSmall ? "May still be hungry from last feed — try offering more" : "Try offering a feed",
         urgency: hungerUrgency, score: Math.min(95, hungerScore)
       });
+    } else {
+      // Soft fallback — always show hunger as a possibility
+      reasons.push({
+        emoji: "🍼", title: "Could be hungry",
+        detail: lastFeed ? `Last feed ${hm(feedGapMins)} ago (${fmtVol(lastFeedMl,FU)}) — seems recent but some babies need more` : "No feeds logged today",
+        action: "Offering a feed is always worth trying",
+        urgency: "low", score: 25
+      });
     }
 
     // ── Personal nap averages ──
@@ -5527,7 +5555,24 @@ function App(){
           action: tiredScore >= 50 ? "Try settling for a nap now — dim lights, quiet voice" : napWasShort ? "Short last nap — may need to go down again sooner" : "Watch for tired cues: yawning, rubbing eyes, looking away",
           urgency: tiredUrgency, score: Math.min(95, tiredScore)
         });
+      } else {
+        // Soft fallback
+        const awakeMin = nowMins - lastSleepEnd;
+        reasons.push({
+          emoji: "😴", title: "Could be tired",
+          detail: `Awake ${hm(awakeMin)} — within normal range but every baby is different`,
+          action: "Watch for subtle tired cues: brief yawns, looking away, jerky movements",
+          urgency: "low", score: 20
+        });
       }
+    } else {
+      // No sleep data at all
+      reasons.push({
+        emoji: "😴", title: "Could be tired",
+        detail: "No sleep data logged today — hard to tell",
+        action: "If baby has been awake a while, try settling for a nap",
+        urgency: "low", score: 20
+      });
     }
 
     // 3. WIND/GAS — if young baby and recently fed
@@ -5576,6 +5621,13 @@ function App(){
           action: "Try a cold teething ring, gentle gum massage, or age-appropriate pain relief",
           urgency: "med", score: 50
         });
+      } else {
+        reasons.push({
+          emoji: "🦷", title: "Teething",
+          detail: "Teeth can emerge at any time from 3 months onwards",
+          action: "Check gums for swelling or white spots. Cold teething ring may help",
+          urgency: "low", score: 22
+        });
       }
     }
 
@@ -5587,7 +5639,25 @@ function App(){
       urgency: "low", score: 30
     });
 
-    // 8. SLEEP REGRESSION — if detected
+    // 8. COMFORT — always relevant
+    reasons.push({
+      emoji: "🤱", title: "Needs comfort",
+      detail: "Sometimes babies just want to be held — especially in the first 6 months",
+      action: "Try skin-to-skin, gentle rocking, or a calm walk around the room",
+      urgency: "low", score: 28
+    });
+
+    // 9. BOREDOM/STIMULATION — older babies
+    if (aw >= 13) {
+      reasons.push({
+        emoji: "🧸", title: "Bored or understimulated",
+        detail: "Older babies need interaction and variety",
+        action: "Try a change of scenery, new toy, mirror play, or going outside",
+        urgency: "low", score: 18
+      });
+    }
+
+    // 10. SLEEP REGRESSION — if detected
     if (age) {
       const reg = detectSleepRegression ? detectSleepRegression() : null;
       if (reg) {
@@ -7558,7 +7628,7 @@ function App(){
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:20}}>🌉</span>
                           <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.gold,textTransform:"uppercase",letterSpacing:_ls08}}>Bridge Nap Suggested</div>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.gold,textTransform:"uppercase",letterSpacing:_ls08}}>Bridge Nap Suggested</div><HelpTip title="Bridge Nap" body="A short 15–20 minute power nap to bridge the gap between the last nap and bedtime. Suggested when the wake window to bedtime would be too long, or when today's naps were shorter than usual. Prevents overtiredness which can cause harder settling and more night wakes. Only suggested after most naps are done and after midday." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
                             <div style={{fontSize:13,color:C.mid,lineHeight:1.4,marginTop:2}}>
                               {bridgeRisk.lastNapShort?"Short last nap":"Long wake window"} — a 15–20 min bridge nap would prevent overtiredness before bedtime
                             </div>
@@ -7584,7 +7654,7 @@ function App(){
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:20}}>⏱️</span>
                           <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>Next Nap</div>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>Next Nap</div><HelpTip title="Nap Prediction" body="Predicts the next nap window using age-appropriate wake windows blended with your baby's personal patterns. Tracks per-nap-position timing, adjusts for short naps and sleep pressure, and narrows in the afternoon. Improves with 3–5 days of data." style={{marginLeft:3}}/>
                             <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mint}}>{napCountdown!==null&&napCountdown<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
                           </div>
                         </div>
@@ -7598,7 +7668,7 @@ function App(){
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:20}}>🌙</span>
                           <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"} <HelpTip title="Bedtime Prediction" body="Based on last nap end time + recommended wake window. Adjusts earlier for short naps, later for long naps. Clamped between 6:00pm and 8:30pm. Both NHS guidelines and personal patterns contribute." style={{marginLeft:3}}/></div><div style={{display:"none"}}
                             <div style={{fontSize:13,color:C.mid,lineHeight:1.4}}>{suggestedBed.adjustReason||"Based on today's naps"}</div>
                           </div>
                         </div>
@@ -7634,7 +7704,7 @@ function App(){
               <button onClick={()=>{haptic();setShowCryingHelper(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"0 1px 6px rgba(201,112,90,0.06)"}}>
                 <span style={{fontSize:22}}>😢</span>
                 <div style={{flex:1,textAlign:"left"}}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Why is my baby crying?</div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Why is my baby crying?</div><HelpTip title="Crying Helper" body="Analyses your logged data in real time: time since last feed, feed amount vs personal average, wake window status, nap quality, teething windows, and more. Ranks the most likely reasons with data-backed detail. Tap the reason that helped and OBubba learns — next time, what's worked before gets boosted to the top." style={{marginLeft:6}}/><div style={{display:"none"}}</div>
                   <div style={{fontSize:11,color:C.lt,marginTop:1}}>Quick check — ranked by what's most likely right now</div>
                 </div>
                 <span style={{fontSize:14,color:C.lt}}>→</span>
@@ -7858,7 +7928,7 @@ function App(){
                   const range2 = napNormalRange();
                   return (
                     <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:`1px solid ${C.mint}30`,borderLeft:`4px solid ${C.mint}`,borderRadius:16,padding:"14px 16px",marginBottom:10,boxShadow:"var(--card-shadow)"}}>
-                      <div style={{fontSize:14,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Is This Normal? Today's Sleep</div>
+                      <div style={{fontSize:14,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Is This Normal? Today's Sleep <HelpTip title="Is This Normal?" body="Compares today's sleep data against age-appropriate NHS ranges. Checks wake time, total daytime sleep, wake window consistency, bedtime, and nap count. Won't flag incomplete data during the day — it's aware that more naps may still happen. Factors are colour-coded: green (on track), amber (watch), red (outside range)."/></div>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                         <div>
                           <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.mint}}>{hm(totalMins2)}</div>
@@ -7945,16 +8015,16 @@ function App(){
                 const napCount = todayDayE.filter(e=>e.type==="nap").length;
                 const todayNapMins = todayDayE.filter(e=>e.type==="nap").reduce((s,n)=>s+minDiff(n.start,n.end),0);
                 const range = napNormalRange();
-                let sleepLine = "";
+                let sleepLine = ""; // daytime sleep info moved to stability score
                 const hasBedtime = todayDayE.some(e=>e.type==="sleep");
                 const dayDone = hasBedtime || !isToday;
                 // Growth spurt check
                 const gs = (typeof detectGrowthSpurt === "function") ? detectGrowthSpurt() : null;
                 const growthSpurtActive = gs && (gs.mlSpike || gs.feedSpike);
 
-                if (napCount === 0) sleepLine = "No naps logged yet.";
-                else if (!dayDone && todayNapMins < (range ? range.min : 60)) sleepLine = `${hm(todayNapMins)} of nap time so far across ${napCount} nap${napCount!==1?"s":""} — more naps expected.`;
-                else if (dayDone && todayNapMins < (range ? range.min : 60)) sleepLine = `Naps were a little shorter today (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
+                if (false) sleepLine = "";
+                else if (false) sleepLine = `${hm(todayNapMins)} of nap time so far across ${napCount} nap${napCount!==1?"s":""} — more naps expected.`;
+                else if (false) sleepLine = `Naps were a little shorter today (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
                 else if (todayNapMins > (range ? range.max : 300)) sleepLine = `Plenty of nap time today (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
                 else sleepLine = `Nap time looks good (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
                 const bedEntry2 = todayDayE.find(e => e.type === "sleep");
@@ -7989,15 +8059,7 @@ function App(){
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:C.deep,marginBottom:2}}>{dayLabel} with {name}</div>
                     <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:14}}>{fmtAge(age)} · week {ageWeeks}</div>
                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {sleepLine && (
-                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                          <span style={{fontSize:15,flexShrink:0,marginTop:1}}>😴</span>
-                          <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sleep</div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{sleepLine}</div>
-                          </div>
-                        </div>
-                      )}
+
                       {feedLine && (
                         <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
                           <span style={{fontSize:15,flexShrink:0,marginTop:1}}>🍼</span>
@@ -8021,62 +8083,7 @@ function App(){
                 );
               })()}
 
-              {/* ── TODAY'S FEEDING INSIGHT ── */}
-              {(()=>{
-                const fc = feedCard();
-                if (!fc) return null;
-                return (
-                  <div style={{background:fc.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:14,boxShadow:"var(--card-shadow)"}}>
-                    <div style={{fontSize:13,fontFamily:_fM,color:fc.color,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>{fc.isPastDay ? "Milk Intake" : "Today's Milk Intake"}</div>
-                    <div style={{display:"flex",gap:10,marginBottom:10}}>
-                      <div style={{flex:1,background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:12,padding:"10px 12px"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Daytime</div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:fc.color,lineHeight:1}}>{fmtVol(fc.dayMl,FU)}</div>
-                        <div style={{fontSize:11,color:fc.metMinimum?C.mint:fc.approachingBed?C.ter:C.lt,marginTop:2,fontWeight:fc.approachingBed&&!fc.metMinimum?600:400}}>
-                          {fc.metMinimum ? `✓ min ${fmtVol(fc.totalMin,FU)} reached` : `min ${fmtVol(fc.totalMin,FU)} by bedtime`}
-                        </div>
-                      </div>
-                      {fc.nightMl > 0 && (
-                        <div style={{flex:1,background:"var(--chip-bg)",borderRadius:12,padding:"10px 12px"}}>
-                          <div style={{fontSize:11,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--text-mid)",lineHeight:1}}>{fmtVol(fc.nightMl,FU)}</div>
-                          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fmtVol(fc.totalMl,FU)}</div>
-                        </div>
-                      )}
-                      {fc.nightMl === 0 && (
-                        <div style={{flex:1,background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
-                          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>NHS range</div>
-                          <div style={{fontSize:13,fontWeight:600,color:C.mid}}>{fc.totalLabel}</div>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-solid)",borderRadius:10,padding:"9px 11px",marginBottom:(fc.sleepLink||fc.suggestions.length)?6:0}}>
-                      <span style={{fontSize:14,flexShrink:0}}>{fc.icon}</span>
-                      <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{fc.statusMsg}</div>
-                    </div>
-                    {fc.sleepLink && (
-                      <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"9px 11px",marginBottom:fc.suggestions.length?6:0}}>
-                        <span style={{fontSize:13,flexShrink:0}}>{fc.sleepLink.icon}</span>
-                        <div>
-                          {fc.sleepLink.title && <div style={{fontSize:12,fontWeight:700,color:"#8868d0",marginBottom:2}}>{fc.sleepLink.title}</div>}
-                          <div style={{fontSize:12,color:"var(--text-mid)",lineHeight:1.5}}>{fc.sleepLink.body}</div>
-                        </div>
-                      </div>
-                    )}
-                    {fc.suggestions.map((s,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg)",borderRadius:10,padding:"8px 11px",marginTop:5}}>
-                        <span style={{fontSize:13,flexShrink:0}}>{s.icon}</span>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{s.body}</div>
-                      </div>
-                    ))}
-                    {fc.status==="low" && (
-                      <div style={{fontSize:12,color:C.lt,marginTop:8,paddingTop:6,borderTop:`1px solid ${fc.color}20`,lineHeight:1.4}}>
-                        ℹ️ {fc.nhsNote}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
               {collHead("sleep","😴","Sleep Analysis")}
@@ -8117,7 +8124,7 @@ function App(){
                               <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",fontFamily:_fM,fontSize:15,fontWeight:700,color:stColor}}>{stScore}</div>
                             </div>
                             <div style={{flex:1}}>
-                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:stColor,marginBottom:2}}>Sleep Stability Score</div>
+                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:stColor,marginBottom:2,display:"flex",alignItems:"center",gap:6}}>Sleep Stability Score <HelpTip title="Sleep Stability Score" body="A 0–100 score based on 5 factors: wake time consistency (optimal 6–7:30am), total daytime sleep vs NHS range, wake window regularity, bedtime consistency across the week, and nap count. Won't penalise incomplete data during the day. Higher scores mean more predictable patterns."/></div>
                               <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{advice}</div>
                             </div>
                           </div>
@@ -8147,113 +8154,6 @@ function App(){
                             </div>
                           )}
 
-                          {/* Bridge nap suggestion */}
-                          {(()=>{
-                            if (!ebr) return null;
-                            const dss2 = getDaySleepSummary();
-                            const dayMet = dss2 && (dss2.status === "normal" || dss2.status === "above");
-                            if (bridgeNapScheduled && dayMet) {
-                              const todayNaps3 = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night);
-                              const lastNap2 = todayNaps3.length ? todayNaps3[todayNaps3.length-1] : null;
-                              const lastNapDur = lastNap2 && lastNap2.start && lastNap2.end ? minDiff(lastNap2.start, lastNap2.end) : 0;
-                              return (
-                                <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderLeft:"4px solid #50a888",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:"var(--mint)",marginBottom:4}}>✅ Day sleep target met!</div>
-                                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:8}}>
-                                    {lastNapDur >= 90
-                                      ? `Baby slept ${hm(lastNapDur)} on the last nap and has now reached the NHS recommended day sleep for this age.`
-                                      : `Baby has now reached the recommended day sleep for this age.`}
-                                  </div>
-                                  <div style={{display:"flex",gap:7}}>
-                                    <button onClick={()=>setBridgeNap(false)} style={{flex:1,background:"linear-gradient(135deg,#50a888,#3a8870)",border:"none",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:700,color:"white",cursor:"pointer"}}>Remove bridge nap</button>
-                                    <button onClick={()=>setBridgeNap(true)} style={{flex:1,background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:600,color:"var(--mint)",cursor:"pointer"}}>Keep it in</button>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            if (ebr.suggestBridge) {
-                              return (
-                                <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderLeft:"4px solid var(--gold)",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:"var(--gold)",marginBottom:3}}>🌉 Bridge Nap Suggested</div>
-                                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:bridgeNapScheduled?6:8}}>Today's naps were shorter than usual. A short bridge nap (15–30 min) may help.</div>
-                                  {bridgeNapScheduled ? (
-                                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                      <div style={{display:"flex",alignItems:"center",gap:5}}>
-                                        <span style={{fontSize:13}}>✅</span>
-                                        <span style={{fontSize:12,fontFamily:_fM,color:"var(--gold)",fontWeight:700}}>Added to schedule</span>
-                                      </div>
-                                      <button onClick={()=>setBridgeNap(false)} style={{background:"var(--chip-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"4px 11px",fontSize:12,fontWeight:600,color:"var(--gold)",cursor:"pointer"}}>Remove</button>
-                                    </div>
-                                  ) : (
-                                    <button onClick={()=>setBridgeNap(true)} style={{width:"100%",background:"linear-gradient(135deg,#d4a855,#b8902a)",border:"none",borderRadius:99,padding:"8px 0",fontSize:13,fontWeight:700,color:"white",cursor:"pointer"}}>+ Add bridge nap to schedule</button>
-                                  )}
-                                </div>
-                              );
-                            }
-                            if (bridgeNapScheduled) {
-                              return (
-                                <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderLeft:"4px solid var(--gold)",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:"var(--gold)",marginBottom:3}}>🌉 Bridge nap scheduled</div>
-                                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:6}}>Conditions have changed — bridge nap may no longer be necessary.</div>
-                                  <button onClick={()=>setBridgeNap(false)} style={{background:"var(--chip-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:12,fontWeight:600,color:"var(--gold)",cursor:"pointer"}}>Remove from schedule</button>
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-
-                          {/* Bedtime prediction */}
-                          {actualBedEntry ? (
-                            <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px"}}>
-                              <div style={{fontSize:14,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Bedtime Logged 🌙</div>
-                              <div style={{fontSize:15,color:"var(--text-lt)"}}>Sleep tight!</div>
-                            </div>
-                          ) : pred ? (
-                            <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px"}}>
-                              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:adv||suggestedBed?8:0}}>
-                                <div>
-                                  <div style={{fontSize:14,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:_ls08}}>😴 Next Nap Window</div>
-                                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.mint}}>{minsAway!==null&&minsAway<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
-                                </div>
-                                <div style={{textAlign:"right"}}>
-                                  <div style={{fontFamily:_fM,fontSize:15,fontWeight:700,color:C.mint}}>{fmt12(pred.napStart_min)}</div>
-                                  <div style={{fontSize:15,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
-                                </div>
-                              </div>
-                              {suggestedBed && (
-                                <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
-                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                    <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>Predicted Bedtime</div>
-                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                                  </div>
-                                  {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}</div>}
-                                </div>
-                              )}
-                              {!suggestedBed && adv && (
-                                <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
-                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                    <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ) : suggestedBed ? (
-                            <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
-                              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>Predicted Bedtime</div>
-                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                              </div>
-                              {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}</div>}
-                            </div>
-                          ) : adv ? (
-                            <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
-                              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                              </div>
-                            </div>
-                          ) : null}
                         </div>
 
                         {/* Circadian rhythm alert */}
@@ -8414,7 +8314,7 @@ function App(){
                           const isRhythmAdj = flex && flex.source === "rhythm-adjusted";
                           return (
                             <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px"}}>
-                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div>
+                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div><HelpTip title="Tomorrow's Schedule" body="Predicts tomorrow's full day: wake time, each nap start/end, and bedtime. Uses per-nap-position learning from the last 7 days (weighted by recency) blended 60/40 with NHS guidelines in Personal mode, or 40/60 in NHS mode. The data quality badge shows how much real data is behind each prediction. All times clamped to safe NHS ranges." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
                               <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:10}}>
                                 {`NHS guidance + ${babyName||"baby"}'s sleep patterns`}
                               </div>
@@ -8441,7 +8341,7 @@ function App(){
                               </div>
                               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:10,borderTop:`1px solid ${C.blush}`,paddingTop:6}}>
                                 {`Based on NHS wake windows + ${babyName||"baby"}'s rhythm`}
-                                {flex.dataQuality&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:99,background:flex.dataQuality==="high"?C.mint+"22":flex.dataQuality==="good"?"var(--chip-bg)":C.gold+"22",color:flex.dataQuality==="high"?C.mint:flex.dataQuality==="good"?C.lt:C.gold}}>{flex.dataQuality==="high"?"● High accuracy":flex.dataQuality==="good"?"● Good":"● Learning"}</span>}
+                                {flex.dataQuality&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:99,background:flex.dataQuality==="high"?C.mint+"22":flex.dataQuality==="good"?"var(--chip-bg)":C.gold+"22",color:flex.dataQuality==="high"?C.mint:flex.dataQuality==="good"?C.lt:C.gold}}>{flex.dataQuality==="high"?"● High accuracy":flex.dataQuality==="good"?"● Good":"● Learning"}</span>}<HelpTip title="Data Quality" body="Shows how much real data is behind the predictions. 'Learning' means fewer than 3 days of data — predictions are mostly NHS guidelines. 'Good' means 3–4 days — blending your data with guidelines. 'High accuracy' means 5+ days — predictions are heavily personalised to your baby's actual patterns." style={{marginLeft:4}}/>
                               </div>
                               <div style={{display:"flex",gap:6,marginTop:8}}>
                                 <button onClick={()=>{setShowScheduleMaker(true);}} style={{flex:1,padding:"6px",borderRadius:8,border:`1px solid ${C.mint}44`,background:"transparent",color:C.mint,fontSize:11,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
@@ -8521,7 +8421,7 @@ function App(){
               {/* ── GROWTH PERCENTILE BANNER ── */}
               <div style={{background:`linear-gradient(135deg,${latestW?percentileColor(latestW?.pct)+"18":"#f5f0eb"},${latestW?percentileColor(latestW?.pct)+"08":"#ede8e0"})`, border:`2px solid ${latestW ? percentileColor(latestW?.pct)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
                 <div style={{padding:"16px 16px 14px"}}>
-                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>📏 Growth Percentiles</div>
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12,display:"flex",alignItems:"center",gap:6}}>📏 Growth Percentiles <HelpTip title="Growth Charts" body="WHO growth charts showing your baby's weight and height against population percentiles. Percentile means the percentage of babies who weigh less — 50th percentile is average. Tracking the trend over time matters more than any single reading. Log weights after health visitor checks for the best picture."/></div>
 
                   {/* WHO Growth Charts with integrated stats */}
                   {babyDob && (weights.length > 0 || heights.length > 0) ? (
@@ -9005,7 +8905,7 @@ function App(){
               {/* ── Fourth Trimester Guidance (0–12 weeks) ── */}
               {age && age.totalWeeks < 13 && (
                 <div style={{marginBottom:16}}>
-                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>🤱 Fourth Trimester Guide</div>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>🤱 Fourth Trimester Guide <HelpTip title="Fourth Trimester" body="The first 12 weeks are unique — your baby is adjusting to life outside the womb. This section shows age-relevant guidance: cluster feeding, PURPLE crying peaks, day/night confusion, witching hour, tummy time, and weight check info. Cards appear and disappear as your baby grows through each phase." style={{marginLeft:4}}/></div>
                   <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px"}}>
                     {age.totalWeeks < 2 && (
                       <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(201,112,90,0.06)",border:`1px solid ${C.blush}`,marginBottom:10}}>
@@ -9289,7 +9189,7 @@ function App(){
                 {/* ── Teething Tracker ── */}
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker</div>
+                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker</div><HelpTip title="Teething Tracker" body="Log each tooth as it appears: which tooth, date spotted, symptoms (drooling, fussiness, red cheeks, etc.), and notes. Teething data feeds into the crying helper — when a tooth is emerging, 'Teething pain' ranks higher in the diagnosis. Track the full set over time." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
                     <button onClick={()=>{setTeethingForm({tooth:"",date:todayStr(),symptoms:[],note:""});setShowTeethingForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log tooth</button>
                   </div>
                   {teething.length === 0 ? (
@@ -9319,7 +9219,7 @@ function App(){
                 {/* ── Weaning / Food Journal ── */}
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal</div>
+                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal</div><HelpTip title="Weaning Journal" body="Track every new food: name, date, reaction (loved/liked/neutral/disliked/possible reaction), and whether you'd try again. Favourites get a ❤️ tag, flagged foods get ⚠️. If you select 'possible reaction', allergy guidance appears. NHS recommends starting solids around 6 months — the journal activates around that age." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
                     <button onClick={()=>{setWeaningForm({food:"",date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log food</button>
                   </div>
                   {age && age.totalWeeks < 17 ? (
@@ -9455,7 +9355,7 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <span style={{fontSize:20}}>📊</span>
                   <div>
-                    <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Weekly Digest</div>
+                    <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Weekly Digest <HelpTip title="Weekly Digest" body="Automatic weekly summary that appears every Monday. Shows 7-day averages for feeds, naps, night wakes, and sleep patterns compared to the previous week. Toggle it on here — when enabled, it pops up on Monday mornings with trends and insights. You can also view, copy, or share the latest digest anytime from Account."/></div>
                     <div style={{fontSize:12,color:C.lt,marginTop:2}}>Summary every Monday morning</div>
                   </div>
                 </div>
@@ -9464,13 +9364,14 @@ function App(){
                   <div style={{width:22,height:22,borderRadius:99,background:"white",position:"absolute",top:3,left:weeklyDigestEnabled?23:3,transition:"left 0.2s",boxShadow:"0 1px 4px rgba(0,0,0,0.2)"}}/>
                 </button>
               </div>
-              <div style={{display:"flex",gap:8,marginTop:12}}>
+              <div style={{display:"flex",gap:8,marginTop:12,alignItems:"center"}}>
                 <button onClick={()=>setShowWeeklyDigest(true)} style={{flex:1,padding:"8px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
                   📊 View This Week
                 </button>
                 <button onClick={()=>setShowHVReport(true)} style={{flex:1,padding:"8px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
-                  🏥 Health Visitor Report
+                  🏥 HV Report
                 </button>
+                <HelpTip title="HV Report" body="Generates a 14-day clinical summary formatted for health visitors, GPs, or paediatricians. Includes growth data, feeding totals and averages, sleep patterns, a day-by-day breakdown, and recent milestones. Share it directly or copy as text to paste into messages or emails before appointments."/>
               </div>
             </div>
 
@@ -9576,7 +9477,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
                 <span style={{fontSize:24}}>🧠</span>
                 <div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Sleep Recommendations</div>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Sleep Recommendations</div><HelpTip title="Personal vs NHS Mode" body="NHS mode uses standard age-based wake windows from NHS and AASM research — reliable for all babies. Personal mode learns from YOUR baby's actual patterns after 5+ days of data, blending 60% personal data with 40% NHS guidelines. Switch back and forth anytime from this section." style={{marginLeft:6}}/><div style={{display:"none"}}</div>
                   <div style={{fontSize:12,color:C.lt,marginTop:2}}>Choose how nap and bedtime predictions are calculated</div>
                 </div>
               </div>
@@ -10349,7 +10250,7 @@ function App(){
       {showCryingHelper&&(()=>{
         const reasons = getCryingDiagnosis();
         const topScore = reasons.length ? reasons[0].score : 0;
-        const lowConf = topScore < 50;
+        const lowConf = topScore < 30;
         return (
         <div onClick={e=>{if(e.target===e.currentTarget){setShowCryingHelper(false);setCryingResult(null);}}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"88vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
@@ -10357,66 +10258,55 @@ function App(){
             <div style={{textAlign:"center",marginBottom:16}}>
               <div style={{fontSize:32,marginBottom:6}}>😢</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:4}}>Why is {babyName||"baby"} crying?</div>
-              <div style={{fontSize:13,color:C.lt}}>Based on today's data and {babyName||"baby"}'s age</div>
+              <div style={{fontSize:13,color:C.lt}}>{cryingResult ? "Thanks — logged for next time" : "Tap the reason that helped"}</div>
             </div>
 
-            {/* Reassurance card when nothing obvious */}
-            {lowConf&&(
-              <div style={{padding:"18px 16px",borderRadius:16,background:"linear-gradient(135deg, rgba(80,200,120,0.08), rgba(111,168,152,0.06))",border:`1.5px solid ${C.mint}33`,marginBottom:14}}>
-                <div style={{fontSize:18,marginBottom:6}}>😊</div>
-                <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:4}}>Sometimes babies just cry</div>
-                <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>
-                  Everything looks OK — {babyName||"baby"} has been fed recently, had decent sleep, and is within a normal wake window. Some crying is completely normal{age&&age.totalWeeks<13?", especially in the first 3 months (peak crying is around 6–8 weeks)":""}.
+            {/* Reassurance card — only when genuinely nothing scores */}
+            {lowConf&&!cryingResult&&(
+              <div style={{padding:"16px 14px",borderRadius:16,background:"linear-gradient(135deg, rgba(80,200,120,0.08), rgba(111,168,152,0.06))",border:`1.5px solid ${C.mint}33`,marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  <span style={{fontSize:18}}>😊</span>
+                  <span style={{fontSize:14,fontWeight:700,color:C.deep}}>Everything looks OK from the data</span>
                 </div>
-                <div style={{fontSize:13,fontWeight:600,color:C.deep,lineHeight:1.5}}>Things to try:</div>
-                <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:2}}>
-                  Skin-to-skin contact · Gentle shushing or white noise · A walk outside or change of scenery · Warm bath · Gentle rocking or swaying · Check for hair tourniquet (toes, fingers)
+                <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
+                  {babyName||"Baby"} has been fed, slept, and is within a normal wake window. Some crying is normal{age&&age.totalWeeks<13?" — peak crying is around 6–8 weeks":""}.
+                  Try: skin-to-skin, shushing, white noise, a walk, warm bath, or gentle rocking.
                 </div>
               </div>
             )}
 
-            {/* Reason cards */}
-            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>{lowConf?"Other possibilities":"Ranked by likelihood"}</div>
+            {/* Tappable reason cards */}
+            {!cryingResult && <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>{lowConf?"But it could be...":"Ranked by likelihood — tap what helped"}</div>}
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {reasons.map((r,i)=>(
-                <div key={i} style={{display:"flex",gap:12,padding:"14px",borderRadius:16,border:`1.5px solid ${r.urgency==="high"?C.ter+"44":r.urgency==="med"?C.gold+"44":C.blush}`,background:r.urgency==="high"?"rgba(201,112,90,0.06)":r.urgency==="med"?"rgba(212,168,85,0.04)":"var(--card-bg-alt)"}}>
+              {reasons.map((r,i)=>{
+                const isSelected = cryingResult === r.title;
+                const isFaded = cryingResult && !isSelected;
+                return (
+                <div key={i} onPointerDown={!cryingResult ? e=>{
+                  e.preventDefault(); haptic(20);
+                  setCryingHelps(prev=>({...prev,[r._helpKey]:(prev[r._helpKey]||0)+1}));
+                  setCryingResult(r.title);
+                } : undefined} style={{display:"flex",gap:12,padding:"14px",borderRadius:16,cursor:!cryingResult?_cP:"default",border:`1.5px solid ${isSelected?C.mint:r.urgency==="high"?C.ter+"44":r.urgency==="med"?C.gold+"44":C.blush}`,background:isSelected?"rgba(80,200,120,0.1)":r.urgency==="high"?"rgba(201,112,90,0.06)":r.urgency==="med"?"rgba(212,168,85,0.04)":"var(--card-bg-alt)",opacity:isFaded?0.4:1,transition:"all 0.25s ease",position:"relative"}}>
                   <div style={{fontSize:26,flexShrink:0,lineHeight:1}}>{r.emoji}</div>
                   <div style={{flex:1}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                      <span style={{fontSize:15,fontWeight:700,color:r.urgency==="high"?C.ter:r.urgency==="med"?C.gold:C.deep}}>{r.title}</span>
-                      {i===0&&!lowConf&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.ter+"22",color:C.ter,fontWeight:700,fontFamily:_fM}}>MOST LIKELY</span>}
-                      {r._helpCount>0&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700,fontFamily:_fM}}>HELPED BEFORE</span>}
+                      <span style={{fontSize:15,fontWeight:700,color:isSelected?C.mint:r.urgency==="high"?C.ter:r.urgency==="med"?C.gold:C.deep}}>{r.title}</span>
+                      {isSelected&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700,fontFamily:_fM}}>THIS WAS IT ✓</span>}
+                      {!cryingResult&&i===0&&!lowConf&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.ter+"22",color:C.ter,fontWeight:700,fontFamily:_fM}}>MOST LIKELY</span>}
+                      {!cryingResult&&r._helpCount>0&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700,fontFamily:_fM}}>HELPED {r._helpCount}x</span>}
                     </div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.4,marginBottom:4}}>{r.detail}</div>
-                    <div style={{fontSize:12,color:C.deep,fontWeight:600,lineHeight:1.4}}>💡 {r.action}</div>
+                    {!isFaded&&<div style={{fontSize:12,color:C.deep,fontWeight:600,lineHeight:1.4}}>💡 {r.action}</div>}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* What helped? — learning */}
-            {!cryingResult ? (
-              <div style={{marginTop:16}}>
-                <div style={{fontSize:13,fontWeight:700,color:C.deep,textAlign:"center",marginBottom:8}}>What helped?</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center"}}>
-                  {[["🍼","Hungry","hungry"],["😴","Tired/sleep","overtired"],["💨","Wind/gas","wind_or_gas"],["🧷","Nappy change","wet_or_dirty_nappy"],["🦷","Teething","teething_pain"],["🌡️","Temperature","too_hot_or_cold"],["🫣","Overstimulated","overstimulated"],["🤱","Comfort/cuddle","comfort"],["🛁","Bath","bath"],["🚶","Walk/fresh air","walk"]].map(([emoji,label,key],i)=>(
-                    <button key={i} onPointerDown={e=>{
-                      e.preventDefault(); haptic();
-                      setCryingHelps(prev=>({...prev,[key]:(prev[key]||0)+1}));
-                      setCryingResult(label);
-                    }} style={{padding:"7px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.mid,cursor:_cP}}>
-                      {emoji} {label}
-                    </button>
-                  ))}
-                  <button onPointerDown={e=>{e.preventDefault();setCryingResult("none");}} style={{padding:"7px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.lt,cursor:_cP}}>
-                    🤷 Nothing yet
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{marginTop:16,textAlign:"center",padding:"12px",borderRadius:12,background:"rgba(80,200,120,0.08)"}}>
-                <div style={{fontSize:14,color:C.mint,fontWeight:600}}>{cryingResult==="none"?"Hang in there ❤️":`Got it — "${cryingResult}" logged ✓`}</div>
-                <div style={{fontSize:11,color:C.lt,marginTop:3}}>{cryingResult==="none"?"If crying persists, try the suggestions above":"This helps OBubba learn what works for "+( babyName||"your baby")}</div>
+            {/* Confirmation banner */}
+            {cryingResult&&(
+              <div style={{marginTop:12,textAlign:"center",padding:"10px",borderRadius:12,background:"rgba(80,200,120,0.08)"}}>
+                <div style={{fontSize:13,color:C.mint,fontWeight:600}}>Logged — OBubba will remember this for {babyName||"baby"}</div>
               </div>
             )}
 
@@ -11100,7 +10990,7 @@ function App(){
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div><HelpTip title="Schedule Maker" body="Build a full day around any event (GP appointment, baby class, family visit). Enter when baby needs to be awake and how long the event lasts. OBubba works backwards and forwards from that anchor to plan wake, naps, and bedtime — all within NHS-safe wake windows. If there's an appointment tomorrow, OBubba offers to build the schedule automatically." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
               Enter a time {babyName||"baby"} needs to be awake, and we'll build the optimal day around it.
             </div>
