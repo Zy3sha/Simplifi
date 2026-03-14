@@ -5359,7 +5359,11 @@ function App(){
         e={...e,type:"feed",time:formTime,amount:displayToMl(form.amount,FU),night:form.night==="yes",feedType:feedType};
       }
     }
-    else if(eType==="nap"){e={...e,type:"nap",start:formStart,end:formEnd,night:false};}
+    else if(eType==="nap"){
+      const isActiveNap = napOn && napEntryId && editEntry && editEntry.id===napEntryId;
+      e={...e,type:"nap",start:formStart,end:formEnd,night:false};
+      if(isActiveNap) e._active=true;
+    }
     else if(eType==="poop"){e={...e,type:"poop",time:formTime,poopType:form.poopType||"",night:false};}
     else{e={...e,type:eType,time:formTime,night:false};}
     if(editEntry){
@@ -5368,6 +5372,16 @@ function App(){
         const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
         return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
       });
+      // If editing the active nap timer entry, sync timer to new start time
+      if(napOn && napEntryId && editEntry.id===napEntryId && eType==="nap" && formStart){
+        setNapStartT(formStart);
+        const now=new Date();
+        const [sh,sm]=formStart.split(":").map(Number);
+        const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+        const elapsed=Math.max(0,Math.floor((now-startDate)/1000));
+        setNapSec(elapsed);
+        try{localStorage.setItem("nap_startT",formStart);localStorage.setItem("nap_sec",String(elapsed));}catch{}
+      }
     } else {
       setDays(d=>{
         const updated = [...(d[selDay]||[]), e];
@@ -7628,7 +7642,7 @@ function App(){
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:20}}>🌉</span>
                           <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.gold,textTransform:"uppercase",letterSpacing:_ls08}}>Bridge Nap Suggested</div><HelpTip title="Bridge Nap" body="A short 15–20 minute power nap to bridge the gap between the last nap and bedtime. Suggested when the wake window to bedtime would be too long, or when today's naps were shorter than usual. Prevents overtiredness which can cause harder settling and more night wakes. Only suggested after most naps are done and after midday." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.gold,textTransform:"uppercase",letterSpacing:_ls08}}>Bridge Nap Suggested</div><HelpTip title="Bridge Nap" body="A short 15–20 minute power nap to bridge the gap between the last nap and bedtime. Suggested when the wake window to bedtime would be too long, or when today's naps were shorter than usual. Prevents overtiredness which can cause harder settling and more night wakes. Only suggested after most naps are done and after midday." style={{marginLeft:4}}/>
                             <div style={{fontSize:13,color:C.mid,lineHeight:1.4,marginTop:2}}>
                               {bridgeRisk.lastNapShort?"Short last nap":"Long wake window"} — a 15–20 min bridge nap would prevent overtiredness before bedtime
                             </div>
