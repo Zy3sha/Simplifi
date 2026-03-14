@@ -1102,9 +1102,25 @@ function App(){
 
 
   const[children,setChildren]=useState(()=>{
+    // Normalise legacy feedType:"bottle" → "milk" in stored data
+    function normChildren(data) {
+      if(!data) return data;
+      Object.keys(data).forEach(cid => {
+        const child = data[cid];
+        if(child && child.days) {
+          Object.keys(child.days).forEach(day => {
+            const entries = child.days[day];
+            if(Array.isArray(entries)) {
+              entries.forEach(e => { if(e.feedType==="bottle") e.feedType="milk"; });
+            }
+          });
+        }
+      });
+      return data;
+    }
     try {
       const saved = localStorage.getItem("children_v1");
-      if(saved) return JSON.parse(saved);
+      if(saved) return normChildren(JSON.parse(saved));
 
       const oldDays = localStorage.getItem(STORAGE_KEY);
       const oldWeights = localStorage.getItem("bw_v2");
@@ -1343,7 +1359,7 @@ function App(){
   const[logPanel,setLogPanel]=useState(null);
   const[nappyMode,setNappyMode]=useState(null);
   const[nappyTime,setNappyTime]=useState("");
-  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
+  const[logForm,setLogForm]=useState({feedType:"milk",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
@@ -1405,6 +1421,8 @@ function App(){
     }catch{return 0;}
   });
   const[napCountdown,setNapCountdown]=useState(null);
+  const[napStartEdit,setNapStartEdit]=useState(false);
+  const[napStartEditVal,setNapStartEditVal]=useState("");
 
   const[breastSide,setBreastSide]=useState(()=>{try{return localStorage.getItem("breast_side")||null;}catch{return null;}});
   const[breastSec,setBreastSec]=useState(()=>{try{const s=localStorage.getItem("breast_sec");return s?JSON.parse(s):{L:0,R:0};}catch{return {L:0,R:0};}});
@@ -2807,7 +2825,18 @@ function App(){
     return diff;
   }
 
+  const _napPredCache = React.useRef({key:null,val:undefined});
   function predictNextNap() {
+    const dayEntries = days[selDay]||[];
+    const lastId = dayEntries.length ? dayEntries[dayEntries.length-1].id : "";
+    const nowMin = new Date().getHours()*60+new Date().getMinutes();
+    const cacheKey = selDay+"|"+dayEntries.length+"|"+lastId+"|"+(age?age.totalWeeks:"")+"|"+bridgeNapScheduled+"|"+nowMin+"|"+usePersonalRecs;
+    if(_napPredCache.current.key===cacheKey) return _napPredCache.current.val;
+    const _result = _predictNextNapInner();
+    _napPredCache.current = {key:cacheKey, val:_result};
+    return _result;
+  }
+  function _predictNextNapInner() {
     const ageWeeks = age ? age.totalWeeks : null;
     if (!ageWeeks || !selDay) return null;
     // First 2 weeks: no predictions — patterns haven't emerged yet
@@ -3046,15 +3075,25 @@ function App(){
     if (score >= 55) return C.gold;
     return C.ter;
   }
+  const _bedPredCache = React.useRef({key:null,val:undefined});
   function bedtimePrediction() {
+    // Render-level cache: avoid recomputing 8+ times per render cycle
+    // Key includes entry count + last entry id to detect edits
+    const dayEntries = days[selDay]||[];
+    const lastId = dayEntries.length ? dayEntries[dayEntries.length-1].id : "";
+    const cacheKey = selDay+"|"+dayEntries.length+"|"+lastId+"|"+(age?age.totalWeeks:"")+"|"+bridgeNapScheduled;
+    if(_bedPredCache.current.key===cacheKey) return _bedPredCache.current.val;
+    const _result = _bedtimePredictionInner();
+    _bedPredCache.current = {key:cacheKey, val:_result};
+    return _result;
+  }
+  function _bedtimePredictionInner() {
     const today = days[selDay] || [];
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     if (!todayNaps.length) return null;
     if (!age) return null;
     if (age.totalWeeks < 2) return null;
 
-    const napProfile = getAgeNapProfile(age.totalWeeks);
-    const adjustedExpectedBed = napProfile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
     // Don't block prediction — show bedtime even if not all naps done yet
     // This prevents the prediction from disappearing mid-day
     const ww = getWakeWindow(age.totalWeeks);
@@ -3622,9 +3661,13 @@ function App(){
     };
   }
 
-  // 12. Bedtime safety guard clamp
+  // 12. Bedtime safety guard clamp — age-aware
   function clampBedtime(mins) {
-    const lo = 18*60, hi = 20*60+30;
+    // Young babies (under 6mo) can have earlier bedtimes when nap day is short
+    // This prevents absurd 3-4hr wake windows caused by a rigid 6pm floor
+    const ageWeeks = age ? age.totalWeeks : null;
+    const lo = ageWeeks !== null && ageWeeks < 26 ? 17*60+30 : 18*60; // 5:30pm under 6mo, 6pm otherwise
+    const hi = 20*60+30;
     return Math.max(lo, Math.min(hi, mins));
   }
 
@@ -4993,7 +5036,7 @@ function App(){
   }
 
   function openLogPanel(panel){
-    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
+    setLogForm({feedType:"milk",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
     setLogPanel(panel);
   }
 
@@ -5365,7 +5408,7 @@ function App(){
     // Haptic feedback — strong triple pulse
     try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
     // Visual flash — brief confirmation
-    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
+    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?(data.start&&data.end&&data.start!==data.end?"😴 Nap Logged":"😴 Started"):"✓ Logged";
     setQuickFlash(label);
     setTimeout(()=>setQuickFlash(null),900);
   }
@@ -5373,7 +5416,7 @@ function App(){
   function saveLogFeed(){
     const f=logForm;
     const t = f.feedTime || nowTime();
-    if(f.feedType==="bottle"){
+    if(f.feedType==="milk"){
       quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:displayToMl(f.amount,FU),note:f.note||""});
     } else if(f.feedType==="breast"){
       quickAddLog("feed",{type:"feed",time:t,feedType:"breast",breastL:parseInt(f.breastL)||0,breastR:parseInt(f.breastR)||0,amount:0,note:f.note||""});
@@ -5887,6 +5930,28 @@ function App(){
     setTimerMode("activeSleep");
   }
 
+  function adjustNapStart(newTime){
+    if(!napOn || !newTime) return;
+    // Update the timer start
+    setNapStartT(newTime);
+    const now=new Date();
+    const [sh,sm]=newTime.split(":").map(Number);
+    const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+    const elapsed=Math.max(0,Math.floor((now-startDate)/1000));
+    setNapSec(elapsed);
+    try{localStorage.setItem("nap_startT",newTime);localStorage.setItem("nap_sec",String(elapsed));}catch{}
+    // Update the nap entry in days
+    if(napEntryId){
+      setDays(d=>{
+        const updated=(d[selDay]||[]).map(e=>
+          e.id===napEntryId?{...e,start:newTime}:e
+        );
+        return{...d,[selDay]:updated};
+      });
+    }
+    setNapStartEdit(false);
+  }
+
   function logBedtimeNow(){
 
     const already = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
@@ -6066,7 +6131,7 @@ function App(){
       totalFeeds+=feeds.length;
       totalMl+=feeds.reduce((s,f)=>s+(f.amount||0),0);
       breastCount+=feeds.filter(f=>f.feedType==="breast").length;
-      bottleCount+=feeds.filter(f=>f.feedType==="milk"||f.feedType==="bottle").length;
+      bottleCount+=feeds.filter(f=>f.feedType==="milk").length;
       solidsCount+=feeds.filter(f=>f.feedType==="solids").length;
     });
     lines.push(`Avg feeds/day: ${Math.round(totalFeeds/dk.length*10)/10}`);
@@ -7385,11 +7450,28 @@ function App(){
                 🤱 Start Feed
               </button>
             )}
-            {/* Active nap timer */}
+            {/* Active nap timer — shows start time + elapsed, tap start time to adjust */}
             {napOn && (
-              <div style={{display:"flex",alignItems:"center",gap:5,background:C.mint,borderRadius:99,padding:"5px 6px 5px 14px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:0,background:C.mint,borderRadius:99,padding:"4px 6px 4px 10px"}}>
+                {!napStartEdit ? (
+                  <button onClick={()=>{setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",border:_bN,borderRadius:99,padding:"2px 8px",fontSize:11,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600,marginRight:6}}>
+                    {fmt12(napStartT||nowTime())}
+                  </button>
+                ) : (
+                  <div style={{display:"flex",alignItems:"center",gap:3,marginRight:6}} onClick={e=>e.stopPropagation()}>
+                    <input
+                      type="time"
+                      value={napStartEditVal}
+                      onChange={e=>setNapStartEditVal(e.target.value)}
+                      style={{width:72,fontSize:12,padding:"2px 4px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:"white",fontFamily:_fM,outline:"none"}}
+                      autoFocus
+                    />
+                    <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:_bN,borderRadius:6,padding:"2px 6px",fontSize:10,color:"white",cursor:_cP,fontWeight:700}}>✓</button>
+                    <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:_bN,padding:"2px 4px",fontSize:10,color:"rgba(255,255,255,0.7)",cursor:_cP}}>✕</button>
+                  </div>
+                )}
                 <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white"}}>😴 {fmtSec(napSec)}</span>
-                <button onClick={()=>{haptic();endNap();}} style={{background:"rgba(255,255,255,0.3)",border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>Stop</button>
+                <button onClick={()=>{haptic();endNap();}} style={{background:"rgba(255,255,255,0.3)",border:_bN,borderRadius:99,padding:"3px 10px",marginLeft:6,fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>Stop</button>
               </div>
             )}
             {/* Nap/Bed countdown pill — right side */}
@@ -7734,9 +7816,9 @@ function App(){
                       </div>
                       <button onClick={()=>{
                         haptic();
-                        quickAddLog("nap",{type:"nap",start:napStartFmt,end:napEndFmt,night:false,note:"Extra nap"});
+                        startNap();
                       }} style={{width:"100%",marginTop:8,padding:"8px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#4a9080)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
-                        Add Nap {fmt12(napStartFmt)} – {fmt12(napEndFmt)}
+                        Start Nap Timer
                       </button>
                     </div>
                   );
@@ -9604,7 +9686,7 @@ function App(){
       {logPanel==="feed"&&(
         <Sheet onClose={()=>setLogPanel(null)} title="🍼 Log Feed">
           <div style={{display:"flex",gap:8,marginBottom:16}}>
-            {[{v:"bottle",label:"🍼 Bottle"},{v:"breast",label:"🤱 Breast"},{v:"solids",label:"🥣 Solids"}].map(({v,label})=>(
+            {[{v:"milk",label:"🍼 Bottle"},{v:"breast",label:"🤱 Breast"},{v:"solids",label:"🥣 Solids"}].map(({v,label})=>(
               <button key={v} onClick={()=>setLogForm(f=>({...f,feedType:v}))}
                 style={{flex:1,padding:"9px 4px",borderRadius:12,border:`2px solid ${logForm.feedType===v?C.ter:C.blush}`,background:logForm.feedType===v?"var(--chip-bg-active)":C.warm,fontSize:13,fontWeight:700,color:logForm.feedType===v?C.ter:C.mid,cursor:_cP,fontFamily:_fI}}>
                 {label}
@@ -9617,7 +9699,7 @@ function App(){
             <div style={{fontSize:11,color:C.lt,marginTop:3}}>Leave empty to log as now</div>
           </div>
 
-          {logForm.feedType==="bottle"&&(
+          {logForm.feedType==="milk"&&(
             <Inp label={`Amount (${volLabel(FU)})`} type="number" inputMode="numeric" placeholder={FU==="oz"?"e.g. 6":"e.g. 180"} value={logForm.amount} onChange={e=>setLogForm(f=>({...f,amount:e.target.value}))}/>
           )}
           {logForm.feedType==="breast"&&(
