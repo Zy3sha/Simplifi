@@ -6009,10 +6009,10 @@ function App(){
       }
     }
     // Final bedtime validation
-    const bedItem = safeFormatted.find(s => s.type === "bed");
-    if (bedItem) {
-      bedItem.mins = clampBedtime(bedItem.mins);
-      bedItem.time = fmt12(mtp(bedItem.mins));
+    const bedItem2 = safeFormatted.find(s => s.type === "bed");
+    if (bedItem2) {
+      bedItem2.mins = clampBedtime(bedItem2.mins);
+      bedItem2.time = fmt12(mtp(bedItem2.mins));
     }
 
     return {
