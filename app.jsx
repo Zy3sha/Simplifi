@@ -1366,6 +1366,10 @@ function App(){
   });
   const[showWeeklyDigest,setShowWeeklyDigest]=useState(false);
   const[showHVReport,setShowHVReport]=useState(false);
+  const[showScheduleMaker,setShowScheduleMaker]=useState(false);
+  const[smEvent,setSmEvent]=useState({time:"12:00",label:"",source:null});
+  const[smResult,setSmResult]=useState(null);
+  const[showApptSchedulePrompt,setShowApptSchedulePrompt]=useState(null);
   const[showAddPin,setShowAddPin]=useState(false);
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
@@ -5697,6 +5701,273 @@ function App(){
     return { text: lines.join("\n"), name, period: `${fmtDate(dk[0])} – ${fmtDate(dk[dk.length-1])}`, days: dk.length };
   }
 
+    // ═══ SCHEDULE MAKER — builds optimal day around a fixed event ═══
+  function buildScheduleAroundEvent(eventTimeMins, eventLabel) {
+    if (!age) return null;
+    const w = age.totalWeeks;
+    const ww = getWakeWindow(w);
+    const profile = getAgeNapProfile(w);
+    const napCount = profile.expectedNaps;
+    const mtp = m => {const h=Math.floor(((m%1440)+1440)%1440/60);const mm=((m%60)+60)%60;return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;};
+
+    // Get personal averages
+    const dk = Object.keys(days).sort().slice(-7);
+    let avgNapDur = 50;
+    let avgWakeMins = 7*60;
+    let avgBedMins = 19*60;
+    if (dk.length >= 3) {
+      const napDurs = [];
+      const wakes = [];
+      const beds = [];
+      dk.forEach(d => {
+        const entries = days[d]||[];
+        entries.filter(e=>e.type==="nap"&&!e.night).forEach(n=>napDurs.push(minDiff(n.start,n.end)));
+        const wake = entries.find(e=>e.type==="wake"&&!e.night);
+        if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
+        const bed = entries.find(e=>e.type==="sleep"&&!e.night);
+        if(bed){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
+      });
+      if(napDurs.length) avgNapDur = Math.round(napDurs.reduce((a,b)=>a+b,0)/napDurs.length);
+      if(wakes.length) avgWakeMins = Math.round(wakes.reduce((a,b)=>a+b,0)/wakes.length);
+      if(beds.length) avgBedMins = Math.round(beds.reduce((a,b)=>a+b,0)/beds.length);
+    }
+    avgNapDur = Math.max(20, Math.min(90, avgNapDur));
+
+    // Strategy: Baby must be AWAKE at eventTimeMins
+    // Work backwards to find wake from last nap, then build forward from morning
+    
+    // Try multiple approaches and pick the best one
+    const candidates = [];
+
+    // Approach 1: build forward from normal wake, try to land a wake window on the event
+    for (let wakeShift = -30; wakeShift <= 30; wakeShift += 10) {
+      const wake = clampWake(avgWakeMins + wakeShift);
+      const sched = [];
+      sched.push({type:"wake", mins:wake, label:"Wake up"});
+      let cursor = wake;
+      
+      for (let i = 0; i < napCount; i++) {
+        const wwLen = progressiveWW(w, i, napCount);
+        const napStart = cursor + wwLen;
+        const napEnd = napStart + avgNapDur;
+        
+        if (napStart > 17*60+30) break; // no naps after 5:30pm
+        sched.push({type:"nap_start", mins:napStart, label:`Nap ${i+1} start`});
+        sched.push({type:"nap_end", mins:napEnd, label:`Nap ${i+1} end`});
+        cursor = napEnd;
+      }
+      
+      // Add bedtime
+      const lastWW = progressiveWW(w, napCount, napCount);
+      const bed = clampBedtime(cursor + lastWW);
+      sched.push({type:"bed", mins:bed, label:"Bedtime"});
+
+      // Score: how well does the event fall in a wake window?
+      let eventInNap = false;
+      let minDistToNap = 999;
+      for (let i = 0; i < sched.length - 1; i++) {
+        if (sched[i].type === "nap_start" && sched[i+1] && sched[i+1].type === "nap_end") {
+          if (eventTimeMins >= sched[i].mins && eventTimeMins <= sched[i+1].mins) {
+            eventInNap = true;
+          }
+          minDistToNap = Math.min(minDistToNap, 
+            Math.abs(eventTimeMins - sched[i].mins),
+            Math.abs(eventTimeMins - sched[i+1].mins)
+          );
+        }
+      }
+      
+      // Penalty: event during nap is bad, wake time too far from normal is bad
+      const penalty = (eventInNap ? 1000 : 0) + 
+                      Math.abs(wakeShift) * 2 + 
+                      (bed > 20*60+30 ? 200 : 0) +
+                      (bed < 18*60 ? 200 : 0);
+      
+      candidates.push({sched, penalty, wakeShift, eventInNap});
+    }
+
+    // Approach 2: work backwards from event — ensure baby wakes from nap before event
+    for (let gapBefore = ww.min; gapBefore <= ww.min + 30; gapBefore += 10) {
+      const napEndBefore = eventTimeMins - gapBefore;
+      const napStartBefore = napEndBefore - avgNapDur;
+      
+      // Build backwards to find wake time
+      let cursor = napStartBefore;
+      const napsBeforeEvent = [];
+      let napIdx = 0;
+      
+      // How many naps can fit before this one?
+      let tempCursor = cursor;
+      while (napIdx < napCount - 1) {
+        const prevNapEnd = tempCursor - progressiveWW(w, napIdx, napCount);
+        const prevNapStart = prevNapEnd - avgNapDur;
+        if (prevNapStart < 4*60+30) break; // too early
+        napsBeforeEvent.unshift({start: prevNapStart, end: prevNapEnd});
+        tempCursor = prevNapStart;
+        napIdx++;
+      }
+      
+      // Wake time
+      const firstEvent = napsBeforeEvent.length ? napsBeforeEvent[0].start : napStartBefore;
+      const wakeTime = clampWake(firstEvent - progressiveWW(w, 0, napCount));
+      
+      const sched = [];
+      sched.push({type:"wake", mins:wakeTime, label:"Wake up"});
+      
+      napsBeforeEvent.forEach((n, i) => {
+        sched.push({type:"nap_start", mins:n.start, label:`Nap ${i+1} start`});
+        sched.push({type:"nap_end", mins:n.end, label:`Nap ${i+1} end`});
+      });
+      
+      // The nap right before event
+      const thisNapNum = napsBeforeEvent.length + 1;
+      sched.push({type:"nap_start", mins:napStartBefore, label:`Nap ${thisNapNum} start`});
+      sched.push({type:"nap_end", mins:napEndBefore, label:`Nap ${thisNapNum} end`});
+      
+      // Event happens here
+      sched.push({type:"event", mins:eventTimeMins, label:eventLabel || "Event"});
+      
+      // Any remaining naps after event
+      let afterCursor = eventTimeMins;
+      let remainingNaps = napCount - thisNapNum;
+      for (let i = 0; i < remainingNaps; i++) {
+        const nStart = afterCursor + progressiveWW(w, thisNapNum + i, napCount);
+        if (nStart > 17*60+30) break; // no naps after 5:30pm
+        const nEnd = nStart + avgNapDur;
+        sched.push({type:"nap_start", mins:nStart, label:`Nap ${thisNapNum+i+1} start`});
+        sched.push({type:"nap_end", mins:nEnd, label:`Nap ${thisNapNum+i+1} end`});
+        afterCursor = nEnd;
+      }
+      
+      // Bedtime
+      const bedWW = progressiveWW(w, napCount, napCount);
+      const bed = clampBedtime(afterCursor + bedWW);
+      sched.push({type:"bed", mins:bed, label:"Bedtime"});
+      
+      const penalty = Math.abs(wakeTime - avgWakeMins) * 1.5 + 
+                      (bed > 20*60+30 ? 200 : 0);
+      
+      candidates.push({sched, penalty, wakeShift: wakeTime - avgWakeMins, eventInNap: false});
+    }
+
+    // Pick best candidate (lowest penalty, event not during nap)
+    candidates.sort((a,b) => a.penalty - b.penalty);
+    const best = candidates[0];
+    if (!best) return null;
+
+    // Format schedule
+    const formatted = best.sched.map(s => ({
+      ...s,
+      time: fmt12(mtp(s.mins)),
+      isEvent: s.type === "event"
+    }));
+
+    // Calculate adjustment from normal
+    const adjustment = best.wakeShift;
+    const adjustText = adjustment === 0 ? "No adjustment needed" :
+      adjustment > 0 ? `Wake ${adjustment}min later than usual` :
+      `Wake ${Math.abs(adjustment)}min earlier than usual`;
+
+    // ═══ SAFETY VALIDATION — enforce all guidelines ═══
+    const napStarts = formatted.filter(s=>s.type==="nap_start");
+    const napEnds = formatted.filter(s=>s.type==="nap_end");
+    const wakeItem = formatted.find(s=>s.type==="wake");
+    const bedItem = formatted.find(s=>s.type==="bed");
+    const warnings = [];
+
+    // Check nap count within expected range
+    if (napStarts.length > profile.expectedNaps + 1) {
+      warnings.push("More naps than expected for age — some may be bridge naps");
+    }
+    if (napStarts.length < Math.max(1, profile.expectedNaps - 1)) {
+      warnings.push("Fewer naps than ideal — consider if day allows enough sleep");
+    }
+
+    // Validate every wake window between events
+    const allEvents = best.sched.filter(s=>s.type==="wake"||s.type==="nap_end"||s.type==="nap_start"||s.type==="bed");
+    for (let i = 0; i < allEvents.length - 1; i++) {
+      const cur = allEvents[i];
+      const nxt = allEvents[i+1];
+      if ((cur.type === "wake" || cur.type === "nap_end") && (nxt.type === "nap_start" || nxt.type === "bed")) {
+        const gap = nxt.mins - cur.mins;
+        if (gap < ww.min - 10) {
+          // Wake window too short — fix it
+          nxt.mins = cur.mins + ww.min;
+          nxt.time = fmt12(mtp(nxt.mins));
+          warnings.push("Adjusted a wake window that was too short");
+        }
+        if (gap > ww.max + 20) {
+          warnings.push("One wake window is longer than ideal — bridge nap may help");
+        }
+      }
+    }
+
+    // Validate nap durations
+    for (let i = 0; i < napStarts.length; i++) {
+      if (napEnds[i]) {
+        const dur = napEnds[i].mins - napStarts[i].mins;
+        if (dur < 15) {
+          napEnds[i].mins = napStarts[i].mins + 20;
+          napEnds[i].time = fmt12(mtp(napEnds[i].mins));
+        }
+        const maxDur = w < 13 ? 120 : w < 26 ? 90 : 120;
+        if (dur > maxDur) {
+          napEnds[i].mins = napStarts[i].mins + maxDur;
+          napEnds[i].time = fmt12(mtp(napEnds[i].mins));
+        }
+      }
+    }
+
+    // Validate wake time
+    if (wakeItem && (wakeItem.mins < 5*60 || wakeItem.mins > 9*60+30)) {
+      wakeItem.mins = clampWake(wakeItem.mins);
+      wakeItem.time = fmt12(mtp(wakeItem.mins));
+      warnings.push("Wake time adjusted to safe range (5am-9:30am)");
+    }
+
+    // Validate bedtime
+    if (bedItem && (bedItem.mins < 18*60 || bedItem.mins > 20*60+30)) {
+      bedItem.mins = clampBedtime(bedItem.mins);
+      bedItem.time = fmt12(mtp(bedItem.mins));
+      warnings.push("Bedtime adjusted to safe range (6pm-8:30pm)");
+    }
+
+    // Validate no nap starts after 5:30pm
+    napStarts.forEach(ns => {
+      if (ns.mins > 17*60+30) {
+        warnings.push("A nap was removed — too late in the day");
+      }
+    });
+    const safeFormatted = formatted.filter(s => !(s.type === "nap_start" && s.mins > 17*60+30) && !(s.type === "nap_end" && s.mins > 18*60+30));
+
+    return {
+      schedule: safeFormatted,
+      adjustment: adjustText,
+      adjustMins: adjustment,
+      eventLabel: eventLabel || "Event",
+      eventTime: fmt12(mtp(eventTimeMins)),
+      napCount: safeFormatted.filter(s=>s.type==="nap_start").length,
+      warnings
+    };
+  }
+
+  // ═══ CHECK FOR TOMORROW'S APPOINTMENTS — offer schedule adjustment ═══
+  function checkTomorrowAppointments() {
+    if (!appointments || !appointments.length) return;
+    const tomorrow = (()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
+    const tomorrowAppts = appointments.filter(a => a.date === tomorrow && a.time);
+    if (!tomorrowAppts.length) return;
+    // Only show once per day
+    const key = "appt_sched_shown_" + todayStr();
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    // Show prompt for earliest appointment
+    const earliest = tomorrowAppts.sort((a,b) => a.time.localeCompare(b.time))[0];
+    setTimeout(() => {
+      setShowApptSchedulePrompt(earliest);
+    }, 2000);
+  }
+
     function copySummary(){
     const ln=[`${fmtLong(selDay)} — ${possessive(babyName||"Baby")} Day`,""];
     dayE.forEach(e=>{
@@ -6409,93 +6680,18 @@ function App(){
 
             {tutStep >= 0 && (()=>{
         const TUT_STEPS = [
-          { icon:"👋", title:"Welcome to OBubba!", body:"A quick tour of how everything works — takes about 60 seconds. Tap anywhere or Next to continue.", location:null },
-          { icon:"🍼", title:"Quick Log Bar",
-            bodyJSX:(
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>The row of icons at the top is your <strong style={{color:C.ter}}>quick log bar</strong> — one tap logs instantly:</div>
-                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>🍼 <strong>Feed</strong> — logs a bottle feed</div>
-                  <div>🤱 <strong>Breast</strong> — logs a breastfeed</div>
-                  <div>💩 <strong>Nappy</strong> — logs a wet nappy</div>
-                  <div>😴 <strong>Nap</strong> — starts the nap timer + logs entry</div>
-                  <div>🫙 <strong>Pump</strong> — opens pump form</div>
-                  <div>☀️ <strong>Wake</strong> — logs morning wake time</div>
-                </div>
-              </div>
-            ), location:"Below the header" },
-          { icon:"⏱️", title:"Nap & Bedtime Predictions",
-            bodyJSX:(
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>OBubba predicts naps and bedtime by blending NHS guidelines with your baby's patterns:</div>
-                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>⏱️ <strong>Nap countdown</strong> — shows when the next nap is due</div>
-                  <div>🌙 <strong>Bedtime</strong> — adjusts based on today's actual naps</div>
-                  <div>🌉 <strong>Bridge nap</strong> — suggested when the gap to bedtime is too long</div>
-                  <div>📅 <strong>Tomorrow's rhythm</strong> — full predicted schedule</div>
-                </div>
-                <div style={{fontSize:13,color:C.lt,marginTop:8}}>Accuracy improves with 3–5 days of logging.</div>
-              </div>
-            ), location:"Day view" },
-          { icon:"📅", title:"Appointments & Reminders",
-            bodyJSX:(
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Stay on top of health visits and daily tasks:</div>
-                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>📅 <strong>Appointments</strong> — one-off or recurring with travel time reminders</div>
-                  <div>🔔 <strong>Reminders</strong> — timed to-dos with notifications</div>
-                  <div>📌 <strong>Pinned notes</strong> — allergies, medical info — always visible on Day view</div>
-                </div>
-              </div>
-            ), location:"Day view" },
-          { icon:"💡", title:"Insights & Analysis",
-            bodyJSX:(
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>💡 Insights</strong> in the bottom nav:</div>
-                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>🍼 <strong>Today with {babyName||"Baby"}</strong> — smart daily summary</div>
-                  <div>😴 <strong>Sleep Analysis</strong> — stability score, regression alerts, sleep debt</div>
-                  <div>📏 <strong>Growth</strong> — WHO percentile charts</div>
-                  <div>📈 <strong>Trends</strong> — weekly patterns and comparisons</div>
-                </div>
-              </div>
-            ), location:"Bottom nav — Insights" },
-          { icon:"🧩", title:"Development & Milestones",
-            bodyJSX:(
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Tap <strong style={{color:C.ter}}>🧩 Development</strong>:</div>
-                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>⭐ <strong>Milestones</strong> — NHS checklist with shareable achievement cards</div>
-                  <div>🎯 <strong>Activities</strong> — age-appropriate play ideas</div>
-                  <div>🛏️\uFE0F <strong>Safe Sleep</strong> — NHS & AAP guidelines</div>
-                </div>
-              </div>
-            ), location:"Bottom nav — Development" },
-          { icon:"🌙", title:"Day & Night Mode", body:"OBubba auto-switches to night mode at 7pm and day mode at 7am. Toggle manually in Account — the switch is right at the top.", location:"Account tab" },
-          { icon:"👨‍👩‍👧", title:"Share & Sync",
-            bodyJSX:(
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>In <strong style={{color:C.ter}}>Account \u2192 Share & Sync</strong>:</div>
-                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>📤 Share your backup code with your partner</div>
-                  <div>📲 Partner enters it in Link a Child</div>
-                  <div>🔄 Both parents see the same data in real time</div>
-                </div>
-              </div>
-            ), location:"Account \u2192 Share & Sync" },
-          { icon:"🎉", title:"You're all set!",
-            bodyJSX:(
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.65}}>
-                <div style={{marginBottom:8}}>Log a wake time to start — nap predictions appear automatically.</div>
-                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6,fontSize:14}}>
-                  <div>✅ Predictions improve with 3–5 days of data</div>
-                  <div>✅ Sleep regression alerts trigger automatically</div>
-                  <div>✅ Tap the mascot to add your baby's photo</div>
-                  <div>✅ Set a recovery word in Account to keep data safe</div>
-                </div>
-                <div style={{fontSize:13,color:C.lt,marginTop:8}}>Replay this tour anytime from Account \u2192 App Tour.</div>
-              </div>
-            ), location:null },
+          { icon:"👋", title:"Welcome to OBubba!", body:"A quick tour of how everything works. Takes about 60 seconds. Tap anywhere or swipe to continue." },
+          { icon:"🍼", title:"Quick Log Bar", body:"The icon row at the top is your quick log bar. One tap logs at the current time: Feed, Breast, Nappy, Nap (starts timer), Pump, Wake, and Photo. Tap the pencil on any entry to edit details." },
+          { icon:"📝", title:"Detailed Logging", body:"Below the quick bar are full log buttons: Feed (bottle/breast/solids), Nappy (wet/dirty), Sleep (nap with times or bedtime), Pump (full session), Wake Up, and Notes (paste your whole day in plain text)." },
+          { icon:"⏱", title:"Nap & Bedtime Predictions", body:"OBubba predicts naps and bedtime by blending NHS guidelines with your baby's patterns. Countdown timer, bridge nap suggestions, and tomorrow's predicted schedule. Accuracy improves with 3-5 days of logging." },
+          { icon:"📅", title:"Appointments & Reminders", body:"Stay organised: Appointments (one-off or recurring with travel time), Reminders (timed to-dos with notifications), Pinned Notes (allergies, medical info, always visible on Day view)." },
+          { icon:"💡", title:"Insights & Analysis", body:"Tap Insights in the bottom nav: Today's summary, Sleep Analysis with stability score and regression alerts, WHO Growth charts, Weekly Trends, and shareable Day Reports." },
+          { icon:"🧩", title:"Development & Milestones", body:"Tap Development: NHS milestone checklist with share cards, age-appropriate activities, Safe Sleep guidelines (NHS & AAP), and expert guidance for your baby's age." },
+          { icon:"🧠", title:"Personal vs NHS Mode", body:"In Account choose Personal mode (learns from your baby after 5+ days) or NHS mode (standard wake windows). Your choice saves permanently and syncs across devices." },
+          { icon:"🌙", title:"Day & Night Mode", body:"OBubba auto-switches at 7pm and 7am. Toggle manually in Account. The theme switch is right at the top." },
+          { icon:"👨‍👩‍👧", title:"Share & Sync", body:"In Account tap Share & Sync. Share your backup code with your partner. They enter it in Link a Child. Both parents see the same data in real time. Tap + to add more children." },
+          { icon:"🧩", title:"Schedule Maker", body:"Tap Schedule Maker on the Day view to build an optimal day around any event. Enter the time baby needs to be awake (baby class, doctor visit, lunch) and OBubba builds the full day: wake time, nap times, bedtime. If you have an appointment tomorrow, OBubba will offer to adjust the schedule automatically." },
+          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start. Nap predictions appear automatically. Predictions improve with 3-5 days of data. Sleep regression alerts trigger at the right age. Tap the mascot to add your baby's photo. Replay this tour from Account." },
         ];
 
         const dismissTutorial = () => {
@@ -6551,7 +6747,7 @@ function App(){
                 </div>
               )}
 
-              <div style={{fontSize:14,color:cardSub,lineHeight:1.65,marginBottom:14}}>{step.bodyJSX || step.body}</div>
+              <div style={{fontSize:14,color:cardSub,lineHeight:1.65,marginBottom:14}}>{step.body}</div>
               <div style={{display:"flex",gap:3,justifyContent:"center",marginBottom:12}}>
                 {TUT_STEPS.map((_,i)=>(
                   <div key={i} onClick={()=>setTutStep(i)} style={{
@@ -10180,7 +10376,105 @@ function App(){
         );
       })()}
 
-                        {/* ═══ Photo Viewer Overlay ═══ */}
+                        {/* ═══ Schedule Maker Modal ═══ */}
+      {showScheduleMaker && (
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
+            <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
+            <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
+              Enter a time {babyName||"baby"} needs to be awake, and we'll build the optimal day around it.
+            </div>
+
+            <Inp label="What's happening?" type="text" placeholder="e.g. Baby class, Doctor visit, Family lunch" value={smEvent.label} onChange={e=>setSmEvent(f=>({...f,label:e.target.value}))}/>
+            <TimeInput label="Time baby needs to be awake" value={smEvent.time} onChange={t=>setSmEvent(f=>({...f,time:t}))}/>
+
+            <PBtn onClick={()=>{
+              if(!smEvent.time) return;
+              const[h,m]=smEvent.time.split(":").map(Number);
+              const result = buildScheduleAroundEvent(h*60+m, smEvent.label || "Event");
+              setSmResult(result);
+            }}>🧩 Build Schedule</PBtn>
+
+            {smResult && (
+              <div style={{marginTop:16}}>
+                <div style={{background:"var(--card-bg-alt)",border:`1.5px solid ${C.mint}44`,borderRadius:16,padding:"14px",marginBottom:12}}>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Optimised Schedule</div>
+                  <div style={{fontSize:12,color:C.lt,marginBottom:10}}>{smResult.adjustment}</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:0}}>
+                    {smResult.schedule.map((s,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<smResult.schedule.length-1?`1px solid var(--card-border)`:"none"}}>
+                        <div style={{width:8,height:8,borderRadius:99,background:s.isEvent?C.gold:s.type==="wake"?"#d4a855":s.type==="bed"?C.sky:s.type.includes("nap")?C.mint:C.lt,flexShrink:0}}/>
+                        <div style={{flex:1}}>
+                          <span style={{fontSize:13,fontWeight:s.isEvent?800:600,color:s.isEvent?C.gold:C.deep}}>{s.label}</span>
+                        </div>
+                        <div style={{fontFamily:_fM,fontSize:14,fontWeight:700,color:s.isEvent?C.gold:s.type==="bed"?C.sky:C.mint}}>
+                          {s.time}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>{
+                    const text = smResult.schedule.map(s=>s.label+": "+s.time).join("\n");
+                    navigator.share?navigator.share({title:"Schedule for "+smResult.eventLabel,text}):navigator.clipboard.writeText(text);
+                  }} style={{flex:1,padding:"10px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                    📤 Share
+                  </button>
+                  <button onClick={()=>{
+                    const text = smResult.schedule.map(s=>s.label+": "+s.time).join("\n");
+                    navigator.clipboard.writeText(text);
+                  }} style={{flex:1,padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
+                    📋 Copy
+                  </button>
+                </div>
+                {smResult.warnings && smResult.warnings.length > 0 && (
+                  <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginTop:8,marginBottom:4}}>
+                    {smResult.warnings.map((w,i)=>(
+                      <div key={i} style={{fontSize:11,color:C.gold,lineHeight:1.5}}>⚠️ {w}</div>
+                    ))}
+                  </div>
+                )}
+                <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:8,lineHeight:1.4}}>
+                  Built using NHS wake windows + {babyName||"baby"}'s personal rhythm
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Appointment Schedule Prompt ═══ */}
+      {showApptSchedulePrompt && (
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowApptSchedulePrompt(null)}>
+          <div className="prio-glow" onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px)",WebkitBackdropFilter:"blur(30px)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:8}}>📅</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>Tomorrow's Appointment</div>
+            <div style={{fontSize:14,color:C.mid,marginBottom:4,fontWeight:600}}>{showApptSchedulePrompt.title}</div>
+            <div style={{fontSize:13,color:C.lt,marginBottom:16}}>{fmt12(showApptSchedulePrompt.time)} tomorrow</div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:16}}>
+              Want me to build an optimised schedule so {babyName||"baby"} is awake and refreshed at {fmt12(showApptSchedulePrompt.time)}?
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{
+                setSmEvent({time:showApptSchedulePrompt.time,label:showApptSchedulePrompt.title,source:"appt"});
+                const[h,m]=showApptSchedulePrompt.time.split(":").map(Number);
+                setSmResult(buildScheduleAroundEvent(h*60+m, showApptSchedulePrompt.title));
+                setShowApptSchedulePrompt(null);
+                setShowScheduleMaker(true);
+              }} style={{flex:1,padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
+                Yes, optimise
+              </button>
+              <button onClick={()=>setShowApptSchedulePrompt(null)} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:14,fontWeight:600,cursor:_cP}}>
+                No thanks
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* ═══ Photo Viewer Overlay ═══ */}
       {viewPhoto && (
         <div onClick={()=>setViewPhoto(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:"100%",maxHeight:"80vh",position:"relative"}}>
