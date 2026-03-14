@@ -6143,9 +6143,9 @@ function App(){
     function ensureToday(){
       const t = todayStr();
       setDays(d => d[t] ? d : {...d, [t]: []});
-      setSelDay(s => s === t ? s : t);
     }
     ensureToday();
+    if (!days[selDay] || selDay < todayStr()) setSelDay(todayStr());
 
     // Check for weekly digest on Monday
     if(weeklyDigestEnabled) {
@@ -6634,7 +6634,7 @@ function App(){
             </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:42,fontWeight:800,letterSpacing:"-0.5px",zIndex:1,background:_wBrand,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>OBubba</div>
             <div style={{fontSize:15,color:_wTag,letterSpacing:"0.5px",zIndex:1,marginBottom:32}}>Parenthood in your pocket</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:34,fontWeight:700,textAlign:"center",lineHeight:1.2,zIndex:1,marginBottom:14,maxWidth:320,color:_wTxt}}>Take the guesswork out of <span style={{background:"linear-gradient(135deg, #c9705a, #d4a855)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>parenting.</span></div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,textAlign:"center",lineHeight:1.3,zIndex:1,marginBottom:12,maxWidth:300,color:_wTxt,letterSpacing:"-0.3px"}}>Take the guesswork out of <span style={{background:"linear-gradient(135deg, #c9705a, #d4a855)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>parenting.</span></div>
             <div style={{fontSize:15,lineHeight:1.6,color:_wSub,textAlign:"center",maxWidth:340,zIndex:1,marginBottom:28}}>Personalised sleep, feeding, and growth guidance — combining your baby's real patterns with medical recommendations.</div>
             <div style={{display:"flex",flexDirection:"column",gap:8,width:"100%",maxWidth:360,zIndex:1,marginBottom:28}}>
               {[[["🔮","Sleep predictions","Naps, bedtime & wake"],["🧩","Schedule maker","Build days around events"]],[["📊","Rhythm learning","Gets smarter every day"],["🛡️","Regression alerts","4mo, 8mo, 12mo, 18mo"]],[["🍼","One-tap tracking","Feed, nappy & sleep"],["👨‍👩‍👧","Partner sync","Real-time cloud sharing"]]].map((row,ri)=>(
@@ -10075,7 +10075,7 @@ function App(){
                   : (nwForm.note||"");
               const entry = {
                 id: uid(),
-                type: (nwForm.selfSettled||nwForm.assisted) ? "wake" : "feed",
+                type: nwForm.selfSettled ? "wake" : (nwForm.assisted && nwForm.assistedType==="milk" && nwForm.ml) ? "feed" : nwForm.assisted ? "wake" : "feed",
                 time: nwForm.time,
                 amount: ml,
                 feedType: "milk",
