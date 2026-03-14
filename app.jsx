@@ -1370,6 +1370,15 @@ function App(){
   const[smEvent,setSmEvent]=useState({time:"12:00",label:"",source:null});
   const[smResult,setSmResult]=useState(null);
   const[showApptSchedulePrompt,setShowApptSchedulePrompt]=useState(null);
+  const[scheduleOverride,setScheduleOverride]=useState(()=>{
+    try{
+      const v=JSON.parse(localStorage.getItem("sched_override_v1")||"null");
+      if(v && v.expires && new Date(v.expires) < new Date()) return null;
+      return v;
+    }catch{return null;}
+  });
+  const[showAdjustSchedule,setShowAdjustSchedule]=useState(false);
+  const[adjForm,setAdjForm]=useState({wakeTime:"",bedTime:"",duration:"today"});
   const[showAddPin,setShowAddPin]=useState(false);
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
@@ -1641,6 +1650,9 @@ function App(){
   const[recoveryWordStatus,setRecoveryWordStatus]=useState(null);
   const[showChildSettings,setShowChildSettings]=useState(false);
   const childPhotoInputRef = useRef(null);
+  const[showPhotoCrop,setShowPhotoCrop]=useState(null);
+  const cropCanvasRef=useRef(null);
+  const[cropOffset,setCropOffset]=useState({x:0,y:0,scale:1});
   const[csName,setCsName]=useState("");
   const[csDob,setCsDob]=useState("");
   const[csSex,setCsSex]=useState("");
@@ -3967,6 +3979,10 @@ function App(){
     }
     // Safety: wake must be 5am–9:30am
     baseWake = clampWake(baseWake);
+    // Apply manual schedule override if set
+    if (scheduleOverride && scheduleOverride.wake) {
+      baseWake = scheduleOverride.wake;
+    }
 
     // ── Nap count ──
     const dns = dynamicNapStructure();
@@ -3995,7 +4011,10 @@ function App(){
     const avgBed = bedPatterns.length >= 2
       ? Math.round(bedPatterns.reduce((s, p) => s + p.bedMins * p.recency, 0) / bedPatterns.reduce((s, p) => s + p.recency, 0))
       : 19 * 60;
-    const anchorBed = clampBedtime(avgBed);
+    let anchorBed = clampBedtime(avgBed);
+    if (scheduleOverride && scheduleOverride.bed) {
+      anchorBed = scheduleOverride.bed;
+    }
 
     // ── Build schedule ──
     const schedule = [];
@@ -5951,7 +5970,46 @@ function App(){
     };
   }
 
-  // ═══ CHECK FOR TOMORROW'S APPOINTMENTS — offer schedule adjustment ═══
+  // ═══ ADJUST SCHEDULE — manual override within guidelines ═══
+  function applyScheduleAdjustment(wakeStr, bedStr, duration) {
+    if (!age) return;
+    const ww = getWakeWindow(age.totalWeeks);
+    let wakeMins = null, bedMins = null;
+    if (wakeStr) {
+      const [h,m] = wakeStr.split(":").map(Number);
+      wakeMins = clampWake(h*60+m);
+    }
+    if (bedStr) {
+      const [h,m] = bedStr.split(":").map(Number);
+      bedMins = clampBedtime(h*60+m);
+    }
+    // Validate: bed - wake must allow enough awake time for all naps + wake windows
+    if (wakeMins && bedMins) {
+      const totalDay = bedMins - wakeMins;
+      const profile = getAgeNapProfile(age.totalWeeks);
+      const minNeeded = profile.expectedNaps * 30 + (profile.expectedNaps + 1) * ww.min;
+      if (totalDay < minNeeded) {
+        // Expand to minimum
+        bedMins = clampBedtime(wakeMins + minNeeded);
+      }
+    }
+    const override = {
+      wake: wakeMins,
+      bed: bedMins,
+      expires: duration === "today" ? new Date(new Date().setHours(23,59,59,999)).toISOString() : null,
+      permanent: duration === "permanent",
+      setDate: todayStr()
+    };
+    setScheduleOverride(override);
+    try{localStorage.setItem("sched_override_v1", JSON.stringify(override));}catch{}
+  }
+
+  function clearScheduleOverride() {
+    setScheduleOverride(null);
+    try{localStorage.removeItem("sched_override_v1");}catch{}
+  }
+
+    // ═══ CHECK FOR TOMORROW'S APPOINTMENTS — offer schedule adjustment ═══
   function checkTomorrowAppointments() {
     if (!appointments || !appointments.length) return;
     const tomorrow = (()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
@@ -6690,7 +6748,7 @@ function App(){
           { icon:"🧠", title:"Personal vs NHS Mode", body:"In Account choose Personal mode (learns from your baby after 5+ days) or NHS mode (standard wake windows). Your choice saves permanently and syncs across devices." },
           { icon:"🌙", title:"Day & Night Mode", body:"OBubba auto-switches at 7pm and 7am. Toggle manually in Account. The theme switch is right at the top." },
           { icon:"👨‍👩‍👧", title:"Share & Sync", body:"In Account tap Share & Sync. Share your backup code with your partner. They enter it in Link a Child. Both parents see the same data in real time. Tap + to add more children." },
-          { icon:"🧩", title:"Schedule Maker", body:"Tap Schedule Maker on the Day view to build an optimal day around any event. Enter the time baby needs to be awake (baby class, doctor visit, lunch) and OBubba builds the full day: wake time, nap times, bedtime. If you have an appointment tomorrow, OBubba will offer to adjust the schedule automatically." },
+          { icon:"🧩", title:"Schedule Maker & Adjust", body:"Build a day around any event: enter when baby needs to be awake and OBubba plans wake, naps, and bedtime around it. Or tap Adjust Schedule to set custom wake and bed times for today only or permanently. If there is an appointment tomorrow, OBubba offers to optimise automatically. All adjustments stay within NHS-recommended wake windows." },
           { icon:"🎉", title:"You're all set!", body:"Log a wake time to start. Nap predictions appear automatically. Predictions improve with 3-5 days of data. Sleep regression alerts trigger at the right age. Tap the mascot to add your baby's photo. Replay this tour from Account." },
         ];
 
@@ -6817,17 +6875,8 @@ function App(){
               const file=e.target.files?.[0];if(!file)return;
               const reader=new FileReader();
               reader.onload=ev=>{
-                const dataUrl=ev.target.result;
-                // Resize to 200x200 for storage
-                const img=new Image();img.onload=()=>{
-                  const canvas=document.createElement("canvas");canvas.width=200;canvas.height=200;
-                  const ctx=canvas.getContext("2d");
-                  const s=Math.min(img.width,img.height);
-                  const sx=(img.width-s)/2,sy=(img.height-s)/2;
-                  ctx.drawImage(img,sx,sy,s,s,0,0,200,200);
-                  const small=canvas.toDataURL("image/jpeg",0.8);
-                  updateChild({photo:small});
-                };img.src=dataUrl;
+                setShowPhotoCrop(ev.target.result);
+                setCropOffset({x:0,y:0,scale:1});
               };reader.readAsDataURL(file);
               e.target.value="";
             }}/>
@@ -8072,7 +8121,24 @@ function App(){
                               </div>
                               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:10,borderTop:`1px solid ${C.blush}`,paddingTop:6}}>
                                 {`Based on NHS wake windows + ${babyName||"baby"}'s rhythm`}
-                              {flex.dataQuality&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:99,background:flex.dataQuality==="high"?C.mint+"22":flex.dataQuality==="good"?"var(--chip-bg)":C.gold+"22",color:flex.dataQuality==="high"?C.mint:flex.dataQuality==="good"?C.lt:C.gold}}>{flex.dataQuality==="high"?"● High accuracy":flex.dataQuality==="good"?"● Good":"● Learning"}</span>}
+                                {flex.dataQuality&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:99,background:flex.dataQuality==="high"?C.mint+"22":flex.dataQuality==="good"?"var(--chip-bg)":C.gold+"22",color:flex.dataQuality==="high"?C.mint:flex.dataQuality==="good"?C.lt:C.gold}}>{flex.dataQuality==="high"?"● High accuracy":flex.dataQuality==="good"?"● Good":"● Learning"}</span>}
+                              </div>
+                              <div style={{display:"flex",gap:6,marginTop:8}}>
+                                <button onClick={()=>{setShowScheduleMaker(true);}} style={{flex:1,padding:"6px",borderRadius:8,border:`1px solid ${C.mint}44`,background:"transparent",color:C.mint,fontSize:11,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                                  🧩 Build around event
+                                </button>
+                                <button onClick={()=>{setAdjForm({wakeTime:"",bedTime:"",duration:"today"});setShowAdjustSchedule(true);}} style={{flex:1,padding:"6px",borderRadius:8,border:`1px solid ${C.sky}44`,background:"transparent",color:C.sky,fontSize:11,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                                  ⚙️ Adjust schedule
+                                </button>
+                              </div>
+                              {scheduleOverride && (
+                                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6,padding:"4px 8px",borderRadius:8,background:C.gold+"15"}}>
+                                  <span style={{fontSize:10,color:C.gold}}>⚙️ Custom {scheduleOverride.permanent?"(permanent)":"(today only)"}: wake {scheduleOverride.wake?fmt12((() => { const m=scheduleOverride.wake; return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); })()):"-"}, bed {scheduleOverride.bed?fmt12((() => { const m=scheduleOverride.bed; return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); })()):"-"}</span>
+                                  <button onClick={clearScheduleOverride} style={{background:_bN,border:_bN,fontSize:10,color:C.ter,cursor:_cP}}>✕ Clear</button>
+                                </div>
+                              )}
+                              <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginTop:4}}>
+
                               </div>
                             </div>
                           );
@@ -10470,6 +10536,101 @@ function App(){
                 No thanks
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+            {/* ═══ Photo Crop Modal ═══ */}
+      {showPhotoCrop && (
+        <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{fontSize:16,color:"white",fontWeight:700,marginBottom:12}}>Position your photo</div>
+          <div style={{width:220,height:220,borderRadius:110,overflow:"hidden",border:"3px solid white",position:"relative",marginBottom:16}}>
+            <img src={showPhotoCrop} alt="" style={{
+              position:"absolute",
+              width:220*(cropOffset.scale||1),height:220*(cropOffset.scale||1),
+              objectFit:"cover",
+              left:cropOffset.x||0,top:cropOffset.y||0,
+              cursor:"grab"
+            }}
+            onPointerDown={e=>{
+              e.preventDefault();
+              const startX=e.clientX,startY=e.clientY;
+              const ox=cropOffset.x||0,oy=cropOffset.y||0;
+              const move=ev=>{setCropOffset(c=>({...c,x:ox+(ev.clientX-startX),y:oy+(ev.clientY-startY)}));};
+              const up=()=>{window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",up);};
+              window.addEventListener("pointermove",move);
+              window.addEventListener("pointerup",up);
+            }}/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+            <span style={{color:"white",fontSize:12}}>Zoom</span>
+            <input type="range" min="1" max="3" step="0.1" value={cropOffset.scale||1}
+              onChange={e=>setCropOffset(c=>({...c,scale:parseFloat(e.target.value)}))}
+              style={{width:160}}/>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>{
+              const img=new Image();
+              img.onload=()=>{
+                const canvas=document.createElement("canvas");canvas.width=200;canvas.height=200;
+                const ctx=canvas.getContext("2d");
+                const dispSize=220*(cropOffset.scale||1);
+                const ratio=img.width/dispSize;
+                const sx=-(cropOffset.x||0)*ratio;
+                const sy=-(cropOffset.y||0)*ratio;
+                const sSize=220*ratio;
+                ctx.drawImage(img,sx,sy,sSize,sSize,0,0,200,200);
+                const small=canvas.toDataURL("image/jpeg",0.85);
+                updateChild({photo:small});
+                setShowPhotoCrop(null);
+              };img.src=showPhotoCrop;
+            }} style={{padding:"12px 32px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+              Use Photo
+            </button>
+            <button onClick={()=>setShowPhotoCrop(null)} style={{padding:"12px 24px",borderRadius:99,border:"1px solid rgba(255,255,255,0.3)",background:"transparent",color:"white",fontSize:15,cursor:"pointer"}}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Adjust Schedule Modal ═══ */}
+      {showAdjustSchedule && (
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowAdjustSchedule(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520}}>
+            <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>⚙️ Adjust Schedule</div>
+            <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
+              Set custom wake and bedtime. Naps will automatically adjust to fit within NHS-recommended wake windows for {babyName||"baby"}'s age.
+            </div>
+
+            <TimeInput label="Preferred wake time" value={adjForm.wakeTime} onChange={t=>setAdjForm(f=>({...f,wakeTime:t}))}/>
+            <div style={{fontSize:10,color:C.lt,marginTop:-8,marginBottom:12}}>Safe range: 5:00am – 9:30am</div>
+
+            <TimeInput label="Preferred bedtime" value={adjForm.bedTime} onChange={t=>setAdjForm(f=>({...f,bedTime:t}))}/>
+            <div style={{fontSize:10,color:C.lt,marginTop:-8,marginBottom:16}}>Safe range: 6:00pm – 8:30pm</div>
+
+            <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>How long should this last?</div>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              {[["today","Today only"],["permanent","Every day"]].map(([v,l])=>(
+                <button key={v} onPointerDown={()=>setAdjForm(f=>({...f,duration:v}))}
+                  style={{flex:1,padding:"10px",borderRadius:12,border:`2px solid ${adjForm.duration===v?C.ter:C.blush}`,background:adjForm.duration===v?"var(--chip-bg-active)":"var(--card-bg)",color:adjForm.duration===v?C.ter:C.mid,fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                  {v==="today"?"📅 Today only":"🔁 Every day"}
+                </button>
+              ))}
+            </div>
+
+            <PBtn onClick={()=>{
+              applyScheduleAdjustment(adjForm.wakeTime, adjForm.bedTime, adjForm.duration);
+              setShowAdjustSchedule(false);
+            }}>✓ Apply Schedule</PBtn>
+
+            {scheduleOverride && (
+              <button onClick={()=>{clearScheduleOverride();setShowAdjustSchedule(false);}}
+                style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:_bN,background:"transparent",color:C.ter,fontSize:13,cursor:_cP,fontWeight:600}}>
+                Reset to automatic
+              </button>
+            )}
           </div>
         </div>
       )}
