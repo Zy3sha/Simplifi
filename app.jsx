@@ -6634,14 +6634,31 @@ function App(){
               @keyframes obWelcFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
               @keyframes obBorderShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
               @keyframes obTwinkle{0%{opacity:0.6}100%{opacity:1}}
+              @keyframes obHaloSpin{0%{transform:translate(-50%,-50%) rotate(0deg)}100%{transform:translate(-50%,-50%) rotate(360deg)}}
+              @keyframes obGlassShine{0%{transform:translateX(-120%) rotate(25deg)}100%{transform:translateX(120%) rotate(25deg)}}
             `}</style>
             <div style={{position:"absolute",inset:0,background:"radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 30% 70%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.8) 0%, transparent 100%), radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.4) 0%, transparent 100%), radial-gradient(1px 1px at 80% 80%, rgba(255,255,255,0.6) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 90% 15%, rgba(255,200,150,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 15% 55%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1px 1px at 45% 45%, rgba(255,200,180,0.6) 0%, transparent 100%)",animation:"obTwinkle 4s ease-in-out infinite alternate",pointerEvents:"none",opacity:_dk?1:0.15}}/>
             <div style={{position:"absolute",top:"10%",left:"50%",transform:"translateX(-50%)",width:300,height:300,background:"radial-gradient(circle, rgba(201,112,90,0.15) 0%, rgba(160,80,180,0.08) 50%, transparent 70%)",pointerEvents:"none"}}/>
             <div style={{position:"relative",zIndex:1,marginTop:48,marginBottom:20,animation:"obWelcFloat 4s ease-in-out infinite"}}>
-              <div style={{width:160,height:160,borderRadius:32,padding:4,background:"linear-gradient(135deg, #d4a855, #c9705a, #9060b0, #c9705a, #d4a855)",backgroundSize:"300% 300%",animation:"obBorderShift 6s ease infinite",boxShadow:_wMascotShadow}}>
-                <div style={{width:"100%",height:"100%",borderRadius:28,overflow:"hidden",background:_wMascotBg}}>
+              {/* Glow halo — rotating gradient behind the frame */}
+              <div style={{position:"absolute",top:"50%",left:"50%",width:210,height:210,transform:"translate(-50%,-50%)",borderRadius:"50%",background:`conic-gradient(from 0deg, rgba(212,168,85,0.35), rgba(201,112,90,0.25), rgba(144,96,176,0.3), rgba(80,200,120,0.15), rgba(212,168,85,0.35))`,animation:"obHaloSpin 8s linear infinite",filter:"blur(24px)",opacity:_dk?0.7:0.45,pointerEvents:"none"}}/>
+              {/* Secondary soft glow */}
+              <div style={{position:"absolute",top:"50%",left:"50%",width:180,height:180,transform:"translate(-50%,-50%)",borderRadius:"50%",background:_dk?"radial-gradient(circle, rgba(201,112,90,0.2) 0%, transparent 70%)":"radial-gradient(circle, rgba(201,112,90,0.12) 0%, transparent 70%)",pointerEvents:"none"}}/>
+              {/* Glass frame */}
+              <div style={{position:"relative",width:160,height:160,borderRadius:32,padding:4,background:"linear-gradient(135deg, #d4a855, #c9705a, #9060b0, #c9705a, #d4a855)",backgroundSize:"300% 300%",animation:"obBorderShift 6s ease infinite",boxShadow:_wMascotShadow}}>
+                <div style={{position:"relative",width:"100%",height:"100%",borderRadius:28,overflow:"hidden",background:_wMascotBg}}>
                   <img src="obubba-happy.png" alt="OBubba" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
+                  {/* Glass reflection — white highlight sweeping across */}
+                  <div style={{position:"absolute",inset:0,borderRadius:28,background:"linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 30%, transparent 50%, transparent 100%)",pointerEvents:"none"}}/>
+                  {/* Bottom glass edge highlight */}
+                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:"40%",borderRadius:"0 0 28px 28px",background:"linear-gradient(to top, rgba(255,255,255,0.12) 0%, transparent 100%)",pointerEvents:"none"}}/>
+                  {/* Animated light sweep */}
+                  <div style={{position:"absolute",inset:0,borderRadius:28,overflow:"hidden",pointerEvents:"none"}}>
+                    <div style={{position:"absolute",top:"-20%",width:"40%",height:"140%",background:"linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",animation:"obGlassShine 4s ease-in-out infinite",animationDelay:"2s"}}/>
+                  </div>
                 </div>
+                {/* Inner border glow for glass depth */}
+                <div style={{position:"absolute",inset:4,borderRadius:28,border:_dk?"1px solid rgba(255,255,255,0.15)":"1px solid rgba(255,255,255,0.35)",pointerEvents:"none"}}/>
               </div>
             </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:42,fontWeight:800,letterSpacing:"-0.5px",zIndex:1,background:_wBrand,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>OBubba</div>
@@ -6817,16 +6834,17 @@ function App(){
         const TUT_STEPS = [
           { icon:"👋", title:"Welcome to OBubba!", body:"A quick tour of how everything works. Takes about 60 seconds. Tap anywhere or swipe to continue." },
           { icon:"🍼", title:"Quick Log Bar", body:"The icon row at the top is your quick log bar. One tap logs at the current time: Feed, Breast, Nappy, Nap (starts timer), Pump, Wake, and Photo. Tap the pencil on any entry to edit details." },
-          { icon:"📝", title:"Detailed Logging", body:"Below the quick bar are full log buttons: Feed (bottle/breast/solids), Nappy (wet/dirty), Sleep (nap with times or bedtime), Pump (full session), Wake Up, and Notes (paste your whole day in plain text)." },
-          { icon:"⏱", title:"Nap & Bedtime Predictions", body:"OBubba predicts naps and bedtime by blending NHS guidelines with your baby's patterns. Countdown timer, bridge nap suggestions, and tomorrow's predicted schedule. Accuracy improves with 3-5 days of logging." },
-          { icon:"📅", title:"Appointments & Reminders", body:"Stay organised: Appointments (one-off or recurring with travel time), Reminders (timed to-dos with notifications), Pinned Notes (allergies, medical info, always visible on Day view)." },
-          { icon:"💡", title:"Insights & Analysis", body:"Tap Insights in the bottom nav: Today's summary, Sleep Analysis with stability score and regression alerts, WHO Growth charts, Weekly Trends, and shareable Day Reports." },
-          { icon:"🧩", title:"Development & Milestones", body:"Tap Development: NHS milestone checklist with share cards, age-appropriate activities, Safe Sleep guidelines (NHS & AAP), and expert guidance for your baby's age." },
-          { icon:"🧠", title:"Personal vs NHS Mode", body:"In Account choose Personal mode (learns from your baby after 5+ days) or NHS mode (standard wake windows). Your choice saves permanently and syncs across devices." },
-          { icon:"🌙", title:"Day & Night Mode", body:"OBubba auto-switches at 7pm and 7am. Toggle manually in Account. The theme switch is right at the top." },
-          { icon:"👨‍👩‍👧", title:"Share & Sync", body:"In Account tap Share & Sync. Share your backup code with your partner. They enter it in Link a Child. Both parents see the same data in real time. Tap + to add more children." },
-          { icon:"🧩", title:"Schedule Maker & Adjust", body:"Build a day around any event: enter when baby needs to be awake and OBubba plans wake, naps, and bedtime around it. Or tap Adjust Schedule to set custom wake and bed times for today only or permanently. If there is an appointment tomorrow, OBubba offers to optimise automatically. All adjustments stay within NHS-recommended wake windows." },
-          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start. Nap predictions appear automatically. Predictions improve with 3-5 days of data. Sleep regression alerts trigger at the right age. Tap the mascot to add your baby's photo. Replay this tour from Account." },
+          { icon:"📝", title:"Detailed Logging", body:"Below the quick bar are full log panels: Feed (bottle/breast/solids with amounts), Nappy (wet/dirty), Sleep (nap with times or bedtime), Pump (full session with L/R), Wake Up, and Notes (paste your whole day in plain text and OBubba reads it)." },
+          { icon:"⏱", title:"Nap & Bedtime Predictions", body:"OBubba predicts naps and bedtime by blending NHS guidelines with your baby's patterns. Per-nap-position learning, short-nap adjustment, sleep pressure tracking, and tomorrow's full predicted schedule. Accuracy improves with 3–5 days of logging." },
+          { icon:"😢", title:"Why Is My Baby Crying?", body:"Tap the crying helper on the Day tab. OBubba checks time since last feed, how long baby has been awake, age, teething windows, and more — then ranks the most likely reasons. Tap what helped and it learns over time." },
+          { icon:"📅", title:"Appointments & Reminders", body:"Stay organised: Appointments (one-off or recurring with travel time), Reminders (timed to-dos), Pinned Notes (allergies, medical info — always visible on Day view). If there's an appointment tomorrow, OBubba offers to build a schedule around it." },
+          { icon:"💡", title:"Insights & Analysis", body:"Tap Insights: Today's summary, Sleep Analysis with stability score and regression alerts, WHO Growth charts, Weekly Trends, and shareable Day Reports with copy and share." },
+          { icon:"🧩", title:"Development & Milestones", body:"Tap Development: NHS milestone checklist with share cards, age-appropriate activities, Teething Tracker (log teeth, symptoms, and patterns), Weaning Journal (track foods, reactions, and favourites), and Safe Sleep guidelines." },
+          { icon:"🧠", title:"Personal vs NHS Mode", body:"In Account, choose Personal mode (learns from your baby's actual patterns after 5+ days) or NHS mode (standard age-based wake windows). If you change your mind, you can switch back and forth from the Account tab anytime." },
+          { icon:"🌙", title:"Day & Night Mode", body:"OBubba auto-switches at 7pm and 7am. Toggle manually in Account — the theme switch is right at the top." },
+          { icon:"👨‍👩‍👧", title:"Share & Sync", body:"In Account tap Share & Sync. Share your backup code with your partner — they enter it in Link a Child. Both parents see the same data in real time. Tap + to add more children." },
+          { icon:"🧩", title:"Schedule Maker & Adjust", body:"Build a day around any event: enter when baby needs to be awake and OBubba plans the whole day. Or tap Adjust Schedule for custom wake and bed times. All adjustments stay within recommended wake windows." },
+          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start. Predictions appear automatically and improve with 3–5 days of data. Sleep regression alerts trigger at the right age. Tap the mascot to add baby's photo. Export data or print reports from Account. Replay this tour anytime from Account." },
         ];
 
         const dismissTutorial = () => {
