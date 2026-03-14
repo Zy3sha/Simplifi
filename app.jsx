@@ -5305,39 +5305,152 @@ function App(){
     const aw = age ? age.totalWeeks : 12;
     const reasons = [];
 
-    // 1. HUNGER — time since last feed
+    // ── Gather personal averages from last 7 days ──
+    const recentDays = Object.keys(days).sort().filter(d=>d!==selDay).slice(-7);
+
+    // Personal feed averages: avg amount at similar time of day, and daily total pace
     const feeds = allEntries.filter(e=>e.type==="feed").sort((a,b)=>timeVal(a)-timeVal(b));
     const lastFeed = feeds.length ? feeds[feeds.length-1] : null;
     const feedGapMins = lastFeed ? nowMins - timeVal(lastFeed) : 999;
     const feedThreshold = aw < 8 ? 120 : aw < 17 ? 150 : aw < 26 ? 180 : 240;
-    if (feedGapMins > feedThreshold * 0.75) {
-      const urgency = feedGapMins > feedThreshold ? "high" : "med";
+    const lastFeedMl = lastFeed ? (lastFeed.amount||0) : 0;
+
+    // Avg feed amount at this time of day (±2 hours window)
+    let avgFeedAtTime = 0; let avgFeedAtTimeCount = 0;
+    const lastFeedTOD = lastFeed ? timeVal(lastFeed) : nowMins;
+    recentDays.forEach(d=>{
+      (days[d]||[]).filter(e=>e.type==="feed"&&e.amount>0).forEach(e=>{
+        const t = timeVal(e);
+        if(Math.abs(t - lastFeedTOD) < 120) { avgFeedAtTime += e.amount; avgFeedAtTimeCount++; }
+      });
+    });
+    const personalAvgFeed = avgFeedAtTimeCount >= 3 ? Math.round(avgFeedAtTime / avgFeedAtTimeCount) : 0;
+
+    // Total intake today vs avg pace at this time
+    const todayTotalMl = feeds.reduce((s,e)=>s+(e.amount||0),0);
+    let avgDailyPace = 0; let avgPaceCount = 0;
+    recentDays.forEach(d=>{
+      const dFeeds = (days[d]||[]).filter(e=>e.type==="feed");
+      const byNow = dFeeds.filter(e=>timeVal(e) <= nowMins);
+      const total = byNow.reduce((s,e)=>s+(e.amount||0),0);
+      if(total > 0) { avgDailyPace += total; avgPaceCount++; }
+    });
+    const personalAvgPace = avgPaceCount >= 3 ? Math.round(avgDailyPace / avgPaceCount) : 0;
+
+    // 1. HUNGER — multi-signal scoring
+    let hungerScore = 0;
+    let hungerDetail = "";
+    let hungerUrgency = "low";
+
+    // Signal A: time since last feed
+    if (feedGapMins > feedThreshold) { hungerScore += 50; hungerUrgency = "high"; }
+    else if (feedGapMins > feedThreshold * 0.75) { hungerScore += 30; hungerUrgency = "med"; }
+
+    // Signal B: last feed was small vs personal average
+    const feedWasSmall = personalAvgFeed > 0 && lastFeedMl > 0 && lastFeedMl < personalAvgFeed * 0.7;
+    if (feedWasSmall) {
+      hungerScore += 35;
+      if (hungerUrgency === "low") hungerUrgency = "med";
+    }
+
+    // Signal C: daily total below pace
+    const paceDeficit = personalAvgPace > 0 && todayTotalMl < personalAvgPace * 0.7;
+    if (paceDeficit) {
+      hungerScore += 20;
+      if (hungerUrgency === "low") hungerUrgency = "med";
+    }
+
+    // Build detail string
+    const hungerParts = [];
+    if (lastFeed) hungerParts.push(`Last feed ${hm(feedGapMins)} ago (${fmt12(lastFeed.time)})`);
+    else hungerParts.push("No feeds logged today");
+    if (feedWasSmall) hungerParts.push(`Only ${fmtVol(lastFeedMl,FU)} — usually ~${fmtVol(personalAvgFeed,FU)} at this time`);
+    if (paceDeficit) hungerParts.push(`Today's total ${fmtVol(todayTotalMl,FU)} vs usual ~${fmtVol(personalAvgPace,FU)} by now`);
+    hungerDetail = hungerParts.join(". ");
+
+    if (hungerScore > 0) {
       reasons.push({
         emoji: "🍼", title: "Hungry",
-        detail: lastFeed ? `Last feed was ${hm(feedGapMins)} ago (${fmt12(lastFeed.time)})` : "No feeds logged today",
-        action: "Try offering a feed",
-        urgency, score: urgency==="high" ? 95 : 70
+        detail: hungerDetail,
+        action: feedWasSmall ? "May still be hungry from last feed — try offering more" : "Try offering a feed",
+        urgency: hungerUrgency, score: Math.min(95, hungerScore)
       });
     }
 
-    // 2. OVERTIRED — time since last sleep
+    // ── Personal nap averages ──
     const naps = todayEntries.filter(e=>e.type==="nap");
     const wakeEntry = todayEntries.find(e=>e.type==="wake");
     let lastSleepEnd = wakeEntry ? timeVal(wakeEntry) : null;
+    let lastNapDurMins = 0;
     if (naps.length) {
-      const lastNap = naps.sort((a,b)=>timeVal(a)-timeVal(b))[naps.length-1];
-      if (lastNap.end) { const lne = timeVal({time:lastNap.end}); if(lne > (lastSleepEnd||0)) lastSleepEnd = lne; }
+      const sortedNaps = [...naps].sort((a,b)=>timeVal(a)-timeVal(b));
+      const lastNap = sortedNaps[sortedNaps.length-1];
+      if (lastNap.end) {
+        const lne = timeVal({time:lastNap.end});
+        if (lne > (lastSleepEnd||0)) lastSleepEnd = lne;
+        lastNapDurMins = lastNap.start ? minDiff(lastNap.start, lastNap.end) : 0;
+      }
     }
+
+    // Avg nap duration from recent days
+    let avgNapDur = 0; let avgNapCount = 0;
+    recentDays.forEach(d=>{
+      (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(e=>{
+        const dur = minDiff(e.start, e.end);
+        if (dur > 5 && dur < 180) { avgNapDur += dur; avgNapCount++; }
+      });
+    });
+    const personalAvgNap = avgNapCount >= 3 ? Math.round(avgNapDur / avgNapCount) : 0;
+
+    // Total day sleep vs proportional expected
+    const totalDaySleepMins = naps.reduce((s,n)=>n.start&&n.end?s+minDiff(n.start,n.end):s, 0);
+    const napProfile = age ? getAgeNapProfile(aw) : null;
+    const expectedDaySleep = napProfile ? getExpectedDaySleepRange(aw) : null;
+    const napsDone = naps.length;
+    const expectedNaps = napProfile ? napProfile.expectedNaps : 3;
+    const proportionalTarget = expectedDaySleep ? expectedDaySleep.min * (napsDone / Math.max(1, expectedNaps)) : 0;
+
+    // 2. OVERTIRED/UNDERTIRED — multi-signal scoring
+    let tiredScore = 0;
+    let tiredDetail = "";
+    let tiredUrgency = "low";
+    let tiredTitle = "Getting sleepy";
+
     if (lastSleepEnd !== null) {
       const awakeMin = nowMins - lastSleepEnd;
       const ww = getWakeWindow(aw);
-      if (awakeMin > ww.min) {
-        const urgency = awakeMin > ww.max ? "high" : "med";
+
+      // Signal A: wake window exceeded
+      if (awakeMin > ww.max) { tiredScore += 50; tiredUrgency = "high"; tiredTitle = "Overtired"; }
+      else if (awakeMin > ww.min) { tiredScore += 25; tiredUrgency = "med"; }
+
+      // Signal B: last nap was short vs personal average
+      const napWasShort = personalAvgNap > 0 && lastNapDurMins > 0 && lastNapDurMins < personalAvgNap * 0.6;
+      if (napWasShort) {
+        tiredScore += 30;
+        if (tiredUrgency === "low") tiredUrgency = "med";
+      }
+
+      // Signal C: total day sleep below proportional target
+      const sleepDeficit = proportionalTarget > 0 && totalDaySleepMins < proportionalTarget * 0.7;
+      if (sleepDeficit) {
+        tiredScore += 20;
+        if (tiredUrgency === "low") tiredUrgency = "med";
+      }
+
+      // Build detail
+      const tiredParts = [];
+      tiredParts.push(`Awake for ${hm(awakeMin)} (wake window ${ww.min}–${ww.max}min)`);
+      if (napWasShort) tiredParts.push(`Last nap only ${lastNapDurMins}min — usually ~${personalAvgNap}min`);
+      if (sleepDeficit) tiredParts.push(`${hm(totalDaySleepMins)} total nap time vs ~${hm(Math.round(proportionalTarget))} expected by nap ${napsDone}`);
+      tiredDetail = tiredParts.join(". ");
+
+      if (tiredScore > 0) {
         reasons.push({
-          emoji: "😴", title: awakeMin > ww.max ? "Overtired" : "Getting sleepy",
-          detail: `Awake for ${hm(awakeMin)} — wake window is ${ww.min}–${ww.max}min`,
-          action: awakeMin > ww.max ? "Try settling for a nap now — dim lights, quiet voice" : "Watch for tired cues: yawning, rubbing eyes, looking away",
-          urgency, score: urgency==="high" ? 90 : 65
+          emoji: "😴", title: tiredTitle,
+          detail: tiredDetail,
+          action: tiredScore >= 50 ? "Try settling for a nap now — dim lights, quiet voice" : napWasShort ? "Short last nap — may need to go down again sooner" : "Watch for tired cues: yawning, rubbing eyes, looking away",
+          urgency: tiredUrgency, score: Math.min(95, tiredScore)
         });
       }
     }
@@ -10163,13 +10276,13 @@ function App(){
               <div style={{marginTop:16}}>
                 <div style={{fontSize:13,fontWeight:700,color:C.deep,textAlign:"center",marginBottom:8}}>What helped?</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center"}}>
-                  {reasons.slice(0,5).map((r,i)=>(
+                  {[["🍼","Hungry","hungry"],["😴","Tired/sleep","overtired"],["💨","Wind/gas","wind_or_gas"],["🧷","Nappy change","wet_or_dirty_nappy"],["🦷","Teething","teething_pain"],["🌡️","Temperature","too_hot_or_cold"],["🫣","Overstimulated","overstimulated"],["🤱","Comfort/cuddle","comfort"],["🛁","Bath","bath"],["🚶","Walk/fresh air","walk"]].map(([emoji,label,key],i)=>(
                     <button key={i} onPointerDown={e=>{
                       e.preventDefault(); haptic();
-                      setCryingHelps(prev=>({...prev,[r._helpKey]:(prev[r._helpKey]||0)+1}));
-                      setCryingResult(r.title);
+                      setCryingHelps(prev=>({...prev,[key]:(prev[key]||0)+1}));
+                      setCryingResult(label);
                     }} style={{padding:"7px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.mid,cursor:_cP}}>
-                      {r.emoji} {r.title}
+                      {emoji} {label}
                     </button>
                   ))}
                   <button onPointerDown={e=>{e.preventDefault();setCryingResult("none");}} style={{padding:"7px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.lt,cursor:_cP}}>
