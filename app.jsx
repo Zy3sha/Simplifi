@@ -294,7 +294,8 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
   function handleWheel(e){
     const v = e.target.value; if(!v) return;
     setParsed(v); setTypeBuf(fmt12(v)); setTypeErr(false);
-    onChange(v); setShowPicker(false);
+    onChange(v);
+    // Don't auto-close — let user tap Done
   }
 
   function handleType(str){
@@ -1118,7 +1119,7 @@ function LeapBanner({ l, ageWeeks, C }) {
             {isActive && <span style={{fontSize:10,background:"#7b68ee",color:"white",borderRadius:99,padding:"2px 7px",fontWeight:700}}>NOW</span>}
             {!isActive && weeksAway > 0 && weeksAway <= 4 && <span style={{fontSize:10,background:"var(--card-bg-alt)",color:"#8878d0",borderRadius:99,padding:"2px 7px",fontWeight:700}}>in {weeksAway}w</span>}
           </div>
-          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:1,fontFamily:_fM}}>{isActive?`wk ${l.windowStart}\u2013${l.windowEnd} \u00b7 happening now`:`around wk ${l.peakWeek}`}</div>
+          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:1,fontFamily:_fM}}>{isActive?`wk ${l.windowStart}–${l.windowEnd} \u00b7 happening now`:`around wk ${l.peakWeek}`}</div>
         </div>
         <span style={{fontSize:12,color:"var(--text-lt)"}}>{open?"\u25b2":"\u25bc"}</span>
       </div>
@@ -6142,32 +6143,17 @@ function App(){
   useEffect(()=>{
     function ensureToday(){
       const t = todayStr();
-      // Read current state via setDays callback to avoid stale closure
-      setDays(d => {
-        const updated = d[t] ? d : {...d, [t]: []};
-        
-        // Determine which day to show
-        const todayEntries = updated[t] || [];
-        const todayHasMorningWake = todayEntries.some(e => e.type === "wake" && !e.night);
-        
-        if (todayHasMorningWake) {
-          setSelDay(t);
-        } else {
-          const yesterday = (() => { const dt = new Date(); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
-          const yEntries = updated[yesterday] || [];
-          const yHasBedtime = yEntries.some(e => e.type === "sleep" && !e.night);
-          
-          if (yHasBedtime) {
-            // Night still active — stay on yesterday
-            setSelDay(yesterday);
-          } else {
-            setSelDay(t);
-          }
-        }
-        return updated;
-      });
+      setDays(d => d[t] ? d : {...d, [t]: []});
     }
     ensureToday();
+    // Pick which day to show: today if it has a wake, else yesterday if it has bedtime
+    const t = todayStr();
+    const yesterday = (() => { const dt = new Date(); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
+    const todayHasWake = (days[t]||[]).some(e => e.type === "wake" && !e.night);
+    const yHasBed = (days[yesterday]||[]).some(e => e.type === "sleep" && !e.night);
+    if (todayHasWake) setSelDay(t);
+    else if (yHasBed) setSelDay(yesterday);
+    else setSelDay(t);
 
     // Check for weekly digest on Monday
     if(weeklyDigestEnabled) {
@@ -7527,7 +7513,7 @@ function App(){
                     <div style={{width:3,height:18,background:"#7b68ee",borderRadius:99}}/>
                     <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"var(--text-mid)",fontSize:16}}>Night Wakes</span>
                   </div>
-                  <button onClick={()=>{setNwForm({time:"",ml:"",selfSettled:false,note:""});setShowNightWake(true);}} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
+                  <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});setShowNightWake(true);}} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"var(--text-lt)",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -9977,8 +9963,8 @@ function App(){
       )}
 
       {showNightWake&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNightWake(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setShowNightWake(false);}}>
+          <div onPointerDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 Log Night Wake</div>
 
@@ -10086,42 +10072,36 @@ function App(){
               onChange={e=>setNwForm(f=>({...f,note:e.target.value}))}
               style={{width:"100%",fontSize:15,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fI,marginBottom:20,boxSizing:_bBB}}/>
 
-            <button onClick={()=>{
-              if(!nwForm.time) return;
+            <button onPointerDown={e=>{
+              e.preventDefault();
+              haptic(20);
+              const saveTime = nwForm.time || nowTime();
               const isMilkAssisted = nwForm.assisted && nwForm.assistedType==="milk";
-              const ml = nwForm.selfSettled ? 0 : isMilkAssisted ? displayToMl(nwForm.ml,FU) : displayToMl(nwForm.ml,FU);
+              const mlVal = nwForm.selfSettled ? 0 : (parseInt(nwForm.ml)||0) > 0 ? displayToMl(nwForm.ml,FU) : 0;
               const noteStr = nwForm.selfSettled
                 ? (nwForm.note||"Self settled")
                 : nwForm.assisted
-                  ? [nwForm.assistedType==="milk"?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.assistedDuration?`Duration: ${nwForm.assistedDuration}m`:"", nwForm.note].filter(Boolean).join(" · ")
+                  ? [isMilkAssisted?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.assistedDuration?`Duration: ${nwForm.assistedDuration}m`:"", nwForm.note].filter(Boolean).join(" · ")
                   : (nwForm.note||"");
+              const entryType = nwForm.selfSettled ? "wake" : (isMilkAssisted && mlVal > 0) ? "feed" : nwForm.assisted ? "wake" : (mlVal > 0 ? "feed" : "wake");
               const entry = {
-                id: uid(),
-                type: nwForm.selfSettled ? "wake" : (nwForm.assisted && nwForm.assistedType==="milk" && nwForm.ml) ? "feed" : nwForm.assisted ? "wake" : "feed",
-                time: nwForm.time,
-                amount: ml,
-                feedType: "milk",
-                night: true,
-                nightLocked: true,
-                selfSettled: nwForm.selfSettled,
-                assisted: nwForm.assisted,
-                assistedType: nwForm.assisted ? nwForm.assistedType : undefined,
-                assistedNote: nwForm.assisted ? nwForm.assistedNote : undefined,
-                assistedDuration: nwForm.assisted && nwForm.assistedDuration ? parseInt(nwForm.assistedDuration) : undefined,
+                id: uid(), type: entryType, time: saveTime, amount: mlVal,
+                feedType: "milk", night: true, nightLocked: true,
+                selfSettled: !!nwForm.selfSettled, assisted: !!nwForm.assisted,
                 note: noteStr,
               };
+              if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; if(nwForm.assistedDuration) entry.assistedDuration = parseInt(nwForm.assistedDuration); }
               setDays(d=>{
                 const existing = d[selDay]||[];
                 const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-                const updated = autoClassifyNight([...existing, entry], d[_pd]||null);
-                const relocked = updated.map(e => e.nightLocked ? {...e, night: true} : e);
-                return{...d,[selDay]:relocked};
+                const combined = [...existing, entry];
+                try { return{...d,[selDay]:autoClassifyNight(combined, d[_pd]||null).map(e => e.nightLocked ? {...e, night: true} : e)}; }
+                catch(err) { console.warn("classify err:",err); return{...d,[selDay]:combined}; }
               });
               setShowNightWake(false);
-              haptic(20);
               setQuickFlash("🌟 Night Wake Logged ✓");
               setTimeout(()=>setQuickFlash(null),1200);
-            }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+            }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,WebkitTapHighlightColor:"transparent"}}>
               Save Wake ✦
             </button>
           </div>
