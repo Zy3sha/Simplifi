@@ -1215,14 +1215,7 @@ function App(){
   const childIds = Object.keys(children);
   const resolvedActiveId = (activeChildId && children[activeChildId]) ? activeChildId : childIds[0];
   const activeChild = children[resolvedActiveId] || { id:"", name:"", dob:"", sex:"", unborn:false, days:{}, weights:[], heights:[], photos:[], milestones:{} };
-  // Sync personalRecs from child data when switching children
-  React.useEffect(()=>{
-    const ch = children[resolvedActiveId];
-    if(ch && ch.personalRecs !== undefined) {
-      setUsePersonalRecs(ch.personalRecs);
-      try{localStorage.setItem("use_personal_recs_v1", JSON.stringify(ch.personalRecs));}catch{}
-    }
-  },[resolvedActiveId]);
+
 
 
   const babyName    = activeChild.name;
@@ -1367,7 +1360,7 @@ function App(){
   const[showWeeklyDigest,setShowWeeklyDigest]=useState(false);
   const[showHVReport,setShowHVReport]=useState(false);
   const[showScheduleMaker,setShowScheduleMaker]=useState(false);
-  const[smEvent,setSmEvent]=useState({time:"12:00",label:"",source:null});
+  const[smEvent,setSmEvent]=useState({time:"12:00",label:"",duration:60,source:null});
   const[smResult,setSmResult]=useState(null);
   const[showApptSchedulePrompt,setShowApptSchedulePrompt]=useState(null);
   const[scheduleOverride,setScheduleOverride]=useState(()=>{
@@ -4602,6 +4595,14 @@ function App(){
       try{localStorage.setItem("use_personal_recs_v1", JSON.stringify(usePersonalRecs));}catch{}
     }
   },[usePersonalRecs]);
+  // Sync personalRecs from child data when switching children
+  React.useEffect(()=>{
+    const ch = children[resolvedActiveId];
+    if(ch && ch.personalRecs !== undefined) {
+      setUsePersonalRecs(ch.personalRecs);
+      try{localStorage.setItem("use_personal_recs_v1", JSON.stringify(ch.personalRecs));}catch{}
+    }
+  },[resolvedActiveId]);
 
   React.useEffect(()=>{
     try{localStorage.setItem("fluid_unit_v1",fluidUnit);}catch{}
@@ -5721,7 +5722,7 @@ function App(){
   }
 
     // ═══ SCHEDULE MAKER — builds optimal day around a fixed event ═══
-  function buildScheduleAroundEvent(eventTimeMins, eventLabel) {
+  function buildScheduleAroundEvent(eventTimeMins, eventLabel, eventDurMins) {
     if (!age) return null;
     const w = age.totalWeeks;
     const ww = getWakeWindow(w);
@@ -5752,7 +5753,10 @@ function App(){
     }
     avgNapDur = Math.max(20, Math.min(90, avgNapDur));
 
-    // Strategy: Baby must be AWAKE at eventTimeMins
+    // Strategy: Baby must be AWAKE from eventTimeMins for eventDurMins
+    const maxAwake = ww.max + 15; // allow slight over for events
+    const clampedDur = Math.min(eventDurMins || 60, maxAwake);
+    const eventEndMins = eventTimeMins + clampedDur;
     // Work backwards to find wake from last nap, then build forward from morning
     
     // Try multiple approaches and pick the best one
@@ -5786,12 +5790,13 @@ function App(){
       let minDistToNap = 999;
       for (let i = 0; i < sched.length - 1; i++) {
         if (sched[i].type === "nap_start" && sched[i+1] && sched[i+1].type === "nap_end") {
-          if (eventTimeMins >= sched[i].mins && eventTimeMins <= sched[i+1].mins) {
+          // Check if ANY part of event overlaps this nap
+          if (eventTimeMins < sched[i+1].mins && eventEndMins > sched[i].mins) {
             eventInNap = true;
           }
           minDistToNap = Math.min(minDistToNap, 
-            Math.abs(eventTimeMins - sched[i].mins),
-            Math.abs(eventTimeMins - sched[i+1].mins)
+            Math.abs(eventTimeMins - sched[i+1].mins),
+            Math.abs(eventEndMins - sched[i].mins)
           );
         }
       }
@@ -5843,11 +5848,11 @@ function App(){
       sched.push({type:"nap_start", mins:napStartBefore, label:`Nap ${thisNapNum} start`});
       sched.push({type:"nap_end", mins:napEndBefore, label:`Nap ${thisNapNum} end`});
       
-      // Event happens here
-      sched.push({type:"event", mins:eventTimeMins, label:eventLabel || "Event"});
+      // Event happens here (full duration)
+      sched.push({type:"event", mins:eventTimeMins, label:eventLabel || "Event", endMins:eventEndMins});
       
-      // Any remaining naps after event
-      let afterCursor = eventTimeMins;
+      // Any remaining naps after event ends
+      let afterCursor = eventEndMins;
       let remainingNaps = napCount - thisNapNum;
       for (let i = 0; i < remainingNaps; i++) {
         const nStart = afterCursor + progressiveWW(w, thisNapNum + i, napCount);
@@ -5877,7 +5882,7 @@ function App(){
     // Format schedule
     const formatted = best.sched.map(s => ({
       ...s,
-      time: fmt12(mtp(s.mins)),
+      time: s.type === "event" && s.endMins ? fmt12(mtp(s.mins)) + " – " + fmt12(mtp(s.endMins)) : fmt12(mtp(s.mins)),
       isEvent: s.type === "event"
     }));
 
@@ -5958,6 +5963,57 @@ function App(){
       }
     });
     const safeFormatted = formatted.filter(s => !(s.type === "nap_start" && s.mins > 17*60+30) && !(s.type === "nap_end" && s.mins > 18*60+30));
+
+    // Run through sanitizeSchedule for final wake window + nap duration + bedtime validation
+    const schedForSanitize = safeFormatted.map(s => {
+      const mapped = {...s};
+      if (s.type === "nap_start") mapped.type = "nap";
+      if (s.type === "nap_end") mapped.type = "nap";
+      if (s.type === "wake") mapped.type = "wake";
+      if (s.type === "bed") mapped.type = "bed";
+      return mapped;
+    });
+    // Validate wake windows between consecutive awake/asleep transitions
+    for (let i = 0; i < safeFormatted.length - 1; i++) {
+      const cur = safeFormatted[i];
+      const nxt = safeFormatted[i+1];
+      if ((cur.type === "wake" || cur.type === "nap_end" || cur.type === "event") && 
+          (nxt.type === "nap_start" || nxt.type === "bed")) {
+        const curEnd = cur.endMins || cur.mins;
+        const gap = nxt.mins - curEnd;
+        if (gap < ww.min - 10) {
+          nxt.mins = curEnd + ww.min;
+          nxt.time = nxt.type === "bed" ? fmt12(mtp(clampBedtime(nxt.mins))) : fmt12(mtp(nxt.mins));
+          warnings.push("A wake window was too short — adjusted to minimum");
+        }
+        if (gap > ww.max + 30) {
+          warnings.push("One wake window is longer than ideal — a bridge nap may help");
+        }
+      }
+    }
+    // Validate nap durations
+    for (let i = 0; i < safeFormatted.length - 1; i++) {
+      if (safeFormatted[i].type === "nap_start" && safeFormatted[i+1].type === "nap_end") {
+        const dur = safeFormatted[i+1].mins - safeFormatted[i].mins;
+        const maxDur = w < 13 ? 120 : w < 26 ? 90 : 120;
+        if (dur < 15) {
+          safeFormatted[i+1].mins = safeFormatted[i].mins + 20;
+          safeFormatted[i+1].time = fmt12(mtp(safeFormatted[i+1].mins));
+          warnings.push("A nap was too short — adjusted to 20 minutes minimum");
+        }
+        if (dur > maxDur) {
+          safeFormatted[i+1].mins = safeFormatted[i].mins + maxDur;
+          safeFormatted[i+1].time = fmt12(mtp(safeFormatted[i+1].mins));
+          warnings.push("A nap exceeded age maximum — capped to " + maxDur + " minutes");
+        }
+      }
+    }
+    // Final bedtime validation
+    const bedItem2 = safeFormatted.find(s => s.type === "bed");
+    if (bedItem2) {
+      bedItem2.mins = clampBedtime(bedItem2.mins);
+      bedItem2.time = fmt12(mtp(bedItem2.mins));
+    }
 
     return {
       schedule: safeFormatted,
@@ -6087,9 +6143,9 @@ function App(){
     function ensureToday(){
       const t = todayStr();
       setDays(d => d[t] ? d : {...d, [t]: []});
-      setSelDay(s => s === t ? s : t);
     }
     ensureToday();
+    if (!days[selDay] || selDay < todayStr()) setSelDay(todayStr());
 
     // Check for weekly digest on Monday
     if(weeklyDigestEnabled) {
@@ -6533,6 +6589,21 @@ function App(){
     ];
     const step = steps[obStep];
     const isHeroStep = obStep === 0;
+    const _dk = document.body.classList.contains("dark-mode");
+    const _wBg = _dk ? "linear-gradient(170deg, #1a0e2e 0%, #1f1135 20%, #2a1540 40%, #1e1038 60%, #150d28 100%)" : "linear-gradient(170deg, #fdf6f0 0%, #f8ece4 20%, #f5e4da 40%, #faf0ea 60%, #fdf8f5 100%)";
+    const _wTxt = _dk ? "white" : C.deep;
+    const _wSub = _dk ? "rgba(255,255,255,0.65)" : C.mid;
+    const _wMute = _dk ? "rgba(255,255,255,0.45)" : C.lt;
+    const _wTag = _dk ? "rgba(255,255,255,0.55)" : C.lt;
+    const _wPillBg = _dk ? "rgba(255,255,255,0.06)" : "rgba(201,112,90,0.06)";
+    const _wPillBd = _dk ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${C.blush}`;
+    const _wPillTxt = _dk ? "rgba(255,255,255,0.85)" : C.deep;
+    const _wPillSub = _dk ? "rgba(255,255,255,0.45)" : C.lt;
+    const _wBrand = _dk ? "linear-gradient(135deg, #f5e0d0, #ffffff, #f0d0c0)" : "linear-gradient(135deg, #c9705a, #a85a44, #c9705a)";
+    const _wMascotBg = _dk ? "#1e1038" : "#faf0ea";
+    const _wMascotShadow = _dk ? "0 0 30px rgba(212,168,85,0.3), 0 0 60px rgba(201,112,90,0.15), 0 8px 32px rgba(0,0,0,0.4)" : "0 0 20px rgba(212,168,85,0.2), 0 0 40px rgba(201,112,90,0.1), 0 8px 24px rgba(0,0,0,0.06)";
+    const _wCtaShadow = _dk ? "0 4px 20px rgba(201,112,90,0.4), 0 0 40px rgba(201,112,90,0.15)" : "0 4px 16px rgba(201,112,90,0.3)";
+    const _wTrustHi = _dk ? "rgba(255,255,255,0.65)" : C.deep;
     return (
       <div style={{minHeight:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflowY:"auto",position:"relative",overflow:"hidden"}}>
         <style>{`
@@ -6546,48 +6617,42 @@ function App(){
         <div style={{position:"absolute",bottom:80,left:-60,width:200,height:200,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(111,168,152,0.08) 0%,transparent 70%)",pointerEvents:"none"}}/>
 
         {isHeroStep ? (
-
-          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"}}>
-            <div style={{padding:"48px 28px 0",display:"flex",alignItems:"center",gap:12}}>
-              <div style={{width:44,height:44,borderRadius:13,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0,boxShadow:"0 4px 16px rgba(201,112,90,0.15)"}}>
-                <img src="obubba-happy.png" alt="OBubba" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.parentNode.textContent="🍼";}}/>
-              </div>
-              <div>
-                <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:C.deep,lineHeight:1,letterSpacing:"0.01em"}}>OBubba</div>
-                <div style={{fontSize:11,color:C.lt,letterSpacing:_ls08,textTransform:"uppercase",marginTop:2}}>Baby Tracker</div>
-              </div>
-            </div>
-            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 28px 0",textAlign:"center",animation:"fadeUp 0.5s ease"}}>
-              <div style={{position:"relative",marginBottom:28}}>
-                <div style={{position:"absolute",inset:-16,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.25) 0%,transparent 70%)",animation:"obGlow 3s ease infinite"}}/>
-                <div style={{width:158,height:158,borderRadius:36,overflow:"hidden",border:`1.5px solid ${C.blush}`,boxShadow:"0 24px 48px rgba(201,112,90,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",animation:"obFloat 5s ease infinite",position:"relative"}}>
-                  <img src="obubba-happy.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.parentNode.style.background="var(--chip-bg-active)";e.target.parentNode.textContent="👶";e.target.parentNode.style.fontSize="72px";e.target.parentNode.style.lineHeight="158px";}}/>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"env(safe-area-inset-top,0px) 24px env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg}}>
+            <style>{`
+              @keyframes obWelcFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+              @keyframes obBorderShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+              @keyframes obTwinkle{0%{opacity:0.6}100%{opacity:1}}
+            `}</style>
+            <div style={{position:"absolute",inset:0,background:"radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 30% 70%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.8) 0%, transparent 100%), radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.4) 0%, transparent 100%), radial-gradient(1px 1px at 80% 80%, rgba(255,255,255,0.6) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 90% 15%, rgba(255,200,150,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 15% 55%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1px 1px at 45% 45%, rgba(255,200,180,0.6) 0%, transparent 100%)",animation:"obTwinkle 4s ease-in-out infinite alternate",pointerEvents:"none",opacity:_dk?1:0.15}}/>
+            <div style={{position:"absolute",top:"10%",left:"50%",transform:"translateX(-50%)",width:300,height:300,background:"radial-gradient(circle, rgba(201,112,90,0.15) 0%, rgba(160,80,180,0.08) 50%, transparent 70%)",pointerEvents:"none"}}/>
+            <div style={{position:"relative",zIndex:1,marginTop:48,marginBottom:20,animation:"obWelcFloat 4s ease-in-out infinite"}}>
+              <div style={{width:160,height:160,borderRadius:32,padding:4,background:"linear-gradient(135deg, #d4a855, #c9705a, #9060b0, #c9705a, #d4a855)",backgroundSize:"300% 300%",animation:"obBorderShift 6s ease infinite",boxShadow:_wMascotShadow}}>
+                <div style={{width:"100%",height:"100%",borderRadius:28,overflow:"hidden",background:_wMascotBg}}>
+                  <img src="obubba-happy.png" alt="OBubba" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
                 </div>
-                <div style={{position:"absolute",bottom:-6,right:-6,width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#50c878,#38b060)",border:"2.5px solid var(--card-border)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,boxShadow:"0 4px 14px rgba(80,200,120,0.45)"}}>✓</div>
-              </div>
-
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:C.deep,lineHeight:1.18,marginBottom:14}}>
-                Everything your<br/>baby needs, tracked.
-              </div>
-              <div style={{fontSize:15,color:C.mid,lineHeight:1.7,marginBottom:30,maxWidth:290}}>
-                Sleep, feeds, nappies, growth and smart insights — built for the reality of new parenthood.
-              </div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginBottom:6}}>
-                {[["🍼","Feeds & intake"],["😴","Sleep tracking"],["🧠","Smart insights"],["📏","Growth & WHO"],["🧩","Development"],["🔗","Partner sync"]].map(([ico,lbl],i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:99,padding:"7px 13px",boxShadow:"0 1px 4px rgba(201,112,90,0.08)"}}>
-                    <span style={{fontSize:13}}>{ico}</span>
-                    <span style={{fontSize:12,color:C.mid,fontWeight:500}}>{lbl}</span>
-                  </div>
-                ))}
               </div>
             </div>
-            <div style={{padding:"28px 28px 40px"}}>
-              <button onClick={()=>setObStep(1)} style={{width:"100%",background:"rgba(201,112,90,0.55)",backdropFilter:"blur(20px) saturate(1.8)",WebkitBackdropFilter:"blur(20px) saturate(1.8)",border:"1.5px solid rgba(255,200,180,0.40)",borderRadius:18,padding:"19px",color:"white",fontSize:17,fontWeight:700,cursor:_cP,boxShadow:"0 8px 32px rgba(201,112,90,0.3), 0 0 44px rgba(255,190,70,0.20), 0 0 72px rgba(255,170,40,0.12)",letterSpacing:"0.01em",transition:"transform 0.12s",fontFamily:_fI}}>
-                Get Started →
-              </button>
-
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:42,fontWeight:800,letterSpacing:"-0.5px",zIndex:1,background:_wBrand,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>OBubba</div>
+            <div style={{fontSize:15,color:_wTag,letterSpacing:"0.5px",zIndex:1,marginBottom:32}}>Parenthood in your pocket</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,textAlign:"center",lineHeight:1.3,zIndex:1,marginBottom:12,maxWidth:300,color:_wTxt,letterSpacing:"-0.3px"}}>Take the guesswork out of <span style={{background:"linear-gradient(135deg, #c9705a, #d4a855)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>parenting.</span></div>
+            <div style={{fontSize:15,lineHeight:1.6,color:_wSub,textAlign:"center",maxWidth:340,zIndex:1,marginBottom:28}}>Personalised sleep, feeding, and growth guidance — combining your baby's real patterns with medical recommendations.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,width:"100%",maxWidth:360,zIndex:1,marginBottom:28}}>
+              {[[["🔮","Sleep predictions","Naps, bedtime & wake"],["🧩","Schedule maker","Build days around events"]],[["📊","Rhythm learning","Gets smarter every day"],["🛡️","Regression alerts","4mo, 8mo, 12mo, 18mo"]],[["🍼","One-tap tracking","Feed, nappy & sleep"],["👨‍👩‍👧","Partner sync","Real-time cloud sharing"]]].map((row,ri)=>(
+                <div key={ri} style={{display:"flex",gap:8}}>
+                  {row.map((item,ci)=>(
+                    <div key={ci} style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:14,background:_wPillBg,border:_wPillBd,backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)"}}>
+                      <span style={{fontSize:18,flexShrink:0}}>{item[0]}</span>
+                      <div><div style={{fontSize:12,fontWeight:600,color:_wPillTxt,lineHeight:1.3}}>{item[1]}</div><div style={{fontSize:10,fontWeight:400,color:_wPillSub,marginTop:1}}>{item[2]}</div></div>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
+            <div style={{fontSize:12,color:_wMute,textAlign:"center",zIndex:1,marginBottom:24,lineHeight:1.5,maxWidth:300}}>Built with <strong style={{color:_wTrustHi,fontWeight:600}}>NHS</strong>, <strong style={{color:_wTrustHi,fontWeight:600}}>AASM</strong>, and <strong style={{color:_wTrustHi,fontWeight:600}}>WHO</strong> guidelines, recommendations, and research.</div>
+            <button onClick={()=>setObStep(1)} style={{width:"100%",maxWidth:320,padding:16,border:_bN,borderRadius:99,fontSize:17,fontWeight:700,color:"white",cursor:_cP,zIndex:1,background:"linear-gradient(135deg, #c9705a, #a85a44)",boxShadow:_wCtaShadow,marginBottom:12,fontFamily:_fI}}>Start Tracking →</button>
+            <button onClick={()=>setObStep(1)} style={{fontSize:13,color:_wMute,zIndex:1,cursor:_cP,border:_bN,background:_bN,fontFamily:_fI,marginBottom:40}}>See how it works →</button>
           </div>
+          
         ) : (
 
           <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"}}>
@@ -10010,7 +10075,7 @@ function App(){
                   : (nwForm.note||"");
               const entry = {
                 id: uid(),
-                type: (nwForm.selfSettled||nwForm.assisted) ? "wake" : "feed",
+                type: nwForm.selfSettled ? "wake" : (nwForm.assisted && nwForm.assistedType==="milk" && nwForm.ml) ? "feed" : nwForm.assisted ? "wake" : "feed",
                 time: nwForm.time,
                 amount: ml,
                 feedType: "milk",
@@ -10455,10 +10520,23 @@ function App(){
             <Inp label="What's happening?" type="text" placeholder="e.g. Baby class, Doctor visit, Family lunch" value={smEvent.label} onChange={e=>setSmEvent(f=>({...f,label:e.target.value}))}/>
             <TimeInput label="Time baby needs to be awake" value={smEvent.time} onChange={t=>setSmEvent(f=>({...f,time:t}))}/>
 
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>How long for?</label>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[30,45,60,90,120].map(d=>(
+                  <button key={d} onPointerDown={()=>setSmEvent(f=>({...f,duration:d}))}
+                    style={{padding:"8px 14px",borderRadius:10,border:`1.5px solid ${smEvent.duration===d?C.ter:C.blush}`,background:smEvent.duration===d?"var(--chip-bg-active)":"var(--card-bg)",color:smEvent.duration===d?C.ter:C.mid,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                    {d>=60?`${d/60}h${d%60?` ${d%60}m`:""}`:d+"m"}
+                  </button>
+                ))}
+              </div>
+              <div style={{fontSize:11,color:C.lt,marginTop:4}}>Baby will be awake for this long during the event</div>
+            </div>
+
             <PBtn onClick={()=>{
               if(!smEvent.time) return;
               const[h,m]=smEvent.time.split(":").map(Number);
-              const result = buildScheduleAroundEvent(h*60+m, smEvent.label || "Event");
+              const result = buildScheduleAroundEvent(h*60+m, smEvent.label || "Event", smEvent.duration || 60);
               setSmResult(result);
             }}>🧩 Build Schedule</PBtn>
 
@@ -10526,7 +10604,7 @@ function App(){
               <button onClick={()=>{
                 setSmEvent({time:showApptSchedulePrompt.time,label:showApptSchedulePrompt.title,source:"appt"});
                 const[h,m]=showApptSchedulePrompt.time.split(":").map(Number);
-                setSmResult(buildScheduleAroundEvent(h*60+m, showApptSchedulePrompt.title));
+                setSmResult(buildScheduleAroundEvent(h*60+m, showApptSchedulePrompt.title, 60));
                 setShowApptSchedulePrompt(null);
                 setShowScheduleMaker(true);
               }} style={{flex:1,padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
