@@ -5952,6 +5952,27 @@ function App(){
     setNapStartEdit(false);
   }
 
+  // Start nap timer from an existing entry (e.g. tapping "Ongoing" in edit)
+  function startNapFromEntry(entryId, startTime){
+    if(napOn) return; // already running
+    const t = startTime || nowTime();
+    // Mark the entry as active
+    setDays(d=>{
+      const updated=(d[selDay]||[]).map(e=>
+        e.id===entryId?{...e,start:t,end:t,_active:true}:e
+      );
+      return{...d,[selDay]:updated};
+    });
+    // Start the timer from the entry's start time
+    const now=new Date();
+    const [sh,sm]=t.split(":").map(Number);
+    const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+    const elapsed=Math.max(0,Math.floor((now-startDate)/1000));
+    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_entry_id",entryId);}catch{}
+    setNapStartT(t);setNapSec(elapsed);setNapOn(true);setNapEntryId(entryId);
+    setTimerMode("activeSleep");
+  }
+
   function logBedtimeNow(){
 
     const already = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
@@ -6034,7 +6055,7 @@ function App(){
         });
       }
     }
-    setNapStartT(null);setNapSec(0);setNapEntryId(null);
+    setNapStartT(null);setNapSec(0);setNapEntryId(null);setNapStartEdit(false);
     setTimerMode("prediction");
     try{["nap_on","nap_startT","nap_sec","nap_entry_id"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
@@ -9798,6 +9819,23 @@ function App(){
                 ))}
               </div>
               <div style={{fontSize:11,color:C.lt,marginBottom:12}}>Leave empty to log as now</div>
+              {/* Ongoing — start timer from start time */}
+              {!napOn && (
+                <button onClick={()=>{
+                  haptic();
+                  const startT = logForm.napStart || nowTime();
+                  const entryId = uid();
+                  setDays(d=>{
+                    const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:startT,end:startT,duration:0,night:false,note:"",_active:true}];
+                    const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                    return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+                  });
+                  setLogPanel(null);
+                  setTimeout(()=>startNapFromEntry(entryId, startT), 50);
+                }} style={{width:"100%",padding:"11px",borderRadius:12,border:`2px solid ${C.mint}`,background:"var(--card-bg)",color:C.mint,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  <span style={{fontSize:16}}>▶</span> Ongoing — start timer{logForm.napStart ? ` from ${fmt12(logForm.napStart)}` : ""}
+                </button>
+              )}
             </div>
           )}
           {logForm.sleepType==="bed"&&(
@@ -9965,6 +10003,30 @@ function App(){
                   </div>
                 ))}
               </div>
+              {/* Ongoing button — starts timer from the start time */}
+              {!napOn && editEntry && (
+                <button onClick={()=>{
+                  const startT = form.start || nowTime();
+                  // Save the entry with current form data first
+                  const entryId = editEntry.id;
+                  setDays(d=>{
+                    const updated=(d[selDay]||[]).map(x=>x.id===entryId?{...x,start:startT,end:startT,_active:true,note:form.note||""}:x);
+                    const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                    return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+                  });
+                  setModal(null);setEditEntry(null);
+                  // Start timer from entry
+                  setTimeout(()=>startNapFromEntry(entryId, startT), 50);
+                }} style={{width:"100%",padding:"11px",borderRadius:12,border:`2px solid ${C.mint}`,background:"var(--card-bg)",color:C.mint,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  <span style={{fontSize:16}}>▶</span> Ongoing — start timer from {form.start ? fmt12(form.start) : "now"}
+                </button>
+              )}
+              {napOn && napEntryId && editEntry && editEntry.id===napEntryId && (
+                <div style={{padding:"10px 14px",borderRadius:12,background:C.mint+"18",border:`1.5px solid ${C.mint}44`,marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:14}}>😴</span>
+                  <div style={{fontSize:13,color:C.mint,fontWeight:600}}>Timer running — {fmtSec(napSec)}</div>
+                </div>
+              )}
               <Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>
             </>
           )}
