@@ -2786,6 +2786,8 @@ function App(){
   function predictNextNap() {
     const ageWeeks = age ? age.totalWeeks : null;
     if (!ageWeeks || !selDay) return null;
+    // First 2 weeks: no predictions — patterns haven't emerged yet
+    if (ageWeeks < 2) return null;
 
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
     if (hasBedtime) return null;
@@ -3008,6 +3010,7 @@ function App(){
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     if (!todayNaps.length) return null;
     if (!age) return null;
+    if (age.totalWeeks < 2) return null;
 
     const napProfile = getAgeNapProfile(age.totalWeeks);
     const adjustedExpectedBed = napProfile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
@@ -3972,13 +3975,79 @@ function App(){
     );
     const allToday = [...today, ...crossMidnightEntries];
 
+    // ── Growth Spurt Detection ──
+    function detectGrowthSpurt() {
+      if (!age) return null;
+      const recent5 = Object.keys(days).sort().slice(-6,-1); // last 5 days excluding today
+      if (recent5.length < 3) return null;
+      const avgDailyMl = recent5.reduce((s,d) => {
+        const dml = (days[d]||[]).filter(e=>e.type==="feed"&&e.feedType!=="solids").reduce((a,e)=>a+(e.amount||0),0);
+        return s + dml;
+      }, 0) / recent5.length;
+      if (avgDailyMl < 50) return null;
+      const todayMl = allToday.filter(e=>e.type==="feed"&&e.feedType!=="solids").reduce((a,e)=>a+(e.amount||0),0);
+      const todayFeedCount = allToday.filter(e=>e.type==="feed").length;
+      // Growth spurt: 30%+ above average OR significantly more feeds than usual
+      const avgDailyFeeds = recent5.reduce((s,d) => s + (days[d]||[]).filter(e=>e.type==="feed").length, 0) / recent5.length;
+      const mlSpike = avgDailyMl > 0 && todayMl > avgDailyMl * 1.3;
+      const feedSpike = avgDailyFeeds > 0 && todayFeedCount > avgDailyFeeds * 1.3;
+      if (!mlSpike && !feedSpike) return null;
+      // Known growth spurt windows (in days)
+      const ageDays = age.totalDays;
+      const knownSpurts = [
+        {start:5,end:14,label:"Days 7–10"}, {start:17,end:25,label:"3 weeks"},
+        {start:35,end:49,label:"6 weeks"}, {start:80,end:100,label:"3 months"},
+        {start:170,end:190,label:"6 months"}, {start:260,end:280,label:"9 months"},
+      ];
+      const matchedSpurt = knownSpurts.find(s => ageDays >= s.start && ageDays <= s.end);
+      return { mlSpike, feedSpike, todayMl, avgDailyMl: Math.round(avgDailyMl), matchedSpurt, todayFeedCount, avgDailyFeeds: Math.round(avgDailyFeeds) };
+    }
+
     const allMilkFeeds  = allToday.filter(e => (e.type==="feed" && e.feedType!=="solids") || (e.type==="wake" && e.night && (e.amount||0)>0));
     const dayMilkFeeds  = allMilkFeeds.filter(e => !e.night);
     const nightMilkFeeds= allMilkFeeds.filter(e => e.night);
     const totalMl   = allMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
     const dayMl     = dayMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
     const nightMl   = nightMilkFeeds.reduce((s,f)=> s+(f.amount||0), 0);
-    if (!totalMl) return null;
+    // Breast-fed babies: track frequency instead of ml
+    const breastFeeds = allToday.filter(e => e.type==="feed" && e.feedType==="breast");
+    const isMainlyBreastfed = breastFeeds.length > allMilkFeeds.length * 0.5;
+    
+    if (!totalMl && !isMainlyBreastfed) return null;
+    
+    if (isMainlyBreastfed && totalMl === 0) {
+      // Pure breastfeed mode — frequency-based analysis
+      const feedCount = breastFeeds.length;
+      const targetCount = w < 4 ? 8 : w < 8 ? 7 : w < 13 ? 6 : w < 26 ? 5 : 4;
+      const wetNappies = allToday.filter(e => e.type==="poop" && (e.poopType==="wet"||e.poopType==="both")).length;
+      const isToday = selDay === todayStr();
+      const nowH = new Date().getHours();
+      const dayProgress = isToday ? Math.max(0.3, nowH / 20) : 1;
+      const adjustedTarget = Math.round(targetCount * dayProgress);
+      
+      let bfStatus = "good";
+      let bfMsg = "";
+      if (feedCount >= adjustedTarget) {
+        bfStatus = "good";
+        bfMsg = `${feedCount} breastfeed${feedCount!==1?"s":""} so far — on track for this age (${targetCount}/day recommended).`;
+      } else if (feedCount >= adjustedTarget - 1) {
+        bfStatus = "ok";
+        bfMsg = `${feedCount} breastfeed${feedCount!==1?"s":""} — nearly on pace. Target is about ${targetCount} feeds per day.`;
+      } else {
+        bfStatus = "low";
+        bfMsg = `${feedCount} breastfeed${feedCount!==1?"s":""} so far — try to get to ${targetCount} feeds today.`;
+      }
+      if (wetNappies >= 5) bfMsg += ` ${wetNappies} wet nappies — good hydration indicator.`;
+      else if (wetNappies >= 1 && isToday && nowH < 14) bfMsg += ` ${wetNappies} wet napp${wetNappies!==1?"ies":"y"} so far.`;
+      else if (wetNappies < 3 && isToday && nowH >= 14) bfMsg += ` Only ${wetNappies} wet napp${wetNappies!==1?"ies":"y"} — 6+ per day indicates good intake.`;
+      
+      return {
+        totalMl: 0, dayMl: 0, nightMl: 0, totalTarget: 0,
+        statusMsg: bfMsg, statusColor: bfStatus==="good" ? C.mint : bfStatus==="ok" ? C.gold : C.ter,
+        nhsNote: w < 13 ? "Breastfed newborns feed 8–12 times in 24h. Short, frequent feeds are normal — cluster feeding doesn't mean low supply." : "Breastfed babies self-regulate intake. Wet nappies (6+/day) are the best indicator that baby is getting enough.",
+        isBreastfed: true, feedCount, targetCount, wetNappies
+      };
+    }
 
 
     let totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin, targetFeeds, nhsNote;
@@ -4061,7 +4130,10 @@ function App(){
     if (isPastDay) {
       if (totalHigh) {
         status="high"; color="#b88a20"; bg="var(--card-bg)"; icon="📈";
-        statusMsg=`Total intake was above average at ${fmtVol(totalMl,FU)} — common during growth spurts.`;
+        const gs = detectGrowthSpurt();
+        statusMsg = gs && gs.matchedSpurt
+          ? `Total intake ${fmtVol(totalMl,FU)} — this looks like a ${gs.matchedSpurt.label} growth spurt! Baby is feeding more than usual (avg ${fmtVol(gs.avgDailyMl,FU)}/day). Extra feeding is normal and temporary.`
+          : `Total intake was above average at ${fmtVol(totalMl,FU)} — common during growth spurts.`;
       } else if (metMinimum) {
         status="ok"; color=C.mint; bg="var(--card-bg)"; icon="✓";
         statusMsg=`Good day — ${fmtVol(totalMl,FU)} total, meeting the minimum recommended intake of ${fmtVol(totalMin,FU)}. Day feeds: ${fmtVol(dayMl,FU)}, night feeds: ${fmtVol(nightMl,FU)}.`;
@@ -4074,7 +4146,10 @@ function App(){
     } else if (bedLogged) {
       if (totalHigh) {
         status="high"; color="#b88a20"; bg="var(--card-bg)"; icon="📈";
-        statusMsg=`Total intake was above average at ${fmtVol(totalMl,FU)} — common during growth spurts.`;
+        const gs = detectGrowthSpurt();
+        statusMsg = gs && gs.matchedSpurt
+          ? `Total intake ${fmtVol(totalMl,FU)} — this looks like a ${gs.matchedSpurt.label} growth spurt! Baby is feeding more than usual (avg ${fmtVol(gs.avgDailyMl,FU)}/day). Extra feeding is normal and temporary.`
+          : `Total intake was above average at ${fmtVol(totalMl,FU)} — common during growth spurts.`;
       } else if (metMinimum) {
         status="ok"; color=C.mint; bg="var(--card-bg)"; icon="✓";
         statusMsg=`Great job — ${fmtVol(totalMl,FU)} total today, meeting the minimum of ${fmtVol(totalMin,FU)}. Day: ${fmtVol(dayMl,FU)}, night feeds: ${fmtVol(nightMl,FU)}.`;
@@ -5468,7 +5543,10 @@ function App(){
     // 4. NAPPY — generic suggestion
     reasons.push({
       emoji: "🧷", title: "Wet or dirty nappy",
-      detail: "Always worth checking",
+      detail: (() => {
+        const wetToday = allEntries.filter(e=>e.type==="poop"&&(e.poopType==="wet"||e.poopType==="both")).length;
+        return wetToday >= 6 ? `${wetToday} wet nappies today — good hydration` : wetToday > 0 ? `${wetToday} wet napp${wetToday!==1?"ies":"y"} so far — 6+/day is ideal` : "Always worth checking";
+      })(),
       action: "Check and change if needed",
       urgency: "low", score: 40
     });
@@ -7460,6 +7538,16 @@ function App(){
                 const suggestedBed = bedtimePrediction();
                 const bridgeRisk = earlyBedtimeRisk();
                 if(hasBed) return null;
+                // First 2 weeks: show gentle guidance instead of predictions
+                if (age && age.totalWeeks < 2) {
+                  return (
+                    <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.mint}44`,borderRadius:16,padding:"14px",marginBottom:14,textAlign:"center"}}>
+                      <div style={{fontSize:24,marginBottom:6}}>🤱</div>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>Feed & sleep on demand</div>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>In the first two weeks, there are no set patterns yet — and that's completely normal. Follow {babyName||"baby"}'s cues. Predictions will appear once routines start to emerge.</div>
+                    </div>
+                  );
+                }
                 if(!pred && !suggestedBed && !bridgeRisk?.suggestBridge) return null;
 
                 // Show bridge nap suggestion if needed
@@ -7860,6 +7948,10 @@ function App(){
                 let sleepLine = "";
                 const hasBedtime = todayDayE.some(e=>e.type==="sleep");
                 const dayDone = hasBedtime || !isToday;
+                // Growth spurt check
+                const gs = (typeof detectGrowthSpurt === "function") ? detectGrowthSpurt() : null;
+                const growthSpurtActive = gs && (gs.mlSpike || gs.feedSpike);
+
                 if (napCount === 0) sleepLine = "No naps logged yet.";
                 else if (!dayDone && todayNapMins < (range ? range.min : 60)) sleepLine = `${hm(todayNapMins)} of nap time so far across ${napCount} nap${napCount!==1?"s":""} — more naps expected.`;
                 else if (dayDone && todayNapMins < (range ? range.min : 60)) sleepLine = `Naps were a little shorter today (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
@@ -8910,6 +9002,37 @@ function App(){
 
           return (
             <div>
+              {/* ── Fourth Trimester Guidance (0–12 weeks) ── */}
+              {age && age.totalWeeks < 13 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>🤱 Fourth Trimester Guide</div>
+                  <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px"}}>
+                    {age.totalWeeks < 2 && (
+                      <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(201,112,90,0.06)",border:`1px solid ${C.blush}`,marginBottom:10}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.ter,marginBottom:3}}>📋 First 2 weeks</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>Feed on demand and sleep when baby sleeps. Patterns haven't formed yet — that's completely normal. Nap predictions will appear once routines emerge. Focus on feeding, bonding, and recovery.</div>
+                      </div>
+                    )}
+                    {[
+                      age.totalWeeks < 8 && ["🍼","Cluster Feeding","Feeding very frequently (sometimes every 30–60 min) in the evening is normal and doesn't mean low milk supply. It helps build supply and is most common weeks 2–6."],
+                      age.totalWeeks >= 3 && age.totalWeeks < 10 && ["😭","PURPLE Crying",`Peak crying happens around ${age.totalWeeks < 6 ? "now" : "6–8 weeks"} and can last 2–5 hours a day. It's not your fault and it will pass. The 'P' in PURPLE stands for 'Peak' — it gets better from here.`],
+                      age.totalWeeks < 4 && ["🌙","Day/Night Confusion","Newborns can't tell day from night. Help by keeping daytime bright and active, and nighttime dark and quiet. Most babies sort this out by 3–4 weeks."],
+                      age.totalWeeks >= 2 && age.totalWeeks < 9 && ["🌆","Witching Hour","Fussiness between 5–8pm is extremely common from weeks 2–8. It's not hunger or pain — it's overstimulation from the day. Dim lights, skin-to-skin, and gentle movement help."],
+                      ["💪","Tummy Time","Even newborns benefit from brief tummy time (1–2 min) after every nappy change. Start on your chest if baby protests on the floor. Builds neck and core strength."],
+                      age.totalWeeks < 6 && ["⚖️","Weight Check","Most babies lose 5–10% of birth weight in the first few days and regain it by 10–14 days. If concerned, your health visitor or midwife will monitor weight at routine checks."],
+                    ].filter(Boolean).map((item,i) => (
+                      <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:i<5?`1px solid ${C.blush}`:"none"}}>
+                        <span style={{fontSize:16,flexShrink:0,marginTop:2}}>{item[0]}</span>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{item[1]}</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{item[2]}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* ── COMING UP — Development Phase ── */}
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
