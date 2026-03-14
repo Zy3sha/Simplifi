@@ -7682,7 +7682,7 @@ function App(){
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:20}}>🌙</span>
                           <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"} <HelpTip title="Bedtime Prediction" body="Based on last nap end time + recommended wake window. Adjusts earlier for short naps, later for long naps. Clamped between 6:00pm and 8:30pm. Both NHS guidelines and personal patterns contribute." style={{marginLeft:3}}/></div><div style={{display:"none"}}
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"} <HelpTip title="Bedtime Prediction" body="Based on last nap end time + recommended wake window. Adjusts earlier for short naps, later for long naps. Clamped between 6:00pm and 8:30pm. Both NHS guidelines and personal patterns contribute." style={{marginLeft:3}}/></div>
                             <div style={{fontSize:13,color:C.mid,lineHeight:1.4}}>{suggestedBed.adjustReason||"Based on today's naps"}</div>
                           </div>
                         </div>
@@ -7718,7 +7718,7 @@ function App(){
               <button onClick={()=>{haptic();setShowCryingHelper(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"0 1px 6px rgba(201,112,90,0.06)"}}>
                 <span style={{fontSize:22}}>😢</span>
                 <div style={{flex:1,textAlign:"left"}}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Why is my baby crying?</div><HelpTip title="Crying Helper" body="Analyses your logged data in real time: time since last feed, feed amount vs personal average, wake window status, nap quality, teething windows, and more. Ranks the most likely reasons with data-backed detail. Tap the reason that helped and OBubba learns — next time, what's worked before gets boosted to the top." style={{marginLeft:6}}/><div style={{display:"none"}}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Why is my baby crying?</div><HelpTip title="Crying Helper" body="Analyses your logged data in real time: time since last feed, feed amount vs personal average, wake window status, nap quality, teething windows, and more. Ranks the most likely reasons with data-backed detail. Tap the reason that helped and OBubba learns — next time, what's worked before gets boosted to the top." style={{marginLeft:6}}/>
                   <div style={{fontSize:11,color:C.lt,marginTop:1}}>Quick check — ranked by what's most likely right now</div>
                 </div>
                 <span style={{fontSize:14,color:C.lt}}>→</span>
@@ -8328,7 +8328,7 @@ function App(){
                           const isRhythmAdj = flex && flex.source === "rhythm-adjusted";
                           return (
                             <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px"}}>
-                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div><HelpTip title="Tomorrow's Schedule" body="Predicts tomorrow's full day: wake time, each nap start/end, and bedtime. Uses per-nap-position learning from the last 7 days (weighted by recency) blended 60/40 with NHS guidelines in Personal mode, or 40/60 in NHS mode. The data quality badge shows how much real data is behind each prediction. All times clamped to safe NHS ranges." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
+                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div><HelpTip title="Tomorrow's Schedule" body="Predicts tomorrow's full day: wake time, each nap start/end, and bedtime. Uses per-nap-position learning from the last 7 days (weighted by recency) blended 60/40 with NHS guidelines in Personal mode, or 40/60 in NHS mode. The data quality badge shows how much real data is behind each prediction. All times clamped to safe NHS ranges." style={{marginLeft:4}}/>
                               <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:10}}>
                                 {`NHS guidance + ${babyName||"baby"}'s sleep patterns`}
                               </div>
@@ -9203,7 +9203,7 @@ function App(){
                 {/* ── Teething Tracker ── */}
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker</div><HelpTip title="Teething Tracker" body="Log each tooth as it appears: which tooth, date spotted, symptoms (drooling, fussiness, red cheeks, etc.), and notes. Teething data feeds into the crying helper — when a tooth is emerging, 'Teething pain' ranks higher in the diagnosis. Track the full set over time." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
+                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker</div><HelpTip title="Teething Tracker" body="Log each tooth as it appears: which tooth, date spotted, symptoms (drooling, fussiness, red cheeks, etc.), and notes. Teething data feeds into the crying helper — when a tooth is emerging, 'Teething pain' ranks higher in the diagnosis. Track the full set over time." style={{marginLeft:4}}/>
                     <button onClick={()=>{setTeethingForm({tooth:"",date:todayStr(),symptoms:[],note:""});setShowTeethingForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log tooth</button>
                   </div>
                   {teething.length === 0 ? (
@@ -9233,7 +9233,7 @@ function App(){
                 {/* ── Weaning / Food Journal ── */}
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal</div><HelpTip title="Weaning Journal" body="Track every new food: name, date, reaction (loved/liked/neutral/disliked/possible reaction), and whether you'd try again. Favourites get a ❤️ tag, flagged foods get ⚠️. If you select 'possible reaction', allergy guidance appears. NHS recommends starting solids around 6 months — the journal activates around that age." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
+                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal</div><HelpTip title="Weaning Journal" body="Track every new food: name, date, reaction (loved/liked/neutral/disliked/possible reaction), and whether you'd try again. Favourites get a ❤️ tag, flagged foods get ⚠️. If you select 'possible reaction', allergy guidance appears. NHS recommends starting solids around 6 months — the journal activates around that age." style={{marginLeft:4}}/>
                     <button onClick={()=>{setWeaningForm({food:"",date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log food</button>
                   </div>
                   {age && age.totalWeeks < 17 ? (
@@ -9491,7 +9491,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
                 <span style={{fontSize:24}}>🧠</span>
                 <div>
-                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Sleep Recommendations</div><HelpTip title="Personal vs NHS Mode" body="NHS mode uses standard age-based wake windows from NHS and AASM research — reliable for all babies. Personal mode learns from YOUR baby's actual patterns after 5+ days of data, blending 60% personal data with 40% NHS guidelines. Switch back and forth anytime from this section." style={{marginLeft:6}}/><div style={{display:"none"}}</div>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Sleep Recommendations</div><HelpTip title="Personal vs NHS Mode" body="NHS mode uses standard age-based wake windows from NHS and AASM research — reliable for all babies. Personal mode learns from YOUR baby's actual patterns after 5+ days of data, blending 60% personal data with 40% NHS guidelines. Switch back and forth anytime from this section." style={{marginLeft:6}}/>
                   <div style={{fontSize:12,color:C.lt,marginTop:2}}>Choose how nap and bedtime predictions are calculated</div>
                 </div>
               </div>
@@ -11004,7 +11004,7 @@ function App(){
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div><HelpTip title="Schedule Maker" body="Build a full day around any event (GP appointment, baby class, family visit). Enter when baby needs to be awake and how long the event lasts. OBubba works backwards and forwards from that anchor to plan wake, naps, and bedtime — all within NHS-safe wake windows. If there's an appointment tomorrow, OBubba offers to build the schedule automatically." style={{marginLeft:4}}/><div style={{display:"none"}}</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div><HelpTip title="Schedule Maker" body="Build a full day around any event (GP appointment, baby class, family visit). Enter when baby needs to be awake and how long the event lasts. OBubba works backwards and forwards from that anchor to plan wake, naps, and bedtime — all within NHS-safe wake windows. If there's an appointment tomorrow, OBubba offers to build the schedule automatically." style={{marginLeft:4}}/>
             <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
               Enter a time {babyName||"baby"} needs to be awake, and we'll build the optimal day around it.
             </div>
