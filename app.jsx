@@ -2637,7 +2637,10 @@ function App(){
       napStart_min: `${String(Math.floor(bed.bridgeNapStart/60)%24).padStart(2,"0")}:${String(bed.bridgeNapStart%60).padStart(2,"0")}`,
       isOverdue: bed.bridgeNapStart <= (new Date().getHours()*60+new Date().getMinutes())
     } : null);
-    tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, bed, bedMins, napsDone, expectedNaps, pred: effectivePred };
+    // Gather night wakes for night timer (time since last event)
+    const nightWakes = hasBedtime ? (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b)) : [];
+    const lastNightEvent = nightWakes.length ? nightWakes[nightWakes.length-1].time : bedEntryTime;
+    tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, bed, bedMins, napsDone, expectedNaps, pred: effectivePred };
   },[selDay, days, age, bridgeNapScheduled]);
 
 
@@ -2674,14 +2677,14 @@ function App(){
       if (hasBedtime) {
         setNapCountdown(null);
         setBedCountdown(null);
-        // Night sleep timer: calculate elapsed from bedtime
-        const { bedEntryTime, nextDayHasWake } = tickDataRef.current;
-        if(bedEntryTime && !nextDayHasWake) {
-          const [bh,bm] = bedEntryTime.split(":").map(Number);
-          const bedDate = new Date();
-          bedDate.setHours(bh,bm,0,0);
-          let elapsed = Math.floor((now - bedDate) / 1000);
-          if(elapsed < 0) elapsed += 24*3600; // bedtime was yesterday
+        // Night sleep timer: calculate elapsed from LAST event (bedtime or most recent night wake)
+        const { bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount } = tickDataRef.current;
+        if(lastNightEvent && !nextDayHasWake) {
+          const [eh,em] = lastNightEvent.split(":").map(Number);
+          const eventDate = new Date();
+          eventDate.setHours(eh,em,0,0);
+          let elapsed = Math.floor((now - eventDate) / 1000);
+          if(elapsed < 0) elapsed += 24*3600; // event was yesterday
           if(elapsed >= 0 && elapsed < 14*3600) {
             setNightElapsed(elapsed);
           } else {
@@ -7542,21 +7545,23 @@ function App(){
             )}
             {/* Active nap timer — shows start time + elapsed, tap start time to adjust */}
             {napOn && (
-              <div style={{display:"flex",alignItems:"center",gap:0,background:C.mint,borderRadius:99,padding:"4px 6px 4px 10px"}}>
-                {!napStartEdit ? (
-                  <button onClick={()=>{setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",border:_bN,borderRadius:99,padding:"2px 8px",fontSize:11,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600,marginRight:6}}>
-                    {fmt12(napStartT||nowTime())}
-                  </button>
-                ) : (
-                  <div style={{display:"flex",alignItems:"center",gap:3,marginRight:6}} onClick={e=>e.stopPropagation()}>
-                    <input type="time" value={napStartEditVal} onChange={e=>setNapStartEditVal(e.target.value)}
-                      style={{width:72,fontSize:12,padding:"2px 4px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:"white",fontFamily:_fM,outline:"none"}} autoFocus/>
-                    <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:_bN,borderRadius:6,padding:"2px 6px",fontSize:10,color:"white",cursor:_cP,fontWeight:700}}>✓</button>
-                    <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:_bN,padding:"2px 4px",fontSize:10,color:"rgba(255,255,255,0.7)",cursor:_cP}}>✕</button>
-                  </div>
-                )}
-                <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white"}}>😴 {fmtSec(napSec)}</span>
-                <button onClick={()=>{haptic();endNap();}} style={{background:"rgba(255,255,255,0.3)",border:_bN,borderRadius:99,padding:"3px 10px",marginLeft:6,fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>Stop</button>
+              <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:0,background:C.mint,borderRadius:99,padding:"6px 10px",flex:1}}>
+                  {!napStartEdit ? (
+                    <button onClick={()=>{setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",border:_bN,borderRadius:99,padding:"3px 10px",fontSize:12,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600,marginRight:8,minHeight:28}}>
+                      {fmt12(napStartT||nowTime())}
+                    </button>
+                  ) : (
+                    <div style={{display:"flex",alignItems:"center",gap:4,marginRight:8}} onClick={e=>e.stopPropagation()}>
+                      <input type="time" value={napStartEditVal} onChange={e=>setNapStartEditVal(e.target.value)}
+                        style={{width:76,fontSize:13,padding:"3px 6px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:"white",fontFamily:_fM,outline:"none"}} autoFocus/>
+                      <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:_bN,borderRadius:8,padding:"4px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700,minHeight:28}}>✓</button>
+                      <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:_bN,padding:"4px 6px",fontSize:11,color:"rgba(255,255,255,0.7)",cursor:_cP,minHeight:28}}>✕</button>
+                    </div>
+                  )}
+                  <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white"}}>😴 {fmtSec(napSec)}</span>
+                </div>
+                <button onClick={()=>{haptic();endNap();}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"8px 16px",fontSize:13,color:"white",cursor:_cP,fontWeight:700,minHeight:36,minWidth:56,flexShrink:0}}>Stop</button>
               </div>
             )}
             {/* RIGHT: Status pill — awake counter / nap countdown / bed countdown / night timer */}
@@ -7566,12 +7571,19 @@ function App(){
 
               // ── STATE 1: NIGHT SLEEP TIMER (bedtime logged, no next-day wake) ──
               if(hasBedLogged && nightElapsed !== null) {
+                const nightWakes = (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+                const lastWake = nightWakes.length ? nightWakes[nightWakes.length-1] : null;
                 const bedEntry = (days[selDay]||[]).find(e=>e.type==="sleep"&&!e.night);
+                const lastEventTime = lastWake ? lastWake.time : (bedEntry ? bedEntry.time : null);
+                const lastEventLabel = lastWake ? `Wake ${nightWakes.length}` : "Bed";
+                const lastEventIcon = lastWake ? "🌟" : "🌙";
                 return (
-                  <div style={{display:"flex",alignItems:"center",gap:5,background:C.sky,borderRadius:99,padding:"5px 14px"}}>
-                    <span style={{fontSize:13}}>🌙</span>
-                    <span style={{fontSize:11,fontFamily:_fM,color:"rgba(255,255,255,0.7)"}}>{bedEntry?fmt12(bedEntry.time):""}</span>
-                    <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(nightElapsed)}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:5,background:C.sky,borderRadius:99,padding:"6px 14px"}}>
+                    <span style={{fontSize:13}}>{lastEventIcon}</span>
+                    <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
+                      <span style={{fontSize:9,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{lastEventLabel} {lastEventTime?fmt12(lastEventTime):""}</span>
+                      <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(nightElapsed)}</span>
+                    </div>
                   </div>
                 );
               }
