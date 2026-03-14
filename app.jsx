@@ -7445,32 +7445,41 @@ function App(){
       {/* Hidden photo input for diary/milestones */}
       <input ref={photoInputRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhotoCapture}/>
       <div
-        style={{background:theme.primary,padding:"16px 16px 0",position:"relative",backdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",WebkitBackdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",boxShadow:"var(--card-shadow)",borderBottom:"1px solid var(--card-border)"}}
+        style={{background:theme.primary,padding:"12px 16px 0",position:"relative",backdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",WebkitBackdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",boxShadow:"var(--card-shadow)",borderBottom:"1px solid var(--card-border)"}}
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:6,gap:6}}>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            {childIds.map(cid=>(
-              <button key={cid} onClick={()=>{haptic();setActiveChildId(cid);}} style={{
-                width:cid===resolvedActiveId?22:8,height:8,borderRadius:99,border:_bN,cursor:_cP,
-                background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.18)",transition:"all 0.25s",padding:0
-              }}/>
-            ))}
-            <button onClick={()=>setShowAddChild(true)} style={{
-              width:22,height:22,borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.2)",
-              background:"transparent",color:C.mid,cursor:_cP,fontSize:13,
-              display:"flex",alignItems:"center",justifyContent:"center"
-            }}>+</button>
+        {childIds.length > 1 && (
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",marginBottom:6,gap:6}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              {childIds.map(cid=>(
+                <button key={cid} onClick={()=>{haptic();setActiveChildId(cid);}} style={{
+                  width:cid===resolvedActiveId?20:7,height:7,borderRadius:99,border:_bN,cursor:_cP,
+                  background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.18)",transition:"all 0.25s",padding:0
+                }}/>
+              ))}
+              <button onClick={()=>setShowAddChild(true)} style={{
+                width:20,height:20,borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.2)",
+                background:"transparent",color:C.mid,cursor:_cP,fontSize:12,
+                display:"flex",alignItems:"center",justifyContent:"center"
+              }}>+</button>
+            </div>
           </div>
-
-        </div>
+        )}
+        {childIds.length <= 1 && (
+          <div style={{display:"flex",justifyContent:"center",marginBottom:4}}>
+            <button onClick={()=>setShowAddChild(true)} style={{
+              padding:"2px 10px",borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.15)",
+              background:"transparent",color:C.lt,cursor:_cP,fontSize:11,fontFamily:_fM
+            }}>+ Add child</button>
+          </div>
+        )}
         {!nameEdit ? (
-          <div onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{cursor:_cP,marginBottom:2,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-            <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} style={{width:48,height:48,borderRadius:14,overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.15)",cursor:_cP,position:"relative"}}>
-              <img src={activeChild.photo||"obubba-happy.png"} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
+          <div onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{cursor:_cP,marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:12}}>
+            <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} style={{width:42,height:42,minWidth:42,minHeight:42,maxWidth:42,maxHeight:42,borderRadius:12,overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.15)",cursor:_cP,position:"relative"}}>
+              <img src={activeChild.photo||"obubba-happy.png"} alt="" style={{width:42,height:42,minWidth:42,minHeight:42,maxWidth:42,maxHeight:42,objectFit:"cover",display:"block"}}
                 onError={e=>{e.target.src="obubba-happy.png";}}/>
-              <div style={{position:"absolute",bottom:-1,right:-1,width:16,height:16,borderRadius:99,background:C.ter,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:"white",border:"1.5px solid var(--card-bg-solid)"}}>📷</div>
+              <div style={{position:"absolute",bottom:-1,right:-1,width:14,height:14,borderRadius:99,background:C.ter,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,color:"white",border:"1.5px solid var(--card-bg-solid)"}}>📷</div>
             </div>
             <input ref={childPhotoInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
               const file=e.target.files?.[0];if(!file)return;
@@ -7481,8 +7490,19 @@ function App(){
               };reader.readAsDataURL(file);
               e.target.value="";
             }}/>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.deep,fontWeight:700,lineHeight:1.2}}>
-              {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
+            <div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.deep,fontWeight:700,lineHeight:1.2}}>
+                {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
+              </div>
+              {(()=>{
+                if (!age && !babyUnborn) return <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginTop:2}}>Tap to add date of birth</div>;
+                if (babyUnborn && babyDob) {
+                  const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
+                  return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:2}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
+                }
+                if (!age) return null;
+                return <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>🎂 {fmtAge(age)} · {age.totalWeeks}wk</div>;
+              })()}
             </div>
           </div>
         ) : (
@@ -7493,23 +7513,8 @@ function App(){
             {babyName&&<button type="button" onClick={()=>setNameEdit(false)} style={{background:"var(--chip-bg)",border:_bN,borderRadius:10,color:C.mid,fontSize:14,padding:"9px 10px",cursor:_cP}}>✕</button>}
           </form>
         )}
-        <div style={{marginBottom:7,textAlign:"center"}}>
-          {(()=>{
-            if (!age && !babyUnborn) return (
-              <div style={{fontSize:13,color:C.mid,background:"var(--chip-bg)",borderRadius:99,padding:"5px 12px",fontFamily:_fM,display:"inline-block"}}>
-                Tap name to add date of birth
-              </div>
-            );
-            if (babyUnborn && babyDob) {
-              const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-              return <div style={{background:"var(--card-bg)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
-            }
-            if (!age) return null;
-            return <div style={{background:"var(--card-bg)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🎂 {fmtAge(age)} · {age.totalWeeks}wk</div>;
-          })()}
-        </div>
         {tab === "day" && breastStartTime && (
-          <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8,marginTop:8,marginBottom:10,flexWrap:"wrap"}}>
             {breastStartTime && (
               <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"7px 10px",boxShadow:"0 2px 8px rgba(44,31,26,0.12)",display:"flex",flexDirection:"column",gap:5}}>
                 <div style={{display:"flex",gap:5}}>
@@ -7536,7 +7541,7 @@ function App(){
         )}
         {/* Start Feed + Status pill row */}
         {tab === "day" && !breastStartTime && (
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8,marginBottom:10}}>
             {/* LEFT: Action button */}
             {!napOn && (
               <button onClick={()=>{haptic();startBreastTimer("L");}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
