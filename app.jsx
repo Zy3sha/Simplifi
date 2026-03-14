@@ -6142,10 +6142,32 @@ function App(){
   useEffect(()=>{
     function ensureToday(){
       const t = todayStr();
-      setDays(d => d[t] ? d : {...d, [t]: []});
+      // Read current state via setDays callback to avoid stale closure
+      setDays(d => {
+        const updated = d[t] ? d : {...d, [t]: []};
+        
+        // Determine which day to show
+        const todayEntries = updated[t] || [];
+        const todayHasMorningWake = todayEntries.some(e => e.type === "wake" && !e.night);
+        
+        if (todayHasMorningWake) {
+          setSelDay(t);
+        } else {
+          const yesterday = (() => { const dt = new Date(); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
+          const yEntries = updated[yesterday] || [];
+          const yHasBedtime = yEntries.some(e => e.type === "sleep" && !e.night);
+          
+          if (yHasBedtime) {
+            // Night still active — stay on yesterday
+            setSelDay(yesterday);
+          } else {
+            setSelDay(t);
+          }
+        }
+        return updated;
+      });
     }
     ensureToday();
-    if (!days[selDay] || selDay < todayStr()) setSelDay(todayStr());
 
     // Check for weekly digest on Monday
     if(weeklyDigestEnabled) {
@@ -9956,7 +9978,7 @@ function App(){
 
       {showNightWake&&(
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowNightWake(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 Log Night Wake</div>
 
@@ -10090,11 +10112,15 @@ function App(){
               };
               setDays(d=>{
                 const existing = d[selDay]||[];
-                const updated = autoClassifyNight([...existing, entry]);
+                const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                const updated = autoClassifyNight([...existing, entry], d[_pd]||null);
                 const relocked = updated.map(e => e.nightLocked ? {...e, night: true} : e);
                 return{...d,[selDay]:relocked};
               });
               setShowNightWake(false);
+              haptic(20);
+              setQuickFlash("🌟 Night Wake Logged ✓");
+              setTimeout(()=>setQuickFlash(null),1200);
             }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
               Save Wake ✦
             </button>
