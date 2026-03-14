@@ -6147,13 +6147,13 @@ function App(){
     }
     ensureToday();
     // Pick which day to show: today if it has a wake, else yesterday if it has bedtime
-    const t = todayStr();
+    const td = todayStr();
     const yesterday = (() => { const dt = new Date(); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
-    const todayHasWake = (days[t]||[]).some(e => e.type === "wake" && !e.night);
+    const todayHasWake = (days[td]||[]).some(e => e.type === "wake" && !e.night);
     const yHasBed = (days[yesterday]||[]).some(e => e.type === "sleep" && !e.night);
-    if (todayHasWake) setSelDay(t);
+    if (todayHasWake) setSelDay(td);
     else if (yHasBed) setSelDay(yesterday);
-    else setSelDay(t);
+    else setSelDay(td);
 
     // Check for weekly digest on Monday
     if(weeklyDigestEnabled) {
@@ -6172,8 +6172,8 @@ function App(){
       const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 1).getTime() - now.getTime();
       return setTimeout(()=>{ ensureToday(); scheduleMidnight(); }, msUntilMidnight);
     }
-    const t = scheduleMidnight();
-    return ()=>clearTimeout(t);
+    const _mTimer = scheduleMidnight();
+    return ()=>clearTimeout(_mTimer);
   }, []);
   function saveEditDay(){
     if(!editDate||editDate===menuDay){setModal(null);return;}
