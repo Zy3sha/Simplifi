@@ -3045,11 +3045,11 @@ function App(){
     let adjustMins = 0;
     let adjustReason = null;
 
-    if (lastNapMins < 20) {
+    if (lastNapMins > 0 && lastNapMins < 20) {
 
       adjustMins = -30;
       adjustReason = `Last nap only ${lastNapMins}min — moved earlier to avoid overtiredness`;
-    } else if (lastNapMins < 40) {
+    } else if (lastNapMins >= 20 && lastNapMins < 40) {
       adjustMins = -15;
       adjustReason = `Short last nap (${lastNapMins}min) — slightly earlier bedtime`;
     } else if (lastNapMins > 90) {
@@ -3412,8 +3412,20 @@ function App(){
     const todayNaps = today.filter(e => e.type==="nap" && !e.night);
     if (!todayNaps.length) return null;
     const lastNap = todayNaps[todayNaps.length - 1];
-    if (!lastNap.end) return null;
+    if (!lastNap.end || !lastNap.start) return null;
+    const lastNapDur = minDiff(lastNap.start, lastNap.end);
+    // Guard: invalid nap data (0 min duration = likely a timer still running or bad entry)
+    if (lastNapDur <= 0) return null;
     const ww = getWakeWindow(age.totalWeeks);
+    const p = getAgeNapProfile(age.totalWeeks);
+    // Guard: only suggest bridge nap when most expected naps are done
+    // (at least expectedNaps - 1, or all of them)
+    const napsDone = todayNaps.length;
+    if (napsDone < p.expectedNaps - 1) return null;
+    // Guard: only after midday (bridge naps are an afternoon/evening thing)
+    const nowH = new Date().getHours();
+    const isToday = selDay === todayStr();
+    if (isToday && nowH < 12) return null;
     const [lh,lm] = lastNap.end.split(":").map(Number);
     const lastNapEndMins = lh*60+lm;
     const method1BedMins = lastNapEndMins + ww.max;
@@ -3422,8 +3434,6 @@ function App(){
     const isEarlyRisk = method1BedMins < earlyThreshold;
     const dss = getDaySleepSummary();
     const belowDaySleep = dss && dss.status === "below";
-    const lastNapDur = minDiff(lastNap.start, lastNap.end);
-    const p = getAgeNapProfile(age.totalWeeks);
     const lastNapShort = lastNapDur < p.idealNapDurMin;
     // Wake window from last nap to clamped bedtime
     const wwToBed = clampedBed - lastNapEndMins;
