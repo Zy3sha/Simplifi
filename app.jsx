@@ -1430,6 +1430,7 @@ function App(){
   const[breastStartTime,setBreastStartTime]=useState(()=>{try{return localStorage.getItem("breast_startTime")||null;}catch{return null;}});
   const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null);
+  const[nightElapsed,setNightElapsed]=useState(null); // seconds since bedtime, null if no active night
   const[timerEndPrompt,setTimerEndPrompt]=useState(null); // {start, end, durMins} when timer stopped
   // Bug 1: explicit timer mode — 'prediction' | 'activeSleep'
   const[timerMode,setTimerMode]=useState(()=> {
@@ -1950,7 +1951,7 @@ function App(){
         return;
       }
       pushToCloud(backupCode, children);
-    }, 8000);
+    }, 3000);
     return ()=>clearTimeout(syncTimerRef.current);
   },[fbReady, restoreDone, backupCode, children]);
 
@@ -2476,6 +2477,35 @@ function App(){
     return ()=>clearTimeout(syncRef.current);
   },[fbReady, children, childSyncCodes]);
 
+  // ── CRITICAL: Flush sync when page is hidden (user locks phone / switches app) ──
+  // Mobile browsers suspend JS timers when backgrounded, so debounced pushes never fire.
+  // This catches that case and pushes immediately before the browser suspends.
+  useEffect(()=>{
+    function flushSync(){
+      if(document.visibilityState!=="hidden") return;
+      if(!window._fb || !fbReady) return;
+      const ch = childrenRef.current;
+      if(!ch) return;
+      // Flush family sync
+      const bc = backupCodeRef.current;
+      if(bc && localStorage.getItem("auth_verified")){
+        clearTimeout(syncTimerRef.current);
+        pushToCloud(bc, ch);
+      }
+      // Flush child syncs
+      clearTimeout(syncRef.current);
+      Object.entries(childSyncCodes).forEach(([childId, code]) => {
+        if(ch[childId]) pushChildSync(childId, code, ch[childId]);
+      });
+    }
+    document.addEventListener("visibilitychange", flushSync);
+    window.addEventListener("pagehide", flushSync);
+    return ()=>{
+      document.removeEventListener("visibilitychange", flushSync);
+      window.removeEventListener("pagehide", flushSync);
+    };
+  },[fbReady, childSyncCodes]);
+
 
   function addChild(name, dob, sex, unborn) {
     const cid = uid();
@@ -2529,24 +2559,33 @@ function App(){
   useEffect(()=>{
     if(napOn){
       timerRef.current=setInterval(()=>{
-        setNapSec(s=>{
-          const next=s+1;
-          // Update live nap entry end time every 30 seconds
-          if(next%30===0 && napEntryId){
-            setDays(d=>{
-              const entries=d[selDay]||[];
-              if(!entries.some(e=>e.id===napEntryId)) return d;
-              const now=nowTime();
-              return{...d,[selDay]:entries.map(e=>e.id===napEntryId?{...e,end:now}:e)};
-            });
-          }
-          return next;
-        });
+        // Calculate elapsed from actual start time — survives phone sleep/lock
+        const startT = napStartT || localStorage.getItem("nap_startT");
+        if(startT){
+          const [sh,sm]=startT.split(":").map(Number);
+          const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+          const now=new Date();
+          let elapsed=Math.floor((now-startDate)/1000);
+          if(elapsed<0) elapsed+=24*3600; // crossed midnight
+          if(elapsed>23*3600) elapsed=0; // safety cap
+          setNapSec(prev=>{
+            // Update live nap entry end time every 30 seconds
+            if(elapsed%30<2 && elapsed>0 && napEntryId){
+              setDays(d=>{
+                const entries=d[selDay]||[];
+                if(!entries.some(e=>e.id===napEntryId)) return d;
+                const nowT=nowTime();
+                return{...d,[selDay]:entries.map(e=>e.id===napEntryId?{...e,end:nowT}:e)};
+              });
+            }
+            return elapsed;
+          });
+        }
       },1000);
     }
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
-  },[napOn]);
+  },[napOn, napStartT]);
 
 
   useEffect(()=>{
@@ -2587,14 +2626,18 @@ function App(){
     // If bridge nap is needed, add 1 to expected naps so header shows nap countdown not bed countdown
     const expectedNaps = napProfileTick.expectedNaps + (bridgeNapScheduled ? 1 : 0) + (bridgeNeeded ? 1 : 0);
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+    const bedEntryTime = hasBedtime ? ((days[selDay]||[]).find(e=>e.type==="sleep"&&!e.night)||{}).time : null;
     const napsDone = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).length;
     const bedMins = bed ? (()=>{ const [bh,bm]=bed.time.split(":").map(Number); return bh*60+bm; })() : null;
+    // Check if next day has wake logged (night complete)
+    const nextDay = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().split("T")[0];})();
+    const nextDayHasWake = (days[nextDay]||[]).some(e=>e.type==="wake"&&!e.night);
     // When bridge nap is needed and no regular pred, create synthetic pred for header nap countdown
     const effectivePred = pred ? pred : (bridgeNeeded ? {
       napStart_min: `${String(Math.floor(bed.bridgeNapStart/60)%24).padStart(2,"0")}:${String(bed.bridgeNapStart%60).padStart(2,"0")}`,
       isOverdue: bed.bridgeNapStart <= (new Date().getHours()*60+new Date().getMinutes())
     } : null);
-    tickDataRef.current = { hasBedtime, bed, bedMins, napsDone, expectedNaps, pred: effectivePred };
+    tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, bed, bedMins, napsDone, expectedNaps, pred: effectivePred };
   },[selDay, days, age, bridgeNapScheduled]);
 
 
@@ -2631,8 +2674,25 @@ function App(){
       if (hasBedtime) {
         setNapCountdown(null);
         setBedCountdown(null);
+        // Night sleep timer: calculate elapsed from bedtime
+        const { bedEntryTime, nextDayHasWake } = tickDataRef.current;
+        if(bedEntryTime && !nextDayHasWake) {
+          const [bh,bm] = bedEntryTime.split(":").map(Number);
+          const bedDate = new Date();
+          bedDate.setHours(bh,bm,0,0);
+          let elapsed = Math.floor((now - bedDate) / 1000);
+          if(elapsed < 0) elapsed += 24*3600; // bedtime was yesterday
+          if(elapsed >= 0 && elapsed < 14*3600) {
+            setNightElapsed(elapsed);
+          } else {
+            setNightElapsed(null);
+          }
+        } else {
+          setNightElapsed(null);
+        }
         return;
       }
+      setNightElapsed(null);
 
       // If a nap is predicted (including catch-up naps), show nap countdown — takes priority
       if (pred) {
@@ -3020,9 +3080,17 @@ function App(){
       if (totalNapMinsSoFar < expectedByNow * 0.7 && napsDoneToday < napProfile2.expectedNaps) {
         // Baby has slept significantly less than expected by this point — sleep pressure is higher
         const pressureReduction = Math.round(Math.min(15, (expectedByNow - totalNapMinsSoFar) * 0.15));
-        const adjMin = Math.max(ww.min, finalMinMins - pressureReduction) - lastAwakeMins + lastAwakeMins;
         if (pressureReduction > 5) {
+          // Actually reduce the wake window to bring the nap earlier
+          wakeWindowMin = Math.max(ww.min, wakeWindowMin - pressureReduction);
+          wakeWindowMax = Math.max(wakeWindowMin + 10, wakeWindowMax - Math.round(pressureReduction * 0.7));
           sourceLabel += ` (${pressureReduction}min earlier — sleep pressure)`;
+          // Recompute prediction times with adjusted windows
+          const adjMinMins = Math.max(lastAwakeMins + wakeWindowMin, earliestNapMins);
+          const adjMaxMins = Math.max(lastAwakeMins + wakeWindowMax, adjMinMins + 15);
+          const adjStart_min = (()=>{ const h=Math.floor(adjMinMins/60)%24; const m=adjMinMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+          const adjStart_max = (()=>{ const h=Math.floor(adjMaxMins/60)%24; const m=adjMaxMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+          return { napStart_min: adjStart_min, napStart_max: adjStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart, isOverdue: nowMins > adjMaxMins };
         }
       }
     }
@@ -7463,9 +7531,10 @@ function App(){
             )}
           </div>
         )}
-        {/* Start Feed + Nap/Bed pill row */}
+        {/* Start Feed + Status pill row */}
         {tab === "day" && !breastStartTime && (
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:10}}>
+            {/* LEFT: Action button */}
             {!napOn && (
               <button onClick={()=>{haptic();startBreastTimer("L");}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
                 🤱 Start Feed
@@ -7480,13 +7549,8 @@ function App(){
                   </button>
                 ) : (
                   <div style={{display:"flex",alignItems:"center",gap:3,marginRight:6}} onClick={e=>e.stopPropagation()}>
-                    <input
-                      type="time"
-                      value={napStartEditVal}
-                      onChange={e=>setNapStartEditVal(e.target.value)}
-                      style={{width:72,fontSize:12,padding:"2px 4px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:"white",fontFamily:_fM,outline:"none"}}
-                      autoFocus
-                    />
+                    <input type="time" value={napStartEditVal} onChange={e=>setNapStartEditVal(e.target.value)}
+                      style={{width:72,fontSize:12,padding:"2px 4px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:"white",fontFamily:_fM,outline:"none"}} autoFocus/>
                     <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:_bN,borderRadius:6,padding:"2px 6px",fontSize:10,color:"white",cursor:_cP,fontWeight:700}}>✓</button>
                     <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:_bN,padding:"2px 4px",fontSize:10,color:"rgba(255,255,255,0.7)",cursor:_cP}}>✕</button>
                   </div>
@@ -7495,18 +7559,28 @@ function App(){
                 <button onClick={()=>{haptic();endNap();}} style={{background:"rgba(255,255,255,0.3)",border:_bN,borderRadius:99,padding:"3px 10px",marginLeft:6,fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>Stop</button>
               </div>
             )}
-            {/* Nap/Bed countdown pill — right side */}
+            {/* RIGHT: Status pill — awake counter / nap countdown / bed countdown / night timer */}
             {!napOn&&(()=>{
               const hasBedLogged = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
+              const isToday = selDay === todayStr();
+
+              // ── STATE 1: NIGHT SLEEP TIMER (bedtime logged, no next-day wake) ──
+              if(hasBedLogged && nightElapsed !== null) {
+                const bedEntry = (days[selDay]||[]).find(e=>e.type==="sleep"&&!e.night);
+                return (
+                  <div style={{display:"flex",alignItems:"center",gap:5,background:C.sky,borderRadius:99,padding:"5px 14px"}}>
+                    <span style={{fontSize:13}}>🌙</span>
+                    <span style={{fontSize:11,fontFamily:_fM,color:"rgba(255,255,255,0.7)"}}>{bedEntry?fmt12(bedEntry.time):""}</span>
+                    <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(nightElapsed)}</span>
+                  </div>
+                );
+              }
               if(hasBedLogged) return null;
-              const isBed = bedCountdown !== null;
-              const countdown = isBed ? bedCountdown : napCountdown;
-              if(!isBed && napCountdown === null) return null;
-              const isNeutral = !isBed && napCountdown === -1;
-              const isNapNow = !isBed && !isNeutral && napCountdown !== null && napCountdown <= 0;
-              const isBedNow = isBed && bedCountdown <= 0;
-              const isNow = isNapNow || isBedNow;
-              if(isNeutral) {
+
+              // ── STATE 2: NO WAKE LOGGED — prompt to log ──
+              const isNeutral = !bedCountdown && (napCountdown === null || napCountdown === -1);
+              const hasWake = (days[selDay]||[]).some(e=>e.type==="wake"&&!e.night);
+              if(!hasWake && isToday) {
                 return (
                   <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
                     style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:C.ter}}>
@@ -7514,11 +7588,44 @@ function App(){
                   </button>
                 );
               }
-              const isNapTappable = !isBed && !isNeutral && napCountdown !== null;
+
+              // ── Calculate "awake since" from last wake or last nap end ──
+              const sorted = [...(days[selDay]||[])].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+              let lastAwakeTime = null;
+              sorted.forEach(e=>{
+                if(e.type==="wake") lastAwakeTime=e.time;
+                if(e.type==="nap"&&e.end) lastAwakeTime=e.end;
+              });
+              let awakeMins = null;
+              if(lastAwakeTime && isToday){
+                const [ah,am]=lastAwakeTime.split(":").map(Number);
+                const now=new Date();
+                awakeMins = now.getHours()*60+now.getMinutes() - (ah*60+am);
+                if(awakeMins<0) awakeMins=0;
+              }
+              const awakeText = awakeMins!==null ? hm(awakeMins) : null;
+
+              // ── STATE 3: NAP/BED COUNTDOWN with awake counter ──
+              const isBed = bedCountdown !== null;
+              const countdown = isBed ? bedCountdown : napCountdown;
+              if(isNeutral && awakeText) {
+                // Wake logged but no predictions yet — show awake counter only
+                return (
+                  <div style={{display:"flex",alignItems:"center",gap:5,background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px"}}>
+                    <span style={{fontSize:11,fontFamily:_fM,color:C.lt}}>Awake</span>
+                    <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:C.gold}}>{awakeText}</span>
+                  </div>
+                );
+              }
+              if(isNeutral) return null;
+
+              const isNapNow = !isBed && napCountdown !== null && napCountdown <= 0;
+              const isBedNow = isBed && bedCountdown <= 0;
+              const isNow = isNapNow || isBedNow;
               const handleTap = () => {
                 haptic(20);
-                if(isNapTappable || isNapNow){ startNap(); }
-                else if(isBedNow || isBed){ startNap(); logBedtimeNow(); }
+                if(!isBed){ startNap(); }
+                else { logBedtimeNow(); }
               };
               const icon = isBedNow||isBed ? "🌙" : isNapNow ? "😴" : "⏱️";
               const pillBg = isNow ? (isBedNow?C.sky:C.mint) : "var(--card-bg)";
@@ -7527,11 +7634,21 @@ function App(){
               const valueText = isNow ? "Now!" : (countdown!==null ? fmtCountdown(countdown) : "–");
               const label = isBed ? "Bed" : "Nap";
               return (
-                <button onClick={handleTap}
-                  style={{background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:_fM}}>
-                  <span style={{fontSize:13}}>{icon}</span>
-                  <span style={{fontSize:13,fontWeight:700,color:pillColor}}>{label} {valueText}</span>
-                </button>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  {/* Awake counter — always visible when awake */}
+                  {awakeText && !isNow && (
+                    <div style={{display:"flex",alignItems:"center",gap:3,background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 10px"}}>
+                      <span style={{fontSize:10,fontFamily:_fM,color:C.lt}}>Awake</span>
+                      <span style={{fontSize:12,fontFamily:_fM,fontWeight:700,color:C.gold}}>{awakeText}</span>
+                    </div>
+                  )}
+                  {/* Nap/Bed countdown — tappable */}
+                  <button onClick={handleTap}
+                    style={{background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:_fM}}>
+                    <span style={{fontSize:13}}>{icon}</span>
+                    <span style={{fontSize:13,fontWeight:700,color:pillColor}}>{label} {valueText}</span>
+                  </button>
+                </div>
               );
             })()}
           </div>
