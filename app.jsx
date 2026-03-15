@@ -2600,7 +2600,14 @@ function App(){
     // Night timer data
     const nextDay = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()+1);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
     const nextDayHasWake = (days[nextDay]||[]).some(e=>e.type==="wake"&&!e.night);
-    const nightWakes = hasBedtime ? (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b)) : [];
+    const nightWakes = hasBedtime ? (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>{
+      // Cross-midnight sort: PM wakes (after bed) first, then AM wakes (post-midnight)
+      const bedM = bedEntryTime ? timeVal({time:bedEntryTime}) : 19*60;
+      const ta = timeVal(a), tb = timeVal(b);
+      const ka = ta >= bedM ? ta : (ta < 12*60 ? ta + 1440 : ta);
+      const kb = tb >= bedM ? tb : (tb < 12*60 ? tb + 1440 : tb);
+      return ka - kb;
+    }) : [];
     let lastNightEvent = bedEntryTime;
     if(nightWakes.length) {
       const lastWake = nightWakes[nightWakes.length-1];
@@ -2634,6 +2641,31 @@ function App(){
     }
 
     // Prediction countdown mode
+    // Recompute lastNightEvent fresh here so it's never stale after a night wake is logged
+    const _hasBed = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
+    if(_hasBed) {
+      const _bedEntry = (days[selDay]||[]).find(e=>e.type==="sleep"&&!e.night);
+      const _bedM = _bedEntry ? timeVal(_bedEntry) : 19*60;
+      const _nightWakes = (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>{
+        const ta = timeVal(a), tb = timeVal(b);
+        const ka = ta >= _bedM ? ta : (ta < 12*60 ? ta + 1440 : ta);
+        const kb = tb >= _bedM ? tb : (tb < 12*60 ? tb + 1440 : tb);
+        return ka - kb;
+      });
+      let _lastNightEvent = _bedEntry ? _bedEntry.time : null;
+      if(_nightWakes.length) {
+        const _lw = _nightWakes[_nightWakes.length-1];
+        const _sm = _lw.assistedDuration ? parseInt(_lw.assistedDuration) : 0;
+        if(_sm > 0) {
+          const [_wh,_wm] = _lw.time.split(":").map(Number);
+          const _tm = _wh*60+_wm+_sm;
+          _lastNightEvent = `${String(Math.floor(_tm/60)%24).padStart(2,"0")}:${String(_tm%60).padStart(2,"0")}`;
+        } else {
+          _lastNightEvent = _lw.time;
+        }
+      }
+      tickDataRef.current = {...tickDataRef.current, lastNightEvent: _lastNightEvent, nightWakeCount: _nightWakes.length};
+    }
     function tick(){
       const now = new Date();
       // Bug 1: midnight rollover — compute nowMins fresh each tick
@@ -7291,9 +7323,15 @@ function App(){
               // Night timer: show elapsed since bedtime/last wake
               if(hasBedLogged) {
                 if(nightElapsed === null) return null;
-                const nightWakes = (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
-                const lastWake = nightWakes.length ? nightWakes[nightWakes.length-1] : null;
                 const bedEntry = (days[selDay]||[]).find(e=>e.type==="sleep"&&!e.night);
+                const bedM = bedEntry ? timeVal(bedEntry) : 19*60;
+                const nightWakes = (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>{
+                  const ta = timeVal(a), tb = timeVal(b);
+                  const ka = ta >= bedM ? ta : (ta < 12*60 ? ta + 1440 : ta);
+                  const kb = tb >= bedM ? tb : (tb < 12*60 ? tb + 1440 : tb);
+                  return ka - kb;
+                });
+                const lastWake = nightWakes.length ? nightWakes[nightWakes.length-1] : null;
                 let displayTime, displayLabel, displayIcon;
                 if(lastWake) {
                   const soothingMins = lastWake.assistedDuration ? parseInt(lastWake.assistedDuration) : 0;
@@ -10147,9 +10185,15 @@ function App(){
       {modal==="report"&&(()=>{
         const es=days[selDay]||[];
         const dEs=es.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
-        const nEs=es.filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
-        const wakeEv=dEs.find(e=>e.type==="wake");
         const sleepEv=dEs.find(e=>e.type==="sleep");
+        const _reportBedM=sleepEv?timeVal(sleepEv):19*60;
+        const nEs=es.filter(e=>e.night).sort((a,b)=>{
+          const ta=timeVal(a),tb=timeVal(b);
+          const ka=ta>=_reportBedM?ta:(ta<12*60?ta+1440:ta);
+          const kb=tb>=_reportBedM?tb:(tb<12*60?tb+1440:tb);
+          return ka-kb;
+        });
+        const wakeEv=dEs.find(e=>e.type==="wake");
         const dayFeeds=dEs.filter(e=>e.type==="feed");
         const dayNaps=dEs.filter(e=>e.type==="nap");
         const totalFeedMl=es.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
