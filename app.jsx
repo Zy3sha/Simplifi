@@ -11,7 +11,6 @@ const timeVal = e => { const t=e.time||e.start||"00:00"; const[h,m]=t.split(":")
 const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
 const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
-const sleepDefault = () => { const h=new Date().getHours(); return (h>=6 && h<20) ? "nap" : "bed"; };
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 const fmtSec = s => s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
@@ -200,7 +199,8 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
 
 const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"💩"};
 const NAMES={feed:"Feed",nap:"Nap",wake:"Wake Up",sleep:"Bedtime",poop:"Nappy"};
-const POOP_TYPES=["Yellow/seedy","Mustard","Green","Brown","Dark green","Orange","Black/tarry","White/pale","Mucousy","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Other"];
+const POOP_TYPES=["Yellow/seedy","Mustard","Green","Brown","Dark green","Orange","Black/tarry","White/pale","Mucousy","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Meconium","Other"];
+const POOP_SAFETY_FLAGS={"Black/tarry":"Black or tarry stools after the first few days may need medical attention — contact your GP or health visitor.","White/pale":"Persistently pale or chalky stools can indicate a liver condition — mention this to your GP or health visitor promptly.","Bloody/streaked":"Blood in stools can have many causes, but if new or persistent, contact your GP or call 111.","Meconium":"Meconium (dark, sticky first stools) is normal in the first 48–72 hours. If still passing meconium after day 3–4, mention it to your midwife or health visitor."};
 // Theme-aware colors — reads CSS custom properties so dark mode works
 function getC(){
   const s=getComputedStyle(document.body);
@@ -1337,6 +1337,7 @@ function App(){
   const[weaningForm,setWeaningForm]=useState({food:"",date:"",reaction:"neutral",note:"",liked:null});
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
+  const[showCarerCard,setShowCarerCard]=useState(false);
   // Bridge nap: tracks whether user added bridge nap to schedule (keyed by selDay)
   const[bridgeNapDays,setBridgeNapDays]=useState(()=>{try{return JSON.parse(localStorage.getItem("bridge_nap_days_v1")||"{}");} catch{return {};}});
   const bridgeNapScheduled = bridgeNapDays[selDay]===true;
@@ -4967,7 +4968,7 @@ function App(){
   }
 
   function openLogPanel(panel){
-    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:sleepDefault(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
+    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:(()=>{const h=new Date().getHours();return(h>=6&&h<20)?"nap":"bed";})(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
     setLogPanel(panel);
   }
 
@@ -5628,7 +5629,7 @@ function App(){
         reasons.push({
           emoji: "🦷", title: "Teething pain",
           detail: `At ${fmtAge(age)}, teething is common`,
-          action: "Try a cold teething ring, gentle gum massage, or age-appropriate pain relief",
+          action: "Try a cold teething ring or gentle gum massage. If baby seems in pain, speak to your pharmacist or health visitor about age-appropriate relief",
           urgency: "med", score: 50
         });
       }
@@ -5705,78 +5706,6 @@ function App(){
     try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
     setQuickFlash("☀️ Wake logged on "+fmtDate(nextDay));
     setTimeout(()=>setQuickFlash(null),1200);
-  }
-
-  function getCryingDiagnostic() {
-    const now = new Date();
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const todayEntries = (days[selDay] || []).filter(e => !e.night);
-    const sorted = [...todayEntries].sort((a, b) => timeVal(a) - timeVal(b));
-
-    // Last feed
-    const lastFeed = [...sorted].reverse().find(e => e.type === "feed");
-    const minsSinceLastFeed = lastFeed ? nowMins - timeVal(lastFeed) : 999;
-
-    // Last nap end or wake
-    let lastAwake = sorted.find(e => e.type === "wake");
-    const naps = sorted.filter(e => e.type === "nap" && e.end);
-    if (naps.length) {
-      const lastNapEnd = naps[naps.length - 1];
-      const endMins = timeVal({ time: lastNapEnd.end });
-      if (!lastAwake || endMins > timeVal(lastAwake)) lastAwake = { time: lastNapEnd.end };
-    }
-    const minsSinceWoke = lastAwake ? nowMins - timeVal(lastAwake) : 999;
-
-    // Age context
-    const aw = age ? age.totalWeeks : 20;
-    const ww = getWakeWindow(aw);
-    const wwMid = Math.round((ww.min + ww.max) / 2);
-    const isOverWW = minsSinceWoke > ww.max;
-    const isNearWW = minsSinceWoke > ww.min;
-
-    // Build ranked reasons
-    const reasons = [];
-
-    // Hungry?
-    if (minsSinceLastFeed > 150 || !lastFeed) {
-      reasons.push({ emoji: "🍼", title: "Hungry", confidence: minsSinceLastFeed > 180 ? "high" : "medium", detail: lastFeed ? `Last feed was ${hm(minsSinceLastFeed)} ago` : "No feed logged today", action: "Try offering a feed — even a small top-up can help." });
-    } else if (minsSinceLastFeed > 90) {
-      reasons.push({ emoji: "🍼", title: "Hungry", confidence: "low", detail: `Last feed was ${hm(minsSinceLastFeed)} ago`, action: "May want a top-up, especially if last feed was small." });
-    }
-
-    // Overtired?
-    if (isOverWW) {
-      reasons.push({ emoji: "😴", title: "Overtired", confidence: "high", detail: `Awake for ${hm(minsSinceWoke)} — ${hm(minsSinceWoke - wwMid)} past the ideal wake window`, action: "Dim lights, reduce stimulation. A calm dark room with white noise may help. Try a feed to sleep if needed." });
-    } else if (isNearWW) {
-      reasons.push({ emoji: "😴", title: "Tired", confidence: "medium", detail: `Awake for ${hm(minsSinceWoke)} — nap window is open`, action: "Watch for yawning, eye rubbing, looking away. Try putting down for a nap." });
-    }
-
-    // Wind/gas
-    if (minsSinceLastFeed < 45) {
-      reasons.push({ emoji: "💨", title: "Wind or gas", confidence: minsSinceLastFeed < 20 ? "high" : "medium", detail: `Fed ${minsSinceLastFeed} minutes ago`, action: "Try burping — hold upright against your shoulder, or sit baby on your lap and lean forward gently. Bicycle legs can also help." });
-    }
-
-    // Overstimulated
-    if (nowMins > 14 * 60 && minsSinceWoke > 40) {
-      reasons.push({ emoji: "🫣", title: "Overstimulated", confidence: "low", detail: "Afternoon — stimulation builds through the day", action: "Move to a quieter room. Reduce eye contact briefly. Swaddle if under 4 months. Skin-to-skin works well." });
-    }
-
-    // Teething (4mo+)
-    if (aw >= 14) {
-      reasons.push({ emoji: "🦷", title: "Teething pain", confidence: aw >= 20 && aw <= 40 ? "medium" : "low", detail: aw >= 20 ? "Peak teething age — look for drooling, chewing, red cheeks" : "Teeth can start emerging from 4 months", action: "Try a clean cold teething ring or gently rub gums with a clean finger. If baby seems in pain, speak to your pharmacist or health visitor about age-appropriate relief." });
-    }
-
-    // Uncomfortable
-    reasons.push({ emoji: "🌡️", title: "Uncomfortable", confidence: "low", detail: "Temperature, nappy, clothing", action: "Check nappy, feel the back of neck for temperature (should feel warm, not hot or sweaty). NHS recommends 16–20°C room temp." });
-
-    // Needs comfort
-    reasons.push({ emoji: "🤱", title: "Just needs you", confidence: "low", detail: "Sometimes babies just need closeness", action: "Skin-to-skin contact, gentle rocking, or a walk in the sling. This is completely normal and not a sign you're doing anything wrong." });
-
-    // Sort by confidence
-    const order = { high: 0, medium: 1, low: 2 };
-    reasons.sort((a, b) => order[a.confidence] - order[b.confidence]);
-
-    return reasons;
   }
 
   function startNap(){
@@ -5897,6 +5826,172 @@ function App(){
     try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
   // ── Weekly Digest Generator ──
+  // ── Carer Card Generator ──
+  function generateCarerCardHTML() {
+    const name = babyName || "Baby";
+    const ageStr = age ? fmtAge(age) : "";
+    const today = days[selDay] || [];
+    const dayEntries = today.filter(e => !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+
+    // Last feed info
+    const allFeeds = today.filter(e => e.type === "feed").sort((a, b) => timeVal(a) - timeVal(b));
+    const lastFeed = allFeeds.length ? allFeeds[allFeeds.length - 1] : null;
+    const feedTypes = [...new Set(allFeeds.map(e => e.feedType).filter(Boolean))];
+    const feedTypeLabel = feedTypes.length ? feedTypes.map(ft => ft === "breast" ? "Breastfed" : ft === "solids" ? "Solids" : "Bottle/formula").join(" + ") : "Not logged yet";
+
+    // Typical feed frequency from last 5 days
+    const recentDays = Object.keys(days).sort().slice(-5);
+    const feedCounts = recentDays.map(d => (days[d] || []).filter(e => e.type === "feed").length);
+    const avgFeeds = feedCounts.length ? Math.round(feedCounts.reduce((a, b) => a + b, 0) / feedCounts.length) : 0;
+
+    // Typical feed amount
+    const recentAmounts = recentDays.flatMap(d => (days[d] || []).filter(e => e.type === "feed" && e.amount > 0).map(e => e.amount));
+    const avgAmount = recentAmounts.length ? Math.round(recentAmounts.reduce((a, b) => a + b, 0) / recentAmounts.length) : 0;
+
+    // Wake time
+    const wakeEntry = dayEntries.find(e => e.type === "wake");
+
+    // Last nap
+    const naps = dayEntries.filter(e => e.type === "nap");
+    const lastNap = naps.length ? naps[naps.length - 1] : null;
+
+    // Bedtime prediction
+    const bed = bedtimePrediction();
+
+    // Next nap prediction
+    const pred = predictNextNap();
+
+    // Wake window info
+    const ww = age ? getWakeWindow(age.totalWeeks) : null;
+
+    // Pinned notes (allergies, medical info)
+    const notes = pinnedNotes.filter(n => n.pinned);
+
+    // Upcoming appointments today/tomorrow
+    const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+    const upcomingAppts = appointments.filter(a => a.date === todayStr() || a.date === tomorrow);
+
+    // Build sections
+    let sections = [];
+
+    // Header
+    sections.push(`<div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:40px;margin-bottom:8px">👶</div>
+      <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${name}'s Care Guide</h1>
+      ${ageStr ? `<p style="color:#A898AC;margin:4px 0">${ageStr} old</p>` : ""}
+      <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
+    </div>`);
+
+    // IMPORTANT NOTES (allergies, medical)
+    if (notes.length) {
+      sections.push(`<div style="background:#FFF0F0;border:2px solid #E8574A;border-radius:16px;padding:16px;margin-bottom:16px">
+        <h2 style="color:#E8574A;font-size:16px;margin:0 0 8px">⚠️ Important Notes</h2>
+        ${notes.map(n => `<div style="padding:6px 0;color:#5B4F5F;font-size:14px;border-bottom:1px solid #f5d5d5">📌 ${n.text}</div>`).join("")}
+      </div>`);
+    }
+
+    // FEEDING
+    sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">🍼 Feeding</h2>
+      <table style="width:100%;font-size:14px;color:#5B4F5F">
+        <tr><td style="padding:4px 0;color:#A898AC">Type</td><td style="padding:4px 0;font-weight:600">${feedTypeLabel}</td></tr>
+        ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical amount</td><td style="padding:4px 0;font-weight:600">~${fmtVol(avgAmount, FU)} per feed</td></tr>` : ""}
+        ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
+        ${lastFeed ? `<tr><td style="padding:4px 0;color:#A898AC">Last feed today</td><td style="padding:4px 0;font-weight:600">${fmt12(lastFeed.time)}${lastFeed.amount ? " — " + fmtVol(lastFeed.amount, FU) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
+      </table>
+      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${name} may feed on demand. Breast milk is stored in the fridge — use within 24 hours.</p>` : ""}
+    </div>`);
+
+    // SLEEP & ROUTINE
+    sections.push(`<div style="background:#F0F8F5;border:1px solid #d4ede6;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#6fa898;font-size:16px;margin:0 0 10px">😴 Sleep & Routine</h2>
+      <table style="width:100%;font-size:14px;color:#5B4F5F">
+        ${wakeEntry ? `<tr><td style="padding:4px 0;color:#A898AC">Woke up today</td><td style="padding:4px 0;font-weight:600">${fmt12(wakeEntry.time)}</td></tr>` : ""}
+        ${ww ? `<tr><td style="padding:4px 0;color:#A898AC">Wake window</td><td style="padding:4px 0;font-weight:600">${ww.label} between sleeps</td></tr>` : ""}
+        ${lastNap ? `<tr><td style="padding:4px 0;color:#A898AC">Last nap</td><td style="padding:4px 0;font-weight:600">${fmt12(lastNap.start)} – ${fmt12(lastNap.end)} (${hm(minDiff(lastNap.start, lastNap.end))})</td></tr>` : ""}
+        ${pred ? `<tr><td style="padding:4px 0;color:#A898AC">Next nap window</td><td style="padding:4px 0;font-weight:600">${fmt12(pred.napStart_min)} – ${fmt12(pred.napStart_max)}</td></tr>` : ""}
+        ${bed ? `<tr><td style="padding:4px 0;color:#A898AC">Predicted bedtime</td><td style="padding:4px 0;font-weight:600">${fmt12(bed.time)}</td></tr>` : ""}
+      </table>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${name} down when you see these signs — don't wait until they're overtired.</p>
+    </div>`);
+
+    // SAFE SLEEP — Lullaby Trust
+    sections.push(`<div style="background:#EEF3FA;border:1px solid #c8d8e8;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#7aabc4;font-size:16px;margin:0 0 10px">🛏️ Safe Sleep Essentials</h2>
+      <p style="font-size:12px;color:#7aabc4;margin:0 0 10px;font-style:italic">Based on The Lullaby Trust safer sleep guidance</p>
+      <div style="font-size:14px;color:#5B4F5F;line-height:1.8">
+        ✅ Always on their <b>back</b> — for every sleep, day and night<br>
+        ✅ <b>Clear cot</b> — firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
+        ✅ <b>Same room as you</b> — stay in the room while ${name} sleeps<br>
+        ✅ <b>Room temperature 16–20°C</b> — feel chest or back of neck to check<br>
+        ✅ <b>Don't cover their head</b> — no hats indoors<br>
+        ✅ <b>Feet to foot</b> — feet at the bottom of the cot<br>
+        ❌ <b>Never</b> on a sofa or armchair — even if you're holding them<br>
+        ❌ <b>Never</b> in a car seat for prolonged sleep — only for travel
+      </div>
+    </div>`);
+
+    // SOOTHING TIPS
+    sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">💝 If ${name} Cries</h2>
+      <div style="font-size:14px;color:#5B4F5F;line-height:1.7">
+        1. <b>Check basics</b> — hungry? nappy? too hot/cold?<br>
+        2. <b>Tired?</b> — check wake window above. Dim lights, quiet voice<br>
+        3. <b>Wind</b> — try burping over shoulder or gentle bicycle legs<br>
+        4. <b>Comfort</b> — gentle rocking, skin-to-skin, white noise<br>
+        5. <b>Still unsettled?</b> — contact parent. It's OK to put ${name} down safely and take a breath
+      </div>
+    </div>`);
+
+    // APPOINTMENTS
+    if (upcomingAppts.length) {
+      sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
+        <h2 style="color:#d4a855;font-size:16px;margin:0 0 10px">📅 Upcoming</h2>
+        ${upcomingAppts.map(a => `<div style="padding:4px 0;font-size:14px;color:#5B4F5F">${a.date === todayStr() ? "Today" : "Tomorrow"} ${a.time ? fmt12(a.time) : ""} — <b>${a.title}</b>${a.note ? " (" + a.note + ")" : ""}</div>`).join("")}
+      </div>`);
+    }
+
+    // EMERGENCY
+    sections.push(`<div style="background:#f8f0f0;border:2px solid #E8B4C0;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">🚨 Emergency</h2>
+      <div style="font-size:14px;color:#5B4F5F;line-height:1.8">
+        <b>Emergency:</b> 999<br>
+        <b>NHS Non-emergency:</b> 111<br>
+        <b>Lullaby Trust helpline:</b> 0808 802 6869<br>
+        <b>Poison advice:</b> 111
+      </div>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">If ${name} is unresponsive, has difficulty breathing, has a rash that doesn't fade under pressure, or you're worried — call 999 immediately.</p>
+    </div>`);
+
+    // Footer
+    sections.push(`<div style="text-align:center;padding:16px 0;color:#ccc;font-size:11px">
+      Generated by OBubba · obubba.com<br>
+      Safe sleep advice: lullabytrust.org.uk
+    </div>`);
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name}'s Care Guide</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:480px;margin:0 auto;padding:20px;background:#FFFCF9}h2{font-family:Georgia,serif}table{border-collapse:collapse}</style></head><body>${sections.join("")}</body></html>`;
+  }
+
+  function shareCarerCard() {
+    const html = generateCarerCardHTML();
+    const name = babyName || "Baby";
+
+    // Try native share first (mobile)
+    if (navigator.share) {
+      const blob = new Blob([html], { type: "text/html" });
+      const file = new File([blob], `${name}-care-guide.html`, { type: "text/html" });
+      navigator.share({ title: `${name}'s Care Guide`, files: [file] }).catch(() => {
+        // Fallback: open in new tab
+        const w = window.open("", "_blank");
+        if (w) { w.document.write(html); w.document.close(); }
+      });
+    } else {
+      // Desktop: open in new tab for printing
+      const w = window.open("", "_blank");
+      if (w) { w.document.write(html); w.document.close(); }
+    }
+  }
+
   function generateWeeklyDigest() {
     const name = babyName || "Baby";
     const dk = Object.keys(days).sort().slice(-7);
@@ -7454,7 +7549,7 @@ function App(){
                   {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
-                  {emoji:"😢",label:"Crying?",action:()=>setShowCryingGuide(true)},
+                  {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
                 ].map(({emoji,label,action})=>(
                   <button key={label} onClick={action}
                     style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flex:1,padding:"6px 2px",borderRadius:12,border:"none",background:"transparent",cursor:_cP,transition:"transform 0.1s ease, background 0.1s ease"}}
@@ -9010,7 +9105,7 @@ function App(){
             m16: ["Gently clap near (not directly at) baby's ears, use different volumes — sensitivity to sound is usually present from birth."],
             m17: ["Blow raspberries, make squeaky or silly sounds close to baby's face and wait — they'll often try to copy the sound."],
             m18: ["Babble back at baby using the same sounds they make ('ba-ba-ba!') — this conversational turn-taking is the foundation of language."],
-            m19: ["Use baby's name consistently — say it before speaking to them, during nappy changes, feeding. 'Oliver, look!' builds name recognition."],
+            m19: ["Use baby's name consistently — say it before speaking to them, during nappy changes, feeding. 'Look!' with their name builds name recognition."],
             m20: ["Copy the sounds baby makes back to them, then add a new sound. Take turns — this 'serve and return' teaches imitation naturally."],
             m21: ["Model gestures throughout the day — wave bye-bye, shake your head for 'no', nod for 'yes'. Pair each gesture with the word every time."],
             m22: ["Use 'mama' and 'dada' consistently when the right parent is present. Point and say 'there's Dada!' — repetition links the word to the person."],
@@ -9500,6 +9595,13 @@ function App(){
                 <div style={{fontSize:12,color:C.lt,marginTop:2}}>{familyCode?"Manage sync & backup":"Connect with partner or restore data"}</div>
               </div>
             </button>
+            <button onClick={()=>setShowCarerCard(true)} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
+              <span style={{fontSize:24}}>👩‍🍼</span>
+              <div>
+                <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Carer Card</div>
+                <div style={{fontSize:12,color:C.lt,marginTop:2}}>Share routine, feeding info &amp; safe sleep with a babysitter</div>
+              </div>
+            </button>
             {backupCode&&(
               <button onClick={()=>{
                 const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
@@ -9824,9 +9926,9 @@ function App(){
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
                   {POOP_TYPES.map(pt=>(
-                    <button key={pt} onClick={()=>{const t=nappyTime||nowTime();quickAddLog("poop",{type:"poop",time:t,poopType:pt,note:""});setNappyMode(null);setNappyTime("");}}
-                      style={{padding:"7px 14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:13,color:C.mid,cursor:_cP,fontFamily:_fI}}>
-                      {pt}
+                    <button key={pt} onClick={()=>{const t=nappyTime||nowTime();quickAddLog("poop",{type:"poop",time:t,poopType:pt,note:""});setNappyMode(null);setNappyTime("");if(POOP_SAFETY_FLAGS[pt]){setQuickFlash(null);setTimeout(()=>{setQuickFlash("⚠️ "+POOP_SAFETY_FLAGS[pt]);setTimeout(()=>setQuickFlash(null),5000);},200);}}}
+                      style={{padding:"7px 14px",borderRadius:99,border:`1.5px solid ${POOP_SAFETY_FLAGS[pt]?"rgba(232,87,74,0.4)":C.blush}`,background:POOP_SAFETY_FLAGS[pt]?"rgba(232,87,74,0.06)":"var(--card-bg-alt)",fontSize:13,color:POOP_SAFETY_FLAGS[pt]?"#c44":"var(--text-mid)",cursor:_cP,fontFamily:_fI}}>
+                      {pt}{POOP_SAFETY_FLAGS[pt]?" ⚠":""}
                     </button>
                   ))}
                 </div>
@@ -10560,6 +10662,56 @@ function App(){
         </div>
       )}
 
+      {/* ═══ Carer Card Modal ═══ */}
+      {showCarerCard&&(
+        <div onClick={()=>setShowCarerCard(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
+            <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:40,marginBottom:8}}>👩‍🍼</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep}}>Carer Card</div>
+              <div style={{fontSize:13,color:C.lt,marginTop:4,lineHeight:1.5}}>
+                Share {babyName||"baby"}'s routine, feeding info, and safe sleep essentials with anyone caring for them today.
+              </div>
+            </div>
+
+            {/* Preview summary */}
+            <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:12}}>
+              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Includes</div>
+              <div style={{fontSize:14,color:C.mid,lineHeight:1.8}}>
+                {pinnedNotes.filter(n=>n.pinned).length > 0 && <div>⚠️ <b>Important notes</b> — allergies, medical info</div>}
+                <div>🍼 <b>Feeding</b> — type, typical amount, last feed</div>
+                <div>😴 <b>Sleep</b> — wake windows, nap/bedtime predictions</div>
+                <div>🛏️ <b>Safe sleep</b> — Lullaby Trust essentials</div>
+                <div>💝 <b>Soothing tips</b> — what to try if {babyName||"baby"} cries</div>
+                <div>🚨 <b>Emergency numbers</b> — 999, NHS 111, Lullaby Trust</div>
+              </div>
+            </div>
+
+            {/* Lullaby Trust note */}
+            <div style={{fontSize:12,color:C.lt,lineHeight:1.5,marginBottom:16,padding:"0 4px",textAlign:"center"}}>
+              Safe sleep section follows The Lullaby Trust's guidance for other carers and babysitters. lullabytrust.org.uk
+            </div>
+
+            {/* Action buttons */}
+            <button onClick={()=>{haptic();shareCarerCard();}} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
+              📤 Share Care Guide
+            </button>
+            <button onClick={()=>{
+              haptic();
+              const html = generateCarerCardHTML();
+              const w = window.open("","_blank");
+              if(w){ w.document.write(html); w.document.close(); }
+            }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
+              🖨️ Preview / Print
+            </button>
+            <button onClick={()=>setShowCarerCard(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Wake Edit Prompt — when editing a wake entry after bedtime */}
       {showWakeEditPrompt&&wakeEditEntry&&(
         <div onClick={()=>{setShowWakeEditPrompt(false);setWakeEditEntry(null);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
@@ -10614,35 +10766,6 @@ function App(){
         </div>
       )}
 
-      {showCryingGuide&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setShowCryingGuide(false);}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-            <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
-            <div style={{textAlign:"center",marginBottom:16}}>
-              <div style={{fontSize:32,marginBottom:6}}>😢</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:4}}>Why might {babyName||"baby"} be crying?</div>
-              <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>Based on today's logged data — most likely reasons first</div>
-            </div>
-            {getCryingDiagnostic().map((r,i)=>(
-              <div key={i} style={{background:"var(--card-bg-solid)",border:`1px solid ${r.confidence==="high"?C.ter:r.confidence==="medium"?C.gold+"60":C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
-                  <span style={{fontSize:22}}>{r.emoji}</span>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:15,fontWeight:700,color:C.deep}}>{r.title}</span>
-                      <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:99,background:r.confidence==="high"?"rgba(201,112,90,0.12)":r.confidence==="medium"?"rgba(212,168,85,0.12)":"rgba(160,155,150,0.1)",color:r.confidence==="high"?C.ter:r.confidence==="medium"?C.gold:C.lt,textTransform:"uppercase",letterSpacing:"0.05em"}}>{r.confidence==="high"?"Likely":r.confidence==="medium"?"Possible":"Worth checking"}</span>
-                    </div>
-                    <div style={{fontSize:12,color:C.lt,marginTop:2}}>{r.detail}</div>
-                  </div>
-                </div>
-                <div style={{fontSize:13,color:C.mid,lineHeight:1.55,paddingLeft:32}}>{r.action}</div>
-              </div>
-            ))}
-            <div style={{fontSize:11,color:C.lt,lineHeight:1.5,textAlign:"center",marginTop:8,padding:"0 8px"}}>Based on logged data and NHS/AASM age guidance. If crying is persistent, high-pitched, or baby seems unwell, contact your GP or call 111.</div>
-            <button onClick={()=>setShowCryingGuide(false)} style={{width:"100%",marginTop:12,padding:"14px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Close</button>
-          </div>
-        </div>
-      )}
 
             {showNightWake&&(
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setShowNightWake(false);}}>
@@ -11066,7 +11189,7 @@ function App(){
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📌 Pin an Important Note</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:12,lineHeight:1.5}}>This note will appear at the top of every day. Use it for allergies, medical info, or reminders.</div>
-            <textarea value={pinForm} onChange={e=>setPinForm(e.target.value)} placeholder="e.g. Oliver allergic to dairy — confirmed by GP"
+            <textarea value={pinForm} onChange={e=>setPinForm(e.target.value)} placeholder="e.g. Allergic to dairy — confirmed by GP"
               style={{width:"100%",fontSize:15,padding:"12px",borderRadius:12,border:"1.5px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,outline:_oN,fontFamily:_fI,resize:"vertical",minHeight:80,boxSizing:_bBB}}/>
             <div style={{marginTop:10}}><PBtn onClick={addPinnedNote}>Pin Note</PBtn></div>
             <button onClick={()=>setShowAddPin(false)} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:"1px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.lt,fontFamily:_fI}}>Cancel</button>
@@ -11079,7 +11202,7 @@ function App(){
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setShowAddReminder(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🔔 Add Reminder</div>
-            <Inp label="Reminder" type="text" placeholder="e.g. Give Oliver Calpol after vaccine" value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:e.target.value}))}/>
+            <Inp label="Reminder" type="text" placeholder="e.g. Health visitor appointment Tuesday" value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:e.target.value}))}/>
             <div style={{display:"flex",gap:8}}>
               <div style={{flex:1}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
               <div style={{flex:1}}><Inp label="Time" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
