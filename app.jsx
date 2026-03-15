@@ -1395,6 +1395,7 @@ function App(){
   const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null);
   const[nightElapsed,setNightElapsed]=useState(null);
+  const[showNightTimerMenu,setShowNightTimerMenu]=useState(false);
   const[timerEndPrompt,setTimerEndPrompt]=useState(null); // {start, end, durMins} when timer stopped
   // Bug 1: explicit timer mode — 'prediction' | 'activeSleep'
   const[timerMode,setTimerMode]=useState(()=> {
@@ -7277,12 +7278,11 @@ function App(){
             )}
             {/* Active nap timer */}
             {napOn && (
-              <div style={{display:"flex",alignItems:"center",gap:5,background:napPaused?"var(--card-bg-solid)":C.mint,border:napPaused?`2px solid ${C.mint}`:"2px solid transparent",borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s"}}>
+              <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:5,background:napPaused?"var(--card-bg-solid)":C.mint,border:napPaused?`2px solid ${C.mint}`:"2px solid transparent",borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP}}>
                 <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?C.mint:"white"}}>{napPaused?"⏸":"😴"} {fmtSec(napSec)}</span>
-                <button onClick={()=>{haptic();napPaused?resumeNap():pauseNap();}} style={{background:napPaused?C.mint:"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"3px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>
+                <button onClick={(e)=>{e.stopPropagation();haptic();napPaused?resumeNap():pauseNap();}} style={{background:napPaused?C.mint:"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"3px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>
                   {napPaused?"▶":"⏸"}
                 </button>
-                <button onClick={()=>{haptic();endNap();}} style={{background:"rgba(255,255,255,0.3)",border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>■</button>
               </div>
             )}
             {/* Nap/Bed countdown pill — right side */}
@@ -7313,7 +7313,7 @@ function App(){
                   displayIcon = "🌙";
                 }
                 return (
-                  <div style={{display:"flex",alignItems:"center",gap:5,background:C.sky,borderRadius:99,padding:"6px 14px"}}>
+                  <div onClick={()=>{haptic();setShowNightTimerMenu(true);}} style={{display:"flex",alignItems:"center",gap:5,background:C.sky,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
                     <span style={{fontSize:13}}>{displayIcon}</span>
                     <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
                       <span style={{fontSize:9,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {displayTime?fmt12(displayTime):""}</span>
@@ -10484,6 +10484,32 @@ function App(){
                 logMorningWakeNextDay();
               }} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                 ☀️ Start of New Day
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Night Timer Menu — shown when tapping the bedtime elapsed timer */}
+      {showNightTimerMenu&&(
+        <div onClick={()=>setShowNightTimerMenu(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:340,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>🌙</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>What's happening?</div>
+            <div style={{fontSize:14,color:C.mid,marginBottom:20,lineHeight:1.5}}>Is {babyName||"baby"} awake for the night or starting the day?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <button onClick={()=>{
+                setShowNightTimerMenu(false);
+                setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                setShowNightWake(true);
+              }} style={{width:"100%",padding:"14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                🌙 Night Wake
+              </button>
+              <button onClick={()=>{
+                setShowNightTimerMenu(false);
+                logMorningWakeNextDay();
+              }} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                ☀️ Wake Up for the Day
               </button>
             </div>
           </div>
