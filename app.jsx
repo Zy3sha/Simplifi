@@ -2519,31 +2519,41 @@ function App(){
   useEffect(()=>{
     if(napOn && !napPaused){
       timerRef.current=setInterval(()=>{
-        const startT = napStartT || localStorage.getItem("nap_startT");
-        if(startT){
-          const [sh,sm]=startT.split(":").map(Number);
-          const startDate=new Date(); startDate.setHours(sh,sm,0,0);
-          const now=new Date();
-          let elapsed=Math.floor((now-startDate)/1000);
-          if(elapsed<0) elapsed+=24*3600;
-          if(elapsed>23*3600) elapsed=0;
-          setNapSec(prev=>{
-            if(elapsed%30<2 && elapsed>0 && napEntryId){
-              setDays(d=>{
-                const entries=d[selDay]||[];
-                if(!entries.some(e=>e.id===napEntryId)) return d;
-                const nowT=nowTime();
-                return{...d,[selDay]:entries.map(e=>e.id===napEntryId?{...e,end:nowT}:e)};
-              });
-            }
-            return elapsed;
-          });
-        }
+        setNapSec(s=>{
+          const next=s+1;
+          if(next%30===0 && napEntryId){
+            setDays(d=>{
+              const entries=d[selDay]||[];
+              if(!entries.some(e=>e.id===napEntryId)) return d;
+              const now=nowTime();
+              return{...d,[selDay]:entries.map(e=>e.id===napEntryId?{...e,end:now}:e)};
+            });
+          }
+          return next;
+        });
       },1000);
     }
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
-  },[napOn, napStartT, napPaused]);
+  },[napOn, napPaused]);
+
+  // Snap timer to wall-clock when phone unlocks (catches drift from sleep)
+  useEffect(()=>{
+    function snapTimer(){
+      if(document.visibilityState!=="visible" || !napOn || napPaused) return;
+      const startT = napStartT || localStorage.getItem("nap_startT");
+      if(!startT) return;
+      const [sh,sm]=startT.split(":").map(Number);
+      const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+      const now=new Date();
+      let elapsed=Math.floor((now-startDate)/1000);
+      if(elapsed<0) elapsed+=24*3600;
+      if(elapsed>23*3600) elapsed=0;
+      setNapSec(elapsed);
+    }
+    document.addEventListener("visibilitychange", snapTimer);
+    return ()=>document.removeEventListener("visibilitychange", snapTimer);
+  },[napOn, napPaused, napStartT]);
 
 
   useEffect(()=>{
