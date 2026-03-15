@@ -1327,7 +1327,6 @@ function App(){
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
-  const[showCryingGuide,setShowCryingGuide]=useState(false);
   const[showWakePrompt,setShowWakePrompt]=useState(false);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[cryingResult,setCryingResult]=useState(null);
@@ -1402,6 +1401,69 @@ function App(){
   const[timerMode,setTimerMode]=useState(()=> {
     try { return localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction"); } catch { return "prediction"; }
   });
+
+  // ── Per-child timer isolation: save/restore timer state on child switch ──
+  const prevChildIdRef = useRef(resolvedActiveId);
+  useEffect(()=>{
+    if(prevChildIdRef.current === resolvedActiveId) return;
+    const outId = prevChildIdRef.current;
+    prevChildIdRef.current = resolvedActiveId;
+
+    // Save outgoing child's timer state
+    if(outId) {
+      try {
+        const outState = { napOn, napStartT, napSec, napEntryId, napPaused, napPausedAtSec, timerMode,
+          breastSide, breastSec, breastActive, breastStartTime };
+        localStorage.setItem(`timer_${outId}`, JSON.stringify(outState));
+      } catch {}
+    }
+
+    // Restore incoming child's timer state (or reset to clean)
+    try {
+      const saved = localStorage.getItem(`timer_${resolvedActiveId}`);
+      if(saved) {
+        const s = JSON.parse(saved);
+        setNapOn(s.napOn || false);
+        setNapStartT(s.napStartT || null);
+        setNapSec(s.napSec || 0);
+        setNapEntryId(s.napEntryId || null);
+        setNapPaused(s.napPaused || false);
+        setNapPausedAtSec(s.napPausedAtSec || 0);
+        setTimerMode(s.timerMode || "prediction");
+        setBreastSide(s.breastSide || null);
+        setBreastSec(s.breastSec || {L:0,R:0});
+        setBreastActive(s.breastActive || false);
+        setBreastStartTime(s.breastStartTime || null);
+        // Sync localStorage keys so existing tick/interval logic works
+        localStorage.setItem("nap_on", s.napOn ? "1" : "0");
+        if(s.napStartT) localStorage.setItem("nap_startT", s.napStartT); else localStorage.removeItem("nap_startT");
+        localStorage.setItem("nap_sec", String(s.napSec || 0));
+        if(s.napEntryId) localStorage.setItem("nap_entry_id", s.napEntryId); else localStorage.removeItem("nap_entry_id");
+        if(s.napPaused) localStorage.setItem("nap_paused", "1"); else localStorage.removeItem("nap_paused");
+        localStorage.setItem("timer_mode_v1", s.timerMode || "prediction");
+        if(s.breastSide) localStorage.setItem("breast_side", s.breastSide); else localStorage.removeItem("breast_side");
+        localStorage.setItem("breast_sec", JSON.stringify(s.breastSec || {L:0,R:0}));
+        localStorage.setItem("breast_active", s.breastActive ? "1" : "0");
+        if(s.breastStartTime) localStorage.setItem("breast_startTime", s.breastStartTime); else localStorage.removeItem("breast_startTime");
+      } else {
+        // No saved state for this child — reset timers
+        setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null);
+        setNapPaused(false); setNapPausedAtSec(0); setTimerMode("prediction");
+        setBreastSide(null); setBreastSec({L:0,R:0}); setBreastActive(false); setBreastStartTime(null);
+        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","timer_mode_v1","breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));
+      }
+    } catch {
+      // Reset on error
+      setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null);
+      setNapPaused(false); setNapPausedAtSec(0); setTimerMode("prediction");
+      setBreastSide(null); setBreastSec({L:0,R:0}); setBreastActive(false); setBreastStartTime(null);
+    }
+    // Reset to today when switching children
+    setSelDay(todayStr());
+    setNapCountdown(null);
+    setBedCountdown(null);
+    setNightElapsed(null);
+  },[resolvedActiveId]);
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
   const[nameIn,setNameIn]=useState("");
@@ -2755,14 +2817,14 @@ function App(){
     if(!age) return null;
     const w=age.totalWeeks;
     if(w<6)   return{stage:"newborn",label:"Newborn",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"Multiple naps",feedGoal:"8-12 feeds/day",nightNote:"Wake every 2-3h is normal",tip:"Tiny tummy — feed on demand. Wake windows just 30–60 min."};
-    if(w<13)  return{stage:"infant",label:"Young Infant",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"4-5 naps",feedGoal:"6-8 feeds/day",nightNote:"Stretches of 3-4h emerging",tip:"Watch for wake windows of 45–75 min."};
-    if(w<26)  return{stage:"3to6mo",label:"3–6 Months",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"3-4 naps",feedGoal:"5-6 feeds/day",nightNote:"Some babies sleep 5-6h stretches",tip:"Consolidation beginning — longer naps likely."};
-    if(w<39)  return{stage:"6to9mo",label:"6–9 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2-3 naps",feedGoal:"4-5 milk + solids 1-2x",nightNote:"Night feeds reducing",tip:"Starting solids! Log meals separately from milk."};
-    if(w<52)  return{stage:"9to12mo",label:"9–12 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2 naps",feedGoal:"3-4 milk + solids 3x",nightNote:"Most can sleep through",tip:"Nap consolidation to 2 naps likely."};
-    if(w<78)  return{stage:"1year",label:"1–1.5 Years",weeks:w,feedUnit:"g/portion",showSolids:true,napGoal:"1-2 naps",feedGoal:"3 meals + 2 snacks",nightNote:"One wake at most is common",tip:"Watch for 2→1 nap transition around 15-18 months."};
-    if(w<104) return{stage:"18mo",label:"1.5–2 Years",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"1 nap",feedGoal:"3 meals + 2 snacks",nightNote:"Should sleep through most nights",tip:"Language is exploding — name everything you see together."};
-    if(w<156) return{stage:"toddler",label:"2–3 Years",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"1 nap (may drop)",feedGoal:"3 meals + snacks",nightNote:"Should sleep through",tip:"Nap may drop around 2.5–3 years. Imagination and pretend play are taking off."};
-    return      {stage:"preschool",label:"3+ Years",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"Quiet time / optional nap",feedGoal:"3 meals + snacks",nightNote:"Sleeping through expected",tip:"Big conversations, big feelings — keep reading together daily."};
+    if(w<13)  return{stage:"infant",label:"Young Infant",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"~4 naps",feedGoal:"6-8 feeds/day",nightNote:"Stretches of 3-4h emerging",tip:"Watch for wake windows of 45–90 min."};
+    if(w<26)  return{stage:"3to6mo",label:"3–6 Months",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"~3 naps",feedGoal:"5-6 feeds/day",nightNote:"Some babies sleep 5-6h stretches",tip:"Consolidation beginning — longer naps likely."};
+    if(w<39)  return{stage:"6to9mo",label:"6–9 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2-3 naps",feedGoal:"4-5 milk + solids 1-2x",nightNote:"Night feeds reducing — waking still normal",tip:"Starting solids! Log meals separately from milk."};
+    if(w<52)  return{stage:"9to12mo",label:"9–12 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"~2 naps",feedGoal:"3-4 milk + solids 3x",nightNote:"Night wakes reducing — still normal",tip:"Nap consolidation to 2 naps likely."};
+    if(w<78)  return{stage:"1year",label:"1–1.5 Years",weeks:w,feedUnit:"g/portion",showSolids:true,napGoal:"1-2 naps",feedGoal:"3 meals + 2 snacks",nightNote:"Occasional wakes still normal",tip:"Watch for 2→1 nap transition around 15-18 months."};
+    if(w<104) return{stage:"18mo",label:"1.5–2 Years",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"1 nap",feedGoal:"3 meals + 2 snacks",nightNote:"Many sleep through — some still wake",tip:"Language is exploding — name everything you see together."};
+    if(w<156) return{stage:"toddler",label:"2–3 Years",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"1 nap (may drop)",feedGoal:"3 meals + snacks",nightNote:"Most sleep through — occasional wakes normal",tip:"Nap may drop around 2.5–3 years. Imagination and pretend play are taking off."};
+    return      {stage:"preschool",label:"3+ Years",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"Quiet time / optional nap",feedGoal:"3 meals + snacks",nightNote:"Typically sleeping through",tip:"Big conversations, big feelings — keep reading together daily."};
   }
   const ageStage = getAgeStage();
 
@@ -2848,19 +2910,19 @@ function App(){
   }
 
   function getWakeWindow(ageWeeks) {
-    // Age-adaptive wake windows with hard guardrails (Bug 3 fix)
+    // Age-adaptive wake windows aligned with paediatric sleep research consensus
     // Returns {min, max, label} in minutes
     const months = ageWeeks / 4.33;
     let min, max, label;
-    if (ageWeeks < 6)     { min=30;  max=60;  label="30–60 min"; }
-    else if (months < 3)  { min=45;  max=75;  label="45–75 min"; }
-    else if (months < 5)  { min=75;  max=120; label="1.25–2 hrs"; }
-    else if (months < 8)  { min=120; max=180; label="2–3 hrs"; }
-    else if (months < 11) { min=150; max=210; label="2.5–3.5 hrs"; }
-    else if (months < 15) { min=180; max=240; label="3–4 hrs"; }
-    else if (months < 19) { min=240; max=300; label="4–5 hrs"; }
-    else if (months < 25) { min=300; max=360; label="5–6 hrs"; }
-    else                  { min=300; max=420; label="5–7 hrs"; }
+    if (ageWeeks < 6)     { min=30;  max=60;  label="30–60 min"; }     // 0–6wk
+    else if (months < 3)  { min=45;  max=90;  label="45–90 min"; }     // 6wk–3mo
+    else if (months < 5)  { min=90;  max=150; label="1.5–2.5 hrs"; }   // 3–5mo
+    else if (months < 7)  { min=120; max=180; label="2–3 hrs"; }       // 5–7mo
+    else if (months < 9)  { min=150; max=210; label="2.5–3.5 hrs"; }   // 7–9mo
+    else if (months < 15) { min=180; max=240; label="3–4 hrs"; }       // 9–15mo
+    else if (months < 19) { min=300; max=360; label="5–6 hrs"; }       // 15–18mo
+    else if (months < 36) { min=300; max=360; label="5–6 hrs"; }       // 18mo–3yr
+    else                  { min=360; max=720; label="6–12 hrs"; }      // 3–5yr
     return { min, max, label, midpoint: Math.round((min+max)/2) };
   }
 
@@ -2876,13 +2938,15 @@ function App(){
 
   function getAgeNapProfile(ageWeeks) {
     if (!ageWeeks) return { expectedNaps:3, idealNapDurMin:30, idealNapDurMax:90, idealTotalMin:120, idealTotalMax:240 };
-    if (ageWeeks < 6)  return { expectedNaps:5, idealNapDurMin:20, idealNapDurMax:60,  idealTotalMin:240, idealTotalMax:360 };
-    if (ageWeeks < 13) return { expectedNaps:4, idealNapDurMin:30, idealNapDurMax:90,  idealTotalMin:180, idealTotalMax:300 };
-    if (ageWeeks < 26) return { expectedNaps:3, idealNapDurMin:40, idealNapDurMax:90,  idealTotalMin:150, idealTotalMax:240 };
-    if (ageWeeks < 39) return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:210 };
-    if (ageWeeks < 52) return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:180 };
-    if (ageWeeks < 78) return { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:60,  idealTotalMax:120 };
-    return               { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:90,  idealTotalMin:60,  idealTotalMax:90  };
+    const months = ageWeeks / 4.33;
+    if (ageWeeks < 6)  return { expectedNaps:5, idealNapDurMin:20, idealNapDurMax:60,  idealTotalMin:240, idealTotalMax:360 }; // 0–6wk
+    if (months < 3)    return { expectedNaps:4, idealNapDurMin:30, idealNapDurMax:90,  idealTotalMin:180, idealTotalMax:300 }; // 6wk–3mo
+    if (months < 5)    return { expectedNaps:3, idealNapDurMin:40, idealNapDurMax:90,  idealTotalMin:150, idealTotalMax:240 }; // 3–5mo
+    if (months < 7)    return { expectedNaps:3, idealNapDurMin:45, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:210 }; // 5–7mo
+    if (months < 9)    return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:210 }; // 7–9mo
+    if (months < 15)   return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:180 }; // 9–15mo
+    if (ageWeeks < 78) return { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:60,  idealTotalMax:120 }; // 15–18mo
+    return               { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:90,  idealTotalMin:60,  idealTotalMax:90  }; // 18mo+
   }
 
   function minutesUntil(timeStr) {
@@ -2984,7 +3048,10 @@ function App(){
     if (napsDoneToday2 === 0) {
       const prevDay = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);const d=dt;return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;})();
       const prevEntries = days[prevDay] || [];
-      const nightWakeCount = prevEntries.filter(e => e.night).length + (days[selDay]||[]).filter(e => e.night).length;
+      const allNightEntries = [...prevEntries.filter(e => e.night), ...(days[selDay]||[]).filter(e => e.night)];
+      const seenNightIds = new Set();
+      const dedupedNight = allNightEntries.filter(e => { if(!e.id || seenNightIds.has(e.id)) return false; seenNightIds.add(e.id); return true; });
+      const nightWakeCount = dedupedNight.length;
       if (nightWakeCount >= 4) {
         const reduction = Math.min(15, (nightWakeCount - 3) * 5);
         wakeWindowMin = Math.max(ww.min, wakeWindowMin - reduction);
@@ -3112,20 +3179,75 @@ function App(){
     const napMinutes = todayNaps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
     const nightWakes = today.filter(e => e.night).length;
     const ageWeeks = age ? age.totalWeeks : null;
-    const ww = ageWeeks ? getWakeWindow(ageWeeks) : null;
+    if (!ageWeeks) return { score: null, factors: [] };
+    const ww = getWakeWindow(ageWeeks);
+    const napProfile = getAgeNapProfile(ageWeeks);
+    const expectedDaySleep = getExpectedDaySleepRange(ageWeeks);
+    const factors = [];
+    let totalScore = 0;
+    let totalWeight = 0;
 
-    let score = 100;
+    // 1. Nap quantity vs expected (weight: 25)
+    const napCount = todayNaps.length;
+    if (napCount > 0) {
+      const napRatio = Math.min(napCount / napProfile.expectedNaps, 1.2);
+      const napQtyScore = napRatio >= 0.8 ? 100 : napRatio >= 0.5 ? 70 : 40;
+      totalScore += napQtyScore * 25;
+      totalWeight += 25;
+      if (napRatio < 0.8) factors.push("Fewer naps than typical");
+    }
 
-    const idealNapMin = ww ? Math.min(ww.min * todayNaps.length, 240) : 120;
-    if (napMinutes < idealNapMin) score -= 20;
-    else if (napMinutes > 240) score -= 10;
+    // 2. Total nap duration vs expected range (weight: 25)
+    if (napMinutes > 0 && expectedDaySleep) {
+      const midTarget = (expectedDaySleep.min + expectedDaySleep.max) / 2;
+      const durScore = napMinutes >= expectedDaySleep.min && napMinutes <= expectedDaySleep.max ? 100
+        : napMinutes < expectedDaySleep.min ? Math.max(30, Math.round(100 * napMinutes / expectedDaySleep.min))
+        : Math.max(50, 100 - Math.round((napMinutes - expectedDaySleep.max) / midTarget * 40));
+      totalScore += durScore * 25;
+      totalWeight += 25;
+      if (napMinutes < expectedDaySleep.min) factors.push("Less nap time than typical");
+      if (napMinutes > expectedDaySleep.max * 1.2) factors.push("More nap time than typical");
+    }
 
-    if (nightWakes > 3) score -= 20;
-    else if (nightWakes === 0 && todayNaps.length > 0) score += 5;
-
+    // 3. Wake window adherence (weight: 25)
     const dayWins = getAwakeWindows(today);
-    if (dayWins.length > 0) score += 5;
-    return Math.max(0, Math.min(100, score));
+    if (dayWins.length > 0) {
+      let wwScore = 100;
+      let exceeded = 0;
+      dayWins.forEach(w => {
+        if (w.mins > ww.max) { wwScore -= 15; exceeded++; }
+        else if (w.mins < ww.min * 0.7) wwScore -= 10;
+      });
+      wwScore = Math.max(20, wwScore);
+      totalScore += wwScore * 25;
+      totalWeight += 25;
+      if (exceeded > 0) factors.push(`${exceeded} wake window${exceeded>1?"s":""} exceeded`);
+    }
+
+    // 4. Night quality (weight: 25)
+    // Compare to age-appropriate expectations
+    const expectedNightWakes = ageWeeks < 13 ? 4 : ageWeeks < 26 ? 3 : ageWeeks < 52 ? 2 : 1;
+    const nightScore = nightWakes <= expectedNightWakes ? 100
+      : nightWakes <= expectedNightWakes + 1 ? 80
+      : nightWakes <= expectedNightWakes + 2 ? 60
+      : 40;
+    totalScore += nightScore * 25;
+    totalWeight += 25;
+    if (nightWakes > expectedNightWakes + 1) factors.push("More night wakes than usual for this age");
+
+    // 5. Sleep debt modifier — check last 3 days
+    const recentDays = Object.keys(days).sort().filter(d => d < selDay).slice(-3);
+    if (recentDays.length >= 2) {
+      const recentNapMins = recentDays.map(d => (days[d]||[]).filter(e=>e.type==="nap"&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0));
+      const avgRecentNaps = Math.round(recentNapMins.reduce((a,b)=>a+b,0) / recentNapMins.length);
+      if (avgRecentNaps < expectedDaySleep.min * 0.7) {
+        totalScore -= 10 * totalWeight / 100; // mild penalty for accumulated debt
+        factors.push("Sleep debt building over recent days");
+      }
+    }
+
+    const finalScore = totalWeight > 0 ? Math.max(0, Math.min(100, Math.round(totalScore / totalWeight))) : null;
+    return { score: finalScore, factors };
   }
 
   function sleepScoreColor(score) {
@@ -3140,7 +3262,6 @@ function App(){
     if (!age) return null;
 
     const napProfile = getAgeNapProfile(age.totalWeeks);
-    const adjustedExpectedBed = napProfile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
     // Don't block prediction — show bedtime even if not all naps done yet
     // This prevents the prediction from disappearing mid-day
     const ww = getWakeWindow(age.totalWeeks);
@@ -3196,7 +3317,7 @@ function App(){
     let finalMins = Math.min(latestBed, Math.max(earliestBed, baseBedMins + adjustMins));
 
     // Clamp to reasonable bedtime window (6pm–8:30pm)
-    finalMins = clampBedtime(finalMins);
+    finalMins = clampBedtime(finalMins, age?age.totalWeeks:null);
 
     // Check if this creates an excessively long wake window → suggest bridge nap
     const lastWW = finalMins - lastNapEndMins;
@@ -3210,7 +3331,7 @@ function App(){
     const safeLastWW = clampWakeWindow(lastWW, age.totalWeeks);
     if (safeLastWW !== lastWW) {
       const safeBed = lastNapEndMins + safeLastWW;
-      const clampedSafe = clampBedtime(safeBed);
+      const clampedSafe = clampBedtime(safeBed, age?age.totalWeeks:null);
       const shh = Math.floor(clampedSafe/60)%24;
       const smm = clampedSafe%60;
       return { time: `${String(shh).padStart(2,"0")}:${String(smm).padStart(2,"0")}`, adjustReason: adjustReason || "Adjusted for safe wake window", bedSource, baseBedMins, adjustMins, needsBridge: clampedSafe - lastNapEndMins > ww.max + 20, lastNapEndMins, lastWW: clampedSafe - lastNapEndMins };
@@ -3670,8 +3791,12 @@ function App(){
   }
 
   // 12. Bedtime safety guard clamp
-  function clampBedtime(mins) {
-    const lo = 18*60, hi = 20*60+30;
+  function clampBedtime(mins, ageWeeks) {
+    // Under 6 months: allow 5:30pm floor (overtired young babies often need earlier bed)
+    // 6+ months: standard 6:00pm floor
+    const aw = ageWeeks !== undefined ? ageWeeks : (age ? age.totalWeeks : null);
+    const lo = (aw && aw < 26) ? 17*60+30 : 18*60;
+    const hi = 20*60+30;
     return Math.max(lo, Math.min(hi, mins));
   }
 
@@ -4144,6 +4269,22 @@ function App(){
       totalMin=300; totalMax=500; totalTarget=400; dayTarget=320; dayMin=200;
       targetFeeds=2; totalLabel="300–500ml/day (NHS)";
       nhsNote="After 12 months, cow's milk can replace formula. 300–400ml/day supports calcium needs alongside a varied diet.";
+    }
+
+    // Detect feed type from recent data — adjust nhsNote for breast/combo/formula
+    const recentFeedTypes = new Set();
+    const recentDaysForFeeds = Object.keys(days).sort().slice(-7);
+    recentDaysForFeeds.forEach(d => (days[d]||[]).filter(e=>e.type==="feed").forEach(e => { if(e.feedType) recentFeedTypes.add(e.feedType); }));
+    allMilkFeeds.forEach(e => { if(e.feedType) recentFeedTypes.add(e.feedType); });
+    const hasBreast = recentFeedTypes.has("breast");
+    const hasFormula = recentFeedTypes.has("milk") || recentFeedTypes.has("bottle");
+    const isCombo = hasBreast && hasFormula;
+    if (hasBreast && !hasFormula) {
+      // Exclusively breastfed — volume targets don't apply
+      nhsNote = "Breastfed babies feed on demand — frequency and wet nappies are better indicators than volume. Any amount of breastfeeding reduces the risk of SIDS (Lullaby Trust).";
+      totalLabel = "Feed on demand";
+    } else if (isCombo) {
+      nhsNote = nhsNote + " For breastfed portions, frequency and wet nappies are better indicators than volume — volume targets apply to formula feeds.";
     }
 
 
@@ -5638,8 +5779,8 @@ function App(){
     // 7. TEMPERATURE — always relevant
     reasons.push({
       emoji: "🌡️", title: "Too hot or cold",
-      detail: "Ideal room temperature is 16–20°C",
-      action: "Feel baby's chest or back of neck — add or remove a layer as needed",
+      detail: "The Lullaby Trust recommends 16–20°C",
+      action: "Feel baby's chest or back of neck — if hot or sweaty, remove a layer. Hands and feet are normally cooler. Remove hats indoors",
       urgency: "low", score: 30
     });
 
