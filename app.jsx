@@ -1467,6 +1467,8 @@ function App(){
   const[copied,setCopied]=useState(false);
   const[nameEdit,setNameEdit]=useState(false);
   const[nameIn,setNameIn]=useState("");
+  const[confirmDialog,setConfirmDialog]=useState(null); // {title, message, onConfirm, confirmLabel, danger}
+  const showConfirm = (title, message, onConfirm, confirmLabel="OK", danger=false) => setConfirmDialog({title, message, onConfirm, confirmLabel, danger});
   const theme = babySex==="girl"
     ? {primary:isDark?"rgba(45,31,42,0.8)":"#fde7e4",secondary:isDark?"rgba(61,42,56,0.8)":"#f5ccc7",grad:isDark?"linear-gradient(135deg,rgba(45,31,42,0.9),rgba(61,42,56,0.9))":"linear-gradient(135deg,#fde7e4,#f5ccc7)"}
     : babySex==="boy"
@@ -5164,6 +5166,11 @@ function App(){
 
       const afterBed = tMins > bedMins;
 
+      // Grace period: feeds within 30 mins of bedtime are likely settling/dream feeds, not night wakes
+      const graceMinutes = 30;
+      const inGracePeriod = afterBed && (tMins - bedMins) <= graceMinutes && e.type === "feed";
+      if (inGracePeriod) return e; // keep as daytime
+
       const morningMins = morningWakeTime ? timeVal({time: morningWakeTime}) : 6*60;
       const crossMidnight = tMins < bedMins && tMins < morningMins && h >= 0 && h < 6;
 
@@ -6662,11 +6669,13 @@ function App(){
       return;
     }
     if(targetYear && targetYear < currentYear){
-      if(window.confirm("That date is in " + targetYear + ". Did you mean " + currentYear + "?\n\nPress OK to use " + currentYear + ", or Cancel to keep " + targetYear + ".")){
-        const corrected = newDate.replace(String(targetYear), String(currentYear));
-        setNewDate(corrected);
-        return;
-      }
+      showConfirm(
+        "Check the year",
+        `That date is in ${targetYear}. Did you mean ${currentYear}?`,
+        ()=>{ const corrected = newDate.replace(String(targetYear), String(currentYear)); setNewDate(corrected); setConfirmDialog(null); },
+        `Use ${currentYear}`
+      );
+      return;
     }
     if(!days[newDate])setDays(d=>({...d,[newDate]:[]}));
     setSelDay(newDate);
@@ -7489,7 +7498,7 @@ function App(){
           </div>
         ) : (
           <form onSubmit={e=>{e.preventDefault();setBabyName(nameIn.trim());setNameEdit(false);}} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-            <input autoFocus value={nameIn} onChange={e=>setNameIn(e.target.value)} placeholder="e.g. Oliver"
+            <input autoFocus value={nameIn} onChange={e=>setNameIn(e.target.value)} placeholder="e.g. Emma"
               style={{flex:1,fontSize:18,padding:"9px 13px",borderRadius:12,border:_bN,background:"var(--card-bg)",color:C.deep,outline:_oN,fontFamily:_fI}}/>
             <button type="submit" style={{background:C.ter,border:_bN,borderRadius:10,color:"white",fontSize:14,padding:"9px 14px",cursor:_cP,fontWeight:700}}>Save</button>
             {babyName&&<button type="button" onClick={()=>setNameEdit(false)} style={{background:"var(--chip-bg)",border:_bN,borderRadius:10,color:C.mid,fontSize:14,padding:"9px 10px",cursor:_cP}}>✕</button>}
@@ -7545,14 +7554,21 @@ function App(){
               </button>
             )}
             {/* Active nap timer */}
-            {napOn && (
-              <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:5,background:napPaused?"var(--card-bg-solid)":C.mint,border:napPaused?`2px solid ${C.mint}`:"2px solid transparent",borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP}}>
-                <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?C.mint:"white"}}>{napPaused?"⏸":"😴"} {fmtSec(napSec)}</span>
-                <button onClick={(e)=>{e.stopPropagation();haptic();napPaused?resumeNap():pauseNap();}} style={{background:napPaused?C.mint:"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"3px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>
+            {napOn && (()=>{
+              const napWarn = napSec >= 14400; // 4h — urgent
+              const napCaution = napSec >= 10800; // 3h — caution
+              const pillBg = napPaused ? "var(--card-bg-solid)" : napWarn ? "#e8574a" : napCaution ? C.gold : C.mint;
+              const pillBorder = napPaused ? `2px solid ${napCaution?C.gold:C.mint}` : "2px solid transparent";
+              return (
+              <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:5,background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP,animation:napWarn?"pulse 1s infinite":"none"}}>
+                <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?(napCaution?C.gold:C.mint):"white"}}>{napPaused?"⏸":napWarn?"⚠️":napCaution?"⏰":"😴"} {fmtSec(napSec)}</span>
+                {napCaution && !napPaused && <span style={{fontSize:10,color:"rgba(255,255,255,0.8)",fontFamily:_fM}}>Tap to stop</span>}
+                <button onClick={(e)=>{e.stopPropagation();haptic();napPaused?resumeNap():pauseNap();}} style={{background:napPaused?(napCaution?C.gold:C.mint):"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"3px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>
                   {napPaused?"▶":"⏸"}
                 </button>
               </div>
-            )}
+              );
+            })()}
             {/* Nap/Bed countdown pill — right side */}
             {!napOn&&(()=>{
               const hasBedLogged = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
@@ -8119,7 +8135,7 @@ function App(){
                         <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                             <div>
-                              <span style={{color:"var(--text-mid)",fontSize:15}}>🌟 {fmt12(e.time)} wake</span>
+                              <span style={{color:"var(--text-mid)",fontSize:15}}>{e.type==="feed"?"🍼":"🌟"} {fmt12(e.time)} {e.type==="feed"?"feed":"wake"}</span>
                               {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
@@ -8159,7 +8175,7 @@ function App(){
                         <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                             <div>
-                              <span style={{color:"var(--text-mid)",fontSize:15}}>🌟 {fmt12(e.time)} wake</span>
+                              <span style={{color:"var(--text-mid)",fontSize:15}}>{e.type==="feed"?"🍼":"🌟"} {fmt12(e.time)} {e.type==="feed"?"feed":"wake"}</span>
                               {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
@@ -9285,7 +9301,7 @@ function App(){
               <div style={{borderBottom:`1px solid ${C.blush}`}}>
                 <div onClick={()=>{
                   if(isFuture) return;
-                  if(done){ if(window.confirm(`Remove "${m.label}"?`)) setMilestones(ms=>({...ms,[m.id]:{}}))}
+                  if(done){ showConfirm("Remove milestone", `Remove "${m.label}"?`, ()=>{setMilestones(ms=>({...ms,[m.id]:{}}));setConfirmDialog(null);}, "Remove", true); }
                   else setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
                 }} style={{display:"flex",alignItems:"flex-start",gap:11,padding:"10px 0",cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1}}>
                   <div style={{width:21,height:21,borderRadius:"50%",border:`2px solid ${tick}`,background:done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2}}>
@@ -9747,7 +9763,7 @@ function App(){
               <button onClick={()=>{
                 const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
                 const days2=Object.values(children).reduce((s,c)=>s+Object.keys(c.days||{}).length,0);
-                if(window.confirm("Save current data to cloud?\n\n"+days2+" days · "+tot+" entries\n\n⚠️ This replaces whatever is currently saved in the cloud with what's on this device. Use this if you're sure this device has the most up-to-date data.")){pushToCloud(backupCode,childrenRef.current);}
+                showConfirm("Save to Cloud", `${days2} days · ${tot} entries\n\nThis replaces whatever is currently saved in the cloud with what's on this device.`, ()=>{pushToCloud(backupCode,childrenRef.current);setConfirmDialog(null);setQuickFlash("☁️ Saved to cloud ✓");setTimeout(()=>setQuickFlash(null),1500);}, "Save to Cloud");
               }} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
                 <span style={{fontSize:24}}>💾</span>
                 <div>
@@ -9815,7 +9831,7 @@ function App(){
                 else if(e.type==="sleep")html+="<tr><td>🌙 Bedtime</td><td>"+fmt12(e.time)+"</td><td></td></tr>";
               });
               html+="</table>";
-              if(nightEntries.length){html+="<h2>Night</h2><table>";nightEntries.forEach((e,i)=>{html+="<tr><td>🌟 Wake "+(i+1)+"</td><td>"+fmt12(e.time)+"</td><td>"+(e.amount?fmtVol(e.amount,FU):"")+(e.selfSettled?" Self settled":"")+"</td></tr>";});html+="</table>";}
+              if(nightEntries.length){html+="<h2>Night</h2><table>";nightEntries.forEach((e,i)=>{html+="<tr><td>"+(e.type==="feed"?"🍼 Feed":"🌟 Wake")+" "+(i+1)+"</td><td>"+fmt12(e.time)+"</td><td>"+(e.amount?fmtVol(e.amount,FU):"")+(e.selfSettled?" Self settled":"")+"</td></tr>";});html+="</table>";}
               html+="<br><p style='color:#999;font-size:12px'>Tracked with OBubba — obubba.com</p></body></html>";
               w.document.write(html);w.document.close();w.print();
             }} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
@@ -10449,7 +10465,7 @@ function App(){
         const totalNapM=dayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
         const nightPoints=[];
         if(sleepEv) nightPoints.push({label:"Bedtime",time:sleepEv.time});
-        nEs.forEach((e,i)=>nightPoints.push({label:`Wake ${i+1}`,time:e.time,feed:e.amount||0}));
+        nEs.forEach((e,i)=>nightPoints.push({label:e.type==="feed"?`Feed ${i+1}`:`Wake ${i+1}`,time:e.time,feed:e.amount||0}));
         const stretches=[];
         for(let i=0;i<nightPoints.length-1;i++){
           const from=nightPoints[i];const to=nightPoints[i+1];
@@ -10810,8 +10826,9 @@ function App(){
 
       {/* ═══ Carer Card Modal ═══ */}
       {showCarerCard&&(
-        <div onClick={()=>setShowCarerCard(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
+        <div onClick={()=>setShowCarerCard(false)} onTouchEnd={e=>{if(e.target===e.currentTarget)setShowCarerCard(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+            <button onClick={()=>setShowCarerCard(false)} style={{position:"absolute",top:16,right:16,width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}>✕</button>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:40,marginBottom:8}}>👩‍🍼</div>
@@ -11684,6 +11701,26 @@ function App(){
           <div onClick={ev=>ev.stopPropagation()} style={{marginTop:16,display:"flex",gap:12}}>
             <button onClick={()=>setViewPhoto(null)} style={{padding:"10px 28px",borderRadius:99,background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.25)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:"inherit"}}>Close</button>
             <button onClick={()=>{setPhotos(prev=>prev.filter(x=>x.id!==viewPhoto.id));setViewPhoto(null);try{navigator.vibrate&&navigator.vibrate(30);}catch{}}} style={{padding:"10px 28px",borderRadius:99,background:"rgba(224,96,112,0.25)",border:"1.5px solid rgba(224,96,112,0.45)",color:"#ff8a95",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:"inherit"}}>Delete Photo</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Inline Confirm Dialog ═══ */}
+      {confirmDialog&&(
+        <div onClick={()=>setConfirmDialog(null)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:320,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:10}}>{confirmDialog.title}</div>
+            <div style={{fontSize:14,color:C.mid,marginBottom:22,lineHeight:1.5,whiteSpace:"pre-line"}}>{confirmDialog.message}</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <button onClick={confirmDialog.onConfirm}
+                style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:confirmDialog.danger?"#e8574a":`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                {confirmDialog.confirmLabel||"OK"}
+              </button>
+              <button onClick={()=>setConfirmDialog(null)}
+                style={{width:"100%",padding:"12px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
