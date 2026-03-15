@@ -2754,7 +2754,7 @@ function App(){
   function getAgeStage(){
     if(!age) return null;
     const w=age.totalWeeks;
-    if(w<6)   return{stage:"newborn",label:"Newborn",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"4-6 naps",feedGoal:"8-12 feeds/day",nightNote:"Wake every 2-3h is normal",tip:"Tiny tummy — feed on demand. Wake windows just 30–60 min."};
+    if(w<6)   return{stage:"newborn",label:"Newborn",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"Multiple naps",feedGoal:"8-12 feeds/day",nightNote:"Wake every 2-3h is normal",tip:"Tiny tummy — feed on demand. Wake windows just 30–60 min."};
     if(w<13)  return{stage:"infant",label:"Young Infant",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"4-5 naps",feedGoal:"6-8 feeds/day",nightNote:"Stretches of 3-4h emerging",tip:"Watch for wake windows of 45–75 min."};
     if(w<26)  return{stage:"3to6mo",label:"3–6 Months",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"3-4 naps",feedGoal:"5-6 feeds/day",nightNote:"Some babies sleep 5-6h stretches",tip:"Consolidation beginning — longer naps likely."};
     if(w<39)  return{stage:"6to9mo",label:"6–9 Months",weeks:w,feedUnit:"ml",showSolids:true,napGoal:"2-3 naps",feedGoal:"4-5 milk + solids 1-2x",nightNote:"Night feeds reducing",tip:"Starting solids! Log meals separately from milk."};
@@ -7366,7 +7366,7 @@ function App(){
               return <div style={{background:"var(--card-bg)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
             }
             if (!age) return null;
-            return <div style={{background:"var(--card-bg)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🎂 {fmtAge(age)} · {age.totalWeeks}wk</div>;
+            return <div style={{background:"var(--card-bg)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🎂 {fmtAge(age)}{age.months >= 1 ? ` · ${age.totalWeeks}wk` : ""}</div>;
           })()}
         </div>
         {tab === "day" && breastStartTime && (
@@ -9316,7 +9316,7 @@ function App(){
                 <div>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep}}>{name}'s Development</div>
                   <div style={{fontSize:13,color:C.mid,marginTop:2}}>
-                    {age ? `${fmtAge(age)} · ${age.totalWeeks} weeks old` : "Set a date of birth to personalise"}
+                    {age ? `${fmtAge(age)}${age.months >= 1 ? ` · ${age.totalWeeks} weeks old` : ""}` : "Set a date of birth to personalise"}
                   </div>
                   <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:3}}>Based on NHS & WHO guidelines</div>
                 </div>
@@ -9904,35 +9904,40 @@ function App(){
             {!nappyMode && (
               <div>
                 <div style={{fontSize:13,color:C.lt,marginBottom:10,fontFamily:_fM}}>What type?</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:8}}>
                   <button onClick={()=>{const t=nappyTime||nowTime();quickAddLog("poop",{type:"poop",time:t,poopType:"wet",note:""});setNappyMode(null);setNappyTime("");}}
                     style={{padding:"18px 10px",borderRadius:16,border:`2px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:32,cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
                     <span>💧</span>
-                    <span style={{fontSize:14,fontWeight:700,color:C.mid}}>Wet</span>
+                    <span style={{fontSize:13,fontWeight:700,color:C.mid}}>Wet</span>
+                  </button>
+                  <button onClick={()=>setNappyMode("poop")}
+                    style={{padding:"18px 10px",borderRadius:16,border:`2px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:32,cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+                    <span>💩</span>
+                    <span style={{fontSize:13,fontWeight:700,color:C.mid}}>Poop</span>
                   </button>
                   <button onClick={()=>setNappyMode("dirty")}
                     style={{padding:"18px 10px",borderRadius:16,border:`2px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:32,cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-                    <span>💩</span>
-                    <span style={{fontSize:14,fontWeight:700,color:C.mid}}>Dirty</span>
+                    <span>💧💩</span>
+                    <span style={{fontSize:13,fontWeight:700,color:C.mid}}>Dirty</span>
                   </button>
                 </div>
               </div>
             )}
-            {nappyMode==="dirty" && (
+            {(nappyMode==="poop"||nappyMode==="dirty") && (
               <div>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                  <div style={{fontSize:13,fontFamily:_fM,color:C.mid,fontWeight:600}}>💩 What did it look like?</div>
+                  <div style={{fontSize:13,fontFamily:_fM,color:C.mid,fontWeight:600}}>{nappyMode==="dirty"?"💧💩":"💩"} What did it look like?</div>
                   <button onClick={()=>setNappyMode(null)} style={{fontSize:12,color:C.lt,background:_bN,border:_bN,cursor:_cP,fontFamily:_fI}}>← Back</button>
                 </div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
                   {POOP_TYPES.map(pt=>(
-                    <button key={pt} onClick={()=>{const t=nappyTime||nowTime();quickAddLog("poop",{type:"poop",time:t,poopType:pt,note:""});setNappyMode(null);setNappyTime("");if(POOP_SAFETY_FLAGS[pt]){setQuickFlash(null);setTimeout(()=>{setQuickFlash("⚠️ "+POOP_SAFETY_FLAGS[pt]);setTimeout(()=>setQuickFlash(null),5000);},200);}}}
+                    <button key={pt} onClick={()=>{const t=nappyTime||nowTime();const pType=nappyMode==="dirty"?"wet + "+pt:pt;quickAddLog("poop",{type:"poop",time:t,poopType:pType,note:nappyMode==="dirty"?"Wet + dirty":""});setNappyMode(null);setNappyTime("");if(POOP_SAFETY_FLAGS[pt]){setQuickFlash(null);setTimeout(()=>{setQuickFlash("⚠️ "+POOP_SAFETY_FLAGS[pt]);setTimeout(()=>setQuickFlash(null),5000);},200);}}}
                       style={{padding:"7px 14px",borderRadius:99,border:`1.5px solid ${POOP_SAFETY_FLAGS[pt]?"rgba(232,87,74,0.4)":C.blush}`,background:POOP_SAFETY_FLAGS[pt]?"rgba(232,87,74,0.06)":"var(--card-bg-alt)",fontSize:13,color:POOP_SAFETY_FLAGS[pt]?"#c44":"var(--text-mid)",cursor:_cP,fontFamily:_fI}}>
                       {pt}{POOP_SAFETY_FLAGS[pt]?" ⚠":""}
                     </button>
                   ))}
                 </div>
-                <PBtn v="ghost" onClick={()=>{const t=nappyTime||nowTime();quickAddLog("poop",{type:"poop",time:t,poopType:"dirty",note:""});setNappyMode(null);setNappyTime("");}}>Just log as dirty</PBtn>
+                <PBtn v="ghost" onClick={()=>{const t=nappyTime||nowTime();const pType=nappyMode==="dirty"?"wet + dirty":"dirty";quickAddLog("poop",{type:"poop",time:t,poopType:pType,note:""});setNappyMode(null);setNappyTime("");}}>Just log as {nappyMode==="dirty"?"dirty (wet + poop)":"dirty"}</PBtn>
               </div>
             )}
           </div>
