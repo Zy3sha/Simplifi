@@ -1403,6 +1403,8 @@ function App(){
   const[napOn,setNapOn]=useState(()=>{try{return localStorage.getItem("nap_on")==="1";}catch{return false;}});
   const[napStartT,setNapStartT]=useState(()=>{try{return localStorage.getItem("nap_startT")||null;}catch{return null;}});
   const[napEntryId,setNapEntryId]=useState(()=>{try{return localStorage.getItem("nap_entry_id")||null;}catch{return null;}});
+  const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
+  const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[napSec,setNapSec]=useState(()=>{
     try{
       const on=localStorage.getItem("nap_on")==="1";
@@ -2562,7 +2564,7 @@ function App(){
   const[newChildSex,setNewChildSex]=useState("");
   const[newChildUnborn,setNewChildUnborn]=useState(false);
   useEffect(()=>{
-    if(napOn){
+    if(napOn && !napPaused){
       timerRef.current=setInterval(()=>{
         // Calculate elapsed from actual start time — survives phone sleep/lock
         const startT = napStartT || localStorage.getItem("nap_startT");
@@ -2590,7 +2592,7 @@ function App(){
     }
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
-  },[napOn, napStartT]);
+  },[napOn, napStartT, napPaused]);
 
 
   useEffect(()=>{
@@ -2643,8 +2645,23 @@ function App(){
       isOverdue: bed.bridgeNapStart <= (new Date().getHours()*60+new Date().getMinutes())
     } : null);
     // Gather night wakes for night timer (time since last event)
+    // If last wake had soothing duration, count from wake + duration (when baby went back to sleep)
     const nightWakes = hasBedtime ? (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b)) : [];
-    const lastNightEvent = nightWakes.length ? nightWakes[nightWakes.length-1].time : bedEntryTime;
+    let lastNightEvent = bedEntryTime;
+    if(nightWakes.length) {
+      const lastWake = nightWakes[nightWakes.length-1];
+      const wakeTime = lastWake.time;
+      const soothingMins = lastWake.assistedDuration ? parseInt(lastWake.assistedDuration) : 0;
+      if(soothingMins > 0) {
+        // Count from wake + soothing duration (when baby went back to sleep)
+        const [wh,wm] = wakeTime.split(":").map(Number);
+        const totalMins = wh*60+wm+soothingMins;
+        const rh = Math.floor(totalMins/60)%24, rm = totalMins%60;
+        lastNightEvent = `${String(rh).padStart(2,"0")}:${String(rm).padStart(2,"0")}`;
+      } else {
+        lastNightEvent = wakeTime;
+      }
+    }
     tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, bed, bedMins, napsDone, expectedNaps, pred: effectivePred };
   },[selDay, days, age, bridgeNapScheduled]);
 
@@ -6024,7 +6041,7 @@ function App(){
       return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
     });
     try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",entryId);}catch{}
-    setNapStartT(t);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
+    setNapStartT(t);setNapSec(0);setNapOn(true);setNapEntryId(entryId);setNapPaused(false);setNapPausedAtSec(0);
     setTimerMode("activeSleep");
   }
 
@@ -6067,7 +6084,7 @@ function App(){
     const startDate=new Date(); startDate.setHours(sh,sm,0,0);
     const elapsed=Math.max(0,Math.floor((now-startDate)/1000));
     try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_entry_id",entryId);}catch{}
-    setNapStartT(t);setNapSec(elapsed);setNapOn(true);setNapEntryId(entryId);
+    setNapStartT(t);setNapSec(elapsed);setNapOn(true);setNapEntryId(entryId);setNapPaused(false);setNapPausedAtSec(0);
     setTimerMode("activeSleep");
   }
 
@@ -6113,10 +6130,27 @@ function App(){
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
     try{["breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
+  function pauseNap(){
+    if(!napOn || napPaused) return;
+    setNapPaused(true);
+    setNapPausedAtSec(napSec);
+    try{localStorage.setItem("nap_paused","1");localStorage.setItem("nap_paused_sec",String(napSec));}catch{}
+  }
+  function resumeNap(){
+    if(!napOn || !napPaused) return;
+    // Adjust start time forward so wall-clock calculation picks up from paused point
+    const now=new Date();
+    const newStartDate=new Date(now.getTime() - napPausedAtSec*1000);
+    const newStartT=`${String(newStartDate.getHours()).padStart(2,"0")}:${String(newStartDate.getMinutes()).padStart(2,"0")}`;
+    setNapStartT(newStartT);
+    setNapPaused(false);
+    try{localStorage.setItem("nap_startT",newStartT);localStorage.removeItem("nap_paused");localStorage.removeItem("nap_paused_sec");}catch{}
+  }
   function endNap(){
     if(!napOn) return;
-    if (!napStartT) { setNapOn(false); setTimerMode("prediction"); return; }
+    if (!napStartT) { setNapOn(false); setNapPaused(false); setTimerMode("prediction"); return; }
     setNapOn(false);
+    setNapPaused(false);
     const end=nowTime();
     const [sh,sm]=napStartT.split(":").map(Number);
     const [eh,em]=end.split(":").map(Number);
@@ -6155,7 +6189,7 @@ function App(){
     }
     setNapStartT(null);setNapSec(0);setNapEntryId(null);setNapStartEdit(false);
     setTimerMode("prediction");
-    try{["nap_on","nap_startT","nap_sec","nap_entry_id"].forEach(k=>localStorage.removeItem(k));}catch{}
+    try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
   }
   // ── Weekly Digest Generator ──
   function generateWeeklyDigest() {
@@ -6726,17 +6760,29 @@ function App(){
   useEffect(()=>{
     function ensureToday(){
       const t = todayStr();
-      setDays(d => d[t] ? d : {...d, [t]: []});
+      // Only auto-create today if there are NO days at all (brand new user)
+      // Otherwise, morning wake creates the new day via logMorningWakeNextDay
+      setDays(d => {
+        const dayKeys = Object.keys(d);
+        if(dayKeys.length === 0) return {...d, [t]: []};
+        return d;
+      });
     }
     ensureToday();
-    // Pick which day to show: today if it has a wake, else yesterday if it has bedtime
+    // Pick which day to show: today if it exists and has entries, else yesterday if it has bedtime
     const td = todayStr();
     const yesterday = (() => { const dt = new Date(); dt.setDate(dt.getDate()-1); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`; })();
+    const todayExists = days[td] && (days[td].length > 0 || Object.keys(days).length <= 1);
     const todayHasWake = (days[td]||[]).some(e => e.type === "wake" && !e.night);
     const yHasBed = (days[yesterday]||[]).some(e => e.type === "sleep" && !e.night);
     if (todayHasWake) setSelDay(td);
-    else if (yHasBed) setSelDay(yesterday);
-    else setSelDay(td);
+    else if (yHasBed && !todayExists) setSelDay(yesterday);
+    else if (days[td]) setSelDay(td);
+    else {
+      // No today — show most recent day
+      const sorted = Object.keys(days).sort();
+      if(sorted.length) setSelDay(sorted[sorted.length-1]);
+    }
 
     // Check for weekly digest on Monday
     if(weeklyDigestEnabled) {
@@ -6753,7 +6799,16 @@ function App(){
     function scheduleMidnight(){
       const now = new Date();
       const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 1).getTime() - now.getTime();
-      return setTimeout(()=>{ ensureToday(); scheduleMidnight(); }, msUntilMidnight);
+      return setTimeout(()=>{ 
+        // Don't auto-create next day at midnight — it appears when wake is logged
+        // Just re-run day selection logic
+        const td = todayStr();
+        const yd = (() => { const dt = new Date(); dt.setDate(dt.getDate()-1); return localDateStr(dt); })();
+        const todayHasWake2 = (days[td]||[]).some(e => e.type === "wake" && !e.night);
+        if(todayHasWake2) setSelDay(td);
+        else if(days[yd]) setSelDay(yd);
+        scheduleMidnight(); 
+      }, msUntilMidnight);
     }
     // Check for appointment schedule prompt
     if(appointments && appointments.length) try{checkTomorrowAppointments();}catch{}
@@ -7540,7 +7595,7 @@ function App(){
           </form>
         )}
         {tab === "day" && breastStartTime && (
-          <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",gap:8,marginTop:8,marginBottom:10,flexWrap:"wrap"}}>
+          <div style={{display:"flex",gap:8,marginTop:8,marginBottom:10,flexWrap:"wrap"}}>
             {breastStartTime && (
               <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"7px 10px",boxShadow:"0 2px 8px rgba(44,31,26,0.12)",display:"flex",flexDirection:"column",gap:5}}>
                 <div style={{display:"flex",gap:5}}>
@@ -7567,33 +7622,37 @@ function App(){
         )}
         {/* Start Feed + Status pill row */}
         {tab === "day" && !breastStartTime && (
-          <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8,marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8,marginBottom:10}}>
             {/* LEFT: Action button */}
             {!napOn && (
               <button onClick={()=>{haptic();startBreastTimer("L");}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
                 🤱 Start Feed
               </button>
             )}
-            {/* Active nap timer — tap anywhere to stop */}
+            {/* Active nap timer — with pause and stop */}
             {napOn && (
-              <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:0,background:napPaused?"var(--card-bg-solid)":C.mint,border:napPaused?`2px solid ${C.mint}`:"2px solid transparent",borderRadius:99,padding:"4px 5px 4px 12px",transition:"all 0.2s"}}>
                 {!napStartEdit ? (
-                  <button onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:6,background:C.mint,borderRadius:99,padding:"8px 14px",flex:1,cursor:_cP,minHeight:44,border:"none",WebkitTapHighlightColor:"transparent"}}>
-                    <span onClick={e=>{e.stopPropagation();setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",borderRadius:99,padding:"4px 10px",fontSize:12,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600}}>
-                      {fmt12(napStartT||nowTime())}
-                    </span>
-                    <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white",flex:1,textAlign:"left"}}>😴 {fmtSec(napSec)}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.9)",background:"rgba(255,255,255,0.2)",borderRadius:99,padding:"4px 12px"}}>Stop</span>
+                  <button onClick={()=>{setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",border:"none",borderRadius:99,padding:"3px 9px",fontSize:11,color:napPaused?C.mint:"white",cursor:_cP,fontFamily:_fM,fontWeight:600,marginRight:6}}>
+                    {fmt12(napStartT||nowTime())}
                   </button>
                 ) : (
-                  <div style={{display:"flex",alignItems:"center",gap:4,background:C.mint,borderRadius:99,padding:"8px 12px",flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:3,marginRight:6}}>
                     <input type="time" value={napStartEditVal} onChange={e=>setNapStartEditVal(e.target.value)}
-                      style={{width:76,fontSize:13,padding:"3px 6px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:"white",fontFamily:_fM,outline:"none"}} autoFocus/>
-                    <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700,minHeight:28}}>✓</button>
-                    <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:"none",padding:"4px 6px",fontSize:11,color:"rgba(255,255,255,0.7)",cursor:_cP,minHeight:28}}>✕</button>
-                    <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white",marginLeft:4}}>😴 {fmtSec(napSec)}</span>
+                      style={{width:72,fontSize:12,padding:"2px 5px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:napPaused?C.deep:"white",fontFamily:_fM,outline:"none"}} autoFocus/>
+                    <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:6,padding:"3px 7px",fontSize:10,color:napPaused?C.deep:"white",cursor:_cP,fontWeight:700}}>✓</button>
+                    <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:"none",padding:"3px 4px",fontSize:10,color:napPaused?C.lt:"rgba(255,255,255,0.7)",cursor:_cP}}>✕</button>
                   </div>
                 )}
+                <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:napPaused?C.mint:"white",marginRight:6}}>{napPaused?"⏸":"😴"} {fmtSec(napSec)}</span>
+                {/* Pause / Resume button */}
+                <button onClick={()=>{haptic();napPaused?resumeNap():pauseNap();}} style={{background:napPaused?C.mint:"rgba(255,255,255,0.25)",border:"none",borderRadius:99,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:14,color:napPaused?"white":"white",marginRight:4,flexShrink:0}}>
+                  {napPaused?"▶":"⏸"}
+                </button>
+                {/* Stop button */}
+                <button onClick={()=>{haptic();endNap();}} style={{background:napPaused?"var(--card-bg-alt)":"rgba(255,255,255,0.3)",border:"none",borderRadius:99,width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:13,color:napPaused?C.ter:"white",flexShrink:0}}>
+                  ■
+                </button>
               </div>
             )}
             {/* RIGHT: Status pill — awake counter / nap countdown / bed countdown / night timer */}
@@ -7606,14 +7665,31 @@ function App(){
                 const nightWakes = (days[selDay]||[]).filter(e=>e.night).sort((a,b)=>timeVal(a)-timeVal(b));
                 const lastWake = nightWakes.length ? nightWakes[nightWakes.length-1] : null;
                 const bedEntry = (days[selDay]||[]).find(e=>e.type==="sleep"&&!e.night);
-                const lastEventTime = lastWake ? lastWake.time : (bedEntry ? bedEntry.time : null);
-                const lastEventLabel = lastWake ? `Wake ${nightWakes.length}` : "Bed";
-                const lastEventIcon = lastWake ? "🌟" : "🌙";
+                // Calculate display time: if soothed, show when baby went back to sleep
+                let displayTime, displayLabel, displayIcon;
+                if(lastWake) {
+                  const soothingMins = lastWake.assistedDuration ? parseInt(lastWake.assistedDuration) : 0;
+                  if(soothingMins > 0) {
+                    const [wh,wm] = lastWake.time.split(":").map(Number);
+                    const totalMins = wh*60+wm+soothingMins;
+                    const rh = Math.floor(totalMins/60)%24, rm = totalMins%60;
+                    displayTime = `${String(rh).padStart(2,"0")}:${String(rm).padStart(2,"0")}`;
+                    displayLabel = `Asleep since`;
+                  } else {
+                    displayTime = lastWake.time;
+                    displayLabel = `Wake ${nightWakes.length}`;
+                  }
+                  displayIcon = "🌟";
+                } else {
+                  displayTime = bedEntry ? bedEntry.time : null;
+                  displayLabel = "Bed";
+                  displayIcon = "🌙";
+                }
                 return (
                   <div style={{display:"flex",alignItems:"center",gap:5,background:C.sky,borderRadius:99,padding:"6px 14px"}}>
-                    <span style={{fontSize:13}}>{lastEventIcon}</span>
+                    <span style={{fontSize:13}}>{displayIcon}</span>
                     <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
-                      <span style={{fontSize:9,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{lastEventLabel} {lastEventTime?fmt12(lastEventTime):""}</span>
+                      <span style={{fontSize:9,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {displayTime?fmt12(displayTime):""}</span>
                       <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(nightElapsed)}</span>
                     </div>
                   </div>
@@ -7743,7 +7819,7 @@ function App(){
             <img src="icon.png" alt="" style={{width:36,height:36,borderRadius:10,flexShrink:0}} onError={e=>{e.target.style.display="none";}}/>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Add OBubba to home screen</div>
-              <div style={{fontSize:11,color:C.lt,lineHeight:1.4}}>Tap <span style={{display:"inline-block",width:18,height:18,verticalAlign:"middle",textAlign:"center",fontSize:15}}>⎙</span> below, then <strong>"Add to Home Screen"</strong></div>
+              <div style={{fontSize:11,color:C.lt,lineHeight:1.4}}>Tap <strong>⋯</strong> then <strong>Share</strong> then <strong>Add to Home Screen</strong></div>
             </div>
             <button onClick={()=>{setInstallDismissed(true);try{localStorage.setItem("pwa_dismissed","1");}catch{};}} style={{background:"none",border:_bN,color:C.lt,fontSize:16,cursor:_cP,padding:"4px",flexShrink:0}}>✕</button>
           </div>
