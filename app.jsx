@@ -7540,7 +7540,7 @@ function App(){
           </form>
         )}
         {tab === "day" && breastStartTime && (
-          <div style={{display:"flex",gap:8,marginTop:8,marginBottom:10,flexWrap:"wrap"}}>
+          <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",gap:8,marginTop:8,marginBottom:10,flexWrap:"wrap"}}>
             {breastStartTime && (
               <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"7px 10px",boxShadow:"0 2px 8px rgba(44,31,26,0.12)",display:"flex",flexDirection:"column",gap:5}}>
                 <div style={{display:"flex",gap:5}}>
@@ -7567,7 +7567,7 @@ function App(){
         )}
         {/* Start Feed + Status pill row */}
         {tab === "day" && !breastStartTime && (
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8,marginBottom:10}}>
+          <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginTop:8,marginBottom:10}}>
             {/* LEFT: Action button */}
             {!napOn && (
               <button onClick={()=>{haptic();startBreastTimer("L");}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
@@ -7576,21 +7576,21 @@ function App(){
             )}
             {/* Active nap timer — tap anywhere to stop */}
             {napOn && (
-              <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+              <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
                 {!napStartEdit ? (
-                  <button onPointerDown={e=>{e.stopPropagation();haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:0,background:C.mint,borderRadius:99,padding:"8px 14px",flex:1,cursor:_cP,minHeight:44,border:_bN,WebkitTapHighlightColor:"transparent",WebkitAppearance:"none"}}>
-                    <span onPointerDown={e=>{e.stopPropagation();setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",borderRadius:99,padding:"3px 10px",fontSize:12,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600,marginRight:8,minHeight:28,display:"inline-flex",alignItems:"center"}}>
+                  <button onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:6,background:C.mint,borderRadius:99,padding:"8px 14px",flex:1,cursor:_cP,minHeight:44,border:"none",WebkitTapHighlightColor:"transparent"}}>
+                    <span onClick={e=>{e.stopPropagation();setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",borderRadius:99,padding:"4px 10px",fontSize:12,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600}}>
                       {fmt12(napStartT||nowTime())}
                     </span>
                     <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white",flex:1,textAlign:"left"}}>😴 {fmtSec(napSec)}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",background:"rgba(255,255,255,0.2)",borderRadius:99,padding:"4px 12px"}}>Stop</span>
+                    <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.9)",background:"rgba(255,255,255,0.2)",borderRadius:99,padding:"4px 12px"}}>Stop</span>
                   </button>
                 ) : (
-                  <div style={{display:"flex",alignItems:"center",gap:4,background:C.mint,borderRadius:99,padding:"8px 12px",flex:1}} onClick={e=>e.stopPropagation()}>
+                  <div style={{display:"flex",alignItems:"center",gap:4,background:C.mint,borderRadius:99,padding:"8px 12px",flex:1}}>
                     <input type="time" value={napStartEditVal} onChange={e=>setNapStartEditVal(e.target.value)}
                       style={{width:76,fontSize:13,padding:"3px 6px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.5)",background:"rgba(255,255,255,0.2)",color:"white",fontFamily:_fM,outline:"none"}} autoFocus/>
-                    <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:_bN,borderRadius:8,padding:"4px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700,minHeight:28}}>✓</button>
-                    <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:_bN,padding:"4px 6px",fontSize:11,color:"rgba(255,255,255,0.7)",cursor:_cP,minHeight:28}}>✕</button>
+                    <button onClick={()=>{if(napStartEditVal)adjustNapStart(napStartEditVal);}} style={{background:"rgba(255,255,255,0.35)",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700,minHeight:28}}>✓</button>
+                    <button onClick={()=>setNapStartEdit(false)} style={{background:"none",border:"none",padding:"4px 6px",fontSize:11,color:"rgba(255,255,255,0.7)",cursor:_cP,minHeight:28}}>✕</button>
                     <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white",marginLeft:4}}>😴 {fmtSec(napSec)}</span>
                   </div>
                 )}
@@ -7732,6 +7732,23 @@ function App(){
           <button onClick={()=>{setInstallDismissed(true);try{localStorage.setItem("pwa_dismissed","1");}catch{};}} style={{background:"none",border:_bN,color:C.lt,fontSize:16,cursor:_cP,padding:"4px",flexShrink:0}}>✕</button>
         </div>
       )}
+      {/* iOS Safari: manual install instructions (beforeinstallprompt never fires on iOS) */}
+      {!installPrompt && !installDismissed && (()=>{
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|Chrome/.test(navigator.userAgent);
+        const isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+        if(!isIOS || !isSafari || isStandalone) return null;
+        return (
+          <div style={{padding:"10px 16px",background:"linear-gradient(135deg,var(--card-bg-solid),var(--card-bg))",borderBottom:"1px solid var(--card-border)",display:"flex",alignItems:"center",gap:10,maxWidth:520,margin:"0 auto"}}>
+            <img src="icon.png" alt="" style={{width:36,height:36,borderRadius:10,flexShrink:0}} onError={e=>{e.target.style.display="none";}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Add OBubba to home screen</div>
+              <div style={{fontSize:11,color:C.lt,lineHeight:1.4}}>Tap <span style={{display:"inline-block",width:18,height:18,verticalAlign:"middle",textAlign:"center",fontSize:15}}>⎙</span> below, then <strong>"Add to Home Screen"</strong></div>
+            </div>
+            <button onClick={()=>{setInstallDismissed(true);try{localStorage.setItem("pwa_dismissed","1");}catch{};}} style={{background:"none",border:_bN,color:C.lt,fontSize:16,cursor:_cP,padding:"4px",flexShrink:0}}>✕</button>
+          </div>
+        );
+      })()}
 
       {showWakeInline && (
         <div style={{background:"var(--card-bg-solid)",borderTop:`2px solid ${C.ter}`,padding:"12px 16px",maxWidth:520,margin:"0 auto",boxShadow:"0 4px 16px rgba(201,112,90,0.12)",animation:"fadeUp 0.2s ease"}}>
@@ -7899,64 +7916,6 @@ function App(){
                   </div>
                 );
               })()}
-              {/* ═══ VISUAL DAY TIMELINE — colour-coded bar ═══ */}
-              {(()=>{
-                const entries = (days[selDay]||[]).sort((a,b)=>timeVal(a)-timeVal(b));
-                const dayEntries = entries.filter(e=>!e.night);
-                if(dayEntries.length < 2) return null;
-                const wakeE = dayEntries.find(e=>e.type==="wake");
-                const bedE = dayEntries.find(e=>e.type==="sleep");
-                if(!wakeE) return null;
-                const [wh,wm] = wakeE.time.split(":").map(Number);
-                const dayStartMin = wh*60+wm;
-                const isToday = selDay === todayStr();
-                const nowM = new Date().getHours()*60+new Date().getMinutes();
-                const dayEndMin = bedE ? (()=>{ const [h,m]=bedE.time.split(":").map(Number); return h*60+m; })() : (isToday ? nowM : 20*60);
-                const range = Math.max(1, dayEndMin - dayStartMin);
-                const pct = (min) => Math.max(0, Math.min(100, ((min - dayStartMin) / range) * 100));
-                const naps = dayEntries.filter(e=>e.type==="nap"&&e.start&&e.end);
-                const feeds = dayEntries.filter(e=>e.type==="feed");
-                const poops = dayEntries.filter(e=>e.type==="poop");
-                return (
-                  <div style={{marginBottom:12,background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:14,padding:"10px 12px",boxShadow:"var(--card-shadow)"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                      <span style={{fontSize:10,fontFamily:_fM,color:C.lt}}>{fmt12(wakeE.time)}</span>
-                      <span style={{fontSize:10,fontFamily:_fM,color:C.lt}}>{bedE ? fmt12(bedE.time) : (isToday ? "now" : "")}</span>
-                    </div>
-                    {/* Timeline bar */}
-                    <div style={{position:"relative",height:24,background:"var(--card-bg-alt)",borderRadius:12,overflow:"hidden"}}>
-                      {/* Nap blocks — green */}
-                      {naps.map((n,i)=>{
-                        const [sh,sm]=n.start.split(":").map(Number);
-                        const [eh,em]=n.end.split(":").map(Number);
-                        return <div key={"n"+i} style={{position:"absolute",left:pct(sh*60+sm)+"%",width:Math.max(2,pct(eh*60+em)-pct(sh*60+sm))+"%",top:0,bottom:0,background:C.mint,opacity:0.7,borderRadius:4}}/>;
-                      })}
-                      {/* Feed dots — pink */}
-                      {feeds.map((f,i)=>{
-                        const t=timeVal(f);
-                        return <div key={"f"+i} style={{position:"absolute",left:`calc(${pct(t)}% - 3px)`,top:3,width:6,height:6,borderRadius:99,background:C.ter,border:"1px solid var(--card-bg)"}}/>;
-                      })}
-                      {/* Nappy dots — brown */}
-                      {poops.map((p,i)=>{
-                        const t=timeVal(p);
-                        return <div key={"p"+i} style={{position:"absolute",left:`calc(${pct(t)}% - 2px)`,bottom:3,width:5,height:5,borderRadius:99,background:"#8a7060",opacity:0.6}}/>;
-                      })}
-                      {/* Bedtime marker — blue line */}
-                      {bedE && <div style={{position:"absolute",right:0,top:0,bottom:0,width:3,background:C.sky,borderRadius:2}}/>}
-                      {/* Now marker — if today and no bedtime */}
-                      {isToday && !bedE && <div style={{position:"absolute",left:pct(nowM)+"%",top:0,bottom:0,width:2,background:C.gold,borderRadius:1}}/>}
-                    </div>
-                    {/* Legend */}
-                    <div style={{display:"flex",gap:12,marginTop:6,justifyContent:"center"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:8,height:8,borderRadius:2,background:C.mint,opacity:0.7}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Nap</span></div>
-                      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:99,background:C.ter}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Feed</span></div>
-                      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:5,height:5,borderRadius:99,background:"#8a7060",opacity:0.6}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Nappy</span></div>
-                      {bedE&&<div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:3,height:8,borderRadius:1,background:C.sky}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Bed</span></div>}
-                    </div>
-                  </div>
-                );
-              })()}
-
               {/* Pending bottle snaps banner */}
 
               {/* ═══ Planner ═══ */}
@@ -8407,6 +8366,61 @@ function App(){
                     <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-solid)",borderRadius:10,padding:"9px 12px"}}>
                       <span style={{fontSize:16,flexShrink:0}}>{sc.icon}</span>
                       <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{sc.message}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ═══ VISUAL DAY TIMELINE — at end of day view ═══ */}
+              {(()=>{
+                const entries = (days[selDay]||[]).sort((a,b)=>timeVal(a)-timeVal(b));
+                const dayEntries = entries.filter(e=>!e.night);
+                if(dayEntries.length < 2) return null;
+                const wakeE = dayEntries.find(e=>e.type==="wake");
+                const bedE = dayEntries.find(e=>e.type==="sleep");
+                if(!wakeE) return null;
+                const [wh,wm] = wakeE.time.split(":").map(Number);
+                const dayStartMin = wh*60+wm;
+                const isToday = selDay === todayStr();
+                const nowM = new Date().getHours()*60+new Date().getMinutes();
+                const dayEndMin = bedE ? (()=>{ const [h,m]=bedE.time.split(":").map(Number); return h*60+m; })() : (isToday ? nowM : 20*60);
+                const range = Math.max(1, dayEndMin - dayStartMin);
+                const pct = (min) => Math.max(0, Math.min(100, ((min - dayStartMin) / range) * 100));
+                const naps = dayEntries.filter(e=>e.type==="nap"&&e.start&&e.end);
+                const feeds = dayEntries.filter(e=>e.type==="feed");
+                const poops = dayEntries.filter(e=>e.type==="poop");
+                return (
+                  <div style={{marginTop:14,marginBottom:12,background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:14,padding:"10px 12px",boxShadow:"var(--card-shadow)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:8}}>
+                      <span style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Day at a Glance</span>
+                      <HelpTip title="Day Timeline" body="A visual summary of today's rhythm. Green blocks are naps (wider = longer nap), pink dots are feeds, brown dots are nappy changes. The gold line shows the current time. Use this to spot patterns — are naps evenly spaced? Is there a long gap before bed? Over time, you'll see your baby's natural rhythm emerge." style={{marginLeft:2}}/>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontSize:10,fontFamily:_fM,color:C.lt}}>{fmt12(wakeE.time)}</span>
+                      <span style={{fontSize:10,fontFamily:_fM,color:C.lt}}>{bedE ? fmt12(bedE.time) : (isToday ? "now" : "")}</span>
+                    </div>
+                    <div style={{position:"relative",height:24,background:"var(--card-bg-alt)",borderRadius:12,overflow:"hidden"}}>
+                      {naps.map((n,i)=>{
+                        const [sh,sm]=n.start.split(":").map(Number);
+                        const [eh,em]=n.end.split(":").map(Number);
+                        return <div key={"n"+i} style={{position:"absolute",left:pct(sh*60+sm)+"%",width:Math.max(2,pct(eh*60+em)-pct(sh*60+sm))+"%",top:0,bottom:0,background:C.mint,opacity:0.7,borderRadius:4}}/>;
+                      })}
+                      {feeds.map((f,i)=>{
+                        const t=timeVal(f);
+                        return <div key={"f"+i} style={{position:"absolute",left:`calc(${pct(t)}% - 3px)`,top:3,width:6,height:6,borderRadius:99,background:C.ter,border:"1px solid var(--card-bg)"}}/>;
+                      })}
+                      {poops.map((p,i)=>{
+                        const t=timeVal(p);
+                        return <div key={"p"+i} style={{position:"absolute",left:`calc(${pct(t)}% - 2px)`,bottom:3,width:5,height:5,borderRadius:99,background:"#8a7060",opacity:0.6}}/>;
+                      })}
+                      {bedE && <div style={{position:"absolute",right:0,top:0,bottom:0,width:3,background:C.sky,borderRadius:2}}/>}
+                      {isToday && !bedE && <div style={{position:"absolute",left:pct(nowM)+"%",top:0,bottom:0,width:2,background:C.gold,borderRadius:1}}/>}
+                    </div>
+                    <div style={{display:"flex",gap:12,marginTop:6,justifyContent:"center"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:8,height:8,borderRadius:2,background:C.mint,opacity:0.7}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Nap</span></div>
+                      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:6,height:6,borderRadius:99,background:C.ter}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Feed</span></div>
+                      <div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:5,height:5,borderRadius:99,background:"#8a7060",opacity:0.6}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Nappy</span></div>
+                      {bedE&&<div style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:3,height:8,borderRadius:1,background:C.sky}}/><span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>Bed</span></div>}
                     </div>
                   </div>
                 );
