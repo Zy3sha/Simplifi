@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+
+  <!-- SEO Essentials -->
   <title>OBubba — Smart Baby Tracker | Feed, Sleep, Nap & Milestone Tracking</title>
   <meta name="description" content="Track your baby's feeds, sleep, naps, growth and milestones with smart predictions. OBubba learns your baby's unique rhythm using NHS and WHO guidance. Free for iPhone and Android."/>
   <meta name="keywords" content="baby tracker, baby app, feeding tracker, sleep tracker, nap timer, breastfeed timer, milestone tracker, growth chart, NHS baby, newborn tracker, baby schedule, baby routine, nap prediction, bedtime prediction"/>
   <link rel="canonical" href="https://obubba.com/"/>
+
+  <!-- Open Graph (Facebook, WhatsApp, iMessage link previews) -->
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://obubba.com/"/>
   <meta property="og:title" content="OBubba — Smart Baby Tracker"/>
@@ -16,10 +20,14 @@
   <meta property="og:image:height" content="630"/>
   <meta property="og:site_name" content="OBubba"/>
   <meta property="og:locale" content="en_GB"/>
+
+  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:title" content="OBubba — Smart Baby Tracker"/>
   <meta name="twitter:description" content="The baby app that learns your baby's rhythm. Track feeds, sleep, naps, milestones & growth with personalised predictions."/>
   <meta name="twitter:image" content="https://obubba.com/og-image.png"/>
+
+  <!-- PWA / Mobile -->
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
   <meta name="apple-mobile-web-app-title" content="OBubba"/>
@@ -28,6 +36,8 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <link rel="manifest" href="manifest.json"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+
+  <!-- Structured Data — tells Google this is an app -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -36,42 +46,45 @@
     "description": "Smart baby tracker that learns your baby's unique rhythm. Track feeds, sleep, naps, growth and milestones with personalised predictions based on NHS and WHO guidance.",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "iOS, Android, Web",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
-    "author": { "@type": "Organization", "name": "OBubba", "url": "https://obubba.com" },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "GBP"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "OBubba",
+      "url": "https://obubba.com"
+    },
     "url": "https://obubba.com",
     "image": "https://obubba.com/obubba-happy.png"
   }
   </script>
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <!-- External libraries -->
   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel REMOVED — JSX pre-compiled by GitHub Actions. Saves 220KB + 2-4s compile time -->
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase -->
   <script type="module" src="firebase.js"></script>
+
+  <!-- Styles -->
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
 <div id="root"></div>
 <button id="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">🌙</button>
+
+<!-- Theme system (must run immediately for no flash) -->
 <script src="theme.js"></script>
 
-<!-- Pre-compiled app (GitHub Actions: app.jsx → app.js) -->
-<script src="app.js"></script>
-
-<!-- Fallback: if app.js doesn't exist yet, compile at runtime -->
-<script>
-(function(){
-  if(document.getElementById('root').children.length) return;
-  var s=document.createElement('script');
-  s.src='https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js';
-  s.onload=function(){
-    var l=document.createElement('script');
-    l.src='loader.js';
-    document.body.appendChild(l);
-  };
-  document.body.appendChild(s);
-})();
-</script>
+<!-- App loader (fetches app.jsx, compiles, + utilities) -->
+<script src="loader.js"></script>
 </body>
 </html>
