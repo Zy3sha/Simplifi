@@ -7578,13 +7578,13 @@ function App(){
             {napOn && (
               <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
                 {!napStartEdit ? (
-                  <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:0,background:C.mint,borderRadius:99,padding:"8px 14px",flex:1,cursor:_cP,minHeight:40}}>
-                    <button onClick={e=>{e.stopPropagation();setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",border:_bN,borderRadius:99,padding:"3px 10px",fontSize:12,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600,marginRight:8,minHeight:28}}>
+                  <button onPointerDown={e=>{e.stopPropagation();haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:0,background:C.mint,borderRadius:99,padding:"8px 14px",flex:1,cursor:_cP,minHeight:44,border:_bN,WebkitTapHighlightColor:"transparent",WebkitAppearance:"none"}}>
+                    <span onPointerDown={e=>{e.stopPropagation();setNapStartEditVal(napStartT||nowTime());setNapStartEdit(true);}} style={{background:"rgba(255,255,255,0.22)",borderRadius:99,padding:"3px 10px",fontSize:12,color:"white",cursor:_cP,fontFamily:_fM,fontWeight:600,marginRight:8,minHeight:28,display:"inline-flex",alignItems:"center"}}>
                       {fmt12(napStartT||nowTime())}
-                    </button>
-                    <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white",flex:1}}>😴 {fmtSec(napSec)}</span>
+                    </span>
+                    <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white",flex:1,textAlign:"left"}}>😴 {fmtSec(napSec)}</span>
                     <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",background:"rgba(255,255,255,0.2)",borderRadius:99,padding:"4px 12px"}}>Stop</span>
-                  </div>
+                  </button>
                 ) : (
                   <div style={{display:"flex",alignItems:"center",gap:4,background:C.mint,borderRadius:99,padding:"8px 12px",flex:1}} onClick={e=>e.stopPropagation()}>
                     <input type="time" value={napStartEditVal} onChange={e=>setNapStartEditVal(e.target.value)}
@@ -7799,6 +7799,106 @@ function App(){
                 </div>
               )}
 
+              {/* 5. Today's summary stats */}
+              {/* Compact next nap / bedtime card */}
+              {(()=>{
+                const hasBed = dayE.some(e=>e.type==="sleep");
+                const pred = predictNextNap();
+                const suggestedBed = bedtimePrediction();
+                if(hasBed) return null;
+                // First 2 weeks: show gentle guidance instead of predictions
+                if (age && age.totalWeeks < 2) {
+                  return (
+                    <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.mint}44`,borderRadius:16,padding:"14px",marginBottom:14,textAlign:"center"}}>
+                      <div style={{fontSize:24,marginBottom:6}}>🤱</div>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>Feed & sleep on demand</div>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>In the first two weeks, there are no set patterns yet — and that's completely normal. Follow {babyName||"baby"}'s cues. Predictions will appear once routines start to emerge.</div>
+                    </div>
+                  );
+                }
+                if(!pred && !suggestedBed) return null;
+
+                // PRIORITY: "Extra Nap Needed" when bedtimePrediction detects WW to bedtime exceeds max
+                // bedtimePrediction is the single source of truth — it calculates the WW, projects the bridge nap,
+                // and recalculates bedtime. No dependency on earlyBedtimeRisk for display.
+                if(suggestedBed?.needsBridge && suggestedBed.bridgeNapStart !== null) {
+                  const rawWW = suggestedBed.originalWW || suggestedBed.lastWW;
+                  const wwMax = suggestedBed.wwMax || 120;
+                  const napStartFmt = (()=>{ const h=Math.floor(suggestedBed.bridgeNapStart/60)%24; const m=suggestedBed.bridgeNapStart%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+                  const napEndFmt = (()=>{ const h=Math.floor(suggestedBed.bridgeNapEnd/60)%24; const m=suggestedBed.bridgeNapEnd%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+                  const isShortNap = suggestedBed.lastNapMins && suggestedBed.lastNapMins < 40;
+                  const reason = isShortNap
+                    ? `Last nap was ${suggestedBed.lastNapMins}min — wake window to bed would be ${Math.round(rawWW)}min (max ${wwMax}min)`
+                    : `Wake window to bed would be ${Math.round(rawWW)}min (recommended max ${wwMax}min)`;
+                  const wwMin = age ? getWakeWindow(age.totalWeeks).min : 75;
+                  return (
+                    <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"12px 14px",marginBottom:14}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                        <span style={{fontSize:20}}>😴</span>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.gold,textTransform:"uppercase",letterSpacing:_ls08}}>Extra Nap Needed</div>
+                            <HelpTip title="Extra Nap" body={`Without an extra nap, the wake window from the last nap to bedtime (${Math.round(rawWW)}min) would exceed the recommended maximum of ${wwMax}min for this age. An overtired baby often fights sleep harder, takes longer to settle, and wakes more at night. A short 15–20 minute power nap breaks up the long stretch. The suggested time is based on the minimum recommended wake window (${wwMin}min) after the last nap ended. Tap "Add Nap" to log it — bedtime adjusts automatically.`} style={{marginLeft:2}}/>
+                          </div>
+                          <div style={{fontSize:13,color:C.mid,lineHeight:1.4,marginTop:2}}>{reason}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginBottom:2}}>Nap window</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mint}}>{fmt12(napStartFmt)} – {fmt12(napEndFmt)}</div>
+                        </div>
+                        <div style={{textAlign:"center",padding:"0 8px"}}>
+                          <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Then bed</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                        </div>
+                      </div>
+                      <button onClick={()=>{
+                        haptic();
+                        startNap();
+                      }} style={{width:"100%",marginTop:8,padding:"8px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#4a9080)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                        Start Nap Timer
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.mint}44`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
+                    {pred ? (
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:20}}>⏱️</span>
+                          <div>
+                            <div style={{display:"flex",alignItems:"center",gap:4}}>
+                              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>Next Nap</div>
+                              <HelpTip title="Nap Prediction" body="Predicts the next nap window using age-appropriate wake windows blended with your baby's personal patterns. Tracks per-nap-position timing, adjusts for short naps and sleep pressure, and narrows in the afternoon. Improves with 3–5 days of data." style={{marginLeft:3}}/>
+                            </div>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mint}}>{napCountdown!==null&&napCountdown<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:C.mint}}>{fmt12(pred.napStart_min)}</div>
+                          <div style={{fontSize:12,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
+                        </div>
+                      </div>
+                    ) : suggestedBed ? (
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{fontSize:20}}>🌙</span>
+                          <div>
+                            <div style={{display:"flex",alignItems:"center",gap:4}}>
+                              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
+                              <HelpTip title="Bedtime Prediction" body="Based on last nap end time + recommended wake window. Adjusts earlier for short naps, later for long naps. Clamped between 6:00pm and 8:30pm. Both NHS guidelines and personal patterns contribute." style={{marginLeft:3}}/>
+                            </div>
+                            <div style={{fontSize:13,color:C.mid,lineHeight:1.4}}>{suggestedBed.adjustReason||"Based on today's naps"}</div>
+                          </div>
+                        </div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
               {/* ═══ VISUAL DAY TIMELINE — colour-coded bar ═══ */}
               {(()=>{
                 const entries = (days[selDay]||[]).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -8023,106 +8123,6 @@ function App(){
                 );
               })()}
 
-              {/* 5. Today's summary stats */}
-              {/* Compact next nap / bedtime card */}
-              {(()=>{
-                const hasBed = dayE.some(e=>e.type==="sleep");
-                const pred = predictNextNap();
-                const suggestedBed = bedtimePrediction();
-                if(hasBed) return null;
-                // First 2 weeks: show gentle guidance instead of predictions
-                if (age && age.totalWeeks < 2) {
-                  return (
-                    <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.mint}44`,borderRadius:16,padding:"14px",marginBottom:14,textAlign:"center"}}>
-                      <div style={{fontSize:24,marginBottom:6}}>🤱</div>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>Feed & sleep on demand</div>
-                      <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>In the first two weeks, there are no set patterns yet — and that's completely normal. Follow {babyName||"baby"}'s cues. Predictions will appear once routines start to emerge.</div>
-                    </div>
-                  );
-                }
-                if(!pred && !suggestedBed) return null;
-
-                // PRIORITY: "Extra Nap Needed" when bedtimePrediction detects WW to bedtime exceeds max
-                // bedtimePrediction is the single source of truth — it calculates the WW, projects the bridge nap,
-                // and recalculates bedtime. No dependency on earlyBedtimeRisk for display.
-                if(suggestedBed?.needsBridge && suggestedBed.bridgeNapStart !== null) {
-                  const rawWW = suggestedBed.originalWW || suggestedBed.lastWW;
-                  const wwMax = suggestedBed.wwMax || 120;
-                  const napStartFmt = (()=>{ const h=Math.floor(suggestedBed.bridgeNapStart/60)%24; const m=suggestedBed.bridgeNapStart%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
-                  const napEndFmt = (()=>{ const h=Math.floor(suggestedBed.bridgeNapEnd/60)%24; const m=suggestedBed.bridgeNapEnd%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
-                  const isShortNap = suggestedBed.lastNapMins && suggestedBed.lastNapMins < 40;
-                  const reason = isShortNap
-                    ? `Last nap was ${suggestedBed.lastNapMins}min — wake window to bed would be ${Math.round(rawWW)}min (max ${wwMax}min)`
-                    : `Wake window to bed would be ${Math.round(rawWW)}min (recommended max ${wwMax}min)`;
-                  const wwMin = age ? getWakeWindow(age.totalWeeks).min : 75;
-                  return (
-                    <div className="prio-glow" style={{background:"var(--card-bg-alt)",borderRadius:16,padding:"12px 14px",marginBottom:14}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                        <span style={{fontSize:20}}>😴</span>
-                        <div style={{flex:1}}>
-                          <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.gold,textTransform:"uppercase",letterSpacing:_ls08}}>Extra Nap Needed</div>
-                            <HelpTip title="Extra Nap" body={`Without an extra nap, the wake window from the last nap to bedtime (${Math.round(rawWW)}min) would exceed the recommended maximum of ${wwMax}min for this age. An overtired baby often fights sleep harder, takes longer to settle, and wakes more at night. A short 15–20 minute power nap breaks up the long stretch. The suggested time is based on the minimum recommended wake window (${wwMin}min) after the last nap ended. Tap "Add Nap" to log it — bedtime adjusts automatically.`} style={{marginLeft:2}}/>
-                          </div>
-                          <div style={{fontSize:13,color:C.mid,lineHeight:1.4,marginTop:2}}>{reason}</div>
-                        </div>
-                      </div>
-                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginBottom:2}}>Nap window</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mint}}>{fmt12(napStartFmt)} – {fmt12(napEndFmt)}</div>
-                        </div>
-                        <div style={{textAlign:"center",padding:"0 8px"}}>
-                          <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Then bed</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                        </div>
-                      </div>
-                      <button onClick={()=>{
-                        haptic();
-                        startNap();
-                      }} style={{width:"100%",marginTop:8,padding:"8px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#4a9080)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
-                        Start Nap Timer
-                      </button>
-                    </div>
-                  );
-                }
-                return (
-                  <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.mint}44`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
-                    {pred ? (
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontSize:20}}>⏱️</span>
-                          <div>
-                            <div style={{display:"flex",alignItems:"center",gap:4}}>
-                              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>Next Nap</div>
-                              <HelpTip title="Nap Prediction" body="Predicts the next nap window using age-appropriate wake windows blended with your baby's personal patterns. Tracks per-nap-position timing, adjusts for short naps and sleep pressure, and narrows in the afternoon. Improves with 3–5 days of data." style={{marginLeft:3}}/>
-                            </div>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mint}}>{napCountdown!==null&&napCountdown<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
-                          </div>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:C.mint}}>{fmt12(pred.napStart_min)}</div>
-                          <div style={{fontSize:12,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
-                        </div>
-                      </div>
-                    ) : suggestedBed ? (
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span style={{fontSize:20}}>🌙</span>
-                          <div>
-                            <div style={{display:"flex",alignItems:"center",gap:4}}>
-                              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                              <HelpTip title="Bedtime Prediction" body="Based on last nap end time + recommended wake window. Adjusts earlier for short naps, later for long naps. Clamped between 6:00pm and 8:30pm. Both NHS guidelines and personal patterns contribute." style={{marginLeft:3}}/>
-                            </div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.4}}>{suggestedBed.adjustReason||"Based on today's naps"}</div>
-                          </div>
-                        </div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })()}
 
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
                 {[
