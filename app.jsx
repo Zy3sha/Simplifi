@@ -1070,12 +1070,28 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, info){ console.error("OBubba error:", error, info); }
   render(){
     if(this.state.hasError){
-      return React.createElement("div",{style:{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 20px",background:"#FFFCF9",textAlign:"center"}},
-        React.createElement("div",{style:{fontSize:48,marginBottom:16}},"😅"),
-        React.createElement("div",{style:{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:"#5B4F5F",marginBottom:8}},"Something went wrong"),
-        React.createElement("div",{style:{fontSize:14,color:"#A898AC",lineHeight:1.6,marginBottom:20,maxWidth:300}},"Your data is safe — it's stored on your device. Tap below to reload."),
-        React.createElement("button",{onClick:()=>window.location.reload(),style:{padding:"12px 32px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer"}},"Reload App"),
-        React.createElement("div",{style:{fontSize:11,color:"#ccc",marginTop:16,maxWidth:280,wordBreak:"break-word"}},String(this.state.error||""))
+      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
+        React.createElement("div",{style:{position:"absolute",top:"-10%",left:"10%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(246,221,227,0.40),transparent 70%)",pointerEvents:"none"}}),
+        React.createElement("div",{style:{position:"absolute",bottom:"5%",right:"5%",width:250,height:250,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(217,207,243,0.35),transparent 70%)",pointerEvents:"none"}}),
+        React.createElement("style",null,`
+          @keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}
+          @keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}
+          @keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}
+          @keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}
+          @keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+          .zzz{position:absolute;font-weight:700;color:#D9CFF3;font-family:'Playfair Display',serif;font-style:italic}
+        `),
+        React.createElement("div",{style:{position:"relative",marginBottom:28}},
+          React.createElement("img",{src:"sleep-baby.png",alt:"Sleeping baby",style:{width:200,height:200,objectFit:"contain",animation:"babyBreathe 3.5s ease-in-out infinite",filter:"drop-shadow(0 16px 32px rgba(217,207,243,0.35))"}}),
+          React.createElement("span",{className:"zzz",style:{top:8,right:-5,fontSize:18,animation:"zzz1 2.8s ease-in-out infinite"}},"z"),
+          React.createElement("span",{className:"zzz",style:{top:-8,right:12,fontSize:24,animation:"zzz2 2.8s ease-in-out 0.5s infinite"}},"z"),
+          React.createElement("span",{className:"zzz",style:{top:-28,right:28,fontSize:16,animation:"zzz3 2.8s ease-in-out 1s infinite"}},"z")
+        ),
+        React.createElement("div",{style:{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:"#5B4F5F",lineHeight:1.25,marginBottom:10}},"Uh oh!"),
+        React.createElement("div",{style:{fontSize:15,color:"#7A6B7E",lineHeight:1.65,maxWidth:300,marginBottom:6}},"Looks like OBubba fell asleep..."),
+        React.createElement("div",{style:{fontSize:14,color:"#A898AC",lineHeight:1.5,maxWidth:280,marginBottom:28}},"Hold tight — we'll be back from our nap ASAP. Your data is safe."),
+        React.createElement("button",{onClick:()=>window.location.reload(),style:{padding:"14px 36px",borderRadius:99,border:"none",background:"rgba(192,112,136,0.55)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 0 24px rgba(246,221,227,0.40), 0 0 48px rgba(217,207,243,0.25), 0 4px 16px rgba(192,112,136,0.20)",animation:"floatUp 3s ease-in-out infinite",letterSpacing:"0.01em"}},"Wake Up & Refresh"),
+        React.createElement("div",{style:{fontSize:10,color:"#C8B8C0",marginTop:24,fontFamily:"monospace",maxWidth:300,wordBreak:"break-all"}},String(this.state.error||""))
       );
     }
     return this.props.children;
@@ -1563,6 +1579,14 @@ function App(){
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
   const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");return(u&&!v)?"login":null;}catch{return null;}});
   const[authMode,setAuthMode]=useState("login");
+  const[showBetaBanner,setShowBetaBanner]=useState(()=>{
+    try{
+      if(localStorage.getItem("beta_emailed_v1")) return false;
+      const last = localStorage.getItem("beta_banner_v1");
+      if(!last) return true;
+      return (Date.now() - parseInt(last)) > 5*24*60*60*1000;
+    }catch{return true;}
+  });
   const[authUsername,setAuthUsername]=useState(()=>{try{return localStorage.getItem("family_username")||"";}catch{return "";}});
   const[authUsernameStatus,setAuthUsernameStatus]=useState("idle");
   const[authPin,setAuthPin]=useState("");
@@ -10440,6 +10464,15 @@ function App(){
       
             {tab==="settings"&&(
         <div style={{padding:"0 16px 100px",maxWidth:520,margin:"0 auto"}}>
+          {/* Enquiries & Feedback */}
+          <a href="mailto:hello@obubba.com?subject=OBubba%20Feedback" style={{display:"flex",alignItems:"center",gap:12,background:"linear-gradient(135deg,rgba(192,112,136,0.08),rgba(111,168,152,0.08))",border:"1.5px solid rgba(192,112,136,0.2)",borderRadius:16,padding:"14px 16px",marginBottom:14,textDecoration:"none",cursor:_cP}}>
+            <span style={{fontSize:22}}>💬</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Enquiries & Feedback</div>
+              <div style={{fontSize:11,color:C.lt}}>Questions, suggestions or issues — we'd love to hear from you</div>
+            </div>
+            <span style={{fontSize:13,color:C.ter,fontWeight:700}}>Email →</span>
+          </a>
           {/* Theme toggle */}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"12px 16px",marginBottom:14}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -10707,6 +10740,35 @@ function App(){
               </div>
               <div style={{fontSize:11,color:C.lt,marginTop:8}}>Version 1.0 · © {new Date().getFullYear()} OBubba · <a href="https://obubba.com/privacy" target="_blank" style={{color:C.lt}}>Privacy Policy</a></div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Beta tester banner */}
+      {showBetaBanner&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:24,padding:"28px 22px",width:"100%",maxWidth:340,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>🚀</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"#5B4F5F",marginBottom:10}}>OBubba is coming soon!</div>
+            <div style={{fontSize:14,color:"#7A6B7E",lineHeight:1.65,marginBottom:14}}>
+              {/iPhone|iPad|iPod/i.test(navigator.userAgent)
+                ? "We're preparing to launch on the App Store."
+                : /Android/i.test(navigator.userAgent)
+                ? "We're preparing to launch on Google Play."
+                : "We're preparing to launch on the App Store and Google Play."}
+            </div>
+            <div style={{fontSize:13,color:"#A898AC",lineHeight:1.6,marginBottom:18}}>
+              Some features may not work perfectly in the browser as they're designed for the native app. Everything will be fully working once we launch.
+            </div>
+            <div style={{background:"rgba(192,112,136,0.06)",border:"1px solid rgba(192,112,136,0.15)",borderRadius:16,padding:"14px",marginBottom:18}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#5B4F5F",marginBottom:6}}>Become a beta tester ✨</div>
+              <div style={{fontSize:13,color:"#7A6B7E",lineHeight:1.5,marginBottom:10}}>We're looking for parents to test OBubba before it launches. Your feedback will shape the app.</div>
+              <a href="mailto:hello@obubba.com?subject=Beta%20Tester%20Interest" onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_emailed_v1","1");}catch{};}} style={{display:"inline-block",padding:"10px 24px",borderRadius:99,background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:14,fontWeight:700,textDecoration:"none",fontFamily:"inherit"}}>
+                Email hello@obubba.com
+              </a>
+            </div>
+            <button onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_banner_v1",String(Date.now()));}catch{};}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid #F0D0C8",background:"none",color:"#A898AC",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+              Got it — let me explore!
+            </button>
           </div>
         </div>
       )}
