@@ -4983,6 +4983,7 @@ function App(){
   // ── Notification scheduling ──
   React.useEffect(()=>{
     if(notifPermission!=="granted") return;
+    const now=Date.now();
     // Schedule notifications for reminders
     reminders.filter(r=>!r.done&&r.date&&r.time).forEach(r=>{
       const rTime=new Date(r.date+"T"+r.time).getTime();
@@ -4994,7 +4995,6 @@ function App(){
     });
 
     // Schedule notifications for upcoming appointments
-    const now=Date.now();
     appointments.forEach(a=>{
       if(a.reminded) return;
       const apptTime=new Date(a.date+"T"+(a.time||"09:00")).getTime();
