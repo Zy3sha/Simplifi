@@ -1879,8 +1879,8 @@ function App(){
 
 
     const codeToWatch = familyCode || backupCode;
-    const isAuthed = !!localStorage.getItem("auth_verified");
-    if(fbReady && codeToWatch && isAuthed) subscribeToFamily(codeToWatch);
+    // The backup code itself is the auth for sync — if you have the code, you're authorized
+    if(fbReady && codeToWatch) subscribeToFamily(codeToWatch);
     return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
   },[fbReady, familyCode, backupCode]);
 
