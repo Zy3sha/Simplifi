@@ -1393,6 +1393,7 @@ function App(){
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
+  const[nightEditId,setNightEditId]=useState(null);
   const[showWakePrompt,setShowWakePrompt]=useState(false);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[cryingResult,setCryingResult]=useState(null);
@@ -5341,6 +5342,22 @@ function App(){
     });
   }
   function openEdit(entry){
+    // Night entries open in the night wake form
+    if(entry.night && (entry.type==="wake" || entry.type==="feed")){
+      setNwForm({
+        time: entry.time||nowTime(),
+        ml: entry.amount ? String(mlToDisplay(entry.amount,fluidUnit)) : "",
+        selfSettled: !!entry.selfSettled,
+        assisted: !!entry.assisted,
+        assistedType: entry.assistedType||"milk",
+        assistedNote: entry.assistedNote||"",
+        assistedDuration: entry.assistedDuration ? String(entry.assistedDuration) : "",
+        note: entry.selfSettled ? (entry.note==="Self settled"?"":entry.note||"") : (entry.note||"").replace(/Assisted – [^·]*·?\s*/,"").replace(/Duration: \d+m\s*·?\s*/,"").trim()
+      });
+      setNightEditId(entry.id);
+      setShowNightWake(true);
+      return;
+    }
     // If editing a wake entry and bedtime is logged, ask day/night
     if(entry.type==="wake" && !entry.night){
       const dayEntries = days[selDay]||[];
@@ -8770,13 +8787,14 @@ function App(){
                         <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                             <div>
-                              <span style={{color:"var(--text-mid)",fontSize:15}}>{e.type==="feed"?"🍼":"🌟"} {fmt12(e.time)} {e.type==="feed"?"feed":"wake"}</span>
+                              <span style={{color:"var(--text-mid)",fontSize:15}}>{e.amount>0?"🍼":"🌟"} {fmt12(e.time)} {e.amount>0?"feed":"wake"}</span>
                               {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
                                 {e.assistedDuration?<span> · Duration: {e.assistedDuration}m</span>:null}
                               </div>}
-                              {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:14,color:"var(--text-lt)",fontStyle:"italic",marginTop:1}}>{e.note}</div>}
+                              {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:13,color:"var(--text-lt)",fontStyle:"italic",marginTop:2}}>{e.note}</div>}
+                              {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {e.assistedDuration}m</div>}
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
@@ -8810,13 +8828,14 @@ function App(){
                         <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                             <div>
-                              <span style={{color:"var(--text-mid)",fontSize:15}}>{e.type==="feed"?"🍼":"🌟"} {fmt12(e.time)} {e.type==="feed"?"feed":"wake"}</span>
+                              <span style={{color:"var(--text-mid)",fontSize:15}}>{e.amount>0?"🍼":"🌟"} {fmt12(e.time)} {e.amount>0?"feed":"wake"}</span>
                               {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
                                 {e.assistedDuration?<span> · Duration: {e.assistedDuration}m</span>:null}
                               </div>}
-                              {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:14,color:"var(--text-lt)",fontStyle:"italic",marginTop:1}}>{e.note}</div>}
+                              {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:13,color:"var(--text-lt)",fontStyle:"italic",marginTop:2}}>{e.note}</div>}
+                              {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {e.assistedDuration}m</div>}
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
@@ -10613,7 +10632,7 @@ function App(){
                 else if(e.type==="sleep")html+="<tr><td>🌙 Bedtime</td><td>"+fmt12(e.time)+"</td><td></td></tr>";
               });
               html+="</table>";
-              if(nightEntries.length){html+="<h2>Night</h2><table>";nightEntries.forEach((e,i)=>{html+="<tr><td>"+(e.type==="feed"?"🍼 Feed":"🌟 Wake")+" "+(i+1)+"</td><td>"+fmt12(e.time)+"</td><td>"+(e.amount?fmtVol(e.amount,FU):"")+(e.selfSettled?" Self settled":"")+"</td></tr>";});html+="</table>";}
+              if(nightEntries.length){html+="<h2>Night</h2><table>";nightEntries.forEach((e,i)=>{html+="<tr><td>"+(e.amount>0?"🍼 Feed":"🌟 Wake")+" "+(i+1)+"</td><td>"+fmt12(e.time)+"</td><td>"+(e.amount?fmtVol(e.amount,FU):"")+(e.selfSettled?" Self settled":"")+"</td></tr>";});html+="</table>";}
               html+="<br><p style='color:#999;font-size:12px'>Tracked with OBubba — obubba.com</p></body></html>";
               w.document.write(html);w.document.close();w.print();
             }} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
@@ -11911,10 +11930,10 @@ function App(){
         </div>
       )}
             {showNightWake&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setShowNightWake(false);}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);}}}>
           <div onPointerDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 Log Night Wake</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 {nightEditId?"Edit":"Log"} Night Wake</div>
 
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Wake time</div>
             <TimeInput value={nwForm.time} onChange={t=>setNwForm(f=>({...f,time:t}))} style={{marginBottom:16}} inputStyle={{fontSize:18,padding:"12px 14px",borderRadius:14,color:C.deep,fontFamily:_fM,textAlign:"center"}}/>
@@ -11985,12 +12004,6 @@ function App(){
                       style={{width:"100%",fontSize:14,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fI,boxSizing:_bBB}}/>
                   </div>
                 )}
-                <div>
-                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Duration soothed (optional)</div>
-                  <input type="number" inputMode="numeric" placeholder="minutes" value={nwForm.assistedDuration}
-                    onChange={e=>setNwForm(f=>({...f,assistedDuration:e.target.value}))}
-                    style={{width:"100%",fontSize:14,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,boxSizing:_bBB}}/>
-                </div>
               </div>
             )}
 
@@ -12015,6 +12028,27 @@ function App(){
               </div>
             )}
 
+            {/* Duration soothed — always available unless self-settled */}
+            {!nwForm.selfSettled&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Duration soothed (mins)</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <input type="number" inputMode="numeric" placeholder="e.g. 15" value={nwForm.assistedDuration}
+                    onChange={e=>setNwForm(f=>({...f,assistedDuration:e.target.value}))}
+                    style={{flex:1,fontSize:16,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                  <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>mins</span>
+                </div>
+                <div style={{display:"flex",gap:6,marginTop:6}}>
+                  {[5,10,15,20,30,45].map(m=>(
+                    <button key={m} onClick={()=>setNwForm(f=>({...f,assistedDuration:String(m)}))}
+                      style={{flex:1,padding:"6px 2px",borderRadius:9,border:`1px solid ${nwForm.assistedDuration===String(m)?"#7b68ee":C.blush}`,background:nwForm.assistedDuration===String(m)?"#f0eeff":C.warm,color:nwForm.assistedDuration===String(m)?"#5040a0":C.lt,fontSize:11,fontFamily:_fM,cursor:_cP}}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Notes</div>
             <input placeholder="e.g. fussed, resettled easily…" value={nwForm.note}
               onChange={e=>setNwForm(f=>({...f,note:e.target.value}))}
@@ -12029,27 +12063,30 @@ function App(){
               const noteStr = nwForm.selfSettled
                 ? (nwForm.note||"Self settled")
                 : nwForm.assisted
-                  ? [isMilkAssisted?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.assistedDuration?`Duration: ${nwForm.assistedDuration}m`:"", nwForm.note].filter(Boolean).join(" · ")
+                  ? [isMilkAssisted?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.note].filter(Boolean).join(" · ")
                   : (nwForm.note||"");
-              const entryType = nwForm.selfSettled ? "wake" : (isMilkAssisted && mlVal > 0) ? "feed" : nwForm.assisted ? "wake" : (mlVal > 0 ? "feed" : "wake");
+              // Always log as "wake" — feed amount is embedded in the entry
               const entry = {
-                id: uid(), type: entryType, time: saveTime, amount: mlVal,
-                feedType: "milk", night: true, nightLocked: true,
+                id: nightEditId || uid(), type: "wake", time: saveTime, amount: mlVal,
+                feedType: mlVal > 0 ? "milk" : undefined, night: true, nightLocked: true,
                 selfSettled: !!nwForm.selfSettled, assisted: !!nwForm.assisted,
                 note: noteStr,
               };
-              if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; if(nwForm.assistedDuration) entry.assistedDuration = parseInt(nwForm.assistedDuration); }
+              if(nwForm.assistedDuration) entry.assistedDuration = parseInt(nwForm.assistedDuration);
+              if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
                 const existing = d[selDay]||[];
                 const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-                const combined = [...existing, entry];
-                try { return{...d,[selDay]:autoClassifyNight(combined, d[_pd]||null).map(e => e.nightLocked ? {...e, night: true} : e)}; }
+                const filtered = nightEditId ? existing.filter(x=>x.id!==nightEditId) : existing;
+                const combined = [...filtered, entry];
+                try { return{...d,[selDay]:autoClassifyNight(combined, d[_pd]||null).map(x => x.nightLocked ? {...x, night: true} : x)}; }
                 catch(err) { console.warn("classify err:",err); return{...d,[selDay]:combined}; }
               });
               setShowNightWake(false);
-              showToast("🌟 Night Wake Logged ✓",1200,1);
+              setNightEditId(null);
+              showToast(nightEditId?"🌟 Night Wake Updated ✓":"🌟 Night Wake Logged ✓",1200,1);
             }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,WebkitTapHighlightColor:"transparent"}}>
-              Save Wake ✦
+              {nightEditId ? "Update Wake ✦" : "Save Wake ✦"}
             </button>
           </div>
         </div>
