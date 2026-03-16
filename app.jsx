@@ -256,8 +256,6 @@ window.toggleTheme=function(){
   if(window._themeCallback) window._themeCallback();
 };
 const _fM="monospace",_fI="inherit",_cP="pointer",_bBB="border-box",_ls1="0.1em",_ls08="0.08em",_bN="none",_oN="none";
-
-
 function Sheet({onClose,title,children}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
@@ -397,10 +395,8 @@ function PBtn({children,onClick,v="pri",style={}}){
 function Badge({type,children}){
   const bg={feed:"#f5e0d8",nap:"#d4ede6",sleep:"#d5e7f2",wake:"#f5eccb",poop:"#e8e0d4"};
   const fg={feed:C.ter,nap:C.mint,sleep:C.sky,wake:"#b88a20",poop:"#8a7060"};
-  return <span style={{display:"inline-block",padding:"3px 9px",borderRadius:99,fontSize:15,fontFamily:_fM,background:bg[type]||bg.feed,color:fg[type]||fg.feed}}>{children}</span>;
+  return <span style={{display:"inline-block",padding:"3px 10px",borderRadius:99,fontSize:13,fontFamily:_fM,fontWeight:600,background:bg[type]||bg.feed,color:fg[type]||fg.feed,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{children}</span>;
 }
-
-
 function PinPad({value, onChange, onComplete}){
   const digits = [1,2,3,4,5,6,7,8,9,null,0,"⌫"];
   const pinTap=()=>haptic(8);
@@ -546,8 +542,6 @@ function getPercentile(kg, ageMonths, sex) {
   const pct = normalCDF(z) * 100;
   return Math.round(pct * 10) / 10;
 }
-
-
 function invNormalCDF(p) {
   if (p<=0) return -3.5; if (p>=1) return 3.5;
   const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
@@ -560,8 +554,6 @@ function invNormalCDF(p) {
   else if(p<=pH2){q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
   else{q=Math.sqrt(-2*Math.log(1-p));return-(((((c2[0]*q+c2[1])*q+c2[2])*q+c2[3])*q+c2[4])*q+c2[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
 }
-
-
 function percentileColor(p) {
   if (p == null) return C.lt;
   if (p < 2 || p > 98) return "#e8574a";
@@ -1003,8 +995,6 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
   const [restoreMode, setRestoreMode] = React.useState(false);
   const [restoreInput, setRestoreInput] = React.useState("");
   const [restoreStatus, setRestoreStatus] = React.useState("");
-
-
   if (familyUsername) {
     return (
       <div style={{borderRadius:12,border:"1px dashed var(--card-border)",overflow:"hidden",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",boxShadow:"var(--card-shadow)"}}>
@@ -1046,8 +1036,6 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
       </div>
     );
   }
-
-
   return (
     <div style={{borderRadius:12,border:`1px dashed ${C.blush}`,overflow:"hidden"}}>
       <button onClick={()=>setRestoreMode(m=>!m)} style={{width:"100%",padding:"12px 16px",background:_bN,border:_bN,textAlign:"left",cursor:_cP,fontSize:14,color:C.lt,fontFamily:_fI,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1075,8 +1063,6 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
     </div>
   );
 }
-
-
 // ── Error Boundary ──
 class ErrorBoundary extends React.Component {
   constructor(props){ super(props); this.state = {hasError:false, error:null}; }
@@ -1123,8 +1109,6 @@ function App(){
     obs.observe(document.body,{attributes:true,attributeFilter:['class']});
     return()=>{obs.disconnect();window._themeCallback=null;};
   },[]);
-
-
   const[children,setChildren]=useState(()=>{
     try {
       const saved = localStorage.getItem("children_v1");
@@ -1166,8 +1150,6 @@ function App(){
     }catch{}
     return null;
   });
-
-
   const childIds = Object.keys(children);
   const resolvedActiveId = (activeChildId && children[activeChildId]) ? activeChildId : childIds[0];
   const activeChild = children[resolvedActiveId] || { id:"", name:"", dob:"", sex:"", unborn:false, days:{}, weights:[], heights:[], photos:[], milestones:{}, teething:[], weaning:[], cryingHelps:{} };
@@ -1180,8 +1162,6 @@ function App(){
   const weights     = activeChild.weights;
   const heights     = activeChild.heights || [];
   const milestones  = activeChild.milestones;
-
-
   const updateChild = (patch) => setChildren(prev => ({
     ...prev,
     [resolvedActiveId]: { ...prev[resolvedActiveId], ...patch }
@@ -1627,8 +1607,6 @@ function App(){
   const[obChildMode,setObChildMode]=useState("new");
   const obUsernameCheckRef = React.useRef(null);
   const[editEntry,setEditEntry]=useState(null);
-
-
   const[usePersonalRecs,setUsePersonalRecs]=useState(()=>{
     // Read from child data first (survives localStorage wipes), then localStorage fallback
     try{
@@ -1659,8 +1637,6 @@ function App(){
   const logListRef = React.useRef(null);
   const reorderRef = React.useRef(reorderEntry);
   React.useEffect(()=>{ reorderRef.current = reorderEntry; });
-
-
   const logListCallbackRef = React.useCallback((el) => {
     logListRef.current = el;
     if (!el) return;
@@ -1717,8 +1693,6 @@ function App(){
       el.removeEventListener('touchend', onTouchEnd);
     };
   }, []);
-
-
   React.useEffect(() => {
     return () => {
       if (logListRef.current && logListRef.current._dragCleanup) {
@@ -1729,8 +1703,6 @@ function App(){
   const[tutStep,setTutStep]=useState(-1);
   const[sessionLogs,setSessionLogs]=useState(0);
   const[showTutPrompt,setShowTutPrompt]=useState(false);
-
-
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -1763,8 +1735,6 @@ function App(){
     if (!n) return "";
     return n.endsWith("s") ? `${n}'` : `${n}'s`;
   };
-
-
   const lsRef = React.useRef(null);
   useEffect(()=>{
     clearTimeout(lsRef.current);
@@ -1788,16 +1758,12 @@ function App(){
     window.addEventListener("offline",off);
     return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
   },[]);
-
-
   useEffect(()=>{
     const check = setInterval(()=>{
       if(window._fb){ setFbReady(true); clearInterval(check); }
     }, 200);
     return ()=>clearInterval(check);
   },[]);
-
-
   const pushToCloud = React.useCallback(async(code, allChildren) => {
     if(!window._fb || !code) return;
     const {db, doc, setDoc, serverTimestamp} = window._fb;
@@ -1815,8 +1781,6 @@ function App(){
       setSyncStatus("syncing");
       const myUid = window._fbUid || "anon";
       const writeToken = writeTokenRef.current;
-
-
       const hasAnyNamedChild = Object.values(allChildren).some(c => c.name);
       const childrenToWrite = hasAnyNamedChild
         ? Object.fromEntries(Object.entries(allChildren).filter(([,c]) => {
@@ -1845,8 +1809,6 @@ function App(){
       setSyncStatus("error");
     }
   },[]);
-
-
   const unsubscribeRef = React.useRef(null);
   const subscribeToFamily = React.useCallback((code)=>{
     if(!window._fb || !code) return;
@@ -1876,15 +1838,11 @@ function App(){
   },[]);
 
   useEffect(()=>{
-
-
     const codeToWatch = familyCode || backupCode;
     // The backup code itself is the auth for sync — if you have the code, you're authorized
     if(fbReady && codeToWatch) subscribeToFamily(codeToWatch);
     return ()=>{ if(unsubscribeRef.current) unsubscribeRef.current(); };
   },[fbReady, familyCode, backupCode]);
-
-
   const [restoreDone, setRestoreDone] = React.useState(false);
 
   const restoreRanRef = React.useRef(false);
@@ -1903,8 +1861,6 @@ function App(){
         if(code && !backupCode) setBackupCode(code);
 
         if(!code) {
-
-
           if(!window._fbUid) {
             await new Promise(resolve => {
               let waited = 0;
@@ -1914,8 +1870,6 @@ function App(){
               }, 200);
             });
           }
-
-
           const uname = familyUsername || localStorage.getItem("family_username");
           if(uname) {
             const key = uname.toLowerCase().replace(/[^a-z0-9_]/g,"");
@@ -1931,8 +1885,6 @@ function App(){
               }
             } catch(e){ console.warn("OBubba username lookup error",e); }
           }
-
-
           // SECURITY: Only fall back to UID lookup if user has a verified username on this device
           // This prevents a new account from accidentally loading another user's data
           const hasVerifiedUser = localStorage.getItem("auth_verified") && (familyUsername || localStorage.getItem("family_username"));
@@ -1950,8 +1902,6 @@ function App(){
             } catch(e){ console.warn("OBubba early uid_to_backup lookup error",e); }
           }
         }
-
-
         if(code) {
           try {
             const snap = await getDoc(doc(db,"families",code));
@@ -1963,8 +1913,6 @@ function App(){
                 if(cloud) {
                   const cloudIds = Object.keys(cloud);
                   if(cloudIds.length) {
-
-
                     setChildren(prev => {
                       const merged = mergeChildren(prev, cloud);
                       const cloudHasNamedChild = cloudIds.some(id => cloud[id] && cloud[id].name);
@@ -2000,14 +1948,10 @@ function App(){
               }
             }
           } catch(e){ console.warn("OBubba cloud pull error",e); }
-
-
           const fc = familyCode || localStorage.getItem("family_code");
           if(fc && fc !== code) subscribeToFamily(fc);
 
         } else {
-
-
           let foundExisting = false;
           if(!foundExisting) {
             // SAFETY: Only generate a new backup code for genuinely new users
@@ -2030,29 +1974,17 @@ function App(){
         }
 
       } catch(e){ console.warn("OBubba restore error",e); }
-
-
       setRestoreDone(true);
     })();
   },[fbReady]);
-
-
   const syncTimerRef = React.useRef(null);
 
   const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
   const justRestoredRef = React.useRef(false);
-
-
   const cloudEntryCountRef = React.useRef(0);
-
-
   const deletedDaysRef = React.useRef(new Set());
-
-
   const childrenRef = React.useRef(children);
   React.useEffect(()=>{ childrenRef.current = children; }, [children]);
-
-
   const userDeletedCountRef = React.useRef(0);
   function countAllEntries(ch) {
     return Object.values(ch).reduce((total, child) =>
@@ -2075,8 +2007,6 @@ function App(){
         (c.weights||[]).length>0
       );
       if(!hasData) return;
-
-
       const currentCount = countAllEntries(children);
 
       const adjustedFloor = Math.max(0, cloudEntryCountRef.current - userDeletedCountRef.current);
@@ -2133,8 +2063,6 @@ function App(){
       if(d.children) {
         let cloud;
         try { cloud = JSON.parse(d.children); } catch(e) { return false; }
-
-
         setChildren(cloud);
         try{ localStorage.setItem("children_v1", JSON.stringify(cloud)); }catch{}
         const cloudIds = Object.keys(cloud);
@@ -2154,19 +2082,13 @@ function App(){
       return false;
     }
   }
-
-
   function trackEvent(name, params={}) {
     try {
       if(window._fb) window._fb.logEvent(window._fb.analytics, name, params);
     } catch(e){}
   }
-
-
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
-
-
   async function verifyLogin(username, pin) {
     if(!window._fb) { setAuthError("Not connected — check your internet"); return false; }
     const {db, doc, getDoc} = window._fb;
@@ -2178,15 +2100,11 @@ function App(){
       if(!snap.exists()) { setAuthError("Username not found"); return false; }
       const data = snap.data();
       if(data.pinHash !== hashPin(pin)) { setAuthError("Incorrect PIN"); return false; }
-
-
       const resolvedBackup = data.backupCode || null;
       if(resolvedBackup) {
         setBackupCode(resolvedBackup);
         try{ localStorage.setItem("backup_code", resolvedBackup); }catch{}
       }
-
-
       const code = resolvedBackup || data.familyCode;
       if(code) {
         try {
@@ -2198,8 +2116,6 @@ function App(){
               try { cloud = JSON.parse(d.children); } catch(e) { cloud = null; }
               if(cloud) {
                 const cloudIds = Object.keys(cloud);
-
-
                 setChildren(prev => {
                   const merged = mergeChildren(prev, cloud);
                   const cloudHasNamedChild = cloudIds.some(id => cloud[id] && cloud[id].name);
@@ -2228,8 +2144,6 @@ function App(){
             }
           }
         } catch(e){ console.warn("OBubba verifyLogin cloud pull error",e); }
-
-
         if(data.familyCode) {
           setFamilyCode(data.familyCode);
           try{ localStorage.setItem("family_code", data.familyCode); }catch{}
@@ -2245,8 +2159,6 @@ function App(){
       return true;
     } catch(e) { setAuthError("Something went wrong — try again"); return false; }
   }
-
-
   function checkUsername(raw) {
     const val = raw.trim();
     setObUsername(raw);
@@ -2280,8 +2192,6 @@ function App(){
       } catch(e) { setAuthUsernameStatus("idle"); }
     }, 500);
   }
-
-
   async function reserveUsername(username, pin) {
     if(!window._fb || !username.trim()) return false;
     // Disconnect any previous listener to prevent data crossover
@@ -2325,8 +2235,6 @@ function App(){
       return true;
     } catch(e) { console.warn("Reserve username error", e); return false; }
   }
-
-
   async function saveRecoveryWord(word) {
     if(!window._fb || !familyUsername || !word.trim()) return false;
     const {db, doc, setDoc} = window._fb;
@@ -2336,8 +2244,6 @@ function App(){
       return true;
     } catch(e) { console.warn("Save recovery word error", e); return false; }
   }
-
-
   async function resetPinWithCode(username, wordOrCode, newPin) {
     if(!window._fb) return {ok:false, error:"Not connected"};
     const {db, doc, getDoc, setDoc} = window._fb;
@@ -2366,8 +2272,6 @@ function App(){
       } catch(e){}
     })();
   },[fbReady, familyUsername, familyCode]);
-
-
   function dedupEntries(entries) {
     const seen = new Set();
     const seenContentKeys = new Set();
@@ -2396,8 +2300,6 @@ function App(){
       return true;
     });
   }
-
-
   function mergeChildren(localCh, remoteCh) {
     const merged = {...localCh};
     Object.entries(remoteCh).forEach(([id, child]) => {
@@ -2410,8 +2312,6 @@ function App(){
         const mergedDays = {};
         const allDates = new Set([...Object.keys(localDays), ...Object.keys(remoteDays)]);
         allDates.forEach(date => {
-
-
           if(deletedDaysRef.current.has(id + ":" + date)) return;
           const lArr = localDays[date] || [];
           const rArr = remoteDays[date] || [];
@@ -2452,8 +2352,6 @@ function App(){
     });
     return merged;
   }
-
-
   async function createChildSyncCode(childId) {
     if(!window._fb) return null;
     const {db, doc, getDoc, setDoc, serverTimestamp} = window._fb;
@@ -2480,8 +2378,6 @@ function App(){
     trackEvent("child_sync_created");
     return code;
   }
-
-
   async function pushChildSync(childId, code, childData) {
     if(!window._fb || !code) return;
     const {db, doc, setDoc, serverTimestamp} = window._fb;
@@ -2506,8 +2402,6 @@ function App(){
       }, {merge:true});
     } catch(e) { console.warn("pushChildSync error", e); }
   }
-
-
   const subscribeToChildSync = React.useCallback((childId, code) => {
     if(!window._fb || !code) return;
 
@@ -2548,8 +2442,6 @@ function App(){
     });
     childSubsRef.current[childId] = unsub;
   }, []);
-
-
   async function joinChildByCode(code) {
     if(!window._fb) return {ok:false, error:"Not connected"};
     const {db, doc, getDoc} = window._fb;
@@ -2574,8 +2466,6 @@ function App(){
       return {ok:true, childName: d.childName || "child"};
     } catch(e) { return {ok:false, error:"Something went wrong — please try again"}; }
   }
-
-
   function unlinkChild(childId) {
     if(childSubsRef.current[childId]) {
       childSubsRef.current[childId]();
@@ -2584,8 +2474,6 @@ function App(){
     setChildSyncCodes(prev => {const n={...prev};delete n[childId];return n;});
     setChildren(prev => {const n={...prev};delete n[childId];return n;});
   }
-
-
   useEffect(()=>{
     if(!fbReady) return;
     Object.entries(childSyncCodes).forEach(([childId, code]) => {
@@ -2596,8 +2484,6 @@ function App(){
       childSubsRef.current={};
     };
   },[fbReady]);
-
-
   useEffect(()=>{
     if(!fbReady) return;
     clearTimeout(syncRef.current);
@@ -2635,8 +2521,6 @@ function App(){
       window.removeEventListener("pagehide", flushSync);
     };
   },[fbReady, childSyncCodes]);
-
-
   function addChild(name, dob, sex, unborn) {
     const cid = uid();
     const d = {}; d[todayStr()] = [];
@@ -2648,8 +2532,6 @@ function App(){
     trackEvent("child_added");
     return cid;
   }
-
-
   function deleteChild(cid) {
     setChildren(prev => {
       const next = {...prev};
@@ -2659,8 +2541,6 @@ function App(){
     const remaining = childIds.filter(id => id !== cid);
     if(remaining.length > 0) setActiveChildId(remaining[0]);
   }
-
-
   const swipeStartX = React.useRef(null);
   const swipeStartY = React.useRef(null);
   function handleSwipeStart(e) {
@@ -2679,8 +2559,6 @@ function App(){
     if(dx > 0 && idx < childIds.length-1) setActiveChildId(childIds[idx+1]);
     else if(dx < 0 && idx > 0) setActiveChildId(childIds[idx-1]);
   }
-
-
   const[showAddChild,setShowAddChild]=useState(false);
   const[newChildName,setNewChildName]=useState("");
   const[newChildDob,setNewChildDob]=useState("");
@@ -2754,8 +2632,6 @@ function App(){
       window.removeEventListener("pageshow", snapAllTimers);
     };
   },[napOn, napPaused, napStartT, breastActive, breastStartTime]);
-
-
   useEffect(()=>{
     if(breastActive && breastSide){
       breastRef.current=setInterval(()=>{
@@ -2766,24 +2642,16 @@ function App(){
     }
     return()=>clearInterval(breastRef.current);
   },[breastActive,breastSide]);
-
-
   useEffect(()=>{try{localStorage.setItem("nap_on",napOn?"1":"0");}catch{}},[ napOn]);
   useEffect(()=>{try{localStorage.setItem("timer_mode_v1",timerMode);}catch{}},[timerMode]);
   useEffect(()=>{try{if(napStartT)localStorage.setItem("nap_startT",napStartT);else localStorage.removeItem("nap_startT");}catch{}},[ napStartT]);
   useEffect(()=>{try{if(napEntryId)localStorage.setItem("nap_entry_id",napEntryId);else localStorage.removeItem("nap_entry_id");}catch{}},[ napEntryId]);
   useEffect(()=>{try{localStorage.setItem("nap_sec",String(napSec));}catch{}},[napSec]);
-
-
   useEffect(()=>{try{if(breastStartTime)localStorage.setItem("breast_startTime",breastStartTime);else localStorage.removeItem("breast_startTime");}catch{}},[breastStartTime]);
   useEffect(()=>{try{if(breastSide)localStorage.setItem("breast_side",breastSide);else localStorage.removeItem("breast_side");}catch{}},[breastSide]);
   useEffect(()=>{try{localStorage.setItem("breast_sec",JSON.stringify(breastSec));}catch{}},[breastSec]);
   useEffect(()=>{try{localStorage.setItem("breast_active",breastActive?"1":"0");}catch{}},[breastActive]);
-
-
   const age = React.useMemo(() => calcAge(babyDob), [babyDob]);
-
-
   const tickDataRef = React.useRef({});
   React.useEffect(()=>{
     const ageWeeks = age ? age.totalWeeks : null;
@@ -2821,8 +2689,6 @@ function App(){
     }
     tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, bed, bedMins, napsDone, expectedNaps, pred };
   },[selDay, days, age, bridgeNapScheduled]);
-
-
   const countdownRef = React.useRef(null);
   useEffect(()=>{
     // Bug 1 Fix: timerMode-aware tick
@@ -2947,8 +2813,6 @@ function App(){
     }, 1000);
     return()=>clearInterval(countdownRef.current);
   },[selDay, days, age, timerMode]);
-
-
   function getAgeStage(){
     if(!age) return null;
     const w=age.totalWeeks;
@@ -3080,8 +2944,6 @@ function App(){
     const ratio = Math.min(napIndex / totalNaps, 1);
     return Math.round(ww.min + range * ratio);
   }
-
-
   function getAgeNapProfile(ageWeeks) {
     if (!ageWeeks) return { expectedNaps:3, idealNapDurMin:30, idealNapDurMax:90, idealTotalMin:120, idealTotalMax:240 };
     const months = ageWeeks / 4.33;
@@ -3308,8 +3170,6 @@ function App(){
 
     return { napStart_min, napStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart, isOverdue };
   }
-
-
   function sleepScore() {
     const today = days[selDay] || [];
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
@@ -3400,6 +3260,8 @@ function App(){
     if (!age) return null;
 
     const napProfile = getAgeNapProfile(age.totalWeeks);
+    const adjustedExpected = napProfile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
+    const napsAreDone = todayNaps.length >= adjustedExpected;
     const ww = getWakeWindow(age.totalWeeks);
     const lastNap = todayNaps[todayNaps.length - 1];
     if (!lastNap.end) return null;
@@ -3446,9 +3308,10 @@ function App(){
     const absoluteLatestBed = lastNapEndMins + ww.max;
     const bedtimeFloor = clampBedtime(0, age.totalWeeks); // minimum allowed bedtime (5:30pm or 6pm)
 
-    // CRITICAL: If the bedtime floor exceeds what the max wake window allows,
-    // the baby NEEDS a bridge nap. Don't show a dangerous bedtime.
-    const needsBridgeNap = bedtimeFloor > absoluteLatestBed;
+    // CRITICAL: If all expected naps are done AND the bedtime floor exceeds
+    // what the max wake window allows, baby NEEDS a bridge nap.
+    // If naps aren't all done yet, the next regular nap handles the gap.
+    const needsBridgeNap = napsAreDone && bedtimeFloor > absoluteLatestBed;
 
     if (needsBridgeNap && !bridgeNapScheduled) {
       // Return bridge nap recommendation instead of dangerous bedtime
@@ -3484,7 +3347,7 @@ function App(){
     const mm = finalMins%60;
     const bedTime = `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
     const lastWW = finalMins - lastNapEndMins;
-    const needsBridge = lastWW > ww.max - 10 && !bridgeNapScheduled;
+    const needsBridge = napsAreDone && lastWW > ww.max - 10 && !bridgeNapScheduled;
 
     return { time: bedTime, adjustReason, bedSource, baseBedMins, adjustMins, needsBridge, lastNapEndMins, lastWW };
   }
@@ -3503,8 +3366,6 @@ function App(){
     const hrs = (napMinutes / 60).toFixed(1);
     const napsDone = todayNaps.length;
     const napsComplete = napsDone >= adjustedExpectedAdv;
-
-
     const shortNaps = todayNaps.filter(n => minDiff(n.start, n.end) < p.idealNapDurMin && minDiff(n.start, n.end) > 0);
     const longNaps  = todayNaps.filter(n => minDiff(n.start, n.end) > p.idealNapDurMax);
 
@@ -3512,8 +3373,6 @@ function App(){
       const remaining = adjustedExpectedAdv - napsDone;
       return `${napsDone} of ${adjustedExpectedAdv} naps done (${hrs}h). ${remaining} more nap${remaining>1?"s":""} expected${bridgeNapScheduled?" (incl. bridge nap)":""} — keep going before bedtime.`;
     }
-
-
     if (napMinutes < p.idealTotalMin) {
       const shortfall = Math.round(p.idealTotalMin - napMinutes);
       const idealHrs = Math.round(p.idealTotalMin/60*10)/10;
@@ -3601,8 +3460,6 @@ function App(){
     }
     return { totalMins, range, status, color, bg, icon, message };
   }
-
-
   function regressionCheck() {
     const dk = Object.keys(days).sort();
     if (dk.length < 5) return null;
@@ -3646,8 +3503,6 @@ function App(){
     }
     return alerts.length ? alerts : null;
   }
-
-
   // ─── ENHANCED SLEEP ENGINE ──────────────────────────────────────────────────
 
   // Expected total daily sleep (day + night) by age for method2 bedtime
@@ -4223,8 +4078,6 @@ function App(){
     // Wake must be 5:00am–9:30am
     return Math.max(5*60, Math.min(9*60+30, mins));
   }
-
-
   function clampNapDuration(dur, ageWeeks) {
     // 15 min minimum (micro naps count), age-dependent max
     const maxDur = ageWeeks < 13 ? 120 : ageWeeks < 26 ? 90 : ageWeeks < 52 ? 120 : 150;
@@ -4627,14 +4480,10 @@ function App(){
   }
 
   // ─── END ENHANCED SLEEP ENGINE ─────────────────────────────────────────────
-
-
   function feedCard() {
     if (!age) return null;
     const w = age.totalWeeks;
     const today = days[selDay] || [];
-
-
     const nextDayStr = (() => {
       const d = new Date(selDay + "T12:00:00"); d.setDate(d.getDate()+1);
       return localDateStr(d);
@@ -4657,8 +4506,6 @@ function App(){
     const dayMl     = dayMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
     const nightMl   = nightMilkFeeds.reduce((s,f)=> s+(f.amount||0), 0);
     if (!totalMl) return null;
-
-
     let totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin, targetFeeds, nhsNote;
     if (w < 4) {
       totalMin=400; totalMax=700; totalTarget=550; dayTarget=400; dayMin=280;
@@ -4705,15 +4552,11 @@ function App(){
     } else if (isCombo) {
       nhsNote = nhsNote + " For breastfed portions, frequency and wet nappies are better indicators than volume — volume targets apply to formula feeds.";
     }
-
-
     const recentDays = Object.keys(days).sort().slice(-7);
     const avgNightWakes = recentDays.length
       ? Math.round((recentDays.reduce((s,d) => s+(days[d]||[]).filter(e=>e.night).length, 0) / recentDays.length)*10)/10
       : null;
     const hasFrequentNightWakes = avgNightWakes !== null && avgNightWakes >= 2;
-
-
     const isPastDay = selDay < todayStr();
     const nowMins = new Date().getHours()*60 + new Date().getMinutes();
     const wakeEntry = today.find(e=>e.type==="wake"&&!e.night);
@@ -4725,33 +4568,21 @@ function App(){
     const bedMinSug    = sugBed  ? timeVal(sugBed.time) : 19*60;
     const bedMin       = bedMinLogged !== null ? bedMinLogged : bedMinSug;
     const dayLenMins   = Math.max(bedMin - wakeMin, 60);
-
-
     const effectiveNowMins = isPastDay ? bedMin : nowMins;
     const elapsedMins  = Math.min(Math.max(effectiveNowMins - wakeMin, 0), dayLenMins);
     const dayFraction  = isPastDay ? 1 : elapsedMins / dayLenMins;
     const remainingMins = isPastDay ? 0 : Math.max(bedMin - nowMins, 0);
     const remainingFeeds = isPastDay ? 0 : Math.max(Math.round(remainingMins / (dayLenMins / targetFeeds)), 0);
-
-
     const bedLogged       = bedEntry !== undefined && bedEntry !== null;
     const approachingBed  = !isPastDay && !bedLogged && remainingMins > 0 && remainingMins <= 180;
     const dayActive       = !isPastDay && !bedLogged;
-
-
     const totalOk       = totalMl >= totalMin;
     const totalHigh     = totalMl > totalMax;
     const metMinimum    = totalMl >= totalMin;
     const dayShortfall  = Math.max(totalMin - totalMl, 0);
     const totalShortfall= Math.max(totalTarget - totalMl, 0);
-
-
     const expectedNightFeeds = w < 8 ? "2–3" : w < 13 ? "1–2" : w < 26 ? "1–2" : "1";
-
-
     let status, color, bg, icon, statusMsg, sleepLink=null;
-
-
     if (isPastDay) {
       if (totalHigh) {
         status="high"; color="#b88a20"; bg="var(--card-bg)"; icon="📈";
@@ -4763,8 +4594,6 @@ function App(){
         status="low"; color=C.ter; bg="var(--card-bg)"; icon="⚠️";
         statusMsg=`Total intake was ${fmtVol(totalMl,FU)} — ${fmtVol(dayShortfall,FU)} a little under the recommended ${fmtVol(totalMin,FU)}. Day feeds: ${fmtVol(dayMl,FU)}, night feeds: ${fmtVol(nightMl,FU)}. One low day is nothing to worry about.`;
       }
-
-
     } else if (bedLogged) {
       if (totalHigh) {
         status="high"; color="#b88a20"; bg="var(--card-bg)"; icon="📈";
@@ -4782,8 +4611,6 @@ function App(){
           body:`With intake a little short today, baby may wake ${expectedNightFeeds} time${expectedNightFeeds==="1"?"":"s"} from genuine hunger overnight — that's completely normal. Responding to those feeds will help make up today's shortfall. One low day is nothing to worry about; if low intake continues for several days, mention it to your health visitor.`
         };
       }
-
-
     } else if (approachingBed) {
       if (totalHigh) {
         status="high"; color="#b88a20"; bg="var(--card-bg)"; icon="📈";
@@ -4803,8 +4630,6 @@ function App(){
           body:`With ${feedsLeft} feed${feedsLeft!==1?"s":""} left before bedtime, try offering an extra ~${fmtVol(topUpEach,FU)} at each to hit the minimum. A fuller tummy before bed reduces the chance of hunger-driven night waking. If baby doesn't take it, don't worry — one short day is nothing to worry about.`
         };
       }
-
-
     } else {
       if (dayFraction < 0.2) {
         status="early"; color=C.mint; bg="var(--card-bg)"; icon="☀️";
@@ -4852,28 +4677,20 @@ function App(){
         }
       }
     }
-
-
     const suggestions = [];
     if (!isPastDay && dayMilkFeeds.length >= 2) {
       const sorted = [...dayMilkFeeds].sort((a,b)=>timeVal(a)-timeVal(b));
       const amounts = sorted.map(f=>f.amount||0);
       const avgFeed = dayMl / dayMilkFeeds.length;
-
-
       if (!bedLogged && (status==="low") && remainingFeeds > 0 && dayShortfall > 80) {
         const topUp = Math.round(dayShortfall / remainingFeeds / 10) * 10;
         suggestions.push({ icon:"🍼", body:`${remainingFeeds} feed${remainingFeeds!==1?"s":""} left today. Adding ~${fmtVol(topUp,FU)} to each would reach the minimum.` });
       }
-
-
       const maxF=Math.max(...amounts), minF=Math.min(...amounts);
       if (dayMilkFeeds.length>=3 && maxF>avgFeed*1.5 && minF<avgFeed*0.6) {
         const even = Math.round(dayMl/dayMilkFeeds.length/10)*10;
         suggestions.push({ icon:"⚖️", body:`Day feeds range from ${fmtVol(minF,FU)} to ${fmtVol(maxF,FU)}. More consistent feeds of ~${fmtVol(even,FU)} reduce wind and keep hunger steady.` });
       }
-
-
       if (dayActive) {
         for (let i=1;i<sorted.length;i++){
           const gap=timeVal(sorted[i])-timeVal(sorted[i-1]);
@@ -4896,8 +4713,6 @@ function App(){
   }
 
   function analyseTrends() {
-
-
     const dk = Object.keys(days).sort();
     if (dk.length < 3) return null;
     const recent = dk.slice(-7);
@@ -4931,15 +4746,11 @@ function App(){
 
     const mlArr = recent.map(d=>(days[d]||[]).filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0));
     const avgMlRecent = Math.round(avgArr(mlArr));
-
-
     const recentHalf = nightWakes.slice(-3);
     const olderHalf = nightWakes.slice(0,3);
     const recentAvg = recentHalf.reduce((a,b)=>a+b,0)/Math.max(recentHalf.length,1);
     const olderAvg = olderHalf.length ? olderHalf.reduce((a,b)=>a+b,0)/olderHalf.length : recentAvg;
     const nightWakeTrend = recentAvg < olderAvg - 0.3 ? "improving" : recentAvg > olderAvg + 0.3 ? "worsening" : "stable";
-
-
     const mlRecent3 = mlArr.slice(-3).reduce((a,b)=>a+b,0)/3;
     const mlOlder = mlArr.slice(0,3).length ? mlArr.slice(0,3).reduce((a,b)=>a+b,0)/mlArr.slice(0,3).length : mlRecent3;
     const feedTrend = mlRecent3 > mlOlder + 30 ? "rising" : mlRecent3 < mlOlder - 30 ? "falling" : "stable";
@@ -4958,8 +4769,6 @@ function App(){
     };
 
     const insights = [];
-
-
     if (wakeStdDev !== null && wakeTimes.length >= 4) {
       if (wakeStdDev > 35) {
         insights.push({
@@ -4973,8 +4782,6 @@ function App(){
         });
       }
     }
-
-
     if (avgBed !== null && bedTimes.length >= 3) {
       const bedH = Math.floor(avgBed/60);
       if (bedStdDev !== null && bedStdDev > 30) {
@@ -4994,8 +4801,6 @@ function App(){
         });
       }
     }
-
-
     if (nightWakes.length >= 5) {
       if (nightWakeTrend === "worsening") {
         insights.push({
@@ -5009,8 +4814,6 @@ function App(){
         });
       }
     }
-
-
     if (avgNapMins > 0 && napProfile) {
       const { idealTotalMin, idealTotalMax } = napProfile;
       const gapToMin = idealTotalMin - avgNapMins;
@@ -5032,8 +4835,6 @@ function App(){
         });
       }
     }
-
-
     if (avgMlRecent > 0 && feedTrend !== "stable") {
       const weekLabel = ageWeeks && ageWeeks >= 26 ? " (alongside solids)" : "";
       if (feedTrend === "falling" && mlRecent3 < 400) {
@@ -5048,16 +4849,12 @@ function App(){
         });
       }
     }
-
-
     if (avgNightWakes > 2 && avgMlRecent < 450 && avgMlRecent > 0) {
       insights.push({
         type:"warn", icon:"🔗", title:"Low Day Feeds May Be Driving Night Waking",
         body:`Average daytime intake of ${fmtVol(avgMlRecent,FU)} is below the typical minimum, and night wakes are averaging ${avgNightWakes}/night. Hungry babies often compensate at night — not from habit, but genuine need. Offering one extra daytime feed or adding 20–30ml per bottle may reduce overnight hunger waking within a few days.`
       });
     }
-
-
     if (ageWeeks && nightWakeTrend === "worsening") {
       const phaseNow = DEV_PHASES.find(l => ageWeeks >= l.windowStart-1 && ageWeeks <= l.windowEnd+1);
       if (phaseNow) {
@@ -5070,8 +4867,6 @@ function App(){
 
     return { insights, avgWake:avgWake!==null?mtp(avgWake):null, avgBed:avgBed!==null?mtp(avgBed):null, avgNaps, avgNapMins, avgNightWakes, avgMlRecent, days:dk.length };
   }
-
-
   function computePersonalBaselines() {
     const dk = Object.keys(days).sort();
 
@@ -5081,8 +4876,6 @@ function App(){
 
     const recent = activeDays.slice(-14);
     const mtp = m => { const h=Math.floor(m/60)%24,mm=m%60; return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`; };
-
-
     let allWakeWindows = [];
     recent.forEach(d => {
       const ws = getAwakeWindows(days[d]||[]);
@@ -5094,8 +4887,6 @@ function App(){
     const personalAvgWW = trimmedWW.length >= 3 ? Math.round(trimmedWW.reduce((a,b)=>a+b,0)/trimmedWW.length) : null;
     const personalWWMin = personalAvgWW ? Math.max(25, Math.round(personalAvgWW * 0.88)) : null;
     const personalWWMax = personalAvgWW ? Math.max((personalWWMin||45)+15, Math.round(personalAvgWW * 1.12)) : null;
-
-
     const napCountsArr = recent.map(d => (days[d]||[]).filter(e=>e.type==="nap"&&!e.night).length).filter(v=>v>0);
     const personalNapCount = napCountsArr.length ? Math.round(napCountsArr.reduce((a,b)=>a+b,0)/napCountsArr.length) : null;
 
@@ -5110,15 +4901,11 @@ function App(){
     const trimND = Math.max(1, Math.floor(sortedND.length * 0.1));
     const trimmedND = sortedND.slice(trimND, sortedND.length - trimND);
     const personalAvgNapDur = trimmedND.length >= 3 ? Math.round(trimmedND.reduce((a,b)=>a+b,0)/trimmedND.length) : null;
-
-
     const totalNapArr = recent.map(d => {
       const ns = (days[d]||[]).filter(e=>e.type==="nap"&&!e.night);
       return ns.reduce((s,n)=>s+minDiff(n.start,n.end),0);
     }).filter(v=>v>0);
     const personalTotalNap = totalNapArr.length ? Math.round(totalNapArr.reduce((a,b)=>a+b,0)/totalNapArr.length) : null;
-
-
     const feedArr = recent.map(d => {
       const fs = (days[d]||[]).filter(e=>e.type==="feed"&&e.feedType!=="solids");
       return fs.reduce((s,f)=>s+(f.amount||0),0);
@@ -5128,26 +4915,18 @@ function App(){
     const personalAvgMl = sortedF.slice(trimF, sortedF.length - trimF).length >= 2
       ? Math.round(sortedF.slice(trimF, sortedF.length - trimF).reduce((a,b)=>a+b,0) / sortedF.slice(trimF, sortedF.length - trimF).length)
       : (feedArr.length ? Math.round(feedArr.reduce((a,b)=>a+b,0)/feedArr.length) : null);
-
-
     const feedCountArr = recent.map(d => (days[d]||[]).filter(e=>e.type==="feed"&&!e.night&&e.feedType!=="solids").length).filter(v=>v>0);
     const personalFeedCount = feedCountArr.length ? Math.round(feedCountArr.reduce((a,b)=>a+b,0)/feedCountArr.length) : null;
-
-
     const bedArr = recent.map(d => {
       const e = (days[d]||[]).find(x=>x.type==="sleep"&&!x.night);
       if(!e) return null;
       const [h,m]=e.time.split(":").map(Number); return h*60+m;
     }).filter(v=>v!==null);
     const personalAvgBed = bedArr.length >= 3 ? Math.round(bedArr.reduce((a,b)=>a+b,0)/bedArr.length) : null;
-
-
     const w = age.totalWeeks;
     const nhsWW = getWakeWindow(w);
     const nhsNapProfile = getAgeNapProfile(w);
     const nhsBedMin = 18*60, nhsBedMax = 20*60;
-
-
     const wwDiff = personalAvgWW ? personalAvgWW - Math.round((nhsWW.min+nhsWW.max)/2) : 0;
     const mlDiff = personalAvgMl && age ? (() => {
       let target;
@@ -5166,8 +4945,6 @@ function App(){
       hasEnoughData: personalAvgWW !== null && personalAvgMl !== null
     };
   }
-
-
   React.useEffect(()=>{
     if(usePersonalRecs !== null) {
       try{localStorage.setItem("use_personal_recs_v1", JSON.stringify(usePersonalRecs));}catch{}
@@ -5240,8 +5017,6 @@ function App(){
       });
     });
   },[appointments,notifPermission]);
-
-
   function parseTime(str, previousMinutes=null) {
     if (!str) return null;
     str = str.trim().toLowerCase();
@@ -5255,8 +5030,6 @@ function App(){
       if (suffix==="am" && h===12) h=0;
       let total = h*60 + min;
       if (!suffix && previousMinutes!==null && total <= previousMinutes) {
-
-
         const crossedMidnight = previousMinutes >= 1080 && total < 720;
         if (!crossedMidnight) {
           while (total <= previousMinutes && total < 24*60) total += 12*60;
@@ -5300,8 +5073,6 @@ function App(){
 
     const startHasSuffix = /\d\s*(am|pm)/i.test(startRaw);
     const endHasSuffix   = /\d\s*(am|pm)/i.test(endRaw);
-
-
     let augmentedStart = startRaw;
     if (!startHasSuffix && endHasSuffix) {
       const endSuffix = (endRaw.match(/\d\s*(am|pm)/i) || [])[1];
@@ -5309,12 +5080,8 @@ function App(){
       const endHour   = parseInt((endRaw.match(/(\d{1,2})/)   || [])[1] || "0");
       if (startHour <= endHour) augmentedStart = startRaw + endSuffix;
     }
-
-
     const start = parseTime(augmentedStart, (startHasSuffix || endHasSuffix) ? null : previousMinutes);
     const startMins = start ? timeVal(start) : previousMinutes;
-
-
     const end = endHasSuffix
       ? parseTime(endRaw, null)
       : parseTime(endRaw, startMins);
@@ -5330,8 +5097,6 @@ function App(){
     let lastMinutes = null;
 
     const tMins = (s) => { if(!s) return 0; const[h,m]=s.split(":").map(Number); return h*60+m; };
-
-
     const todayEntries = (days[selDay]||[]).filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
     if (todayEntries.length > 0) {
       const first = todayEntries[0];
@@ -5369,8 +5134,6 @@ function App(){
       const l = raw.toLowerCase().trim();
       if (/^\d{1,2}[\/\-\.]\d{1,2}[\/\-\.](\d{2,4})/.test(l)) return;
       if (/^(day|date)\s*:/.test(l)) return;
-
-
       if (/dream\s*feed/.test(l)) {
         const t = parseTime(raw.replace(/dream\s*feed/i,""), lastMinutes);
         const ml = parseAmount(raw);
@@ -5378,8 +5141,6 @@ function App(){
         else warnings.push("Couldn't parse dream feed: \""+raw+"\"");
         return;
       }
-
-
       if (/wake\s*\d|night\s*wake|woke\s*\d/.test(l)) {
         const t = parseTime(raw.replace(/wake\s*\d+|night\s*wake|woke\s*\d+/i,""), lastMinutes);
         const ml = parseAmount(raw);
@@ -5389,16 +5150,12 @@ function App(){
         else warnings.push("Couldn't parse night wake: \""+raw+"\"");
         return;
       }
-
-
       if (/woke?\s*up|wake\s*up|morning|got\s*up/.test(l)) {
         const t = parseTime(raw.replace(/woke?\s*up|wake\s*up|morning|got\s*up/i,""), lastMinutes);
         if (t) { entries.push({type:"wake",time:t,night:false,note:"",id:uid()}); lastMinutes = tMins(t); }
         else warnings.push("Couldn't parse wake time: \""+raw+"\"");
         return;
       }
-
-
       if (/\b(asleep|bedtime|bed time|went to sleep|down for bed|bed|sleep)\b/.test(l) && !/nap/.test(l) && !/wake/.test(l)) {
         const bedRaw = raw.replace(/asleep|bedtime|bed time|went to sleep|down for bed|sleep|bed/ig,"").trim();
 
@@ -5408,19 +5165,11 @@ function App(){
         else warnings.push("Couldn't parse bedtime: \""+raw+"\"");
         return;
       }
-
-
       if (/\bnap\b/.test(l)) {
-
-
         const rangeStr = raw.replace(/nap\s*(\d+(?![\d:]))\s*/i,"").replace(/nap\s*/i,"").replace(/^[\s:\-–]+/,"").trim();
-
-
         const rangeSep = rangeStr.match(/^(.+?)\s*(?:-|–|to)\s*(.+)$/i);
         let napStart = null, napEnd = null;
         if (rangeSep) {
-
-
           const startRaw = rangeSep[1].trim();
           const endRaw   = rangeSep[2].trim();
           const startHasSuffix = /\s*(am|pm)\s*$/i.test(startRaw);
@@ -5443,8 +5192,6 @@ function App(){
         }
         return;
       }
-
-
       if (/feed|fed|bottle|milk|oz|\bml\b/.test(l) && !/sleep/.test(l)) {
         const ml = parseAmount(raw);
         const cleaned = raw.replace(/feed|fed|bottle|milk/i,"").replace(/\d+\s*ml/i,"").trim();
@@ -5458,8 +5205,6 @@ function App(){
 
         return;
       }
-
-
       const shorthand = l.match(/^(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:feed|bottle|fed|f)?\s*(\d{2,3})(?:\s*ml)?$/);
       if (shorthand) {
         const t = parseTime(shorthand[1], lastMinutes);
@@ -5470,8 +5215,6 @@ function App(){
           return;
         }
       }
-
-
       const bare = l.match(/^(\d{1,2}(?::\d{2})?)\s+(\d{2,3})$/);
       if (bare) {
         const t = parseTime(bare[1], lastMinutes);
@@ -5496,8 +5239,6 @@ function App(){
 
   function runParse() {
     if (!pasteText.trim()) return;
-
-
     if (!selDay && !pasteText.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/)) {
       setParseError("No day tab is open and no date was found in your notes. Open a day tab first or include a date.");
       return;
@@ -5531,8 +5272,6 @@ function App(){
     setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:(()=>{const h=new Date().getHours();return(h>=6&&h<20)?"nap":"bed";})(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
     setLogPanel(panel);
   }
-
-
   function autoClassifyNight(entries, prevDayEntries) {
     const sorted = [...entries].sort((a,b) => timeVal(a) - timeVal(b));
 
@@ -5579,8 +5318,6 @@ function App(){
 
       const tMins = timeVal({time: t});
       const h = parseInt(t.split(":")[0]);
-
-
       const afterBed = tMins > bedMins;
 
       // Grace period: feeds within 30 mins of bedtime are likely settling/dream feeds, not night wakes
@@ -5981,8 +5718,6 @@ function App(){
     const finalTotal = finalL+finalR || total;
     quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:finalL,pumpR:finalR,amount:finalTotal,pumpDuration:parseInt(f.pumpDuration)||0,note:f.note||""});
   }
-
-
   function saveLogSleep(){
     const f=logForm;
     if(f.sleepType==="nap"){
@@ -6468,8 +6203,6 @@ function App(){
       } catch {}
     }, 800);
   }
-
-
   function startBreastTimer(side){
     if(!breastStartTime){
       const t=nowTime();
@@ -7319,8 +7052,6 @@ function App(){
     setSelDay(newDate);
     setModal(null);
   }
-
-
   const dedupDoneRef = React.useRef(false);
   useEffect(()=>{
     if(dedupDoneRef.current) return;
@@ -7340,11 +7071,7 @@ function App(){
       return changed ? cleaned : prev;
     });
   }, []);
-
-
   /* Auto next-day creation removed — users add days manually */
-
-
   useEffect(()=>{
     function ensureToday(){
       const t = todayStr();
@@ -7430,8 +7157,6 @@ function App(){
     setModal(null);
     setTimeout(()=>{ if(backupCodeRef.current) pushToCloud(backupCodeRef.current, childrenRef.current); }, 600);
   }
-
-
   useEffect(()=>{
     const keys = Object.keys(days).sort();
     if (keys.length > 0 && (!selDay || !days[selDay])) {
@@ -7444,8 +7169,6 @@ function App(){
 
   const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
   const tabLabels={day:"Day",insights:"Insights",develop:"Development",settings:"Account"};
-
-
   if (authScreen) {
     const isLogin = authMode === "login";
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin && agreedToTerms : true);
@@ -7633,8 +7356,6 @@ function App(){
     </div>
     );
   }
-
-
   if (!onboarded) {
     const completeOnboarding = async () => {
       if(obUsername.trim() && fbReady && obPin.length===4) {
@@ -8415,7 +8136,7 @@ function App(){
               })()}
 
               {/* ONE-TAP LOG ROW — below date strip, above age guidance */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 14px",marginBottom:10,gap:4,boxShadow:"var(--card-shadow)"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"10px 12px",marginBottom:10,gap:2,boxShadow:"var(--card-shadow)"}}>
                 {[
                   {emoji:"🍼",label:"Feed",action:()=>quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""})},
                   {emoji:"🤱",label:"Breast",action:()=>{haptic();startBreastTimer("L");}},
@@ -8436,8 +8157,8 @@ function App(){
                     onTouchStart={e=>{e.currentTarget.style.background="var(--chip-bg-active)";e.currentTarget.style.transform="scale(0.85)";}}
                     onTouchEnd={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
                   >
-                    <span style={{fontSize:24,lineHeight:1}}>{emoji}</span>
-                    <span style={{fontSize:9,fontWeight:700,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.02em"}}>{label}</span>
+                    <span style={{fontSize:22,lineHeight:1}}>{emoji}</span>
+                    <span style={{fontSize:10,fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM}}>{label}</span>
                   </button>
                 ))}
               </div>
@@ -8456,17 +8177,17 @@ function App(){
               {(appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length===0||reminders.filter(r=>!r.done).length===0||pinnedNotes.length===0)&&(
                 <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
                   {appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length===0&&(
-                    <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:"",repeat:"none",travelMins:0});setShowAddAppt(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:"",repeat:"none",travelMins:0});setShowAddAppt(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
                       📅 Appointment
                     </button>
                   )}
                   {reminders.filter(r=>!r.done).length===0&&(
-                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:""});setShowAddReminder(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:""});setShowAddReminder(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
                       🔔 Reminder
                     </button>
                   )}
                   {pinnedNotes.length===0&&(
-                    <button onClick={()=>setShowAddPin(true)} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:12,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    <button onClick={()=>setShowAddPin(true)} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
                       📌 Pin Note
                     </button>
                   )}
@@ -8565,7 +8286,7 @@ function App(){
                 const bg = action.priority === "high" ? "rgba(201,112,90,0.08)" : "rgba(111,168,152,0.08)";
                 const border = action.priority === "high" ? C.ter + "40" : C.mint + "40";
                 return (
-                  <div style={{background:bg,border:`1.5px solid ${border}`,borderRadius:14,padding:"12px 14px",marginBottom:10,display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{background:bg,border:`1.5px solid ${border}`,borderRadius:16,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
                     <span style={{fontSize:22}}>{action.emoji}</span>
                     <div style={{fontSize:13,color:C.deep,lineHeight:1.5,fontWeight:500}}>{action.text}</div>
                   </div>
@@ -8574,7 +8295,7 @@ function App(){
 
               {/* ── Quick Status Row: Hydration + Feed Spacing ── */}
               {selDay === todayStr() && (
-                <div style={{display:"flex",gap:8,marginBottom:10}}>
+                <div style={{display:"flex",gap:8,marginBottom:12}}>
                   {/* Wet nappy counter — only for breastfed babies */}
                   {(()=>{
                     const recent = Object.keys(days).sort().slice(-7);
@@ -8583,8 +8304,8 @@ function App(){
                     const h = getHydrationStatus();
                     const pct = Math.min(100, Math.round(h.wetCount / h.target * 100));
                     return (
-                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${h.met?C.mint+"40":C.blush}`,borderRadius:12,padding:"8px 10px"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${h.met?C.mint+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                           <span style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>💧 Hydration</span>
                           <HelpBtn title="Hydration" body="NHS guidance: 6+ wet nappies in 24 hours indicates adequate hydration for babies over 5 days old. This counter tracks today's wet nappies. Especially important for breastfed babies where you can't measure intake volume."/>
                           <span style={{fontSize:12,fontWeight:700,color:h.met?C.mint:C.mid}}>{h.wetCount}/{h.target}</span>
@@ -8600,8 +8321,8 @@ function App(){
                     const fs = getFeedSpacing();
                     if (!fs) return null;
                     return (
-                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${fs.overdue?C.ter+"40":C.blush}`,borderRadius:12,padding:"8px 10px"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>🍼 Last feed</div>
+                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${fs.overdue?C.ter+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
+                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🍼 Last feed</div>
                         <div style={{fontSize:13,fontWeight:700,color:fs.overdue?C.ter:C.mid}}>{hm(fs.gap)} ago</div>
                         {fs.overdue && <div style={{fontSize:10,color:C.ter,marginTop:2}}>Usually every {hm(fs.threshold)}</div>}
                       </div>
@@ -8612,8 +8333,8 @@ function App(){
                     const pf = getPoopFrequency();
                     if (!pf) return null;
                     return (
-                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${pf.daysSince>=3?C.gold+"40":C.blush}`,borderRadius:12,padding:"8px 10px"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>💩 Last poop</div>
+                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${pf.daysSince>=3?C.gold+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
+                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>💩 Last poop</div>
                         <div style={{fontSize:13,fontWeight:700,color:pf.daysSince>=3?C.gold:C.mid}}>{pf.daysSince}d ago</div>
                       </div>
                     );
@@ -8623,22 +8344,18 @@ function App(){
 
                                           {/* Age guidance */}
               {ageStage&&(
-                <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"12px 14px",marginBottom:14,boxShadow:"var(--card-shadow)"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:14,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:3,display:"flex",alignItems:"center"}}>{ageStage.label} <HelpBtn title="Age Guidance" body="These ranges are based on paediatric sleep research — not rigid targets. Every baby is different. The prediction engine uses your baby's actual patterns alongside these ranges to give personalised suggestions. If you have concerns about your baby's sleep or development, speak to your health visitor or GP."/></div>
-                    <div style={{fontSize:14,color:C.mid,lineHeight:1.5}}>{ageStage.tip}</div>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:7}}>
-                      {[{icon:"😴",val:ageStage.napGoal},{icon:"🍼",val:ageStage.feedGoal},{icon:"🌙",val:ageStage.nightNote}].map((x,i)=>(
-                        <span key={i} style={{fontSize:14,fontFamily:_fM,background:"var(--chip-bg)",color:C.ter,padding:"2px 8px",borderRadius:99}}>{x.icon} {x.val}</span>
-                      ))}
-                    </div>
+                <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"12px 14px",marginBottom:12,boxShadow:"var(--card-shadow)"}}>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,display:"flex",alignItems:"center"}}>{ageStage.label} <HelpBtn title="Age Guidance" body="These ranges are based on paediatric sleep research — not rigid targets. Every baby is different. The prediction engine uses your baby's actual patterns alongside these ranges to give personalised suggestions. If you have concerns about your baby's sleep or development, speak to your health visitor or GP."/></div>
+                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:8}}>{ageStage.tip}</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {[{icon:"😴",val:ageStage.napGoal},{icon:"🍼",val:ageStage.feedGoal},{icon:"🌙",val:ageStage.nightNote}].map((x,i)=>(
+                      <span key={i} style={{fontSize:12,fontFamily:_fM,background:"var(--chip-bg)",color:C.ter,padding:"3px 10px",borderRadius:99}}>{x.icon} {x.val}</span>
+                    ))}
                   </div>
                 </div>
               )}
-
-
               {/* 3. Quick actions */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
                   {id:"nappy", icon:"💩", label:"Nappy"},
@@ -8733,8 +8450,9 @@ function App(){
                 if(hasBed) return null;
                 if(!pred && !suggestedBed && !bridgeRisk?.suggestBridge) return null;
 
-                // CRITICAL: Show bridge nap alert when wake window would be unsafe
-                if(suggestedBed?.forceBridge && !bridgeNapScheduled) {
+                // Bridge nap only relevant when ALL expected naps are done (pred is null)
+                // If there's still a next nap to do, show that instead
+                if(!pred && suggestedBed?.forceBridge && !bridgeNapScheduled) {
                   const bs = suggestedBed.bridgeSuggestion;
                   const ww = getWakeWindow(age.totalWeeks);
                   const lastNapEnd = suggestedBed.lastNapEndMins;
@@ -8873,29 +8591,27 @@ function App(){
                 );
               })()}
 
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
                   {big:totalMlWithNight?mlToDisplay(totalMlWithNight,FU):dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMlWithNight?volLabel(FU):"meals",label:totalMlWithNight?"Total Milk":"Solids",color:C.ter,bg:"var(--card-bg)"},
                   {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:C.mid,bg:"var(--card-bg)"},
                   {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"var(--card-bg)"},
                   {big:hm(napMins),unit:"",label:"Nap Time",color:C.sky,bg:"var(--card-bg)"},
                 ].map((s,i)=>(
-                  <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:16,padding:"12px 4px",textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:String(s.big).length>4?15:20,fontWeight:700,color:s.color,lineHeight:1.1}}>{s.big}</div>
-                    {s.unit&&<div style={{fontSize:14,fontFamily:_fM,color:s.color,opacity:0.7,marginTop:1}}>{s.unit}</div>}
-                    <div style={{fontSize:8,color:C.mid,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
+                  <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:16,padding:"10px 4px",textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:String(s.big).length>4?15:20,fontWeight:700,color:s.color,lineHeight:1.2}}>{s.big}</div>
+                    {s.unit&&<div style={{fontSize:12,fontFamily:_fM,color:s.color,opacity:0.65,marginTop:1}}>{s.unit}</div>}
+                    <div style={{fontSize:11,color:C.lt,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
                   </div>
                 ))}
               </div>
-
-
               {/* 7. Daily timeline header */}
 
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <div style={{fontSize:14,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Today's Log</div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700}}>Today's Log</div>
               </div>
               {/* Why Is My Baby Crying? — helper */}
-              <button onClick={()=>{haptic();setShowCryingHelper(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"0 1px 6px rgba(201,112,90,0.06)"}}>
+              <button onClick={()=>{haptic();setShowCryingHelper(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:16,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
                 <span style={{fontSize:22}}>😢</span>
                 <div style={{flex:1,textAlign:"left"}}>
                   <div style={{display:"flex",alignItems:"center",gap:4,fontSize:14,fontWeight:700,color:C.deep}}>Why is my baby crying? <HelpBtn title="Crying Helper" body="OBubba analyses time since last feed, how long baby has been awake, age-specific factors like teething windows and developmental leaps, temperature, and your past data to rank the most likely reasons. Tap 'What helped?' to teach it what works for your baby — accuracy improves over time. Quick-action buttons let you log a feed or start a nap directly."/></div>
@@ -8903,10 +8619,10 @@ function App(){
                 </div>
                 <span style={{fontSize:14,color:C.lt}}>→</span>
               </button>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:15}}>Daytime</span>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:14}}>Daytime</span>
               </div>
-              <div ref={logListCallbackRef} style={{display:"flex",flexDirection:"column",gap:7,marginBottom:13}}>
+              <div ref={logListCallbackRef} style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
                 {dayE.length===0&&(
                   <div style={{textAlign:"center",padding:"22px 12px",background:"var(--card-bg-alt)",borderRadius:14,border:`1px dashed ${C.blush}`}}>
                     <div style={{fontSize:28,marginBottom:8}}>👆</div>
@@ -9002,20 +8718,20 @@ function App(){
                       onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
                       onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
                       onDrop={ev=>{ev.preventDefault();}}
-                      style={{background:isOver?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:14,padding:"11px 12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,backdropFilter:"blur(16px) saturate(1.6)",WebkitBackdropFilter:"blur(16px) saturate(1.6)",boxShadow:"var(--card-shadow)"}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
-                        <div style={{display:"flex",alignItems:"center",gap:9,flex:1,minWidth:0}}>
-                          <span data-drag-handle="1" style={{fontSize:18,cursor:"grab",color:C.lt,letterSpacing:-1,touchAction:"none",padding:"6px 4px",userSelect:"none",WebkitUserSelect:"none"}}>&#x2261;</span>
-                          <span style={{fontSize:17,flexShrink:0}}>{ICONS[e.type]||"📝"}</span>
+                      style={{background:isOver?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:16,padding:"12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,backdropFilter:"blur(16px) saturate(1.6)",WebkitBackdropFilter:"blur(16px) saturate(1.6)",boxShadow:"var(--card-shadow)"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+                          <span data-drag-handle="1" style={{fontSize:16,cursor:"grab",color:C.lt,touchAction:"none",padding:"4px 2px",userSelect:"none",WebkitUserSelect:"none"}}>&#x2261;</span>
+                          <span style={{fontSize:16,flexShrink:0}}>{ICONS[e.type]||"📝"}</span>
                           <div style={{minWidth:0}}>
-                            <div style={{fontSize:14,fontWeight:500}}>{actLabel}</div>
-                            {subDetail&&<div style={{fontSize:13,color:C.lt,fontFamily:_fM,marginTop:1}}>{subDetail}</div>}
+                            <div style={{fontSize:14,fontWeight:600,color:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{actLabel}</div>
+                            {subDetail&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subDetail}</div>}
                           </div>
                         </div>
-                        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
                           {badgeVal&&<Badge type={e.type}>{badgeVal}</Badge>}
-                          <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:26,height:26,color:C.ter,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(246,221,227,0.30)"}}>✎</button>
-                          <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:26,height:26,color:"#e06070",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                          <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1px solid var(--card-border)",borderRadius:"50%",width:28,height:28,color:C.ter,cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>✎</button>
+                          <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1px solid var(--card-border)",borderRadius:"50%",width:28,height:28,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                         </div>
                       </div>
                     </div>
@@ -9026,7 +8742,7 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",gap:7}}>
                     <div style={{width:3,height:18,background:"#7b68ee",borderRadius:99}}/>
-                    <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"var(--text-mid)",fontSize:16}}>Night Wakes</span>
+                    <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"var(--text-mid)",fontSize:14}}>Night Wakes</span>
                     <HelpBtn title="Night Wakes" body="Night wakes are tracked separately from daytime entries. Feeds and wakes after bedtime automatically move here. Stretches between wakes are colour-coded — green (3h+) is great, purple (<2h) may indicate hunger or discomfort. You can log soothing method, duration, and feed amount."/>
                   </div>
                   <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});setShowNightWake(true);}} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
@@ -9064,8 +8780,8 @@ function App(){
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
-                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:24,height:24,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}}>✎</button>
-                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:24,height:24,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:28,height:28,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}}>✎</button>
+                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:28,height:28,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                             </div>
                           </div>
                         </div>
@@ -9104,8 +8820,8 @@ function App(){
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
-                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:24,height:24,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}}>✎</button>
-                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:24,height:24,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:28,height:28,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}}>✎</button>
+                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:28,height:28,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                             </div>
                           </div>
                         </div>
@@ -10211,8 +9927,6 @@ function App(){
         {tab==="develop"&&(()=>{
           const ageWeeks = age ? age.totalWeeks : null;
           const name = babyName || "Baby";
-
-
           function getDevAdvice(ageWeeks) {
             if (!ageWeeks) return [];
             if (ageWeeks < 6) return [
@@ -10266,8 +9980,6 @@ function App(){
           }
 
           const devAdvice = getDevAdvice(ageWeeks);
-
-          
 
           const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks !== null && ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
           const filteredActs = devActFilter === "all" ? nowActs : nowActs.filter(a => a.cat === devActFilter);
@@ -10845,8 +10557,6 @@ function App(){
               </button>
             )}
 
-            
-
                         {/* Weekly Digest & Reports */}
             <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%",marginBottom:10}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -11017,7 +10727,7 @@ function App(){
             <div style={{background:"var(--card-bg)",border:`1.5px solid rgba(232,87,74,0.2)`,borderRadius:16,padding:"12px 14px",marginTop:14}}>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                 <span style={{fontSize:18}}>🩹</span>
-                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>First Aid Quick Reference</span>
+                <span style={{fontSize:15,fontWeight:700,color:C.deep}}>First Aid Quick Reference</span>
                 <HelpBtn title="First Aid" body="Signposting to official NHS and St John Ambulance resources — not medical advice. Always call 999 in an emergency. Save these links for quick access."/>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -11812,8 +11522,6 @@ function App(){
       })()}
       {}
       {/* Personal/NHS toggle moved to Account → Sleep Recommendations */}
-
-
       {/* ═══ Teething Form ═══ */}
       {showTeethingForm&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowTeethingForm(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
@@ -12202,8 +11910,6 @@ function App(){
           </div>
         </div>
       )}
-
-
             {showNightWake&&(
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setShowNightWake(false);}}>
           <div onPointerDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
