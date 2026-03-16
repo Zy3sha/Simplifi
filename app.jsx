@@ -8490,6 +8490,40 @@ function App(){
           const weightGain = latestW && prevW ? Math.round((latestW.kg - prevW.kg)*1000)/1000 : null;
 
           // Parent wellbeing prompt (weekly)
+          // Rotating wellbeing messages
+          const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+          const wellbeingMsgs = {
+            Great: [
+              "That's wonderful! You're doing an amazing job. Enjoy the good moments 🌟",
+              "Love to hear it! Those good days make all the difference. You've earned this ☀️",
+              "Brilliant! Remember this feeling — you're smashing it as a parent 💪",
+              "So happy you're feeling good! Your baby is lucky to have you 💛",
+              "Amazing! Soak it in — you deserve to feel great about the job you're doing 🎉",
+            ],
+            Okay: [
+              "That's completely normal — some days are just 'okay' and that's fine. You're doing more than you think 💜",
+              "Okay days are still good days. Every nappy change, every feed — it all counts. Keep going 🌱",
+              "Being a parent is a marathon, not a sprint. 'Okay' is more than enough 💙",
+              "You don't have to be perfect. Showing up every day is what matters most 🤍",
+              "An okay day with a loved baby is still a beautiful day. You're doing great 🌸",
+            ],
+            Struggling: [
+              "It's brave to admit that. You're not alone — many parents feel this way, and it doesn't mean you're failing.",
+              "Parenting is the hardest job there is. Feeling overwhelmed doesn't make you a bad parent — it makes you human.",
+              "Please be gentle with yourself. Your baby doesn't need a perfect parent — they just need you.",
+              "The fact that you care enough to check in shows what a wonderful parent you are. It's OK to ask for help.",
+              "Tough days don't last forever. You're stronger than you think, and support is always available.",
+            ],
+            "Need support": [
+              "You're doing the right thing by reaching out. Asking for help is a sign of strength, not weakness.",
+              "Please don't carry this alone. There are people ready to listen right now — no judgement, just support.",
+              "You matter. Your wellbeing matters. Please reach out — even a conversation can make a huge difference.",
+              "It takes real courage to say you need support. The hardest step is the first one, and you've just taken it.",
+              "You deserve support. Being a parent is overwhelming sometimes, and there's no shame in asking for help.",
+            ]
+          };
+          const wellbeingResources = "\n\n📞 PANDAS Foundation: 0808 196 1776 (free, Mon–Fri 11am–10pm)\n📞 Samaritans: 116 123 (free, 24/7)\n🌐 NHS Talking Therapies: self-refer via nhs.uk\n📞 Health visitor — call your GP surgery to be connected";
+
           const wellbeingCard = wellbeingDue ? (
             <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(111,168,152,0.08))",border:`1.5px solid rgba(123,104,238,0.2)`,borderRadius:18,padding:"16px",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
@@ -8502,11 +8536,12 @@ function App(){
                   <button key={label} onClick={()=>{
                     setLastWellbeingDate(todayStr());
                     try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};
+                    const msg = pick(wellbeingMsgs[label]);
                     if(label==="Struggling"||label==="Need support"){
                       setQuickFlash(null);
-                      setTimeout(()=>{setQuickFlash("💜 You're not alone. PANDAS Foundation: 0808 196 1776 · NHS Talking Therapies: self-refer via nhs.uk");setTimeout(()=>setQuickFlash(null),8000);},200);
+                      setTimeout(()=>{setQuickFlash("💜 "+msg+wellbeingResources);setTimeout(()=>setQuickFlash(null),12000);},200);
                     } else {
-                      setQuickFlash("💜 "+(label==="Great"?"Glad to hear it!":"Keep going — you're doing brilliantly."));setTimeout(()=>setQuickFlash(null),2500);
+                      setQuickFlash("💜 "+msg);setTimeout(()=>setQuickFlash(null),4000);
                     }
                   }} style={{flex:1,minWidth:70,padding:"10px 6px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
                     <span style={{fontSize:20}}>{emoji}</span>
@@ -8531,91 +8566,6 @@ function App(){
             <div>
               {/* Parent wellbeing check-in (weekly) */}
               {wellbeingCard}
-              {/* ── Daily Summary ── */}
-              {(()=>{
-                if (!age || !days[selDay] || (days[selDay]||[]).filter(e=>!e.night).length === 0) return null;
-                const isToday = selDay === todayStr();
-                const name = babyName || "Baby";
-                const ageWeeks = age.totalWeeks;
-                const dayLabel = isToday ? "Today" : fmtLong(selDay);
-                const todayEntries = days[selDay]||[];
-                const todayDayE = todayEntries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
-
-                const napCount = todayDayE.filter(e=>e.type==="nap").length;
-                const todayNapMins = todayDayE.filter(e=>e.type==="nap").reduce((s,n)=>s+minDiff(n.start,n.end),0);
-                const range = napNormalRange();
-                let sleepLine = "";
-                const hasBedtime = todayDayE.some(e=>e.type==="sleep");
-                const dayDone = hasBedtime || !isToday;
-                if (napCount === 0) sleepLine = "No naps logged yet.";
-                else if (!dayDone && todayNapMins < (range ? range.min : 60)) sleepLine = `${hm(todayNapMins)} of nap time so far across ${napCount} nap${napCount!==1?"s":""} — more naps expected.`;
-                else if (dayDone && todayNapMins < (range ? range.min : 60)) sleepLine = `Naps were a little shorter today (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
-                else if (todayNapMins > (range ? range.max : 300)) sleepLine = `Plenty of nap time today (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
-                else sleepLine = `Nap time looks good (${hm(todayNapMins)} across ${napCount} nap${napCount!==1?"s":""}).`;
-                const bedEntry2 = todayDayE.find(e => e.type === "sleep");
-                if (bedEntry2) sleepLine += ` Bedtime logged at ${fmt12(bedEntry2.time)}.`;
-
-                const dayMlTotal = todayEntries.filter(e => e.type === "feed" && !e.night).reduce((s,f) => s+(f.amount||0), 0);
-                const feedCount = todayDayE.filter(e => e.type === "feed").length;
-                let feedLine = "";
-                if (feedCount === 0) feedLine = "No feeds logged yet.";
-                else if (dayMlTotal > 0) {
-                  feedLine = `${fmtVol(dayMlTotal,FU)} across ${feedCount} feed${feedCount!==1?"s":""}`;
-                  const solids = todayDayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
-                  if (solids > 0) feedLine += ` + ${solids} solid${solids!==1?"s":""}`;
-                  feedLine += ".";
-                } else {
-                  const breast = todayDayE.filter(e => e.type === "feed" && e.feedType === "breast").length;
-                  const solids = todayDayE.filter(e => e.type === "feed" && e.feedType === "solids").length;
-                  const parts = [];
-                  if (breast > 0) parts.push(`${breast} breastfeed${breast!==1?"s":""}`);
-                  if (solids > 0) parts.push(`${solids} solid${solids!==1?"s":""}`);
-                  feedLine = parts.length ? parts.join(" + ") + "." : `${feedCount} feed${feedCount!==1?"s":""}.`;
-                }
-
-                const devSkills = MILESTONES.filter(m => ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[1] && !milestones[m.id]?.date);
-                const cats = [...new Set(devSkills.map(m => m.cat))];
-                const catNames = {social:"social skills",language:"communication",motor:"movement",cognitive:"thinking & play"};
-                let devLine = "";
-                if (cats.length > 0) devLine = `Working on ${cats.slice(0,2).map(c => catNames[c]||c).join(" and ")}.`;
-
-                return (
-                  <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"0 2px 12px rgba(201,112,90,0.06)"}}>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:C.deep,marginBottom:2}}>{dayLabel} with {name}</div>
-                    <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:14}}>{fmtAge(age)} · week {ageWeeks}</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {sleepLine && (
-                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                          <span style={{fontSize:15,flexShrink:0,marginTop:1}}>😴</span>
-                          <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sleep</div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{sleepLine}</div>
-                          </div>
-                        </div>
-                      )}
-                      {feedLine && (
-                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                          <span style={{fontSize:15,flexShrink:0,marginTop:1}}>🍼</span>
-                          <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Feeding</div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{feedLine}</div>
-                          </div>
-                        </div>
-                      )}
-                      {devLine && (
-                        <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                          <span style={{fontSize:15,flexShrink:0,marginTop:1}}>🧠</span>
-                          <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Development</div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{devLine}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
               {/* ── TODAY'S FEEDING INSIGHT ── */}
               {(()=>{
                 const fc = feedCard();
