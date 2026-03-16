@@ -1730,8 +1730,6 @@ function App(){
   const[sessionLogs,setSessionLogs]=useState(0);
   const[showTutPrompt,setShowTutPrompt]=useState(false);
 
-  const[isOnline,setIsOnline]=useState(()=>navigator.onLine);
-
 
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
 
