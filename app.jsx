@@ -16,6 +16,12 @@ const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(
 const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 const fmtSec = s => s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 const haptic=(ms=10)=>{try{navigator.vibrate&&navigator.vibrate(ms);}catch{}};
+const _locale = (navigator.language||"en-GB").toLowerCase();
+const _isUS = _locale.startsWith("en-us");
+const _isAU = _locale.startsWith("en-au");
+const _emergNum = _isUS ? "911" : _isAU ? "000" : "999";
+const _helpLine = _isUS ? "your pediatrician" : _isAU ? "your GP or 000" : "111 (NHS) or your GP";
+const _doctor = _isUS ? "pediatrician" : _isAU ? "GP" : "GP or health visitor";
 const fmtCountdown = s => {
   if(s <= 0) return "Now!";
   const h = Math.floor(s/3600);
@@ -201,7 +207,7 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
 const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"💩"};
 const NAMES={feed:"Feed",nap:"Nap",wake:"Wake Up",sleep:"Bedtime",poop:"Nappy"};
 const POOP_TYPES=["Yellow/seedy","Mustard","Green","Brown","Dark green","Orange","Black/tarry","White/pale","Mucousy","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Meconium","Other"];
-const POOP_SAFETY_FLAGS={"Black/tarry":"Black or tarry stools after the first few days may need medical attention — contact your GP or health visitor.","White/pale":"Persistently pale or chalky stools can indicate a liver condition — mention this to your GP or health visitor promptly.","Bloody/streaked":"Blood in stools can have many causes, but if new or persistent, contact your GP or call 111.","Meconium":"Meconium (dark, sticky first stools) is normal in the first 48–72 hours. If still passing meconium after day 3–4, mention it to your midwife or health visitor."};
+const POOP_SAFETY_FLAGS={"Black/tarry":`Black or tarry stools after the first few days may need medical attention — contact your ${_doctor}.`,"White/pale":`Persistently pale or chalky stools can indicate a liver condition — mention this to your ${_doctor} promptly.`,"Bloody/streaked":`Blood in stools can have many causes, but if new or persistent, contact your ${_doctor}.`,"Meconium":"Meconium (dark, sticky first stools) is normal in the first 48–72 hours. If still passing meconium after day 3–4, mention it to your midwife or health visitor."};
 
 // 14 major UK allergens — NHS/FSA
 const ALLERGENS = {
@@ -1275,6 +1281,13 @@ function App(){
         if(milestoneId){
           // Attach to milestone
           setMilestones(prev=>({...prev,[milestoneId]:{...prev[milestoneId],photo:dataUrl}}));
+          // If from milestone share prompt, generate share card with this photo
+          if(photoInputRef.current._shareAfter){
+            const label = photoInputRef.current._shareLabel || "Milestone";
+            photoInputRef.current._shareAfter = false;
+            photoInputRef.current._shareLabel = null;
+            setTimeout(()=>shareCard(label, milestoneId, dataUrl), 300);
+          }
         }else{
           // Add to photo diary
           setPhotos(prev=>[...prev,{id:uid(),date:selDay||todayStr(),time:nowTime(),dataUrl,note:""}]);
@@ -1343,6 +1356,7 @@ function App(){
   const[showAddPin,setShowAddPin]=useState(false);
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
+  const[msSharePrompt,setMsSharePrompt]=useState(null); // {milestoneId, label}
   const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0});
   const[reminderForm,setReminderForm]=useState({text:"",date:"",time:""});
   const[reminders,setReminders]=useState(()=>{
@@ -5423,11 +5437,14 @@ function App(){
     if(duration > 0) setTimeout(()=>setMascotPopup(null), duration);
   }
   // ── Social share card generator ──
-  async function shareCard(title, milestone){
+  async function shareCard(title, milestone, photoUrl){
     const W=1080,H=1920;
     const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
     const ctx=canvas.getContext("2d");
     const name=babyName||"Baby";
+
+    // Use provided photo, milestone photo, or profile pic
+    const imgSrc = photoUrl || (milestone && milestones[milestone]?.photo) || activeChild.photo || null;
 
     // Rich background gradient — warm pink/mauve/gold
     const grad=ctx.createLinearGradient(0,0,W*0.3,H);
@@ -5480,14 +5497,41 @@ function App(){
     ctx.font="22px sans-serif";ctx.fillStyle="#8A7878";
     ctx.fillText("Celebrating baby\u2019s rhythm, one moment at a time",W/2,210);
 
-    // Mascot — large and centered
-    try{
-      const img=new Image();img.crossOrigin="anonymous";
-      await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src="obubba-celebration.png";setTimeout(rej,3000);});
-      const mW=420,mH=420;
-      ctx.drawImage(img,W/2-mW/2,260,mW,mH);
-    }catch{
-      ctx.font="180px serif";ctx.fillText("\u{1f476}",W/2,520);
+    // Photo or mascot — centered
+    let drewPhoto = false;
+    if(imgSrc){
+      try{
+        const img=new Image();img.crossOrigin="anonymous";
+        await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=imgSrc;setTimeout(rej,3000);});
+        // Draw circular photo with border
+        const photoSize=380,photoX=W/2-photoSize/2,photoY=270;
+        ctx.save();
+        ctx.beginPath();ctx.arc(W/2,photoY+photoSize/2,photoSize/2,0,Math.PI*2);ctx.clip();
+        // Cover-fit the image
+        const aspect=img.width/img.height;
+        let dw=photoSize,dh=photoSize;
+        if(aspect>1){dw=photoSize*aspect;} else {dh=photoSize/aspect;}
+        ctx.drawImage(img,W/2-dw/2,photoY+photoSize/2-dh/2,dw,dh);
+        ctx.restore();
+        // Photo border ring
+        ctx.strokeStyle="rgba(255,255,255,0.6)";ctx.lineWidth=6;
+        ctx.beginPath();ctx.arc(W/2,photoY+photoSize/2,photoSize/2+3,0,Math.PI*2);ctx.stroke();
+        // Golden inner ring
+        ctx.strokeStyle="rgba(212,168,85,0.35)";ctx.lineWidth=3;
+        ctx.beginPath();ctx.arc(W/2,photoY+photoSize/2,photoSize/2-2,0,Math.PI*2);ctx.stroke();
+        drewPhoto = true;
+      }catch{}
+    }
+    if(!drewPhoto){
+      // Fallback: mascot
+      try{
+        const img=new Image();img.crossOrigin="anonymous";
+        await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src="obubba-celebration.png";setTimeout(rej,3000);});
+        const mW=420,mH=420;
+        ctx.drawImage(img,W/2-mW/2,260,mW,mH);
+      }catch{
+        ctx.font="180px serif";ctx.fillText("\u{1f476}",W/2,520);
+      }
     }
 
     // Confetti-like shapes around mascot
@@ -6079,9 +6123,9 @@ function App(){
     setMedForm({ name: "", dose: "", time: "", temp: "", note: "" });
     // Safety: fever in under 3 months
     if (m.temp && parseFloat(m.temp) >= 38 && age && age.totalWeeks < 13) {
-      setTimeout(() => showToast("🚨 38°C+ in a baby under 3 months — call 111 (NHS) or your GP now.", 8000, 4), 300);
+      setTimeout(() => showToast(`🚨 38°C+ in a baby under 3 months — call ${_helpLine} now.`, 8000, 4), 300);
     } else if (m.temp && parseFloat(m.temp) >= 38) {
-      setTimeout(() => showToast("🌡️ Temperature logged. Keep baby cool and hydrated. If concerned, contact your GP or call 111.", 5000, 3), 300);
+      setTimeout(() => showToast(`🌡️ Temperature logged. Keep baby cool and hydrated. If concerned, contact ${_helpLine}.`, 5000, 3), 300);
     } else {
       showToast(m.name ? "💊 Logged. Always follow dosing instructions on the packaging or from your pharmacist." : "💊 Logged", m.name ? 3000 : 1200, 1);
     }
@@ -7715,11 +7759,11 @@ function App(){
           { icon:"🧠", title:"Intelligent Predictions", body:"OBubba blends sleep research with your baby's personal patterns. Confidence tracking runs silently — when predictions hit 80%+ accuracy, you'll see a celebration. Smart prompts appear at the right time: morning wake-up, nap windows, bedtime wind-down." },
           { icon:"🔍", title:"Sleep Intelligence", body:"Detects patterns a sleep consultant would spot: false starts at bedtime, split nights, early morning waking, short naps, and your baby's natural rhythm. 'What went well' analysis at bedtime highlights what worked today." },
           { icon:"😢", title:"Crying Helper", body:"Ranks likely reasons using feeds, wake windows, teething age, and past data. Quick-action buttons let you log a feed or start a nap directly from the helper. Shows what percentage of the time each solution has worked before." },
-          { icon:"💊", title:"Health Tracking", body:"Medicine & temperature tracker with fever safety alerts (38°C+ under 3 months = call 111). Nappy tracking with hydration counter (6 wet nappies/day target), poop frequency awareness, and colour safety flags." },
+          { icon:"💊", title:"Health Tracking", body:`Medicine & temperature tracker with fever safety alerts (38°C+ under 3 months = call ${_helpLine}). Nappy tracking with hydration counter (6 wet nappies/day target), poop frequency awareness, and colour safety flags.` },
           { icon:"📊", title:"Insights Tab", body:"Priority action card shows the ONE most important thing right now. Weekly wins compare this week vs last. Sleep analysis, bedtime consistency score, night feed trends, growth-feed correlation, feeding tracker, and shareable day reports." },
           { icon:"🧩", title:"Development Tab", body:"'This week's focus' shows 3 activities for your baby's exact age. NHS milestone checklist with photo prompts on completion. Teething tracker, weaning journal, and safe sleep guidelines." },
-          { icon:"👩‍🍼", title:"Carer Card & First Aid", body:"In Account: shareable care guide with feeding, sleep, emergency contacts, and comfort items. First Aid Quick Reference links to NHS choking, fever, 999, and meningitis guidance. Share via link or print." },
-          { icon:"💜", title:"Parent Wellbeing", body:"Weekly check-in asks how you're doing. Cheerful messages for good days, encouragement for okay days, and full support signposting (PANDAS, Samaritans, NHS) when you're struggling. You matter too." },
+          { icon:"👩‍🍼", title:"Carer Card & First Aid", body:`In Account: shareable care guide with feeding, sleep, emergency contacts, and comfort items. First Aid Quick Reference links to choking, fever, ${_emergNum}, and meningitis guidance. Share via link or print.` },
+          { icon:"💜", title:"Parent Wellbeing", body:`Weekly check-in asks how you're doing. Cheerful messages for good days, encouragement for okay days, and full support signposting (${_isUS?"PSI, 988 Lifeline":_isAU?"PANDA, Beyond Blue, Lifeline":"PANDAS, Samaritans, NHS"}) when you're struggling. You matter too.` },
           { icon:"🎉", title:"You're all set!", body:"Log a wake time to start. Tap ? icons for feature help. Predictions improve with data. Replay this tour anytime from Account." },
         ];
 
@@ -8908,7 +8952,11 @@ function App(){
               "You deserve support. Being a parent is overwhelming sometimes, and there's no shame in asking for help.",
             ]
           };
-          const wellbeingResources = "\n\n📞 PANDAS Foundation: 0808 196 1776 (free, Mon–Fri 11am–10pm)\n📞 Samaritans: 116 123 (free, 24/7)\n🌐 NHS Talking Therapies: self-refer via nhs.uk\n📞 Health visitor — call your GP surgery to be connected";
+          const wellbeingResources = _isUS
+            ? "\n\n📞 Postpartum Support International: 1-800-944-4773\n📞 988 Suicide & Crisis Lifeline: 988 (24/7)\n🌐 SAMHSA Helpline: 1-800-662-4357\n📞 Your pediatrician or OB-GYN"
+            : _isAU
+            ? "\n\n📞 PANDA: 1300 726 306 (Mon–Fri 9am–7:30pm AEST)\n📞 Beyond Blue: 1300 22 4636 (24/7)\n📞 Lifeline: 13 11 14 (24/7)\n📞 Your GP or child health nurse"
+            : "\n\n📞 PANDAS Foundation: 0808 196 1776 (free, Mon–Fri 11am–10pm)\n📞 Samaritans: 116 123 (free, 24/7)\n🌐 NHS Talking Therapies: self-refer via nhs.uk\n📞 Health visitor — call your GP surgery to be connected";
 
           const wellbeingCard = wellbeingDue ? (
             <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(111,168,152,0.08))",border:`1.5px solid rgba(123,104,238,0.2)`,borderRadius:18,padding:"16px",marginBottom:14}}>
@@ -10016,7 +10064,7 @@ function App(){
                 <div onClick={()=>{
                   if(isFuture) return;
                   if(done){ showConfirm("Remove milestone", `Remove "${m.label}"?`, ()=>{setMilestones(ms=>({...ms,[m.id]:{}}));setConfirmDialog(null);}, "Remove", true); }
-                  else { setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}})); showMascot("celebration", `🎉 ${m.label} — milestone reached! Tap 📷 on the Day tab to capture this moment.`, 4000); }
+                  else { setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}})); showMascot("celebration", `🎉 ${m.label} — milestone reached!`, 2500); setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2800); }
                 }} style={{display:"flex",alignItems:"flex-start",gap:11,padding:"10px 0",cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1}}>
                   <div style={{width:21,height:21,borderRadius:"50%",border:`2px solid ${tick}`,background:done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2}}>
                     {done && <span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}
@@ -10698,30 +10746,55 @@ function App(){
             )}
 
             {/* First Aid Quick Reference */}
-            <div style={{background:"var(--card-bg)",border:`1.5px solid rgba(232,87,74,0.2)`,borderRadius:16,padding:"12px 14px",marginTop:14}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                <span style={{fontSize:18}}>🩹</span>
-                <span style={{fontSize:15,fontWeight:700,color:C.deep}}>First Aid Quick Reference</span>
-                <HelpBtn title="First Aid" body="Signposting to official NHS and St John Ambulance resources — not medical advice. Always call 999 in an emergency. Save these links for quick access."/>
+            {(()=>{
+              const lang = (navigator.language||"").toLowerCase();
+              const isUS = lang.startsWith("en-us");
+              const isAU = lang.startsWith("en-au");
+              const isUK = !isUS && !isAU;
+              const emergNum = isUS ? "911" : isAU ? "000" : "999";
+              const poisonNum = isUS ? "1-800-222-1222" : isAU ? "13 11 26" : "111";
+              const items = isUS ? [
+                {emoji:"🫁",label:"Choking — what to do",note:"Back blows + chest thrusts for babies",url:"https://www.redcross.org/get-help/how-to-prepare-for-emergencies/types-of-emergencies/choking.html",source:"Red Cross"},
+                {emoji:"🌡️",label:"Fever guidance",note:"100.4°F+ (38°C) in babies under 3 months = call pediatrician",url:"https://www.healthychildren.org/English/health-issues/conditions/fever/Pages/Fever-and-Your-Baby.aspx",source:"AAP"},
+                {emoji:"⚡",label:"When to call "+emergNum,note:"Breathing difficulty, unresponsive, seizure",url:"https://www.redcross.org/get-help/how-to-prepare-for-emergencies/types-of-emergencies.html",source:"Red Cross"},
+                {emoji:"🍼",label:"First aid for babies",note:"CPR, burns, falls, poisoning",url:"https://www.healthychildren.org/English/safety-prevention/at-home/Pages/First-Aid-Guide.aspx",source:"AAP"},
+                {emoji:"☠️",label:"Poison control",note:"Call "+poisonNum+" immediately",url:"https://www.poison.org/",source:"AAPCC"},
+              ] : isAU ? [
+                {emoji:"🫁",label:"Choking — what to do",note:"Back blows + chest thrusts for babies",url:"https://www.stjohn.org.au/first-aid-facts/breathing-emergencies/choking-baby",source:"St John AU"},
+                {emoji:"🌡️",label:"Fever guidance",note:"38°C+ in babies under 3 months = call GP or 000",url:"https://www.rch.org.au/kidsinfo/fact_sheets/Fever_in_children/",source:"RCH"},
+                {emoji:"⚡",label:"When to call "+emergNum,note:"Breathing difficulty, unresponsive, seizure",url:"https://www.healthdirect.gov.au/when-to-call-000",source:"Healthdirect"},
+                {emoji:"🍼",label:"First aid for babies",note:"CPR, resuscitation, burns, falls",url:"https://www.stjohn.org.au/first-aid-facts",source:"St John AU"},
+                {emoji:"☠️",label:"Poison information",note:"Call "+poisonNum+" immediately",url:"https://www.poisonsinfo.nsw.gov.au/",source:"NSW Poisons"},
+              ] : [
+                {emoji:"🫁",label:"Choking — what to do",note:"Back blows + chest thrusts for babies under 1",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-stop-a-child-from-choking/",source:"NHS"},
+                {emoji:"🌡️",label:"Fever guidance by age",note:"38°C+ under 3 months = call 111 immediately",url:"https://www.nhs.uk/symptoms/fever-in-children/",source:"NHS"},
+                {emoji:"⚡",label:"When to call "+emergNum,note:"Breathing difficulty, unresponsive, rash that doesn't fade",url:"https://www.nhs.uk/nhs-services/urgent-and-emergency-care-services/when-to-call-999/",source:"NHS"},
+                {emoji:"🍼",label:"Baby first aid & CPR",note:"How to resuscitate a baby or child",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-resuscitate-a-child/",source:"NHS"},
+                {emoji:"💊",label:"Meningitis signs",note:"Stiff neck, dislike of light, blotchy rash",url:"https://www.nhs.uk/conditions/meningitis/symptoms/",source:"NHS"},
+              ];
+              return (
+              <div style={{background:"var(--card-bg)",border:`1.5px solid rgba(232,87,74,0.2)`,borderRadius:16,padding:"12px 14px",marginTop:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                  <span style={{fontSize:18}}>🩹</span>
+                  <span style={{fontSize:15,fontWeight:700,color:C.deep}}>First Aid Quick Reference</span>
+                  <HelpBtn title="First Aid" body={"Signposting to official "+(isUS?"AAP and Red Cross":isAU?"St John Ambulance and RCH":"NHS")+" resources — not medical advice. Always call "+emergNum+" in an emergency."}/>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {items.map((item,i)=>(
+                    <button key={i} onClick={()=>{try{window.open(item.url,"_blank");}catch{}}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:12,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left",width:"100%"}}>
+                      <span style={{fontSize:16}}>{item.emoji}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:600,color:C.deep}}>{item.label}</div>
+                        <div style={{fontSize:10,color:C.lt}}>{item.note}</div>
+                      </div>
+                      <span style={{fontSize:10,color:C.lt,flexShrink:0}}>{item.source} ↗</span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{fontSize:10,color:C.lt,marginTop:8,lineHeight:1.4}}>⚠️ These are links to official resources — not medical advice. In an emergency, always call {emergNum}.</div>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                {[
-                  {emoji:"🫁",label:"Choking — what to do",note:"Back blows + chest thrusts for babies under 1",url:"https://www.nhs.uk/conditions/baby/first-aid-and-safety/first-aid/how-to-stop-a-baby-or-child-from-choking/"},
-                  {emoji:"🌡️",label:"Fever guidance by age",note:"38°C+ under 3 months = call 111 immediately",url:"https://www.nhs.uk/conditions/baby/health/treating-a-fever-in-children/"},
-                  {emoji:"⚡",label:"When to call 999",note:"Breathing difficulty, unresponsive, rash that doesn't fade",url:"https://www.nhs.uk/conditions/baby/first-aid-and-safety/first-aid/"},
-                  {emoji:"💊",label:"Meningitis signs",note:"Stiff neck, dislike of light, blotchy rash",url:"https://www.nhs.uk/conditions/meningitis/symptoms/"},
-                ].map((item,i)=>(
-                  <button key={i} onClick={()=>{try{window.open(item.url,"_blank");}catch{}}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left",width:"100%"}}>
-                    <span style={{fontSize:16}}>{item.emoji}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:12,fontWeight:600,color:C.deep}}>{item.label}</div>
-                      <div style={{fontSize:10,color:C.lt}}>{item.note}</div>
-                    </div>
-                    <span style={{fontSize:10,color:C.lt}}>NHS ↗</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+              );
+            })()}
 
             {/* App Disclaimer */}
             <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginTop:14}}>
@@ -12708,7 +12781,7 @@ function App(){
                 style={{padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN}}/>
               {medForm.temp && parseFloat(medForm.temp) >= 38 && age && age.totalWeeks < 13 && (
                 <div style={{background:"rgba(232,87,74,0.1)",border:"1.5px solid rgba(232,87,74,0.3)",borderRadius:12,padding:"10px 12px",fontSize:13,color:"#c44",lineHeight:1.5}}>
-                  🚨 <b>38°C+ in a baby under 3 months</b> — call 111 (NHS) or your GP now. Do not wait.
+                  🚨 <b>38°C+ in a baby under 3 months</b> — call {_helpLine} now. Do not wait.
                 </div>
               )}
             </div>
@@ -12753,6 +12826,44 @@ function App(){
               style={{width:"100%",marginTop:16,padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
               Got it
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Milestone Share Prompt ═══ */}
+      {msSharePrompt&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setMsSharePrompt(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:24,padding:"28px 22px",width:"100%",maxWidth:320,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:10}}>🎉</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:6}}>{msSharePrompt.label}</div>
+            <div style={{fontSize:14,color:"#7A6B7E",lineHeight:1.6,marginBottom:18}}>Would you like to capture this moment and share it?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <button onClick={()=>{
+                const mid = msSharePrompt.milestoneId;
+                const label = msSharePrompt.label;
+                setMsSharePrompt(null);
+                if(photoInputRef.current){
+                  photoInputRef.current._forMilestone = mid;
+                  photoInputRef.current._shareAfter = true;
+                  photoInputRef.current._shareLabel = label;
+                  photoInputRef.current.click();
+                }
+              }} style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:"inherit"}}>
+                📷 Capture & Share
+              </button>
+              <button onClick={()=>{
+                const mid = msSharePrompt.milestoneId;
+                const label = msSharePrompt.label;
+                setMsSharePrompt(null);
+                const profilePic = activeChild.photo || null;
+                shareCard(label, mid, profilePic);
+              }} style={{width:"100%",padding:"12px",borderRadius:99,border:`1.5px solid #F0D0C8`,background:"none",color:"#5B4F5F",fontSize:14,fontWeight:600,cursor:_cP,fontFamily:"inherit"}}>
+                👤 Share with profile picture
+              </button>
+              <button onClick={()=>setMsSharePrompt(null)} style={{width:"100%",padding:"10px",background:"none",border:"none",color:"#A898AC",fontSize:13,cursor:_cP,fontFamily:"inherit"}}>
+                Maybe later
+              </button>
+            </div>
           </div>
         </div>
       )}
