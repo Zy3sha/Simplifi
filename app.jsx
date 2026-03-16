@@ -1363,17 +1363,6 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("carer_notes_v1",carerNotes);}catch{}},[carerNotes]);
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
   useEffect(()=>{try{localStorage.setItem("carer_comfort_v1",carerComfort);}catch{}},[carerComfort]);
-  // Review prompt: trigger after 7+ days of data and not already prompted
-  useEffect(()=>{
-    try{
-      if(localStorage.getItem("review_prompted_v1")) return;
-      const daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
-      const msCount = Object.values(milestones).filter(m=>m.date).length;
-      if(daysLogged >= 7 || msCount >= 3){
-        setTimeout(()=>setShowReviewPrompt(true),2000);
-      }
-    }catch{}
-  },[days,milestones]);
   const[notifPermission,setNotifPermission]=useState(()=>{
     try{return Notification.permission;}catch{return "denied";}
   });
@@ -1573,18 +1562,6 @@ function App(){
   const[obUsernameStatus,setObUsernameStatus]=useState("idle");
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
   const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");return(u&&!v)?"login":null;}catch{return null;}});
-  // Onboarding flow
-  const[showOnboarding,setShowOnboarding]=useState(()=>{try{return !localStorage.getItem("onboarding_done_v1")&&!localStorage.getItem("backup_code");}catch{return false;}});
-  const[onboardStep,setOnboardStep]=useState(0);
-  // Offline indicator
-  const[isOnline,setIsOnline]=useState(navigator.onLine);
-  useEffect(()=>{
-    const on=()=>setIsOnline(true); const off=()=>setIsOnline(false);
-    window.addEventListener("online",on); window.addEventListener("offline",off);
-    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
-  },[]);
-  // Review prompt
-  const[showReviewPrompt,setShowReviewPrompt]=useState(false);
   const[authMode,setAuthMode]=useState("login");
   const[authUsername,setAuthUsername]=useState(()=>{try{return localStorage.getItem("family_username")||"";}catch{return "";}});
   const[authUsernameStatus,setAuthUsernameStatus]=useState("idle");
@@ -1752,13 +1729,6 @@ function App(){
     return ()=>clearTimeout(lsRef.current);
   },[children, childSyncCodes, resolvedActiveId, onboarded]);
 
-  useEffect(()=>{
-    const on=()=>setIsOnline(true);
-    const off=()=>setIsOnline(false);
-    window.addEventListener("online",on);
-    window.addEventListener("offline",off);
-    return()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off);};
-  },[]);
   useEffect(()=>{
     const check = setInterval(()=>{
       if(window._fb){ setFbReady(true); clearInterval(check); }
@@ -2828,16 +2798,6 @@ function App(){
     return      {stage:"preschool",label:"3+ Years",weeks:w,feedUnit:"portion",showSolids:true,napGoal:"Quiet time / optional nap",feedGoal:"3 meals + snacks",nightNote:"Typically sleeping through",tip:"Big conversations, big feelings — keep reading together daily."};
   }
   const ageStage = getAgeStage();
-
-  // ── Performance: memoize expensive predictions ──
-  const predCacheRef = React.useRef({key:"",bed:null,nap:null});
-  const getCachedPredictions = () => {
-    const key = `${selDay}|${JSON.stringify(days[selDay]||[]).length}|${age?.totalWeeks}|${napOn}|${bridgeNapScheduled}`;
-    if (predCacheRef.current.key !== key) {
-      predCacheRef.current = { key, bed: bedtimePrediction(), nap: predictNextNap() };
-    }
-    return predCacheRef.current;
-  };
 
   const today_str = todayStr();
   const dayKeys=Object.keys(days).sort().filter(d => d <= today_str);
@@ -7602,38 +7562,6 @@ function App(){
 
   // ── CHILD SETUP SCREEN (after new account creation, before app) ──
   if (needsChildSetup && tutStep === -1) {
-    // First-time welcome for brand new users
-    if (showOnboarding) {
-      const steps = [
-        { emoji:"👶", title:"Welcome to OBubba", sub:"Your all-in-one parenting companion. Track feeds, sleep, nappies, milestones, and more — all in one place." },
-        { emoji:"🧠", title:"Smart predictions", sub:"OBubba learns your baby's patterns and predicts nap times, bedtimes, and feeding schedules. Gets smarter every day." },
-        { emoji:"🔒", title:"Your data is yours", sub:"Everything is stored on your device. Optionally sync with a partner — no account required to start." },
-      ];
-      const step = steps[onboardStep];
-      return (
-        <div style={{minHeight:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center"}}>
-          <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
-          <div key={onboardStep} style={{animation:"fadeUp 0.4s ease",maxWidth:320}}>
-            <div style={{fontSize:64,marginBottom:20}}>{step.emoji}</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1.25,marginBottom:10}}>{step.title}</div>
-            <div style={{fontSize:14,color:C.mid,lineHeight:1.7,marginBottom:30}}>{step.sub}</div>
-            <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:24}}>
-              {steps.map((_,i)=><div key={i} style={{width:i===onboardStep?24:8,height:8,borderRadius:99,background:i===onboardStep?C.ter:C.blush,transition:"all 0.2s"}}/>)}
-            </div>
-            {onboardStep < steps.length - 1 ? (
-              <button onClick={()=>setOnboardStep(s=>s+1)} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
-                Next
-              </button>
-            ) : (
-              <button onClick={()=>{setShowOnboarding(false);try{localStorage.setItem("onboarding_done_v1","1");}catch{};}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
-                Get Started
-              </button>
-            )}
-            {onboardStep > 0 && <button onClick={()=>setOnboardStep(s=>s-1)} style={{width:"100%",padding:"10px",marginTop:8,background:"none",border:"none",color:C.lt,fontSize:13,cursor:"pointer"}}>Back</button>}
-          </div>
-        </div>
-      );
-    }
     const finishChildSetup = async (childData) => {
       if (childData) {
         updateChild({ name: (childData.name||"").trim(), dob: childData.dob||"", sex: childData.sex||"" });
@@ -7854,12 +7782,6 @@ function App(){
           </div>
         );
       })()}
-      {!isOnline&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,zIndex:999,background:"#2c1f1a",color:"white",textAlign:"center",padding:"10px 16px",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          <span>📵</span>
-          <span>You're offline — entries are saved locally and will sync when you reconnect</span>
-        </div>
-      )}
       {/* Hidden photo input for diary/milestones */}
       <input ref={photoInputRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={handlePhotoCapture}/>
       <div
@@ -8027,8 +7949,8 @@ function App(){
               }
               const isBed = bedCountdown !== null;
               // Check if bridge nap is forced (wake window would be unsafe)
-              const cachedPred = getCachedPredictions();
-              if (isBed && cachedPred.bed?.forceBridge && !bridgeNapScheduled) {
+              const _bedPred = bedtimePrediction();
+              if (isBed && _bedPred?.forceBridge && !bridgeNapScheduled) {
                 return (
                   <button onClick={()=>{haptic(20);startNap();setBridgeNap(true);showToast("🌉 Bridge nap started",2000,1);}}
                     style={{background:"rgba(232,87,74,0.12)",border:"1.5px solid rgba(232,87,74,0.4)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:"#c44",animation:"pulse 2s infinite"}}>
@@ -10785,32 +10707,6 @@ function App(){
               </div>
               <div style={{fontSize:11,color:C.lt,marginTop:8}}>Version 1.0 · © {new Date().getFullYear()} OBubba · <a href="https://obubba.com/privacy" target="_blank" style={{color:C.lt}}>Privacy Policy</a></div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Offline indicator */}
-      {!isOnline&&(
-        <div style={{position:"fixed",bottom:72,left:0,right:0,zIndex:99,display:"flex",justifyContent:"center",padding:"0 20px",pointerEvents:"none"}}>
-          <div style={{background:"rgba(44,31,26,0.85)",backdropFilter:"blur(8px)",borderRadius:99,padding:"6px 16px",fontSize:12,color:"#f0d0c0",fontWeight:600,fontFamily:_fM,boxShadow:"0 4px 16px rgba(0,0,0,0.2)"}}>
-            📡 Offline — data saved locally, will sync when connected
-          </div>
-        </div>
-      )}
-
-      {/* Review prompt */}
-      {showReviewPrompt&&(
-        <div onClick={()=>setShowReviewPrompt(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:9997,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:320,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
-            <div style={{fontSize:40,marginBottom:12}}>⭐</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Enjoying OBubba?</div>
-            <div style={{fontSize:14,color:C.mid,lineHeight:1.6,marginBottom:20}}>If OBubba is helping you, a quick review would mean the world to us. It helps other parents find the app.</div>
-            <button onClick={()=>{setShowReviewPrompt(false);try{localStorage.setItem("review_prompted_v1","1");}catch{};try{window.open("https://apps.apple.com/app/obubba","_blank");}catch{};}} style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,marginBottom:8}}>
-              ⭐ Rate OBubba
-            </button>
-            <button onClick={()=>{setShowReviewPrompt(false);try{localStorage.setItem("review_prompted_v1","1");}catch{};}} style={{width:"100%",padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"none",color:C.lt,fontSize:13,cursor:_cP}}>
-              Maybe later
-            </button>
           </div>
         </div>
       )}
