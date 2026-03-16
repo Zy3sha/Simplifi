@@ -13081,45 +13081,4 @@ function App(){
     </div>
   );
 }
-
-class ErrorBoundary extends React.Component{
-  constructor(props){super(props);this.state={hasError:false,error:null};}
-  static getDerivedStateFromError(error){return{hasError:true,error};}
-  componentDidCatch(error,info){console.error("OBubba error boundary:",error,info);}
-  render(){
-    if(this.state.hasError){
-      return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
-        // Soft background orbs
-        React.createElement("div",{style:{position:"absolute",top:"-10%",left:"10%",width:300,height:300,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(246,221,227,0.40),transparent 70%)",pointerEvents:"none"}}),
-        React.createElement("div",{style:{position:"absolute",bottom:"5%",right:"5%",width:250,height:250,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(217,207,243,0.35),transparent 70%)",pointerEvents:"none"}}),
-        // Animated CSS
-        React.createElement("style",null,`
-          @keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}
-          @keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}
-          @keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}
-          @keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}
-          @keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-          .zzz{position:absolute;font-weight:700;color:#D9CFF3;font-family:'Playfair Display',serif;font-style:italic}
-        `),
-        // Baby image with breathing
-        React.createElement("div",{style:{position:"relative",marginBottom:28}},
-          React.createElement("img",{src:"sleep-baby.png",alt:"Sleeping baby",style:{width:200,height:200,objectFit:"contain",animation:"babyBreathe 3.5s ease-in-out infinite",filter:"drop-shadow(0 16px 32px rgba(217,207,243,0.35))"}}),
-          // Floating Zzz's
-          React.createElement("span",{className:"zzz",style:{top:8,right:-5,fontSize:18,animation:"zzz1 2.8s ease-in-out infinite"}},"z"),
-          React.createElement("span",{className:"zzz",style:{top:-8,right:12,fontSize:24,animation:"zzz2 2.8s ease-in-out 0.5s infinite"}},"z"),
-          React.createElement("span",{className:"zzz",style:{top:-28,right:28,fontSize:16,animation:"zzz3 2.8s ease-in-out 1s infinite"}},"z")
-        ),
-        // Text
-        React.createElement("div",{style:{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:"#5B4F5F",lineHeight:1.25,marginBottom:10}},"Uh oh!"),
-        React.createElement("div",{style:{fontSize:15,color:"#7A6B7E",lineHeight:1.65,maxWidth:300,marginBottom:6}},"Looks like OBubba fell asleep..."),
-        React.createElement("div",{style:{fontSize:14,color:"#A898AC",lineHeight:1.5,maxWidth:280,marginBottom:28}},"Hold tight — we'll be back from our nap ASAP. Your data is safe."),
-        // Refresh button
-        React.createElement("button",{onClick:()=>window.location.reload(),style:{padding:"14px 36px",borderRadius:99,border:"none",background:"rgba(192,112,136,0.55)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 0 24px rgba(246,221,227,0.40), 0 0 48px rgba(217,207,243,0.25), 0 4px 16px rgba(192,112,136,0.20)",animation:"floatUp 3s ease-in-out infinite",letterSpacing:"0.01em"}},"Wake Up & Refresh"),
-        // Tiny error detail
-        React.createElement("div",{style:{fontSize:10,color:"#C8B8C0",marginTop:24,fontFamily:"monospace",maxWidth:300,wordBreak:"break-all"}},String(this.state.error))
-      );
-    }
-    return this.props.children;
-  }
-}
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(App)));
