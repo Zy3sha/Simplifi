@@ -2062,8 +2062,8 @@ function App(){
   useEffect(()=>{
     if(!fbReady || !restoreDone || !backupCode) return;
 
-    // SAFETY: Don't push until user has authenticated
-    if(!localStorage.getItem("auth_verified")) return;
+    // SAFETY: Don't push until user has authenticated (own account or backup code)
+    if(!localStorage.getItem("auth_verified") && !backupCode) return;
 
     if(!justRestoredRef.current) { justRestoredRef.current = true; return; }
     clearTimeout(syncTimerRef.current);
@@ -2619,7 +2619,7 @@ function App(){
       const ch = childrenRef.current;
       if(!ch) return;
       const bc = backupCodeRef.current;
-      if(bc && localStorage.getItem("auth_verified")){
+      if(bc){
         clearTimeout(syncTimerRef.current);
         pushToCloud(bc, ch);
       }
@@ -8027,8 +8027,8 @@ function App(){
           { icon:"😢", title:"Crying Helper", body:"Ranks likely reasons using feeds, wake windows, teething age, and past data. Quick-action buttons let you log a feed or start a nap directly from the helper. Shows what percentage of the time each solution has worked before." },
           { icon:"💊", title:"Health Tracking", body:"Medicine & temperature tracker with fever safety alerts (38°C+ under 3 months = call 111). Nappy tracking with hydration counter (6 wet nappies/day target), poop frequency awareness, and colour safety flags." },
           { icon:"📊", title:"Insights Tab", body:"Priority action card shows the ONE most important thing right now. Weekly wins compare this week vs last. Sleep analysis, bedtime consistency score, night feed trends, growth-feed correlation, feeding tracker, and shareable day reports." },
-          { icon:"🧩", title:"Development Tab", body:"'This week's focus' shows 3 activities for your baby's exact age. NHS milestone checklist with photo prompts on completion. Teething tracker, weaning journal, first aid quick reference (NHS links), and safe sleep guidelines." },
-          { icon:"👩‍🍼", title:"Carer Card", body:"In Account, generate a shareable care guide: feeding, sleep, safe sleep, emergency contacts (editable, country-specific), comfort items, and notes. Share via link or print." },
+          { icon:"🧩", title:"Development Tab", body:"'This week's focus' shows 3 activities for your baby's exact age. NHS milestone checklist with photo prompts on completion. Teething tracker, weaning journal, and safe sleep guidelines." },
+          { icon:"👩‍🍼", title:"Carer Card & First Aid", body:"In Account: shareable care guide with feeding, sleep, emergency contacts, and comfort items. First Aid Quick Reference links to NHS choking, fever, 999, and meningitis guidance. Share via link or print." },
           { icon:"💜", title:"Parent Wellbeing", body:"Weekly check-in asks how you're doing. Cheerful messages for good days, encouragement for okay days, and full support signposting (PANDAS, Samaritans, NHS) when you're struggling. You matter too." },
           { icon:"🎉", title:"You're all set!", body:"Log a wake time to start. Tap ? icons for feature help. Predictions improve with data. Replay this tour anytime from Account." },
         ];
@@ -8966,9 +8966,10 @@ function App(){
                     subDetail = null;
                   } else if(e.type==="poop"){
                     // Type shown in badge chip only — no subtitle duplication
+                    // Also suppress notes that just describe the nappy type
                     subDetail=null;
                   }
-                  if(e.note&&!subDetail) subDetail=e.note;
+                  if(e.note&&!subDetail&&e.type!=="poop") subDetail=e.note;
                   else if(e.note&&subDetail) subDetail+=` · ${e.note}`;
 
                   // Badge chip value (right side) — show key metric only, no time duplication
@@ -10420,34 +10421,6 @@ function App(){
                 );
               })()}
 
-              {/* ── First Aid Quick Reference ── */}
-              {age && age.totalWeeks < 260 && (
-                <div style={{background:"var(--card-bg)",border:`1.5px solid rgba(232,87,74,0.2)`,borderRadius:16,padding:"12px 14px",marginBottom:14}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                    <span style={{fontSize:18}}>🩹</span>
-                    <span style={{fontSize:13,fontWeight:700,color:C.deep}}>First Aid Quick Reference</span>
-                    <HelpBtn title="First Aid" body="This is signposting to official NHS and St John Ambulance resources — not medical advice. Always call 999 in an emergency. Save these links for quick access."/>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    {[
-                      {emoji:"🫁",label:"Choking — what to do",note:"Back blows + chest thrusts for babies under 1",url:"https://www.nhs.uk/conditions/baby/first-aid-and-safety/first-aid/how-to-stop-a-baby-or-child-from-choking/"},
-                      {emoji:"🌡️",label:"Fever guidance by age",note:"38°C+ under 3 months = call 111 immediately",url:"https://www.nhs.uk/conditions/baby/health/treating-a-fever-in-children/"},
-                      {emoji:"⚡",label:"When to call 999",note:"Breathing difficulty, unresponsive, rash that doesn't fade",url:"https://www.nhs.uk/conditions/baby/first-aid-and-safety/first-aid/"},
-                      {emoji:"💊",label:"Meningitis signs",note:"Stiff neck, dislike of light, blotchy rash",url:"https://www.nhs.uk/conditions/meningitis/symptoms/"},
-                    ].map((item,i)=>(
-                      <button key={i} onClick={()=>{try{window.open(item.url,"_blank");}catch{}}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left",width:"100%"}}>
-                        <span style={{fontSize:16}}>{item.emoji}</span>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:600,color:C.deep}}>{item.label}</div>
-                          <div style={{fontSize:10,color:C.lt}}>{item.note}</div>
-                        </div>
-                        <span style={{fontSize:10,color:C.lt}}>NHS ↗</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* ── COMING UP — Development Phase ── */}
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
@@ -11040,6 +11013,32 @@ function App(){
               </button>
             )}
 
+            {/* First Aid Quick Reference */}
+            <div style={{background:"var(--card-bg)",border:`1.5px solid rgba(232,87,74,0.2)`,borderRadius:16,padding:"12px 14px",marginTop:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={{fontSize:18}}>🩹</span>
+                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>First Aid Quick Reference</span>
+                <HelpBtn title="First Aid" body="Signposting to official NHS and St John Ambulance resources — not medical advice. Always call 999 in an emergency. Save these links for quick access."/>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {[
+                  {emoji:"🫁",label:"Choking — what to do",note:"Back blows + chest thrusts for babies under 1",url:"https://www.nhs.uk/conditions/baby/first-aid-and-safety/first-aid/how-to-stop-a-baby-or-child-from-choking/"},
+                  {emoji:"🌡️",label:"Fever guidance by age",note:"38°C+ under 3 months = call 111 immediately",url:"https://www.nhs.uk/conditions/baby/health/treating-a-fever-in-children/"},
+                  {emoji:"⚡",label:"When to call 999",note:"Breathing difficulty, unresponsive, rash that doesn't fade",url:"https://www.nhs.uk/conditions/baby/first-aid-and-safety/first-aid/"},
+                  {emoji:"💊",label:"Meningitis signs",note:"Stiff neck, dislike of light, blotchy rash",url:"https://www.nhs.uk/conditions/meningitis/symptoms/"},
+                ].map((item,i)=>(
+                  <button key={i} onClick={()=>{try{window.open(item.url,"_blank");}catch{}}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left",width:"100%"}}>
+                    <span style={{fontSize:16}}>{item.emoji}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:600,color:C.deep}}>{item.label}</div>
+                      <div style={{fontSize:10,color:C.lt}}>{item.note}</div>
+                    </div>
+                    <span style={{fontSize:10,color:C.lt}}>NHS ↗</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* App Disclaimer */}
             <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginTop:14}}>
               <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>About OBubba</div>
@@ -11250,7 +11249,7 @@ function App(){
                     const t=nappyTime||nowTime();
                     const typeStr = selectedPoopTypes.join(", ");
                     const pType=nappyMode==="dirty"?"wet + "+typeStr:typeStr;
-                    quickAddLog("poop",{type:"poop",time:t,poopType:pType,note:nappyMode==="dirty"?"Wet + dirty":""});
+                    quickAddLog("poop",{type:"poop",time:t,poopType:pType,note:""});
                     setNappyMode(null);setNappyTime("");setSelectedPoopTypes([]);
                   }}>Log {nappyMode==="dirty"?"dirty":"poop"} ({selectedPoopTypes.length} type{selectedPoopTypes.length!==1?"s":""})</PBtn>
                 )}
