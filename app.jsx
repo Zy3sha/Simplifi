@@ -3072,19 +3072,19 @@ function App(){
     const sorted = [...(days[selDay]||[])].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
     if (!sorted.length) return null;
 
-    // Bug 5: nap cannot be before baby's wake time
+    // Bug 5: use wake entry if available, otherwise use first entry's time as fallback
     const wakeEntry = sorted.find(e => e.type==="wake");
-    if (!wakeEntry) return null; // require wake to be logged for prediction
+    const firstEntryTime = sorted[0].time || sorted[0].start;
+    if (!wakeEntry && !firstEntryTime) return null;
 
     let lastAwakeStart = null;
     sorted.forEach(function(e) {
       if (e.type==="wake") lastAwakeStart = e.time;
       if (e.type==="nap" && e.end) lastAwakeStart = e.end;
-      // If nap has start but no end (nap currently running), use start as anchor
-      // so prediction doesn't revert to morning wake time
       else if (e.type==="nap" && e.start && !e.end) lastAwakeStart = e.start;
     });
-    if (!lastAwakeStart) return null;
+    // If no wake or nap end found, use first entry time (e.g. first feed time)
+    if (!lastAwakeStart) lastAwakeStart = wakeEntry ? wakeEntry.time : firstEntryTime;
 
     // Bug 5: minimum 30 min after waking
     const [law_h, law_m] = lastAwakeStart.split(":").map(Number);
