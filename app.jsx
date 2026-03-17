@@ -1864,8 +1864,8 @@ function App(){
     const {db, doc, getDoc} = window._fb;
 
     (async()=>{
+      const _syncTimer = setTimeout(()=>showMascot("loading", "Syncing your data...", 0), 500);
       try {
-
         let code = backupCode || localStorage.getItem("backup_code");
         if(code && !backupCode) setBackupCode(code);
 
@@ -1983,7 +1983,9 @@ function App(){
         }
 
       } catch(e){ console.warn("OBubba restore error",e); }
+      clearTimeout(_syncTimer);
       setRestoreDone(true);
+      setMascotPopup(p => p && p.type==="loading" ? null : p);
     })();
   },[fbReady]);
   const syncTimerRef = React.useRef(null);
@@ -2751,7 +2753,7 @@ function App(){
       // Bug 1: clamp minsUntilBed to 0 (no negative)
       const minsUntilBed = bedMins !== null ? Math.max(0, bedMins - nowMins) : null;
 
-      const bedtimeConditionMet = napsComplete && !hasBedtime && bed;
+      const bedtimeConditionMet = napsComplete && !hasBedtime && bed && !bed.estimated;
 
       if (hasBedtime) {
         setNapCountdown(null);
@@ -4396,46 +4398,47 @@ function App(){
     if (!age) return null;
     const w = age.totalWeeks;
     const ww = getWakeWindow(w);
+    const napProfile = getAgeNapProfile(w);
     const mtp = m => `${String(Math.floor((m<0?m+24*60:m)/60)%24).padStart(2,"0")}:${String(((m%60)+60)%60).padStart(2,"0")}`;
 
+    // ── 24h sleep targets by age (NHS/WHO) ──
+    const sleepTarget24h = w < 6 ? {min:14*60,max:17*60} : w < 13 ? {min:12*60,max:15*60}
+      : w < 26 ? {min:12*60,max:15*60} : w < 52 ? {min:12*60,max:14*60}
+      : w < 78 ? {min:11*60,max:14*60} : {min:11*60,max:14*60};
+
     // ── Gather recent data with recency weighting ──
-    // Last 7 days, but weight recent days more (decay factor)
     const dk = Object.keys(days).sort().slice(-7);
     if (!dk.length) return null;
 
-    // Extract per-day patterns
     const dayPatterns = dk.map((d, idx) => {
       const entries = days[d] || [];
       const wake = entries.find(e => e.type === "wake" && !e.night);
-      const naps = entries.filter(e => e.type === "nap" && !e.night).sort((a,b) => timeVal(a) - timeVal(b));
+      const naps = entries.filter(e => e.type === "nap" && !e.night && e.start && e.end).sort((a,b) => timeVal(a) - timeVal(b));
       const bed = entries.find(e => e.type === "sleep" && !e.night);
       if (!wake || !naps.length) return null;
       const [wh, wm] = wake.time.split(":").map(Number);
       const wakeMins = wh * 60 + wm;
-      // Per-nap data: start offset from wake, duration
       const napData = naps.map((n, ni) => {
         const [sh, sm] = n.start.split(":").map(Number);
         const startMins = sh * 60 + sm;
         const dur = minDiff(n.start, n.end);
-        // Wake window before this nap
-        const prevEnd = ni === 0 ? wakeMins : (() => {
-          const prev = naps[ni - 1];
-          const [eh, em] = prev.end.split(":").map(Number);
-          return eh * 60 + em;
-        })();
+        const prevEnd = ni === 0 ? wakeMins : (() => { const prev = naps[ni - 1]; const [eh, em] = prev.end.split(":").map(Number); return eh * 60 + em; })();
         return { index: ni, startMins, dur, wwBefore: startMins - prevEnd };
       });
+      const totalNapMins = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
       const bedMins = bed ? (() => { const [bh, bm] = bed.time.split(":").map(Number); return bh * 60 + bm; })() : null;
-      // Recency weight: most recent day = 1.0, oldest = 0.4
+      // Night sleep estimate: bedtime to wake (next day) — rough
+      const nightMins = bedMins && naps.length ? (24*60 - bedMins + wakeMins) : null;
       const recency = 0.4 + 0.6 * (idx / Math.max(dk.length - 1, 1));
-      return { wakeMins, napData, napCount: naps.length, bedMins, recency };
+      return { wakeMins, napData, napCount: naps.length, bedMins, recency, totalNapMins, nightMins };
     }).filter(Boolean);
 
     if (!dayPatterns.length) return null;
 
-    // ── Weighted wake time ──
+    // ── Weighted averages ──
     const totalWeight = dayPatterns.reduce((s, p) => s + p.recency, 0);
-    let baseWake = Math.round(dayPatterns.reduce((s, p) => s + p.wakeMins * p.recency, 0) / totalWeight);
+    function wAvg(getter) { return Math.round(dayPatterns.reduce((s,p) => s + getter(p) * p.recency, 0) / totalWeight); }
+    let baseWake = wAvg(p => p.wakeMins);
 
     // Circadian correction
     const circ = circadianAnalysis();
@@ -4443,21 +4446,32 @@ function App(){
       const [ah, am] = circ.adjustment[0].time.split(":").map(Number);
       baseWake = ah * 60 + am;
     }
-    // Safety: wake must be 5am–9:30am
     baseWake = clampWake(baseWake);
-    // Apply manual schedule override if set
-    if (scheduleOverride && scheduleOverride.wake) {
-      baseWake = scheduleOverride.wake;
-    }
+    if (scheduleOverride && scheduleOverride.wake) baseWake = scheduleOverride.wake;
 
-    // ── Nap count ──
+    // ── Night sleep estimate ──
+    const nightPatterns = dayPatterns.filter(p => p.nightMins && p.nightMins > 5*60 && p.nightMins < 14*60);
+    const avgNightMins = nightPatterns.length >= 2
+      ? Math.round(nightPatterns.reduce((s,p) => s + p.nightMins * p.recency, 0) / nightPatterns.reduce((s,p) => s + p.recency, 0))
+      : (sleepTarget24h.min * 0.7); // 70% of min target as night sleep if no data
+
+    // ── Required day sleep ──
+    const target24h = Math.round((sleepTarget24h.min + sleepTarget24h.max) / 2);
+    const requiredDayMins = Math.max(napProfile.idealTotalMin, Math.min(napProfile.idealTotalMax, target24h - avgNightMins));
+
+    // ── Today's sleep deficit/surplus ──
+    const todayNapMins = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0);
+    const todayDeficit = requiredDayMins - todayNapMins; // positive = under-slept
+    // If today was short, slightly boost tomorrow's nap targets
+    const deficitBoost = todayDeficit > 30 ? Math.min(15, Math.round(todayDeficit * 0.15)) : 0;
+
+    // ── Nap count and durations ──
     const dns = dynamicNapStructure();
-    let napCount = dns ? dns.baseNaps : 3;
+    let napCount = dns ? dns.baseNaps : napProfile.expectedNaps;
     const hasBridge = dns && dns.bridgeNap;
 
-    // ── Per-position nap durations (learn from data) ──
-    const positionDurs = {};
-    const positionWWs = {};
+    // Per-position blended wake windows and nap durations
+    const positionDurs = {}, positionWWs = {};
     dayPatterns.forEach(p => {
       p.napData.forEach(n => {
         if (!positionDurs[n.index]) { positionDurs[n.index] = []; positionWWs[n.index] = []; }
@@ -4465,22 +4479,18 @@ function App(){
         positionWWs[n.index].push({ val: n.wwBefore, weight: p.recency });
       });
     });
+    function weightedAvg(arr) { if (!arr.length) return null; const tw = arr.reduce((s,x) => s+x.weight, 0); return Math.round(arr.reduce((s,x) => s+x.val*x.weight, 0)/tw); }
 
-    function weightedAvg(arr) {
-      if (!arr.length) return null;
-      const tw = arr.reduce((s, x) => s + x.weight, 0);
-      return Math.round(arr.reduce((s, x) => s + x.val * x.weight, 0) / tw);
-    }
+    // Target nap duration per position to hit required day sleep
+    const targetPerNap = Math.round((requiredDayMins + deficitBoost) / napCount);
 
     // ── Weighted bedtime ──
     const bedPatterns = dayPatterns.filter(p => p.bedMins);
     const avgBed = bedPatterns.length >= 2
-      ? Math.round(bedPatterns.reduce((s, p) => s + p.bedMins * p.recency, 0) / bedPatterns.reduce((s, p) => s + p.recency, 0))
+      ? Math.round(bedPatterns.reduce((s,p) => s + p.bedMins * p.recency, 0) / bedPatterns.reduce((s,p) => s + p.recency, 0))
       : 19 * 60;
     let anchorBed = clampBedtime(avgBed);
-    if (scheduleOverride && scheduleOverride.bed) {
-      anchorBed = scheduleOverride.bed;
-    }
+    if (scheduleOverride && scheduleOverride.bed) anchorBed = scheduleOverride.bed;
 
     // ── Build schedule ──
     const schedule = [];
@@ -4488,43 +4498,43 @@ function App(){
 
     let cursor = baseWake;
     let napsDone = 0;
+    let projectedTotalNap = 0;
 
     for (let i = 0; i < napCount; i++) {
-      // Wake window: blend personal pattern (60%) with NHS progressive (40%)
       const personalWW = weightedAvg(positionWWs[i] || []);
       const nhsWW = progressiveWW(w, i, napCount);
       const blendedWW = personalWW !== null && dayPatterns.length >= 3
         ? Math.round(personalWW * 0.6 + nhsWW * 0.4)
         : nhsWW;
-      // Clamp to NHS bounds with age-aware safety
       const clampedWW = clampWakeWindow(blendedWW, w);
       cursor += clampedWW;
 
       if (cursor >= anchorBed - ww.min) break;
 
-      // Nap duration: blend personal (60%) with age cap (40%)
+      // Nap duration: blend personal data with sleep-budget-aware target
       const personalDur = weightedAvg(positionDurs[i] || []);
-      const ageDur = w < 26 ? 55 : w < 39 ? 70 : 80; // age-appropriate default
       const blendedDur = personalDur !== null && dayPatterns.length >= 3
-        ? Math.round(personalDur * 0.6 + ageDur * 0.4)
-        : ageDur;
+        ? Math.round(personalDur * 0.5 + targetPerNap * 0.5)
+        : targetPerNap;
       const cappedDur = clampNapDuration(blendedDur, w);
 
       const napEnd = cursor + cappedDur;
       if (napEnd + ww.min > anchorBed && i < napCount - 1) break;
 
-      schedule.push({ label: `Nap ${napsDone + 1}`, time: `${mtp(cursor)} – ${mtp(napEnd)}`, icon: "😴", type: "nap" });
+      schedule.push({ label: `Nap ${napsDone + 1}`, time: `${mtp(cursor)} – ${mtp(napEnd)}`, icon: "😴", type: "nap", durMins: cappedDur });
       napsDone++;
+      projectedTotalNap += cappedDur;
       cursor = napEnd;
       if (cursor >= anchorBed - 15) break;
     }
 
-    // Bridge nap
+    // Bridge nap if needed
     if (hasBridge) {
       const bridgeStart = anchorBed - 90;
       const bridgeEnd = anchorBed - 60;
       if (bridgeStart > cursor) {
-        schedule.push({ label: "Bridge nap", time: `${mtp(bridgeStart)} – ${mtp(bridgeEnd)}`, icon: "🌙", type: "bridge" });
+        schedule.push({ label: "Bridge nap", time: `${mtp(bridgeStart)} – ${mtp(bridgeEnd)}`, icon: "🌉", type: "bridge", durMins: 30 });
+        projectedTotalNap += 30;
       }
     }
 
@@ -4534,7 +4544,8 @@ function App(){
     schedule.push({ label: "Bedtime", time: mtp(clampBedtime(finalBed)), icon: "🌙", type: "bed" });
 
     const dataQuality = dayPatterns.length >= 5 ? "high" : dayPatterns.length >= 3 ? "good" : "learning";
-    return { schedule: sanitizeSchedule(schedule, w), napCount, hasBridge, source: "NHS wake windows + personal rhythm", dataQuality };
+    const sleepBudget = { required: requiredDayMins, projected: projectedTotalNap, nightEst: avgNightMins, target24h, deficitBoost };
+    return { schedule: sanitizeSchedule(schedule, w), napCount, hasBridge, source: "NHS wake windows + personal rhythm + sleep budget", dataQuality, sleepBudget };
   }
 
   // ─── END ENHANCED SLEEP ENGINE ─────────────────────────────────────────────
@@ -5489,6 +5500,17 @@ function App(){
     return ()=>window.removeEventListener("devicemotion", handleShake);
   },[lastAction]);
   const[mascotPopup,setMascotPopup]=useState(null); // {type:'celebration'|'thinking'|'loading', message:'...'}
+  const loadingTimerRef = React.useRef(null);
+  useEffect(()=>{
+    // Only show loading mascot if render takes longer than 600ms
+    loadingTimerRef.current = setTimeout(()=>setMascotPopup({type:"loading",message:"Getting everything ready..."}),600);
+    // Clear on next paint (app rendered successfully)
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      clearTimeout(loadingTimerRef.current);
+      setMascotPopup(p => p && p.type==="loading" && p.message==="Getting everything ready..." ? null : p);
+    }));
+    return ()=>clearTimeout(loadingTimerRef.current);
+  },[]);
   const[viewPhoto,setViewPhoto]=useState(null);
 
   function showMascot(type, message, duration=3000){
@@ -9030,10 +9052,12 @@ function App(){
                     setLastWellbeingDate(todayStr());
                     try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};
                     const msg = pick(wellbeingMsgs[label]);
-                    if(label==="Struggling"||label==="Need support"){
+                    if(label==="Great"){
+                      showMascot("celebration", "💜 "+msg, 5000);
+                    } else if(label==="Struggling"||label==="Need support"){
                       setTimeout(()=>showToast("💜 "+msg+wellbeingResources,12000,3),200);
                     } else {
-                      showToast("💜 "+msg,4000,3);
+                      showToast("💜 "+msg,5000,3);
                     }
                   }} style={{flex:1,minWidth:70,padding:"10px 6px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
                     <span style={{fontSize:20}}>{emoji}</span>
@@ -9327,10 +9351,10 @@ function App(){
                               {suggestedBed && (
                                 <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
                                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                    <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>Predicted Bedtime</div>
-                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                                    <div style={{fontSize:14,fontFamily:_fM,color:suggestedBed.estimated?C.lt:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.estimated?"Estimated Bedtime":"Predicted Bedtime"}</div>
+                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:suggestedBed.estimated?C.lt:C.sky}}>{suggestedBed.estimated?"~":""}{fmt12(suggestedBed.time)}</div>
                                   </div>
-                                  {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}</div>}
+                                  {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}{suggestedBed.estimated&&suggestedBed.napsRemaining>0?` · ${suggestedBed.napsRemaining} nap${suggestedBed.napsRemaining>1?"s":""} to go`:""}</div>}
                                 </div>
                               )}
                               {!suggestedBed && adv && (
@@ -9342,10 +9366,10 @@ function App(){
                           ) : suggestedBed ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
                               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                                <div style={{fontSize:14,fontFamily:_fM,color:suggestedBed.estimated?C.lt:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.estimated?"Estimated Bedtime":suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
+                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:suggestedBed.estimated?C.lt:C.sky}}>{suggestedBed.estimated?"~":""}{fmt12(suggestedBed.time)}</div>
                               </div>
-                              {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}</div>}
+                              {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}{suggestedBed.estimated&&suggestedBed.napsRemaining>0?` · ${suggestedBed.napsRemaining} nap${suggestedBed.napsRemaining>1?"s":""} to go`:""}</div>}
                             </div>
                           ) : adv ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
@@ -9609,9 +9633,17 @@ function App(){
                                 })}
                               </div>
                               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:10,borderTop:`1px solid ${C.blush}`,paddingTop:6}}>
-                                {`Based on NHS wake windows + ${babyName||"baby"}'s rhythm`}
+                                {`Based on NHS wake windows + ${babyName||"baby"}'s rhythm + sleep budget`}
                                 {flex.dataQuality&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:99,background:flex.dataQuality==="high"?C.mint+"22":flex.dataQuality==="good"?"var(--chip-bg)":C.gold+"22",color:flex.dataQuality==="high"?C.mint:flex.dataQuality==="good"?C.lt:C.gold}}>{flex.dataQuality==="high"?"● High accuracy":flex.dataQuality==="good"?"● Good":"● Learning"}</span>}
                               </div>
+                              {flex.sleepBudget && (
+                                <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                                  <div style={{fontSize:10,color:C.lt,fontFamily:_fM,background:"var(--chip-bg)",padding:"2px 8px",borderRadius:99}}>🌙 Night ~{hm(flex.sleepBudget.nightEst)}</div>
+                                  <div style={{fontSize:10,color:C.lt,fontFamily:_fM,background:"var(--chip-bg)",padding:"2px 8px",borderRadius:99}}>😴 Day target {hm(flex.sleepBudget.required)}</div>
+                                  <div style={{fontSize:10,color:flex.sleepBudget.projected>=flex.sleepBudget.required?C.mint:C.gold,fontFamily:_fM,background:"var(--chip-bg)",padding:"2px 8px",borderRadius:99}}>📊 Projected {hm(flex.sleepBudget.projected)}</div>
+                                  {flex.sleepBudget.deficitBoost > 0 && <div style={{fontSize:10,color:C.gold,fontFamily:_fM,background:C.gold+"15",padding:"2px 8px",borderRadius:99}}>⚡ +{flex.sleepBudget.deficitBoost}m catch-up</div>}
+                                </div>
+                              )}
                               <div style={{display:"flex",gap:6,marginTop:8}}>
                                 <button onClick={()=>{setShowScheduleMaker(true);}} style={{flex:1,padding:"6px",borderRadius:8,border:`1px solid ${C.mint}44`,background:"transparent",color:C.mint,fontSize:11,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
                                   🧩 Build around event
