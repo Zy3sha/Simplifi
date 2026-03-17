@@ -3253,106 +3253,161 @@ function App(){
   }
   function bedtimePrediction() {
     const today = days[selDay] || [];
-    // Filter out micro-naps (< 5 min) — likely accidental taps
     const todayNaps = today.filter(e => e.type === "nap" && !e.night && minDiff(e.start, e.end) >= 5);
-    if (!todayNaps.length) return null;
     if (!age) return null;
 
     const napProfile = getAgeNapProfile(age.totalWeeks);
     const adjustedExpected = napProfile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
-    const napsAreDone = todayNaps.length >= adjustedExpected;
+    const napsDone = todayNaps.length;
+    const napsAreDone = napsDone >= adjustedExpected;
     const ww = getWakeWindow(age.totalWeeks);
-    const lastNap = todayNaps[todayNaps.length - 1];
-    if (!lastNap.end) return null;
 
-    // Don't predict bedtime until all expected naps are done
-    // Showing bedtime mid-day with naps remaining gives dangerous results
-    if (!napsAreDone) return null;
+    // Get wake time for today
+    const sorted = [...today].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+    const wakeEntry = sorted.find(e => e.type==="wake");
+    const firstEntry = sorted[0];
+    const wakeTime = wakeEntry ? wakeEntry.time : (firstEntry ? (firstEntry.time || firstEntry.start) : null);
+    if (!wakeTime && !todayNaps.length) return null;
 
+    // Historical bedtime average (anchor)
     const pastDays = Object.keys(days).sort().filter(d => d !== selDay).slice(-14);
     const loggedBedtimes = pastDays
       .map(d => (days[d]||[]).find(e => e.type==="sleep" && !e.night))
       .filter(Boolean)
       .map(e => { const [h,m] = e.time.split(":").map(Number); return h*60+m; });
+    const hasAvg = loggedBedtimes.length >= 3;
+    let avgBedMins = null;
+    if (hasAvg) {
+      const sortedBeds = [...loggedBedtimes].sort((a,b)=>a-b);
+      const trim = Math.floor(sortedBeds.length * 0.15);
+      const trimmed = sortedBeds.slice(trim, sortedBeds.length - trim);
+      avgBedMins = Math.round(trimmed.reduce((a,b)=>a+b,0) / trimmed.length);
+    }
 
-    let baseBedMins;
-    let bedSource;
-    if (loggedBedtimes.length >= 3) {
-      const sorted = [...loggedBedtimes].sort((a,b)=>a-b);
-      const trim = Math.floor(sorted.length * 0.15);
-      const trimmed = sorted.slice(trim, sorted.length - trim);
-      baseBedMins = Math.round(trimmed.reduce((a,b)=>a+b,0) / trimmed.length);
-      bedSource = "avg";
-    } else {
+    // Average nap duration from recent data
+    const recentNapDurs = pastDays.flatMap(d => (days[d]||[]).filter(e=>e.type==="nap"&&!e.night).map(e=>minDiff(e.start,e.end))).filter(d=>d>=5);
+    const avgNapDur = recentNapDurs.length >= 3 ? Math.round(recentNapDurs.reduce((a,b)=>a+b,0)/recentNapDurs.length) : napProfile.idealNapDurMin;
+
+    // ═══ PHASE 1: All naps done — exact calculation ═══
+    if (napsAreDone && todayNaps.length) {
+      const lastNap = todayNaps[todayNaps.length - 1];
+      if (!lastNap.end) return null;
+
+      const lastNapMins = minDiff(lastNap.start, lastNap.end);
+      let adjustMins = 0, adjustReason = null;
+      if (lastNapMins > 0 && lastNapMins < 20) { adjustMins = -30; adjustReason = `Last nap only ${lastNapMins}min — moved earlier to avoid overtiredness`; }
+      else if (lastNapMins >= 20 && lastNapMins < 40) { adjustMins = -15; adjustReason = `Short last nap (${lastNapMins}min) — slightly earlier bedtime`; }
+      else if (lastNapMins > 90) { adjustMins = +15; adjustReason = `Long last nap (${lastNapMins}min) — bedtime shifted slightly later`; }
+
       const [lh,lm] = lastNap.end.split(":").map(Number);
-      baseBedMins = lh*60+lm + ww.max;
-      bedSource = "age";
-    }
+      const lastNapEndMins = lh*60+lm;
+      const absoluteLatestBed = lastNapEndMins + ww.max;
+      const bedtimeFloor = clampBedtime(0, age.totalWeeks);
 
-    const lastNapMins = minDiff(lastNap.start, lastNap.end);
-    let adjustMins = 0;
-    let adjustReason = null;
+      // Bridge nap check
+      const needsBridgeNap = bedtimeFloor > absoluteLatestBed;
+      if (needsBridgeNap && !bridgeNapScheduled) {
+        const bridgeStart = lastNapEndMins + ww.min;
+        const bridgeEnd = bridgeStart + 20;
+        const postBridgeBed = bridgeEnd + ww.min;
+        const clampedPostBridge = clampBedtime(postBridgeBed, age.totalWeeks);
+        const hh = Math.floor(clampedPostBridge/60)%24, mm = clampedPostBridge%60;
+        return {
+          time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
+          adjustReason: "Bridge nap needed — bedtime would exceed safe wake window without one",
+          bedSource: hasAvg?"avg":"age", baseBedMins: avgBedMins, adjustMins,
+          needsBridge: true, forceBridge: true,
+          bridgeSuggestion: { start: `${String(Math.floor(bridgeStart/60)%24).padStart(2,"0")}:${String(bridgeStart%60).padStart(2,"0")}`, duration: 20 },
+          lastNapEndMins, lastWW: clampedPostBridge - bridgeEnd
+        };
+      }
 
-    if (lastNapMins > 0 && lastNapMins < 20) {
-      adjustMins = -30;
-      adjustReason = `Last nap only ${lastNapMins}min — moved earlier to avoid overtiredness`;
-    } else if (lastNapMins >= 20 && lastNapMins < 40) {
-      adjustMins = -15;
-      adjustReason = `Short last nap (${lastNapMins}min) — slightly earlier bedtime`;
-    } else if (lastNapMins > 90) {
-      adjustMins = +15;
-      adjustReason = `Long last nap (${lastNapMins}min) — bedtime shifted slightly later`;
-    }
+      // Normal exact bedtime
+      let baseBed = hasAvg ? avgBedMins : lastNapEndMins + ww.max;
+      const earliestBed = lastNapEndMins + ww.min;
+      const latestBed = absoluteLatestBed;
+      let finalMins = Math.min(latestBed, Math.max(earliestBed, baseBed + adjustMins));
+      finalMins = clampBedtime(finalMins, age.totalWeeks);
+      if (finalMins - lastNapEndMins > ww.max) finalMins = lastNapEndMins + ww.max;
 
-    const [lh2,lm2] = lastNap.end.split(":").map(Number);
-    const lastNapEndMins = lh2*60+lm2;
-
-    // SAFETY FIRST: Calculate the absolute latest bedtime based on max wake window
-    const absoluteLatestBed = lastNapEndMins + ww.max;
-    const bedtimeFloor = clampBedtime(0, age.totalWeeks); // minimum allowed bedtime (5:30pm or 6pm)
-
-    // CRITICAL: If all expected naps are done AND the bedtime floor exceeds
-    // what the max wake window allows, baby NEEDS a bridge nap.
-    // If naps aren't all done yet, the next regular nap handles the gap.
-    const needsBridgeNap = napsAreDone && bedtimeFloor > absoluteLatestBed;
-
-    if (needsBridgeNap && !bridgeNapScheduled) {
-      // Return bridge nap recommendation instead of dangerous bedtime
-      const bridgeStart = lastNapEndMins + ww.min;
-      const bridgeEnd = bridgeStart + 20; // 20 min bridge nap
-      const postBridgeBed = bridgeEnd + ww.min;
-      const clampedPostBridge = clampBedtime(postBridgeBed, age.totalWeeks);
-      const hh = Math.floor(clampedPostBridge/60)%24;
-      const mm = clampedPostBridge%60;
+      const hh = Math.floor(finalMins/60)%24, mm = finalMins%60;
       return {
         time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
-        adjustReason: "Bridge nap needed — bedtime would exceed safe wake window without one",
-        bedSource, baseBedMins, adjustMins,
-        needsBridge: true, forceBridge: true,
-        bridgeSuggestion: { start: `${String(Math.floor(bridgeStart/60)%24).padStart(2,"0")}:${String(bridgeStart%60).padStart(2,"0")}`, duration: 20 },
-        lastNapEndMins, lastWW: clampedPostBridge - bridgeEnd
+        adjustReason, bedSource: hasAvg?"avg":"age", baseBedMins: baseBed, adjustMins,
+        needsBridge: false, lastNapEndMins, lastWW: finalMins - lastNapEndMins, estimated: false
       };
     }
 
-    // Normal path: wake window is safe
-    const earliestBed = lastNapEndMins + ww.min;
-    const latestBed = absoluteLatestBed;
-    let finalMins = Math.min(latestBed, Math.max(earliestBed, baseBedMins + adjustMins));
-    finalMins = clampBedtime(finalMins, age?age.totalWeeks:null);
+    // ═══ PHASE 2: Naps still to go — project forward ═══
+    // Build projected schedule from current state
+    const [wh,wm] = wakeTime.split(":").map(Number);
+    const wakeMins = wh*60+wm;
+    let cursor = wakeMins; // current "awake since" time
 
-    // Double-check: if clamping pushed bedtime beyond max wake window, pull it back
-    const actualLastWW = finalMins - lastNapEndMins;
-    if (actualLastWW > ww.max) {
-      finalMins = lastNapEndMins + ww.max;
+    // Walk through completed naps to advance cursor
+    todayNaps.forEach(n => {
+      if (n.end) {
+        const [eh,em] = n.end.split(":").map(Number);
+        cursor = eh*60+em;
+      }
+    });
+
+    // Project remaining naps
+    const napsRemaining = adjustedExpected - napsDone;
+    let projectedLastNapEnd = cursor;
+
+    for (let i = 0; i < napsRemaining; i++) {
+      const napIdx = napsDone + i;
+      // Progressive wake window: later naps have longer WW
+      const progressRatio = Math.min(napIdx / Math.max(adjustedExpected, 1), 1);
+      const thisWW = Math.round(ww.min + (ww.max - ww.min) * progressRatio);
+      const napStart = projectedLastNapEnd + thisWW;
+      const napEnd = napStart + avgNapDur;
+      projectedLastNapEnd = napEnd;
     }
 
-    const hh = Math.floor(finalMins/60)%24;
-    const mm = finalMins%60;
-    const bedTime = `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
-    const lastWW = finalMins - lastNapEndMins;
-    const needsBridge = napsAreDone && lastWW > ww.max - 10 && !bridgeNapScheduled;
+    // Calculate bedtime from projected last nap end
+    // Use the last (longest) progressive wake window for bedtime
+    const lastWWRatio = Math.min(adjustedExpected / Math.max(adjustedExpected, 1), 1);
+    const lastWW = Math.round(ww.min + (ww.max - ww.min) * lastWWRatio);
+    let projBed = projectedLastNapEnd + lastWW;
 
-    return { time: bedTime, adjustReason, bedSource, baseBedMins, adjustMins, needsBridge, lastNapEndMins, lastWW };
+    // Blend with historical average if available (70% projection, 30% history)
+    if (avgBedMins) {
+      projBed = Math.round(projBed * 0.7 + avgBedMins * 0.3);
+    }
+
+    projBed = clampBedtime(projBed, age.totalWeeks);
+
+    // Calculate sleep deficit/surplus to adjust
+    const totalNapMins = todayNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
+    const expectedSoFar = napsDone * avgNapDur;
+    const sleepDiff = totalNapMins - expectedSoFar;
+    // If naps have been shorter than expected, pull bedtime earlier
+    let adjustMins = 0, adjustReason = null;
+    if (sleepDiff < -20 && napsDone > 0) {
+      adjustMins = Math.max(-30, Math.round(sleepDiff * 0.5));
+      adjustReason = `Naps shorter than usual today — bedtime adjusted earlier`;
+    } else if (sleepDiff > 20 && napsDone > 0) {
+      adjustMins = Math.min(20, Math.round(sleepDiff * 0.3));
+      adjustReason = `Good naps today — bedtime adjusted slightly later`;
+    }
+    projBed += adjustMins;
+    projBed = clampBedtime(projBed, age.totalWeeks);
+
+    const hh = Math.floor(projBed/60)%24, mm = projBed%60;
+    return {
+      time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
+      adjustReason: adjustReason || (napsDone === 0 ? "Based on wake time and age" : `Based on ${napsDone} of ${adjustedExpected} naps`),
+      bedSource: hasAvg ? "avg" : "age",
+      baseBedMins: avgBedMins || projBed,
+      adjustMins,
+      needsBridge: false,
+      lastNapEndMins: projectedLastNapEnd,
+      lastWW: projBed - projectedLastNapEnd,
+      estimated: true,
+      napsRemaining
+    };
   }
 
   function sleepAdvice() {
@@ -8591,11 +8646,11 @@ function App(){
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
                           <span style={{fontSize:20}}>🌙</span>
                           <div>
-                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.4}}>{suggestedBed.adjustReason||"Based on today's naps"}</div>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:1}}>{suggestedBed.estimated?"Estimated Bedtime":suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
+                            <div style={{fontSize:13,color:C.mid,lineHeight:1.4}}>{suggestedBed.adjustReason||"Based on today's naps"}{suggestedBed.estimated&&suggestedBed.napsRemaining>0?` · ${suggestedBed.napsRemaining} nap${suggestedBed.napsRemaining>1?"s":""} to go`:""}</div>
                           </div>
                         </div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:suggestedBed.estimated?"var(--text-lt)":C.sky}}>{fmt12(suggestedBed.time)}{suggestedBed.estimated?<span style={{fontSize:11,fontWeight:500,color:C.lt,marginLeft:4}}>~</span>:null}</div>
                       </>
                     ) : null}
                   </div>
@@ -9280,27 +9335,21 @@ function App(){
                               )}
                               {!suggestedBed && adv && (
                                 <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
-                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                    <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                                  </div>
+                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{adv}</div>
                                 </div>
                               )}
                             </div>
                           ) : suggestedBed ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
                               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>Predicted Bedtime</div>
+                                <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
                                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
                               </div>
                               {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}</div>}
                             </div>
                           ) : adv ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
-                              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                <div style={{fontSize:14,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.bedSource==="avg"?"Predicted Bedtime":"Suggested Bedtime"}</div>
-                                <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
-                              </div>
+                              <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{adv}</div>
                             </div>
                           ) : null}
                         </div>
