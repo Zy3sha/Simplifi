@@ -8829,13 +8829,17 @@ function App(){
                   {(()=>{
                     const fs = getFeedSpacing();
                     if (!fs) return null;
-                    const veryOverdue = fs.gap > fs.threshold * 1.5;
+                    // Don't flag as overdue if baby is sleeping (bedtime logged, no morning wake yet)
+                    const hasBedtime = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
+                    const isSleeping = hasBedtime && !napOn;
+                    const effectiveOverdue = fs.overdue && !isSleeping;
+                    const veryOverdue = effectiveOverdue && fs.gap > fs.threshold * 1.5;
                     return (
-                      <div style={{flex:1,background:fs.overdue?"rgba(192,112,136,0.06)":"var(--card-bg)",border:`${fs.overdue?"1.5px":"1px"} solid ${fs.overdue?C.ter+"50":C.blush}`,borderRadius:16,padding:fs.overdue?"12px 14px":"10px 12px",transition:"all 0.3s",animation:veryOverdue?"pulse 2s infinite":"none"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:fs.overdue?C.ter:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🍼 {fs.overdue?"Feed overdue":"Last feed"}</div>
-                        <div style={{fontSize:fs.overdue?15:13,fontWeight:700,color:fs.overdue?C.ter:C.mid}}>{hm(fs.gap)} ago</div>
-                        {fs.overdue && <div style={{fontSize:11,color:C.ter,marginTop:3,lineHeight:1.4}}>Usually every {hm(fs.threshold)}{veryOverdue?` — ${babyName||"baby"} may be hungry`:""}</div>}
-                        {fs.overdue && <div style={{fontSize:9,color:C.lt,marginTop:3,fontFamily:_fI,lineHeight:1.5}}>Why? {fs.avgGap ? `Based on ${babyName||"baby"}'s average feed gap of ${hm(fs.avgGap)} over the last 5 days.` : `Age-typical feed spacing for ${fmtAge(age)}.`} Babies show hunger cues like rooting, lip-smacking, and hand-to-mouth.</div>}
+                      <div style={{flex:1,background:effectiveOverdue?"rgba(192,112,136,0.06)":"var(--card-bg)",border:`${effectiveOverdue?"1.5px":"1px"} solid ${effectiveOverdue?C.ter+"50":C.blush}`,borderRadius:16,padding:effectiveOverdue?"12px 14px":"10px 12px",transition:"all 0.3s",animation:veryOverdue?"pulse 2s infinite":"none"}}>
+                        <div style={{fontSize:11,fontFamily:_fM,color:effectiveOverdue?C.ter:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🍼 {effectiveOverdue?"Feed overdue":isSleeping?"Last feed (sleeping)":"Last feed"}</div>
+                        <div style={{fontSize:effectiveOverdue?15:13,fontWeight:700,color:effectiveOverdue?C.ter:C.mid}}>{hm(fs.gap)} ago</div>
+                        {effectiveOverdue && <div style={{fontSize:11,color:C.ter,marginTop:3,lineHeight:1.4}}>Usually every {hm(fs.threshold)}{veryOverdue?` — ${babyName||"baby"} may be hungry`:""}</div>}
+                        {effectiveOverdue && <div style={{fontSize:9,color:"var(--text-mid)",marginTop:3,fontFamily:_fI,lineHeight:1.5}}>Why? {fs.avgGap ? `Based on ${babyName||"baby"}'s average feed gap of ${hm(fs.avgGap)} over the last 5 days.` : `Age-typical feed spacing for ${fmtAge(age)}.`} Babies show hunger cues like rooting, lip-smacking, and hand-to-mouth.</div>}
                       </div>
                     );
                   })()}
@@ -9339,10 +9343,10 @@ function App(){
                               {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
-                                {e.assistedDuration?<span> · Duration: {e.assistedDuration}m</span>:null}
+                                {e.assistedDuration?<span> · Duration: {hm(parseInt(e.assistedDuration))}</span>:null}
                               </div>}
                               {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:13,color:"var(--text-lt)",fontStyle:"italic",marginTop:2}}>{e.note}</div>}
-                              {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {e.assistedDuration}m</div>}
+                              {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {hm(parseInt(e.assistedDuration))}</div>}
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
@@ -9363,6 +9367,8 @@ function App(){
                     }
                     let strMins = sk(e.time) - fromMins;
                     if(strMins <= 0) strMins += 1440;
+                    // Sanity cap: a single sleep stretch can't exceed 14 hours for a baby
+                    if(strMins > 840) strMins = Math.max(0, sk(e.time) - sk(prevTime));
                     
                     return(
                       <div key={e.id}>
@@ -9380,10 +9386,10 @@ function App(){
                               {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
-                                {e.assistedDuration?<span> · Duration: {e.assistedDuration}m</span>:null}
+                                {e.assistedDuration?<span> · Duration: {hm(parseInt(e.assistedDuration))}</span>:null}
                               </div>}
                               {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:13,color:"var(--text-lt)",fontStyle:"italic",marginTop:2}}>{e.note}</div>}
-                              {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {e.assistedDuration}m</div>}
+                              {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {hm(parseInt(e.assistedDuration))}</div>}
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
@@ -12720,18 +12726,33 @@ function App(){
             {/* Duration soothed — always available unless self-settled */}
             {!nwForm.selfSettled&&(
               <div style={{marginBottom:16}}>
-                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Duration soothed (mins)</div>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <input type="number" inputMode="numeric" placeholder="e.g. 15" value={nwForm.assistedDuration}
-                    onChange={e=>setNwForm(f=>({...f,assistedDuration:e.target.value}))}
-                    style={{flex:1,fontSize:16,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
-                  <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>mins</span>
+                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Duration soothed</div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <input type="number" inputMode="numeric" placeholder="0" value={nwForm.assistedDuration ? Math.floor(parseInt(nwForm.assistedDuration)/60)||"" : ""}
+                    onChange={e=>{
+                      const hrs = parseInt(e.target.value)||0;
+                      const existingMins = nwForm.assistedDuration ? parseInt(nwForm.assistedDuration)%60 : 0;
+                      setNwForm(f=>({...f,assistedDuration:String(hrs*60+existingMins)}));
+                    }}
+                    style={{width:54,fontSize:16,padding:"10px 8px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                  <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>h</span>
+                  <input type="number" inputMode="numeric" placeholder="0" value={nwForm.assistedDuration ? parseInt(nwForm.assistedDuration)%60||"" : ""}
+                    onChange={e=>{
+                      const mins = Math.min(59, parseInt(e.target.value)||0);
+                      const existingHrs = nwForm.assistedDuration ? Math.floor(parseInt(nwForm.assistedDuration)/60) : 0;
+                      setNwForm(f=>({...f,assistedDuration:String(existingHrs*60+mins)}));
+                    }}
+                    style={{width:54,fontSize:16,padding:"10px 8px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                  <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>m</span>
+                  {nwForm.assistedDuration && parseInt(nwForm.assistedDuration) > 0 && (
+                    <span style={{fontSize:12,color:C.mid,fontFamily:_fM,marginLeft:4}}>= {hm(parseInt(nwForm.assistedDuration))}</span>
+                  )}
                 </div>
-                <div style={{display:"flex",gap:6,marginTop:6}}>
-                  {[5,10,15,20,30,45].map(m=>(
+                <div style={{display:"flex",gap:5,marginTop:6}}>
+                  {[5,10,15,20,30,45,60,90,120].map(m=>(
                     <button key={m} onClick={()=>setNwForm(f=>({...f,assistedDuration:String(m)}))}
-                      style={{flex:1,padding:"6px 2px",borderRadius:9,border:`1px solid ${nwForm.assistedDuration===String(m)?"#7b68ee":C.blush}`,background:nwForm.assistedDuration===String(m)?"#f0eeff":C.warm,color:nwForm.assistedDuration===String(m)?"#5040a0":C.lt,fontSize:11,fontFamily:_fM,cursor:_cP}}>
-                      {m}
+                      style={{flex:1,padding:"6px 1px",borderRadius:9,border:`1px solid ${nwForm.assistedDuration===String(m)?"#7b68ee":C.blush}`,background:nwForm.assistedDuration===String(m)?"#f0eeff":"var(--card-bg)",color:nwForm.assistedDuration===String(m)?"#5040a0":C.lt,fontSize:10,fontFamily:_fM,cursor:_cP}}>
+                      {m >= 60 ? `${m/60}h` : m}
                     </button>
                   ))}
                 </div>
