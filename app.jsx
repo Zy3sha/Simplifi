@@ -3265,6 +3265,10 @@ function App(){
     const lastNap = todayNaps[todayNaps.length - 1];
     if (!lastNap.end) return null;
 
+    // Don't predict bedtime until all expected naps are done
+    // Showing bedtime mid-day with naps remaining gives dangerous results
+    if (!napsAreDone) return null;
+
     const pastDays = Object.keys(days).sort().filter(d => d !== selDay).slice(-14);
     const loggedBedtimes = pastDays
       .map(d => (days[d]||[]).find(e => e.type==="sleep" && !e.night))
@@ -3793,7 +3797,7 @@ function App(){
   function getHydrationStatus() {
     const today = days[selDay] || [];
     const wetCount = today.filter(e => e.type === "poop" && (e.poopType === "wet" || (e.poopType || "").includes("wet"))).length;
-    const poopCount = today.filter(e => e.type === "poop" && e.poopType && !e.poopType.startsWith("wet") && e.poopType !== "wet").length;
+    const poopCount = today.filter(e => e.type === "poop" && e.poopType && e.poopType !== "wet").length;
     const target = 6;
     return { wetCount, poopCount, target, met: wetCount >= target };
   }
@@ -3831,7 +3835,7 @@ function App(){
     const dk = Object.keys(days).sort().slice(-7);
     let lastPoopDay = null;
     for (let i = dk.length - 1; i >= 0; i--) {
-      const hasReal = (days[dk[i]] || []).some(e => e.type === "poop" && e.poopType && e.poopType !== "wet" && !e.poopType.startsWith("wet"));
+      const hasReal = (days[dk[i]] || []).some(e => e.type === "poop" && e.poopType && e.poopType !== "wet");
       if (hasReal) { lastPoopDay = dk[i]; break; }
     }
     if (!lastPoopDay) return dk.length >= 3 ? { daysSince: dk.length, message: "No poop logged in the last week." } : null;
