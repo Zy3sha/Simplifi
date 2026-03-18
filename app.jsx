@@ -1341,7 +1341,27 @@ function App(){
     return {...prev, [resolvedActiveId]: {...cur, milestones: next}};
   });
 
-  const[selDay,setSelDay]=useState(todayStr);
+  const[selDay,setSelDay]=useState(()=>{
+    // Pick the active logging day: today if it has a wake, else yesterday if it has bedtime, else today
+    const td = todayStr();
+    try {
+      const stored = localStorage.getItem("children_v1");
+      if (stored) {
+        const ch = JSON.parse(stored);
+        const activeId = localStorage.getItem("active_child");
+        const child = activeId ? ch[activeId] : Object.values(ch)[0];
+        if (child && child.days) {
+          const todayHasWake = (child.days[td]||[]).some(e => e.type === "wake" && !e.night);
+          if (todayHasWake) return td;
+          const yd = new Date(); yd.setDate(yd.getDate()-1);
+          const yesterday = `${yd.getFullYear()}-${String(yd.getMonth()+1).padStart(2,"0")}-${String(yd.getDate()).padStart(2,"0")}`;
+          const yHasBed = (child.days[yesterday]||[]).some(e => e.type === "sleep" && !e.night);
+          if (yHasBed) return yesterday;
+        }
+      }
+    } catch {}
+    return td;
+  });
   const[tab,setTab]=useState("day");
   // Premium state — true = all features unlocked. Default true for launch (free trial / all-free launch).
   // When subscriptions are added, change default to false and gate with RevenueCat
@@ -1921,7 +1941,7 @@ function App(){
     const {db, doc, getDoc} = window._fb;
 
     (async()=>{
-      const _syncTimer = setTimeout(()=>showMascot("loading", "Syncing your data...", 0), 500);
+      const _loadGuard = showLoadingIf(null, "Syncing your data...");
       try {
         let code = backupCode || localStorage.getItem("backup_code");
         if(code && !backupCode) setBackupCode(code);
@@ -2040,9 +2060,8 @@ function App(){
         }
 
       } catch(e){ console.warn("OBubba restore error",e); }
-      clearTimeout(_syncTimer);
+      _loadGuard.done();
       setRestoreDone(true);
-      setMascotPopup(p => p && p.type==="loading" ? null : p);
     })();
   },[fbReady]);
   const syncTimerRef = React.useRef(null);
@@ -3891,7 +3910,7 @@ function App(){
       patterns.push({
         type: "split_night", emoji: "🌗", title: "Split nights detected",
         detail: `${name} has had long awake periods in the middle of the night on ${splitNights.length} recent nights.`,
-        suggestion: "Split nights are often caused by too much daytime sleep or too early a bedtime. Try capping total nap time or pushing bedtime 15–20 minutes later.",
+        suggestion: w >= 15 && w <= 21 ? "During the 4-month regression, split nights are common and temporary. Keep routines consistent — this phase typically passes in 2-4 weeks." : "Split nights are often caused by too much daytime sleep. Try capping total nap time by 15-30 minutes. If bedtime is before 6pm due to short naps, that's fine — but if naps are long AND bedtime is early, consider pushing bedtime 15-20 minutes later.",
         why: "The body can only sleep a certain total amount in 24 hours. If too much is 'spent' on daytime naps, the nighttime sleep bank runs out mid-night and baby lies awake until sleep pressure rebuilds."
       });
     }
@@ -5834,17 +5853,19 @@ function App(){
     return ()=>window.removeEventListener("devicemotion", handleShake);
   },[lastAction]);
   const[mascotPopup,setMascotPopup]=useState(null); // {type:'celebration'|'thinking'|'loading', message:'...'}
-  const loadingTimerRef = React.useRef(null);
-  useEffect(()=>{
-    // Only show loading mascot if render takes longer than 600ms
-    loadingTimerRef.current = setTimeout(()=>setMascotPopup({type:"loading",message:"Getting everything ready..."}),600);
-    // Clear on next paint (app rendered successfully)
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      clearTimeout(loadingTimerRef.current);
-      setMascotPopup(p => p && p.type==="loading" && p.message==="Getting everything ready..." ? null : p);
-    }));
-    return ()=>clearTimeout(loadingTimerRef.current);
-  },[]);
+  // Universal loading mascot — shows if any operation takes > 1.5s
+  const loadingGuardRef = React.useRef(null);
+  function showLoadingIf(promise, msg="Getting everything ready...") {
+    clearTimeout(loadingGuardRef.current);
+    loadingGuardRef.current = setTimeout(()=>setMascotPopup({type:"loading",message:msg}), 1500);
+    if (promise && typeof promise.then === "function") {
+      promise.finally(()=>{
+        clearTimeout(loadingGuardRef.current);
+        setMascotPopup(p => p && p.type==="loading" ? null : p);
+      });
+    }
+    return { done: ()=>{ clearTimeout(loadingGuardRef.current); setMascotPopup(p => p && p.type==="loading" ? null : p); } };
+  }
   const[viewPhoto,setViewPhoto]=useState(null);
 
   function showMascot(type, message, duration=3000){
@@ -8239,17 +8260,20 @@ function App(){
             {tutStep >= 0 && (()=>{
         const TUT_STEPS = [
           { icon:"👋", title:"Welcome to OBubba!", body:"Your all-in-one baby tracker and parenting companion. Quick tour — takes about 60 seconds. Tap anywhere to continue." },
-          { icon:"🍼", title:"Quick Logging", body:"One-tap row: Feed, Breast, Nappy, Nap, Pump, Wake, Photo, Crying helper. Below that: detailed panels for Feed, Nappy, Sleep, Pump, Wake, Tummy Time, Medicine/Temperature, and Notes. Shake your phone to undo the last action." },
-          { icon:"⏱", title:"Smart Timers", body:"Nap timer: tap to start, pill shows elapsed time, tap pill to stop. Gold warning at 3h, red at 4h. Breast timer: tap L/R to switch sides, warns at 40/60 min. Tummy time: tap to start/stop, daily total tracked. Bedtime timer: tap to log night wake or morning wake." },
-          { icon:"🧠", title:"Intelligent Predictions", body:"OBubba blends sleep research with your baby's personal patterns. Confidence tracking runs silently — when predictions hit 80%+ accuracy, you'll see a celebration. Smart prompts appear at the right time: morning wake-up, nap windows, bedtime wind-down." },
-          { icon:"🔍", title:"Sleep Intelligence", body:"Detects patterns a sleep consultant would spot: false starts at bedtime, split nights, early morning waking, short naps, and your baby's natural rhythm. 'What went well' analysis at bedtime highlights what worked today." },
-          { icon:"😢", title:"Crying Helper", body:"Ranks likely reasons using feeds, wake windows, teething age, and past data. Quick-action buttons let you log a feed or start a nap directly from the helper. Shows what percentage of the time each solution has worked before." },
-          { icon:"💊", title:"Health Tracking", body:`Medicine & temperature tracker with fever safety alerts (38°C+ under 3 months = call ${_helpLine}). Nappy tracking with hydration counter (6 wet nappies/day target), poop frequency awareness, and colour safety flags.` },
-          { icon:"📊", title:"Insights Tab", body:"Priority action card shows the ONE most important thing right now. Weekly wins compare this week vs last. Sleep analysis, bedtime consistency score, night feed trends, growth-feed correlation, feeding tracker, and shareable day reports." },
-          { icon:"🧩", title:"Development Tab", body:"'This week's focus' shows 3 activities for your baby's exact age. NHS milestone checklist with photo prompts on completion. Teething tracker, weaning journal, and safe sleep guidelines." },
-          { icon:"👩‍🍼", title:"Carer Card & First Aid", body:`In Account: shareable care guide with feeding, sleep, emergency contacts, and comfort items. First Aid Quick Reference links to choking, fever, ${_emergNum}, and meningitis guidance. Share via link or print.` },
-          { icon:"💜", title:"Parent Wellbeing", body:`Weekly check-in asks how you're doing. Cheerful messages for good days, encouragement for okay days, and full support signposting (${_isUS?"PSI, 988 Lifeline":_isAU?"PANDA, Beyond Blue, Lifeline":"PANDAS, Samaritans, NHS"}) when you're struggling. You matter too.` },
-          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start. Tap ? icons for feature help. Predictions improve with data. Replay this tour anytime from Account." },
+          { icon:"🍼", title:"Quick Logging", body:"One-tap row: Feed, Breast, Nappy, Nap, Pump, Wake, Photo, Crying helper. Below: Appointment, Reminder, Pin Note. Shake your phone to undo any accidental log within 15 seconds." },
+          { icon:"⏱", title:"Smart Timers", body:"Nap timer: tap to start, pill shows elapsed time, tap pill to stop. Tap ✎ to adjust the start time if baby fell asleep earlier. Breast timer: tap L/R to switch sides, warns at 40/60 min. Night timer: shows sleep stretch since bedtime in calm blue." },
+          { icon:"🧠", title:"Intelligent Predictions", body:"Predictions blend sleep science (adenosine/cortisol model) with your baby's personal patterns. The app learns per-nap-position wake windows, adjusts for short/long naps, and aligns with natural circadian dips (9-10am, 12-2pm). Confidence improves with data." },
+          { icon:"🌙", title:"Night & Bedtime", body:"Log bedtime to start the night timer. Log night wakes with feed amount, soothing method, and duration (hours + minutes). The app tracks sleep stretches, self-settling rate, habitual wakes, and gives age-appropriate night wake advice." },
+          { icon:"🌉", title:"Bridge Naps", body:"If the wake window to bedtime would be too long, OBubba suggests a short bridge nap. You'll see a comparison: bedtime without the bridge vs with it. The bridge nap keeps baby from getting overtired before bed." },
+          { icon:"😢", title:"Crying Helper", body:"Ranks likely reasons using feeds, wake windows, nappy timing, teething age, and past data. Nappy score now checks time since last change. Quick-action buttons let you log a feed or nap directly from the helper." },
+          { icon:"💊", title:"Health Tracking", body:`Medicine & temperature tracker with fever alerts (38°C+ under 3 months = call ${_helpLine}). Nappy tracking with hydration counter (6 wet/day target), poop frequency, and colour safety flags. Nappy reminder: set 2h, 2.5h, or 3h alerts in Account.` },
+          { icon:"📊", title:"Insights Tab", body:"Organised by topic: Sleep & Bedtime (score, predictions, sleep intelligence, safe sleep, tomorrow's schedule), Feeding & Nutrition (intake tracker, night feed trends, breast duration), Growth Percentiles (WHO charts, trend detection), Trends, and Day Reports." },
+          { icon:"🧩", title:"Development Tab", body:"'This week's focus' shows 3 activities for your baby's exact age. NHS milestone checklist with photo sharing on completion. Teething tracker with tappable tooth diagram. Weaning journal with allergen detection." },
+          { icon:"📏", title:"Growth & Percentiles", body:"Log weight and height to see WHO growth curves. Percentile tracking only warns if baby is DROPPING centiles — being on the 5th or 95th is perfectly fine if they've always been there. Growth & feeding correlation shown alongside." },
+          { icon:"👩‍🍼", title:"Care Guide & Sharing", body:`Shareable care guide with feeding, sleep, nappies, emergency contacts, and safe sleep. QR code at the bottom for caregivers to scan. Partner sync: both parents see the same data via backup code.` },
+          { icon:"🌓", title:"Dark Mode & Settings", body:"Auto dark mode or toggle manually. Nappy reminder intervals in Account. Multiple children supported — swipe header to switch. Delete account available at bottom of Account tab." },
+          { icon:"💜", title:"Parent Wellbeing", body:`Weekly check-in asks how you're doing. Celebration mascot for great days, and full support signposting (${_isUS?"PSI, 988 Lifeline":_isAU?"PANDA, Beyond Blue, Lifeline":"PANDAS, Samaritans, NHS"}) when you're struggling. You matter too.` },
+          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start your day. Predictions get smarter with every log. Tap ? icons for feature help. Replay this tour anytime from Account." },
         ];
 
         const dismissTutorial = () => {
@@ -8689,8 +8713,27 @@ function App(){
               {/* ONE-TAP LOG ROW — below date strip, above age guidance */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"10px 12px",marginBottom:10,gap:2,boxShadow:"var(--card-shadow)"}}>
                 {[
-                  {emoji:"🍼",label:"Feed",action:()=>quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""})},
-                  {emoji:"🤱",label:"Breast",action:()=>{haptic();startBreastTimer("L");}},
+                  {emoji:"🍼",label:"Feed",action:()=>{
+                    const hasBed = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
+                    if(hasBed){
+                      // After bedtime — open night wake form with milk pre-selected
+                      haptic();
+                      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:true,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                      setShowNightWake(true);
+                    } else {
+                      quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});
+                    }
+                  }},
+                  {emoji:"🤱",label:"Breast",action:()=>{
+                    const hasBed = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
+                    if(hasBed){
+                      haptic();
+                      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:true,assistedType:"milk",assistedNote:"breast",assistedDuration:"",note:"Breast feed"});
+                      setShowNightWake(true);
+                    } else {
+                      haptic();startBreastTimer("L");
+                    }
+                  }},
                   {emoji:"💩",label:"Nappy",action:()=>quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
                   {emoji:"😴",label:napOn?"Stop":"Nap",action:()=>{
                     if(napOn){ endNap(); } else { startNap(); }
@@ -9474,7 +9517,7 @@ function App(){
                   const feedCount = nightE.filter(e=>(e.amount||0)>0).length;
                   const hasFeed = feedCount > 0;
                   const hasSelfSettled = nightE.some(e=>e.selfSettled);
-                  const expectedFeeds = w2 < 6 ? "3-5" : w2 < 13 ? "2-3" : w2 < 17 ? "1-3" : w2 < 26 ? "1-2" : w2 < 39 ? "0-1" : w2 < 52 ? "0" : "0";
+                  const expectedFeeds = w2 < 6 ? "3-5" : w2 < 13 ? "2-3" : w2 < 17 ? "1-3" : w2 < 26 ? "1-2" : w2 < 39 ? "0-1" : w2 < 52 ? "0-1" : "0";
                   let tip = null;
                   if (w2 < 13 && wakeCount <= 4) tip = `Night wakes are completely normal at this age. Expected feeds: ${expectedFeeds}/night — baby genuinely needs feeding overnight.`;
                   else if (w2 >= 14 && w2 <= 22 && wakeCount >= 3) tip = `Frequent wakes around 4 months are due to sleep cycle maturation — not a sign of anything wrong. Expected feeds: ${expectedFeeds}/night. This is temporary.`;
