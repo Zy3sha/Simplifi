@@ -7650,8 +7650,7 @@ function App(){
     if (!tomorrowAppts.length) return;
     // Only show once per day
     const key = "appt_sched_shown_" + todayStr();
-    if (localStorage.getItem(key)) return;
-    localStorage.setItem(key, "1");
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, "1"); } catch {}
     // Show prompt for earliest appointment
     const earliest = tomorrowAppts.sort((a,b) => a.time.localeCompare(b.time))[0];
     setTimeout(() => {
@@ -8978,9 +8977,9 @@ function App(){
                       <div style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5,fontWeight:500}}>{action.text}</div>
                     </div>
                     {action.why && (
-                      <div style={{marginTop:6,padding:"6px 8px",borderRadius:8,background:"rgba(255,255,255,0.4)"}}>
-                        <div style={{fontSize:10,color:C.lt,fontFamily:_fI,lineHeight:1.6}}>
-                          <span style={{fontWeight:600,color:C.mid}}>Why? </span>{action.why}
+                      <div style={{marginTop:6,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+                        <div style={{fontSize:10,color:"var(--text-mid)",fontFamily:_fI,lineHeight:1.6}}>
+                          <span style={{fontWeight:600,color:"var(--text-deep)"}}>Why? </span>{action.why}
                         </div>
                       </div>
                     )}
