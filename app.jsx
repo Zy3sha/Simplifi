@@ -9992,7 +9992,7 @@ function App(){
                     if(label==="Great"){
                       showMascot("celebration", "💜 "+msg, 5000);
                     } else if(label==="Struggling"||label==="Need support"){
-                      setTimeout(()=>showToast("💜 "+msg+wellbeingResources,12000,3),200);
+                      setShowWellbeing({msg, label});
                     } else {
                       showToast("💜 "+msg,5000,3);
                     }
@@ -10059,7 +10059,7 @@ function App(){
               })()}
 
               {/* Only show insights sections when enough data */}
-              {Object.keys(days).filter(d => (days[d]||[]).length > 0).length >= 3 && (<>
+              {Object.keys(days).filter(d => (days[d]||[]).length > 0).length >= 3 && <>
 
               {/* Insight category filter bar */}
               <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
@@ -10078,7 +10078,7 @@ function App(){
               </div>
 
               {/* ── Weekly Wins ── */}
-              {(insightFilter==="all") && (
+              {(insightFilter==="all") && <>
               {(()=>{
                 const dk = Object.keys(days).sort();
                 if (dk.length < 7) return null;
@@ -10125,10 +10125,10 @@ function App(){
                   </div>
                 );
               })()}
-              )}
+              </>}
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="sleep") && (<>
+              {(insightFilter==="all"||insightFilter==="sleep") && <>
               {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10588,10 +10588,10 @@ function App(){
                 </div>
               )}
 
-              </>)}
+              </>}
 
               {/* ── FEEDING & NUTRITION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="feeding") && (<>
+              {(insightFilter==="all"||insightFilter==="feeding") && <>
               {collHead("feeding","🍼","Feeding & Nutrition")}
               {insightSection.feeding && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10681,10 +10681,10 @@ function App(){
                 </div>
               )}
 
-              </>)}
+              </>}
 
               {/* ── GROWTH PERCENTILE BANNER ── */}
-              {(insightFilter==="all"||insightFilter==="growth") && (
+              {(insightFilter==="all"||insightFilter==="growth") && <>
               <div style={{background:`linear-gradient(135deg,${latestW?percentileColor(latestW?.pct, wTrend)+"18":"#f5f0eb"},${latestW?percentileColor(latestW?.pct, wTrend)+"08":"#ede8e0"})`, border:`2px solid ${latestW ? percentileColor(latestW?.pct, wTrend)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
                 <div style={{padding:"16px 16px 14px"}}>
                   <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>📏 Growth Percentiles</div>
@@ -10833,10 +10833,10 @@ function App(){
                 </div>
               </div>
 
-              )}
+              </>}
 
               {/* ── TRENDS SECTION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="sleep") && (
+              {(insightFilter==="all"||insightFilter==="sleep") && <>
               {collHead("trends","📈","Trends")}
               {insightSection.trends && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10901,10 +10901,10 @@ function App(){
                 </div>
               )}
 
-              )}
+              </>}
 
               {/* ── REPORTS SECTION (collapsible) — Day Report ── */}
-              {(insightFilter==="all"||insightFilter==="reports") && (
+              {(insightFilter==="all"||insightFilter==="reports") && <>
               {collHead("reports","📊","Day Report")}
               {insightSection.reports && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -11002,9 +11002,9 @@ function App(){
                   })()}
                 </div>
               )}
-              )}
+              </>}
 
-              </>)}
+              </>}
             </div>
           );
         })()}
@@ -11218,7 +11218,7 @@ function App(){
               </div>
 
               {/* ── This Week's Focus ── */}
-              {(devFilter==="all"||devFilter==="activities") && (
+              {(devFilter==="all"||devFilter==="activities") && <>
               {ageWeeks && (()=>{
                 const advice = getDevAdvice(ageWeeks);
                 if (!advice.length) return null;
@@ -11242,9 +11242,9 @@ function App(){
                 );
               })()}
 
-              )}
+              </>}
               {/* ── COMING UP — Development Phase ── */}
-              {(devFilter==="all"||devFilter==="activities") && (
+              {(devFilter==="all"||devFilter==="activities") && <>
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
                 const dobDate = new Date(babyDob+"T00:00:00");
@@ -11371,9 +11371,9 @@ function App(){
                 </div>
               </div>
               
-              )}
+              </>}
               {/* ── Milestones ── */}
-              {(devFilter==="all"||devFilter==="milestones") && (
+              {(devFilter==="all"||devFilter==="milestones") && <>
               {ageWeeks && (
                 <>
                 <div className="glass-card" style={{...card,marginBottom:12,padding:"12px 16px"}}>
@@ -11502,9 +11502,9 @@ function App(){
                 </div>
               </div>
 
-              )}
+              </>}
                 {/* ── Teething Tracker ── */}
-                {(devFilter==="all"||devFilter==="teething") && (
+                {(devFilter==="all"||devFilter==="teething") && <>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker <HelpBtn title="Teething Tracker" body="Log each tooth as it appears with date and symptoms. OBubba tracks teething patterns and factors teething into the crying helper. Most babies get their first tooth around 6 months."/></div>
@@ -11554,9 +11554,9 @@ function App(){
                   )}
                 </div>
 
-                )}
+                </>}
                 {/* ── Weaning / Food Journal ── */}
-                {(devFilter==="all"||devFilter==="weaning") && (
+                {(devFilter==="all"||devFilter==="weaning") && <>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal <HelpBtn title="Weaning Journal" body="Track foods introduced, reactions (loved/neutral/disliked), and notes. NHS recommends introducing solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."/></div>
@@ -11600,7 +11600,7 @@ function App(){
                   )}
                 </div>
 
-                )}
+                </>}
 
             </div>
           );
@@ -12714,6 +12714,50 @@ function App(){
       })()}
       {}
       {/* Personal/NHS toggle moved to Account → Sleep Recommendations */}
+      {/* ═══ Wellbeing Support Popup ═══ */}
+      {showWellbeing&&(
+        <div onClick={()=>setShowWellbeing(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.6)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"28px 22px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:40,marginBottom:8}}>{showWellbeing.label==="Need support"?"💜":"🤗"}</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,lineHeight:1.3,marginBottom:8}}>{showWellbeing.label==="Need support"?"We're here for you":"You're not alone"}</div>
+              <div style={{fontSize:14,color:C.mid,lineHeight:1.6}}>{showWellbeing.msg}</div>
+            </div>
+            <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(111,168,152,0.06))",border:`1.5px solid rgba(123,104,238,0.15)`,borderRadius:16,padding:"14px",marginBottom:14}}>
+              <div style={{fontSize:12,fontFamily:_fM,color:"#7b68ee",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10}}>Talk to someone now</div>
+              {(_isUS ? [
+                {name:"Postpartum Support International",num:"1-800-944-4773",hours:""},
+                {name:"988 Suicide & Crisis Lifeline",num:"988",hours:"24/7"},
+                {name:"SAMHSA Helpline",num:"1-800-662-4357",hours:"24/7"},
+              ] : _isAU ? [
+                {name:"PANDA",num:"1300 726 306",hours:"Mon–Fri 9am–7:30pm"},
+                {name:"Beyond Blue",num:"1300 22 4636",hours:"24/7"},
+                {name:"Lifeline",num:"13 11 14",hours:"24/7"},
+              ] : [
+                {name:"PANDAS Foundation",num:"0808 196 1776",hours:"Mon–Fri 11am–10pm"},
+                {name:"Samaritans",num:"116 123",hours:"Free, 24/7"},
+                {name:"NHS Talking Therapies",num:"nhs.uk",hours:"Self-refer online"},
+                {name:"Health visitor",num:"Your GP surgery",hours:"Ask to be connected"},
+              ]).map((r,i)=>(
+                <a key={i} href={r.num.match(/^\d/)?`tel:${r.num.replace(/\s/g,"")}`:(r.num.includes("nhs")?"https://www.nhs.uk/mental-health/talking-therapies-medicine-treatments/talking-therapies-and-counselling/nhs-talking-therapies/":undefined)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderTop:i?`1px solid rgba(123,104,238,0.1)`:"none",textDecoration:"none",cursor:"pointer"}}>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:600,color:C.deep}}>{r.name}</div>
+                    {r.hours&&<div style={{fontSize:11,color:C.lt}}>{r.hours}</div>}
+                  </div>
+                  <div style={{fontSize:14,fontWeight:700,color:"#7b68ee",fontFamily:_fM}}>{r.num.match(/^\d/)?`📞 ${r.num}`:r.num.includes("nhs")?"🌐 Visit":"📞 Call"}</div>
+                </a>
+              ))}
+            </div>
+            <div style={{fontSize:12,color:C.mid,lineHeight:1.6,textAlign:"center",marginBottom:14}}>
+              You don't have to go through this alone. These services are confidential and free. Your baby needs you to be okay too. 💜
+            </div>
+            <button onClick={()=>setShowWellbeing(false)} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:"linear-gradient(135deg,#7b68ee,#5040a0)",color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+              Thank you 💜
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ═══ Teething Form ═══ */}
       {showTeethingForm&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowTeethingForm(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
