@@ -1471,6 +1471,8 @@ function App(){
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
     const[growthLogOpen,setGrowthLogOpen]=useState(false);
   const[insightSection,setInsightSection]=useState({trends:true,sleep:true,feeding:true,reports:false});
+  const[insightFilter,setInsightFilter]=useState("all");
+  const[devFilter,setDevFilter]=useState("all");
   const toggleInsight=(k)=>setInsightSection(p=>({...p,[k]:!p[k]}));
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
   const[devActFilter,setDevActFilter]=useState("all");
@@ -9304,7 +9306,44 @@ function App(){
                       </>
                     ) : null}
                     </div>
-                    {/* Why this prediction — tappable explanation */}
+                    {/* Visual Wake Window Bar — shows progress through the wake window */}
+                    {pred && pred.wakeWindowMin && pred.wakeWindowMax && !napOn && (()=>{
+                      const sorted3 = [...(days[selDay]||[])].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+                      const lastEnd = sorted3.filter(e=>e.type==="nap"&&e.end).slice(-1)[0];
+                      const wakeE = sorted3.find(e=>e.type==="wake");
+                      const anchor = lastEnd ? lastEnd.end : (wakeE ? wakeE.time : null);
+                      if(!anchor) return null;
+                      const [ah,am] = anchor.split(":").map(Number);
+                      const nowM = new Date().getHours()*60+new Date().getMinutes();
+                      const awakeMin = Math.max(0, nowM - (ah*60+am));
+                      const wwMin = pred.wakeWindowMin;
+                      const wwMax = pred.wakeWindowMax;
+                      const pct = Math.min(100, Math.round(awakeMin / wwMax * 100));
+                      const inWindow = awakeMin >= wwMin && awakeMin <= wwMax;
+                      const overdue = awakeMin > wwMax;
+                      const earlyPct = Math.round(wwMin / wwMax * 100);
+                      // Colour: green when early, gold in optimal window, red when overdue
+                      const barColor = overdue ? "#e8574a" : inWindow ? C.gold : C.mint;
+                      const barBg = overdue ? "rgba(232,87,74,0.12)" : inWindow ? "rgba(212,168,85,0.10)" : "rgba(111,168,152,0.08)";
+                      return (
+                        <div style={{marginTop:8}}>
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                            <span style={{fontSize:9,fontFamily:_fM,color:C.lt}}>{hm(awakeMin)} awake</span>
+                            <span style={{fontSize:9,fontFamily:_fM,color:overdue?"#e8574a":inWindow?C.gold:C.lt}}>{overdue?"Overdue":inWindow?"Sweet spot":"Building"}</span>
+                          </div>
+                          <div style={{position:"relative",height:8,borderRadius:99,background:barBg,overflow:"hidden"}}>
+                            {/* Optimal window zone indicator */}
+                            <div style={{position:"absolute",left:`${earlyPct}%`,right:0,top:0,bottom:0,background:inWindow?"rgba(212,168,85,0.15)":"transparent",borderRadius:"0 99px 99px 0"}}/>
+                            {/* Progress fill */}
+                            <div style={{height:"100%",width:`${pct}%`,borderRadius:99,background:`linear-gradient(90deg, ${C.mint}, ${pct>earlyPct?C.gold:C.mint}${pct>95?", #e8574a":""})`,transition:"width 0.5s ease"}}/>
+                          </div>
+                          <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}>
+                            <span style={{fontSize:8,color:C.lt,fontFamily:_fM}}>{hm(wwMin)}</span>
+                            <span style={{fontSize:8,color:C.lt,fontFamily:_fM}}>{hm(wwMax)}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {(pred || suggestedBed) && (
                       <div style={{marginTop:6,padding:"5px 10px",borderRadius:8,background:"var(--card-bg)"}}>
                         <div style={{fontSize:10,color:C.lt,fontFamily:_fI,lineHeight:1.5}}>
@@ -9985,21 +10024,61 @@ function App(){
                 const daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
                 if (daysLogged >= 3) return null;
                 return (
-                  <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderRadius:18,padding:"20px 16px",marginBottom:14,textAlign:"center"}}>
-                    <div style={{fontSize:32,marginBottom:8}}>📊</div>
-                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep,marginBottom:6}}>Building your insights</div>
-                    <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>Log 3+ days of data to unlock sleep analysis, pattern detection, feeding trends, and personalised predictions.</div>
-                    <div style={{display:"flex",justifyContent:"center",gap:6}}>
+                  <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderRadius:18,padding:"24px 16px",marginBottom:14,textAlign:"center"}}>
+                    <div style={{fontSize:40,marginBottom:10}}>📊</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>Building your insights</div>
+                    <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:14}}>OBubba needs a few days of data to learn {babyName||"baby"}'s unique patterns. Keep logging feeds, naps, and sleep — the magic happens around day 3.</div>
+                    <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:8}}>
                       {[1,2,3].map(n=>(
-                        <div key={n} style={{width:40,height:6,borderRadius:99,background:n<=daysLogged?C.mint:C.blush,transition:"background 0.3s"}}/>
+                        <div key={n} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                          <div style={{width:44,height:44,borderRadius:"50%",border:`2px solid ${n<=daysLogged?C.mint:C.blush}`,background:n<=daysLogged?C.mint+"15":"var(--card-bg)",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.3s"}}>
+                            {n<=daysLogged?<span style={{fontSize:16,color:C.mint}}>✓</span>:<span style={{fontSize:14,color:C.lt}}>{ n}</span>}
+                          </div>
+                          <span style={{fontSize:10,color:n<=daysLogged?C.mint:C.lt,fontFamily:_fM}}>Day {n}</span>
+                        </div>
                       ))}
                     </div>
-                    <div style={{fontSize:12,color:C.lt,marginTop:8}}>{daysLogged} of 3 days logged</div>
+                    <div style={{fontSize:12,color:C.lt,marginTop:6}}>{daysLogged === 0 ? "Log your first wake to get started" : daysLogged === 1 ? "Great start! 2 more days to go" : "Almost there! 1 more day"}</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:16,textAlign:"left"}}>
+                      <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>What you'll unlock</div>
+                      {[
+                        ["😴","Sleep score & nap analysis"],
+                        ["🍼","Feeding trends & intake tracking"],
+                        ["🧠","Sleep intelligence (false starts, split nights)"],
+                        ["📅","Tomorrow's predicted schedule"],
+                        ["📈","Weekly trends & progress"],
+                      ].map(([icon,text],i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:"var(--card-bg-alt)"}}>
+                          <span style={{fontSize:14}}>{icon}</span>
+                          <span style={{fontSize:12,color:C.mid}}>{text}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })()}
 
+              {/* Only show insights sections when enough data */}
+              {Object.keys(days).filter(d => (days[d]||[]).length > 0).length >= 3 && (<>
+
+              {/* Insight category filter bar */}
+              <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
+                {[
+                  {id:"all",label:"All",icon:"✨"},
+                  {id:"sleep",label:"Sleep",icon:"😴"},
+                  {id:"feeding",label:"Feeding",icon:"🍼"},
+                  {id:"growth",label:"Growth",icon:"📏"},
+                  {id:"reports",label:"Reports",icon:"📊"},
+                ].map(f=>(
+                  <button key={f.id} onPointerDown={e=>{e.preventDefault();haptic(8);setInsightFilter(f.id);}}
+                    style={{display:"flex",alignItems:"center",gap:4,padding:"7px 14px",borderRadius:99,border:`1.5px solid ${insightFilter===f.id?C.ter:C.blush}`,background:insightFilter===f.id?C.ter+"12":"var(--card-bg)",color:insightFilter===f.id?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0,fontFamily:_fI,transition:"all 0.15s"}}>
+                    <span style={{fontSize:13}}>{f.icon}</span>{f.label}
+                  </button>
+                ))}
+              </div>
+
               {/* ── Weekly Wins ── */}
+              {(insightFilter==="all") && (
               {(()=>{
                 const dk = Object.keys(days).sort();
                 if (dk.length < 7) return null;
@@ -10046,8 +10125,10 @@ function App(){
                   </div>
                 );
               })()}
+              )}
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
+              {(insightFilter==="all"||insightFilter==="sleep") && (<>
               {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10507,7 +10588,10 @@ function App(){
                 </div>
               )}
 
+              </>)}
+
               {/* ── FEEDING & NUTRITION (collapsible) ── */}
+              {(insightFilter==="all"||insightFilter==="feeding") && (<>
               {collHead("feeding","🍼","Feeding & Nutrition")}
               {insightSection.feeding && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10597,7 +10681,10 @@ function App(){
                 </div>
               )}
 
+              </>)}
+
               {/* ── GROWTH PERCENTILE BANNER ── */}
+              {(insightFilter==="all"||insightFilter==="growth") && (
               <div style={{background:`linear-gradient(135deg,${latestW?percentileColor(latestW?.pct, wTrend)+"18":"#f5f0eb"},${latestW?percentileColor(latestW?.pct, wTrend)+"08":"#ede8e0"})`, border:`2px solid ${latestW ? percentileColor(latestW?.pct, wTrend)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
                 <div style={{padding:"16px 16px 14px"}}>
                   <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>📏 Growth Percentiles</div>
@@ -10746,7 +10833,10 @@ function App(){
                 </div>
               </div>
 
+              )}
+
               {/* ── TRENDS SECTION (collapsible) ── */}
+              {(insightFilter==="all"||insightFilter==="sleep") && (
               {collHead("trends","📈","Trends")}
               {insightSection.trends && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10811,7 +10901,10 @@ function App(){
                 </div>
               )}
 
+              )}
+
               {/* ── REPORTS SECTION (collapsible) — Day Report ── */}
+              {(insightFilter==="all"||insightFilter==="reports") && (
               {collHead("reports","📊","Day Report")}
               {insightSection.reports && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10909,6 +11002,9 @@ function App(){
                   })()}
                 </div>
               )}
+              )}
+
+              </>)}
             </div>
           );
         })()}
@@ -11034,13 +11130,21 @@ function App(){
             const catInfo  = MILESTONE_CATS.find(c => c.key === m.cat);
             const tick     = done ? C.mint : isNow ? C.ter : "#ccc";
             const exerciseTip = getMilestoneExercise(m);
+            const touchStartRef = React.useRef(null);
             return (
               <div style={{borderBottom:`1px solid ${C.blush}`}}>
-                <div onClick={()=>{
-                  if(isFuture) return;
-                  if(done){ showConfirm("Remove milestone", `Remove "${m.label}"?`, ()=>{setMilestones(ms=>({...ms,[m.id]:{}}));setConfirmDialog(null);}, "Remove", true); }
-                  else { setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}})); showMascot("celebration", `🎉 ${m.label} — milestone reached!`, 2500); setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2800); }
-                }} style={{display:"flex",alignItems:"flex-start",gap:11,padding:"10px 0",cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1}}>
+                <div
+                  onPointerDown={e=>{touchStartRef.current={x:e.clientX,y:e.clientY};}}
+                  onPointerUp={e=>{
+                    if(!touchStartRef.current || isFuture) return;
+                    const dx=Math.abs(e.clientX-touchStartRef.current.x);
+                    const dy=Math.abs(e.clientY-touchStartRef.current.y);
+                    touchStartRef.current=null;
+                    if(dx>8||dy>8) return; // user scrolled, not tapped
+                    if(done){ showConfirm("Remove milestone", `Remove "${m.label}"?`, ()=>{setMilestones(ms=>({...ms,[m.id]:{}}));setConfirmDialog(null);}, "Remove", true); }
+                    else { setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}})); showMascot("celebration", `🎉 ${m.label} — milestone reached!`, 2500); setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2800); }
+                  }}
+                  style={{display:"flex",alignItems:"flex-start",gap:11,padding:"10px 0",cursor:isFuture?"default":"pointer",opacity:isFuture?0.45:1,touchAction:"pan-y"}}>
                   <div style={{width:21,height:21,borderRadius:"50%",border:`2px solid ${tick}`,background:done?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:2}}>
                     {done && <span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}
                   </div>
@@ -11088,7 +11192,7 @@ function App(){
                 <span style={{fontSize:11,color:C.lt,display:"inline-block",transform:open?"rotate(180deg)":"rotate(0)",transition:"transform 0.2s"}} >▼</span>
               </button>
               {open && (
-                <div style={{border:`1px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 12px 12px",padding:"4px 14px 10px",background:"var(--card-bg-solid)",maxHeight:400,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+                <div style={{border:`1px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 12px 12px",padding:"4px 14px 10px",background:"var(--card-bg-solid)"}}>
                   {children}
                 </div>
               )}
@@ -11097,7 +11201,24 @@ function App(){
 
           return (
             <div>
+              {/* Development category filter bar */}
+              <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
+                {[
+                  {id:"all",label:"All",icon:"✨"},
+                  {id:"activities",label:"Activities",icon:"🎯"},
+                  {id:"milestones",label:"Milestones",icon:"🏆"},
+                  {id:"teething",label:"Teeth",icon:"🦷"},
+                  {id:"weaning",label:"Weaning",icon:"🥄"},
+                ].map(f=>(
+                  <button key={f.id} onPointerDown={e=>{e.preventDefault();haptic(8);setDevFilter(f.id);}}
+                    style={{display:"flex",alignItems:"center",gap:4,padding:"7px 14px",borderRadius:99,border:`1.5px solid ${devFilter===f.id?C.ter:C.blush}`,background:devFilter===f.id?C.ter+"12":"var(--card-bg)",color:devFilter===f.id?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0,fontFamily:_fI,transition:"all 0.15s"}}>
+                    <span style={{fontSize:13}}>{f.icon}</span>{f.label}
+                  </button>
+                ))}
+              </div>
+
               {/* ── This Week's Focus ── */}
+              {(devFilter==="all"||devFilter==="activities") && (
               {ageWeeks && (()=>{
                 const advice = getDevAdvice(ageWeeks);
                 if (!advice.length) return null;
@@ -11121,7 +11242,9 @@ function App(){
                 );
               })()}
 
+              )}
               {/* ── COMING UP — Development Phase ── */}
+              {(devFilter==="all"||devFilter==="activities") && (
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
                 const dobDate = new Date(babyDob+"T00:00:00");
@@ -11248,7 +11371,9 @@ function App(){
                 </div>
               </div>
               
+              )}
               {/* ── Milestones ── */}
+              {(devFilter==="all"||devFilter==="milestones") && (
               {ageWeeks && (
                 <>
                 <div className="glass-card" style={{...card,marginBottom:12,padding:"12px 16px"}}>
@@ -11377,7 +11502,9 @@ function App(){
                 </div>
               </div>
 
+              )}
                 {/* ── Teething Tracker ── */}
+                {(devFilter==="all"||devFilter==="teething") && (
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker <HelpBtn title="Teething Tracker" body="Log each tooth as it appears with date and symptoms. OBubba tracks teething patterns and factors teething into the crying helper. Most babies get their first tooth around 6 months."/></div>
@@ -11427,7 +11554,9 @@ function App(){
                   )}
                 </div>
 
+                )}
                 {/* ── Weaning / Food Journal ── */}
+                {(devFilter==="all"||devFilter==="weaning") && (
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal <HelpBtn title="Weaning Journal" body="Track foods introduced, reactions (loved/neutral/disliked), and notes. NHS recommends introducing solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."/></div>
@@ -11471,6 +11600,7 @@ function App(){
                   )}
                 </div>
 
+                )}
 
             </div>
           );
