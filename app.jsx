@@ -14,6 +14,13 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   };
 }
 
+// Fix iOS double-tap delay: tell browser not to wait for zoom gesture on interactive elements
+(function(){
+  const s = document.createElement("style");
+  s.textContent = "button,input,select,textarea,a,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}";
+  document.head.appendChild(s);
+})();
+
 const STORAGE_KEY = "babyTracker_v6";
 const params = new URLSearchParams(window.location.search);
 const quickAction = params.get("action");
@@ -411,7 +418,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
 
 function PBtn({children,onClick,v="pri",style={}}){
   const vs={pri:{background:C.ter,color:"white"},ghost:{background:C.blush,color:C.mid},danger:{background:"#e8574a",color:"white"}};
-  return <button onClick={e=>{haptic();onClick&&onClick(e);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:6,...vs[v],...style}}>{children}</button>;
+  return <button onPointerDown={e=>{e.preventDefault();haptic();onClick&&onClick(e);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:6,touchAction:"manipulation",WebkitTapHighlightColor:"transparent",...vs[v],...style}}>{children}</button>;
 }
 
 function Badge({type,children}){
@@ -1400,7 +1407,7 @@ function App(){
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
   const[msSharePrompt,setMsSharePrompt]=useState(null); // {milestoneId, label}
   const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0});
-  const[reminderForm,setReminderForm]=useState({text:"",date:"",time:""});
+  const[reminderForm,setReminderForm]=useState({text:"",date:"",time:"",trigger:""});
   const[reminders,setReminders]=useState(()=>{
     try{const v=localStorage.getItem("reminders_v1");return v?JSON.parse(v):[];}catch{return [];}
   });
@@ -1478,6 +1485,7 @@ function App(){
   const[showNightWake,setShowNightWake]=useState(false);
   const[nightEditId,setNightEditId]=useState(null);
   const[showWakePrompt,setShowWakePrompt]=useState(false);
+  const[nightSummaryText,setNightSummaryText]=useState(null);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[cryingResult,setCryingResult]=useState(null);
   const[showTeethingForm,setShowTeethingForm]=useState(false);
@@ -1500,7 +1508,7 @@ function App(){
       return pruned;
     });
   }
-  const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+  const[nwForm,setNwForm]=useState({time:"",ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
   const[inlineWakeTime,setInlineWakeTime]=useState("");
 
   React.useEffect(()=>{
@@ -5776,6 +5784,7 @@ function App(){
         assistedType: entry.assistedType||"milk",
         assistedNote: entry.assistedNote||"",
         assistedDuration: entry.assistedDuration ? String(entry.assistedDuration) : "",
+        settleDuration: entry.settleDuration ? String(entry.settleDuration) : "",
         note: entry.selfSettled ? (entry.note==="Self settled"?"":entry.note||"") : (entry.note||"").replace(/Assisted – [^·]*·?\s*/,"").replace(/Duration: \d+m\s*·?\s*/,"").trim()
       });
       setNightEditId(entry.id);
@@ -6111,10 +6120,20 @@ function App(){
 
   function addReminder(){
     if(!reminderForm.text.trim()) return;
-    setReminders(prev=>[...prev,{id:uid(),text:reminderForm.text.trim(),date:reminderForm.date||todayStr(),time:reminderForm.time||"",done:false}]);
-    setReminderForm({text:"",date:"",time:""});
+    setReminders(prev=>[...prev,{id:uid(),text:reminderForm.text.trim(),date:reminderForm.date||todayStr(),time:reminderForm.time||"",trigger:reminderForm.trigger||"",done:false}]);
+    setReminderForm({text:"",date:"",time:"",trigger:""});
     setShowAddReminder(false);
     try{navigator.vibrate&&navigator.vibrate(30);}catch{}
+  }
+
+  // Fire event-triggered reminders when logging events
+  function fireEventReminders(eventType){
+    const active = reminders.filter(r => !r.done && r.trigger === eventType);
+    if (!active.length) return;
+    active.forEach(r => {
+      showToast(`🔔 ${r.text}`, 4000, 1);
+      try{navigator.vibrate&&navigator.vibrate([50,30,50,30,50]);}catch{}
+    });
   }
 
   function toggleReminder(id){
@@ -6174,6 +6193,11 @@ function App(){
     try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
     const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
     showToast(label+" · Shake to undo",1500,1);
+
+    // Fire event-triggered reminders
+    if (type === "feed") fireEventReminders("after_feed");
+    else if (type === "wake" && !data.night) fireEventReminders("after_wake");
+    else if (type === "poop") fireEventReminders("after_nappy");
   }
 
   function saveLogFeed(){
@@ -6521,7 +6545,7 @@ function App(){
     // Bedtime IS logged
     if(h >= 12){
       // It's PM after bedtime — assume night wake
-      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
       setShowNightWake(true);
     } else {
       // It's AM — could be night wake or start of day
@@ -6540,7 +6564,50 @@ function App(){
     setShowWakePrompt(false);
     setSelDay(nextDay);
     try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
+
+    // Build last night summary from previous day
+    const prevDay = selDay;
+    const prevEntries = days[prevDay] || [];
+    const nightWakes = prevEntries.filter(e => e.night);
+    const bedEntry = prevEntries.find(e => e.type === "sleep" && !e.night);
+    if (bedEntry && nightWakes.length >= 0) {
+      const wakeCount = nightWakes.length;
+      const feedWakes = nightWakes.filter(e => e.amount > 0).length;
+      const selfSettledCount = nightWakes.filter(e => e.selfSettled).length;
+      const bedMins = timeVal(bedEntry);
+      const [wh,wm] = nowTime().split(":").map(Number);
+      const wakeMins = wh * 60 + wm;
+      let nightLen = wakeMins < bedMins ? (24*60 - bedMins + wakeMins) : (wakeMins - bedMins);
+      if (nightLen > 840) nightLen = 840; // cap at 14h
+
+      // Find longest stretch
+      const times = [bedEntry.time, ...nightWakes.map(e => e.time).sort((a,b) => {
+        const ta = timeVal({time:a}), tb = timeVal({time:b});
+        const ka = ta >= bedMins ? ta : ta + 1440;
+        const kb = tb >= bedMins ? tb : tb + 1440;
+        return ka - kb;
+      }), nowTime()];
+      let longestStretch = 0;
+      for (let i = 1; i < times.length; i++) {
+        let diff = timeVal({time:times[i]}) - timeVal({time:times[i-1]});
+        if (diff < 0) diff += 1440;
+        if (diff > longestStretch && diff < 840) longestStretch = diff;
+      }
+
+      const summary = [];
+      summary.push(`🌙 ${hm(nightLen)} night sleep`);
+      if (wakeCount === 0) summary.push("✨ No wakes — amazing!");
+      else summary.push(`${wakeCount} wake${wakeCount>1?"s":""}`);
+      if (feedWakes > 0) summary.push(`${feedWakes} feed${feedWakes>1?"s":""}`);
+      if (selfSettledCount > 0) summary.push(`${selfSettledCount} self-settled`);
+      if (longestStretch > 0) summary.push(`Longest stretch ${hm(longestStretch)}`);
+
+      setNightSummaryText(summary.join(" · "));
+      setTimeout(() => setNightSummaryText(null), 8000);
+    }
+
     showToast("☀️ Wake logged on "+fmtDate(nextDay),1500,1);
+    fireEventReminders("after_wake");
   }
 
   function startNap(){
@@ -6666,6 +6733,7 @@ function App(){
     const already = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
     if (already) return;
     quickAddLog("sleep",{type:"sleep",time:nowTime(),night:false,note:""});
+    fireEventReminders("after_bedtime");
     // "What went well" analysis after bedtime
     setTimeout(()=>{
       try {
@@ -6816,6 +6884,9 @@ function App(){
       } catch {}
       lastPredRef.current = null;
     }
+
+    // Fire event-triggered reminders for nap end
+    if (!isNightTime && !hasBedtime) fireEventReminders("after_nap");
   }
   // ── Weekly Digest Generator ──
   // ── Carer Card Generator ──
@@ -8687,7 +8758,7 @@ function App(){
                 // 3am-5:59am: no wake logged → suggest night wake
                 if(h>=0&&h<6&&hasBed&&!today.some(e=>e.night&&timeVal(e)>timeVal(today.find(x=>x.type==="sleep"&&!x.night)))){
                   return(
-                    <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});}}
+                    <button onPointerDown={e=>{e.preventDefault();haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}}
                       style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,border:`1.5px solid rgba(123,104,238,0.25)`,background:"rgba(123,104,238,0.06)",cursor:_cP,marginBottom:8}}>
                       <span style={{fontSize:20}}>🌙</span>
                       <div style={{flex:1,textAlign:"left"}}>
@@ -8700,7 +8771,7 @@ function App(){
                 // 5am-8am: no wake logged → suggest morning wake
                 if(h>=5&&h<=8&&!hasWake){
                   return(
-                    <button onClick={()=>{haptic();handleSmartWake();}}
+                    <button onPointerDown={e=>{e.preventDefault();haptic();handleSmartWake();}}
                       style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,border:`1.5px solid ${C.gold}40`,background:"rgba(212,168,85,0.06)",cursor:_cP,marginBottom:8}}>
                       <span style={{fontSize:20}}>☀️</span>
                       <div style={{flex:1,textAlign:"left"}}>
@@ -8713,6 +8784,17 @@ function App(){
                 return null;
               })()}
 
+              {/* Last Night Summary — shows briefly after morning wake is logged */}
+              {nightSummaryText && (
+                <div onClick={()=>setNightSummaryText(null)} style={{background:"linear-gradient(135deg, rgba(123,104,238,0.08), rgba(80,64,160,0.04))",border:"1.5px solid rgba(123,104,238,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:10,cursor:_cP,animation:"popIn 0.3s ease"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{fontSize:13,color:C.deep,fontWeight:600}}>Last night</div>
+                    <span style={{fontSize:10,color:C.lt}}>tap to dismiss</span>
+                  </div>
+                  <div style={{fontSize:12,color:C.mid,marginTop:4,lineHeight:1.5}}>{nightSummaryText}</div>
+                </div>
+              )}
+
               {/* ONE-TAP LOG ROW — below date strip, above age guidance */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"10px 12px",marginBottom:10,gap:2,boxShadow:"var(--card-shadow)"}}>
                 {[
@@ -8721,7 +8803,7 @@ function App(){
                     if(hasBed){
                       // After bedtime — open night wake form with milk pre-selected
                       haptic();
-                      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:true,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:true,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
                       setShowNightWake(true);
                     } else {
                       quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});
@@ -8731,7 +8813,7 @@ function App(){
                     const hasBed = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
                     if(hasBed){
                       haptic();
-                      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:true,assistedType:"milk",assistedNote:"breast",assistedDuration:"",note:"Breast feed"});
+                      setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:true,assistedType:"milk",assistedNote:"breast",assistedDuration:"",settleDuration:"",note:"Breast feed"});
                       setShowNightWake(true);
                     } else {
                       haptic();startBreastTimer("L");
@@ -8747,12 +8829,10 @@ function App(){
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
                 ].map(({emoji,label,action})=>(
-                  <button key={label} onClick={action}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flex:1,padding:"6px 2px",borderRadius:12,border:"none",background:"transparent",cursor:_cP,transition:"transform 0.1s ease, background 0.1s ease"}}
-                    onMouseDown={e=>{e.currentTarget.style.background="var(--chip-bg-active)";e.currentTarget.style.transform="scale(0.85)";}}
-                    onMouseUp={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
-                    onTouchStart={e=>{e.currentTarget.style.background="var(--chip-bg-active)";e.currentTarget.style.transform="scale(0.85)";}}
-                    onTouchEnd={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
+                  <button key={label} onPointerDown={e=>{e.preventDefault();action();}}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flex:1,padding:"6px 2px",borderRadius:12,border:"none",background:"transparent",cursor:_cP,transition:"transform 0.1s ease, background 0.1s ease",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}
+                    onPointerUp={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
+                    onPointerCancel={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
                   >
                     <span style={{fontSize:22,lineHeight:1}}>{emoji}</span>
                     <span style={{fontSize:10,fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM}}>{label}</span>
@@ -8779,7 +8859,7 @@ function App(){
                     </button>
                   )}
                   {reminders.filter(r=>!r.done).length===0&&(
-                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:""});setShowAddReminder(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:"",trigger:""});setShowAddReminder(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
                       🔔 Reminder
                     </button>
                   )}
@@ -8830,18 +8910,24 @@ function App(){
                 <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:10}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🔔 Reminders <HelpBtn title="Reminders" body="Set timed reminders for medicine, appointment calls, or anything else. Reminders show on the Day tab for their scheduled date."/></div>
-                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:""});setShowAddReminder(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
+                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:"",trigger:""});setShowAddReminder(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                   </div>
-                  {reminders.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(r=>(
+                  {reminders.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(r=>{
+                    const triggerLabels = {after_nap:"😴 After nap",after_feed:"🍼 After feed",after_wake:"☀️ After wake",after_nappy:"🧷 After nappy",after_bedtime:"🌙 At bedtime"};
+                    return (
                     <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
                       <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${C.mint}`,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}/>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,color:C.deep,lineHeight:1.4}}>{r.text}</div>
-                        {(r.time||r.date!==todayStr())&&<div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{r.date===todayStr()?"Today":fmtLong(r.date)}{r.time?" · "+fmt12(r.time):""}</div>}
+                        <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",marginTop:1}}>
+                          {r.trigger && <span style={{fontSize:10,fontFamily:_fM,color:C.ter,background:C.ter+"15",padding:"1px 7px",borderRadius:99}}>{triggerLabels[r.trigger]||r.trigger}</span>}
+                          {!r.trigger && (r.time||r.date!==todayStr()) && <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{r.date===todayStr()?"Today":fmtLong(r.date)}{r.time?" · "+fmt12(r.time):""}</span>}
+                        </div>
                       </div>
                       <button onClick={()=>deleteReminder(r.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
                     </div>
-                  ))}
+                    );
+                  })}
                   {reminders.filter(r=>r.done).length>0&&(
                     <div style={{marginTop:6,paddingTop:4,borderTop:`1px solid ${C.blush}`}}>
                       <div style={{fontSize:10,color:C.lt,fontFamily:_fM,marginBottom:3}}>Done</div>
@@ -9285,6 +9371,90 @@ function App(){
                   </div>
                 ))}
               </div>
+
+              {/* Today's Plan — completed events + remaining predictions */}
+              {(()=>{
+                if (!age) return null;
+                const todayEntries = days[selDay] || [];
+                const wake = todayEntries.find(e => e.type === "wake" && !e.night);
+                if (!wake) return null;
+                const completedNaps = todayEntries.filter(e => e.type === "nap" && !e.night && e.start && e.end).sort((a,b) => timeVal(a) - timeVal(b));
+                const bedEntry = todayEntries.find(e => e.type === "sleep" && !e.night);
+                const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+                const isPast = selDay < todayStr();
+
+                const items = [];
+                // 1. Wake
+                items.push({ icon: "☀️", label: "Wake", time: fmt12(wake.time), done: true, mins: timeVal(wake) });
+
+                // 2. Completed naps
+                completedNaps.forEach((n, i) => {
+                  const dur = minDiff(n.start, n.end);
+                  items.push({ icon: "😴", label: `Nap ${i+1}`, time: `${fmt12(n.start)} – ${fmt12(n.end)}`, sub: hm(dur), done: true, mins: timeVal(n) });
+                });
+
+                // 3. Active nap
+                if (napOn && napStartT) {
+                  items.push({ icon: "💤", label: `Nap ${completedNaps.length + 1}`, time: `${fmt12(napStartT)} – now`, sub: "in progress", active: true, mins: timeVal({time: napStartT}) });
+                }
+
+                if (!bedEntry && !isPast) {
+                  // 4. Predicted next nap(s)
+                  const pred = predictNextNap();
+                  if (pred && !napOn) {
+                    items.push({ icon: "⏱️", label: `Nap ${completedNaps.length + 1}`, time: fmt12(pred.time), sub: pred.isOverdue ? "overdue" : pred.confidence ? `${pred.confidence}% conf` : "", predicted: true, mins: timeVal(pred), overdue: pred.isOverdue });
+                  }
+
+                  // 5. Predicted bedtime
+                  const bed = bedtimePrediction();
+                  if (bed && bed.time) {
+                    items.push({ icon: "🌙", label: "Bedtime", time: fmt12(bed.time), sub: bed.estimated ? "estimated" : "", predicted: true, mins: timeVal(bed) });
+                  }
+                }
+
+                // 6. Actual bedtime
+                if (bedEntry) {
+                  items.push({ icon: "🌙", label: "Bedtime", time: fmt12(bedEntry.time), done: true, mins: timeVal(bedEntry) });
+                }
+
+                if (items.length < 2) return null;
+
+                return (
+                  <div style={{marginBottom:14}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                      <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📋 Today's Plan</div>
+                    </div>
+                    <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"12px 14px",boxShadow:"var(--card-shadow)"}}>
+                      {items.map((item, i) => {
+                        const isLast = i === items.length - 1;
+                        const lineColor = item.done ? C.mint : item.active ? C.gold : C.blush;
+                        return (
+                          <div key={i} style={{display:"flex",gap:10,position:"relative"}}>
+                            {/* Timeline line */}
+                            <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:20,flexShrink:0}}>
+                              <div style={{width:item.active?14:10,height:item.active?14:10,borderRadius:"50%",background:item.done?C.mint:item.active?C.gold:item.overdue?"#e8574a":item.predicted?"var(--card-bg)":"var(--card-bg)",border:`2px solid ${item.done?C.mint:item.active?C.gold:item.overdue?"#e8574a":item.predicted?C.blush:C.blush}`,flexShrink:0,marginTop:4,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                {item.done && <span style={{fontSize:6,color:"white"}}>✓</span>}
+                              </div>
+                              {!isLast && <div style={{width:2,flex:1,background:`linear-gradient(${lineColor}, ${items[i+1]?.done?C.mint:C.blush})`,minHeight:12,borderRadius:1}}/>}
+                            </div>
+                            {/* Content */}
+                            <div style={{flex:1,paddingBottom:isLast?0:8,opacity:item.predicted?0.7:1}}>
+                              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                                <span style={{fontSize:13}}>{item.icon}</span>
+                                <span style={{fontSize:13,fontWeight:600,color:item.active?C.gold:item.overdue?"#e8574a":C.deep}}>{item.label}</span>
+                                <span style={{fontSize:12,color:item.done?C.mid:item.active?C.gold:C.lt,fontFamily:_fM}}>{item.time}</span>
+                                {item.predicted && <span style={{fontSize:9,fontFamily:_fM,color:C.blush,background:"var(--chip-bg)",padding:"1px 6px",borderRadius:99}}>predicted</span>}
+                              </div>
+                              {item.sub && <div style={{fontSize:10,color:item.overdue?"#e8574a":C.lt,fontFamily:_fM,marginTop:1,marginLeft:22}}>{item.sub}</div>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* 7. Daily timeline header */}
 
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -9425,7 +9595,7 @@ function App(){
                     <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:"var(--text-mid)",fontSize:14}}>Night Wakes</span>
                     <HelpBtn title="Night Wakes" body="Night wakes are tracked separately from daytime entries. Feeds and wakes after bedtime automatically move here. Stretches between wakes are colour-coded — green (3h+) is great, purple (<2h) may indicate hunger or discomfort. You can log soothing method, duration, and feed amount."/>
                   </div>
-                  <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});setShowNightWake(true);}} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
+                  <button onClick={()=>{setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});setShowNightWake(true);}} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"var(--text-lt)",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -9451,7 +9621,7 @@ function App(){
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                             <div>
                               <span style={{color:"var(--text-mid)",fontSize:15}}>{e.amount>0?"🍼":"🌟"} {fmt12(e.time)} {e.amount>0?"feed":"wake"}</span>
-                              {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
+                              {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled{e.settleDuration?` in ${hm(parseInt(e.settleDuration))}`:""}</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
                                 {e.assistedDuration?<span> · Duration: {hm(parseInt(e.assistedDuration))}</span>:null}
@@ -9494,7 +9664,7 @@ function App(){
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                             <div>
                               <span style={{color:"var(--text-mid)",fontSize:15}}>{e.amount>0?"🍼":"🌟"} {fmt12(e.time)} {e.amount>0?"feed":"wake"}</span>
-                              {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled</div>}
+                              {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled{e.settleDuration?` in ${hm(parseInt(e.settleDuration))}`:""}</div>}
                               {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
                                 Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
                                 {e.assistedDuration?<span> · Duration: {hm(parseInt(e.assistedDuration))}</span>:null}
@@ -11843,7 +12013,7 @@ function App(){
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   <PBtn v="pri" onClick={()=>{
                     setLogPanel(null);
-                    setNwForm({time:logForm.feedTime||nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                    setNwForm({time:logForm.feedTime||nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
                     setShowNightWake(true);
                   }}>🌙 Night Wake</PBtn>
                   <PBtn v="ghost" onClick={()=>{
@@ -11855,6 +12025,7 @@ function App(){
                     setSelDay(nextDay);
                     try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
                     showToast("☀️ Wake logged on "+fmtDate(nextDay),1500,1);
+                    fireEventReminders("after_wake");
                   }}>☀️ Start of New Day</PBtn>
                 </div>
               </div>
@@ -12597,7 +12768,7 @@ function App(){
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <button onClick={()=>{
                 setShowWakePrompt(false);
-                setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
                 setShowNightWake(true);
               }} style={{width:"100%",padding:"14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
                 🌙 Night Wake
@@ -12623,7 +12794,7 @@ function App(){
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <button onClick={()=>{
                 setShowNightTimerMenu(false);
-                setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",note:""});
+                setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
                 setShowNightWake(true);
               }} style={{width:"100%",padding:"14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
                 🌙 Night Wake
@@ -12800,6 +12971,42 @@ function App(){
                   <div style={{fontSize:12,color:C.lt,marginTop:1}}>No help needed</div>
                 </div>
               </div>
+              {/* Self-settle duration — how long baby took to resettle alone */}
+              {nwForm.selfSettled && (
+                <div style={{background:"rgba(80,200,120,0.06)",borderRadius:14,padding:"12px 14px",marginTop:-4,marginBottom:4,border:"1px solid rgba(80,200,120,0.15)"}}>
+                  <div style={{fontSize:12,fontFamily:_fM,color:"#50c878",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Time to settle</div>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <input type="number" inputMode="numeric" placeholder="0" value={nwForm.settleDuration ? Math.floor(parseInt(nwForm.settleDuration)/60)||"" : ""}
+                      onChange={e=>{
+                        const hrs = parseInt(e.target.value)||0;
+                        const existingMins = nwForm.settleDuration ? parseInt(nwForm.settleDuration)%60 : 0;
+                        setNwForm(f=>({...f,settleDuration:String(hrs*60+existingMins)}));
+                      }}
+                      style={{width:54,fontSize:16,padding:"10px 8px",borderRadius:12,border:"1.5px solid rgba(80,200,120,0.3)",background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                    <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>h</span>
+                    <input type="number" inputMode="numeric" placeholder="0" value={nwForm.settleDuration ? parseInt(nwForm.settleDuration)%60||"" : ""}
+                      onChange={e=>{
+                        const mins = Math.min(59, parseInt(e.target.value)||0);
+                        const existingHrs = nwForm.settleDuration ? Math.floor(parseInt(nwForm.settleDuration)/60) : 0;
+                        setNwForm(f=>({...f,settleDuration:String(existingHrs*60+mins)}));
+                      }}
+                      style={{width:54,fontSize:16,padding:"10px 8px",borderRadius:12,border:"1.5px solid rgba(80,200,120,0.3)",background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                    <span style={{fontSize:13,color:C.lt,fontFamily:_fM}}>m</span>
+                    {nwForm.settleDuration && parseInt(nwForm.settleDuration) > 0 && (
+                      <span style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginLeft:4}}>= {hm(parseInt(nwForm.settleDuration))}</span>
+                    )}
+                  </div>
+                  <div style={{display:"flex",gap:5,marginTop:6}}>
+                    {[2,5,10,15,20,30,45,60].map(m=>(
+                      <button key={m} onClick={()=>setNwForm(f=>({...f,settleDuration:String(m)}))}
+                        style={{flex:1,padding:"6px 1px",borderRadius:9,border:`1.5px solid ${nwForm.settleDuration===String(m)?"#50c878":"rgba(80,200,120,0.2)"}`,background:nwForm.settleDuration===String(m)?"rgba(80,200,120,0.12)":"var(--card-bg)",color:nwForm.settleDuration===String(m)?"#50c878":C.lt,fontSize:10,fontFamily:_fM,cursor:_cP}}>
+                        {m >= 60 ? `${m/60}h` : m}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:6,fontFamily:_fI}}>Fussed or grizzled briefly, then fell back to sleep without help</div>
+                </div>
+              )}
               {/* Assisted soothing */}
               <div onClick={()=>setNwForm(f=>({...f,assisted:!f.assisted,selfSettled:false,ml:""}))}
                 style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.assisted?"#7b68ee":C.blush}`,background:nwForm.assisted?"rgba(123,104,238,0.08)":C.warm,cursor:_cP,transition:"all 0.2s"}}>
@@ -12936,6 +13143,7 @@ function App(){
                 note: noteStr,
               };
               if(nwForm.assistedDuration) entry.assistedDuration = parseInt(nwForm.assistedDuration);
+              if(nwForm.settleDuration) entry.settleDuration = parseInt(nwForm.settleDuration);
               if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
                 const existing = d[selDay]||[];
@@ -13244,12 +13452,29 @@ function App(){
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setShowAddReminder(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🔔 Add Reminder</div>
-            <Inp label="Reminder" type="text" placeholder="e.g. Health visitor appointment Tuesday" value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:e.target.value}))}/>
-            <div style={{display:"flex",gap:8}}>
-              <div style={{flex:1}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
-              <div style={{flex:1}}><Inp label="Time" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
+            <Inp label="Reminder" type="text" placeholder="e.g. Massage Oliver, Tummy time..." value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:e.target.value}))}/>
+            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Trigger</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
+              {[
+                {v:"",label:"⏰ Timed/Manual"},
+                {v:"after_nap",label:"😴 After Nap"},
+                {v:"after_feed",label:"🍼 After Feed"},
+                {v:"after_wake",label:"☀️ After Wake"},
+                {v:"after_nappy",label:"🧷 After Nappy"},
+                {v:"after_bedtime",label:"🌙 At Bedtime"},
+              ].map(t=>(
+                <button key={t.v} onClick={()=>setReminderForm(f=>({...f,trigger:t.v}))}
+                  style={{padding:"6px 10px",borderRadius:99,border:`1.5px solid ${reminderForm.trigger===t.v?C.ter:C.blush}`,background:reminderForm.trigger===t.v?"var(--chip-bg-active)":C.warm,color:reminderForm.trigger===t.v?C.ter:C.mid,fontSize:11,fontWeight:600,cursor:_cP}}>{t.label}</button>
+              ))}
             </div>
-            <div style={{fontSize:12,color:C.lt,marginBottom:10,lineHeight:1.5}}>Set a time to get a notification reminder. Leave blank for a simple checklist item.</div>
+            {reminderForm.trigger && <div style={{fontSize:11,color:C.lt,marginBottom:10,lineHeight:1.5,padding:"6px 10px",background:"var(--card-bg-alt)",borderRadius:10}}>🔔 This reminder will ping you every time you log a {reminderForm.trigger.replace("after_","").replace("_"," ")}. It stays active until you mark it done.</div>}
+            {!reminderForm.trigger && (
+              <div style={{display:"flex",gap:8}}>
+                <div style={{flex:1}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
+                <div style={{flex:1}}><Inp label="Time" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
+              </div>
+            )}
+            {!reminderForm.trigger && <div style={{fontSize:12,color:C.lt,marginBottom:10,lineHeight:1.5}}>Set a time to get a notification reminder. Leave blank for a simple checklist item.</div>}
             {notifPermission!=="granted"&&reminderForm.time&&(
               <button onClick={requestNotifications} style={{width:"100%",padding:"10px",borderRadius:12,border:`1.5px solid ${C.gold}40`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.gold,fontFamily:_fI,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                 🔔 Enable notifications
