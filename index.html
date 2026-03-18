@@ -76,8 +76,50 @@
 
   <!-- Styles -->
   <link rel="stylesheet" href="styles.css"/>
+
+  <!-- Splash screen styles -->
+  <style>
+    @keyframes splashBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    #obubba-splash {
+      position: fixed; inset: 0; z-index: 99999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #F5EDE8 0%, #FFFCF9 40%, #FFF8F2 100%);
+      transition: opacity 0.4s ease;
+    }
+    #obubba-splash img {
+      width: 120px; height: 120px; object-fit: contain; margin-bottom: 16px;
+      animation: splashBounce 1.5s ease-in-out infinite;
+      filter: drop-shadow(0 8px 20px rgba(217,207,243,0.3));
+    }
+    #obubba-splash .splash-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 22px; font-weight: 700; color: #5B4F5F; margin-bottom: 6px;
+    }
+    #obubba-splash .splash-sub {
+      font-family: 'DM Sans', -apple-system, system-ui, sans-serif;
+      font-size: 13px; color: #A898AC;
+    }
+    @media (prefers-color-scheme: dark) {
+      #obubba-splash {
+        background: linear-gradient(180deg, #1a1520 0%, #1e1a24 40%, #221e28 100%);
+      }
+      #obubba-splash .splash-title { color: #e8ddd5; }
+      #obubba-splash .splash-sub { color: #7a6f80; }
+    }
+  </style>
 </head>
 <body>
+
+<!-- Static splash screen — shows instantly before React/Babel loads -->
+<div id="obubba-splash">
+  <img src="obubba-loading.png" alt="" onerror="this.style.display='none'"/>
+  <div class="splash-title">OBubba</div>
+  <div class="splash-sub">Getting everything ready...</div>
+</div>
+
 <div id="root"></div>
 <button id="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">🌙</button>
 

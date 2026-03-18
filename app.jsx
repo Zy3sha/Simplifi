@@ -1,5 +1,8 @@
 const { useState, useEffect, useRef } = React;
 
+// Remove static splash screen (defined in index.html) once React has mounted
+try { const splash = document.getElementById("obubba-splash"); if(splash) splash.style.opacity="0"; setTimeout(()=>{if(splash)splash.remove();},400); } catch {}
+
 // roundRect polyfill for older Android WebViews
 if (!CanvasRenderingContext2D.prototype.roundRect) {
   CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r) {
@@ -12481,9 +12484,9 @@ function App(){
         const topScore = reasons.length ? reasons[0].score : 0;
         const lowConf = topScore < 50;
         return (
-        <div onClick={e=>{if(e.target===e.currentTarget){setShowCryingHelper(false);setCryingResult(null);}}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"88vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-            <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+        <div onPointerDown={e=>{if(e.target===e.currentTarget){setShowCryingHelper(false);setCryingResult(null);}}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"80vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+            <div onClick={()=>{setShowCryingHelper(false);setCryingResult(null);}} style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px",cursor:_cP}}/>
             <div style={{textAlign:"center",marginBottom:16}}>
               <div style={{fontSize:32,marginBottom:6}}>😢</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:4}}>Why is {babyName||"baby"} crying?</div>
