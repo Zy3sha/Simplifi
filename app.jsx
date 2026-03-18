@@ -9381,7 +9381,7 @@ function App(){
                 const todayEntries = days[selDay] || [];
                 const wake = todayEntries.find(e => e.type === "wake" && !e.night);
                 if (!wake) return null;
-                const completedNaps = todayEntries.filter(e => e.type === "nap" && !e.night && e.start && e.end).sort((a,b) => timeVal(a) - timeVal(b));
+                const completedNaps = todayEntries.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.id !== napEntryId && !e._active).sort((a,b) => timeVal(a) - timeVal(b));
                 const bedEntry = todayEntries.find(e => e.type === "sleep" && !e.night);
                 const isPast = selDay < todayStr();
                 const w = age.totalWeeks;
