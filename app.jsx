@@ -28,6 +28,8 @@ const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${
 const fmtSec = s => s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 const haptic=(ms=10)=>{try{navigator.vibrate&&navigator.vibrate(ms);}catch{}};
 const _locale = (navigator.language||"en-GB").toLowerCase();
+const _toothLabels = {"UR-E":"Upper right 2nd molar","UR-D":"Upper right 1st molar","UR-C":"Upper right canine","UR-B":"Upper right lateral","UR-A":"Upper right central","UL-A":"Upper left central","UL-B":"Upper left lateral","UL-C":"Upper left canine","UL-D":"Upper left 1st molar","UL-E":"Upper left 2nd molar","LR-E":"Lower right 2nd molar","LR-D":"Lower right 1st molar","LR-C":"Lower right canine","LR-B":"Lower right lateral","LR-A":"Lower right central","LL-A":"Lower left central","LL-B":"Lower left lateral","LL-C":"Lower left canine","LL-D":"Lower left 1st molar","LL-E":"Lower left 2nd molar"};
+const toothLabel = (id) => _toothLabels[id] || id;
 const _isUS = _locale.startsWith("en-us");
 const _isAU = _locale.startsWith("en-au");
 const _emergNum = _isUS ? "911" : _isAU ? "000" : "999";
@@ -1438,7 +1440,7 @@ function App(){
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
     const[growthLogOpen,setGrowthLogOpen]=useState(false);
-  const[insightSection,setInsightSection]=useState({trends:true,sleep:true,reports:false});
+  const[insightSection,setInsightSection]=useState({trends:true,sleep:true,feeding:true,reports:false});
   const toggleInsight=(k)=>setInsightSection(p=>({...p,[k]:!p[k]}));
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
   const[devActFilter,setDevActFilter]=useState("all");
@@ -4623,8 +4625,23 @@ function App(){
         score -= 15;
         factors.push({ label: "Bedtime", status: "warn", note: "Bedtime is later than 8pm. An earlier bedtime often improves night sleep quality." });
       } else if (bMins < 18*60) {
-        score -= 10;
-        factors.push({ label: "Bedtime", status: "info", note: "Bedtime is before 6pm, which may cause early morning waking." });
+        // Check WHY bedtime is early — don't criticize if it's compensating for short naps
+        const todayNaps3 = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night);
+        const totalNapMins3 = todayNaps3.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+        const napProfile3 = age ? getAgeNapProfile(age.totalWeeks) : null;
+        const dayTarget3 = napProfile3 ? Math.round((napProfile3.idealTotalMin + napProfile3.idealTotalMax) / 2) : 150;
+        const hadShortNaps = totalNapMins3 < dayTarget3 - 20;
+        const hadBridge = bridgeNapScheduled;
+        if (hadShortNaps || hadBridge) {
+          // Early bedtime is CORRECT — explain why
+          factors.push({ label: "Bedtime", status: "info", note: hadBridge
+            ? `Early bedtime (${fmt12(bedEntry.time)}) after bridge nap — this is normal. Baby needs more night sleep to compensate. Over the next few days, gently nudging bedtime 10-15 minutes later can help settle into a more typical time.`
+            : `Early bedtime (${fmt12(bedEntry.time)}) because day naps were short (${hm(totalNapMins3)} vs ~${hm(dayTarget3)} target). Baby needs extra night sleep to make up the shortfall. This is the right call — not a problem to fix.`
+          });
+        } else {
+          score -= 5;
+          factors.push({ label: "Bedtime", status: "info", note: `Bedtime at ${fmt12(bedEntry.time)} is a bit early. Very early bedtimes can lead to early morning waking (before 6am). If this is happening, try nudging bedtime 10-15 minutes later every few days until it settles between 6-7pm.` });
+        }
       }
     }
 
@@ -5167,9 +5184,18 @@ function App(){
           body:`Average bedtime is ${mtp(avgBed)} but shifts by ~${bedStdDev} minutes day to day. Variable bedtimes make it harder for babies to build sleep pressure at the right time, often leading to overtired protests or early morning waking. Aim for within 15 minutes of ${mtp(avgBed)} each night.`
         });
       } else if (bedH < 17) {
+        // Check if early bedtimes are due to short naps (which is fine)
+        const recentNapTotals = dk.map(d => (days[d]||[]).filter(e=>e.type==="nap"&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0));
+        const avgNapTotal = recentNapTotals.length ? Math.round(recentNapTotals.reduce((a,b)=>a+b,0)/recentNapTotals.length) : 0;
+        const napTarget = age ? Math.round((getAgeNapProfile(age.totalWeeks).idealTotalMin + getAgeNapProfile(age.totalWeeks).idealTotalMax)/2) : 150;
+        const shortNapsExplain = avgNapTotal < napTarget - 20;
         insights.push({
-          type:"warn", icon:"🌙", title:"Bedtime May Be Too Early",
-          body:`Average bedtime of ${mtp(avgBed)} is quite early. Bedtimes before 6pm can cause early morning waking (before 6am) — the baby completes their full sleep cycle and surfaces before dawn. If you're seeing early waking, try pushing bedtime 15–20 minutes later every few days.`
+          type: shortNapsExplain ? "info" : "warn",
+          icon:"🌙",
+          title: shortNapsExplain ? "Early Bedtime (Compensating for Short Naps)" : "Bedtime May Be Too Early",
+          body: shortNapsExplain
+            ? `Average bedtime of ${mtp(avgBed)} is earlier than usual because day naps average ${hm(avgNapTotal)} (target ~${hm(napTarget)}). This is the right approach — more night sleep compensates for less day sleep. As naps lengthen, bedtime will naturally shift later. No action needed.`
+            : `Average bedtime of ${mtp(avgBed)} is quite early. If you're seeing early morning waking (before 6am), try nudging bedtime 10-15 minutes later every few days. The ideal window for most babies is 6:30-7:30pm.`
         });
       } else if (bedH > 20) {
         insights.push({
@@ -6379,7 +6405,7 @@ function App(){
     }
 
     // 4. NAPPY — score based on time since last change
-    const nappies = today.filter(e => e.type === "poop").sort((a,b) => timeVal(a) - timeVal(b));
+    const nappies = allEntries.filter(e => e.type === "poop").sort((a,b) => timeVal(a) - timeVal(b));
     const lastNappy = nappies.length ? nappies[nappies.length - 1] : null;
     const nappyGapMins = lastNappy ? (nowMins - timeVal(lastNappy)) : 999;
     let nappyScore = 30, nappyUrgency = "low", nappyDetail = "Always worth checking";
@@ -9051,9 +9077,23 @@ function App(){
                         }} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#e8574a,#c44030)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
                           Start Bridge Nap
                         </button>
-                        <div style={{textAlign:"center",padding:"6px 12px"}}>
-                          <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>Then bedtime</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.sky}}>{fmt12(suggestedBed.time)}</div>
+                      </div>
+                      {/* Bedtime comparison: with vs without bridge nap */}
+                      <div style={{display:"flex",gap:8,marginTop:10}}>
+                        <div style={{flex:1,background:"rgba(232,87,74,0.06)",borderRadius:10,padding:"8px 10px",textAlign:"center",border:"1px solid rgba(232,87,74,0.15)"}}>
+                          <div style={{fontSize:9,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Without bridge</div>
+                          <div style={{fontSize:14,fontWeight:700,color:"#c44",marginTop:2}}>{(()=>{
+                            const bedWithout = lastNapEnd + ww.max;
+                            const clamped = clampBedtime(bedWithout, age.totalWeeks);
+                            const hh=Math.floor(clamped/60)%24, mm=clamped%60;
+                            return fmt12(`${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`);
+                          })()}</div>
+                          <div style={{fontSize:9,color:"#c44",marginTop:1}}>⚠️ WW too long</div>
+                        </div>
+                        <div style={{flex:1,background:"rgba(111,168,152,0.08)",borderRadius:10,padding:"8px 10px",textAlign:"center",border:`1px solid ${C.mint}30`}}>
+                          <div style={{fontSize:9,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>With bridge nap</div>
+                          <div style={{fontSize:14,fontWeight:700,color:C.mint,marginTop:2}}>{fmt12(suggestedBed.time)}</div>
+                          <div style={{fontSize:9,color:C.mint,marginTop:1}}>✓ Safe wake window</div>
                         </div>
                       </div>
                     </div>
@@ -9710,65 +9750,8 @@ function App(){
                 );
               })()}
 
-              {/* ── TODAY'S FEEDING INSIGHT ── */}
-              {(()=>{
-                const fc = feedCard();
-                if (!fc) return null;
-                return (
-                  <div style={{background:fc.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:14,boxShadow:"var(--card-shadow)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:13,fontFamily:_fM,color:fc.color,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>{fc.isPastDay ? "Milk Intake" : "Today's Milk Intake"} <HelpBtn title="Feeding Tracker" body="Volume targets apply to formula feeds. For breastfed babies, frequency and wet nappies are better indicators. OBubba auto-detects your feeding method and adjusts guidance accordingly. Combo feeders see both formula targets and breastfeeding notes."/></div>
-                    <div style={{display:"flex",gap:10,marginBottom:10}}>
-                      <div style={{flex:1,background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:12,padding:"10px 12px"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Daytime</div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:fc.color,lineHeight:1}}>{fmtVol(fc.dayMl,FU)}</div>
-                        <div style={{fontSize:11,color:fc.metMinimum?C.mint:fc.approachingBed?C.ter:C.lt,marginTop:2,fontWeight:fc.approachingBed&&!fc.metMinimum?600:400}}>
-                          {fc.metMinimum ? `✓ min ${fmtVol(fc.totalMin,FU)} reached` : `min ${fmtVol(fc.totalMin,FU)} by bedtime`}
-                        </div>
-                      </div>
-                      {fc.nightMl > 0 && (
-                        <div style={{flex:1,background:"var(--chip-bg)",borderRadius:12,padding:"10px 12px"}}>
-                          <div style={{fontSize:11,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
-                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--text-mid)",lineHeight:1}}>{fmtVol(fc.nightMl,FU)}</div>
-                          <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fmtVol(fc.totalMl,FU)}</div>
-                        </div>
-                      )}
-                      {fc.nightMl === 0 && (
-                        <div style={{flex:1,background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
-                          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>NHS range</div>
-                          <div style={{fontSize:13,fontWeight:600,color:C.mid}}>{fc.totalLabel}</div>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-solid)",borderRadius:10,padding:"9px 11px",marginBottom:(fc.sleepLink||fc.suggestions.length)?6:0}}>
-                      <span style={{fontSize:14,flexShrink:0}}>{fc.icon}</span>
-                      <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{fc.statusMsg}</div>
-                    </div>
-                    {fc.sleepLink && (
-                      <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"9px 11px",marginBottom:fc.suggestions.length?6:0}}>
-                        <span style={{fontSize:13,flexShrink:0}}>{fc.sleepLink.icon}</span>
-                        <div>
-                          {fc.sleepLink.title && <div style={{fontSize:12,fontWeight:700,color:"#8868d0",marginBottom:2}}>{fc.sleepLink.title}</div>}
-                          <div style={{fontSize:12,color:"var(--text-mid)",lineHeight:1.5}}>{fc.sleepLink.body}</div>
-                        </div>
-                      </div>
-                    )}
-                    {fc.suggestions.map((s,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg)",borderRadius:10,padding:"8px 11px",marginTop:5}}>
-                        <span style={{fontSize:13,flexShrink:0}}>{s.icon}</span>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{s.body}</div>
-                      </div>
-                    ))}
-                    {fc.status==="low" && (
-                      <div style={{fontSize:12,color:C.lt,marginTop:8,paddingTop:6,borderTop:`1px solid ${fc.color}20`,lineHeight:1.4}}>
-                        ℹ️ {fc.nhsNote}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
-              {collHead("sleep","😴","Sleep Analysis")}
+              {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
                   {/* Sleep Stability Score & Analytics */}
@@ -9836,60 +9819,14 @@ function App(){
                             </div>
                           )}
 
-                          {/* Bridge nap suggestion */}
-                          {(()=>{
-                            if (!ebr) return null;
-                            const dss2 = getDaySleepSummary();
-                            const dayMet = dss2 && (dss2.status === "normal" || dss2.status === "above");
-                            if (bridgeNapScheduled && dayMet) {
-                              const todayNaps3 = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night);
-                              const lastNap2 = todayNaps3.length ? todayNaps3[todayNaps3.length-1] : null;
-                              const lastNapDur = lastNap2 && lastNap2.start && lastNap2.end ? minDiff(lastNap2.start, lastNap2.end) : 0;
-                              return (
-                                <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderLeft:"4px solid #50a888",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:"var(--mint)",marginBottom:4}}>✅ Day sleep target met!</div>
-                                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:8}}>
-                                    {lastNapDur >= 90
-                                      ? `Baby slept ${hm(lastNapDur)} on the last nap and has now reached the NHS recommended day sleep for this age.`
-                                      : `Baby has now reached the recommended day sleep for this age.`}
-                                  </div>
-                                  <div style={{display:"flex",gap:7}}>
-                                    <button onClick={()=>setBridgeNap(false)} style={{flex:1,background:"linear-gradient(135deg,#50a888,#3a8870)",border:"none",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:700,color:"white",cursor:"pointer"}}>Remove bridge nap</button>
-                                    <button onClick={()=>setBridgeNap(true)} style={{flex:1,background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"7px 0",fontSize:13,fontWeight:600,color:"var(--mint)",cursor:"pointer"}}>Keep it in</button>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            if (ebr.suggestBridge) {
-                              return (
-                                <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderLeft:"4px solid var(--gold)",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:"var(--gold)",marginBottom:3}}>🌉 Bridge Nap Suggested</div>
-                                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:bridgeNapScheduled?6:8}}>Today's naps were shorter than usual. A short bridge nap (15–30 min) may help.</div>
-                                  {bridgeNapScheduled ? (
-                                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                                      <div style={{display:"flex",alignItems:"center",gap:5}}>
-                                        <span style={{fontSize:13}}>✅</span>
-                                        <span style={{fontSize:12,fontFamily:_fM,color:"var(--gold)",fontWeight:700}}>Added to schedule</span>
-                                      </div>
-                                      <button onClick={()=>setBridgeNap(false)} style={{background:"var(--chip-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"4px 11px",fontSize:12,fontWeight:600,color:"var(--gold)",cursor:"pointer"}}>Remove</button>
-                                    </div>
-                                  ) : (
-                                    <button onClick={()=>setBridgeNap(true)} style={{width:"100%",background:"linear-gradient(135deg,#d4a855,#b8902a)",border:"none",borderRadius:99,padding:"8px 0",fontSize:13,fontWeight:700,color:"white",cursor:"pointer"}}>+ Add bridge nap to schedule</button>
-                                  )}
-                                </div>
-                              );
-                            }
-                            if (bridgeNapScheduled) {
-                              return (
-                                <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderLeft:"4px solid var(--gold)",borderRadius:12,padding:"10px 12px",marginBottom:12}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:"var(--gold)",marginBottom:3}}>🌉 Bridge nap scheduled</div>
-                                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:6}}>Conditions have changed — bridge nap may no longer be necessary.</div>
-                                  <button onClick={()=>setBridgeNap(false)} style={{background:"var(--chip-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:12,fontWeight:600,color:"var(--gold)",cursor:"pointer"}}>Remove from schedule</button>
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
+                          {/* Bridge nap status (suggestion is on Day tab) */}
+                          {bridgeNapScheduled && (
+                            <div style={{display:"flex",alignItems:"center",gap:8,background:"var(--card-bg-alt)",borderRadius:12,padding:"8px 12px",marginBottom:12,border:`1px solid ${C.gold}30`}}>
+                              <span style={{fontSize:14}}>🌉</span>
+                              <div style={{flex:1,fontSize:12,color:C.mid}}>Bridge nap in today's schedule</div>
+                              <button onClick={()=>setBridgeNap(false)} style={{background:"var(--chip-bg)",border:`1px solid ${C.blush}`,borderRadius:99,padding:"3px 10px",fontSize:11,fontWeight:600,color:C.gold,cursor:_cP}}>Remove</button>
+                            </div>
+                          )}
 
                           {/* Bedtime prediction */}
                           {actualBedEntry ? (
@@ -10110,7 +10047,7 @@ function App(){
                           );
                         })()}
 
-                        {/* Bedtime Consistency + Night Feed Trend + Growth Correlation */}
+                        {/* Bedtime Consistency */}
                         <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
                           {(()=>{
                             const bc = getBedtimeConsistency();
@@ -10123,42 +10060,7 @@ function App(){
                               </div>
                             );
                           })()}
-                          {(()=>{
-                            const nft = getNightFeedTrend();
-                            if (!nft) return null;
-                            return (
-                              <div style={{flex:1,minWidth:140,background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",border:`1px solid ${nft.improving?C.mint+"30":C.ter+"30"}`}}>
-                                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🌙 Night Feeds</div>
-                                <div style={{fontSize:16,fontWeight:700,color:nft.improving?C.mint:C.mid}}>{nft.thisWeek}/night</div>
-                                <div style={{fontSize:11,color:nft.improving?C.mint:C.lt}}>{nft.improving?"↓":"↑"} was {nft.lastWeek} last week</div>
-                              </div>
-                            );
-                          })()}
                         </div>
-                        {(()=>{
-                          const gc = getGrowthFeedCorrelation();
-                          if (!gc) return null;
-                          return (
-                            <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:12,border:`1px solid ${C.blush}`}}>
-                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>📊 Growth & Feeding</div>
-                              <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>Intake averages {fmtVol(gc.avgMl,FU)}/day this week. At last weigh-in ({gc.kg}kg), weight was tracking on the {gc.pctLabel} centile.</div>
-                            </div>
-                          );
-                        })()}
-                        {(()=>{
-                          const bd = getBreastDurationInsight();
-                          if (!bd) return null;
-                          return (
-                            <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:12,border:`1px solid ${bd.short?C.gold+"30":C.blush}`}}>
-                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🤱 Breast Feed Duration</div>
-                              <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>
-                                {bd.short
-                                  ? `Last feed was ${bd.latest}min — usually ${bd.avg}min. Baby may not have had a full feed.`
-                                  : `Last feed was ${bd.latest}min — slightly longer than usual (avg ${bd.avg}min). Could be a growth spurt or cluster feed.`}
-                              </div>
-                            </div>
-                          );
-                        })()}
 
                                                 {/* Tomorrow's Predicted Rhythm */}
                         {(()=>{
@@ -10277,6 +10179,124 @@ function App(){
                       </div>
                     );
                   })()}
+
+                  {/* Safe Sleep Guidance */}
+                  <div style={{marginTop:12}}>
+                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🛏️ Safe Sleep — NHS & AAP Guidelines</div>
+                    <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px"}}>
+                      {[
+                        ["🔙","Always on their back","Place baby on their back for every sleep — naps and night. The single most important step to reduce SIDS risk."],
+                        ["🛏️","Firm, flat surface","Use a firm, flat mattress in a cot or moses basket meeting safety standards. No inclined sleepers or car seats for routine sleep."],
+                        ["🌡️","Room temperature 16–20°C","Overheating increases SIDS risk. Feel baby's tummy or back of neck — if clammy, remove a layer. No hats indoors."],
+                        ["🏠","Same room for 6 months","NHS and AAP recommend baby sleeps in your room (not your bed) for at least the first 6 months — naps and night."],
+                        ["🧸","Clear sleep space","No pillows, duvets, bumpers, toys, or loose bedding. Use an appropriate sleeping bag instead of blankets."],
+                        ["🤱","Breastfeeding helps","Breastfeeding for at least 2 months significantly reduces SIDS risk, even if partially breastfed."],
+                        ["🚭","Smoke-free environment","Never smoke around baby or in rooms where baby sleeps. Applies to all caregivers."],
+                        ["🧷","Feet to foot position","Place baby with feet touching the foot of the cot so they can't wriggle under bedding."],
+                      ].map((item,i)=>(
+                        <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:i<7?`1px solid ${C.blush}`:"none"}}>
+                          <span style={{fontSize:18,flexShrink:0,marginTop:2}}>{item[0]}</span>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{item[1]}</div>
+                            <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{item[2]}</div>
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{fontSize:11,color:C.lt,marginTop:10,lineHeight:1.5}}>
+                        Sources: NHS Safe Sleep Guidelines, AAP Safe Sleep Policy (2022), Lullaby Trust
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── FEEDING & NUTRITION (collapsible) ── */}
+              {collHead("feeding","🍼","Feeding & Nutrition")}
+              {insightSection.feeding && (
+                <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
+                  {/* Today's Milk Intake */}
+                  {(()=>{
+                    const fc = feedCard();
+                    if (!fc) return null;
+                    return (
+                      <div style={{background:fc.bg,border:`1px solid ${fc.color}30`,borderLeft:`4px solid ${fc.color}`,borderRadius:16,padding:"14px 16px",marginBottom:12}}>
+                        <div style={{display:"flex",alignItems:"center",gap:4,fontSize:13,fontFamily:_fM,color:fc.color,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>{fc.isPastDay ? "Milk Intake" : "Today's Milk Intake"} <HelpBtn title="Feeding Tracker" body="Volume targets apply to formula feeds. For breastfed babies, frequency and wet nappies are better indicators. OBubba auto-detects your feeding method and adjusts guidance accordingly."/></div>
+                        <div style={{display:"flex",gap:10,marginBottom:10}}>
+                          <div style={{flex:1,background:"var(--card-bg)",borderRadius:12,padding:"10px 12px"}}>
+                            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Daytime</div>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:fc.color,lineHeight:1}}>{fmtVol(fc.dayMl,FU)}</div>
+                            <div style={{fontSize:11,color:fc.metMinimum?C.mint:fc.approachingBed?C.ter:C.lt,marginTop:2,fontWeight:fc.approachingBed&&!fc.metMinimum?600:400}}>
+                              {fc.metMinimum ? `✓ min ${fmtVol(fc.totalMin,FU)} reached` : `min ${fmtVol(fc.totalMin,FU)} by bedtime`}
+                            </div>
+                          </div>
+                          {fc.nightMl > 0 && (
+                            <div style={{flex:1,background:"var(--chip-bg)",borderRadius:12,padding:"10px 12px"}}>
+                              <div style={{fontSize:11,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>Night feeds</div>
+                              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"var(--text-mid)",lineHeight:1}}>{fmtVol(fc.nightMl,FU)}</div>
+                              <div style={{fontSize:11,color:"var(--text-lt)",marginTop:2}}>total {fmtVol(fc.totalMl,FU)}</div>
+                            </div>
+                          )}
+                          {fc.nightMl === 0 && (
+                            <div style={{flex:1,background:"var(--card-bg)",borderRadius:12,padding:"10px 12px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>NHS range</div>
+                              <div style={{fontSize:13,fontWeight:600,color:C.mid}}>{fc.totalLabel}</div>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-solid)",borderRadius:10,padding:"9px 11px",marginBottom:(fc.sleepLink||fc.suggestions.length)?6:0}}>
+                          <span style={{fontSize:14,flexShrink:0}}>{fc.icon}</span>
+                          <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{fc.statusMsg}</div>
+                        </div>
+                        {fc.sleepLink && (
+                          <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"9px 11px",marginBottom:fc.suggestions.length?6:0}}>
+                            <span style={{fontSize:13,flexShrink:0}}>{fc.sleepLink.icon}</span>
+                            <div>
+                              {fc.sleepLink.title && <div style={{fontSize:12,fontWeight:700,color:"#8868d0",marginBottom:2}}>{fc.sleepLink.title}</div>}
+                              <div style={{fontSize:12,color:"var(--text-mid)",lineHeight:1.5}}>{fc.sleepLink.body}</div>
+                            </div>
+                          </div>
+                        )}
+                        {fc.suggestions.map((s,i)=>(
+                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg)",borderRadius:10,padding:"8px 11px",marginTop:5}}>
+                            <span style={{fontSize:13,flexShrink:0}}>{s.icon}</span>
+                            <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{s.body}</div>
+                          </div>
+                        ))}
+                        {fc.status==="low" && (
+                          <div style={{fontSize:12,color:C.lt,marginTop:8,paddingTop:6,borderTop:`1px solid ${fc.color}20`,lineHeight:1.4}}>
+                            ℹ️ {fc.nhsNote}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {/* Night Feed Trend */}
+                  {(()=>{
+                    const nft = getNightFeedTrend();
+                    if (!nft) return null;
+                    return (
+                      <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:10,border:`1px solid ${nft.improving?C.mint+"30":C.ter+"30"}`}}>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🌙 Night Feeds</div>
+                        <div style={{fontSize:16,fontWeight:700,color:nft.improving?C.mint:C.mid}}>{nft.thisWeek}/night</div>
+                        <div style={{fontSize:11,color:nft.improving?C.mint:C.lt}}>{nft.improving?"↓":"↑"} was {nft.lastWeek} last week</div>
+                      </div>
+                    );
+                  })()}
+                  {/* Breast Feed Duration */}
+                  {(()=>{
+                    const bd = getBreastDurationInsight();
+                    if (!bd) return null;
+                    return (
+                      <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:10,border:`1px solid ${bd.short?C.gold+"30":C.blush}`}}>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🤱 Breast Feed Duration</div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>
+                          {bd.short
+                            ? `Last feed was ${bd.latest}min — usually ${bd.avg}min. Baby may not have had a full feed.`
+                            : `Last feed was ${bd.latest}min — slightly longer than usual (avg ${bd.avg}min). Could be a growth spurt or cluster feed.`}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -10357,6 +10377,18 @@ function App(){
                       {percentileNote(latestW.pct, wTrend, wDrop)}
                     </div>
                   )}
+
+                  {/* Growth & Feeding correlation — moved under percentile */}
+                  {(()=>{
+                    const gc = getGrowthFeedCorrelation();
+                    if (!gc) return null;
+                    return (
+                      <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginTop:8,marginBottom:8,border:`1px solid ${C.blush}`}}>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>📊 Growth & Feeding</div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>Intake averages {fmtVol(gc.avgMl,FU)}/day this week. At last weigh-in ({gc.kg}kg), weight was tracking on the {gc.pctLabel} centile.</div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Log inputs */}
                   <div style={{marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
@@ -11062,12 +11094,32 @@ function App(){
                     </div>
                   ) : (
                     <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"12px"}}>
-                      <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>🦷 {teething.length} tooth{teething.length!==1?"":""} logged</div>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>🦷 {teething.length} tooth{teething.length!==1?"":"y"} logged</div>
+                      {/* Mini tooth map */}
+                      {(()=>{
+                        const loggedIds = teething.map(t=>t.tooth);
+                        const upperTeeth2 = [
+                          {id:"UR-E",x:8},{id:"UR-D",x:30},{id:"UR-C",x:50},{id:"UR-B",x:68},{id:"UR-A",x:84},
+                          {id:"UL-A",x:106},{id:"UL-B",x:122},{id:"UL-C",x:140},{id:"UL-D",x:160},{id:"UL-E",x:182}
+                        ];
+                        const lowerTeeth2 = [
+                          {id:"LR-E",x:10},{id:"LR-D",x:31},{id:"LR-C",x:51},{id:"LR-B",x:69},{id:"LR-A",x:85},
+                          {id:"LL-A",x:105},{id:"LL-B",x:121},{id:"LL-C",x:139},{id:"LL-D",x:159},{id:"LL-E",x:180}
+                        ];
+                        const tw=16, th=20;
+                        return (
+                          <svg viewBox="0 0 200 70" style={{width:"100%",maxWidth:240,display:"block",margin:"0 auto 8px"}}>
+                            {upperTeeth2.map(t=><rect key={t.id} x={t.x} y={4} width={tw} height={th} rx={4} fill={loggedIds.includes(t.id)?C.mint:"var(--card-bg)"} stroke={loggedIds.includes(t.id)?C.mint:C.blush} strokeWidth={1}/>)}
+                            {lowerTeeth2.map(t=><rect key={t.id} x={t.x} y={42} width={tw} height={th} rx={3} fill={loggedIds.includes(t.id)?C.mint:"var(--card-bg)"} stroke={loggedIds.includes(t.id)?C.mint:C.blush} strokeWidth={1}/>)}
+                            <text x="100" y="38" textAnchor="middle" fontSize="7" fill={C.lt}>{loggedIds.length}/20</text>
+                          </svg>
+                        );
+                      })()}
                       <div style={{display:"flex",flexDirection:"column",gap:6}}>
                         {[...teething].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map((t,i)=>(
                           <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
                             <div>
-                              <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{t.tooth||"Tooth "+(i+1)}</div>
+                              <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{toothLabel(t.tooth)||"Tooth "+(i+1)}</div>
                               <div style={{fontSize:11,color:C.lt}}>{fmtDate(t.date)}{t.symptoms&&t.symptoms.length?` — ${t.symptoms.join(", ")}`:""}</div>
                             </div>
                             <button onClick={()=>setTeething(prev=>prev.filter((_,idx)=>idx!==teething.indexOf(t)))} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP}}>✕</button>
@@ -11122,33 +11174,6 @@ function App(){
                   )}
                 </div>
 
-                {/* Safe Sleep Guidance */}
-                <div style={{marginTop:16}}>
-                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>🛏️ Safe Sleep — NHS & AAP Guidelines</div>
-                  <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px"}}>
-                    {[
-                      ["🔙","Always on their back","Place baby on their back for every sleep — naps and night. The single most important step to reduce SIDS risk."],
-                      ["🛏️","Firm, flat surface","Use a firm, flat mattress in a cot or moses basket meeting safety standards. No inclined sleepers or car seats for routine sleep."],
-                      ["🌡️","Room temperature 16–20°C","Overheating increases SIDS risk. Feel baby's tummy or back of neck — if clammy, remove a layer. No hats indoors."],
-                      ["🏠","Same room for 6 months","NHS and AAP recommend baby sleeps in your room (not your bed) for at least the first 6 months — naps and night."],
-                      ["🧸","Clear sleep space","No pillows, duvets, bumpers, toys, or loose bedding. Use an appropriate sleeping bag instead of blankets."],
-                      ["🤱","Breastfeeding helps","Breastfeeding for at least 2 months significantly reduces SIDS risk, even if partially breastfed."],
-                      ["🚭","Smoke-free environment","Never smoke around baby or in rooms where baby sleeps. Applies to all caregivers."],
-                      ["🧷","Feet to foot position","Place baby with feet touching the foot of the cot so they can't wriggle under bedding."],
-                    ].map((item,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:i<7?`1px solid ${C.blush}`:"none"}}>
-                        <span style={{fontSize:18,flexShrink:0,marginTop:2}}>{item[0]}</span>
-                        <div>
-                          <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{item[1]}</div>
-                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{item[2]}</div>
-                        </div>
-                      </div>
-                    ))}
-                    <div style={{fontSize:11,color:C.lt,marginTop:10,lineHeight:1.5}}>
-                      Sources: NHS Safe Sleep Guidelines, AAP Safe Sleep Policy (2022), Lullaby Trust
-                    </div>
-                  </div>
-                </div>
 
             </div>
           );
@@ -12267,12 +12292,69 @@ function App(){
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🦷 Log New Tooth</div>
-            <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Which tooth?</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
-              {["Bottom front left","Bottom front right","Top front left","Top front right","Bottom lateral left","Bottom lateral right","Top lateral left","Top lateral right","First molar","Canine","Other"].map(t=>(
-                <button key={t} onClick={()=>setTeethingForm(f=>({...f,tooth:t}))} style={{padding:"6px 12px",borderRadius:99,border:`1.5px solid ${teethingForm.tooth===t?C.ter:C.blush}`,background:teethingForm.tooth===t?"var(--chip-bg-active)":C.warm,color:teethingForm.tooth===t?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP}}>{t}</button>
-              ))}
-            </div>
+            <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Tap the tooth</div>
+            {(()=>{
+              // Baby teeth: 20 total (10 upper, 10 lower)
+              // Standard dental notation: from baby's perspective (mirrored for viewer)
+              const upperTeeth = [
+                {id:"UR-E",label:"Upper right 2nd molar",short:"E",x:15},
+                {id:"UR-D",label:"Upper right 1st molar",short:"D",x:45},
+                {id:"UR-C",label:"Upper right canine",short:"C",x:72},
+                {id:"UR-B",label:"Upper right lateral",short:"B",x:96},
+                {id:"UR-A",label:"Upper right central",short:"A",x:118},
+                {id:"UL-A",label:"Upper left central",short:"A",x:148},
+                {id:"UL-B",label:"Upper left lateral",short:"B",x:170},
+                {id:"UL-C",label:"Upper left canine",short:"C",x:194},
+                {id:"UL-D",label:"Upper left 1st molar",short:"D",x:221},
+                {id:"UL-E",label:"Upper left 2nd molar",short:"E",x:251},
+              ];
+              const lowerTeeth = [
+                {id:"LR-E",label:"Lower right 2nd molar",short:"E",x:18},
+                {id:"LR-D",label:"Lower right 1st molar",short:"D",x:47},
+                {id:"LR-C",label:"Lower right canine",short:"C",x:73},
+                {id:"LR-B",label:"Lower right lateral",short:"B",x:97},
+                {id:"LR-A",label:"Lower right central",short:"A",x:119},
+                {id:"LL-A",label:"Lower left central",short:"A",x:147},
+                {id:"LL-B",label:"Lower left lateral",short:"B",x:169},
+                {id:"LL-C",label:"Lower left canine",short:"C",x:193},
+                {id:"LL-D",label:"Lower left 1st molar",short:"D",x:219},
+                {id:"LL-E",label:"Lower left 2nd molar",short:"E",x:248},
+              ];
+              const loggedIds = teething.map(t=>t.tooth);
+              const sel = teethingForm.tooth;
+              const toothW = 22, toothH = 28;
+              const renderTooth = (t, y, isUpper) => {
+                const isLogged = loggedIds.includes(t.id);
+                const isSel = sel === t.id;
+                const fill = isSel ? C.ter : isLogged ? C.mint : "var(--card-bg-alt)";
+                const stroke = isSel ? C.ter : isLogged ? C.mint : C.blush;
+                const textColor = (isSel || isLogged) ? "white" : C.mid;
+                // Tooth shape: rounded rect, narrower at root
+                const rootY = isUpper ? y - 6 : y + toothH;
+                return (
+                  <g key={t.id} onClick={()=>{haptic(10);setTeethingForm(f=>({...f,tooth:t.id}));}} style={{cursor:"pointer"}}>
+                    <rect x={t.x} y={y} width={toothW} height={toothH} rx={isUpper?6:4} ry={isUpper?6:4} fill={fill} stroke={stroke} strokeWidth={isSel?2:1.5}/>
+                    {isUpper && <rect x={t.x+5} y={rootY} width={toothW-10} height={8} rx={3} fill={fill} stroke={stroke} strokeWidth={1}/>}
+                    {!isUpper && <rect x={t.x+5} y={rootY} width={toothW-10} height={8} rx={3} fill={fill} stroke={stroke} strokeWidth={1}/>}
+                    <text x={t.x+toothW/2} y={y+toothH/2+4} textAnchor="middle" fontSize="10" fontWeight="700" fill={textColor} fontFamily="system-ui">{isLogged?"✓":""}</text>
+                  </g>
+                );
+              };
+              return (
+                <div style={{marginBottom:14}}>
+                  <svg viewBox="0 0 280 120" style={{width:"100%",maxWidth:320,display:"block",margin:"0 auto"}}>
+                    <text x="140" y="12" textAnchor="middle" fontSize="9" fill={C.lt} fontFamily="system-ui">UPPER</text>
+                    {upperTeeth.map(t=>renderTooth(t, 18, true))}
+                    <line x1="133" y1="55" x2="133" y2="70" stroke={C.blush} strokeWidth="1" strokeDasharray="3,3"/>
+                    <text x="140" y="65" textAnchor="middle" fontSize="7" fill={C.lt} fontFamily="system-ui">L · R</text>
+                    {lowerTeeth.map(t=>renderTooth(t, 72, false))}
+                    <text x="140" y="114" textAnchor="middle" fontSize="9" fill={C.lt} fontFamily="system-ui">LOWER</text>
+                  </svg>
+                  {sel && <div style={{textAlign:"center",marginTop:6,fontSize:13,fontWeight:600,color:C.ter}}>{toothLabel(sel)}</div>}
+                  {!sel && <div style={{textAlign:"center",marginTop:4,fontSize:11,color:C.lt}}>Tap a tooth to select it{teething.length>0?" · ✓ = already logged":""}</div>}
+                </div>
+              );
+            })()}
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Date spotted</div>
             <input type="date" value={teethingForm.date} onChange={e=>setTeethingForm(f=>({...f,date:e.target.value}))} style={{width:"100%",fontSize:16,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,marginBottom:14,boxSizing:_bBB}}/>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Symptoms</div>
