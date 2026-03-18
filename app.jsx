@@ -8562,7 +8562,7 @@ function App(){
               const handleTap = () => {
                 haptic(20);
                 if(isNapTappable || isNapNow){ startNap(); }
-                else if(isBedNow || isBed){ startNap(); logBedtimeNow(); }
+                else if(isBedNow || isBed){ logBedtimeNow(); if(napOn) endNap(); }
               };
               const icon = isBedNow||isBed ? "🌙" : isNapNow ? "😴" : "⏱️";
               const pillBg = isNow ? (isBedNow?C.sky:C.mint) : "var(--card-bg)";
