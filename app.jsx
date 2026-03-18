@@ -2652,7 +2652,7 @@ function App(){
   },[napOn, napPaused]);
 
   // Snap ALL timers to wall-clock when phone unlocks (catches drift from iOS sleep/lock)
-  // iOS Safari doesn't reliably fire visibilitychange — also listen for focus and pageshow
+  // iOS Safari doesn't reliably fire visibilitychange — also listen for focus, pageshow, and Capacitor resume
   useEffect(()=>{
     function snapAllTimers(){
       if(document.visibilityState==="hidden") return;
@@ -2684,18 +2684,43 @@ function App(){
         else { setNightElapsed(null); }
       }
 
-      // 3. Breast timer — recalculate if active
+      // 3. Breast timer — recalculate from wall clock
       if(breastActive && breastStartTime) {
-        // Breast timer is side-specific, just ensure it's ticking
+        const [bh,bm] = breastStartTime.split(":").map(Number);
+        const startDate = new Date(); startDate.setHours(bh,bm,0,0);
+        const now = new Date();
+        let elapsed = Math.floor((now - startDate) / 1000);
+        if(elapsed < 0) elapsed += 24*3600;
+        if(elapsed < 7200) { // cap at 2h
+          setBreastSec(prev => {
+            const total = Object.values(prev).reduce((s,v)=>s+v,0);
+            if(Math.abs(total - elapsed) > 3) {
+              // Significant drift — redistribute to active side
+              return {...prev, [breastSide]: prev[breastSide] + (elapsed - total)};
+            }
+            return prev;
+          });
+        }
       }
     }
     document.addEventListener("visibilitychange", snapAllTimers);
     window.addEventListener("focus", snapAllTimers);
     window.addEventListener("pageshow", snapAllTimers);
+    // Capacitor fires 'resume' when app comes back from background on iOS
+    document.addEventListener("resume", snapAllTimers);
+
+    // Belt-and-braces: every 30 seconds, snap timers to wall clock
+    // This catches cases where visibilitychange doesn't fire (iOS PWA edge case)
+    const periodicSnap = setInterval(()=>{
+      if(document.visibilityState !== "hidden" && (napOn || breastActive)) snapAllTimers();
+    }, 30000);
+
     return ()=>{
       document.removeEventListener("visibilitychange", snapAllTimers);
       window.removeEventListener("focus", snapAllTimers);
       window.removeEventListener("pageshow", snapAllTimers);
+      document.removeEventListener("resume", snapAllTimers);
+      clearInterval(periodicSnap);
     };
   },[napOn, napPaused, napStartT, breastActive, breastStartTime]);
   useEffect(()=>{
