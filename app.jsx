@@ -6886,7 +6886,10 @@ function App(){
     }
 
     // Fire event-triggered reminders for nap end
-    if (!isNightTime && !hasBedtime) fireEventReminders("after_nap");
+    if (!isNightTime && !hasBedtime) {
+      fireEventReminders("after_nap");
+      fireEventReminders("after_wake"); // waking from nap = a wake
+    }
   }
   // ── Weekly Digest Generator ──
   // ── Carer Card Generator ──
@@ -8913,7 +8916,7 @@ function App(){
                     <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:"",trigger:""});setShowAddReminder(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                   </div>
                   {reminders.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(r=>{
-                    const triggerLabels = {after_nap:"😴 After nap",after_feed:"🍼 After feed",after_wake:"☀️ After wake",after_nappy:"🧷 After nappy",after_bedtime:"🌙 At bedtime"};
+                    const triggerLabels = {after_nap:"😴 After nap only",after_feed:"🍼 After feed",after_wake:"☀️ Every wake",after_nappy:"🧷 After nappy",after_bedtime:"🌙 At bedtime"};
                     return (
                     <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
                       <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${C.mint}`,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}/>
@@ -9372,7 +9375,7 @@ function App(){
                 ))}
               </div>
 
-              {/* Today's Plan — completed events + remaining predictions */}
+              {/* Today's Plan — completed events + full day projection */}
               {(()=>{
                 if (!age) return null;
                 const todayEntries = days[selDay] || [];
@@ -9380,10 +9383,15 @@ function App(){
                 if (!wake) return null;
                 const completedNaps = todayEntries.filter(e => e.type === "nap" && !e.night && e.start && e.end).sort((a,b) => timeVal(a) - timeVal(b));
                 const bedEntry = todayEntries.find(e => e.type === "sleep" && !e.night);
-                const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
                 const isPast = selDay < todayStr();
+                const w = age.totalWeeks;
+                const ww = getWakeWindow(w);
+                const napProfile = getAgeNapProfile(w);
+                const mtp = m => `${String(Math.floor((m<0?m+24*60:m)/60)%24).padStart(2,"0")}:${String(((m%60)+60)%60).padStart(2,"0")}`;
 
                 const items = [];
+                let hasPredictions = false;
+
                 // 1. Wake
                 items.push({ icon: "☀️", label: "Wake", time: fmt12(wake.time), done: true, mins: timeVal(wake) });
 
@@ -9399,20 +9407,89 @@ function App(){
                 }
 
                 if (!bedEntry && !isPast) {
-                  // 4. Predicted next nap(s)
-                  const pred = predictNextNap();
-                  if (pred && !napOn) {
-                    items.push({ icon: "⏱️", label: `Nap ${completedNaps.length + 1}`, time: fmt12(pred.time), sub: pred.isOverdue ? "overdue" : pred.confidence ? `${pred.confidence}% conf` : "", predicted: true, mins: timeVal(pred), overdue: pred.isOverdue });
+                  // Project remaining naps using personal data + NHS wake windows
+                  const dk = Object.keys(days).sort().slice(-7);
+                  const recentNapDurs = [];
+                  dk.forEach(d => {
+                    (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n => {
+                      const dur = minDiff(n.start, n.end);
+                      if (dur >= 10 && dur <= 180) recentNapDurs.push(dur);
+                    });
+                  });
+                  const avgNapDur = recentNapDurs.length >= 3
+                    ? Math.round(recentNapDurs.reduce((a,b)=>a+b,0) / recentNapDurs.length)
+                    : Math.round((napProfile.idealNapDurMin + napProfile.idealNapDurMax) / 2);
+
+                  const totalCompletedNapMins = completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
+                  const napsDone = completedNaps.length + (napOn ? 1 : 0);
+                  const expectedTotal = napProfile.expectedNaps;
+
+                  // Find cursor: last known end point
+                  let cursor;
+                  if (napOn && napStartT) {
+                    // During active nap, project from estimated end
+                    const [sh,sm] = napStartT.split(":").map(Number);
+                    cursor = sh*60 + sm + avgNapDur;
+                  } else if (completedNaps.length) {
+                    const last = completedNaps[completedNaps.length - 1];
+                    const [eh,em] = last.end.split(":").map(Number);
+                    cursor = eh*60 + em;
+                  } else {
+                    cursor = timeVal(wake);
                   }
 
-                  // 5. Predicted bedtime
-                  const bed = bedtimePrediction();
-                  if (bed && bed.time) {
-                    items.push({ icon: "🌙", label: "Bedtime", time: fmt12(bed.time), sub: bed.estimated ? "estimated" : "", predicted: true, mins: timeVal(bed) });
+                  // Predict remaining naps
+                  let napIdx = napsDone;
+                  let projectedNapMins = totalCompletedNapMins;
+                  const maxBed = 20*60+30; // 8:30pm hard cap
+
+                  while (napIdx < expectedTotal && !napOn) {
+                    const napWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
+                    const napStart = cursor + napWW;
+                    if (napStart + ww.min > maxBed) break; // no room
+                    const napEnd = napStart + avgNapDur;
+                    items.push({
+                      icon: "⏱️", label: `Nap ${napIdx+1}`,
+                      time: `${fmt12(mtp(napStart))} – ${fmt12(mtp(napEnd))}`,
+                      sub: `~${hm(avgNapDur)} based on recent avg`,
+                      predicted: true, mins: napStart
+                    });
+                    hasPredictions = true;
+                    cursor = napEnd;
+                    projectedNapMins += avgNapDur;
+                    napIdx++;
+                  }
+
+                  // Bridge nap check
+                  const dns = dynamicNapStructure();
+                  const needsBridge = dns && dns.bridgeNap;
+                  const bedPred = bedtimePrediction();
+                  const bedMins = bedPred ? timeVal(bedPred) : 19*60;
+                  const lastWW = bedMins - cursor;
+
+                  if (needsBridge || (lastWW > ww.max && napIdx >= expectedTotal && !napOn)) {
+                    const bridgeStart = cursor + Math.round(ww.min * 0.8);
+                    const bridgeDur = 20;
+                    if (bridgeStart + bridgeDur < bedMins) {
+                      items.push({
+                        icon: "🌉", label: "Bridge nap",
+                        time: `${fmt12(mtp(bridgeStart))} – ${fmt12(mtp(bridgeStart + bridgeDur))}`,
+                        sub: "~20m — prevents overtired bedtime",
+                        predicted: true, bridge: true, mins: bridgeStart
+                      });
+                      hasPredictions = true;
+                      cursor = bridgeStart + bridgeDur;
+                    }
+                  }
+
+                  // Predicted bedtime
+                  if (bedPred && bedPred.time) {
+                    items.push({ icon: "🌙", label: "Bedtime", time: fmt12(bedPred.time), sub: bedPred.estimated ? "estimated" : "", predicted: true, mins: timeVal(bedPred) });
+                    hasPredictions = true;
                   }
                 }
 
-                // 6. Actual bedtime
+                // Actual bedtime
                 if (bedEntry) {
                   items.push({ icon: "🌙", label: "Bedtime", time: fmt12(bedEntry.time), done: true, mins: timeVal(bedEntry) });
                 }
@@ -9432,24 +9509,29 @@ function App(){
                           <div key={i} style={{display:"flex",gap:10,position:"relative"}}>
                             {/* Timeline line */}
                             <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:20,flexShrink:0}}>
-                              <div style={{width:item.active?14:10,height:item.active?14:10,borderRadius:"50%",background:item.done?C.mint:item.active?C.gold:item.overdue?"#e8574a":item.predicted?"var(--card-bg)":"var(--card-bg)",border:`2px solid ${item.done?C.mint:item.active?C.gold:item.overdue?"#e8574a":item.predicted?C.blush:C.blush}`,flexShrink:0,marginTop:4,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                              <div style={{width:item.active?14:10,height:item.active?14:10,borderRadius:"50%",background:item.done?C.mint:item.active?C.gold:item.overdue?"#e8574a":item.bridge?C.gold+"30":"var(--card-bg)",border:`2px solid ${item.done?C.mint:item.active?C.gold:item.overdue?"#e8574a":item.bridge?C.gold:C.blush}`,flexShrink:0,marginTop:4,display:"flex",alignItems:"center",justifyContent:"center"}}>
                                 {item.done && <span style={{fontSize:6,color:"white"}}>✓</span>}
                               </div>
                               {!isLast && <div style={{width:2,flex:1,background:`linear-gradient(${lineColor}, ${items[i+1]?.done?C.mint:C.blush})`,minHeight:12,borderRadius:1}}/>}
                             </div>
                             {/* Content */}
-                            <div style={{flex:1,paddingBottom:isLast?0:8,opacity:item.predicted?0.7:1}}>
-                              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                            <div style={{flex:1,paddingBottom:isLast?0:8,opacity:item.predicted?0.65:1}}>
+                              <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
                                 <span style={{fontSize:13}}>{item.icon}</span>
-                                <span style={{fontSize:13,fontWeight:600,color:item.active?C.gold:item.overdue?"#e8574a":C.deep}}>{item.label}</span>
+                                <span style={{fontSize:13,fontWeight:600,color:item.active?C.gold:item.overdue?"#e8574a":item.bridge?C.gold:C.deep}}>{item.label}</span>
                                 <span style={{fontSize:12,color:item.done?C.mid:item.active?C.gold:C.lt,fontFamily:_fM}}>{item.time}</span>
                                 {item.predicted && <span style={{fontSize:9,fontFamily:_fM,color:C.blush,background:"var(--chip-bg)",padding:"1px 6px",borderRadius:99}}>predicted</span>}
                               </div>
-                              {item.sub && <div style={{fontSize:10,color:item.overdue?"#e8574a":C.lt,fontFamily:_fM,marginTop:1,marginLeft:22}}>{item.sub}</div>}
+                              {item.sub && <div style={{fontSize:10,color:item.overdue?"#e8574a":item.bridge?C.gold:C.lt,fontFamily:_fM,marginTop:1,marginLeft:22}}>{item.sub}</div>}
                             </div>
                           </div>
                         );
                       })}
+                      {hasPredictions && (
+                        <div style={{marginTop:8,paddingTop:8,borderTop:`1px dashed ${C.blush}`,fontSize:10,color:C.lt,lineHeight:1.5,fontFamily:_fI}}>
+                          💡 Predictions are a loose guide based on {babyName||"baby"}'s recent patterns. Every day is different — always follow sleepy cues over the clock.
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -13457,9 +13539,9 @@ function App(){
             <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
               {[
                 {v:"",label:"⏰ Timed/Manual"},
-                {v:"after_nap",label:"😴 After Nap"},
+                {v:"after_nap",label:"😴 After Nap Only"},
                 {v:"after_feed",label:"🍼 After Feed"},
-                {v:"after_wake",label:"☀️ After Wake"},
+                {v:"after_wake",label:"☀️ After Every Wake"},
                 {v:"after_nappy",label:"🧷 After Nappy"},
                 {v:"after_bedtime",label:"🌙 At Bedtime"},
               ].map(t=>(
@@ -13467,7 +13549,13 @@ function App(){
                   style={{padding:"6px 10px",borderRadius:99,border:`1.5px solid ${reminderForm.trigger===t.v?C.ter:C.blush}`,background:reminderForm.trigger===t.v?"var(--chip-bg-active)":C.warm,color:reminderForm.trigger===t.v?C.ter:C.mid,fontSize:11,fontWeight:600,cursor:_cP}}>{t.label}</button>
               ))}
             </div>
-            {reminderForm.trigger && <div style={{fontSize:11,color:C.lt,marginBottom:10,lineHeight:1.5,padding:"6px 10px",background:"var(--card-bg-alt)",borderRadius:10}}>🔔 This reminder will ping you every time you log a {reminderForm.trigger.replace("after_","").replace("_"," ")}. It stays active until you mark it done.</div>}
+            {reminderForm.trigger && <div style={{fontSize:11,color:C.lt,marginBottom:10,lineHeight:1.5,padding:"6px 10px",background:"var(--card-bg-alt)",borderRadius:10}}>🔔 {
+              reminderForm.trigger === "after_wake"
+                ? `This reminder will ping you every time ${babyName||"baby"} wakes up — morning wake, after every nap, and after night sleep. Stays active until you mark it done.`
+                : reminderForm.trigger === "after_nap"
+                ? `This reminder will ping you every time a nap ends (not morning wake). Stays active until you mark it done.`
+                : `This reminder will ping you every time you log a ${reminderForm.trigger.replace("after_","").replace("_"," ")}. Stays active until you mark it done.`
+            }</div>}
             {!reminderForm.trigger && (
               <div style={{display:"flex",gap:8}}>
                 <div style={{flex:1}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
