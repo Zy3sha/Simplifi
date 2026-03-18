@@ -9985,7 +9985,8 @@ function App(){
               <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:12}}>Caring for a baby is hard work. It's important to check in with yourself too.</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {[["😊","Great"],["🙂","Okay"],["😔","Struggling"],["🆘","Need support"]].map(([emoji,label])=>(
-                  <button key={label} onClick={()=>{
+                  <button key={label} onPointerDown={e=>{
+                    e.preventDefault(); haptic();
                     setLastWellbeingDate(todayStr());
                     try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};
                     const msg = pick(wellbeingMsgs[label]);
@@ -9996,7 +9997,7 @@ function App(){
                     } else {
                       showToast("💜 "+msg,5000,3);
                     }
-                  }} style={{flex:1,minWidth:70,padding:"10px 6px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                  }} style={{flex:1,minWidth:70,padding:"10px 6px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:3,touchAction:"manipulation"}}>
                     <span style={{fontSize:20}}>{emoji}</span>
                     <span style={{fontSize:11,fontWeight:600,color:C.mid}}>{label}</span>
                   </button>
@@ -10059,7 +10060,7 @@ function App(){
               })()}
 
               {/* Only show insights sections when enough data */}
-              {Object.keys(days).filter(d => (days[d]||[]).length > 0).length >= 3 && <>
+              {Object.keys(days).filter(d => (days[d]||[]).length > 0).length >= 3 && <div>
 
               {/* Insight category filter bar */}
               <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
@@ -10078,7 +10079,7 @@ function App(){
               </div>
 
               {/* ── Weekly Wins ── */}
-              {(insightFilter==="all") && <>
+              {(insightFilter==="all") && <div>
               {(()=>{
                 const dk = Object.keys(days).sort();
                 if (dk.length < 7) return null;
@@ -10125,10 +10126,10 @@ function App(){
                   </div>
                 );
               })()}
-              </>}
+              </div>}
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="sleep") && <>
+              {(insightFilter==="all"||insightFilter==="sleep") && <div>
               {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10588,10 +10589,10 @@ function App(){
                 </div>
               )}
 
-              </>}
+              </div>}
 
               {/* ── FEEDING & NUTRITION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="feeding") && <>
+              {(insightFilter==="all"||insightFilter==="feeding") && <div>
               {collHead("feeding","🍼","Feeding & Nutrition")}
               {insightSection.feeding && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -10681,10 +10682,10 @@ function App(){
                 </div>
               )}
 
-              </>}
+              </div>}
 
               {/* ── GROWTH PERCENTILE BANNER ── */}
-              {(insightFilter==="all"||insightFilter==="growth") && <>
+              {(insightFilter==="all"||insightFilter==="growth") && <div>
               <div style={{background:`linear-gradient(135deg,${latestW?percentileColor(latestW?.pct, wTrend)+"18":"#f5f0eb"},${latestW?percentileColor(latestW?.pct, wTrend)+"08":"#ede8e0"})`, border:`2px solid ${latestW ? percentileColor(latestW?.pct, wTrend)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
                 <div style={{padding:"16px 16px 14px"}}>
                   <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>📏 Growth Percentiles</div>
@@ -10833,25 +10834,26 @@ function App(){
                 </div>
               </div>
 
-              </>}
+              </div>}
 
-              {/* ── TRENDS SECTION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="sleep") && <>
-              {collHead("trends","📈","Trends")}
-              {insightSection.trends && (
+              {/* ── REPORTS & TRENDS (collapsible) ── */}
+              {(insightFilter==="all"||insightFilter==="reports") && <div>
+              {collHead("reports","📊","Reports & Trends")}
+              {insightSection.reports && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
 
-                  {/* Feed & Nap Trends */}
+                  {/* ── Trends sub-section ── */}
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>📈 Trends</div>
                   {dayKeys.length<3?(
-                    <div style={{textAlign:"center",padding:"24px 10px",color:C.lt}}>
-                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:C.mid,marginBottom:6}}>Not enough data yet</div>
-                      <div style={{fontSize:13,fontFamily:_fM}}>Add at least 3 days to see trends</div>
+                    <div style={{textAlign:"center",padding:"16px 10px",color:C.lt,marginBottom:14}}>
+                      <div style={{fontSize:14,color:C.mid,marginBottom:4}}>Not enough data yet</div>
+                      <div style={{fontSize:12,fontFamily:_fM}}>Add at least 3 days to see trends</div>
                     </div>
                   ):(
-                    <div>
+                    <div style={{marginBottom:14}}>
                       {tLast&&tPrev&&(
                         <div style={{marginBottom:14}}>
-                          <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:10}}>This Week vs Last Week</div>
+                          <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:8}}>This Week vs Last Week</div>
                           {[
                             {label:"Avg Daily Feed",curr:mlToDisplay(tLast.avgMl,FU),prev:mlToDisplay(tPrev.avgMl,FU),unit:volLabel(FU)},
                             {label:"Avg Nap Time",curr:tLast.avgNap,prev:tPrev.avgNap,unit:"",fmt:hm},
@@ -10859,38 +10861,38 @@ function App(){
                           ].map((row,i)=>{
                             const t=arrow(row.curr,row.prev);
                             return(
-                              <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:i<2?`1px solid ${C.blush}`:"none"}}>
+                              <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:i<2?`1px solid ${C.blush}`:"none"}}>
                                 <div>
-                                  <div style={{fontSize:14,fontWeight:500}}>{row.label}</div>
-                                  <div style={{fontSize:13,fontFamily:_fM,color:C.lt,marginTop:2}}>Last: {row.fmt?row.fmt(row.prev):row.prev}{row.unit}</div>
+                                  <div style={{fontSize:13,fontWeight:500}}>{row.label}</div>
+                                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginTop:1}}>Last: {row.fmt?row.fmt(row.prev):row.prev}{row.unit}</div>
                                 </div>
                                 <div style={{textAlign:"right"}}>
-                                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.ter}}>{row.fmt?row.fmt(row.curr):row.curr}<span style={{fontSize:12,color:C.lt}}>{row.unit}</span></div>
-                                  {t&&<div style={{fontSize:14,color:t.color,lineHeight:1}}>{t.icon}</div>}
+                                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.ter}}>{row.fmt?row.fmt(row.curr):row.curr}<span style={{fontSize:11,color:C.lt}}>{row.unit}</span></div>
+                                  {t&&<div style={{fontSize:13,color:t.color,lineHeight:1}}>{t.icon}</div>}
                                 </div>
                               </div>
                             );
                           })}
                         </div>
                       )}
-                      <div style={{marginBottom:14}}>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Daily Feed ({volLabel(FU)})</div>
+                      <div style={{marginBottom:12}}>
+                        <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:6}}>Daily Feed ({volLabel(FU)})</div>
                         <TrendLine vals={mlVals.map(v=>mlToDisplay(v,FU))} keys={dayKeys} color={C.ter} unit={volLabel(FU)}/>
                       </div>
-                      <div style={{marginBottom:14}}>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Daily Nap Time</div>
+                      <div style={{marginBottom:12}}>
+                        <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:6}}>Daily Nap Time</div>
                         <TrendLine vals={napVals} keys={dayKeys} color={C.mint} unit="m"/>
                       </div>
                       {weekAvgs.length>1&&(
                         <div>
-                          <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Weekly Averages</div>
+                          <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:6}}>Weekly Averages</div>
                           {weekAvgs.map((wk,i)=>(
-                            <div key={i} style={{padding:"8px 0",borderBottom:i<weekAvgs.length-1?`1px solid ${C.blush}`:"none"}}>
-                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,marginBottom:4}}>{wk.label} · {wk.days} days</div>
-                              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                                <span style={{background:"var(--chip-bg)",color:C.ter,fontFamily:_fM,fontSize:13,padding:"2px 7px",borderRadius:99}}>~{mlToDisplay(wk.avgMl,FU)}{volLabel(FU)}/day</span>
-                                <span style={{background:"var(--chip-bg)",color:C.mint,fontFamily:_fM,fontSize:13,padding:"2px 7px",borderRadius:99}}>~{hm(wk.avgNap)} naps</span>
-                                <span style={{background:"var(--chip-bg)",color:"var(--gold)",fontFamily:_fM,fontSize:13,padding:"2px 7px",borderRadius:99}}>~{wk.avgNight} wakes</span>
+                            <div key={i} style={{padding:"6px 0",borderBottom:i<weekAvgs.length-1?`1px solid ${C.blush}`:"none"}}>
+                              <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:3}}>{wk.label} · {wk.days} days</div>
+                              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                                <span style={{background:"var(--chip-bg)",color:C.ter,fontFamily:_fM,fontSize:12,padding:"2px 6px",borderRadius:99}}>~{mlToDisplay(wk.avgMl,FU)}{volLabel(FU)}/day</span>
+                                <span style={{background:"var(--chip-bg)",color:C.mint,fontFamily:_fM,fontSize:12,padding:"2px 6px",borderRadius:99}}>~{hm(wk.avgNap)} naps</span>
+                                <span style={{background:"var(--chip-bg)",color:"var(--gold)",fontFamily:_fM,fontSize:12,padding:"2px 6px",borderRadius:99}}>~{wk.avgNight} wakes</span>
                               </div>
                             </div>
                           ))}
@@ -10898,16 +10900,10 @@ function App(){
                       )}
                     </div>
                   )}
-                </div>
-              )}
 
-              </>}
-
-              {/* ── REPORTS SECTION (collapsible) — Day Report ── */}
-              {(insightFilter==="all"||insightFilter==="reports") && <>
-              {collHead("reports","📊","Day Report")}
-              {insightSection.reports && (
-                <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
+                  {/* ── Day Report sub-section ── */}
+                  <div style={{borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>📊 Day Report</div>
                   {(()=>{
                     const rEntries = days[selDay]||[];
                     const rDayE = rEntries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -11000,11 +10996,12 @@ function App(){
                       </div>
                     );
                   })()}
+                  </div>
                 </div>
               )}
-              </>}
+              </div>}
 
-              </>}
+              </div>}
             </div>
           );
         })()}
@@ -11218,7 +11215,7 @@ function App(){
               </div>
 
               {/* ── This Week's Focus ── */}
-              {(devFilter==="all"||devFilter==="activities") && <>
+              {(devFilter==="all"||devFilter==="activities") && <div>
               {ageWeeks && (()=>{
                 const advice = getDevAdvice(ageWeeks);
                 if (!advice.length) return null;
@@ -11242,9 +11239,9 @@ function App(){
                 );
               })()}
 
-              </>}
+              </div>}
               {/* ── COMING UP — Development Phase ── */}
-              {(devFilter==="all"||devFilter==="activities") && <>
+              {(devFilter==="all"||devFilter==="activities") && <div>
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
                 const dobDate = new Date(babyDob+"T00:00:00");
@@ -11371,9 +11368,9 @@ function App(){
                 </div>
               </div>
               
-              </>}
+              </div>}
               {/* ── Milestones ── */}
-              {(devFilter==="all"||devFilter==="milestones") && <>
+              {(devFilter==="all"||devFilter==="milestones") && <div>
               {ageWeeks && (
                 <>
                 <div className="glass-card" style={{...card,marginBottom:12,padding:"12px 16px"}}>
@@ -11502,9 +11499,9 @@ function App(){
                 </div>
               </div>
 
-              </>}
+              </div>}
                 {/* ── Teething Tracker ── */}
-                {(devFilter==="all"||devFilter==="teething") && <>
+                {(devFilter==="all"||devFilter==="teething") && <div>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker <HelpBtn title="Teething Tracker" body="Log each tooth as it appears with date and symptoms. OBubba tracks teething patterns and factors teething into the crying helper. Most babies get their first tooth around 6 months."/></div>
@@ -11554,9 +11551,9 @@ function App(){
                   )}
                 </div>
 
-                </>}
+                </div>}
                 {/* ── Weaning / Food Journal ── */}
-                {(devFilter==="all"||devFilter==="weaning") && <>
+                {(devFilter==="all"||devFilter==="weaning") && <div>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal <HelpBtn title="Weaning Journal" body="Track foods introduced, reactions (loved/neutral/disliked), and notes. NHS recommends introducing solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."/></div>
@@ -11600,7 +11597,7 @@ function App(){
                   )}
                 </div>
 
-                </>}
+                </div>}
 
             </div>
           );
@@ -11610,6 +11607,10 @@ function App(){
       
             {tab==="settings"&&(
         <div style={{padding:"0 16px 100px",maxWidth:520,margin:"0 auto"}}>
+
+          {/* ── SETTINGS ── */}
+          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:4}}>⚙️ Settings</div>
+
           {/* Enquiries & Feedback */}
           <a href="mailto:hello@obubba.com?subject=OBubba%20Feedback" style={{display:"flex",alignItems:"center",gap:12,background:"linear-gradient(135deg,rgba(192,112,136,0.08),rgba(111,168,152,0.08))",border:"1.5px solid rgba(192,112,136,0.2)",borderRadius:16,padding:"14px 16px",marginBottom:14,textDecoration:"none",cursor:_cP}}>
             <span style={{fontSize:22}}>💬</span>
@@ -11663,6 +11664,7 @@ function App(){
               ))}
             </div>
           </div>
+          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:18}}>👪 Sharing & Account</div>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:4}}>👤 {familyUsername||"Account"}</div>
           {familyUsername&&<div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:20}}>{syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync error":"☁️ "+familyUsername}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -11726,6 +11728,7 @@ function App(){
                 <div style={{fontSize:12,color:C.lt,marginTop:2}}>Replay the walkthrough</div>
               </div>
             </button>
+            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:18}}>📊 Data & Reports</div>
             {/* Export Data */}
             <button onClick={()=>exportCSV()} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%",marginBottom:8}}>
               <span style={{fontSize:24}}>📊</span>
@@ -11780,6 +11783,7 @@ function App(){
                 </div>
               </div>
             )}
+            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:18}}>📐 Units & Measurement</div>
             {/* Fluid Measurement Unit */}
             <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",width:"100%",marginBottom:10}}>
               <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
@@ -11860,6 +11864,7 @@ function App(){
               </button>
             )}
 
+            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:18}}>🛡️ Safety & Support</div>
             {/* First Aid Quick Reference */}
             {(()=>{
               const lang = (navigator.language||"").toLowerCase();
