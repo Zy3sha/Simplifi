@@ -1473,35 +1473,6 @@ function App(){
   const[insightSection,setInsightSection]=useState({trends:true,sleep:true,feeding:true,reports:false});
   const[insightFilter,setInsightFilter]=useState("all");
   const[devFilter,setDevFilter]=useState("all");
-  const[playPopup,setPlayPopup]=useState(null); // {activities:[], wwLabel:""}
-
-  function showPlaySuggestions(source){
-    if(!age || !babyDob) return;
-    const w = age.totalWeeks;
-    const ageActs = DEV_ACTIVITIES.filter(a=>w>=a.weeks[0]&&w<a.weeks[1]);
-    if(ageActs.length < 3) return;
-    // Energy phases: active(motor/cognitive), social(social/language), calm(visual/language)
-    const active = ageActs.filter(a=>a.cat==="motor"||a.cat==="cognitive");
-    const social = ageActs.filter(a=>a.cat==="social"||a.cat==="language");
-    const calm = ageActs.filter(a=>a.cat==="visual"||a.cat==="language"||a.cat==="social");
-    const pick = arr => arr.length ? arr[Math.floor(Math.random()*arr.length)] : ageActs[Math.floor(Math.random()*ageActs.length)];
-    // Pick 3 unique activities for the window
-    const a1 = pick(active);
-    const remaining = ageActs.filter(a=>a.id!==a1.id);
-    const a2 = pick(social.filter(a=>a.id!==a1.id));
-    const a3 = pick(calm.filter(a=>a.id!==a1.id&&a.id!==(a2||{}).id));
-    const ww = getWakeWindowRange(w);
-    const wwLabel = ww ? `${ww.label} wake window` : "this wake window";
-    setPlayPopup({
-      activities: [
-        {phase:"🟢 Active play",  sub:"Right after waking", act: a1},
-        {phase:"🟡 Explore & learn", sub:"Mid-window", act: a2 || pick(remaining)},
-        {phase:"🔵 Wind down",    sub:"Before next nap", act: a3 || pick(remaining)},
-      ],
-      wwLabel,
-      source,
-    });
-  }
   const toggleInsight=(k)=>setInsightSection(p=>({...p,[k]:!p[k]}));
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
   const[devActFilter,setDevActFilter]=useState("all");
@@ -1518,6 +1489,13 @@ function App(){
   const[showWakePrompt,setShowWakePrompt]=useState(false);
   const[nightSummaryText,setNightSummaryText]=useState(null);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
+  const[showSoundMachine,setShowSoundMachine]=useState(false);
+  const[soundPlaying,setSoundPlaying]=useState(null); // "white"|"brown"|"pink"|"rain"|"heartbeat"|"shush"
+  const[soundVolume,setSoundVolume]=useState(0.5);
+  const[soundTimer,setSoundTimer]=useState(0); // minutes, 0=no timer
+  const soundCtxRef=useRef(null);
+  const soundNodesRef=useRef([]);
+  const soundTimerRef=useRef(null);
   const[cryingResult,setCryingResult]=useState(null);
   const[showTeethingForm,setShowTeethingForm]=useState(false);
   const[teethingForm,setTeethingForm]=useState({tooth:"",date:"",symptoms:[],note:""});
@@ -5855,6 +5833,110 @@ function App(){
   const[quickFlash,setQuickFlash]=useState(null);
   const flashPriorityRef = React.useRef(0); // 0=none, 1=confirm, 2=advice, 3=wellbeing, 4=safety
   const flashTimerRef = React.useRef(null);
+  // ── Sound Machine ──
+  function stopSound(){
+    soundNodesRef.current.forEach(n=>{try{n.disconnect();n.stop?.();}catch{}});
+    soundNodesRef.current=[];
+    if(soundTimerRef.current){clearTimeout(soundTimerRef.current);soundTimerRef.current=null;}
+    setSoundPlaying(null);
+  }
+  function playSound(type, vol, timerMin){
+    stopSound();
+    const ctx=soundCtxRef.current||(soundCtxRef.current=new(window.AudioContext||window.webkitAudioContext)());
+    if(ctx.state==="suspended") ctx.resume();
+    const gain=ctx.createGain();
+    gain.gain.value=vol||soundVolume;
+    gain.connect(ctx.destination);
+    const nodes=[];
+
+    if(type==="white"||type==="pink"||type==="brown"){
+      const bufSize=2*ctx.sampleRate;
+      const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+      const data=buf.getChannelData(0);
+      if(type==="white") for(let i=0;i<bufSize;i++) data[i]=Math.random()*2-1;
+      else if(type==="pink"){
+        let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+        for(let i=0;i<bufSize;i++){
+          const w=Math.random()*2-1;
+          b0=0.99886*b0+w*0.0555179;b1=0.99332*b1+w*0.0750759;b2=0.96900*b2+w*0.1538520;
+          b3=0.86650*b3+w*0.3104856;b4=0.55000*b4+w*0.5329522;b5=-0.7616*b5-w*0.0168980;
+          data[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;b6=w*0.115926;
+        }
+      } else { // brown
+        let last=0;
+        for(let i=0;i<bufSize;i++){last+=(Math.random()*2-1)*0.02;if(last>1)last=1;if(last<-1)last=-1;data[i]=last;}
+      }
+      const src=ctx.createBufferSource();
+      src.buffer=buf;src.loop=true;src.connect(gain);src.start();
+      nodes.push(src);
+    } else if(type==="rain"){
+      // Rain = filtered white noise + occasional crackle
+      const bufSize=2*ctx.sampleRate;
+      const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+      const data=buf.getChannelData(0);
+      for(let i=0;i<bufSize;i++){
+        const base=Math.random()*2-1;
+        const crackle=Math.random()>0.997?(Math.random()*2-1)*3:0;
+        data[i]=(base*0.6+crackle)*0.8;
+      }
+      const src=ctx.createBufferSource();
+      src.buffer=buf;src.loop=true;
+      const lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=800;
+      const hp=ctx.createBiquadFilter();hp.type="highpass";hp.frequency.value=200;
+      src.connect(lp);lp.connect(hp);hp.connect(gain);src.start();
+      nodes.push(src);
+    } else if(type==="heartbeat"){
+      // Heartbeat = 2 low thuds per beat at ~70bpm
+      const bpm=70;const interval=60/bpm;
+      const osc=ctx.createOscillator();
+      osc.type="sine";osc.frequency.value=50;
+      const beatGain=ctx.createGain();beatGain.gain.value=0;
+      osc.connect(beatGain);beatGain.connect(gain);osc.start();
+      nodes.push(osc);
+      function scheduleBeat(t){
+        beatGain.gain.setValueAtTime(0,t);
+        beatGain.gain.linearRampToValueAtTime(1,t+0.03);
+        beatGain.gain.linearRampToValueAtTime(0,t+0.12);
+        beatGain.gain.setValueAtTime(0,t+0.18);
+        beatGain.gain.linearRampToValueAtTime(0.7,t+0.21);
+        beatGain.gain.linearRampToValueAtTime(0,t+0.33);
+      }
+      let t=ctx.currentTime+0.1;
+      for(let i=0;i<300;i++){scheduleBeat(t);t+=interval;} // ~4 min of beats
+      // Re-schedule periodically
+      const hbTimer=setInterval(()=>{
+        if(!soundPlaying) return clearInterval(hbTimer);
+        let t2=ctx.currentTime+0.1;
+        for(let i=0;i<300;i++){scheduleBeat(t2);t2+=interval;}
+      },240000);
+      nodes.push({disconnect:()=>clearInterval(hbTimer)});
+    } else if(type==="shush"){
+      // Rhythmic shush = bandpassed noise with amplitude modulation
+      const bufSize=2*ctx.sampleRate;
+      const buf=ctx.createBuffer(1,bufSize,ctx.sampleRate);
+      const data=buf.getChannelData(0);
+      for(let i=0;i<bufSize;i++) data[i]=Math.random()*2-1;
+      const src=ctx.createBufferSource();
+      src.buffer=buf;src.loop=true;
+      const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.frequency.value=3000;bp.Q.value=0.5;
+      const lfo=ctx.createOscillator();lfo.frequency.value=0.6; // ~36 shushes/min
+      const lfoGain=ctx.createGain();lfoGain.gain.value=0.5;
+      const modGain=ctx.createGain();modGain.gain.value=0.5;
+      lfo.connect(lfoGain);lfoGain.connect(modGain.gain);
+      src.connect(bp);bp.connect(modGain);modGain.connect(gain);
+      lfo.start();src.start();
+      nodes.push(src,lfo);
+    }
+
+    soundNodesRef.current=nodes;
+    setSoundPlaying(type);
+    // Auto-off timer
+    const mins=timerMin||soundTimer;
+    if(mins>0){
+      soundTimerRef.current=setTimeout(()=>{stopSound();showToast("🔇 Sound machine stopped",2000,1);},mins*60000);
+    }
+  }
+
   function showToast(msg, duration=1500, priority=1) {
     if (priority < flashPriorityRef.current && flashPriorityRef.current >= 3) return; // don't overwrite safety/wellbeing
     clearTimeout(flashTimerRef.current);
@@ -6662,7 +6744,6 @@ function App(){
 
     showToast("☀️ Wake logged on "+fmtDate(targetDay),1500,1);
     fireEventReminders("after_wake");
-    setTimeout(()=>showPlaySuggestions("wake"), 2500);
   }
 
   function startNap(){
@@ -6944,8 +7025,6 @@ function App(){
     if (!isNightTime && !hasBedtime) {
       fireEventReminders("after_nap");
       fireEventReminders("after_wake"); // waking from nap = a wake
-      // Show play suggestions for the upcoming wake window
-      setTimeout(()=>showPlaySuggestions("nap"), 2000);
     }
   }
   // ── Weekly Digest Generator ──
@@ -7059,24 +7138,6 @@ function App(){
       </table>
       <p style="font-size:12px;color:#A898AC;margin:8px 0 0">NHS guidance: 6+ wet nappies in 24h indicates adequate hydration. Check nappy every 2-3 hours.</p>
     </div>`);
-
-    // GROWTH & PERCENTILE
-    if (weights.length > 0 || heights.length > 0) {
-      const latestWeight = [...weights].sort((a,b)=>a.date.localeCompare(b.date)).pop();
-      const latestHeight = [...heights].sort((a,b)=>a.date.localeCompare(b.date)).pop();
-      const ageMo = babyDob ? Math.floor((new Date() - new Date(babyDob)) / (1000*60*60*24*30.44)) : null;
-      const wPct = latestWeight && ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getPercentile(latestWeight.kg, ageMo, babySex) : null;
-      const hPct = latestHeight && ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getHeightPercentile(latestHeight.cm, ageMo, babySex) : null;
-      sections.push(`<div style="background:#F5F0FF;border:1px solid #e0d8f0;border-radius:16px;padding:16px;margin-bottom:12px">
-        <h2 style="color:#9878d0;font-size:16px;margin:0 0 10px">📏 Growth</h2>
-        <table style="width:100%;font-size:14px;color:#5B4F5F">
-          ${latestWeight ? `<tr><td style="padding:4px 0;color:#A898AC">Weight</td><td style="padding:4px 0;font-weight:600">${fmtWt(latestWeight.kg, MU)}${wPct !== null ? ` (${ordinal(wPct)} percentile)` : ""}</td></tr>` : ""}
-          ${latestHeight ? `<tr><td style="padding:4px 0;color:#A898AC">Height</td><td style="padding:4px 0;font-weight:600">${fmtHt(latestHeight.cm, MU)}${hPct !== null ? ` (${ordinal(hPct)} percentile)` : ""}</td></tr>` : ""}
-          ${latestWeight ? `<tr><td style="padding:4px 0;color:#A898AC">Last weighed</td><td style="padding:4px 0;font-weight:600">${fmtLong(latestWeight.date)}</td></tr>` : ""}
-        </table>
-        <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Percentiles based on WHO Child Growth Standards. Every baby grows at their own pace.</p>
-      </div>`);
-    }
 
     // SLEEP & ROUTINE
     sections.push(`<div style="background:#F0F8F5;border:1px solid #d4ede6;border-radius:16px;padding:16px;margin-bottom:12px">
@@ -7561,7 +7622,7 @@ function App(){
       const beds = [];
       dk.forEach(d => {
         const entries = days[d]||[];
-        entries.filter(e=>e.type==="nap"&&!e.night).forEach(n=>napDurs.push(minDiff(n.start,n.end)));
+        entries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n=>{const d2=minDiff(n.start,n.end);if(d2>=10&&d2<=180)napDurs.push(d2);});
         const wake = entries.find(e=>e.type==="wake"&&!e.night);
         if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
         const bed = entries.find(e=>e.type==="sleep"&&!e.night);
@@ -7573,131 +7634,142 @@ function App(){
     }
     avgNapDur = Math.max(20, Math.min(90, avgNapDur));
 
-    // Strategy: Baby must be AWAKE from eventTimeMins for eventDurMins
-    const maxAwake = ww.max + 15; // allow slight over for events
-    const clampedDur = Math.min(eventDurMins || 60, maxAwake);
+    const clampedDur = Math.min(eventDurMins || 60, ww.max);
     const eventEndMins = eventTimeMins + clampedDur;
-    // Work backwards to find wake from last nap, then build forward from morning
-    
-    // Try multiple approaches and pick the best one
-    const candidates = [];
 
-    // Approach 1: build forward from normal wake, try to land a wake window on the event
-    for (let wakeShift = -30; wakeShift <= 30; wakeShift += 10) {
-      const wake = clampWake(avgWakeMins + wakeShift);
-      const sched = [];
-      sched.push({type:"wake", mins:wake, label:"Wake up"});
-      let cursor = wake;
-      
+    // Helper: build a full day schedule from a wake time
+    function buildDay(wakeMins) {
+      const sched = [{type:"wake", mins:wakeMins, label:"Wake up"}];
+      let cursor = wakeMins;
       for (let i = 0; i < napCount; i++) {
-        const wwLen = progressiveWW(w, i, napCount);
+        const wwLen = clampWakeWindow(progressiveWW(w, i, napCount), w);
         const napStart = cursor + wwLen;
+        if (napStart > 17*60+30) break;
         const napEnd = napStart + avgNapDur;
-        
-        if (napStart > 17*60+30) break; // no naps after 5:30pm
         sched.push({type:"nap_start", mins:napStart, label:`Nap ${i+1} start`});
         sched.push({type:"nap_end", mins:napEnd, label:`Nap ${i+1} end`});
         cursor = napEnd;
       }
-      
-      // Add bedtime
-      const lastWW = progressiveWW(w, napCount, napCount);
-      const bed = clampBedtime(cursor + lastWW);
-      sched.push({type:"bed", mins:bed, label:"Bedtime"});
-
-      // Score: how well does the event fall in a wake window?
-      let eventInNap = false;
-      let minDistToNap = 999;
-      for (let i = 0; i < sched.length - 1; i++) {
-        if (sched[i].type === "nap_start" && sched[i+1] && sched[i+1].type === "nap_end") {
-          // Check if ANY part of event overlaps this nap
-          if (eventTimeMins < sched[i+1].mins && eventEndMins > sched[i].mins) {
-            eventInNap = true;
-          }
-          minDistToNap = Math.min(minDistToNap, 
-            Math.abs(eventTimeMins - sched[i+1].mins),
-            Math.abs(eventEndMins - sched[i].mins)
-          );
-        }
-      }
-      
-      // Penalty: event during nap is bad, wake time too far from normal is bad
-      const penalty = (eventInNap ? 1000 : 0) + 
-                      Math.abs(wakeShift) * 2 + 
-                      (bed > 20*60+30 ? 200 : 0) +
-                      (bed < 18*60 ? 200 : 0);
-      
-      candidates.push({sched, penalty, wakeShift, eventInNap});
+      const bedWW = clampWakeWindow(progressiveWW(w, napCount, napCount), w);
+      sched.push({type:"bed", mins:clampBedtime(cursor + bedWW), label:"Bedtime"});
+      return sched;
     }
 
-    // Approach 2: work backwards from event — ensure baby wakes from nap before event
-    for (let gapBefore = ww.min; gapBefore <= ww.min + 30; gapBefore += 10) {
-      const napEndBefore = eventTimeMins - gapBefore;
-      const napStartBefore = napEndBefore - avgNapDur;
-      
-      // Build backwards to find wake time
-      let cursor = napStartBefore;
-      const napsBeforeEvent = [];
-      let napIdx = 0;
-      
-      // How many naps can fit before this one?
-      let tempCursor = cursor;
-      while (napIdx < napCount - 1) {
-        const prevNapEnd = tempCursor - progressiveWW(w, napIdx, napCount);
-        const prevNapStart = prevNapEnd - avgNapDur;
-        if (prevNapStart < 4*60+30) break; // too early
-        napsBeforeEvent.unshift({start: prevNapStart, end: prevNapEnd});
-        tempCursor = prevNapStart;
-        napIdx++;
+    // Helper: check if event fits in any wake window of schedule
+    function scoreSchedule(sched, wakeMins) {
+      let eventInNap = false;
+      const wakeWindows = [];
+      for (let i = 0; i < sched.length; i++) {
+        const s = sched[i];
+        if (s.type === "wake" || s.type === "nap_end") {
+          const next = sched.find((n,j) => j > i && (n.type === "nap_start" || n.type === "bed"));
+          if (next) {
+            const gap = next.mins - s.mins;
+            wakeWindows.push({start: s.mins, end: next.mins, gap});
+          }
+        }
+        if (s.type === "nap_start") {
+          const end = sched.find((n,j) => j > i && n.type === "nap_end");
+          if (end && eventTimeMins < end.mins && eventEndMins > s.mins) eventInNap = true;
+        }
       }
-      
-      // Wake time
-      const firstEvent = napsBeforeEvent.length ? napsBeforeEvent[0].start : napStartBefore;
-      const wakeTime = clampWake(firstEvent - progressiveWW(w, 0, napCount));
-      
-      const sched = [];
-      sched.push({type:"wake", mins:wakeTime, label:"Wake up"});
-      
-      napsBeforeEvent.forEach((n, i) => {
+      // Check if entire event fits within a single wake window
+      const fitsInWindow = wakeWindows.some(ww2 => eventTimeMins >= ww2.start && eventEndMins <= ww2.end);
+      // Check all wake windows are age-appropriate
+      const wwViolations = wakeWindows.filter(ww2 => ww2.gap < ww.min - 5 || ww2.gap > ww.max + 15).length;
+      const wakeShift = Math.abs(wakeMins - avgWakeMins);
+      const bedItem = sched.find(s => s.type === "bed");
+      const bedShift = bedItem ? Math.abs(bedItem.mins - avgBedMins) : 0;
+
+      return {
+        penalty: (eventInNap ? 5000 : 0) + (!fitsInWindow ? 3000 : 0) + 
+                 wwViolations * 500 + wakeShift * 10 + bedShift * 3 +
+                 (bedItem && bedItem.mins > 20*60+30 ? 400 : 0) +
+                 (bedItem && bedItem.mins < 17*60+30 ? 400 : 0),
+        eventInNap, fitsInWindow, wwViolations, wakeShift
+      };
+    }
+
+    const candidates = [];
+
+    // Strategy 1: Normal schedule — check if event already fits
+    const normalSched = buildDay(avgWakeMins);
+    const normalScore = scoreSchedule(normalSched, avgWakeMins);
+    candidates.push({sched: normalSched, ...normalScore, wakeShift: 0, source: "normal"});
+
+    // Strategy 2: Tiny wake shifts (±5 to ±30 min only)
+    for (let shift = -30; shift <= 30; shift += 5) {
+      if (shift === 0) continue;
+      const wake = clampWake(avgWakeMins + shift);
+      const sched = buildDay(wake);
+      const score = scoreSchedule(sched, wake);
+      candidates.push({sched, ...score, wakeShift: shift, source: "shift"});
+    }
+
+    // Strategy 3: Nap-before-event approach — put a nap ending before the event
+    for (let gap = ww.min; gap <= ww.min + 20; gap += 5) {
+      const napEndBefore = eventTimeMins - gap;
+      if (napEndBefore < avgWakeMins + ww.min) continue; // can't fit any nap
+      const napStartBefore = napEndBefore - avgNapDur;
+
+      // Build backwards to morning
+      const preSched = [];
+      let cursor = napStartBefore;
+      const preNaps = [];
+      let idx = 0;
+      let tempC = cursor;
+      while (idx < napCount - 1) {
+        const prevWW = clampWakeWindow(progressiveWW(w, idx, napCount), w);
+        const pEnd = tempC - prevWW;
+        const pStart = pEnd - avgNapDur;
+        if (pStart < 5*60) break;
+        preNaps.unshift({start: pStart, end: pEnd});
+        tempC = pStart;
+        idx++;
+      }
+      const firstNapStart = preNaps.length ? preNaps[0].start : napStartBefore;
+      const wwFirst = clampWakeWindow(progressiveWW(w, 0, napCount), w);
+      const wakeTime = clampWake(Math.max(firstNapStart - wwFirst, avgWakeMins - 30));
+
+      const sched = [{type:"wake", mins:wakeTime, label:"Wake up"}];
+      preNaps.forEach((n,i) => {
         sched.push({type:"nap_start", mins:n.start, label:`Nap ${i+1} start`});
         sched.push({type:"nap_end", mins:n.end, label:`Nap ${i+1} end`});
       });
-      
-      // The nap right before event
-      const thisNapNum = napsBeforeEvent.length + 1;
-      sched.push({type:"nap_start", mins:napStartBefore, label:`Nap ${thisNapNum} start`});
-      sched.push({type:"nap_end", mins:napEndBefore, label:`Nap ${thisNapNum} end`});
-      
-      // Event happens here (full duration)
-      sched.push({type:"event", mins:eventTimeMins, label:eventLabel || "Event", endMins:eventEndMins});
-      
-      // Any remaining naps after event ends
-      let afterCursor = eventEndMins;
-      let remainingNaps = napCount - thisNapNum;
-      for (let i = 0; i < remainingNaps; i++) {
-        const nStart = afterCursor + progressiveWW(w, thisNapNum + i, napCount);
-        if (nStart > 17*60+30) break; // no naps after 5:30pm
-        const nEnd = nStart + avgNapDur;
-        sched.push({type:"nap_start", mins:nStart, label:`Nap ${thisNapNum+i+1} start`});
-        sched.push({type:"nap_end", mins:nEnd, label:`Nap ${thisNapNum+i+1} end`});
-        afterCursor = nEnd;
+      const thisN = preNaps.length + 1;
+      sched.push({type:"nap_start", mins:napStartBefore, label:`Nap ${thisN} start`});
+      sched.push({type:"nap_end", mins:napEndBefore, label:`Nap ${thisN} end`});
+      sched.push({type:"event", mins:eventTimeMins, label:eventLabel||"Event", endMins:eventEndMins});
+
+      // After event: remaining naps
+      let afterC = eventEndMins;
+      for (let i = 0; i < napCount - thisN; i++) {
+        const nww = clampWakeWindow(progressiveWW(w, thisN + i, napCount), w);
+        const nStart = afterC + nww;
+        if (nStart > 17*60+30) break;
+        sched.push({type:"nap_start", mins:nStart, label:`Nap ${thisN+i+1} start`});
+        sched.push({type:"nap_end", mins:nStart + avgNapDur, label:`Nap ${thisN+i+1} end`});
+        afterC = nStart + avgNapDur;
       }
-      
-      // Bedtime
-      const bedWW = progressiveWW(w, napCount, napCount);
-      const bed = clampBedtime(afterCursor + bedWW);
-      sched.push({type:"bed", mins:bed, label:"Bedtime"});
-      
-      const penalty = Math.abs(wakeTime - avgWakeMins) * 1.5 + 
-                      (bed > 20*60+30 ? 200 : 0);
-      
-      candidates.push({sched, penalty, wakeShift: wakeTime - avgWakeMins, eventInNap: false});
+      const lastCursor = sched.filter(s=>s.type==="nap_end").slice(-1)[0]?.mins || afterC;
+      const bedWW2 = clampWakeWindow(progressiveWW(w, napCount, napCount), w);
+      sched.push({type:"bed", mins:clampBedtime(lastCursor + bedWW2), label:"Bedtime"});
+
+      const score = scoreSchedule(sched, wakeTime);
+      candidates.push({sched, ...score, wakeShift: wakeTime - avgWakeMins, source: "nap-before"});
     }
 
-    // Pick best candidate (lowest penalty, event not during nap)
+    // Pick best
     candidates.sort((a,b) => a.penalty - b.penalty);
     const best = candidates[0];
     if (!best) return null;
+
+    // Insert event marker into winning schedule if not already there
+    if (!best.sched.find(s => s.type === "event")) {
+      // Find the wake window the event fits in and add it
+      best.sched.push({type:"event", mins:eventTimeMins, label:eventLabel||"Event", endMins:eventEndMins});
+      best.sched.sort((a,b) => a.mins - b.mins);
+    }
 
     // Format schedule
     const formatted = best.sched.map(s => ({
@@ -9830,6 +9902,15 @@ function App(){
                 </div>
                 <span style={{fontSize:14,color:C.lt}}>→</span>
               </button>
+              {/* Sound Machine */}
+              <button onClick={()=>{haptic();setShowSoundMachine(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:16,border:`1px solid ${soundPlaying?C.mint+"66":C.blush}`,background:soundPlaying?"rgba(111,168,152,0.06)":"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
+                <span style={{fontSize:22}}>🎵</span>
+                <div style={{flex:1,textAlign:"left"}}>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sound Machine</div>
+                  <div style={{fontSize:11,color:soundPlaying?C.mint:C.lt,marginTop:1}}>{soundPlaying?`♪ Playing ${soundPlaying} noise`:"White, brown, pink noise & more"}</div>
+                </div>
+                <span style={{fontSize:14,color:soundPlaying?C.mint:C.lt}}>{soundPlaying?"⏸":"→"}</span>
+              </button>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                 <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:14}}>Daytime</span>
               </div>
@@ -10503,11 +10584,38 @@ function App(){
                             </div>
                           )}
 
-                          {/* Bedtime prediction (next nap is on Day tab) */}
+                          {/* Bedtime prediction */}
                           {actualBedEntry ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px"}}>
                               <div style={{fontSize:14,fontFamily:_fM,color:"#9080d8",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Bedtime Logged 🌙</div>
                               <div style={{fontSize:15,color:"var(--text-lt)"}}>Sleep tight!</div>
+                            </div>
+                          ) : pred ? (
+                            <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px"}}>
+                              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:adv||suggestedBed?8:0}}>
+                                <div>
+                                  <div style={{fontSize:14,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:_ls08}}>😴 BubbaRhythm™ · Next Nap</div>
+                                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.mint}}>{minsAway!==null&&minsAway<=0?"Now!":fmtCountdown(napCountdown||0)}</div>
+                                </div>
+                                <div style={{textAlign:"right"}}>
+                                  <div style={{fontFamily:_fM,fontSize:15,fontWeight:700,color:C.mint}}>{fmt12(pred.napStart_min)}</div>
+                                  <div style={{fontSize:15,color:C.lt}}>– {fmt12(pred.napStart_max)}</div>
+                                </div>
+                              </div>
+                              {suggestedBed && (
+                                <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
+                                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                                    <div style={{fontSize:14,fontFamily:_fM,color:suggestedBed.estimated?C.lt:C.sky,textTransform:"uppercase",letterSpacing:_ls08}}>{suggestedBed.estimated?"Estimated Bedtime":"Predicted Bedtime"}</div>
+                                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:suggestedBed.estimated?C.lt:C.sky}}>{suggestedBed.estimated?"~":""}{fmt12(suggestedBed.time)}</div>
+                                  </div>
+                                  {suggestedBed.adjustReason&&<div style={{fontSize:12,color:C.lt,marginTop:4}}>{suggestedBed.adjustReason}{suggestedBed.estimated&&suggestedBed.napsRemaining>0?` · ${suggestedBed.napsRemaining} nap${suggestedBed.napsRemaining>1?"s":""} to go`:""}</div>}
+                                </div>
+                              )}
+                              {!suggestedBed && adv && (
+                                <div style={{borderTop:`1px solid ${C.mint}22`,paddingTop:8,marginTop:4}}>
+                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{adv}</div>
+                                </div>
+                              )}
                             </div>
                           ) : suggestedBed ? (
                             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginTop:4}}>
@@ -10772,6 +10880,55 @@ function App(){
                               <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginTop:4}}>
 
                               </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Averages */}
+                        {(()=>{
+                          const last14 = dayKeys.slice(-14);
+                          if(last14.length < 3) return null;
+                          const sleepData = last14.map(d=>{
+                            const es = days[d]||[];
+                            const bedEntry = es.filter(e=>e.type==="sleep"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b)).pop();
+                            const wakeEntry = es.filter(e=>e.type==="wake"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b))[0];
+                            const naps = es.filter(e=>e.type==="nap"&&!e.night);
+                            const napMin = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                            const nightWakes = es.filter(e=>e.night).length;
+                            return {date:d, bedtime:bedEntry?bedEntry.time:null, waketime:wakeEntry?wakeEntry.time:null, napMin, napCount:naps.length, nightWakes};
+                          });
+                          const bedtimes = sleepData.filter(d=>d.bedtime).map(d=>{const[h,m]=d.bedtime.split(":").map(Number);return h*60+m;});
+                          const waketimes = sleepData.filter(d=>d.waketime).map(d=>{const[h,m]=d.waketime.split(":").map(Number);return h*60+m;});
+                          const avgBed = bedtimes.length ? avgArr(bedtimes) : null;
+                          const avgWake = waketimes.length ? avgArr(waketimes) : null;
+                          const avgNightWakes = sleepData.length ? (sleepData.reduce((s,d)=>s+d.nightWakes,0)/sleepData.length).toFixed(1) : "—";
+                          const avgNapMin = sleepData.length ? avgArr(sleepData.map(d=>d.napMin)) : 0;
+                          const avgNapCount = sleepData.length ? (sleepData.reduce((s,d)=>s+d.napCount,0)/sleepData.length).toFixed(1) : "—";
+                          const fmtMins = m => { if(m===null) return "—"; const h=Math.floor(m/60),mi=m%60; return `${h%12||12}:${String(mi).padStart(2,"0")}${h>=12?"pm":"am"}`; };
+                          return (
+                            <div style={{marginTop:14}}>
+                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Last {last14.length} Days Average</div>
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",border:`1px solid ${C.blush}`}}>
+                                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>🌙 Avg Bedtime</div>
+                                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{fmtMins(avgBed)}</div>
+                                </div>
+                                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",border:`1px solid ${C.blush}`}}>
+                                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>☀️ Avg Wake</div>
+                                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{fmtMins(avgWake)}</div>
+                                </div>
+                                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",border:`1px solid ${C.blush}`}}>
+                                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>🔔 Avg Night Wakes</div>
+                                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{avgNightWakes}</div>
+                                </div>
+                                <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",border:`1px solid ${C.blush}`}}>
+                                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>😴 Avg Nap Time</div>
+                                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{hm(avgNapMin)}</div>
+                                  <div style={{fontSize:11,color:C.lt,marginTop:1}}>{avgNapCount} naps/day avg</div>
+                                </div>
+                              </div>
+                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:6}}>Night Wakes Trend</div>
+                              <TrendLine vals={last14.map(d=>(days[d]||[]).filter(e=>e.night).length)} keys={last14} color={C.sky}/>
                             </div>
                           );
                         })()}
@@ -11120,55 +11277,6 @@ function App(){
                       )}
                     </div>
                   )}
-
-                  {/* Sleep Averages & Night Wakes Trend */}
-                  {(()=>{
-                    const last14 = dayKeys.slice(-14);
-                    if(last14.length < 3) return null;
-                    const sleepData = last14.map(d=>{
-                      const es = days[d]||[];
-                      const bedEntry = es.filter(e=>e.type==="sleep"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b)).pop();
-                      const wakeEntry = es.filter(e=>e.type==="wake"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b))[0];
-                      const naps = es.filter(e=>e.type==="nap"&&!e.night);
-                      const napMin = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-                      const nightWakes = es.filter(e=>e.night).length;
-                      return {date:d, bedtime:bedEntry?bedEntry.time:null, waketime:wakeEntry?wakeEntry.time:null, napMin, napCount:naps.length, nightWakes};
-                    });
-                    const bedtimes = sleepData.filter(d=>d.bedtime).map(d=>{const[h,m]=d.bedtime.split(":").map(Number);return h*60+m;});
-                    const waketimes = sleepData.filter(d=>d.waketime).map(d=>{const[h,m]=d.waketime.split(":").map(Number);return h*60+m;});
-                    const avgBed2 = bedtimes.length ? avgArr(bedtimes) : null;
-                    const avgWake2 = waketimes.length ? avgArr(waketimes) : null;
-                    const avgNightWakes2 = sleepData.length ? (sleepData.reduce((s,d)=>s+d.nightWakes,0)/sleepData.length).toFixed(1) : "—";
-                    const avgNapMin2 = sleepData.length ? avgArr(sleepData.map(d=>d.napMin)) : 0;
-                    const avgNapCount2 = sleepData.length ? (sleepData.reduce((s,d)=>s+d.napCount,0)/sleepData.length).toFixed(1) : "—";
-                    const fmtMins2 = m => { if(m===null) return "—"; const h=Math.floor(m/60),mi=m%60; return `${h%12||12}:${String(mi).padStart(2,"0")}${h>=12?"pm":"am"}`; };
-                    return (
-                      <div style={{marginTop:14,borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>😴 Sleep Averages ({last14.length} days)</div>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                          <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"8px 10px",border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:9,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>🌙 Avg Bedtime</div>
-                            <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{fmtMins2(avgBed2)}</div>
-                          </div>
-                          <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"8px 10px",border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:9,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>☀️ Avg Wake</div>
-                            <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{fmtMins2(avgWake2)}</div>
-                          </div>
-                          <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"8px 10px",border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:9,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>🔔 Avg Night Wakes</div>
-                            <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{avgNightWakes2}</div>
-                          </div>
-                          <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"8px 10px",border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:9,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>😴 Avg Nap Time</div>
-                            <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{hm(avgNapMin2)}</div>
-                            <div style={{fontSize:10,color:C.lt,marginTop:1}}>{avgNapCount2} naps/day</div>
-                          </div>
-                        </div>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginBottom:6}}>Night Wakes Trend</div>
-                        <TrendLine vals={last14.map(d=>(days[d]||[]).filter(e=>e.night).length)} keys={last14} color={C.sky}/>
-                      </div>
-                    );
-                  })()}
 
                   {/* ── Day Report sub-section ── */}
                   <div style={{borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
@@ -12988,44 +13096,73 @@ function App(){
       })()}
       {}
       {/* Personal/NHS toggle moved to Account → Sleep Recommendations */}
-      {/* ═══ Wake Window Play Popup ═══ */}
-      {playPopup&&(
-        <div onClick={()=>setPlayPopup(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 12px 24px"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"24px 18px 18px",maxWidth:380,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",animation:"fadeUp 0.3s ease"}}>
-            <div style={{textAlign:"center",marginBottom:14}}>
-              <div style={{fontSize:36,marginBottom:6}}>{playPopup.source==="wake"?"☀️":"😊"}</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,lineHeight:1.3}}>
-                {babyName||"Baby"} is awake!
+      {/* ═══ Sound Machine ═══ */}
+      {showSoundMachine&&(
+        <div onClick={()=>setShowSoundMachine(false)} style={{position:"fixed",inset:0,background:"rgba(20,15,30,0.7)",backdropFilter:"blur(8px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 32px",maxWidth:420,width:"100%",boxShadow:"0 -10px 40px rgba(0,0,0,0.3)"}}>
+            <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep}}>🎵 Sound Machine</div>
+                <div style={{fontSize:12,color:C.lt,marginTop:2}}>Calming sounds for sleep & soothing</div>
               </div>
-              <div style={{fontSize:13,color:C.mid,marginTop:4,lineHeight:1.5}}>
-                Here's a plan for {playPopup.wwLabel}
+              {soundPlaying&&<button onPointerDown={e=>{e.preventDefault();stopSound();haptic();}} style={{padding:"8px 16px",borderRadius:99,border:_bN,background:"#e8574a",color:"white",fontSize:12,fontWeight:700,cursor:_cP}}>⏹ Stop</button>}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+              {[
+                {id:"white",emoji:"⚪",label:"White",desc:"Even, steady hiss"},
+                {id:"pink",emoji:"🩷",label:"Pink",desc:"Softer, deeper hum"},
+                {id:"brown",emoji:"🟤",label:"Brown",desc:"Deep, warm rumble"},
+                {id:"rain",emoji:"🌧️",label:"Rain",desc:"Gentle rainfall"},
+                {id:"heartbeat",emoji:"💓",label:"Heartbeat",desc:"Womb-like rhythm"},
+                {id:"shush",emoji:"🤫",label:"Shush",desc:"Rhythmic shushing"},
+              ].map(s=>(
+                <button key={s.id} onPointerDown={e=>{
+                  e.preventDefault();haptic();
+                  if(soundPlaying===s.id){stopSound();}
+                  else{playSound(s.id,soundVolume,soundTimer);}
+                }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"14px 8px",borderRadius:16,border:`2px solid ${soundPlaying===s.id?C.mint:C.blush}`,background:soundPlaying===s.id?C.mint+"12":"var(--card-bg)",cursor:_cP,transition:"all 0.15s"}}>
+                  <span style={{fontSize:28}}>{s.emoji}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:soundPlaying===s.id?C.mint:C.deep}}>{s.label}</span>
+                  <span style={{fontSize:10,color:C.lt,lineHeight:1.2}}>{s.desc}</span>
+                </button>
+              ))}
+            </div>
+            {/* Volume */}
+            <div style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <span style={{fontSize:11,fontFamily:_fM,color:C.lt}}>Volume</span>
+                <span style={{fontSize:11,fontFamily:_fM,color:C.mid}}>{Math.round(soundVolume*100)}%</span>
+              </div>
+              <input type="range" min="0" max="100" value={Math.round(soundVolume*100)} onChange={e=>{
+                const v=Number(e.target.value)/100;
+                setSoundVolume(v);
+                if(soundCtxRef.current){
+                  const gain=soundCtxRef.current.destination;
+                  // Update live volume by recreating
+                  if(soundPlaying) playSound(soundPlaying,v,soundTimer);
+                }
+              }} style={{width:"100%",accentColor:C.ter,height:6}}/>
+            </div>
+            {/* Timer */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginBottom:6}}>Auto-stop timer</div>
+              <div style={{display:"flex",gap:6}}>
+                {[0,15,30,45,60].map(m=>(
+                  <button key={m} onPointerDown={e=>{e.preventDefault();setSoundTimer(m);haptic(8);
+                    if(soundPlaying){
+                      if(soundTimerRef.current){clearTimeout(soundTimerRef.current);soundTimerRef.current=null;}
+                      if(m>0) soundTimerRef.current=setTimeout(()=>{stopSound();showToast("🔇 Sound machine stopped",2000,1);},m*60000);
+                    }
+                  }} style={{flex:1,padding:"8px 4px",borderRadius:10,border:`1.5px solid ${soundTimer===m?C.ter:C.blush}`,background:soundTimer===m?C.ter+"12":"var(--card-bg)",color:soundTimer===m?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"center"}}>
+                    {m===0?"Off":`${m}m`}
+                  </button>
+                ))}
               </div>
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
-              {playPopup.activities.map((item,i)=>{
-                const catInfo = ACT_CATS.find(c=>c.key===item.act.cat);
-                return (
-                  <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",borderRadius:14,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,minWidth:28}}>
-                      <span style={{fontSize:16}}>{item.phase.slice(0,2)}</span>
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>{item.sub}</div>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep,lineHeight:1.3,marginTop:1}}>{catInfo?.icon} {item.act.title}</div>
-                      <div style={{fontSize:12,color:C.mid,lineHeight:1.45,marginTop:3}}>{item.act.how}</div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{fontSize:11,color:C.lt,lineHeight:1.5,textAlign:"center"}}>
+              💡 White noise helps babies sleep by mimicking the sounds of the womb. Keep volume below 50dB — about as loud as a quiet conversation.
             </div>
-            <button onPointerDown={e=>{e.preventDefault();setPlayPopup(null);setTab("develop");haptic();}}
-              style={{width:"100%",padding:"12px",borderRadius:99,border:`1.5px solid ${C.ter}`,background:"transparent",color:C.ter,fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
-              🎯 More activities in Development →
-            </button>
-            <button onPointerDown={e=>{e.preventDefault();setPlayPopup(null);haptic();}}
-              style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-              Got it 👍
-            </button>
           </div>
         </div>
       )}
