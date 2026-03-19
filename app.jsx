@@ -1129,27 +1129,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-
-// ── Collapsible Section (UX Restructure) ──
-function CollapsibleSection({title, summary, badge, defaultOpen=false, children, style={}}){
-  const[open,setOpen]=React.useState(defaultOpen);
-  const C2=typeof getC==="function"?getC():{deep:"#5B4F5F",lt:"#A89898",mid:"#7A6B6B",blush:"#F0D0C8",ter:"#C07088"};
-  return React.createElement("div",{style:{marginBottom:10,...style}},
-    React.createElement("button",{
-      onClick:()=>{if(typeof haptic==="function")haptic();setOpen(!open);},
-      style:{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",borderRadius:open?"16px 16px 0 0":16,border:"1px solid var(--card-border)",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",boxShadow:"var(--card-shadow)",cursor:"pointer",transition:"border-radius 0.2s ease"}
-    },
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,flex:1}},
-        React.createElement("span",{style:{fontSize:14,fontWeight:700,color:"var(--text-deep)",fontFamily:"'DM Sans',sans-serif"}},title),
-        badge?React.createElement("span",{style:{background:"var(--ter)",color:"white",borderRadius:99,padding:"1px 7px",fontSize:10,fontWeight:700}},badge):null
-      ),
-      !open&&summary?React.createElement("span",{style:{fontSize:12,color:"var(--text-lt)",fontFamily:"'DM Sans',sans-serif",marginRight:8,textAlign:"right",flex:1}},summary):null,
-      React.createElement("span",{style:{fontSize:10,color:"var(--text-lt)",transform:open?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s ease"}},"▼")
-    ),
-    open?React.createElement("div",{style:{border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 16px 16px",background:"var(--card-bg-solid)",padding:"12px 14px",animation:"fadeIn 0.2s ease"}},children):null
-  );
-}
-
 function App(){
   const timerRef = React.useRef(null);
   const[isDark,setIsDark]=useState(()=>document.body.classList.contains('dark-mode'));
@@ -1397,30 +1376,6 @@ function App(){
   // Premium state — true = all features unlocked. Default true for launch (free trial / all-free launch).
   // When subscriptions are added, change default to false and gate with RevenueCat
   const[isPremium]=useState(true);
-  // ── Long-press timer ──
-  const longPressRef=useRef(null);
-  const longPressAction=useRef(null);
-  function startLongPress(advancedAction){
-    longPressAction.current=advancedAction;
-    longPressRef.current=setTimeout(()=>{
-      haptic(20);
-      if(longPressAction.current)longPressAction.current();
-      longPressAction.current=null;
-    },500);
-  }
-  function cancelLongPress(){
-    if(longPressRef.current){clearTimeout(longPressRef.current);longPressRef.current=null;}
-    longPressAction.current=null;
-  }
-  // ── Hero Card state ──
-  const[heroWhyOpen,setHeroWhyOpen]=useState(false);
-  const[heroReassuranceIdx,setHeroReassuranceIdx]=useState(0);
-  // Rotate reassurance messages every 30 seconds
-  useEffect(()=>{
-    const iv=setInterval(()=>setHeroReassuranceIdx(p=>(p+1)%5),30000);
-    return()=>clearInterval(iv);
-  },[]);
-
   const[msFilter,setMsFilter]=useState("all");
   const[appointments,setAppointments]=useState(()=>{
     try{const v=localStorage.getItem("appointments_v1");return v?JSON.parse(v):[];}catch{return [];}
@@ -2990,191 +2945,6 @@ function App(){
     }, 1000);
     return()=>clearInterval(countdownRef.current);
   },[selDay, days, age, timerMode]);
-
-  // ═══════════════════════════════════════════════════════════
-  // HERO CARD — Bubba Rhythm
-  // The single most important element on the Today tab.
-  // Replaces: nap countdown, wake window bar, sleep guidance,
-  // priority action banner, bridge nap suggestion, bedtime comparison
-  // ═══════════════════════════════════════════════════════════
-  function renderHeroCard() {
-    if (!age || !selDay || selDay !== todayStr()) return null;
-    const today = days[selDay] || [];
-    const hasWake = today.some(e => e.type === "wake" && !e.night);
-    const hasBed = today.some(e => e.type === "sleep" && !e.night);
-    const name = babyName || "Baby";
-    const h = new Date().getHours();
-    const nowM = new Date().getHours() * 60 + new Date().getMinutes();
-    const dayE = today.filter(e => !e.night).sort((a, b) => timeVal(a) - timeVal(b));
-    const naps = today.filter(e => e.type === "nap" && !e.night);
-    const napsDone = naps.length;
-    const profile = getAgeNapProfile(age.totalWeeks);
-    const ww = getWakeWindow(age.totalWeeks);
-    const pred = predictNextNap();
-    const bed = bedtimePrediction();
-
-    // Calculate current awake time
-    let awakeMinutes = 0;
-    let lastSleepEnd = null;
-    dayE.forEach(e => {
-      if (e.type === "wake") lastSleepEnd = timeVal(e);
-      if (e.type === "nap" && e.end) lastSleepEnd = timeVal({time: e.end});
-    });
-    if (lastSleepEnd !== null) {
-      awakeMinutes = Math.max(0, nowM - lastSleepEnd);
-    }
-
-    // ── Determine status ──
-    let statusDot, statusLabel, statusColor;
-    let timingLine = "";
-    const adjustedExpected = profile.expectedNaps + (bridgeNapScheduled ? 1 : 0);
-    const napsComplete = napsDone >= adjustedExpected;
-
-    if (!hasWake && h >= 5 && h <= 10) {
-      // Morning — no wake logged
-      statusDot = "#D4A855"; statusLabel = "Good morning!"; statusColor = "#D4A855";
-      timingLine = "Tap to start " + name + "'s day";
-    } else if (napOn) {
-      // Currently napping
-      statusDot = "#7B68EE"; statusLabel = "Sleeping peacefully"; statusColor = "#7B68EE";
-      const napMins = Math.floor(napSec / 60);
-      const expectedDur = Math.round((profile.idealNapDurMin + profile.idealNapDurMax) / 2);
-      const remaining = Math.max(0, expectedDur - napMins);
-      timingLine = "Sleeping " + napMins + " min" + (remaining > 0 ? " · Expected wake ~" + remaining + " min" : " · May wake soon");
-    } else if (hasBed) {
-      // Night mode
-      statusDot = "#7B68EE"; statusLabel = "Sleeping for the night"; statusColor = "#7B68EE";
-      if (nightElapsed !== null && nightElapsed > 0) {
-        const nightH = Math.floor(nightElapsed / 3600);
-        const nightM = Math.floor((nightElapsed % 3600) / 60);
-        const bedEntry = today.find(e => e.type === "sleep" && !e.night);
-        timingLine = "Sleeping since " + (bedEntry ? fmt12(bedEntry.time) : "") + " · " + nightH + "h " + nightM + "m";
-      }
-    } else if (pred && pred.isOverdue) {
-      // Overtired risk
-      statusDot = "#E8937A"; statusLabel = "Winding down soon"; statusColor = "#E8937A";
-      timingLine = "Awake " + hm(awakeMinutes) + " · Past the nap window — try settling now";
-    } else if (napsComplete && bed && !bed.estimated) {
-      // All naps done, bedtime approaching
-      const [bh, bm] = bed.time.split(":").map(Number);
-      const minsUntilBed = Math.max(0, bh * 60 + bm - nowM);
-      if (minsUntilBed <= 30) {
-        statusDot = "#6B5B95"; statusLabel = "Winding down for bed"; statusColor = "#6B5B95";
-        timingLine = "Bedtime in ~" + minsUntilBed + " min · Start wind-down";
-      } else {
-        statusDot = "#7BA68C"; statusLabel = "All naps complete"; statusColor = "#7BA68C";
-        timingLine = "Bedtime at ~" + fmt12(bed.time) + " · " + napsDone + " nap" + (napsDone !== 1 ? "s" : "") + " done today";
-      }
-    } else if (pred && !pred.isOverdue) {
-      // Nap approaching
-      const [ph, pm] = pred.napStart_min.split(":").map(Number);
-      const minsUntilNap = Math.max(0, ph * 60 + pm - nowM);
-      if (minsUntilNap <= 10) {
-        statusDot = "#D4A855"; statusLabel = "Nap window open"; statusColor = "#D4A855";
-        timingLine = "Awake " + hm(awakeMinutes) + " · Ready for a nap now";
-      } else if (minsUntilNap <= 20) {
-        statusDot = "#D4A855"; statusLabel = "Ready for a nap"; statusColor = "#D4A855";
-        timingLine = "Awake " + hm(awakeMinutes) + " · Next nap in ~" + minsUntilNap + " min";
-      } else {
-        statusDot = "#7BA68C"; statusLabel = "All good right now"; statusColor = "#7BA68C";
-        timingLine = "Awake " + hm(awakeMinutes) + " · Next nap in ~" + minsUntilNap + " min";
-      }
-    } else if (hasWake) {
-      statusDot = "#7BA68C"; statusLabel = "All good right now"; statusColor = "#7BA68C";
-      timingLine = "Awake " + hm(awakeMinutes) + " · Enjoying the day";
-    } else {
-      statusDot = "#A89898"; statusLabel = "Ready to start"; statusColor = "#A89898";
-      timingLine = "Log a wake to start tracking " + name + "'s day";
-    }
-
-    // ── Reassurance messages ──
-    const reassurances = [
-      "You're doing great — " + name + "'s rhythm is settling nicely.",
-      "Every baby is different. Follow " + name + "'s cues and trust yourself.",
-      "Short naps are common at this stage — they'll lengthen over time.",
-      "You're learning " + name + ", and that's enough.",
-      "This is normal for " + name + "'s age. You've got this."
-    ];
-    const reassurance = reassurances[heroReassuranceIdx % reassurances.length];
-
-    // ── Why? content ──
-    const whyContent = [];
-    whyContent.push("At " + fmtAge(age) + ", wake windows are typically " + ww.label + ".");
-    if (pred && pred.sourceLabel) {
-      whyContent.push(pred.sourceLabel.includes("pattern") 
-        ? "Based on " + name + "'s recent data, nap " + (napsDone + 1) + " typically falls around this time."
-        : "This is based on age-appropriate guidance for " + fmtAge(age) + ".");
-    }
-    whyContent.push("Look for sleepy cues: yawning, eye rubbing, staring. These usually appear 5–10 minutes before the ideal nap time.");
-    whyContent.push("Source: NHS/WHO sleep guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
-
-    // ── Night mode (9pm–5am) ──
-    const isNightMode = h >= 21 || h < 5;
-
-    // ── Morning wake prompt mode ──
-    if (!hasWake && h >= 5 && h <= 10) {
-      return React.createElement("button", {
-        onClick: () => { haptic(); handleSmartWake(); },
-        className: "glass-card prio-glow",
-        style: { width: "100%", padding: "20px 18px", marginBottom: 12, cursor: _cP, textAlign: "left" }
-      },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
-          React.createElement("div", { style: { width: 10, height: 10, borderRadius: "50%", background: statusColor, boxShadow: "0 0 8px " + statusColor + "60" } }),
-          React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "var(--text-deep)", fontFamily: "'Playfair Display',serif" } }, "Good morning! ☀️")
-        ),
-        React.createElement("div", { style: { fontSize: 13, color: "var(--text-mid)", marginBottom: 6 } }, "Tap to start " + name + "'s day"),
-        React.createElement("div", { style: { fontSize: 12, color: "var(--text-lt)", fontStyle: "italic" } }, reassurance)
-      );
-    }
-
-    // ── Night mode card ──
-    if (isNightMode && hasBed) {
-      const bedEntry = today.find(e => e.type === "sleep" && !e.night);
-      return React.createElement("div", {
-        className: "glass-card",
-        style: { padding: "20px 18px", marginBottom: 12 }
-      },
-        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
-          React.createElement("div", { style: { width: 10, height: 10, borderRadius: "50%", background: "#7B68EE", boxShadow: "0 0 8px rgba(123,104,238,0.4)", animation: "candlePulse 4s ease-in-out infinite" } }),
-          React.createElement("span", { style: { fontSize: 18, fontWeight: 700, color: "var(--text-deep)", fontFamily: "'Playfair Display',serif" } }, "Sleeping peacefully 🌙")
-        ),
-        React.createElement("div", { style: { fontSize: 14, color: "var(--text-mid)", marginBottom: 10 } }, timingLine),
-        React.createElement("button", {
-          onClick: () => { haptic(); setShowNightWake(true); setNwForm({ time: nowTime(), ml: "", selfSettled: false, assisted: false, assistedType: "milk", assistedNote: "", assistedDuration: "", settleDuration: "", note: "" }); },
-          style: { width: "100%", padding: "12px", borderRadius: 12, border: "1.5px solid rgba(123,104,238,0.25)", background: "rgba(123,104,238,0.06)", color: "var(--text-deep)", fontSize: 14, fontWeight: 600, cursor: _cP }
-        }, "Log night wake"),
-        React.createElement("div", { style: { fontSize: 12, color: "var(--text-lt)", fontStyle: "italic", marginTop: 10, textAlign: "center" } }, "You're doing wonderfully. Try to rest.")
-      );
-    }
-
-    // ── Standard Hero Card ──
-    return React.createElement("div", {
-      className: "glass-card prio-glow",
-      style: { padding: "18px 16px", marginBottom: 12 }
-    },
-      // Layer 1: Status
-      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 6 } },
-        React.createElement("div", { style: { width: 10, height: 10, borderRadius: "50%", background: statusColor, boxShadow: "0 0 8px " + statusColor + "60", animation: "candlePulse 4s ease-in-out infinite" } }),
-        React.createElement("span", { style: { fontSize: 16, fontWeight: 700, color: "var(--text-deep)", fontFamily: "'Playfair Display',serif" } }, statusLabel)
-      ),
-      // Layer 2: Timing
-      React.createElement("div", { style: { fontSize: 13, color: "var(--text-mid)", marginBottom: 8, paddingLeft: 20 } }, timingLine),
-      // Layer 3: Reassurance
-      React.createElement("div", { style: { fontSize: 12, color: "var(--text-lt)", fontStyle: "italic", paddingLeft: 20, marginBottom: heroWhyOpen ? 12 : 0 } }, reassurance),
-      // Layer 4: Why? toggle
-      React.createElement("div", { style: { paddingLeft: 20, marginTop: 8 } },
-        React.createElement("button", {
-          onClick: () => { haptic(); setHeroWhyOpen(!heroWhyOpen); },
-          style: { background: "none", border: "none", padding: 0, fontSize: 12, fontWeight: 600, color: C.ter, cursor: _cP, display: "flex", alignItems: "center", gap: 4 }
-        }, heroWhyOpen ? "Hide" : "Why?", React.createElement("span", { style: { fontSize: 9, transform: heroWhyOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" } }, "▼")),
-        heroWhyOpen ? React.createElement("div", { style: { marginTop: 8, padding: "12px", borderRadius: 12, background: "var(--card-bg-alt)", border: "1px solid var(--card-border)" } },
-          whyContent.map((line, i) => React.createElement("div", { key: i, style: { fontSize: 12, color: i === whyContent.length - 1 ? "var(--text-lt)" : "var(--text-mid)", marginBottom: i < whyContent.length - 1 ? 8 : 0, lineHeight: 1.5 } }, line)),
-          React.createElement("div", { style: { fontSize: 11, color: "var(--text-lt)", marginTop: 10, fontStyle: "italic", borderTop: "1px solid var(--card-border)", paddingTop: 8 } }, "OBubba provides general guidance based on your baby's patterns and published health guidelines. It is not medical advice.")
-        ) : null
-      )
-    );
-  }
-
   function getAgeStage(){
     if(!age) return null;
     const w=age.totalWeeks;
@@ -7841,10 +7611,15 @@ function App(){
     const napCount = profile.expectedNaps;
     const mtp = m => {const h=Math.floor(((m%1440)+1440)%1440/60);const mm=((m%60)+60)%60;return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;};
 
+    // Get personal averages
     const dk = Object.keys(days).sort().slice(-7);
-    let avgNapDur = 50, avgWakeMins = 7*60, avgBedMins = 19*60;
+    let avgNapDur = 50;
+    let avgWakeMins = 7*60;
+    let avgBedMins = 19*60;
     if (dk.length >= 3) {
-      const napDurs = [], wakes = [], beds = [];
+      const napDurs = [];
+      const wakes = [];
+      const beds = [];
       dk.forEach(d => {
         const entries = days[d]||[];
         entries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n=>{const d2=minDiff(n.start,n.end);if(d2>=10&&d2<=180)napDurs.push(d2);});
@@ -7858,120 +7633,313 @@ function App(){
       if(beds.length) avgBedMins = Math.round(beds.reduce((a,b)=>a+b,0)/beds.length);
     }
     avgNapDur = Math.max(20, Math.min(90, avgNapDur));
-    const eventEnd = eventTimeMins + (eventDurMins || 60);
-    const wwMin = ww.min;
-    const wwMax = ww.max;
+
+    const clampedDur = Math.min(eventDurMins || 60, ww.max);
+    const eventEndMins = eventTimeMins + clampedDur;
+
+    // Helper: build a full day schedule from a wake time
+    function buildDay(wakeMins) {
+      const sched = [{type:"wake", mins:wakeMins, label:"Wake up"}];
+      let cursor = wakeMins;
+      for (let i = 0; i < napCount; i++) {
+        const wwLen = clampWakeWindow(progressiveWW(w, i, napCount), w);
+        const napStart = cursor + wwLen;
+        if (napStart > 17*60+30) break;
+        const napEnd = napStart + avgNapDur;
+        sched.push({type:"nap_start", mins:napStart, label:`Nap ${i+1} start`});
+        sched.push({type:"nap_end", mins:napEnd, label:`Nap ${i+1} end`});
+        cursor = napEnd;
+      }
+      const bedWW = clampWakeWindow(progressiveWW(w, napCount, napCount), w);
+      sched.push({type:"bed", mins:clampBedtime(cursor + bedWW), label:"Bedtime"});
+      return sched;
+    }
+
+    // Helper: check if event fits in any wake window of schedule
+    function scoreSchedule(sched, wakeMins) {
+      let eventInNap = false;
+      const wakeWindows = [];
+      // Build wake windows: continuous awake periods from wake/nap_end to nap_start/bed
+      // Events are AWAKE time, not boundaries
+      for (let i = 0; i < sched.length; i++) {
+        const s = sched[i];
+        if (s.type === "wake" || s.type === "nap_end") {
+          // Find next sleep point (nap_start or bed), skipping events
+          const next = sched.find((n,j) => j > i && (n.type === "nap_start" || n.type === "bed"));
+          if (next) {
+            const gap = next.mins - s.mins;
+            wakeWindows.push({start: s.mins, end: next.mins, gap});
+          }
+        }
+        if (s.type === "nap_start") {
+          const end = sched.find((n,j) => j > i && n.type === "nap_end");
+          if (end && eventTimeMins < end.mins && eventEndMins > s.mins) eventInNap = true;
+        }
+      }
+      const fitsInWindow = wakeWindows.some(ww2 => eventTimeMins >= ww2.start && eventEndMins <= ww2.end);
+      // Wake window violations: any gap exceeding age max
+      const wwViolations = wakeWindows.filter(ww2 => ww2.gap > ww.max + 10).length;
+      const wwTooShort = wakeWindows.filter(ww2 => ww2.gap < ww.min - 10).length;
+      const wakeShift = Math.abs(wakeMins - avgWakeMins);
+      const bedItem = sched.find(s => s.type === "bed");
+      const bedShift = bedItem ? Math.abs(bedItem.mins - avgBedMins) : 0;
+      // Worst WW violation size (how many minutes over max)
+      const worstOver = Math.max(0, ...wakeWindows.map(ww2 => ww2.gap - ww.max));
+
+      return {
+        penalty: (eventInNap ? 5000 : 0) + (!fitsInWindow ? 3000 : 0) + 
+                 wwViolations * 1000 + worstOver * 20 + wwTooShort * 200 +
+                 wakeShift * 10 + bedShift * 3 +
+                 (bedItem && bedItem.mins > 20*60+30 ? 400 : 0) +
+                 (bedItem && bedItem.mins < 17*60+30 ? 400 : 0),
+        eventInNap, fitsInWindow, wwViolations, wakeShift
+      };
+    }
+
+    const candidates = [];
+
+    // Strategy 1: Normal schedule — check if event already fits
+    const normalSched = buildDay(avgWakeMins);
+    const normalScore = scoreSchedule(normalSched, avgWakeMins);
+    candidates.push({sched: normalSched, ...normalScore, wakeShift: 0, source: "normal"});
+
+    // Strategy 2: Tiny wake shifts (±5 to ±30 min only)
+    for (let shift = -30; shift <= 30; shift += 5) {
+      if (shift === 0) continue;
+      const wake = clampWake(avgWakeMins + shift);
+      const sched = buildDay(wake);
+      const score = scoreSchedule(sched, wake);
+      candidates.push({sched, ...score, wakeShift: shift, source: "shift"});
+    }
+
+    // Strategy 3: Nap-before-event — put a nap ending before the event
+    // Gap between nap end and event start must be small enough that total awake (gap + event) ≤ ww.max
+    const minGap = 15; // minimum rest before event
+    const maxGap = Math.min(ww.max - clampedDur, ww.min + 20); // ensure gap + event ≤ max WW
+    for (let gap = Math.max(minGap, maxGap - 30); gap <= Math.max(minGap + 5, maxGap); gap += 5) {
+      const napEndBefore = eventTimeMins - gap;
+      if (napEndBefore < avgWakeMins + ww.min) continue; // can't fit any nap
+      const napStartBefore = napEndBefore - avgNapDur;
+
+      // Build backwards to morning
+      const preSched = [];
+      let cursor = napStartBefore;
+      const preNaps = [];
+      let idx = 0;
+      let tempC = cursor;
+      while (idx < napCount - 1) {
+        const prevWW = clampWakeWindow(progressiveWW(w, idx, napCount), w);
+        const pEnd = tempC - prevWW;
+        const pStart = pEnd - avgNapDur;
+        if (pStart < 5*60) break;
+        preNaps.unshift({start: pStart, end: pEnd});
+        tempC = pStart;
+        idx++;
+      }
+      const firstNapStart = preNaps.length ? preNaps[0].start : napStartBefore;
+      const wwFirst = clampWakeWindow(progressiveWW(w, 0, napCount), w);
+      const wakeTime = clampWake(Math.max(firstNapStart - wwFirst, avgWakeMins - 30));
+
+      const sched = [{type:"wake", mins:wakeTime, label:"Wake up"}];
+      preNaps.forEach((n,i) => {
+        sched.push({type:"nap_start", mins:n.start, label:`Nap ${i+1} start`});
+        sched.push({type:"nap_end", mins:n.end, label:`Nap ${i+1} end`});
+      });
+      const thisN = preNaps.length + 1;
+      sched.push({type:"nap_start", mins:napStartBefore, label:`Nap ${thisN} start`});
+      sched.push({type:"nap_end", mins:napEndBefore, label:`Nap ${thisN} end`});
+      sched.push({type:"event", mins:eventTimeMins, label:eventLabel||"Event", endMins:eventEndMins});
+
+      // After event: remaining naps — CRITICAL: awake time counts from last nap end, not event end
+      const lastNapEndBeforeEvent = napEndBefore; // baby has been awake since THIS time
+      let afterC = eventEndMins;
+      for (let i = 0; i < napCount - thisN; i++) {
+        const targetWW = clampWakeWindow(progressiveWW(w, thisN + i, napCount), w);
+        // Total awake = from last nap end to next nap start
+        const awakeAlready = afterC - lastNapEndBeforeEvent;
+        let nStart;
+        if (i === 0) {
+          // First nap after event: must respect WW from napEndBefore
+          nStart = lastNapEndBeforeEvent + targetWW;
+          if (nStart < eventEndMins + 5) nStart = eventEndMins + 5; // can't nap during event, min 5min gap
+          // If already past max WW, nap ASAP after event
+          if (awakeAlready >= targetWW) nStart = eventEndMins + 5;
+        } else {
+          // Subsequent naps: normal WW from previous nap end
+          const prevNapEnd = sched.filter(s=>s.type==="nap_end").slice(-1)[0]?.mins || afterC;
+          nStart = prevNapEnd + targetWW;
+        }
+        if (nStart > 17*60+30) break;
+        sched.push({type:"nap_start", mins:nStart, label:`Nap ${thisN+i+1} start`});
+        sched.push({type:"nap_end", mins:nStart + avgNapDur, label:`Nap ${thisN+i+1} end`});
+        afterC = nStart + avgNapDur;
+      }
+      const lastCursor = sched.filter(s=>s.type==="nap_end").slice(-1)[0]?.mins || afterC;
+      const bedWW2 = clampWakeWindow(progressiveWW(w, napCount, napCount), w);
+      sched.push({type:"bed", mins:clampBedtime(lastCursor + bedWW2), label:"Bedtime"});
+
+      const score = scoreSchedule(sched, wakeTime);
+      candidates.push({sched, ...score, wakeShift: wakeTime - avgWakeMins, source: "nap-before"});
+    }
+
+    // Pick best
+    candidates.sort((a,b) => a.penalty - b.penalty);
+    const best = candidates[0];
+    if (!best) return null;
+
+    // Insert event marker into winning schedule if not already there
+    if (!best.sched.find(s => s.type === "event")) {
+      // Find the wake window the event fits in and add it
+      best.sched.push({type:"event", mins:eventTimeMins, label:eventLabel||"Event", endMins:eventEndMins});
+      best.sched.sort((a,b) => a.mins - b.mins);
+    }
+
+    // Format schedule
+    const formatted = best.sched.map(s => ({
+      ...s,
+      time: s.type === "event" && s.endMins ? fmt12(mtp(s.mins)) + " – " + fmt12(mtp(s.endMins)) : fmt12(mtp(s.mins)),
+      isEvent: s.type === "event"
+    }));
+
+    // Calculate adjustment from normal
+    const adjustment = best.wakeShift;
+    const adjustText = adjustment === 0 ? "No adjustment needed" :
+      adjustment > 0 ? `Wake ${adjustment}min later than usual` :
+      `Wake ${Math.abs(adjustment)}min earlier than usual`;
+
+    // ═══ SAFETY VALIDATION — enforce all guidelines ═══
+    const napStarts = formatted.filter(s=>s.type==="nap_start");
+    const napEnds = formatted.filter(s=>s.type==="nap_end");
+    const wakeItem = formatted.find(s=>s.type==="wake");
+    const bedItem = formatted.find(s=>s.type==="bed");
     const warnings = [];
 
-    // ─── CORE LOGIC ───
-    // Event is AWAKE time within a wake window.
-    // Total awake from last nap end → event → next nap start must be ≤ wwMax.
-    // Place nap ending shortly before event, then nap starting right after.
-
-    // Gap before event: ensure gap + eventDur fits within wwMax
-    const gapBeforeEvent = Math.max(10, Math.min(wwMax - eventDurMins - 10, 30));
-    const napEndBeforeEvent = eventTimeMins - gapBeforeEvent;
-
-    // Build naps before event working backwards
-    const preNap = {start: napEndBeforeEvent - avgNapDur, end: napEndBeforeEvent};
-    const earlierNaps = [];
-    let preCursor = preNap.start;
-    for (let i = 0; i < napCount - 1; i++) {
-      const wwBack = clampWakeWindow(progressiveWW(w, i, napCount), w);
-      const prevEnd = preCursor - wwBack;
-      const prevStart = prevEnd - avgNapDur;
-      if (prevStart < 5*60) break;
-      earlierNaps.unshift({start: prevStart, end: prevEnd});
-      preCursor = prevStart;
+    // Check nap count within expected range
+    if (napStarts.length > profile.expectedNaps + 1) {
+      warnings.push("More naps than expected for age — some may be bridge naps");
+    }
+    if (napStarts.length < Math.max(1, profile.expectedNaps - 1)) {
+      warnings.push("Fewer naps than ideal — consider if day allows enough sleep");
     }
 
-    // Wake time
-    const firstNapStart = earlierNaps.length ? earlierNaps[0].start : preNap.start;
-    const ww0 = clampWakeWindow(progressiveWW(w, 0, napCount), w);
-    let wakeTime = clampWake(Math.max(firstNapStart - ww0, avgWakeMins - 30));
-
-    // Build schedule forward from wake
-    const sched = [{type:"wake", mins:wakeTime, label:"Wake up"}];
-    let cursor = wakeTime;
-    let napNum = 0;
-    const allPreNaps = [...earlierNaps, preNap];
-
-    for (let i = 0; i < allPreNaps.length; i++) {
-      napNum++;
-      const wwLen = clampWakeWindow(progressiveWW(w, i, napCount), w);
-      const napStart = cursor + wwLen;
-      const napEnd = napStart + avgNapDur;
-      sched.push({type:"nap_start", mins:napStart, label:`Nap ${napNum} start`});
-      sched.push({type:"nap_end", mins:napEnd, label:`Nap ${napNum} end`});
-      cursor = napEnd;
-    }
-
-    const lastNapEnd = cursor;
-    sched.push({type:"event", mins:eventTimeMins, label:eventLabel||"Event", endMins:eventEnd});
-
-    // Nap right after event: total awake from lastNapEnd must stay ≤ wwMax
-    const remainingNaps = napCount - napNum;
-    if (remainingNaps > 0) {
-      const maxNapStart = lastNapEnd + wwMax;
-      let nextNapStart = Math.min(maxNapStart, eventEnd + 15);
-      if (nextNapStart < eventEnd + 5) nextNapStart = eventEnd + 5;
-      napNum++;
-      const thisDur = remainingNaps === 1 ? Math.min(avgNapDur, 30) : avgNapDur;
-      sched.push({type:"nap_start", mins:nextNapStart, label:`Nap ${napNum} start`});
-      sched.push({type:"nap_end", mins:nextNapStart + thisDur, label:`Nap ${napNum} end`});
-      cursor = nextNapStart + thisDur;
-
-      for (let i = 1; i < remainingNaps; i++) {
-        napNum++;
-        const wwLen = clampWakeWindow(progressiveWW(w, napNum - 1, napCount), w);
-        const ns = cursor + wwLen;
-        if (ns > 17*60+30) break;
-        sched.push({type:"nap_start", mins:ns, label:`Nap ${napNum} start`});
-        sched.push({type:"nap_end", mins:ns + avgNapDur, label:`Nap ${napNum} end`});
-        cursor = ns + avgNapDur;
-      }
-    } else {
-      cursor = eventEnd;
-    }
-
-    const bedWW = clampWakeWindow(progressiveWW(w, napCount, napCount), w);
-    sched.push({type:"bed", mins:clampBedtime(cursor + bedWW), label:"Bedtime"});
-    sched.sort((a,b) => a.mins - b.mins);
-
-    // Validate wake windows
-    for (let i = 0; i < sched.length; i++) {
-      const s = sched[i];
-      if (s.type === "wake" || s.type === "nap_end") {
-        const next = sched.find((n,j) => j > i && (n.type === "nap_start" || n.type === "bed"));
-        if (next) {
-          const gap = next.mins - s.mins;
-          if (gap > wwMax + 20) warnings.push(`Wake window of ${hm(gap)} is longer than ideal (${hm(wwMax)} max)`);
+    // Validate every wake window between events
+    const allEvents = best.sched.filter(s=>s.type==="wake"||s.type==="nap_end"||s.type==="nap_start"||s.type==="bed");
+    for (let i = 0; i < allEvents.length - 1; i++) {
+      const cur = allEvents[i];
+      const nxt = allEvents[i+1];
+      if ((cur.type === "wake" || cur.type === "nap_end") && (nxt.type === "nap_start" || nxt.type === "bed")) {
+        const gap = nxt.mins - cur.mins;
+        if (gap < ww.min - 10) {
+          // Wake window too short — fix it
+          nxt.mins = cur.mins + ww.min;
+          nxt.time = fmt12(mtp(nxt.mins));
+          warnings.push("Adjusted a wake window that was too short");
+        }
+        if (gap > ww.max + 20) {
+          warnings.push("One wake window is longer than ideal — bridge nap may help");
         }
       }
     }
 
-    const formatted = sched.map(s => ({
-      ...s,
-      time: s.type === "event" && s.endMins ? fmt12(mtp(s.mins)) + " \u2013 " + fmt12(mtp(s.endMins)) : fmt12(mtp(s.mins)),
-      isEvent: s.type === "event"
-    }));
+    // Validate nap durations
+    for (let i = 0; i < napStarts.length; i++) {
+      if (napEnds[i]) {
+        const dur = napEnds[i].mins - napStarts[i].mins;
+        if (dur < 15) {
+          napEnds[i].mins = napStarts[i].mins + 20;
+          napEnds[i].time = fmt12(mtp(napEnds[i].mins));
+        }
+        const maxDur = w < 13 ? 120 : w < 26 ? 90 : 120;
+        if (dur > maxDur) {
+          napEnds[i].mins = napStarts[i].mins + maxDur;
+          napEnds[i].time = fmt12(mtp(napEnds[i].mins));
+        }
+      }
+    }
 
-    const adjustment = Math.round(wakeTime - avgWakeMins);
-    const adjustText = Math.abs(adjustment) <= 5 ? "No schedule change needed" :
-      adjustment > 0 ? `Wake ${adjustment}min later than usual` :
-      `Wake ${Math.abs(adjustment)}min earlier than usual`;
+    // Validate wake time
+    if (wakeItem && (wakeItem.mins < 5*60 || wakeItem.mins > 9*60+30)) {
+      wakeItem.mins = clampWake(wakeItem.mins);
+      wakeItem.time = fmt12(mtp(wakeItem.mins));
+      warnings.push("Wake time adjusted to safe range (5am-9:30am)");
+    }
+
+    // Validate bedtime
+    if (bedItem && (bedItem.mins < 18*60 || bedItem.mins > 20*60+30)) {
+      bedItem.mins = clampBedtime(bedItem.mins);
+      bedItem.time = fmt12(mtp(bedItem.mins));
+      warnings.push("Bedtime adjusted to safe range (6pm-8:30pm)");
+    }
+
+    // Validate no nap starts after 5:30pm
+    napStarts.forEach(ns => {
+      if (ns.mins > 17*60+30) {
+        warnings.push("A nap was removed — too late in the day");
+      }
+    });
+    const safeFormatted = formatted.filter(s => !(s.type === "nap_start" && s.mins > 17*60+30) && !(s.type === "nap_end" && s.mins > 18*60+30));
+
+    // Run through sanitizeSchedule for final wake window + nap duration + bedtime validation
+    const schedForSanitize = safeFormatted.map(s => {
+      const mapped = {...s};
+      if (s.type === "nap_start") mapped.type = "nap";
+      if (s.type === "nap_end") mapped.type = "nap";
+      if (s.type === "wake") mapped.type = "wake";
+      if (s.type === "bed") mapped.type = "bed";
+      return mapped;
+    });
+    // Validate wake windows between consecutive awake/asleep transitions
+    for (let i = 0; i < safeFormatted.length - 1; i++) {
+      const cur = safeFormatted[i];
+      const nxt = safeFormatted[i+1];
+      if ((cur.type === "wake" || cur.type === "nap_end" || cur.type === "event") && 
+          (nxt.type === "nap_start" || nxt.type === "bed")) {
+        const curEnd = cur.endMins || cur.mins;
+        const gap = nxt.mins - curEnd;
+        if (gap < ww.min - 10) {
+          nxt.mins = curEnd + ww.min;
+          nxt.time = nxt.type === "bed" ? fmt12(mtp(clampBedtime(nxt.mins))) : fmt12(mtp(nxt.mins));
+          warnings.push("A wake window was too short — adjusted to minimum");
+        }
+        if (gap > ww.max + 30) {
+          warnings.push("One wake window is longer than ideal — a bridge nap may help");
+        }
+      }
+    }
+    // Validate nap durations
+    for (let i = 0; i < safeFormatted.length - 1; i++) {
+      if (safeFormatted[i].type === "nap_start" && safeFormatted[i+1].type === "nap_end") {
+        const dur = safeFormatted[i+1].mins - safeFormatted[i].mins;
+        const maxDur = w < 13 ? 120 : w < 26 ? 90 : 120;
+        if (dur < 15) {
+          safeFormatted[i+1].mins = safeFormatted[i].mins + 20;
+          safeFormatted[i+1].time = fmt12(mtp(safeFormatted[i+1].mins));
+          warnings.push("A nap was too short — adjusted to 20 minutes minimum");
+        }
+        if (dur > maxDur) {
+          safeFormatted[i+1].mins = safeFormatted[i].mins + maxDur;
+          safeFormatted[i+1].time = fmt12(mtp(safeFormatted[i+1].mins));
+          warnings.push("A nap exceeded age maximum — capped to " + maxDur + " minutes");
+        }
+      }
+    }
+    // Final bedtime validation
+    const bedItem2 = safeFormatted.find(s => s.type === "bed");
+    if (bedItem2) {
+      bedItem2.mins = clampBedtime(bedItem2.mins);
+      bedItem2.time = fmt12(mtp(bedItem2.mins));
+    }
 
     return {
-      schedule: formatted,
+      schedule: safeFormatted,
       adjustment: adjustText,
       adjustMins: adjustment,
       eventLabel: eventLabel || "Event",
       eventTime: fmt12(mtp(eventTimeMins)),
-      napCount: formatted.filter(s=>s.type==="nap_start").length,
+      napCount: safeFormatted.filter(s=>s.type==="nap_start").length,
       warnings
     };
   }
-
 
   // Schedule maker: baby SLEEPS during the event (car ride, pram walk, etc.)
   function buildScheduleWithSleepEvent(eventTimeMins, eventLabel, eventDurMins) {
@@ -8297,7 +8265,7 @@ function App(){
   const card={background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"var(--card-shadow)",transition:"transform 0.2s cubic-bezier(.23,1,.32,1),box-shadow 0.25s ease"};
 
   const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
-  const tabLabels={day:"Today",insights:"Insights",develop:"Development",settings:"Account"};
+  const tabLabels={day:"Day",insights:"Insights",develop:"Development",settings:"Account"};
   if (authScreen) {
     const isLogin = authMode === "login";
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin && agreedToTerms : true);
@@ -9252,10 +9220,7 @@ function App(){
             </div>
           ):( 
             <div>
-              {/* ═══ HERO CARD — Bubba Rhythm ═══ */}
-              {renderHeroCard()}
-
-              {/* Smart time-of-day prompt — shows only ONE at a time */}
+              {/* Smart time-of-day prompt */}
               {selDay===todayStr()&&(()=>{
                 const h=new Date().getHours();
                 const today=days[selDay]||[];
@@ -9335,7 +9300,6 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>openLogPanel("full")},
                 ].map(({emoji,label,action})=>(
                   <button key={label} onPointerDown={e=>{e.preventDefault();action();}}
                     style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flex:1,padding:"6px 2px",borderRadius:12,border:"none",background:"transparent",cursor:_cP,transition:"transform 0.1s ease, background 0.1s ease",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}
@@ -9357,7 +9321,7 @@ function App(){
 
               {/* Pending bottle snaps banner */}
 
-              {/* ═══ Planner — Today's Plan section ═══ */}
+              {/* ═══ Planner ═══ */}
               {/* Dashed add buttons — only show for empty sections */}
               {(appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length===0||reminders.filter(r=>!r.done).length===0||pinnedNotes.length===0)&&(
                 <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
@@ -9980,32 +9944,14 @@ function App(){
                     cursor = timeVal(wake);
                   }
 
-                  // Predict remaining naps — use predictNextNap() for next nap to match prediction card
+                  // Predict remaining naps
                   let napIdx = napsDone;
                   let projectedNapMins = totalCompletedNapMins;
                   const maxBed = 20*60+30; // 8:30pm hard cap
-                  let isFirstPredicted = true;
 
                   while (napIdx < expectedTotal) {
-                    let napStart, napEnd;
-                    if (isFirstPredicted && !napOn) {
-                      // Use predictNextNap() for consistency with prediction card
-                      const pred2 = predictNextNap();
-                      if (pred2 && pred2.napStart_min) {
-                        const [ph,pm] = pred2.napStart_min.split(":").map(Number);
-                        napStart = ph*60 + pm;
-                        napEnd = napStart + avgNapDur;
-                      } else {
-                        const napWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
-                        napStart = cursor + napWW;
-                        napEnd = napStart + avgNapDur;
-                      }
-                      isFirstPredicted = false;
-                    } else {
-                      const napWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
-                      napStart = cursor + napWW;
-                      napEnd = napStart + avgNapDur;
-                    }
+                    const napWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
+                    const napStart = cursor + napWW;
                     if (napStart + ww.min > maxBed) break; // no room
                     const napEnd = napStart + avgNapDur;
                     items.push({
@@ -10416,28 +10362,6 @@ function App(){
                 );
               })()}
 
-
-              {/* ═══ ACTIVITY OF THE DAY — from Let's Play ═══ */}
-              {age && (()=>{
-                const w = age.totalWeeks;
-                const acts = typeof DEV_ACTIVITIES !== "undefined" ? DEV_ACTIVITIES : [];
-                const suitable = acts.filter(a => w >= a.weeks[0] && w <= a.weeks[1]);
-                if (!suitable.length) return null;
-                // Pick one based on day of year for consistency
-                const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
-                const act = suitable[dayOfYear % suitable.length];
-                return React.createElement("div", {
-                  className: "glass-card",
-                  style: { padding: "14px 16px", marginBottom: 10, cursor: _cP },
-                  onClick: () => { haptic(); setTab("develop"); }
-                },
-                  React.createElement("div", { style: { fontSize: 11, fontWeight: 600, color: C.ter, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 } }, "Let's Play ✨"),
-                  React.createElement("div", { style: { fontSize: 14, fontWeight: 700, color: "var(--text-deep)", marginBottom: 4 } }, act.title),
-                  React.createElement("div", { style: { fontSize: 12, color: "var(--text-mid)", lineHeight: 1.5 } }, act.how.length > 100 ? act.how.slice(0, 100) + "…" : act.how),
-                  React.createElement("div", { style: { fontSize: 11, color: C.ter, marginTop: 8, fontWeight: 600 } }, "Tap for full details →")
-                );
-              })()}
-
               {/* ═══ PARTNER INVITE PROMPT — viral growth mechanic ═══ */}
               {selDay===todayStr() && !childSyncCodes[resolvedActiveId] && Object.keys(days).length >= 3 && (
                 <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:`1.5px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:12,boxShadow:"var(--card-shadow)"}}>
@@ -10686,20 +10610,7 @@ function App(){
                 ))}
               </div>
 
-              {/* ── Weekly Summary — emotional headline ── */}
-              {(()=>{
-                const dk=Object.keys(days).sort().slice(-7);
-                const totalNaps=dk.reduce((s,d)=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).length+s,0);
-                const nightWakes=dk.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0);
-                const headline=nightWakes<=7?"This week looks good 👍":nightWakes<=14?"A mixed week — some good stretches":"A bit of disruption this week — and that's okay";
-                return React.createElement("div",{className:"glass-card",style:{padding:"16px",marginBottom:12}},
-                  React.createElement("div",{style:{fontSize:16,fontWeight:700,color:"var(--text-deep)",fontFamily:"'Playfair Display',serif",marginBottom:8}},headline),
-                  React.createElement("div",{style:{fontSize:12,color:"var(--text-mid)",lineHeight:1.6}},
-                    totalNaps+" naps · "+nightWakes+" night wakes this week"
-                  )
-                );
-              })()}
-              {/* ── Weekly Wins (original) ── */}
+              {/* ── Weekly Wins ── */}
               {(insightFilter==="all") && <div>
               {(()=>{
                 const dk = Object.keys(days).sort();
@@ -10749,7 +10660,7 @@ function App(){
               })()}
               </div>}
 
-              {/* ── SLEEP ANALYSIS — wrapped in CollapsibleSection ── */}
+              {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
               {(insightFilter==="all"||insightFilter==="sleep") && <div>
               {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
@@ -11212,7 +11123,7 @@ function App(){
 
               </div>}
 
-              {/* ── FEEDING & NUTRITION — CollapsibleSection ── */}
+              {/* ── FEEDING & NUTRITION (collapsible) ── */}
               {(insightFilter==="all"||insightFilter==="feeding") && <div>
               {collHead("feeding","🍼","Feeding & Nutrition")}
               {insightSection.feeding && (
@@ -11835,7 +11746,7 @@ function App(){
                 ))}
               </div>
 
-              {/* ── This week with Baby ── */}
+              {/* ── This Week's Focus ── */}
               {(devFilter==="all"||devFilter==="activities") && <div>
               {ageWeeks && (()=>{
                 const advice = getDevAdvice(ageWeeks);
@@ -11861,7 +11772,7 @@ function App(){
               })()}
 
               </div>}
-              {/* ── Current Phase — What baby is working on ── */}
+              {/* ── COMING UP — Development Phase ── */}
               {(devFilter==="all"||devFilter==="activities") && <div>
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
@@ -12227,7 +12138,6 @@ function App(){
       </div>
       
             {tab==="settings"&&(
-              /* Account tab — warm utility drawer */
         <div style={{padding:"0 16px 100px",maxWidth:520,margin:"0 auto"}}>
 
           {/* ── SETTINGS ── */}
