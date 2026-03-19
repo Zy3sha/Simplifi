@@ -2721,26 +2721,31 @@ function App(){
           }
           return next;
         });
-        // Forgotten timer guard — uses wall clock (not stale napSec closure)
-        if(napStartT) {
-          const [sh,sm] = napStartT.split(":").map(Number);
-          const startD = new Date(); startD.setHours(sh,sm,0,0);
-          const elapsedSec = Math.floor((new Date() - startD) / 1000);
-          if(elapsedSec > 0 && elapsedSec < 24*3600) {
-            const _guardProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
-            const _guardMax = _guardProfile ? Math.round(_guardProfile.idealNapDurMax * 1.5) : 150;
-            if(elapsedSec === _guardMax * 60) {
-              showToast("Still sleeping? " + (babyName||"Baby") + " has been napping " + hm(Math.floor(elapsedSec/60)) + " — tap nap button to end if awake.", 10000, 2);
-            }
-            if(elapsedSec === 10800) {
-              showToast("Nap timer still running (" + hm(180) + "). End the timer if " + (babyName||"Baby") + " is awake.", 15000, 3);
-            }
-          }
-        }
       },1000);
     }
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
+  },[napOn, napPaused]);
+
+  // Forgotten timer guard — separate effect, checks every 60s via wall clock
+  useEffect(()=>{
+    if(!napOn || napPaused) return;
+    const guardInterval = setInterval(()=>{
+      try {
+        const st = napStartT || localStorage.getItem("nap_startT");
+        if(!st) return;
+        const [sh,sm] = st.split(":").map(Number);
+        const startD = new Date(); startD.setHours(sh,sm,0,0);
+        let elapsed = Math.floor((new Date() - startD) / 1000);
+        if(elapsed < 0) elapsed += 24*3600;
+        const gp = age ? getAgeNapProfile(age.totalWeeks) : null;
+        const guardMins = gp ? Math.round(gp.idealNapDurMax * 1.5) : 150;
+        if(elapsed >= guardMins*60 && elapsed < guardMins*60+62) {
+          showToast("Still sleeping? " + (babyName||"Baby") + " has been napping " + hm(Math.floor(elapsed/60)) + " — tap nap to end if awake.", 10000, 2);
+        }
+      } catch {}
+    }, 60000);
+    return ()=>clearInterval(guardInterval);
   },[napOn, napPaused]);
 
   // Snap ALL timers to wall-clock when phone unlocks (catches drift from iOS sleep/lock)
@@ -6393,7 +6398,21 @@ function App(){
     if (!age || !selDay) return null;
     const _n = babyName || "Baby";
     const _today = days[selDay] || [];
-    const _nightWakes = _today.filter(e => e.night).sort((a, b) => { const ta = timeVal(a), tb = timeVal(b); const na = ta >= 18 * 60 ? ta : ta + 24 * 60; const nb = tb >= 18 * 60 ? tb : tb + 24 * 60; return na - nb; });
+    const _bedE = _today.find(e => e.type === "sleep" && !e.night);
+    const _morningWake = _today.find(e => e.type === "wake" && !e.night);
+    const _morningMins = _morningWake ? timeVal(_morningWake) : null;
+    const _bedMins = _bedE ? timeVal(_bedE) : null;
+    
+    // Only count wakes from TONIGHT (after today's bedtime, excluding early AM from last night)
+    const _nightWakes = _today.filter(e => {
+      if (!e.night) return false;
+      const tMins = timeVal(e);
+      // If morning wake exists, exclude wakes before it (those are last night's)
+      if (_morningMins !== null && tMins < _morningMins && tMins < 12 * 60) return false;
+      // If bedtime exists, only include wakes after bedtime
+      if (_bedMins !== null && tMins < _bedMins && tMins >= 12 * 60) return false;
+      return true;
+    }).sort((a, b) => { const ta = timeVal(a), tb = timeVal(b); const na = ta >= 18 * 60 ? ta : ta + 24 * 60; const nb = tb >= 18 * 60 ? tb : tb + 24 * 60; return na - nb; });
     const _wakeNum = _nightWakes.length;
 
     // Average from recent nights
@@ -9811,20 +9830,20 @@ function App(){
             {tutStep >= 0 && (()=>{
         const TUT_STEPS = [
           { icon:"👋", title:"Welcome to OBubba!", body:"Your baby companion — calm, smart, and built around you. Quick tour of where everything lives. Tap anywhere to continue." },
-          { icon:"📱", title:"Today Tab — your home screen", body:"Everything you need right now lives here. Hero Card at the top shows what baby needs. One-tap log row below for feeds, naps, nappies. Notes & Reminders section (tap to expand) holds appointments, pinned notes, and medicine logs." },
-          { icon:"🔍", title:"Hidden features on Today", body:"Long-press any log button for the advanced form (add detail, backdate). Long-press Nap to set an earlier start time. The + button scrolls to more options. Shake your phone to undo any accidental log within 15 seconds." },
-          { icon:"🤱", title:"Breastfeeding support", body:"After logging a breastfeed, you'll see a contextual support card — cluster feeding reassurance, night feed encouragement, or a gentle flag if intake seems low. 'Which Side Next' helper remembers which breast to start on." },
-          { icon:"⏱", title:"Smart Timers", body:"Nap: tap to start, tap the pill in the header to stop. Tap ✎ to adjust the start time. Breast: tap L/R to switch sides — warns at 40/60 min. Night: calm blue timer tracks sleep since bedtime." },
-          { icon:"🧠", title:"Hero Card — the brain", body:"The coloured dot shows baby's state. The timing line counts wake/sleep time. 'Right now:' tells you what to do next. Tap 'Why?' to see the science behind the suggestion — wake window data, sleepy cue reminders, and sources." },
-          { icon:"😢", title:"Crying? & Sounds — in the header", body:"Both live in the header bar on Today. Crying helper ranks likely reasons using feeds, wake windows, nappy timing, teething, and past data. Sound machine plays white noise, rain, heartbeat. Quick-action buttons log feeds or naps directly." },
-          { icon:"💊", title:"Health Tracking (Today tab)", body:`Medicine & temperature logging in Notes & Reminders section (expand it). Fever alert: 38°C+ under 3 months = call ${_helpLine}. Nappy tracking counts wet nappies (6/day target), poop frequency, and flags concerning colours. Set nappy reminders in Account.` },
-          { icon:"💡", title:"Insights Tab — understanding patterns", body:"Pick a topic: Sleep, Feeding, Growth, or Reports. Each shows trends, analysis, and gentle explanations. Weekly summary at top. Wellbeing check-in asks how YOU are doing — with real support resources if you're struggling. Everything collapses neatly when you switch topics." },
-          { icon:"🧩", title:"Development Tab — activities & milestones", body:"Pick a focus: Activities, Milestones, Teeth, or Weaning. Let's Play shows age-appropriate activities. First Tastes suggests a new food daily (from 6 months) with allergen safety warnings. Milestone tracker shows what baby is working on right now." },
-          { icon:"🥄", title:"Weaning safety built in", body:"When you log food, OBubba auto-detects all 14 UK/FSA allergens and warns you. It also flags foods to avoid (honey, whole nuts, raw shellfish, high-mercury fish). NHS recommends starting with vegetables before fruit. Allergen foods (egg, peanut) are introduced early per latest NHS guidance to reduce allergy risk." },
-          { icon:"👩‍🍼", title:"Sharing & Account tab", body:"Shareable care guide with QR code for caregivers. Partner sync — share your backup code so both parents see the same data. Family & Sharing section for managing connections. Data & Privacy section for exports and backups." },
-          { icon:"📋", title:"Notes understand messy input", body:"Type naturally — 'fed 120ml at 2pm' or 'napped 45 mins from 1' — OBubba parses times, amounts, and durations from freeform text. Pin important notes (allergies, GP details) and they stay visible on Today. Appointments support travel time alerts." },
-          { icon:"💜", title:"You matter too", body:`Weekly wellbeing check-in on the Insights tab. If you're struggling, real support: ${_isUS?"Postpartum Support International (1-800-944-4773), 988 Crisis Lifeline":_isAU?"PANDA (1300 726 306), Beyond Blue (1300 22 4636)":"PANDAS (0808 196 1776), Samaritans (116 123)"}. Rare gentle nudges: 'Have you had water today?'` },
-          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start your day. Predictions get smarter with every log. Tap any ? icon for help on that feature. Long-press log buttons for advanced options. Replay this tour anytime from Account." },
+          { icon:"📱", title:"Today Tab — your home screen", body:"Everything you need right now lives here. Hero Card shows what baby needs and why. Day Story below tells the story of your baby's day in plain English. One-tap log row for feeds, naps, nappies. Notes & Reminders (tap to expand) holds appointments, pinned notes, and medicine logs." },
+          { icon:"🧠", title:"Hero Card — the brain", body:"The coloured dot shows baby's state. The timing line counts wake/sleep time. When predictions use your baby's personal data, you'll see 'OBubba Rhythm' beside the time. 'Right now:' tells you what to do — nap approaching, feed due, bedtime starting, tummy time window, and more. Tap 'Why?' to see the science." },
+          { icon:"📖", title:"Day Story & Victories", body:"Below the Hero Card, the Day Story explains what's happening — night wake count, nap quality vs average, feed pace, and what to expect next. Victory cards celebrate progress you might miss: self-settling improvements, longer stretches, nap gains." },
+          { icon:"🔍", title:"When things are tough", body:"If sleep is disrupted for 2+ nights, a Disruption Card appears automatically. It cross-references developmental leaps, teething, regressions, and illness to explain WHY and tell you when it usually passes. No guessing." },
+          { icon:"⏱", title:"Smart Timers", body:"Nap: tap to start, tap the green pill in the header to stop. Tap ✎ to adjust start time. Long-press Nap for a custom start time. Breast: tap L/R to switch sides — warns at 40/60 min. Night: calm blue timer tracks sleep since bedtime. If you forget to stop a timer, OBubba alerts you." },
+          { icon:"😢", title:"Crying? & Sounds", body:"Both live in the header bar on Today. Crying helper ranks likely reasons using feeds, wake windows, nappy timing, teething, and past data — tap 'What helped?' to teach it. Sound machine plays white noise, rain, heartbeat, and shush sounds. Audio continues when your screen locks." },
+          { icon:"🌙", title:"Night mode", body:"After bedtime, the Hero Card goes into night mode. It shows how long baby has been sleeping, which wake number this is tonight, the likely reason (e.g. last feed was 4h ago), and what's worked recently. One button to log a night wake — under 10 seconds." },
+          { icon:"💡", title:"Insights Tab", body:"Pick a topic: Sleep, Feeding, Growth, or Reports. Sleep Story explains your baby's sleep in plain English — how nights are going, nap patterns, the science behind predictions, and what you can do. Includes Rhythm Confidence score showing how predictable the schedule is becoming. Feed Insights spots cluster feeding, growth spurts, and feed-sleep connections." },
+          { icon:"💊", title:"Health & Growth", body:`Medicine & temperature logging in Notes & Reminders (expand it). Fever alert: 38°C+ under 3 months = call ${_helpLine}. Growth section shows date, measurement, and percentile for each weigh-in. Nappy tracker counts wet nappies (6/day target) and flags concerning colours.` },
+          { icon:"🧩", title:"Development Tab", body:"Activities: age-appropriate play ideas with 'why this matters'. Milestones: what baby is working on now — tap to mark achieved. Teeth: visual tooth chart. Weaning: daily food suggestions, allergen detection for all 14 UK allergens, foods to avoid, and reaction tracking. Appears from around 6 months." },
+          { icon:"🔍", title:"Hidden features", body:"Long-press any log button for the advanced form. The + button scrolls to more options (pump, tummy time, medicine, notes). Shake your phone to undo any accidental log within 15 seconds. Smart text parsing understands 'fed 120ml at 2pm' or 'napped 45 mins from 1'." },
+          { icon:"👩‍🍼", title:"Sharing & Account", body:"Shareable care guide with QR code for caregivers (includes safe sleep, emergency numbers, routine). Partner sync — share your backup code so both parents see the same data. Photo diary for milestone moments." },
+          { icon:"💜", title:"You matter too", body:`Weekly wellbeing check-in on the Insights tab — Great, Okay, Struggling, or Need Support. If you're struggling, real support resources: ${_isUS?"Postpartum Support International (1-800-944-4773), 988 Crisis Lifeline":_isAU?"PANDA (1300 726 306), Beyond Blue (1300 22 4636)":"PANDAS (0808 196 1776), Samaritans (116 123)"}. You'll also see gentle nudges like 'Have you had water today?'` },
+          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start your day. Predictions get smarter with every log — by day 3, OBubba starts learning your baby's unique rhythm. Tap any ? icon for help. Replay this tour anytime from Account." },
         ];
 
         const dismissTutorial = () => {
@@ -10721,7 +10740,7 @@ function App(){
                 </div>
               )}
               {/* 3. Quick actions */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
+              <div data-actions-grid="true" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
                   {id:"nappy", icon:"💩", label:"Nappy"},
@@ -11759,7 +11778,35 @@ function App(){
             ? "\n\n📞 PANDA: 1300 726 306 (Mon–Fri 9am–7:30pm AEST)\n📞 Beyond Blue: 1300 22 4636 (24/7)\n📞 Lifeline: 13 11 14 (24/7)\n📞 Your GP or child health nurse"
             : "\n\n📞 PANDAS Foundation: 0808 196 1776 (free, Mon–Fri 11am–10pm)\n📞 Samaritans: 116 123 (free, 24/7)\n🌐 NHS Talking Therapies: self-refer via nhs.uk\n📞 Health visitor — call your GP surgery to be connected";
 
-          const wellbeingCard = null; // Wellbeing moved to bottom of Insights page
+          const wellbeingCard = wellbeingDue ? (
+            <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(111,168,152,0.08))",border:`1.5px solid rgba(123,104,238,0.2)`,borderRadius:18,padding:"16px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{fontSize:15,fontWeight:700,color:C.deep}}>💜 How are you doing?</div>
+                <button onClick={()=>{setLastWellbeingDate(todayStr());try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};}} style={{fontSize:11,color:C.lt,background:_bN,border:_bN,cursor:_cP}}>Dismiss</button>
+              </div>
+              <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:12}}>Caring for a baby is hard work. It's important to check in with yourself too.</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[["😊","Great"],["🙂","Okay"],["😔","Struggling"],["🆘","Need support"]].map(([emoji,label])=>(
+                  <button key={label} onPointerDown={e=>{
+                    e.preventDefault(); haptic();
+                    setLastWellbeingDate(todayStr());
+                    try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};
+                    const msg = pick(wellbeingMsgs[label]);
+                    if(label==="Great"){
+                      showMascot("celebration", "💜 "+msg, 5000);
+                    } else if(label==="Struggling"||label==="Need support"){
+                      setShowWellbeing({msg, label});
+                    } else {
+                      showToast("💜 "+msg,5000,3);
+                    }
+                  }} style={{flex:1,minWidth:70,padding:"10px 6px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:3,touchAction:"manipulation"}}>
+                    <span style={{fontSize:20}}>{emoji}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:C.mid}}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null;
 
           const collHead = (key, icon, label) => (
             <button onClick={()=>{haptic();toggleInsight(key);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderRadius:16,marginBottom:insightSection[key]?0:12,borderBottomLeftRadius:insightSection[key]?0:16,borderBottomRightRadius:insightSection[key]?0:16,cursor:_cP,boxShadow:"0 2px 8px rgba(201,112,90,0.05)"}}>
@@ -12804,52 +12851,6 @@ function App(){
 
               </div>}
 
-
-              {/* ═══ WELLBEING CHECK-IN (4-tier) ═══ */}
-              {wellbeingDue && !wellbeingResponse && (
-                <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
-                  <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>How are you feeling this week?</div>
-                  <div style={{display:"flex",gap:8}}>
-                    {[
-                      {emoji:"🎉",label:"Great",key:"great"},
-                      {emoji:"😊",label:"Okay",key:"okay"},
-                      {emoji:"😴",label:"Tired",key:"tired"},
-                      {emoji:"😣",label:"Overwhelmed",key:"overwhelmed"}
-                    ].map(opt=>(
-                      <button key={opt.key} onClick={()=>{haptic();setWellbeingResponse(opt.key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key:opt.key,date:todayStr()}));}catch{}}}
-                        style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:"1.5px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP}}>
-                        <span style={{fontSize:22}}>{opt.emoji}</span>
-                        <span style={{fontSize:11,fontWeight:600,color:C.mid}}>{opt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Wellbeing response card */}
-              {wellbeingResponse && (()=>{
-                const _wbName = babyName || "Baby";
-                const responses = {
-                  great: { icon: "🌟", title: "Yes! Love that energy!", body: "You're smashing it and " + _wbName + " is thriving because of you. Days like this are what it's all about — soak it in. 💛" },
-                  okay: { icon: "💛", title: "That's lovely to hear.", body: "You're doing an amazing job — " + _wbName + " is lucky to have you. Enjoy the good moments, you've earned them." },
-                  tired: { icon: "🧡", title: "That's completely understandable.", body: _wbName + "'s age is hard work, and tiredness is real. You're showing up every day and that matters more than you know. Be kind to yourself today." },
-                  overwhelmed: { icon: "💜", title: "Thank you for being honest — that takes strength.", body: "Feeling overwhelmed doesn't mean you're failing. It means you're carrying a lot.\n\nIf you'd like to talk to someone:\n" + (_isUS ? "📞 Postpartum Support International: 1-800-944-4773\n📞 988 Crisis Lifeline: 988\n💬 Or speak to your pediatrician or OB-GYN." : _isAU ? "📞 PANDA: 1300 726 306\n📞 Beyond Blue: 1300 22 4636\n💬 Or speak to your GP or child health nurse." : "🧡 PANDAS: 0808 196 1776\n📞 Samaritans: 116 123\n💬 Or speak to your GP or health visitor — they hear this every day.") }
-                };
-                const r = responses[wellbeingResponse] || responses.okay;
-                return (
-                  <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                      <div style={{display:"flex",gap:8,alignItems:"flex-start",flex:1}}>
-                        <span style={{fontSize:22}}>{r.icon}</span>
-                        <div>
-                          <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>{r.title}</div>
-                          <div style={{fontSize:13,color:C.mid,lineHeight:1.6,whiteSpace:"pre-line"}}>{r.body}</div>
-                        </div>
-                      </div>
-                      <button onClick={()=>setWellbeingResponse(null)} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP}}>✕</button>
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* ═══ SHARE RECAP — moved from Today ═══ */}
               {selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 3 && (
