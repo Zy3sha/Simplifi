@@ -2721,15 +2721,21 @@ function App(){
           }
           return next;
         });
-        // Forgotten timer guard — outside state updater to avoid nested setState
-        const _elapsed = napSec + 1;
-        const _guardProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
-        const _guardMax = _guardProfile ? Math.round(_guardProfile.idealNapDurMax * 1.5) : 150;
-        if(_elapsed === _guardMax * 60) {
-          showToast("Still sleeping? " + (babyName||"Baby") + " has been napping " + hm(Math.floor(_elapsed/60)) + " — that's a long one. Tap nap button to end if awake.", 10000, 2);
-        }
-        if(_elapsed === 10800) {
-          showToast("Nap timer still running (" + hm(180) + "). End the timer if " + (babyName||"Baby") + " is awake.", 15000, 3);
+        // Forgotten timer guard — uses wall clock (not stale napSec closure)
+        if(napStartT) {
+          const [sh,sm] = napStartT.split(":").map(Number);
+          const startD = new Date(); startD.setHours(sh,sm,0,0);
+          const elapsedSec = Math.floor((new Date() - startD) / 1000);
+          if(elapsedSec > 0 && elapsedSec < 24*3600) {
+            const _guardProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
+            const _guardMax = _guardProfile ? Math.round(_guardProfile.idealNapDurMax * 1.5) : 150;
+            if(elapsedSec === _guardMax * 60) {
+              showToast("Still sleeping? " + (babyName||"Baby") + " has been napping " + hm(Math.floor(elapsedSec/60)) + " — tap nap button to end if awake.", 10000, 2);
+            }
+            if(elapsedSec === 10800) {
+              showToast("Nap timer still running (" + hm(180) + "). End the timer if " + (babyName||"Baby") + " is awake.", 15000, 3);
+            }
+          }
         }
       },1000);
     }
@@ -3243,14 +3249,28 @@ function App(){
   const dayE=entries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
   const nightE=(()=>{
     const raw=entries.filter(e=>e.night);
-    // Sort chronologically from bedtime: PM wakes first, then AM (cross-midnight)
     const bedEntry=entries.find(e=>e.type==="sleep"&&!e.night);
-    const bedMins=bedEntry?timeVal(bedEntry):22*60;
-    return raw.sort((a,b)=>{
+    const bedMins=bedEntry?timeVal(bedEntry):null;
+    const morningWake=entries.find(e=>e.type==="wake"&&!e.night);
+    const morningMins=morningWake?timeVal(morningWake):null;
+    
+    // Filter: only show wakes from TONIGHT (after today's bedtime).
+    // Early-morning wakes (before morning wake) belong to LAST night and show on the previous day.
+    const filtered = raw.filter(e=>{
+      const tMins = timeVal(e);
+      // If morning wake exists, exclude wakes that happened before it (those are last night's)
+      if(morningMins !== null && tMins < morningMins && tMins < 12*60) return false;
+      // If bedtime exists, only include wakes after bedtime
+      if(bedMins !== null && tMins < bedMins && tMins >= 12*60) return false;
+      return true;
+    });
+    
+    // Sort chronologically from bedtime: PM wakes first, then AM (cross-midnight)
+    const sortBed = bedMins || 22*60;
+    return filtered.sort((a,b)=>{
       const ta=timeVal(a), tb=timeVal(b);
-      // Assign sort key: times >= bedMins stay as-is (evening), times < 12:00 get +1440 (post-midnight)
-      const ka = ta >= bedMins ? ta : (ta < 12*60 ? ta + 1440 : ta);
-      const kb = tb >= bedMins ? tb : (tb < 12*60 ? tb + 1440 : tb);
+      const ka = ta >= sortBed ? ta : (ta < 12*60 ? ta + 1440 : ta);
+      const kb = tb >= sortBed ? tb : (tb < 12*60 ? tb + 1440 : tb);
       return ka - kb;
     });
   })();
@@ -8839,7 +8859,21 @@ function App(){
       napNum++;
       const wwLen = clampWakeWindow(progressiveWW(w, i, napCount), w);
       const napStart = cursor + wwLen;
-      const napEnd = napStart + avgNapDur;
+      let napEnd = napStart + avgNapDur;
+      // Enforce: nap must end before the event starts (with 5min buffer)
+      if (napEnd > eventTimeMins - 5 && napStart < eventTimeMins) {
+        napEnd = Math.max(napStart + 15, eventTimeMins - 10); // shorten nap but keep at least 15min
+        if (napEnd > eventTimeMins - 5) {
+          // Nap is too close — shift start earlier
+          const shifted = eventTimeMins - 10 - avgNapDur;
+          if (shifted > cursor + 20) {
+            sched.push({type:"nap_start", mins:shifted, label:`Nap ${napNum} start`});
+            sched.push({type:"nap_end", mins:eventTimeMins - 10, label:`Nap ${napNum} end`});
+            cursor = eventTimeMins - 10;
+            continue;
+          }
+        }
+      }
       sched.push({type:"nap_start", mins:napStart, label:`Nap ${napNum} start`});
       sched.push({type:"nap_end", mins:napEnd, label:`Nap ${napNum} end`});
       cursor = napEnd;
@@ -11725,35 +11759,7 @@ function App(){
             ? "\n\n📞 PANDA: 1300 726 306 (Mon–Fri 9am–7:30pm AEST)\n📞 Beyond Blue: 1300 22 4636 (24/7)\n📞 Lifeline: 13 11 14 (24/7)\n📞 Your GP or child health nurse"
             : "\n\n📞 PANDAS Foundation: 0808 196 1776 (free, Mon–Fri 11am–10pm)\n📞 Samaritans: 116 123 (free, 24/7)\n🌐 NHS Talking Therapies: self-refer via nhs.uk\n📞 Health visitor — call your GP surgery to be connected";
 
-          const wellbeingCard = wellbeingDue ? (
-            <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(111,168,152,0.08))",border:`1.5px solid rgba(123,104,238,0.2)`,borderRadius:18,padding:"16px",marginBottom:14}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <div style={{fontSize:15,fontWeight:700,color:C.deep}}>💜 How are you doing?</div>
-                <button onClick={()=>{setLastWellbeingDate(todayStr());try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};}} style={{fontSize:11,color:C.lt,background:_bN,border:_bN,cursor:_cP}}>Dismiss</button>
-              </div>
-              <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:12}}>Caring for a baby is hard work. It's important to check in with yourself too.</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[["😊","Great"],["🙂","Okay"],["😔","Struggling"],["🆘","Need support"]].map(([emoji,label])=>(
-                  <button key={label} onPointerDown={e=>{
-                    e.preventDefault(); haptic();
-                    setLastWellbeingDate(todayStr());
-                    try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};
-                    const msg = pick(wellbeingMsgs[label]);
-                    if(label==="Great"){
-                      showMascot("celebration", "💜 "+msg, 5000);
-                    } else if(label==="Struggling"||label==="Need support"){
-                      setShowWellbeing({msg, label});
-                    } else {
-                      showToast("💜 "+msg,5000,3);
-                    }
-                  }} style={{flex:1,minWidth:70,padding:"10px 6px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:3,touchAction:"manipulation"}}>
-                    <span style={{fontSize:20}}>{emoji}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:C.mid}}>{label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null;
+          const wellbeingCard = null; // Wellbeing moved to bottom of Insights page
 
           const collHead = (key, icon, label) => (
             <button onClick={()=>{haptic();toggleInsight(key);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderRadius:16,marginBottom:insightSection[key]?0:12,borderBottomLeftRadius:insightSection[key]?0:16,borderBottomRightRadius:insightSection[key]?0:16,cursor:_cP,boxShadow:"0 2px 8px rgba(201,112,90,0.05)"}}>
@@ -12493,8 +12499,6 @@ function App(){
                                   <div style={{fontSize:11,color:C.lt,marginTop:1}}>{avgNapCount} naps/day avg</div>
                                 </div>
                               </div>
-                              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:6}}>Night Wakes Trend</div>
-                              <TrendLine vals={last14.map(d=>(days[d]||[]).filter(e=>e.night).length)} keys={last14} color={C.sky}/>
                             </div>
                           );
                         })()}
@@ -13232,40 +13236,6 @@ function App(){
                 ))}
               </div>
 
-              {/* ── PROGRESS section — ELEVATED to top per user request ── */}
-              {/* Milestone Summary Card — at top of Development tab */}
-              {ageWeeks && (()=>{
-                const _msDone = MILESTONES.filter(m => milestones[m.id]?.date).length;
-                const _msNow = MILESTONES.filter(m => ageWeeks >= m.weeks[0] && m.weeks[0] <= ageWeeks + 4 && m.weeks[2] >= ageWeeks - 4);
-                const _msPending = _msNow.filter(m => !milestones[m.id]?.date);
-                const _ageLabel = age ? fmtAge(age) : "";
-                return (
-                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                      <div>
-                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>What {babyName||"baby"} is working on</div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.ter,lineHeight:1}}>
-                          {_ageLabel} <span style={{fontSize:12,color:C.lt,fontFamily:_fM,fontWeight:400}}>· wk {ageWeeks}</span>
-                        </div>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.mint,lineHeight:1}}>{_msDone}</div>
-                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt}}>logged</div>
-                      </div>
-                    </div>
-                    <div style={{background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
-                      <div style={{height:"100%",borderRadius:99,background:"linear-gradient(90deg,"+C.ter+","+C.mint+")",width:Math.round(_msDone/MILESTONES.length*100)+"%",transition:"width 0.4s"}}/>
-                    </div>
-                    <div style={{fontSize:10,fontFamily:_fM,color:C.lt,marginTop:3}}>{_msDone} of {MILESTONES.length} logged</div>
-                    {_msPending.length > 0 && (
-                      <div style={{fontSize:12,color:C.mid,marginTop:8}}>
-                        {_msPending.length} milestone{_msPending.length>1?"s":""} due now — <span style={{color:C.ter,fontWeight:600,cursor:_cP}} onClick={()=>{const el=document.querySelector("[data-milestones]");if(el)el.scrollIntoView({behavior:"smooth"});}}>scroll to see →</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
               {/* THIS WEEK — label is inside Let's Play card */}
 
               {/* ── Let's Play — ELEVATED to top per strategy ── */}
@@ -13406,6 +13376,24 @@ function App(){
               {/* Oliver's Development card — REMOVED per UX strategy */}
               
               </div>}
+              {/* ═══ Pre-weaning message for younger babies ═══ */}
+              {age && age.totalWeeks < 24 && devFilter==="weaning" && (
+                <div className="glass-card" style={{padding:"18px 16px",marginBottom:12,textAlign:"center"}}>
+                  <div style={{fontSize:36,marginBottom:10}}>🥄</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:8}}>Weaning starts around 6 months</div>
+                  <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>
+                    {babyName||"Baby"} is {fmtAge(age)} — NHS and WHO recommend waiting until around 26 weeks before introducing solid foods. When the time comes, OBubba will guide you through first tastes, allergen introduction, foods to avoid, and track reactions.
+                  </div>
+                  <div style={{fontSize:12,color:C.lt,lineHeight:1.6,padding:"12px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",textAlign:"left"}}>
+                    <div style={{fontWeight:700,color:C.mid,marginBottom:6}}>The 3 signs of readiness (NHS):</div>
+                    <div style={{marginBottom:4}}>1. Can stay in a sitting position and hold their head steady</div>
+                    <div style={{marginBottom:4}}>2. Can coordinate eyes, hands and mouth — can look at food, pick it up and put it in their mouth</div>
+                    <div>3. Can swallow food (rather than pushing it back out)</div>
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,marginTop:10,fontStyle:"italic"}}>We'll let you know when {babyName||"baby"} is approaching weaning age</div>
+                </div>
+              )}
+
               {/* ═══ Weaning Readiness Check — NHS 3 signs ═══ */}
               {age && age.totalWeeks >= 24 && age.totalWeeks < 28 && (devFilter==="weaning"||devFilter==="activities") && !(weaning||[]).length && (
                 <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
