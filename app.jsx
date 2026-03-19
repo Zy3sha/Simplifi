@@ -1373,9 +1373,15 @@ function App(){
     return td;
   });
   const[tab,setTab]=useState("day");
+  // ═══ STORE LAUNCH FLAG ═══
+  // Set to true when App Store / Google Play subscriptions are live.
+  // While false: all features unlocked, all subscription UI hidden.
+  // When true: isPremium gates features, paywalls activate, pricing shows.
+  const STORE_READY = false;
+
   // Premium state — true = all features unlocked. Default true for launch (free trial / all-free launch).
   // When subscriptions are added, change default to false and gate with RevenueCat
-  const[isPremium]=useState(true);
+  const[isPremium]=useState(STORE_READY ? false : true);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
   const[todayPlanOpen,setTodayPlanOpen]=useState(false);
   const[notesOpen,setNotesOpen]=useState(false);
@@ -1390,7 +1396,7 @@ function App(){
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
 
   function triggerPaywall(context) {
-    if (isPremium || trialActive || paywallShownRef.current) return;
+    if (!STORE_READY || isPremium || trialActive || paywallShownRef.current) return;
     paywallShownRef.current = true;
     setPaywallContext(context);
     setShowPaywall(true);
@@ -1524,6 +1530,7 @@ function App(){
   const soundCtxRef=useRef(null);
   const soundNodesRef=useRef([]);
   const soundTimerRef=useRef(null);
+  const soundKeeperRef=useRef(null); // silent <audio> element to keep iOS audio session alive
   const[cryingResult,setCryingResult]=useState(null);
   const[showTeethingForm,setShowTeethingForm]=useState(false);
   const[teethingForm,setTeethingForm]=useState({tooth:"",date:"",symptoms:[],note:""});
@@ -1672,7 +1679,7 @@ function App(){
   );
   // Premium gate — wraps premium features. When isPremium=false, shows blurred preview + upgrade prompt
   const PremiumGate = ({children, feature}) => {
-    if (isPremium) return children;
+    if (isPremium || !STORE_READY) return children;
     return (
       <div style={{position:"relative",overflow:"hidden",borderRadius:16,marginBottom:12}}>
         <div style={{filter:"blur(4px)",opacity:0.5,pointerEvents:"none"}}>{children}</div>
@@ -2714,6 +2721,16 @@ function App(){
           }
           return next;
         });
+        // Forgotten timer guard — outside state updater to avoid nested setState
+        const _elapsed = napSec + 1;
+        const _guardProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
+        const _guardMax = _guardProfile ? Math.round(_guardProfile.idealNapDurMax * 1.5) : 150;
+        if(_elapsed === _guardMax * 60) {
+          showToast("Still sleeping? " + (babyName||"Baby") + " has been napping " + hm(Math.floor(_elapsed/60)) + " — that's a long one. Tap nap button to end if awake.", 10000, 2);
+        }
+        if(_elapsed === 10800) {
+          showToast("Nap timer still running (" + hm(180) + "). End the timer if " + (babyName||"Baby") + " is awake.", 15000, 3);
+        }
       },1000);
     }
     else clearInterval(timerRef.current);
@@ -2725,6 +2742,11 @@ function App(){
   useEffect(()=>{
     function snapAllTimers(){
       if(document.visibilityState==="hidden") return;
+
+      // Resume AudioContext if sound machine is playing (iOS suspends on lock)
+      if(soundCtxRef.current && soundCtxRef.current.state==="suspended" && soundNodesRef.current.length > 0) {
+        soundCtxRef.current.resume().catch(()=>{});
+      }
 
       // 1. Nap timer — recalculate from wall clock
       if(napOn && !napPaused) {
@@ -3025,40 +3047,15 @@ function App(){
     } else if (_showParentNudge) {
       _reassure = ["Have you had water today? You matter too.", "Don't forget to look after yourself today — you're important too."][_h % 2];
       try{localStorage.setItem("parent_nudge_date",todayStr());}catch{}
-    } else if (_isIrregularDay) {
-      _reassure = "Today didn't follow a pattern — that happens, especially during changes.";
-    } else if (_isHighNeedDay) {
-      _reassure = "Higher-need day — completely normal. " + _name + " needs a bit more today.";
-    } else if (_isStableDay) {
-      _reassure = "You're finding your flow — " + _name + "'s rhythm is coming together.";
     } else {
-      const _defaultMsgs = [
-        "You're doing great — " + _name + "'s rhythm is settling nicely.",
-        "Every baby is different. Follow " + _name + "'s cues and trust yourself.",
-        "You're learning " + _name + ", and that's enough.",
-        "This is normal for " + _name + "'s age. You've got this.",
-        "You're building a rhythm together."
-      ];
-      _reassure = _defaultMsgs[Math.floor((_h * 60 + new Date().getMinutes()) / 30) % _defaultMsgs.length];
+      // Use data-specific reassurance when available
+      const _smart = smartReassurance();
+      _reassure = _smart || "You're doing great — " + _name + "'s rhythm is settling nicely.";
     }
 
-    // ── "Right now" action line ──
-    let _rightNow = null;
-    if (!napOn && !_hasBed && _pred && !_pred.isOverdue) {
-      const _pParts2 = _pred.napStart_min.split(":").map(Number);
-      const _mUntil = Math.max(0, _pParts2[0]*60+_pParts2[1] - _nowM);
-      if (_mUntil <= 15) _rightNow = "Right now: look for sleepy cues and offer a nap";
-      else if (_allFeeds.length > 0 && _awakeMin > 20 && _awakeMin < 45) _rightNow = "Right now: a good time for play or tummy time";
-    } else if (!napOn && !_hasBed && _pred && _pred.isOverdue) {
-      _rightNow = "Right now: offer a short nap — dim lights, quiet voice";
-    } else if (_napsComplete && !_hasBed && _bed && !_bed.estimated) {
-      const _bP = _bed.time.split(":").map(Number);
-      const _mBed = Math.max(0, _bP[0]*60+_bP[1] - _nowM);
-      if (_mBed <= 30 && _mBed > 10) _rightNow = "Right now: start the wind-down routine";
-      else if (_mBed <= 10) _rightNow = "Right now: into the cot — bedtime";
-    } else if (_allFeeds.length === 0 && _hasWake && _awakeMin > 30) {
-      _rightNow = "Right now: offer a feed or comfort";
-    }
+    // ── "Right now" action line (expanded) ──
+    const _expandedRN = expandedRightNow();
+    let _rightNow = _expandedRN ? ("Right now: " + _expandedRN.text) : null;
 
     // ── Morning: no wake logged ──
     if (!_hasWake && _h >= 5 && _h <= 10) {
@@ -3080,6 +3077,7 @@ function App(){
       const _timeStr = nightElapsed !== null && nightElapsed > 0
         ? "Sleeping since " + (_bedEntry ? fmt12(_bedEntry.time) : "") + " · " + Math.floor(nightElapsed/3600) + "h " + Math.floor((nightElapsed%3600)/60) + "m"
         : "Sleeping for the night";
+      const _nwCtx = nightWakeContext();
       return (
         <div className="glass-card" style={{padding:"20px 18px",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
@@ -3087,6 +3085,9 @@ function App(){
             <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Sleeping peacefully 🌙</span>
           </div>
           <div style={{fontSize:14,color:C.mid,marginBottom:10}}>{_timeStr}</div>
+          {_nwCtx && _nwCtx.contextLine && <div style={{fontSize:12,color:C.lt,marginBottom:6,paddingLeft:2}}>{_nwCtx.contextLine}</div>}
+          {_nwCtx && _nwCtx.topReason && <div style={{fontSize:13,color:C.ter,fontWeight:600,marginBottom:8,paddingLeft:2}}>{_nwCtx.topReason}</div>}
+          {_nwCtx && _nwCtx.helpLine && <div style={{fontSize:12,color:C.mint,fontStyle:"italic",marginBottom:8,paddingLeft:2}}>{_nwCtx.helpLine}</div>}
           <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:14,fontWeight:600,cursor:_cP}}>
             Log night wake
           </button>
@@ -3124,18 +3125,20 @@ function App(){
     } else if (_pred && !_pred.isOverdue) {
       const _pParts = _pred.napStart_min.split(":").map(Number);
       const _minsUntilNap = Math.max(0, _pParts[0]*60+_pParts[1] - _nowM);
+      const _isPersonal = _pred.sourceLabel && _pred.sourceLabel.includes("pattern");
+      const _rhythmTag = _isPersonal ? " · OBubba Rhythm" : "";
       if (_minsUntilNap <= 10) {
         _dot = "#D4A855"; _label = "Nap window open";
-        _timing = "Awake " + hm(_awakeMin) + " · Ready for a nap now";
+        _timing = "Awake " + hm(_awakeMin) + " · Ready for a nap now" + _rhythmTag;
       } else if (_minsUntilNap <= 20) {
         _dot = "#D4A855"; _label = "Ready for a nap";
-        _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min";
+        _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min" + _rhythmTag;
       } else if (_minsUntilNap <= 30) {
         _dot = "#D4A855"; _label = "Settling time";
-        _timing = "Awake " + hm(_awakeMin) + " · Nap in ~" + _minsUntilNap + " min — watch for cues";
+        _timing = "Awake " + hm(_awakeMin) + " · Nap in ~" + _minsUntilNap + " min — watch for cues" + _rhythmTag;
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min";
+        _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min" + _rhythmTag;
       }
     } else if (_hasWake && _allFeeds.length > 0) {
       // Check if feed window is opening (2.5h+ since last feed)
@@ -3167,7 +3170,7 @@ function App(){
     _whyLines.push("Look for sleepy cues: yawning, eye rubbing, staring. These usually appear 5–10 min before the ideal nap time.");
     if (isPremium && _pred && _pred.sourceLabel && _pred.sourceLabel.includes("pattern")) {
       _whyLines.push("This is unique to " + _name + " — based on their Bubba Rhythm.");
-    } else if (!isPremium && Object.keys(days).length >= 3) {
+    } else if (STORE_READY && !isPremium && Object.keys(days).length >= 3) {
       _whyLines.push("🔒 " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see it.");
     }
     _whyLines.push("Sleep timing based on NHS Start4Life, AASM (American Academy of Sleep Medicine), and WHO Infant Health guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
@@ -3182,7 +3185,7 @@ function App(){
         {_rightNow && <div style={{fontSize:12,color:C.ter,fontWeight:600,paddingLeft:20,marginBottom:6}}>{_rightNow}</div>}
         <div style={{fontSize:12,color:C.lt,fontStyle:"italic",paddingLeft:20,marginBottom:heroWhyOpen?12:0}}>{_reassure}</div>
         <div style={{paddingLeft:20,marginTop:8}}>
-          <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);if(!heroWhyOpen&&!isPremium&&Object.keys(days).length>=3)setTimeout(()=>triggerPaywall("why"),800);}} style={{background:"none",border:"none",padding:0,fontSize:12,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
+          <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);if(STORE_READY&&!heroWhyOpen&&!isPremium&&Object.keys(days).length>=3)setTimeout(()=>triggerPaywall("why"),800);}} style={{background:"none",border:"none",padding:0,fontSize:12,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
             {heroWhyOpen?"Hide":"Why?"} <span style={{fontSize:9,transform:heroWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
           </button>
           {heroWhyOpen&&(
@@ -5964,6 +5967,803 @@ function App(){
     setModal(null); _setParsedEntries(null); setPasteText("");
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // OBubba Intelligence Layer — narrative, personalisation, insight
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── Day Narrative: the story of the baby's day ──
+  function generateDayNarrative() {
+    if (!age || !selDay) return null;
+    const _n = babyName || "Baby";
+    const _today = days[selDay] || [];
+    const _naps = _today.filter(e => e.type === "nap" && !e.night);
+    const _feeds = _today.filter(e => e.type === "feed");
+    const _nightFeeds = _today.filter(e => e.type === "feed" && e.night);
+    const _wakeE = _today.find(e => e.type === "wake" && !e.night);
+    const _bedE = _today.find(e => e.type === "sleep" && !e.night);
+    const _nightWakes = _today.filter(e => e.night);
+    const _aw = age.totalWeeks;
+    const _profile = getAgeNapProfile(_aw);
+    const _ww = getWakeWindow(_aw);
+    const _h = new Date().getHours();
+    const _nowM = _h * 60 + new Date().getMinutes();
+
+    // Gather comparative data
+    const _dk = Object.keys(days).sort().filter(d => d !== selDay);
+    const _recent7 = _dk.slice(-7);
+    const _yesterdayKey = _dk.length ? _dk[_dk.length - 1] : null;
+    const _yesterday = _yesterdayKey ? (days[_yesterdayKey] || []) : [];
+
+    const lines = [];
+    const ageStr = fmtAge(age);
+
+    // ── Night summary (if morning or we have last night data) ──
+    const _prevDayKey = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return localDateStr(dt);})();
+    const _prevDay = days[_prevDayKey] || [];
+    const _prevBed = _prevDay.find(e => e.type === "sleep" && !e.night);
+    const _nightWakeCount = _nightWakes.length;
+    const _prevNightWakes = _prevDay.filter(e => e.night).length + _nightWakeCount;
+    const _avgNightWakes = _recent7.length >= 3 ? Math.round(_recent7.reduce((s, d) => s + (days[d] || []).filter(e => e.night).length, 0) / _recent7.length * 10) / 10 : null;
+    const _selfSettled = _nightWakes.filter(e => e.selfSettled).length;
+
+    if (_wakeE && (_prevBed || _nightWakeCount > 0)) {
+      if (_nightWakeCount === 0 && _prevBed) {
+        lines.push(_n + " slept through the night! No wakes logged — that's a solid stretch.");
+      } else if (_nightWakeCount <= 2) {
+        let nightLine = _nightWakeCount === 1 ? "One wake last night" : "Two wakes last night";
+        if (_selfSettled > 0) nightLine += " — " + (_selfSettled === _nightWakeCount ? "self-settled each time" : "self-settled on " + _selfSettled);
+        nightLine += ".";
+        if (_avgNightWakes !== null && _nightWakeCount < _avgNightWakes - 0.3) nightLine += " That's better than the " + _avgNightWakes + " average this week.";
+        lines.push(nightLine);
+      } else if (_nightWakeCount >= 3) {
+        let nightLine = _nightWakeCount + " wakes last night — a tougher one.";
+        // Check if disruption diagnostic has an explanation
+        const _diag = disruptionDiagnostic();
+        if (_diag && _diag.length) nightLine += " " + _diag[0].brief;
+        else nightLine += " Some nights are just harder, and that's OK.";
+        lines.push(nightLine);
+      }
+    }
+
+    // ── Nap summary ──
+    if (_naps.length > 0) {
+      const _napDurs = _naps.map(n => minDiff(n.start, n.end));
+      const _totalNapMin = _napDurs.reduce((a, b) => a + b, 0);
+      const _avgNapRecent = (()=>{const ns=_recent7.flatMap(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).map(n=>minDiff(n.start,n.end)));return ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length):0;})();
+
+      if (_naps.length === 1) {
+        const dur = _napDurs[0];
+        let napLine = "First nap was " + hm(dur) + ".";
+        if (_avgNapRecent > 0 && dur > _avgNapRecent + 10) napLine += " That's longer than " + _n + "'s recent average (" + hm(_avgNapRecent) + ") — sleep pressure was probably higher today.";
+        else if (_avgNapRecent > 0 && dur < _avgNapRecent - 10) napLine += " A bit shorter than usual (" + hm(_avgNapRecent) + " avg). The next wake window may need to be slightly shorter to compensate.";
+        lines.push(napLine);
+      } else {
+        let napLine = _naps.length + " naps so far, " + hm(_totalNapMin) + " total.";
+        const longest = Math.max(..._napDurs);
+        const shortest = Math.min(..._napDurs);
+        if (longest - shortest > 20) napLine += " The longest was " + hm(longest) + " and shortest " + hm(shortest) + " — mixed nap days are completely normal at " + ageStr + ".";
+        lines.push(napLine);
+      }
+
+      // Nap transition context
+      const _trans = napTransitionGuide();
+      if (_trans && _trans.active) lines.push(_trans.brief);
+    }
+
+    // ── Feed context ──
+    const _dayFeeds = _feeds.filter(e => !e.night);
+    const _totalMl = _dayFeeds.reduce((s, f) => s + (f.amount || 0), 0);
+    const _avgDailyMl = (()=>{const vals=_recent7.map(d=>(days[d]||[]).filter(e=>e.type==="feed"&&!e.night).reduce((s,f)=>s+(f.amount||0),0)).filter(v=>v>0);return vals.length>=3?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;})();
+    if (_dayFeeds.length >= 3 && _totalMl > 0 && _avgDailyMl > 0) {
+      const pct = Math.round((_totalMl / _avgDailyMl) * 100);
+      if (pct > 115) {
+        const _gsAge = [3, 6, 12, 24].some(w => Math.abs(_aw - w) <= 1);
+        lines.push("Feed intake is running higher today (" + fmtVol(_totalMl, FU) + " vs " + fmtVol(_avgDailyMl, FU) + " usual)." + (_gsAge ? " At " + ageStr + ", this could be a growth spurt — extra feeds for 2–3 days is normal." : ""));
+      } else if (pct < 80 && _dayFeeds.length >= 4) {
+        lines.push("Intake is a little lower than usual today. Keep offering — " + _n + " may catch up later or compensate overnight.");
+      }
+    }
+
+    // ── Looking ahead ──
+    const _pred = predictNextNap();
+    if (_pred && !_pred.isOverdue && !_bedE && !napOn) {
+      const _pParts = _pred.napStart_min.split(":").map(Number);
+      const _mUntil = Math.max(0, _pParts[0] * 60 + _pParts[1] - _nowM);
+      if (_mUntil > 15 && _mUntil < 90) {
+        const src = _pred.sourceLabel && _pred.sourceLabel.includes("pattern") ? "Based on " + _n + "'s own rhythm" : "Based on age guidance for " + ageStr;
+        lines.push(src + ", the next nap window opens around " + fmt12(_pred.napStart_min) + ". Watch for sleepy cues a few minutes before.");
+      }
+    } else if (!_pred && !_bedE && _naps.length >= _profile.expectedNaps) {
+      const _bed = bedtimePrediction();
+      if (_bed && !_bed.estimated) lines.push("All naps done for the day. Bedtime is looking like " + fmt12(_bed.time) + " — start the wind-down about 20 minutes before.");
+    }
+
+    // ── Disruption context (only if not already mentioned) ──
+    const _diag2 = disruptionDiagnostic();
+    if (_diag2 && _diag2.length && !lines.some(l => l.includes("Leap") || l.includes("regression") || l.includes("teething"))) {
+      const top = _diag2[0];
+      if (top.score >= 60) lines.push(top.brief);
+    }
+
+    if (!lines.length) {
+      if (!_wakeE && _h < 10) return { lines: ["Good morning! Tap wake to start " + _n + "'s day and I'll build your personalised schedule."], mood: "morning" };
+      return null;
+    }
+
+    // Determine mood
+    let mood = "neutral";
+    if (_nightWakeCount === 0 && _naps.length > 0) mood = "great";
+    else if (_nightWakeCount >= 4) mood = "tough";
+    else if (lines.some(l => l.includes("better than"))) mood = "improving";
+
+    return { lines, mood };
+  }
+
+  // ── Disruption Diagnostic: cross-reference sleep, leaps, teething, regressions ──
+  function disruptionDiagnostic() {
+    if (!age) return null;
+    const _aw = age.totalWeeks;
+    const _n = babyName || "Baby";
+    const _dk = Object.keys(days).sort().slice(-5);
+    if (_dk.length < 3) return null;
+
+    // Check for recent disruption (2+ nights of 3+ wakes)
+    const _nightWakeCounts = _dk.map(d => (days[d] || []).filter(e => e.night).length);
+    const _badNights = _nightWakeCounts.filter(c => c >= 3).length;
+    const _isDisrupted = _badNights >= 2;
+    if (!_isDisrupted) return null;
+
+    const causes = [];
+
+    // Check leaps (developmental phases)
+    const currentLeap = typeof DEV_PHASES !== "undefined" ? DEV_PHASES.find(l => _aw >= l.windowStart && _aw <= l.windowEnd) : null;
+    if (currentLeap) {
+      const dayInLeap = Math.round((_aw - currentLeap.windowStart) * 7);
+      const leapDuration = Math.round((currentLeap.windowEnd - currentLeap.windowStart) * 7);
+      causes.push({
+        type: "leap", score: 80,
+        title: "Developmental leap — " + currentLeap.name,
+        brief: "This lines up with a developmental phase (" + currentLeap.name + ", starting around " + Math.round(currentLeap.windowStart) + " weeks). " + _n + " is learning new skills — the fussiness usually settles within " + Math.max(1, Math.round((leapDuration - dayInLeap) / 7)) + " week" + (Math.round((leapDuration - dayInLeap) / 7) !== 1 ? "s" : "") + ".",
+        detail: currentLeap.fussy || "Brain development causes temporary sleep disruption. This is a sign of progress, not a problem."
+      });
+    }
+
+    // Check regression windows (4mo/8mo/12mo/18mo/24mo)
+    const _regressionWeeks = [
+      { start: 15, end: 19, label: "4-month", detail: "Sleep cycles are maturing from newborn to adult-type cycles. This is permanent brain development — the most significant sleep change in the first year. Naps may shorten and night wakes increase. It usually settles in 2–6 weeks." },
+      { start: 32, end: 40, label: "8–10 month", detail: "Separation anxiety, crawling, and pulling to stand are all happening at once. The brain is processing huge motor milestones overnight. It settles as new skills become automatic." },
+      { start: 48, end: 56, label: "12-month", detail: "Walking attempts, first words, and growing independence all disrupt sleep. Many babies also attempt the 2-to-1 nap transition around now." },
+      { start: 72, end: 84, label: "18-month", detail: "Language explosion plus growing awareness of separation. Bedtime resistance and night wakes are common. Consistency and reassurance are key." },
+      { start: 96, end: 108, label: "2-year", detail: "Imagination develops — fear of the dark, bad dreams, and big emotions arrive. Toddlers also test boundaries more actively around sleep." },
+    ];
+    const _activeRegression = _regressionWeeks.find(r => _aw >= r.start && _aw <= r.end);
+    if (_activeRegression && !currentLeap) {
+      const daysIn = Math.round((_aw - _activeRegression.start) * 7);
+      causes.push({
+        type: "regression", score: 75,
+        title: _activeRegression.label + " sleep shift",
+        brief: _n + " is in the " + _activeRegression.label + " sleep shift window. This is developmental — not a setback. Day " + daysIn + " of a phase that typically lasts 2–6 weeks.",
+        detail: _activeRegression.detail
+      });
+    }
+
+    // Check recent teething
+    const _recentTeeth = (teething || []).filter(t => {
+      if (!t.date) return false;
+      const daysAgo = Math.round((new Date() - new Date(t.date + "T12:00:00")) / (1000 * 60 * 60 * 24));
+      return daysAgo >= 0 && daysAgo <= 14;
+    });
+    if (_recentTeeth.length) {
+      causes.push({
+        type: "teething", score: 65,
+        title: "Recent teething",
+        brief: "A tooth came through recently" + (_recentTeeth.length > 1 ? " (" + _recentTeeth.length + " in the last 2 weeks)" : "") + ". Teething discomfort often peaks 3–5 days before and after eruption, and night wakes are very common during this window.",
+        detail: "Teething pain is often worse at night because there are fewer distractions. Cool teething rings, gentle gum massage, and age-appropriate pain relief (check with your " + _doctor + ") can help."
+      });
+    } else if (_aw >= 16 && _aw <= 100) {
+      // Check if teething symptoms reported in recent entries
+      const _recentNotes = _dk.flatMap(d => (days[d] || []).filter(e => e.note).map(e => e.note.toLowerCase()));
+      const _teethingKeywords = _recentNotes.some(n => n.includes("teeth") || n.includes("drool") || n.includes("gum") || n.includes("chew") || n.includes("biting"));
+      if (_teethingKeywords) {
+        causes.push({
+          type: "teething_suspected", score: 55,
+          title: "Possible teething",
+          brief: "Recent notes mention teething signs. Teething discomfort is a very common cause of night disruption at this age.",
+          detail: "Look for red or swollen gums, excessive drooling, and a desire to chew on things. If unsure, your " + _doctor + " can check."
+        });
+      }
+    }
+
+    // Check for illness patterns (temp logged, unusual feeds)
+    const _recentMeds = _dk.flatMap(d => (days[d] || []).filter(e => e.type === "medicine" || (e.note && e.note.toLowerCase().includes("temp")))).length;
+    if (_recentMeds >= 2) {
+      causes.push({
+        type: "illness", score: 70,
+        title: "Possible illness",
+        brief: "Recent medicine or temperature logs suggest " + _n + " may be unwell. Illness is a very common cause of sleep disruption and usually resolves as they recover.",
+        detail: "Offer extra comfort and feeds as needed. If you're concerned, contact your " + _doctor + "."
+      });
+    }
+
+    // If no specific cause found but disruption is clear
+    if (!causes.length) {
+      causes.push({
+        type: "unknown", score: 40,
+        title: "Temporary disruption",
+        brief: "The last few nights have been unsettled. This could be developmental, environmental, or just a phase. It's very common and usually passes within a week or two.",
+        detail: "Keep routines consistent, offer comfort, and trust that patterns resettle. If it persists beyond 2–3 weeks with no improvement, it's worth mentioning to your " + _doctor + "."
+      });
+    }
+
+    return causes.sort((a, b) => b.score - a.score);
+  }
+
+  // ── Rhythm Confidence: how predictable is this baby's schedule? ──
+  function rhythmConfidence() {
+    const _dk = Object.keys(days).sort().slice(-7);
+    if (_dk.length < 4) return null;
+    const _n = babyName || "Baby";
+
+    // Gather wake times, nap starts, bedtimes
+    const _wakeTimes = [], _bedTimes = [], _napStarts1 = [], _napDurs = [];
+    _dk.forEach(d => {
+      const de = days[d] || [];
+      const wake = de.find(e => e.type === "wake" && !e.night);
+      const bed = de.find(e => e.type === "sleep" && !e.night);
+      const naps = de.filter(e => e.type === "nap" && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+      if (wake) _wakeTimes.push(timeVal(wake));
+      if (bed) _bedTimes.push(timeVal(bed));
+      if (naps.length) {
+        _napStarts1.push(timeVal(naps[0]));
+        naps.forEach(n => { if (n.start && n.end) _napDurs.push(minDiff(n.start, n.end)); });
+      }
+    });
+
+    function coeffVar(arr) {
+      if (arr.length < 3) return 999;
+      const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+      const variance = arr.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / arr.length;
+      return Math.sqrt(variance) / Math.max(1, avg);
+    }
+
+    const _wakeCV = coeffVar(_wakeTimes);
+    const _bedCV = coeffVar(_bedTimes);
+    const _napStartCV = coeffVar(_napStarts1);
+    const _napDurCV = coeffVar(_napDurs);
+
+    // Score: lower CV = more predictable = higher score
+    const _components = [_wakeCV, _bedCV, _napStartCV, _napDurCV].filter(v => v < 999);
+    if (!_components.length) return null;
+    const _avgCV = _components.reduce((a, b) => a + b, 0) / _components.length;
+    const _score = Math.max(0, Math.min(100, Math.round(100 - _avgCV * 400)));
+
+    // Previous week comparison
+    const _prevDk = Object.keys(days).sort().slice(-14, -7);
+    let _trend = null;
+    if (_prevDk.length >= 4) {
+      const _prevWakes = [], _prevBeds = [];
+      _prevDk.forEach(d => {
+        const de = days[d] || [];
+        const w = de.find(e => e.type === "wake" && !e.night);
+        const b = de.find(e => e.type === "sleep" && !e.night);
+        if (w) _prevWakes.push(timeVal(w));
+        if (b) _prevBeds.push(timeVal(b));
+      });
+      const _prevCV = [coeffVar(_prevWakes), coeffVar(_prevBeds)].filter(v => v < 999);
+      if (_prevCV.length) {
+        const _prevScore = Math.max(0, Math.min(100, Math.round(100 - (_prevCV.reduce((a, b) => a + b, 0) / _prevCV.length) * 400)));
+        _trend = _score - _prevScore;
+      }
+    }
+
+    let _label, _message;
+    if (_score >= 80) { _label = "Strong rhythm"; _message = _n + "'s schedule is becoming very predictable. Wake times, naps, and bedtimes are landing in consistent windows. This consistency helps their body clock strengthen."; }
+    else if (_score >= 60) { _label = "Building rhythm"; _message = _n + "'s patterns are forming. Some days are more predictable than others — that's normal at " + fmtAge(age) + ". The trend is positive."; }
+    else if (_score >= 40) { _label = "Finding a rhythm"; _message = "There's more variation day-to-day right now. This is common during transitions, growth spurts, or developmental leaps. Keep offering consistent wake and bedtimes — the rhythm will come."; }
+    else { _label = "Flexible phase"; _message = "Schedules are variable right now. At " + fmtAge(age) + ", many babies haven't settled into a fixed pattern yet. Focus on wake windows rather than clock times, and it'll come together."; }
+
+    if (_trend !== null && _trend >= 8) _message += " Rhythm confidence is up from last week — " + _n + "'s body clock is learning.";
+    else if (_trend !== null && _trend <= -10) _message += " A dip from last week is normal during transitions or disrupted phases.";
+
+    return { score: _score, label: _label, message: _message, trend: _trend };
+  }
+
+  // ── Nap Transition Guide ──
+  function napTransitionGuide() {
+    if (!age) return null;
+    const _aw = age.totalWeeks;
+    const _n = babyName || "Baby";
+    const _dk = Object.keys(days).sort().slice(-10);
+    if (_dk.length < 5) return null;
+
+    const _napCounts = _dk.map(d => (days[d] || []).filter(e => e.type === "nap" && !e.night).length).filter(c => c > 0);
+    if (_napCounts.length < 4) return null;
+
+    const _max = Math.max(..._napCounts);
+    const _min = Math.min(..._napCounts);
+    const _isMixed = _max > _min && _max - _min === 1;
+
+    // Common transition windows
+    const _transitions = [
+      { from: 4, to: 3, startWeek: 14, endWeek: 20, label: "4 to 3 naps" },
+      { from: 3, to: 2, startWeek: 26, endWeek: 40, label: "3 to 2 naps" },
+      { from: 2, to: 1, startWeek: 56, endWeek: 78, label: "2 to 1 nap" },
+    ];
+
+    const _activeTrans = _transitions.find(t => _aw >= t.startWeek - 4 && _aw <= t.endWeek + 4 && _isMixed && (_max === t.from || _min === t.to));
+
+    if (!_activeTrans) return { active: false };
+
+    const _daysAtLower = _napCounts.filter(c => c === _activeTrans.to).length;
+    const _daysAtHigher = _napCounts.filter(c => c === _activeTrans.from).length;
+    const _progress = Math.round((_daysAtLower / _napCounts.length) * 100);
+
+    let brief, detail;
+    if (_progress < 40) {
+      brief = _n + " is starting to show signs of dropping from " + _activeTrans.label + ". Some days will still need the extra nap — follow their cues.";
+      detail = "Right now, " + _daysAtLower + " of the last " + _napCounts.length + " days were " + _activeTrans.to + "-nap days. During the transition, it's normal to go back and forth. On " + _activeTrans.to + "-nap days, expect slightly longer wake windows and possibly an earlier bedtime. On days when " + _n + " seems overtired or refuses to settle, offer the extra nap — there's no rush.";
+    } else if (_progress < 70) {
+      brief = "The " + _activeTrans.label + " transition is well underway. Most days are " + _activeTrans.to + "-nap days now — the rhythm is shifting.";
+      detail = _daysAtLower + " of the last " + _napCounts.length + " days were " + _activeTrans.to + "-nap days. " + _n + "'s body is adjusting to longer wake windows. Keep bedtime flexible — on days when the last nap is skipped, bringing bedtime forward by 15–20 minutes helps prevent overtiredness.";
+    } else {
+      brief = _n + " has mostly settled into " + _activeTrans.to + " nap" + (_activeTrans.to > 1 ? "s" : "") + " a day. The transition is nearly complete.";
+      detail = "The odd extra nap may still happen — that's fine. Consistency will come. Well done for navigating this — nap transitions are one of the hardest parts of the first year.";
+    }
+
+    return { active: true, brief, detail, from: _activeTrans.from, to: _activeTrans.to, progress: _progress };
+  }
+
+  // ── Victory Tracker: surface positive patterns ──
+  function victoryTracker() {
+    if (!age) return null;
+    const _n = babyName || "Baby";
+    const _dk = Object.keys(days).sort();
+    if (_dk.length < 3) return null;
+    const victories = [];
+
+    const _recent = _dk.slice(-7);
+    const _prev = _dk.slice(-14, -7);
+
+    // Self-settling improvement
+    const _recentSS = _recent.flatMap(d => (days[d] || []).filter(e => e.night && e.selfSettled)).length;
+    const _recentNW = _recent.flatMap(d => (days[d] || []).filter(e => e.night)).length;
+    const _prevSS = _prev.flatMap(d => (days[d] || []).filter(e => e.night && e.selfSettled)).length;
+    const _prevNW = _prev.flatMap(d => (days[d] || []).filter(e => e.night)).length;
+    if (_recentSS >= 3 && _recentNW > 0) {
+      const pctNow = Math.round((_recentSS / _recentNW) * 100);
+      const pctBefore = _prevNW > 0 ? Math.round((_prevSS / _prevNW) * 100) : 0;
+      if (pctNow > pctBefore + 15) victories.push({ icon: "🌟", text: _n + " self-settled " + pctNow + "% of night wakes this week — up from " + pctBefore + "% last week. That's real progress." });
+      else if (pctNow >= 50) victories.push({ icon: "🌟", text: _n + " is self-settling " + pctNow + "% of night wakes. Their ability to resettle independently is developing well." });
+    }
+
+    // Longest stretch improvement
+    const _recentLongest = _recent.map(d => {
+      const nw = getNightWindows(days[d] || [], days[_dk[_dk.indexOf(d) + 1]] || []);
+      return nw.length ? Math.max(...nw.map(w => w.mins)) : 0;
+    }).filter(v => v > 60);
+    const _prevLongest = _prev.map(d => {
+      const nw = getNightWindows(days[d] || [], days[_dk[_dk.indexOf(d) + 1]] || []);
+      return nw.length ? Math.max(...nw.map(w => w.mins)) : 0;
+    }).filter(v => v > 60);
+    if (_recentLongest.length >= 3 && _prevLongest.length >= 3) {
+      const avgNow = Math.round(_recentLongest.reduce((a, b) => a + b, 0) / _recentLongest.length);
+      const avgBefore = Math.round(_prevLongest.reduce((a, b) => a + b, 0) / _prevLongest.length);
+      if (avgNow > avgBefore + 20) victories.push({ icon: "🌙", text: "Longest night stretch averaging " + hm(avgNow) + " — up from " + hm(avgBefore) + " last week." });
+    }
+
+    // Nap duration improvement
+    const _recentNapDurs = _recent.flatMap(d => (days[d] || []).filter(e => e.type === "nap" && !e.night).map(n => minDiff(n.start, n.end))).filter(v => v > 5);
+    const _prevNapDurs = _prev.flatMap(d => (days[d] || []).filter(e => e.type === "nap" && !e.night).map(n => minDiff(n.start, n.end))).filter(v => v > 5);
+    if (_recentNapDurs.length >= 5 && _prevNapDurs.length >= 5) {
+      const avgNow = Math.round(_recentNapDurs.reduce((a, b) => a + b, 0) / _recentNapDurs.length);
+      const avgBefore = Math.round(_prevNapDurs.reduce((a, b) => a + b, 0) / _prevNapDurs.length);
+      if (avgNow > avgBefore + 8) victories.push({ icon: "😴", text: "Naps averaging " + hm(avgNow) + " — " + (avgNow - avgBefore) + " minutes longer than last week." });
+    }
+
+    // Logging streak
+    const _streak = (()=>{ let c = 0; for (let i = _dk.length - 1; i >= 0; i--) { if ((days[_dk[i]] || []).length > 0) c++; else break; } return c; })();
+    if (_streak >= 7 && _streak % 7 === 0) victories.push({ icon: "📱", text: _streak + " days in a row of tracking. That consistency is helping " + _n + "'s rhythm form — every day of data makes the predictions more accurate." });
+    else if (_streak >= 14) victories.push({ icon: "📱", text: _streak + "-day tracking streak! OBubba's predictions are getting more personalised with every day you log." });
+
+    return victories.length ? victories : null;
+  }
+
+  // ── Night Wake Context (for 3am Hero Card) ──
+  function nightWakeContext() {
+    if (!age || !selDay) return null;
+    const _n = babyName || "Baby";
+    const _today = days[selDay] || [];
+    const _nightWakes = _today.filter(e => e.night).sort((a, b) => { const ta = timeVal(a), tb = timeVal(b); const na = ta >= 18 * 60 ? ta : ta + 24 * 60; const nb = tb >= 18 * 60 ? tb : tb + 24 * 60; return na - nb; });
+    const _wakeNum = _nightWakes.length;
+
+    // Average from recent nights
+    const _dk = Object.keys(days).sort().slice(-7);
+    const _avgWakes = _dk.length >= 3 ? Math.round(_dk.reduce((s, d) => s + (days[d] || []).filter(e => e.night).length, 0) / _dk.length * 10) / 10 : null;
+
+    // What worked recently
+    const _recentHelps = {};
+    _dk.forEach(d => {
+      (days[d] || []).filter(e => e.night).forEach(e => {
+        if (e.selfSettled) _recentHelps["self-settled"] = (_recentHelps["self-settled"] || 0) + 1;
+        if (e.assistedType === "milk" || (e.amount && e.amount > 0)) _recentHelps["feed"] = (_recentHelps["feed"] || 0) + 1;
+        if (e.assistedType === "comfort" || e.assistedType === "hold" || e.assistedType === "pat") _recentHelps["comfort"] = (_recentHelps["comfort"] || 0) + 1;
+      });
+    });
+    const _topHelp = Object.entries(_recentHelps).sort((a, b) => b[1] - a[1])[0];
+
+    // Quick reason from crying analysis
+    const _lastFeed = [..._today.filter(e => e.type === "feed")].sort((a, b) => timeVal(a) - timeVal(b)).pop();
+    const _nowM = new Date().getHours() * 60 + new Date().getMinutes();
+    const _feedGap = _lastFeed ? ((_nowM < timeVal(_lastFeed)) ? _nowM + 1440 - timeVal(_lastFeed) : _nowM - timeVal(_lastFeed)) : 999;
+    const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : age.totalWeeks < 26 ? 210 : 270;
+
+    let _topReason = null;
+    if (_feedGap > _feedThreshold) _topReason = "Last feed was " + hm(_feedGap) + " ago — likely hungry";
+    else if (_feedGap > _feedThreshold * 0.8) _topReason = "Last feed " + hm(_feedGap) + " ago — may be hungry";
+
+    let _contextLine = null;
+    if (_avgWakes !== null && _wakeNum > 0) {
+      if (_wakeNum <= _avgWakes) _contextLine = "Wake " + _wakeNum + " tonight (avg " + _avgWakes + " this week)";
+      else _contextLine = "Wake " + _wakeNum + " tonight — more than the " + _avgWakes + " average this week";
+    } else if (_wakeNum > 0) {
+      _contextLine = "Wake " + _wakeNum + " tonight";
+    }
+
+    let _helpLine = null;
+    if (_topHelp) {
+      const [method, count] = _topHelp;
+      const totalNW = Object.values(_recentHelps).reduce((a, b) => a + b, 0);
+      if (count >= 3) {
+        if (method === "self-settled") _helpLine = _n + " has self-settled " + count + " of " + totalNW + " recent wakes. Give it a moment.";
+        else if (method === "feed") _helpLine = "A feed has worked " + count + " of " + totalNW + " recent wakes.";
+        else if (method === "comfort") _helpLine = "Comfort or holding worked " + count + " of " + totalNW + " recent wakes.";
+      }
+    }
+
+    return { wakeNum: _wakeNum, avgWakes: _avgWakes, topReason: _topReason, contextLine: _contextLine, helpLine: _helpLine };
+  }
+
+  // ── Feed Intelligence ──
+  function feedIntelligence() {
+    if (!age) return null;
+    const _n = babyName || "Baby";
+    const _aw = age.totalWeeks;
+    const _dk = Object.keys(days).sort();
+    if (_dk.length < 5) return null;
+
+    const _recent = _dk.slice(-7);
+    const _prev = _dk.slice(-14, -7);
+    const insights = [];
+
+    // Cluster feeding detection (3+ feeds within 2 hours)
+    const _todayFeeds = (days[selDay] || []).filter(e => e.type === "feed" && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+    for (let i = 0; i < _todayFeeds.length - 2; i++) {
+      const span = timeVal(_todayFeeds[i + 2]) - timeVal(_todayFeeds[i]);
+      if (span > 0 && span <= 120) {
+        insights.push({ type: "cluster", text: _n + " cluster fed this " + (timeVal(_todayFeeds[i]) < 720 ? "morning" : "evening") + " (3 feeds in " + hm(span) + "). Cluster feeding is a normal way babies tank up, especially before longer sleep stretches. It's not a sign of low supply." });
+        break;
+      }
+    }
+
+    // Daily volume trend
+    const _recentVols = _recent.map(d => (days[d] || []).filter(e => e.type === "feed").reduce((s, f) => s + (f.amount || 0), 0)).filter(v => v > 0);
+    const _prevVols = _prev.map(d => (days[d] || []).filter(e => e.type === "feed").reduce((s, f) => s + (f.amount || 0), 0)).filter(v => v > 0);
+
+    if (_recentVols.length >= 4 && _prevVols.length >= 4) {
+      const avgNow = Math.round(_recentVols.reduce((a, b) => a + b, 0) / _recentVols.length);
+      const avgBefore = Math.round(_prevVols.reduce((a, b) => a + b, 0) / _prevVols.length);
+      const pctChange = Math.round(((avgNow - avgBefore) / avgBefore) * 100);
+      if (pctChange > 15) {
+        const _gsAge = [3, 6, 12, 24].some(w => Math.abs(_aw - w) <= 2);
+        insights.push({ type: "volume_up", text: "Daily intake is up " + pctChange + "% (" + fmtVol(avgNow, FU) + "/day vs " + fmtVol(avgBefore, FU) + " last week)." + (_gsAge ? " At " + fmtAge(age) + ", this is a classic growth spurt pattern. Extra feeds are expected for 2–3 days." : " This may be appetite variation or a growth period.") });
+      } else if (pctChange < -15) {
+        insights.push({ type: "volume_down", text: "Daily intake is down " + Math.abs(pctChange) + "% from last week. This could be teething discomfort, illness, or natural variation. If it persists for 3+ days, mention it to your " + _doctor + "." });
+      }
+    }
+
+    // Feed-sleep connection
+    const _bedtimeFeeds = _recent.map(d => {
+      const de = days[d] || [];
+      const bed = de.find(e => e.type === "sleep" && !e.night);
+      if (!bed) return null;
+      const bedMins = timeVal(bed);
+      const feeds = de.filter(e => e.type === "feed" && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+      const lastFeed = feeds.length ? feeds[feeds.length - 1] : null;
+      if (!lastFeed || !lastFeed.amount) return null;
+      const nextDayIdx = _dk.indexOf(d) + 1;
+      const nextDay = nextDayIdx < _dk.length ? (days[_dk[nextDayIdx]] || []) : [];
+      const nightWakes = de.filter(e => e.night).length + nextDay.filter(e => e.night).length;
+      const firstNW = [...de.filter(e => e.night), ...nextDay.filter(e => e.night)].sort((a, b) => timeVal(a) - timeVal(b))[0];
+      let firstStretch = null;
+      if (firstNW) {
+        const nwMins = timeVal(firstNW);
+        firstStretch = nwMins > bedMins ? nwMins - bedMins : nwMins + 1440 - bedMins;
+      }
+      return { amount: lastFeed.amount, firstStretch };
+    }).filter(Boolean);
+
+    if (_bedtimeFeeds.length >= 5) {
+      const bigFeeds = _bedtimeFeeds.filter(f => f.amount >= (_bedtimeFeeds.reduce((s, f) => s + f.amount, 0) / _bedtimeFeeds.length) * 1.15 && f.firstStretch);
+      const smallFeeds = _bedtimeFeeds.filter(f => f.amount < (_bedtimeFeeds.reduce((s, f) => s + f.amount, 0) / _bedtimeFeeds.length) * 0.85 && f.firstStretch);
+      if (bigFeeds.length >= 2 && smallFeeds.length >= 2) {
+        const avgBigStretch = Math.round(bigFeeds.reduce((s, f) => s + f.firstStretch, 0) / bigFeeds.length);
+        const avgSmallStretch = Math.round(smallFeeds.reduce((s, f) => s + f.firstStretch, 0) / smallFeeds.length);
+        if (avgBigStretch > avgSmallStretch + 30) {
+          insights.push({ type: "feed_sleep", text: "When " + _n + "'s last feed before bed is larger, the first sleep stretch averages " + hm(avgBigStretch) + " vs " + hm(avgSmallStretch) + " with smaller feeds. A full feed at bedtime seems to help." });
+        }
+      }
+    }
+
+    // Feed spacing
+    const _feedGaps = _todayFeeds.slice(1).map((f, i) => timeVal(f) - timeVal(_todayFeeds[i])).filter(g => g > 0 && g < 480);
+    if (_feedGaps.length >= 3) {
+      const avgGap = Math.round(_feedGaps.reduce((a, b) => a + b, 0) / _feedGaps.length);
+      insights.push({ type: "spacing", text: "Feeds averaging every " + hm(avgGap) + " today. " + (_aw < 12 ? "At " + fmtAge(age) + ", frequent feeding is normal and helps establish supply." : "A consistent rhythm helps " + _n + " anticipate feeds.") });
+    }
+
+    return insights.length ? insights : null;
+  }
+
+  // ── Sleep Story: narrative sleep analysis ──
+  function generateSleepStory() {
+    if (!age) return null;
+    const _n = babyName || "Baby";
+    const _aw = age.totalWeeks;
+    const _dk = Object.keys(days).sort();
+    if (_dk.length < 3) return null;
+    const _recent7 = _dk.slice(-7);
+
+    const sections = [];
+
+    // ── THE BIG PICTURE ──
+    const _nightSleeps = _recent7.map(d => {
+      const nw = getNightWindows(days[d] || [], days[_dk[_dk.indexOf(d) + 1]] || []);
+      return nw.reduce((s, w) => s + w.mins, 0);
+    }).filter(v => v > 120);
+    const _daySleeps = _recent7.map(d => (days[d] || []).filter(e => e.type === "nap" && !e.night).reduce((s, n) => s + minDiff(n.start, n.end), 0)).filter(v => v > 0);
+    const _avgNightMins = _nightSleeps.length >= 3 ? Math.round(_nightSleeps.reduce((a, b) => a + b, 0) / _nightSleeps.length) : null;
+    const _avgDayMins = _daySleeps.length >= 3 ? Math.round(_daySleeps.reduce((a, b) => a + b, 0) / _daySleeps.length) : null;
+    const _totalAvg = (_avgNightMins || 0) + (_avgDayMins || 0);
+    const _expected = getExpectedDaySleepRange(_aw);
+
+    // Explain what good sleep looks like at this age
+    let bigPic = "";
+    if (_avgNightMins) {
+      const nightH = Math.round(_avgNightMins / 6) / 10;
+      const dayH = _avgDayMins ? Math.round(_avgDayMins / 6) / 10 : null;
+      bigPic = _n + " is averaging about " + nightH + " hours of night sleep";
+      if (dayH) bigPic += " and " + dayH + " hours in naps during the day";
+      bigPic += ".";
+
+      // Context: what's expected
+      const _profile = getAgeNapProfile(_aw);
+      const _totalExpected = _aw < 8 ? "14–17" : _aw < 17 ? "12–16" : _aw < 26 ? "12–15" : _aw < 52 ? "11–14" : "11–14";
+      bigPic += " At " + fmtAge(age) + ", babies typically need " + _totalExpected + " hours in 24 hours, split between " + _profile.expectedNaps + " nap" + (_profile.expectedNaps > 1 ? "s" : "") + " and a longer overnight stretch.";
+
+      if (_totalAvg > 0) {
+        const totalH = Math.round(_totalAvg / 6) / 10;
+        bigPic += " " + _n + "'s total of about " + totalH + " hours is " + (_totalAvg >= _expected.min * 0.9 ? "right on track." : "a little below target — but every baby has different sleep needs.");
+      }
+    }
+    if (bigPic) sections.push({ title: "The Big Picture", icon: "📊", text: bigPic });
+
+    // ── HOW NIGHTS ARE GOING ──
+    const _nightWakeCounts = _recent7.map(d => (days[d] || []).filter(e => e.night).length);
+    const _avgWakes = _nightWakeCounts.length ? Math.round(_nightWakeCounts.reduce((a, b) => a + b, 0) / _nightWakeCounts.length * 10) / 10 : null;
+    const _prev7 = _dk.slice(-14, -7);
+    const _prevWakeCounts = _prev7.map(d => (days[d] || []).filter(e => e.night).length);
+    const _prevAvgWakes = _prevWakeCounts.length >= 3 ? Math.round(_prevWakeCounts.reduce((a, b) => a + b, 0) / _prevWakeCounts.length * 10) / 10 : null;
+
+    let nightStory = "";
+    if (_avgWakes !== null) {
+      if (_avgWakes <= 1) {
+        nightStory = _n + " is averaging " + _avgWakes + " wake" + (_avgWakes !== 1 ? "s" : "") + " per night — that's excellent for " + fmtAge(age) + ".";
+      } else if (_avgWakes <= 2.5) {
+        nightStory = _n + " is waking about " + _avgWakes + " times per night, which is well within normal for " + fmtAge(age) + ".";
+      } else {
+        nightStory = _n + " is waking " + _avgWakes + " times per night on average. At " + fmtAge(age) + ", some babies still wake frequently — ";
+        const _diag = disruptionDiagnostic();
+        if (_diag && _diag.length && _diag[0].score >= 50) nightStory += "and there's likely a reason: " + _diag[0].brief.toLowerCase();
+        else nightStory += "this is often developmental and will improve as their sleep cycles mature.";
+      }
+      if (_prevAvgWakes !== null) {
+        if (_avgWakes < _prevAvgWakes - 0.5) nightStory += " That's an improvement from " + _prevAvgWakes + " last week.";
+        else if (_avgWakes > _prevAvgWakes + 0.5) nightStory += " That's up from " + _prevAvgWakes + " last week.";
+      }
+
+      // Longest stretch
+      const _longestStretches = _recent7.map(d => {
+        const nw = getNightWindows(days[d] || [], days[_dk[_dk.indexOf(d) + 1]] || []);
+        return nw.length ? Math.max(...nw.map(w => w.mins)) : 0;
+      }).filter(v => v > 60);
+      if (_longestStretches.length >= 3) {
+        const avgLS = Math.round(_longestStretches.reduce((a, b) => a + b, 0) / _longestStretches.length);
+        nightStory += " The longest unbroken stretch is averaging " + hm(avgLS) + ".";
+      }
+    }
+    if (nightStory) sections.push({ title: "Night Sleep", icon: "🌙", text: nightStory });
+
+    // ── HOW NAPS ARE GOING ──
+    const _napDurs = _recent7.flatMap(d => (days[d] || []).filter(e => e.type === "nap" && !e.night).map(n => minDiff(n.start, n.end))).filter(v => v > 5);
+    const _avgNapDur = _napDurs.length >= 3 ? Math.round(_napDurs.reduce((a, b) => a + b, 0) / _napDurs.length) : null;
+    const _profile2 = getAgeNapProfile(_aw);
+
+    let napStory = "";
+    if (_avgNapDur) {
+      napStory = "Naps are averaging " + hm(_avgNapDur) + ".";
+      if (_avgNapDur < 35 && _aw >= 16) {
+        napStory += " These are on the shorter side. At " + fmtAge(age) + ", many babies are still learning to link sleep cycles (each cycle is about 30–45 minutes). This is one of the most common things parents worry about, and it almost always improves by 6 months as the brain matures.";
+      } else if (_avgNapDur >= 35 && _avgNapDur < 50) {
+        napStory += " This is the classic single-cycle nap — very normal at " + fmtAge(age) + ". As " + _n + "'s sleep pressure regulation matures, these will start to lengthen.";
+      } else if (_avgNapDur >= 50 && _avgNapDur < 80) {
+        napStory += " That's a healthy nap length — " + _n + " is linking sleep cycles well.";
+      } else if (_avgNapDur >= 80) {
+        napStory += " These are strong restorative naps. " + _n + " is getting quality daytime sleep.";
+      }
+
+      // Transition detection
+      const _trans = napTransitionGuide();
+      if (_trans && _trans.active) napStory += " " + _trans.brief;
+    }
+    if (napStory) sections.push({ title: "Nap Patterns", icon: "😴", text: napStory });
+
+    // ── THE SCIENCE BEHIND YOUR SCHEDULE ──
+    let scienceStory = "OBubba uses three layers of science to predict " + _n + "'s schedule:\n\n";
+    scienceStory += "Sleep pressure (adenosine model): When " + _n + " is awake, a chemical called adenosine builds up in the brain. It's like a sleep timer counting up. Longer wake = more pressure = easier to fall asleep. A short nap clears less adenosine, which is why OBubba suggests a shorter wake window after a catnap.\n\n";
+    scienceStory += "Circadian rhythm (body clock): " + _n + "'s internal clock creates natural dips in alertness — one mid-morning and one early afternoon. OBubba aligns nap predictions with these biological windows when they're close to the calculated time.\n\n";
+    scienceStory += "Personal pattern learning: After 3+ days of data, OBubba blends " + _n + "'s actual patterns (60%) with age-appropriate guidance (40%). Wake windows aren't just based on age — they factor in which nap number it is (first wake windows are usually shorter), how long the previous nap was, and how disrupted last night was.";
+
+    sections.push({ title: "How OBubba Rhythm Works", icon: "🧠", text: scienceStory });
+
+    // ── WHAT YOU CAN DO ──
+    const tips = [];
+    const _score = sleepStabilityScore();
+    if (_score) {
+      const _warnFactors = _score.factors.filter(f => f.status === "warn");
+      _warnFactors.forEach(f => {
+        if (f.label === "Wake time") tips.push("Anchor the morning: Try to start the day within a 30-minute window each morning (e.g. 6:30–7:00). This is the single most powerful thing you can do for sleep — it sets the entire day's rhythm.");
+        if (f.label === "Bedtime") tips.push("Bedtime consistency: A regular bedtime (within 30 minutes) helps " + _n + "'s body clock predict sleep. Even 15 minutes earlier or later than usual can affect night wakes.");
+        if (f.label === "Wake window consistency") tips.push("Consistent wake windows: Try to keep wake windows similar lengths each day. Variable spacing confuses the body clock. Use OBubba's predictions as a guide — they're calibrated to " + _n + "'s pattern.");
+        if (f.label === "Daytime sleep") tips.push("Protect naps: If day sleep is low, consider a slightly earlier bedtime to compensate. The body redistributes missed day sleep into night sleep, but too large a deficit can cause overtiredness and more night waking.");
+      });
+    }
+    if (!tips.length) {
+      tips.push("You're doing well. Keep logging consistently — " + _n + "'s rhythm becomes clearer with each day of data. The more OBubba learns, the more personalised the predictions become.");
+    }
+    sections.push({ title: "What You Can Do", icon: "💡", text: tips.join("\n\n") });
+
+    // ── Rhythm confidence ──
+    const _rc = rhythmConfidence();
+    if (_rc) sections.push({ title: "Rhythm Confidence", icon: "📈", text: _rc.message, score: _rc.score, trend: _rc.trend, label: _rc.label });
+
+    return sections;
+  }
+
+  // ── Data-specific reassurance ──
+  function smartReassurance() {
+    if (!age || !selDay) return null;
+    const _n = babyName || "Baby";
+    const _today = days[selDay] || [];
+    const _naps = _today.filter(e => e.type === "nap" && !e.night);
+    const _feeds = _today.filter(e => e.type === "feed" && !e.night);
+    const _dk = Object.keys(days).sort().slice(-7);
+    const _h = new Date().getHours();
+
+    // Try to say something specific about today's data
+    if (_naps.length >= 1) {
+      const lastNap = _naps[_naps.length - 1];
+      const dur = minDiff(lastNap.start, lastNap.end);
+      const _avgNapRecent = (()=>{const ns=_dk.flatMap(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).map(n=>minDiff(n.start,n.end)));return ns.length?Math.round(ns.reduce((a,b)=>a+b,0)/ns.length):0;})();
+      if (dur > _avgNapRecent + 10 && _avgNapRecent > 0) return _n + "'s last nap was " + hm(dur) + " — longer than their " + hm(_avgNapRecent) + " average. The rhythm is building.";
+      if (_naps.length >= 2) {
+        const durs = _naps.map(n => minDiff(n.start, n.end));
+        if (durs.every(d => d >= 30)) return "All naps today have been 30+ minutes. " + _n + " is sleeping well.";
+      }
+    }
+
+    if (_feeds.length >= 3) {
+      const times = _feeds.map(f => timeVal(f));
+      const gaps = times.slice(1).map((t, i) => t - times[i]);
+      const avgGap = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+      const variance = gaps.reduce((s, g) => s + Math.abs(g - avgGap), 0) / gaps.length;
+      if (variance < 20) return _feeds.length + " feeds, evenly spaced. " + _n + " is in a good feeding rhythm today.";
+    }
+
+    const _victories = victoryTracker();
+    if (_victories && _victories.length) return _victories[0].text;
+
+    // Fallback: still personalised
+    const _streak = (()=>{ let c = 0; const dk2 = Object.keys(days).sort(); for (let i = dk2.length - 1; i >= 0; i--) { if ((days[dk2[i]] || []).length > 0) c++; else break; } return c; })();
+    if (_streak >= 5) return "Day " + _streak + " of tracking. You're building " + _n + "'s story — every log helps.";
+
+    const _defaults = [
+      "You're doing great — " + _n + "'s rhythm is settling at " + fmtAge(age) + ".",
+      "Follow " + _n + "'s cues today. You know them better than any app.",
+      "You're learning " + _n + ", and that's enough.",
+    ];
+    return _defaults[_h % _defaults.length];
+  }
+
+  // ── Expanded "Right Now" action ──
+  function expandedRightNow() {
+    if (!age || !selDay) return null;
+    const _n = babyName || "Baby";
+    const _today = days[selDay] || [];
+    const _naps = _today.filter(e => e.type === "nap" && !e.night);
+    const _feeds = _today.filter(e => e.type === "feed" && !e.night);
+    const _poops = _today.filter(e => e.type === "poop" && !e.night);
+    const _wakeE = _today.find(e => e.type === "wake" && !e.night);
+    const _bedE = _today.find(e => e.type === "sleep" && !e.night);
+    const _h = new Date().getHours();
+    const _nowM = _h * 60 + new Date().getMinutes();
+    const _aw = age.totalWeeks;
+    const _pred = predictNextNap();
+    const _profile = getAgeNapProfile(_aw);
+
+    if (napOn || _bedE) return null;
+
+    // Nap approaching
+    if (_pred && !_pred.isOverdue) {
+      const _pM = _pred.napStart_min.split(":").map(Number);
+      const _mUntil = Math.max(0, _pM[0] * 60 + _pM[1] - _nowM);
+      if (_mUntil <= 15) return { text: "Look for sleepy cues — nap window is open", priority: "high" };
+      if (_mUntil <= 30) return { text: "Nap in ~" + _mUntil + " min — wind down play, dim lights", priority: "med" };
+    }
+
+    // Overdue
+    if (_pred && _pred.isOverdue) return { text: "Past the nap window — try settling now. Dim lights, quiet voice", priority: "high" };
+
+    // Bedtime approaching
+    if (_naps.length >= _profile.expectedNaps) {
+      const _bed = bedtimePrediction();
+      if (_bed && !_bed.estimated) {
+        const _bP = _bed.time.split(":").map(Number);
+        const _mBed = Math.max(0, _bP[0] * 60 + _bP[1] - _nowM);
+        if (_mBed <= 10) return { text: "Bedtime — into the cot", priority: "high" };
+        if (_mBed <= 30) return { text: "Start the wind-down routine — bedtime in ~" + _mBed + " min", priority: "med" };
+      }
+    }
+
+    // Last awake time
+    let _lastSleep = _wakeE ? timeVal(_wakeE) : null;
+    _naps.forEach(n => { if (n.end) { const t = timeVal({ time: n.end }); if (t > (_lastSleep || 0)) _lastSleep = t; } });
+    const _awakeMin = _lastSleep !== null ? _nowM - _lastSleep : 0;
+
+    // Feed check
+    if (_feeds.length > 0) {
+      const _lastFeedTime = Math.max(..._feeds.map(f => timeVal(f)));
+      const _feedGap = _nowM - _lastFeedTime;
+      if (_feedGap >= 150) return { text: "Last feed was " + hm(_feedGap) + " ago — " + _n + " may be getting hungry", priority: "med" };
+    } else if (_wakeE && _awakeMin > 30) {
+      return { text: "No feeds logged yet — offer a feed", priority: "med" };
+    }
+
+    // Nappy check
+    if (_feeds.length >= 3 && _poops.length === 0 && _awakeMin > 120) return { text: "No nappies logged — might be time for a check", priority: "low" };
+
+    // Good window for activity
+    if (_awakeMin >= 20 && _awakeMin <= 60 && _pred && !_pred.isOverdue) {
+      const _pM2 = _pred.napStart_min.split(":").map(Number);
+      const _mUntil2 = Math.max(0, _pM2[0] * 60 + _pM2[1] - _nowM);
+      if (_mUntil2 > 30) return { text: "Good time for play or tummy time", priority: "low" };
+    }
+
+    // Leap fussiness
+    const _diag = disruptionDiagnostic();
+    if (_diag && _diag.length && _diag[0].type === "leap") {
+      return { text: "Leap phase — extra cuddles and patience today", priority: "low" };
+    }
+
+    // Low day sleep warning in evening
+    if (_h >= 16 && _h < 19) {
+      const _totalDayMins = _naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+      const _expected = getExpectedDaySleepRange(_aw);
+      if (_totalDayMins < _expected.min * 0.8) return { text: "Short nap day — consider bedtime 15–20 min earlier", priority: "med" };
+    }
+
+    return null;
+  }
+
   function openLogPanel(panel){
     setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:(()=>{const h=new Date().getHours();return(h>=6&&h<20)?"nap":"bed";})(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
     setLogPanel(panel);
@@ -6087,15 +6887,43 @@ function App(){
   const[quickFlash,setQuickFlash]=useState(null);
   const flashPriorityRef = React.useRef(0); // 0=none, 1=confirm, 2=advice, 3=wellbeing, 4=safety
   const flashTimerRef = React.useRef(null);
-  // ── Sound Machine ──
+  // ── Sound Machine (with iOS background audio persistence) ──
+  // iOS suspends AudioContext when screen locks. A silent <audio> loop keeps the audio session alive.
+  const _silentMp3 = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYlDUTpAAAAAAAAAAAAAAAAAAAA//tQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//tQZB8P8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAEVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==";
+
+  function _startSoundKeeper() {
+    if (soundKeeperRef.current) return;
+    try {
+      const audio = new Audio(_silentMp3);
+      audio.loop = true;
+      audio.volume = 0.01;
+      audio.setAttribute("playsinline", "");
+      audio.play().catch(()=>{});
+      soundKeeperRef.current = audio;
+    } catch {}
+  }
+
+  function _stopSoundKeeper() {
+    try {
+      if (soundKeeperRef.current) {
+        soundKeeperRef.current.pause();
+        soundKeeperRef.current.src = "";
+        soundKeeperRef.current = null;
+      }
+    } catch {}
+  }
+
   function stopSound(){
     soundNodesRef.current.forEach(n=>{try{n.disconnect();n.stop?.();}catch{}});
     soundNodesRef.current=[];
     if(soundTimerRef.current){clearTimeout(soundTimerRef.current);soundTimerRef.current=null;}
+    _stopSoundKeeper();
     setSoundPlaying(null);
   }
   function playSound(type, vol, timerMin){
     stopSound();
+    // Start silent audio keeper first (keeps iOS audio session alive when screen locks)
+    _startSoundKeeper();
     const ctx=soundCtxRef.current||(soundCtxRef.current=new(window.AudioContext||window.webkitAudioContext)());
     if(ctx.state==="suspended") ctx.resume();
     const gain=ctx.createGain();
@@ -6558,8 +7386,9 @@ function App(){
     undoTimeoutRef.current = setTimeout(()=>setLastAction(null), 15000);
     setLogPanel(null);
     try{navigator.vibrate&&navigator.vibrate([35,25,35]);}catch{}
-    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
-    showToast(label+" · Shake to undo",1500,1);
+    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥕 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
+    const timeLabel = data.time ? " at "+fmt12(data.time) : "";
+    showToast(label+timeLabel+" · Shake to undo",3000,1);
 
     // Fire event-triggered reminders
     if (type === "feed") fireEventReminders("after_feed");
@@ -9376,6 +10205,58 @@ function App(){
               {/* ═══ HERO CARD — Bubba Rhythm ═══ */}
               {renderHeroCard()}
 
+              {/* ═══ DAY NARRATIVE — story of the day ═══ */}
+              {selDay===todayStr()&&(()=>{
+                const _narr = generateDayNarrative();
+                if (!_narr || !_narr.lines.length) return null;
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                      <span style={{fontSize:13}}>{_narr.mood==="great"?"🌟":_narr.mood==="tough"?"💜":_narr.mood==="improving"?"📈":"📝"}</span>
+                      <span style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>{babyName?possessive(babyName)+" ":""}Day Story</span>
+                    </div>
+                    {_narr.lines.map((ln,i)=>(
+                      <div key={i} style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:i<_narr.lines.length-1?6:0}}>{ln}</div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* ═══ DISRUPTION DIAGNOSTIC — what's going on? ═══ */}
+              {selDay===todayStr()&&(()=>{
+                const _diag = disruptionDiagnostic();
+                if (!_diag || !_diag.length || _diag[0].score < 55) return null;
+                const top = _diag[0];
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:10,borderLeft:"3px solid "+C.ter}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                      <span style={{fontSize:13}}>🔍</span>
+                      <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{top.title}</span>
+                    </div>
+                    <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{top.brief}</div>
+                    <button onClick={()=>{haptic();showToast(top.detail,8000,2);}} style={{fontSize:12,color:C.ter,fontWeight:600,background:"none",border:"none",padding:0,cursor:_cP}}>
+                      Tell me more →
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* ═══ VICTORY TRACKER — celebrate progress ═══ */}
+              {selDay===todayStr()&&(()=>{
+                const _vic = victoryTracker();
+                if (!_vic || !_vic.length) return null;
+                return (
+                  <div className="glass-card" style={{padding:"12px 16px",marginBottom:10,background:"linear-gradient(135deg,rgba(80,200,120,0.04),rgba(111,168,152,0.04))"}}>
+                    {_vic.slice(0,2).map((v,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:i<Math.min(_vic.length,2)-1?6:0}}>
+                        <span style={{fontSize:14,flexShrink:0}}>{v.icon}</span>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{v.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {/* Smart time-of-day prompt */}
               {selDay===todayStr()&&(()=>{
                 const h=new Date().getHours();
@@ -10174,7 +11055,7 @@ function App(){
               <div style={{display:todayPlanOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 12px 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
 
               {/* Tomorrow's schedule — premium teaser */}
-              {!isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (
+              {STORE_READY && !isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (
                 <button onClick={()=>triggerPaywall("tomorrow")} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
                   📋 Plan ahead — see tomorrow's predicted schedule →
                 </button>
@@ -10844,7 +11725,7 @@ function App(){
             ? "\n\n📞 PANDA: 1300 726 306 (Mon–Fri 9am–7:30pm AEST)\n📞 Beyond Blue: 1300 22 4636 (24/7)\n📞 Lifeline: 13 11 14 (24/7)\n📞 Your GP or child health nurse"
             : "\n\n📞 PANDAS Foundation: 0808 196 1776 (free, Mon–Fri 11am–10pm)\n📞 Samaritans: 116 123 (free, 24/7)\n🌐 NHS Talking Therapies: self-refer via nhs.uk\n📞 Health visitor — call your GP surgery to be connected";
 
-          const wellbeingCard = false && wellbeingDue ? (
+          const wellbeingCard = wellbeingDue ? (
             <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(111,168,152,0.08))",border:`1.5px solid rgba(123,104,238,0.2)`,borderRadius:18,padding:"16px",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{fontSize:15,fontWeight:700,color:C.deep}}>💜 How are you doing?</div>
@@ -10946,7 +11827,7 @@ function App(){
               </div>
 
               {/* ═══ Post-trial banner ═══ */}
-              {trialExpired && !trialBannerDismissed && (
+              {STORE_READY && trialExpired && !trialBannerDismissed && (
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",marginBottom:10,borderRadius:14,background:"linear-gradient(135deg,rgba(192,112,136,0.08),rgba(123,104,238,0.08))",border:"1.5px solid rgba(192,112,136,0.2)"}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:13,fontWeight:600,color:C.deep}}>Pick up where you left off</div>
@@ -10994,7 +11875,7 @@ function App(){
                   <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
                     <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:8}}>{_headline}</div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{_totalNaps} naps · {_nightWakes} night wakes this week</div>
-                    {!isPremium && _dk.length >= 5 && (
+                    {STORE_READY && !isPremium && _dk.length >= 5 && (
                       <button onClick={()=>triggerPaywall("weekly")} style={{marginTop:8,padding:"6px 14px",borderRadius:99,border:"1px solid "+C.ter+"40",background:C.ter+"08",color:C.ter,fontSize:11,fontWeight:600,cursor:_cP}}>
                         See how {babyName||"baby"}'s patterns are evolving →
                       </button>
@@ -11019,7 +11900,7 @@ function App(){
               })()}
 
               {/* ═══ Bubba Rhythm Profile (PREMIUM placeholder) ═══ */}
-              {Object.keys(days).length >= 3 && (
+              {STORE_READY && Object.keys(days).length >= 3 && (
                 <div className="glass-card" style={{padding:"16px",marginBottom:12,position:"relative",overflow:"hidden"}}>
                   <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4}}>Bubba Rhythm</div>
                   <div style={{fontSize:12,color:C.lt,marginBottom:12,fontStyle:"italic"}}>We're learning {babyName||"baby"}'s rhythm…</div>
@@ -11125,6 +12006,76 @@ function App(){
               {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
+
+                  {/* ═══ SLEEP STORY — narrative analysis ═══ */}
+                  {(()=>{
+                    const story = generateSleepStory();
+                    if (!story || !story.length) return null;
+                    return (
+                      <div style={{marginBottom:16}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:14}}>
+                          <span style={{fontSize:15}}>📖</span>
+                          <span style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep}}>{possessive(babyName||"Baby")} Sleep Story</span>
+                          <HelpBtn title="Sleep Story" body={"OBubba analyses " + (babyName||"your baby") + "'s sleep data from the last 7 days and explains what's happening in plain English. It covers night sleep, naps, rhythm patterns, and gives you specific actions. The science section explains the three models OBubba uses to predict your baby's schedule: sleep pressure (adenosine), circadian rhythm (body clock), and personal pattern learning."}/>
+                        </div>
+                        {story.map((section,i)=>(
+                          <div key={i} style={{marginBottom:i<story.length-1?14:0}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                              <span style={{fontSize:13}}>{section.icon}</span>
+                              <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{section.title}</span>
+                              {section.score!==undefined&&(
+                                <span style={{marginLeft:"auto",fontSize:12,fontFamily:_fM,fontWeight:700,color:section.score>=70?C.mint:section.score>=45?"#D4A855":C.ter,background:(section.score>=70?C.mint:section.score>=45?"#D4A855":C.ter)+"12",padding:"2px 8px",borderRadius:99}}>
+                                  {section.score}%{section.trend!==null&&section.trend>=5?" ↑":section.trend!==null&&section.trend<=-5?" ↓":""}
+                                </span>
+                              )}
+                            </div>
+                            {section.label&&<div style={{fontSize:12,fontWeight:600,color:section.score>=70?C.mint:section.score>=45?"#D4A855":C.ter,marginBottom:4,paddingLeft:19}}>{section.label}</div>}
+                            <div style={{fontSize:13,color:C.mid,lineHeight:1.65,paddingLeft:19,whiteSpace:"pre-line"}}>{section.text}</div>
+                            {i<story.length-1&&<div style={{borderBottom:"1px solid var(--card-border)",margin:"14px 0 0",opacity:0.5}}/>}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {/* ═══ NAP TRANSITION GUIDE ═══ */}
+                  {(()=>{
+                    const _trans = napTransitionGuide();
+                    if (!_trans || !_trans.active) return null;
+                    return (
+                      <div style={{background:"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(111,168,152,0.06))",border:"1px solid rgba(212,168,85,0.2)",borderRadius:14,padding:"12px 14px",marginBottom:14}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                          <span style={{fontSize:14}}>🔄</span>
+                          <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Nap Transition: {_trans.from} → {_trans.to} naps</span>
+                        </div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:8}}>{_trans.detail}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={{flex:1,height:6,borderRadius:99,background:C.blush}}>
+                            <div style={{width:_trans.progress+"%",height:"100%",borderRadius:99,background:"linear-gradient(90deg,#D4A855,"+C.mint+")",transition:"width 0.3s"}}/>
+                          </div>
+                          <span style={{fontSize:11,fontFamily:_fM,color:C.lt}}>{_trans.progress}%</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ═══ FEED-SLEEP CONNECTION ═══ */}
+                  {(()=>{
+                    const _fi = feedIntelligence();
+                    if (!_fi) return null;
+                    const _fsc = _fi.find(i => i.type === "feed_sleep");
+                    if (!_fsc) return null;
+                    return (
+                      <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderLeft:"4px solid "+C.sky,borderRadius:14,padding:"12px 14px",marginBottom:14}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:14}}>🍼🌙</span>
+                          <span style={{fontSize:13,fontWeight:700,color:C.sky}}>Feed-Sleep Connection</span>
+                        </div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{_fsc.text}</div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Sleep Stability Score & Analytics */}
                   {(()=>{
                     const score = sleepScore();
@@ -11595,6 +12546,27 @@ function App(){
               {collHead("feeding","🍼","Feeding & Nutrition")}
               {insightSection.feeding && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
+
+                  {/* ═══ FEED INTELLIGENCE — pattern insights ═══ */}
+                  {(()=>{
+                    const _fi = feedIntelligence();
+                    if (!_fi || !_fi.length) return null;
+                    return (
+                      <div style={{marginBottom:14}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                          <span style={{fontSize:14}}>🧠</span>
+                          <span style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>Feed Insights</span>
+                          <HelpBtn title="Feed Insights" body={"OBubba tracks feeding patterns over the last 7–14 days to spot cluster feeding, volume changes, growth spurts, and connections between feeding and sleep. These insights help you understand what's normal and when to talk to your " + _doctor + "."}/>
+                        </div>
+                        {_fi.map((insight,i)=>(
+                          <div key={i} style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:i<_fi.length-1?10:0,padding:"10px 12px",borderRadius:12,background:insight.type==="cluster"?"rgba(123,104,238,0.06)":insight.type==="volume_up"?"rgba(212,168,85,0.06)":insight.type==="volume_down"?"rgba(201,112,90,0.06)":insight.type==="feed_sleep"?"rgba(122,171,196,0.06)":"var(--card-bg-alt)",border:"1px solid "+(insight.type==="cluster"?"rgba(123,104,238,0.15)":insight.type==="volume_up"?"rgba(212,168,85,0.15)":insight.type==="volume_down"?"rgba(201,112,90,0.15)":insight.type==="feed_sleep"?"rgba(122,171,196,0.15)":"var(--card-border)")}}>
+                            {insight.text}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                   {/* Today's Milk Intake */}
                   {(()=>{
                     const fc = feedCard();
@@ -11692,97 +12664,110 @@ function App(){
 
               {/* ── GROWTH PERCENTILE BANNER ── */}
               {(insightFilter==="growth") && <div>
-              <div style={{background:`linear-gradient(135deg,${latestW?percentileColor(latestW?.pct, wTrend)+"18":"#f5f0eb"},${latestW?percentileColor(latestW?.pct, wTrend)+"08":"#ede8e0"})`, border:`2px solid ${latestW ? percentileColor(latestW?.pct, wTrend)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
+              <div style={{background:"var(--card-bg-solid)", border:`2px solid ${latestW ? percentileColor(latestW?.pct, wTrend)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
                 <div style={{padding:"16px 16px 14px"}}>
                   <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>📏 Growth Percentiles</div>
 
-                  {/* WHO Growth Charts with integrated stats */}
-                  {babyDob && (weights.length > 0 || heights.length > 0) ? (
-                    <div>
-                      {weights.length > 0 && (()=>{
-                        const wData = weights.map(w => {
-                          const mo = Math.round(((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10;
-                          return {mo: Math.max(0,mo), val: w.kg};
-                        }).filter(d=>d.mo>=0&&d.mo<=24);
-                        const lms = babySex==="girl" ? WHO_LMS_GIRLS : WHO_LMS_BOYS;
-                        return (
-                          <div style={{marginBottom:12}}>
-                            <div style={{marginBottom:10}}>
-                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>⚖️ Weight · WHO Growth Curves</div>
-                              {latestW && (
-                                <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
-                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:C.deep}}>{fmtWt(latestW.kg,MU)}</span>
-                                  <span style={{fontSize:18,fontWeight:800,color:percentileColor(latestW.pct, wTrend),background:percentileColor(latestW.pct, wTrend)+"18",padding:"4px 14px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestW.pct)}</span>
-                                  {weightGain !== null && <span style={{fontSize:14,color:weightGain>=0?C.mint:C.ter,fontFamily:_fM,fontWeight:700}}>{weightGain>=0?"↑":"↓"}{MU==="lbs"?Math.abs(Math.round(weightGain/KG_PER_LB*16*10)/10)+"oz":Math.abs(weightGain*1000)+"g"}</span>}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"10px 6px 4px",border:`1px solid ${C.blush}`}}>
-                              <GrowthChart lmsTable={lms} babyData={wData} yLabel="Weight" unit="kg" sex={babySex} color={C.ter}/>
-                            </div>
+                  {/* Current stats at a glance */}
+                  {(latestW || latestH) && (
+                    <div style={{display:"grid",gridTemplateColumns:latestW&&latestH?"1fr 1fr":"1fr",gap:10,marginBottom:14}}>
+                      {latestW && (
+                        <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"14px",border:`1px solid ${C.blush}`}}>
+                          <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>⚖️ Weight</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1}}>{fmtWt(latestW.kg,MU)}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                            <span style={{fontSize:15,fontWeight:800,color:percentileColor(latestW.pct, wTrend),background:percentileColor(latestW.pct, wTrend)+"18",padding:"3px 10px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestW.pct)}</span>
+                            {weightGain !== null && <span style={{fontSize:12,color:weightGain>=0?C.mint:C.ter,fontFamily:_fM,fontWeight:700}}>{weightGain>=0?"↑":"↓"}{MU==="lbs"?Math.abs(Math.round(weightGain/KG_PER_LB*16*10)/10)+"oz":Math.abs(weightGain*1000)+"g"}</span>}
                           </div>
-                        );
-                      })()}
-                      {heights.length > 0 && (()=>{
-                        const hData = heights.map(h => {
-                          const mo = Math.round(((new Date(h.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10;
-                          return {mo: Math.max(0,mo), val: h.cm};
-                        }).filter(d=>d.mo>=0&&d.mo<=24);
-                        const lms = babySex==="girl" ? WHO_LENGTH_LMS_GIRLS : WHO_LENGTH_LMS_BOYS;
-                        return (
-                          <div style={{marginBottom:12}}>
-                            <div style={{marginBottom:10}}>
-                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>📏 Height · WHO Growth Curves</div>
-                              {latestH && (
-                                <div style={{display:"flex",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
-                                  <span style={{fontFamily:"'Playfair Display',serif",fontSize:32,fontWeight:700,color:C.deep}}>{fmtHt(latestH.cm,MU)}</span>
-                                  <span style={{fontSize:18,fontWeight:800,color:percentileColor(latestH.pct, hTrend),background:percentileColor(latestH.pct, hTrend)+"18",padding:"4px 14px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestH.pct)}</span>
-                                </div>
-                              )}
-                            </div>
-                            <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"10px 6px 4px",border:`1px solid ${C.blush}`}}>
-                              <GrowthChart lmsTable={lms} babyData={hData} yLabel="Height" unit="cm" sex={babySex} color={C.sky}/>
-                            </div>
+                        </div>
+                      )}
+                      {latestH && (
+                        <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"14px",border:`1px solid ${C.blush}`}}>
+                          <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>📏 Height</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1}}>{fmtHt(latestH.cm,MU)}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                            <span style={{fontSize:15,fontWeight:800,color:percentileColor(latestH.pct, hTrend),background:percentileColor(latestH.pct, hTrend)+"18",padding:"3px 10px",borderRadius:99,fontFamily:_fM}}>{ordinal(latestH.pct)}</span>
                           </div>
-                        );
-                      })()}
-                    </div>
-                  ) : (
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"12px",border:`1px solid ${C.blush}`}}>
-                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Weight</div>
-                        {latestW ? <div><span style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:percentileColor(latestW.pct, wTrend)}}>{ordinal(latestW.pct)}</span> <span style={{fontSize:12,color:C.lt}}>· {fmtWt(latestW.kg,MU)}</span></div>
-                        : <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>Not logged</div>}
-                      </div>
-                      <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"12px",border:`1px solid ${C.blush}`}}>
-                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Height</div>
-                        {latestH ? <div><span style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:percentileColor(latestH.pct, hTrend)}}>{ordinal(latestH.pct)}</span> <span style={{fontSize:12,color:C.lt}}>· {fmtHt(latestH.cm,MU)}</span></div>
-                        : <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>Not logged</div>}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Overall status */}
                   {latestW && (
-                    <div style={{fontSize:14,padding:"8px 18px",borderRadius:99,display:"inline-block",background:percentileColor(latestW.pct, wTrend)+"22",color:percentileColor(latestW.pct, wTrend),fontFamily:_fM,fontWeight:700,marginBottom:8}}>
+                    <div style={{fontSize:14,padding:"8px 18px",borderRadius:99,display:"inline-block",background:percentileColor(latestW.pct, wTrend)+"22",color:percentileColor(latestW.pct, wTrend),fontFamily:_fM,fontWeight:700,marginBottom:12}}>
                       {percentileNote(latestW.pct, wTrend, wDrop)}
                     </div>
                   )}
 
-                  {/* Growth & Feeding correlation — moved under percentile */}
+                  {/* Growth & Feeding correlation */}
                   {(()=>{
                     const gc = getGrowthFeedCorrelation();
                     if (!gc) return null;
                     return (
-                      <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginTop:8,marginBottom:8,border:`1px solid ${C.blush}`}}>
+                      <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:12,border:`1px solid ${C.blush}`}}>
                         <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>📊 Growth & Feeding</div>
                         <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>Intake averages {fmtVol(gc.avgMl,FU)}/day this week. At last weigh-in ({gc.kg}kg), weight was tracking on the {gc.pctLabel} centile.</div>
                       </div>
                     );
                   })()}
 
+                  {/* ── Growth History — simple date + measurement + percentile ── */}
+                  {(weights.length > 0 || heights.length > 0) && (
+                    <div style={{marginBottom:12}}>
+                      <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>📋 Growth History</div>
+                      {weights.length > 0 && (
+                        <div style={{marginBottom:heights.length>0?12:0}}>
+                          <div style={{fontSize:11,fontWeight:700,color:C.mid,marginBottom:6}}>Weight</div>
+                          {[...weights].sort((a,b)=>b.date.localeCompare(a.date)).map((w,i)=>{
+                            const ageMo = babyDob ? Math.round(((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10 : null;
+                            const pct = ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getPercentile(w.kg, ageMo, babySex) : null;
+                            const prevW = i < weights.length - 1 ? [...weights].sort((a,b)=>b.date.localeCompare(a.date))[i+1] : null;
+                            const gain = prevW ? Math.round((w.kg - prevW.kg) * 1000) : null;
+                            return (
+                              <div key={"w"+i} style={{display:"flex",alignItems:"center",padding:"8px 10px",marginBottom:3,borderRadius:10,background:i===0?"var(--card-bg-alt)":"transparent",border:i===0?`1px solid ${C.blush}`:"none"}}>
+                                <div style={{flex:1}}>
+                                  <div style={{fontSize:13,fontWeight:i===0?700:400,color:C.deep}}>{fmtLong(w.date)}</div>
+                                  {ageMo !== null && <div style={{fontSize:11,color:C.lt}}>{Math.floor(ageMo)}mo {Math.round((ageMo % 1) * 4.3)}w</div>}
+                                </div>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  {gain !== null && gain !== 0 && <span style={{fontSize:11,color:gain>0?C.mint:C.ter,fontFamily:_fM}}>{gain>0?"+":""}{MU==="lbs"?Math.round(gain/KG_PER_LB/1000*16*10)/10+"oz":gain+"g"}</span>}
+                                  <span style={{fontFamily:_fM,fontSize:13,fontWeight:700,color:C.deep,minWidth:50,textAlign:"right"}}>{fmtWt(w.kg,MU)}</span>
+                                  {pct !== null && <span style={{fontSize:11,fontWeight:700,color:percentileColor(pct,"stable"),background:percentileColor(pct,"stable")+"18",padding:"2px 8px",borderRadius:99,fontFamily:_fM,minWidth:36,textAlign:"center"}}>{ordinal(pct)}</span>}
+                                  <button onClick={()=>setWeights(ws=>ws.filter(x=>x.date!==w.date||x.kg!==w.kg))} style={{background:"none",border:"none",color:C.lt,cursor:_cP,fontSize:11,padding:"2px 4px",opacity:0.5}}>✕</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {heights.length > 0 && (
+                        <div>
+                          <div style={{fontSize:11,fontWeight:700,color:C.mid,marginBottom:6}}>Height</div>
+                          {[...heights].sort((a,b)=>b.date.localeCompare(a.date)).map((h,i)=>{
+                            const ageMo = babyDob ? Math.round(((new Date(h.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10 : null;
+                            const pct = ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getHeightPercentile(h.cm, ageMo, babySex) : null;
+                            return (
+                              <div key={"h"+i} style={{display:"flex",alignItems:"center",padding:"8px 10px",marginBottom:3,borderRadius:10,background:i===0?"var(--card-bg-alt)":"transparent",border:i===0?`1px solid ${C.blush}`:"none"}}>
+                                <div style={{flex:1}}>
+                                  <div style={{fontSize:13,fontWeight:i===0?700:400,color:C.deep}}>{fmtLong(h.date)}</div>
+                                  {ageMo !== null && <div style={{fontSize:11,color:C.lt}}>{Math.floor(ageMo)}mo {Math.round((ageMo % 1) * 4.3)}w</div>}
+                                </div>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <span style={{fontFamily:_fM,fontSize:13,fontWeight:700,color:C.deep,minWidth:50,textAlign:"right"}}>{fmtHt(h.cm,MU)}</span>
+                                  {pct !== null && <span style={{fontSize:11,fontWeight:700,color:percentileColor(pct,"stable"),background:percentileColor(pct,"stable")+"18",padding:"2px 8px",borderRadius:99,fontFamily:_fM,minWidth:36,textAlign:"center"}}>{ordinal(pct)}</span>}
+                                  <button onClick={()=>setHeights(hs=>hs.filter(x=>x.date!==h.date||x.cm!==h.cm))} style={{background:"none",border:"none",color:C.lt,cursor:_cP,fontSize:11,padding:"2px 4px",opacity:0.5}}>✕</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Log inputs */}
-                  <div style={{marginTop:12,borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
+                  <div style={{borderTop:`1px solid ${C.blush}`,paddingTop:12}}>
                     <Inp label="Date" type="date" value={growthForm.date} onChange={e=>{setGrowthForm(f=>({...f,date:e.target.value}));setHeightForm(f=>({...f,date:e.target.value}));}} style={{marginBottom:10}}/>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:8}}>
                       <Inp label={`Weight (${wtLabel(MU)})`} type="number" step="0.01" placeholder={MU==="lbs"?"e.g. 11.5":"e.g. 5.2"} value={growthForm.kg} onChange={e=>setGrowthForm(f=>({...f,kg:e.target.value}))} style={{marginBottom:0}}/>
@@ -11810,33 +12795,6 @@ function App(){
                       }
                     }} style={{marginTop:2}}>Save Measurements</PBtn>
                   </div>
-
-                  {/* History toggle */}
-                  <button onClick={()=>setGrowthLogOpen(o=>!o)} style={{background:_bN,border:_bN,fontSize:12,color:C.mid,cursor:_cP,fontFamily:_fI,marginTop:8,display:"flex",alignItems:"center",gap:4,padding:0}}>
-                    {growthLogOpen?"Hide":"Show"} history {growthLogOpen?"▲":"▼"}
-                  </button>
-                  {growthLogOpen && (weights.length>0 || heights.length>0) && (
-                    <div style={{marginTop:8}}>
-                      {[...weights].sort((a,b)=>b.date.localeCompare(a.date)).map((w,i)=>(
-                        <div key={"w"+i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
-                          <div style={{fontSize:13,color:C.deep}}>{fmtLong(w.date)}</div>
-                          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                            <span style={{background:"var(--chip-bg)",color:C.ter,fontFamily:_fM,fontSize:12,padding:"2px 8px",borderRadius:99}}>{w.kg}kg</span>
-                            <button onClick={()=>setWeights(ws=>ws.filter(x=>x.date!==w.date))} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:20,height:20,color:C.lt,cursor:_cP,fontSize:12,lineHeight:"20px",padding:0}}>✕</button>
-                          </div>
-                        </div>
-                      ))}
-                      {[...heights].sort((a,b)=>b.date.localeCompare(a.date)).map((h,i)=>(
-                        <div key={"h"+i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
-                          <div style={{fontSize:13,color:C.deep}}>{fmtLong(h.date)}</div>
-                          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                            <span style={{background:"var(--chip-bg)",color:C.sky,fontFamily:_fM,fontSize:12,padding:"2px 8px",borderRadius:99}}>{h.cm}cm</span>
-                            <button onClick={()=>setHeights(hs=>hs.filter(x=>x.date!==h.date))} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:20,height:20,color:C.lt,cursor:_cP,fontSize:12,lineHeight:"20px",padding:0}}>✕</button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -12315,7 +13273,7 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🎮 Let's Play — Little moments that build big milestones</div>
                 {(()=>{
                   const _lpActs = DEV_ACTIVITIES.filter(a=>ageWeeks>=a.weeks[0]&&ageWeeks<=a.weeks[1]);
-                  const _lpShow = isPremium ? _lpActs.slice(0,3) : _lpActs.slice(0,1);
+                  const _lpShow = (isPremium || !STORE_READY) ? _lpActs.slice(0,3) : _lpActs.slice(0,1);
                   if (!_lpShow.length) return <div style={{fontSize:12,color:C.lt}}>Activities will appear as {babyName||"baby"} grows</div>;
                   return _lpShow.map((a,i)=>(
                     <div key={a.id} style={{display:"flex",gap:10,padding:"8px 0",borderTop:i>0?"1px solid var(--card-border)":"none"}}>
@@ -12810,7 +13768,7 @@ function App(){
           {/* ── ACCOUNT ── */}
           <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:4}}>👤 Account</div>
           {/* ── Subscription Status ── */}
-          <div style={{background:"var(--card-bg-solid)",border:"1px solid " + C.blush,borderRadius:16,padding:"14px 16px",marginBottom:14}}>
+          {STORE_READY && <div style={{background:"var(--card-bg-solid)",border:"1px solid " + C.blush,borderRadius:16,padding:"14px 16px",marginBottom:14}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:C.deep}}>OBubba Free</div>
@@ -12820,7 +13778,7 @@ function App(){
                 Understand your baby's rhythm →
               </button>
             </div>
-          </div>
+          </div>}
 
 
 
@@ -13946,7 +14904,7 @@ function App(){
       {/* Personal/NHS toggle moved to Account → Sleep Recommendations */}
 
       {/* ═══ Paywall Modal — blur + peek ═══ */}
-      {showPaywall && (
+      {STORE_READY && showPaywall && (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.6)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowPaywall(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,0.25)",textAlign:"center",position:"relative"}}>
             <button onClick={()=>setShowPaywall(false)} style={{position:"absolute",top:14,right:14,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP}}>✕</button>
@@ -14041,7 +14999,7 @@ function App(){
             </div>
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5,textAlign:"center"}}>
               💡 White noise helps babies sleep by mimicking womb sounds. Keep volume below 50dB — about as loud as a quiet conversation.
-              <br/><br/>📱 On iPhones, sound may pause when the screen locks. Keep the screen on (dim brightness) or use the native Do Not Disturb mode for uninterrupted playback.
+              <br/><br/>📱 Sound continues when your screen locks. If audio stops briefly, unlock and it will resume automatically.
             </div>
           </div>
         </div>
