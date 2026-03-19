@@ -1377,6 +1377,25 @@ function App(){
   // When subscriptions are added, change default to false and gate with RevenueCat
   const[isPremium]=useState(true);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
+  const[todayPlanOpen,setTodayPlanOpen]=useState(false);
+  const[notesOpen,setNotesOpen]=useState(false);
+  const[showNapStartPicker,setShowNapStartPicker]=useState(false);
+  const[showPaywall,setShowPaywall]=useState(false);
+  const[paywallContext,setPaywallContext]=useState(""); // which trigger
+  const paywallShownRef=useRef(false); // max 1 per session
+  const[trialStart]=useState(()=>{try{return localStorage.getItem("obubba_trial_start")||null;}catch{return null;}});
+  const trialActive = trialStart && (Date.now() - new Date(trialStart).getTime()) < 7*24*60*60*1000;
+  const trialExpired = trialStart && !trialActive;
+  // Trial banner dismissed today?
+  const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
+
+  function triggerPaywall(context) {
+    if (isPremium || trialActive || paywallShownRef.current) return;
+    paywallShownRef.current = true;
+    setPaywallContext(context);
+    setShowPaywall(true);
+  }
+  const[napCustomStart,setNapCustomStart]=useState("");
   // ── Breastfeeding Support Layer ──
   const[bfSupport,setBfSupport]=useState(null);
   const bfSupportShownRef=useRef(false);
@@ -1412,6 +1431,8 @@ function App(){
   const[showAddPin,setShowAddPin]=useState(false);
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
+  const recapPhotoRef=useRef(null); // hidden input for recap card photo
+  const[recapExtraPhoto,setRecapExtraPhoto]=useState(null); // base64 data URL
   const[msSharePrompt,setMsSharePrompt]=useState(null); // {milestoneId, label}
   const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0});
   const[reminderForm,setReminderForm]=useState({text:"",date:"",time:"",trigger:""});
@@ -3109,9 +3130,23 @@ function App(){
       } else if (_minsUntilNap <= 20) {
         _dot = "#D4A855"; _label = "Ready for a nap";
         _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min";
+      } else if (_minsUntilNap <= 30) {
+        _dot = "#D4A855"; _label = "Settling time";
+        _timing = "Awake " + hm(_awakeMin) + " · Nap in ~" + _minsUntilNap + " min — watch for cues";
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
         _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min";
+      }
+    } else if (_hasWake && _allFeeds.length > 0) {
+      // Check if feed window is opening (2.5h+ since last feed)
+      const _lastFeedTime = Math.max(..._allFeeds.map(e => timeVal(e)));
+      const _minsSinceFeed = _nowM - _lastFeedTime;
+      if (_minsSinceFeed >= 150) {
+        _dot = "#7aabc4"; _label = "Feed window opening";
+        _timing = "Last feed " + hm(_minsSinceFeed) + " ago · " + _name + " may be getting hungry";
+      } else {
+        _dot = "#7BA68C"; _label = "All good right now";
+        _timing = "Awake " + hm(_awakeMin) + " · Enjoying the day";
       }
     } else if (_hasWake) {
       _dot = "#7BA68C"; _label = "All good right now";
@@ -3132,6 +3167,8 @@ function App(){
     _whyLines.push("Look for sleepy cues: yawning, eye rubbing, staring. These usually appear 5–10 min before the ideal nap time.");
     if (isPremium && _pred && _pred.sourceLabel && _pred.sourceLabel.includes("pattern")) {
       _whyLines.push("This is unique to " + _name + " — based on their Bubba Rhythm.");
+    } else if (!isPremium && Object.keys(days).length >= 3) {
+      _whyLines.push("🔒 " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see it.");
     }
     _whyLines.push("Source: NHS/WHO guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
 
@@ -3145,7 +3182,7 @@ function App(){
         {_rightNow && <div style={{fontSize:12,color:C.ter,fontWeight:600,paddingLeft:20,marginBottom:6}}>{_rightNow}</div>}
         <div style={{fontSize:12,color:C.lt,fontStyle:"italic",paddingLeft:20,marginBottom:heroWhyOpen?12:0}}>{_reassure}</div>
         <div style={{paddingLeft:20,marginTop:8}}>
-          <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);}} style={{background:"none",border:"none",padding:0,fontSize:12,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
+          <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);if(!heroWhyOpen&&!isPremium&&Object.keys(days).length>=3)setTimeout(()=>triggerPaywall("why"),800);}} style={{background:"none",border:"none",padding:0,fontSize:12,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
             {heroWhyOpen?"Hide":"Why?"} <span style={{fontSize:9,transform:heroWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
           </button>
           {heroWhyOpen&&(
@@ -3921,6 +3958,7 @@ function App(){
       status = "normal"; color = C.mint; bg = "#f0faf6";
       icon = "✓";
       message = "Nap time is within a healthy range for this age — you're nailing the routine! Every day you track helps OBubba learn your baby's unique rhythm.";
+      if (!isPremium && Object.keys(days).length >= 5) message += " That worked because of " + (babyName||"baby") + "'s developing rhythm.";
     }
     return { totalMins, range, status, color, bg, icon, message };
   }
@@ -7693,8 +7731,8 @@ function App(){
   }
 
   // ═══ DAILY RECAP SHARE CARD — Instagram-story-sized canvas for viral sharing ═══
-  async function generateDailyRecapCard() {
-    const W=1080, H=1920;
+  async function generateDailyRecapCard(extraPhotoUrl) {
+    const W=1080;let H=1920; // H will be recalculated dynamically
     const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
     const ctx=canvas.getContext("2d");
     const name=babyName||"Baby";
@@ -7849,14 +7887,58 @@ function App(){
     lines2.forEach((l,i)=>{ctx.fillText(l,W/2,cardY+20+i*30);});
     cardY+=20+lines2.length*30+30;
 
-    // Watermark
-    ctx.font="bold 18px 'DM Sans',sans-serif";ctx.fillStyle=textAccent;
-    ctx.fillText("Tracked with OBubba",W/2,H-80);
-    ctx.font="16px 'DM Sans',sans-serif";ctx.fillStyle=textSub;
-    ctx.fillText("obubba.com — free for iPhone & Android",W/2,H-52);
+    // Extra photo if provided
+    if (extraPhotoUrl) {
+      try {
+        const eImg = new Image(); eImg.crossOrigin = "anonymous";
+        await new Promise((res,rej)=>{eImg.onload=res;eImg.onerror=rej;eImg.src=extraPhotoUrl;setTimeout(rej,3000);});
+        const maxPhotoW = W - gap*4;
+        const aspect = eImg.width / eImg.height;
+        let pW = maxPhotoW, pH = maxPhotoW / aspect;
+        if (pH > 600) { pH = 600; pW = pH * aspect; }
+        const pX = (W - pW) / 2;
+        // Rounded corners
+        const pR = 28;
+        ctx.save(); ctx.beginPath();
+        ctx.moveTo(pX+pR, cardY); ctx.lineTo(pX+pW-pR, cardY); ctx.quadraticCurveTo(pX+pW, cardY, pX+pW, cardY+pR);
+        ctx.lineTo(pX+pW, cardY+pH-pR); ctx.quadraticCurveTo(pX+pW, cardY+pH, pX+pW-pR, cardY+pH);
+        ctx.lineTo(pX+pR, cardY+pH); ctx.quadraticCurveTo(pX, cardY+pH, pX, cardY+pH-pR);
+        ctx.lineTo(pX, cardY+pR); ctx.quadraticCurveTo(pX, cardY, pX+pR, cardY);
+        ctx.clip();
+        ctx.drawImage(eImg, pX, cardY, pW, pH);
+        ctx.restore();
+        // Soft border
+        ctx.strokeStyle = cardBorder; ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(pX+pR, cardY); ctx.lineTo(pX+pW-pR, cardY); ctx.quadraticCurveTo(pX+pW, cardY, pX+pW, cardY+pR);
+        ctx.lineTo(pX+pW, cardY+pH-pR); ctx.quadraticCurveTo(pX+pW, cardY+pH, pX+pW-pR, cardY+pH);
+        ctx.lineTo(pX+pR, cardY+pH); ctx.quadraticCurveTo(pX, cardY+pH, pX, cardY+pH-pR);
+        ctx.lineTo(pX, cardY+pR); ctx.quadraticCurveTo(pX, cardY, pX+pR, cardY);
+        ctx.stroke();
+        cardY += pH + 30;
+      } catch { /* photo failed, skip */ }
+    }
+
+    // Dynamic height: resize canvas to fit content
+    const finalH = Math.max(Math.min(cardY + 120, 2400), 600); // clamp between 600-2400
+    const finalCanvas = document.createElement("canvas"); finalCanvas.width = W; finalCanvas.height = finalH;
+    const fCtx = finalCanvas.getContext("2d");
+    // Fill background for the watermark area
+    const fGrad = fCtx.createLinearGradient(0,0,W*0.3,finalH);
+    if(isDk){fGrad.addColorStop(0,"#1a1520");fGrad.addColorStop(1,"#2a2232");}
+    else{fGrad.addColorStop(0,"#F5EDE8");fGrad.addColorStop(0.7,"#FFF0E8");fGrad.addColorStop(1,"#F0E4DD");}
+    fCtx.fillStyle=fGrad;fCtx.fillRect(0,0,W,finalH);
+    fCtx.drawImage(canvas, 0, 0, W, Math.min(H, finalH), 0, 0, W, Math.min(H, finalH));
+
+    // Watermark at bottom of fitted canvas
+    fCtx.textAlign = "center";
+    fCtx.font="bold 18px 'DM Sans',sans-serif";fCtx.fillStyle=textAccent;
+    fCtx.fillText("Tracked with OBubba",W/2,finalH-70);
+    fCtx.font="16px 'DM Sans',sans-serif";fCtx.fillStyle=textSub;
+    fCtx.fillText("obubba.com — free for iPhone & Android",W/2,finalH-42);
 
     let dataUrl;
-    try{dataUrl=canvas.toDataURL("image/png");}catch{showToast("Couldn't generate recap card",2500,2);return;}
+    try{dataUrl=finalCanvas.toDataURL("image/png");}catch{showToast("Couldn't generate recap card",2500,2);return;}
     setSharePreview({title:name+"'s Day · "+fmtLong(selDay),milestone:null,dataUrl});
   }
 
@@ -9032,6 +9114,17 @@ function App(){
             return <div style={{background:"var(--card-bg)",borderRadius:99,padding:"5px 14px",display:"inline-flex",alignItems:"center",gap:5,fontSize:14,color:C.deep,fontWeight:700}}>🎂 {fmtAge(age)}{age.months >= 1 ? ` · ${age.totalWeeks}wk` : ""}</div>;
           })()}
         </div>
+        {/* ── Header utility buttons: Sound Machine + Crying Helper ── */}
+        {tab === "day" && (
+          <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:6}}>
+            <button onClick={()=>{haptic();setShowCryingHelper(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 12px",borderRadius:99,border:"1px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid}}>
+              😢 Crying?
+            </button>
+            <button onClick={()=>{haptic();setShowSoundMachine(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:"5px 12px",borderRadius:99,border:"1px solid " + (soundPlaying?C.mint+"66":"var(--card-border)"),background:soundPlaying?"rgba(111,168,152,0.08)":"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:soundPlaying?C.mint:C.mid}}>
+              🎵 {soundPlaying?"Playing":"Sounds"}
+            </button>
+          </div>
+        )}
         {tab === "day" && breastStartTime && (
           <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
             {breastStartTime && (
@@ -9333,7 +9426,7 @@ function App(){
               {/* ONE-TAP LOG ROW — below date strip, above age guidance */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"10px 12px",marginBottom:10,gap:2,boxShadow:"var(--card-shadow)"}}>
                 {[
-                  {emoji:"🍼",label:"Feed",action:()=>{
+                  {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{
                     const hasBed = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
                     if(hasBed){
                       // After bedtime — open night wake form with milk pre-selected
@@ -9344,7 +9437,7 @@ function App(){
                       quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});
                     }
                   }},
-                  {emoji:"🤱",label:"Breast",action:()=>{
+                  {emoji:"🤱",label:"Breast",longAction:()=>openLogPanel("feed"),action:()=>{
                     const hasBed = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
                     if(hasBed){
                       haptic();
@@ -9354,8 +9447,8 @@ function App(){
                       haptic();startBreastTimer("L");
                     }
                   }},
-                  {emoji:"💩",label:"Nappy",action:()=>quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
-                  {emoji:"😴",label:napOn?"Stop":"Nap",action:()=>{
+                  {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
+                  {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?null:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{
                     if(napOn){ endNap(); } else { startNap(); }
                   }},
                   {emoji:"🫙",label:"Pump",action:()=>openLogPanel("pump")},
@@ -9363,17 +9456,77 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                ].map(({emoji,label,action})=>(
-                  <button key={label} onPointerDown={e=>{e.preventDefault();action();}}
+                  {emoji:"➕",label:"More",action:()=>{haptic();const el=document.querySelector("[data-actions-grid]");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});}},
+                ].map(({emoji,label,action,longAction})=>{
+                  let _lpTimer = null;
+                  let _lpFired = false;
+                  return (
+                  <button key={label}
+                    onPointerDown={e=>{
+                      e.preventDefault();
+                      _lpFired = false;
+                      if (longAction) {
+                        _lpTimer = setTimeout(()=>{ _lpFired = true; haptic(20); longAction(); }, 500);
+                      }
+                    }}
+                    onPointerUp={e=>{
+                      if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+                      if (!_lpFired) action();
+                      e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";
+                    }}
+                    onPointerCancel={e=>{
+                      if (_lpTimer) { clearTimeout(_lpTimer); _lpTimer = null; }
+                      _lpFired = false;
+                      e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";
+                    }}
                     style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flex:1,padding:"6px 2px",borderRadius:12,border:"none",background:"transparent",cursor:_cP,transition:"transform 0.1s ease, background 0.1s ease",touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}
-                    onPointerUp={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
-                    onPointerCancel={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.transform="scale(1)";}}
                   >
                     <span style={{fontSize:22,lineHeight:1}}>{emoji}</span>
                     <span style={{fontSize:10,fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM}}>{label}</span>
+                    {longAction && <div style={{width:4,height:4,borderRadius:"50%",background:C.blush,marginTop:1}}/>}
                   </button>
-                ))}
+                  );
+                })}
               </div>
+
+
+              {/* ═══ Nap Backdated Start Picker ═══ */}
+              {showNapStartPicker && !napOn && (
+                <div style={{background:"var(--card-bg)",border:"1.5px solid rgba(123,104,238,0.25)",borderRadius:16,padding:"14px 16px",marginBottom:10,animation:"popIn 0.2s ease",boxShadow:"var(--card-shadow)"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>😴 When did the nap start?</div>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <TimeInput value={napCustomStart} onChange={t=>setNapCustomStart(t)} style={{flex:1}} inputStyle={{fontSize:16,padding:"10px 12px",borderRadius:12,textAlign:"center"}}/>
+                    <button onClick={()=>{
+                      haptic();
+                      const t = napCustomStart || nowTime();
+                      // Start nap with backdated time
+                      const [sh,sm] = t.split(":").map(Number);
+                      const now = new Date();
+                      const elapsed = Math.max(0, Math.floor((now.getTime() - new Date(now.getFullYear(),now.getMonth(),now.getDate(),sh,sm,0).getTime()) / 1000));
+                      setNapOn(true);
+                      setNapStartT(t);
+                      setNapSec(elapsed);
+                      setNapPaused(false);
+                      setTimerMode("activeSleep");
+                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));}catch{}
+                      // Create in-progress entry
+                      const entryId = uid();
+                      setNapEntryId(entryId);
+                      setDays(d=>{
+                        const _pd2=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                        const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,end:null,night:false,note:"",_active:true}];
+                        return{...d,[selDay]:autoClassifyNight(updated,d[_pd2]||null)};
+                      });
+                      setShowNapStartPicker(false);
+                      showToast("😴 Nap started from " + fmt12(t), 1500, 1);
+                    }} style={{padding:"10px 20px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7b68ee,#5040a0)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
+                      Start ✓
+                    </button>
+                    <button onClick={()=>setShowNapStartPicker(false)} style={{padding:"10px",borderRadius:"50%",border:"none",background:"var(--card-bg-alt)",color:C.lt,fontSize:14,cursor:_cP}}>✕</button>
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginTop:6}}>Timer will show elapsed time from this start time</div>
+                </div>
+              )}
 
               {/* Quick log confirmation toast */}
               {quickFlash&&(
@@ -9414,6 +9567,40 @@ function App(){
               })()}
 
               {/* Pending bottle snaps banner */}
+
+              {/* ═══ Quick Status Strip — 3 data points only ═══ */}
+              {selDay===todayStr() && (()=>{
+                const _qToday = days[selDay] || [];
+                const _qWet = _qToday.filter(e=>e.type==="poop"&&(e.poopType==="wet"||(e.poopType||"").includes("wet"))).length;
+                const _qFeeds = _qToday.filter(e=>e.type==="feed"&&!e.night);
+                const _qLastFeed = _qFeeds.length ? fmt12(_qFeeds.sort((a,b)=>timeVal(b)-timeVal(a))[0].time) : "—";
+                const _qNaps = _qToday.filter(e=>e.type==="nap"&&!e.night);
+                const _qTotalSleep = _qNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                return (
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-around",padding:"8px 12px",marginBottom:10,borderRadius:12,background:"var(--card-bg)",border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)",fontSize:12,color:C.mid}}>
+                    <span>💧 {_qWet} wet</span>
+                    <span style={{opacity:0.3}}>·</span>
+                    <span>🍼 Last {_qLastFeed}</span>
+                    <span style={{opacity:0.3}}>·</span>
+                    <span>😴 {hm(_qTotalSleep)} sleep</span>
+                  </div>
+                );
+              })()}
+
+              {/* ═══ Notes & Reminders — collapsible ═══ */}
+              {(()=>{
+                const _nrCount = appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length + reminders.filter(r=>!r.done).length + pinnedNotes.length + (days[selDay]||[]).filter(e=>e.medName||e.temp).length;
+                return (
+                  <button onClick={()=>{haptic();setNotesOpen(!notesOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:notesOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:notesOpen?0:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📋 Notes & Reminders</span>
+                      {_nrCount > 0 && <span style={{background:C.ter,color:"white",borderRadius:99,padding:"1px 7px",fontSize:10,fontWeight:700}}>{_nrCount}</span>}
+                    </div>
+                    <span style={{fontSize:10,color:C.lt,transform:notesOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+                  </button>
+                );
+              })()}
+              <div style={{display:notesOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 0 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
 
               {/* ═══ Planner ═══ */}
               {/* Dashed add buttons — only show for empty sections */}
@@ -9647,8 +9834,8 @@ function App(){
                 ))}
               </div>
 
-              {/* Photo diary for this day */}
-              {(()=>{
+              {/* Photo diary — moved to Development > Memories */}
+              {false && (()=>{
                 const dayPhotos = photos.filter(p=>p.date===selDay);
                 if(!dayPhotos.length) return null;
                 return (
@@ -9704,9 +9891,10 @@ function App(){
                 );
               })()}
 
-              {/* 5. Today's summary stats */}
-              {/* Compact next nap / bedtime card */}
-              {(()=>{
+              </div>{/* end Notes & Reminders collapsible */}
+
+              {/* 5. Today's summary stats — nap/bed card hidden (Hero Card handles this) */}
+              {false && (()=>{
                 const hasBed = dayE.some(e=>e.type==="sleep");
                 const pred = predictNextNap();
                 const suggestedBed = bedtimePrediction();
@@ -9975,6 +10163,23 @@ function App(){
                 ))}
               </div>
 
+              {/* ═══ Today's Plan — collapsible ═══ */}
+              <button onClick={()=>{haptic();setTodayPlanOpen(!todayPlanOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:todayPlanOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:todayPlanOpen?0:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📋 Today's Plan</span>
+                  <span style={{fontSize:11,color:C.lt}}>{(days[selDay]||[]).filter(e=>!e.night).length} events</span>
+                </div>
+                <span style={{fontSize:10,color:C.lt,transform:todayPlanOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+              </button>
+              <div style={{display:todayPlanOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 12px 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
+
+              {/* Tomorrow's schedule — premium teaser */}
+              {!isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (
+                <button onClick={()=>triggerPaywall("tomorrow")} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
+                  📋 Plan ahead — see tomorrow's predicted schedule →
+                </button>
+              )}
+
               {/* Today's Plan — completed events + full day projection */}
               {(()=>{
                 if (!age) return null;
@@ -10160,8 +10365,8 @@ function App(){
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                 <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700}}>Today's Log</div>
               </div>
-              {/* Why Is My Baby Crying? — helper */}
-              <button onClick={()=>{haptic();setShowCryingHelper(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:16,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
+              {/* Why Is My Baby Crying? — in log row, hidden from scroll */}
+              <button onClick={()=>{haptic();setShowCryingHelper(true);}} style={{display:"none",width:"100%",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:16,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
                 <span style={{fontSize:22}}>😢</span>
                 <div style={{flex:1,textAlign:"left"}}>
                   <div style={{display:"flex",alignItems:"center",gap:4,fontSize:14,fontWeight:700,color:C.deep}}>Why is my baby crying? <HelpBtn title="Crying Helper" body="OBubba analyses time since last feed, how long baby has been awake, age-specific factors like teething windows and developmental leaps, temperature, and your past data to rank the most likely reasons. Tap 'What helped?' to teach it what works for your baby — accuracy improves over time. Quick-action buttons let you log a feed or start a nap directly."/></div>
@@ -10169,8 +10374,8 @@ function App(){
                 </div>
                 <span style={{fontSize:14,color:C.lt}}>→</span>
               </button>
-              {/* Sound Machine */}
-              <button onClick={()=>{haptic();setShowSoundMachine(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:16,border:`1px solid ${soundPlaying?C.mint+"66":C.blush}`,background:soundPlaying?"rgba(111,168,152,0.06)":"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
+              {/* Sound Machine — accessible via header, hidden from scroll */}
+              <button onClick={()=>{haptic();setShowSoundMachine(true);}} style={{display:"none",width:"100%",alignItems:"center",gap:10,padding:"12px 14px",borderRadius:16,border:`1px solid ${soundPlaying?C.mint+"66":C.blush}`,background:soundPlaying?"rgba(111,168,152,0.06)":"var(--card-bg-solid)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
                 <span style={{fontSize:22}}>🎵</span>
                 <div style={{flex:1,textAlign:"left"}}>
                   <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sound Machine</div>
@@ -10474,6 +10679,8 @@ function App(){
                 );
               })()}
 
+              </div>{/* end Today's Plan collapsible */}
+
               {/* ═══ ACTIVITY OF THE DAY — Let's Play ═══ */}
               {age && selDay===todayStr() && (()=>{
                 const _w = age.totalWeeks;
@@ -10739,6 +10946,18 @@ function App(){
                 ))}
               </div>
 
+              {/* ═══ Post-trial banner ═══ */}
+              {trialExpired && !trialBannerDismissed && (
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",marginBottom:10,borderRadius:14,background:"linear-gradient(135deg,rgba(192,112,136,0.08),rgba(123,104,238,0.08))",border:"1.5px solid rgba(192,112,136,0.2)"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:C.deep}}>Pick up where you left off</div>
+                    <div style={{fontSize:11,color:C.lt}}>{babyName||"Baby"}'s rhythm is still evolving</div>
+                  </div>
+                  <button onClick={()=>triggerPaywall("trial")} style={{padding:"6px 14px",borderRadius:99,background:C.ter,color:"white",border:"none",fontSize:11,fontWeight:700,cursor:_cP,marginRight:8}}>Restore</button>
+                  <button onClick={()=>{setTrialBannerDismissed(true);try{localStorage.setItem("trial_banner_date",todayStr());}catch{};}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP}}>✕</button>
+                </div>
+              )}
+
               {/* ── Today with Baby — emotional summary ── */}
               {(()=>{
                 const _tName = babyName || "Baby";
@@ -10776,6 +10995,11 @@ function App(){
                   <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
                     <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:8}}>{_headline}</div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{_totalNaps} naps · {_nightWakes} night wakes this week</div>
+                    {!isPremium && _dk.length >= 5 && (
+                      <button onClick={()=>triggerPaywall("weekly")} style={{marginTop:8,padding:"6px 14px",borderRadius:99,border:"1px solid "+C.ter+"40",background:C.ter+"08",color:C.ter,fontSize:11,fontWeight:600,cursor:_cP}}>
+                        See how {babyName||"baby"}'s patterns are evolving →
+                      </button>
+                    )}
                     {(()=>{
                       const _celeb = [];
                       const _allDk = Object.keys(days).sort();
@@ -10794,6 +11018,28 @@ function App(){
                   </div>
                 );
               })()}
+
+              {/* ═══ Bubba Rhythm Profile (PREMIUM placeholder) ═══ */}
+              {Object.keys(days).length >= 3 && (
+                <div className="glass-card" style={{padding:"16px",marginBottom:12,position:"relative",overflow:"hidden"}}>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4}}>Bubba Rhythm</div>
+                  <div style={{fontSize:12,color:C.lt,marginBottom:12,fontStyle:"italic"}}>We're learning {babyName||"baby"}'s rhythm…</div>
+                  {/* Placeholder rhythm bars */}
+                  <div style={{display:"flex",gap:3,height:40,alignItems:"flex-end",opacity:0.3,filter:"blur(3px)"}}>
+                    {Array.from({length:24}).map((_,i)=>{
+                      const h=Math.sin(i/3.8)*0.5+0.5;
+                      return <div key={i} style={{flex:1,height:(h*100)+"%",background:i>=7&&i<=9||i>=12&&i<=14?"rgba(123,104,238,0.5)":"rgba(123,104,238,0.15)",borderRadius:2}}/>;
+                    })}
+                  </div>
+                  {/* Overlay */}
+                  <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.4)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)"}}>
+                    <div style={{textAlign:"center"}}>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Unlock {babyName||"baby"}'s Bubba Rhythm</div>
+                      <div style={{fontSize:11,color:C.mid,marginTop:4}}>See natural sleep, feed & wake patterns</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ── Weekly Wins ── */}
               {(insightFilter==="all") && <div>
@@ -10844,6 +11090,14 @@ function App(){
                 );
               })()}
               </div>}
+
+              {/* ── Sleep summary line (when collapsed) ── */}
+              {!insightSection.sleep && (()=>{
+                const _sDk=Object.keys(days).sort().slice(-7);
+                const _sWakes=_sDk.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0);
+                const _sLabel=_sWakes<=5?"Sleep stable this week":_sWakes<=10?"Some disruption this week":"Unsettled nights recently";
+                return <div style={{fontSize:12,color:C.lt,fontStyle:"italic",padding:"0 16px 4px"}}>{_sLabel}</div>;
+              })()}
 
               {/* ── Behaviour insight (Insights only) ── */}
               {(()=>{
@@ -11330,6 +11584,13 @@ function App(){
 
               </div>}
 
+              {/* ── Feeding summary line (when collapsed) ── */}
+              {!insightSection.feeding && (()=>{
+                const _fDk=Object.keys(days).sort().slice(-3);
+                const _fAvg=_fDk.length?Math.round(_fDk.reduce((s,d)=>(days[d]||[]).filter(e=>e.type==="feed"&&!e.night).length+s,0)/_fDk.length):0;
+                return _fAvg>0?<div style={{fontSize:12,color:C.lt,fontStyle:"italic",padding:"0 16px 4px"}}>Averaging {_fAvg} feeds/day</div>:null;
+              })()}
+
               {/* ── FEEDING & NUTRITION (collapsible) ── */}
               {(insightFilter==="all"||insightFilter==="feeding") && <div>
               {collHead("feeding","🍼","Feeding & Nutrition")}
@@ -11422,6 +11683,13 @@ function App(){
               )}
 
               </div>}
+
+              {/* ── Growth summary line (when collapsed) ── */}
+              {!insightSection.trends && latestW && latestW.pct !== null && (
+                <div style={{fontSize:12,color:C.lt,fontStyle:"italic",padding:"0 16px 4px"}}>
+                  {wTrend==="stable"?"Tracking well on growth curve":wTrend==="dropping"?"Worth discussing with health visitor":"Growth trending upward"}
+                </div>
+              )}
 
               {/* ── GROWTH PERCENTILE BANNER ── */}
               {(insightFilter==="all"||insightFilter==="growth") && <div>
@@ -11997,7 +12265,7 @@ function App(){
                 {[
                   {id:"all",label:"All",icon:"✨"},
                   {id:"activities",label:"Activities",icon:"🎯"},
-                  {id:"milestones",label:"Milestones",icon:"🏆"},
+                  {id:"milestones",label:"Milestones",icon:"🏆"}, // filtered to current age range in render
                   {id:"teething",label:"Teeth",icon:"🦷"},
                   {id:"weaning",label:"Weaning",icon:"🥄"},
                 ].map(f=>(
@@ -12010,6 +12278,25 @@ function App(){
 
               {/* ── THIS WEEK section header ── */}
               <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:4}}>✨ This Week</div>
+
+              {/* ── Let's Play — ELEVATED to top per strategy ── */}
+              {(devFilter==="all"||devFilter==="activities") && ageWeeks && <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🎮 Let's Play — Little moments that build big milestones</div>
+                {(()=>{
+                  const _lpActs = DEV_ACTIVITIES.filter(a=>ageWeeks>=a.weeks[0]&&ageWeeks<=a.weeks[1]);
+                  const _lpShow = isPremium ? _lpActs.slice(0,3) : _lpActs.slice(0,1);
+                  if (!_lpShow.length) return <div style={{fontSize:12,color:C.lt}}>Activities will appear as {babyName||"baby"} grows</div>;
+                  return _lpShow.map((a,i)=>(
+                    <div key={a.id} style={{display:"flex",gap:10,padding:"8px 0",borderTop:i>0?"1px solid var(--card-border)":"none"}}>
+                      <span style={{fontSize:16,flexShrink:0}}>{a.cat==="motor"?"🏃":a.cat==="visual"?"👀":a.cat==="social"?"🤝":a.cat==="language"?"💬":"🧩"}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:2}}>{a.title}</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{a.how.length>120?a.how.slice(0,120)+"…":a.how}</div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>}
 
               {/* ── Current Phase Card (renamed from This Week's Focus) ── */}
               {(devFilter==="all"||devFilter==="activities") && <div>
@@ -12202,14 +12489,14 @@ function App(){
               <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:14}}>📈 Progress</div>
               <div style={{fontSize:12,color:C.lt,marginBottom:8,fontStyle:"italic"}}>What {babyName||"baby"} is working on</div>
 
-              {/* ── Milestones ── */}
+              {/* ── Milestones — filtered to current age range ── */}
               {(devFilter==="all"||devFilter==="milestones") && <div>
               {ageWeeks && (
                 <>
                 <div className="glass-card" style={{...card,marginBottom:12,padding:"12px 16px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                     <div>
-                      <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>Milestones</div>
+                      <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>What {babyName||"baby"} is working on</div>
                       <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.ter,lineHeight:1}}>
                         {ageLabel} <span style={{fontSize:12,color:C.lt,fontFamily:_fM,fontWeight:400}}>· wk {ageWeeks}</span>
                       </div>
@@ -12235,7 +12522,7 @@ function App(){
                 <div className="glass-card" style={{...card,padding:"4px 14px 8px",marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0 6px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>
                     <span style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Due now · tap to mark achieved</span>
-                    <HelpBtn title="Milestones" body="These are milestones relevant to your baby's current age. Tap the circle to mark as achieved — it'll move to the Achieved section. Every baby develops at their own pace. If concerned, speak to your ."/>
+                    <HelpBtn title="Milestones" body="Showing milestones for your baby's current age. Tap the circle to mark as achieved — it'll move to the Achieved section. Every baby develops at their own pace. If concerned, speak to your ."/>
                   </div>
                   {nowMsPending.length === 0
                     ? <div style={{textAlign:"center",padding:"18px 0",color:C.lt,fontSize:13}}>All caught up! No pending milestones for this age.</div>
@@ -12248,7 +12535,7 @@ function App(){
                     {allDone.map(m => <MilestoneRow key={m.id} m={m}/>)}
                   </Accordion>
                 )}
-                {futureMs.length > 0 && (
+                {false && futureMs.length > 0 && (
                   <Accordion label="🔮 Coming up" count={futureMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent={"#d09020"}
                     helpText="Milestones that are coming up in the next few months. These are greyed out until your baby reaches the typical age range.">
                     {futureMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
@@ -12333,6 +12620,27 @@ function App(){
               </div>
 
               </div>}
+              {/* ═══ Memories — Photo Gallery (moved from Today) ═══ */}
+              {(devFilter==="all") && (()=>{
+                const allPhotos = (photos||[]).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+                if (!allPhotos.length) return null;
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                    <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>📸 Moments — the little things you'll never want to forget</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                      {allPhotos.slice(0,9).map(p=>(
+                        <div key={p.id} onClick={()=>setViewPhoto(p)} style={{cursor:_cP,borderRadius:10,overflow:"hidden",aspectRatio:"1/1",position:"relative"}}>
+                          <img src={p.dataUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                          <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"3px 6px",background:"linear-gradient(transparent,rgba(0,0,0,0.5))",fontSize:9,color:"white"}}>{fmtDate(p.date)}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {allPhotos.length > 9 && <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:8}}>{allPhotos.length - 9} more memories</div>}
+                    <button onClick={()=>capturePhoto(null)} style={{width:"100%",marginTop:10,padding:"10px",borderRadius:12,border:"1.5px dashed "+C.blush,background:"var(--card-bg)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP}}>📷 Add a moment</button>
+                  </div>
+                );
+              })()}
+
                 {/* ── TOOLS section header ── */}
                 <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:14}}>🛠 Tools</div>
 
@@ -12514,8 +12822,10 @@ function App(){
               ))}
             </div>
           </div>
-          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:18}}>👪 Sharing & Account</div>
+          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:18}}>👨‍👩‍👧 Family & Sharing</div>
+          <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:10}}>Share the load — keep everyone in sync</div>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:4}}>👤 {familyUsername||"Account"}</div>
+          <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:4}}>Growing with you, one day at a time</div>
           {familyUsername&&<div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginBottom:20}}>{syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync error":"☁️ "+familyUsername}</div>}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             <button onClick={()=>setShowFamilyModal(true)} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
@@ -12580,6 +12890,8 @@ function App(){
             </button>
             <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:18}}>📊 Data & Reports</div>
             {/* Export Data */}
+            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:14}}>🔒 Data & Privacy</div>
+            <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:10}}>Your baby's data is private and secure</div>
             <button onClick={()=>exportCSV()} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%",marginBottom:8}}>
               <span style={{fontSize:24}}>📊</span>
               <div>
@@ -12768,6 +13080,7 @@ function App(){
 
             {/* App Disclaimer */}
             <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginTop:14}}>
+              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>📋 Legal & About</div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>About OBubba</div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7}}>
                 OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or treatment.
@@ -13576,6 +13889,37 @@ function App(){
       })()}
       {}
       {/* Personal/NHS toggle moved to Account → Sleep Recommendations */}
+
+      {/* ═══ Paywall Modal — blur + peek ═══ */}
+      {showPaywall && (
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.6)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowPaywall(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,0.25)",textAlign:"center",position:"relative"}}>
+            <button onClick={()=>setShowPaywall(false)} style={{position:"absolute",top:14,right:14,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP}}>✕</button>
+            <div style={{fontSize:36,marginBottom:12}}>✨</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:8}}>Understand {babyName||"baby"}'s rhythm</div>
+            <div style={{fontSize:14,color:C.mid,lineHeight:1.6,marginBottom:20}}>
+              {paywallContext==="why" ? "See personalised insights based on " + (babyName||"baby") + "'s unique patterns."
+              : paywallContext==="weekly" ? "Track how " + (babyName||"baby") + "'s patterns are evolving week by week."
+              : paywallContext==="activities" ? "Unlock the full activity library to support " + (babyName||"baby") + "'s development."
+              : paywallContext==="tomorrow" ? "Plan ahead with tomorrow's predicted schedule."
+              : "Unlock deeper insights, personalised predictions, and the full activity library."}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+              <button onClick={()=>{setShowPaywall(false);showToast("🚀 Premium coming soon!",2000,1);}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,"+C.ter+",#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP}}>
+                Try free for 7 days
+              </button>
+              <div style={{fontSize:12,color:C.lt}}>Then £3.99/month or £29.99/year</div>
+              <div style={{fontSize:11,color:C.lt}}>Less than a coffee a month ☕ · Cancel anytime</div>
+            </div>
+            <div style={{display:"flex",gap:12,justifyContent:"center",fontSize:11,color:C.lt}}>
+              <span>£3.99/mo</span>
+              <span style={{color:C.ter,fontWeight:700}}>£29.99/yr (save 37%)</span>
+              <span>£59.99 lifetime</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ Sound Machine ═══ */}
       {showSoundMachine&&(
         <div onClick={()=>setShowSoundMachine(false)} style={{position:"fixed",inset:0,background:"rgba(20,15,30,0.7)",backdropFilter:"blur(8px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0"}}>
@@ -14698,10 +15042,27 @@ function App(){
       )}
 
             {/* ═══ Share Card Preview ═══ */}
+      {/* Hidden input for recap photo */}
+      <input ref={recapPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={async(e)=>{
+        const file=e.target.files?.[0];if(!file)return;
+        const reader=new FileReader();
+        reader.onload=async(ev)=>{
+          const photoData=ev.target.result;
+          setRecapExtraPhoto(photoData);
+          await generateDailyRecapCard(photoData);
+        };
+        reader.readAsDataURL(file);
+        e.target.value="";
+      }}/>
       {sharePreview&&(
-        <div style={{position:"fixed",inset:0,zIndex:9995,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={()=>setSharePreview(null)}>
+        <div style={{position:"fixed",inset:0,zIndex:9995,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={()=>{setSharePreview(null);setRecapExtraPhoto(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
-            <img src={sharePreview.dataUrl} alt="Milestone card" style={{width:"100%",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}/>
+            <img src={sharePreview.dataUrl} alt="Recap card" style={{width:"100%",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}/>
+            <div style={{display:"flex",gap:10,width:"100%"}}>
+              <button onClick={()=>{haptic();if(recapPhotoRef.current)recapPhotoRef.current.click();}} style={{flex:1,padding:"14px",borderRadius:99,border:"2px solid rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.1)",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                {recapExtraPhoto ? "🔄 Change Photo" : "📷 Add Photo"}
+              </button>
+            </div>
             <div style={{display:"flex",gap:10,width:"100%"}}>
               <button onClick={doShareCard} style={{flex:1,padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 📤 Share
@@ -14710,7 +15071,7 @@ function App(){
                 💾 Save
               </button>
             </div>
-            <button onClick={()=>setSharePreview(null)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.6)",fontSize:14,cursor:"pointer",padding:"8px"}}>
+            <button onClick={()=>{setSharePreview(null);setRecapExtraPhoto(null);}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.6)",fontSize:14,cursor:"pointer",padding:"8px"}}>
               Close
             </button>
           </div>
