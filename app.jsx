@@ -1390,7 +1390,7 @@ function App(){
   const[showWeeklyDigest,setShowWeeklyDigest]=useState(false);
   const[showHVReport,setShowHVReport]=useState(false);
   const[showScheduleMaker,setShowScheduleMaker]=useState(false);
-  const[smEvent,setSmEvent]=useState({time:"12:00",label:"",duration:60,source:null});
+  const[smEvent,setSmEvent]=useState({time:"12:00",label:"",duration:60,source:null,mode:"awake"});
   const[smResult,setSmResult]=useState(null);
   const[showApptSchedulePrompt,setShowApptSchedulePrompt]=useState(null);
   const[scheduleOverride,setScheduleOverride]=useState(()=>{
@@ -7659,9 +7659,12 @@ function App(){
     function scoreSchedule(sched, wakeMins) {
       let eventInNap = false;
       const wakeWindows = [];
+      // Build wake windows: continuous awake periods from wake/nap_end to nap_start/bed
+      // Events are AWAKE time, not boundaries
       for (let i = 0; i < sched.length; i++) {
         const s = sched[i];
         if (s.type === "wake" || s.type === "nap_end") {
+          // Find next sleep point (nap_start or bed), skipping events
           const next = sched.find((n,j) => j > i && (n.type === "nap_start" || n.type === "bed"));
           if (next) {
             const gap = next.mins - s.mins;
@@ -7673,17 +7676,20 @@ function App(){
           if (end && eventTimeMins < end.mins && eventEndMins > s.mins) eventInNap = true;
         }
       }
-      // Check if entire event fits within a single wake window
       const fitsInWindow = wakeWindows.some(ww2 => eventTimeMins >= ww2.start && eventEndMins <= ww2.end);
-      // Check all wake windows are age-appropriate
-      const wwViolations = wakeWindows.filter(ww2 => ww2.gap < ww.min - 5 || ww2.gap > ww.max + 15).length;
+      // Wake window violations: any gap exceeding age max
+      const wwViolations = wakeWindows.filter(ww2 => ww2.gap > ww.max + 10).length;
+      const wwTooShort = wakeWindows.filter(ww2 => ww2.gap < ww.min - 10).length;
       const wakeShift = Math.abs(wakeMins - avgWakeMins);
       const bedItem = sched.find(s => s.type === "bed");
       const bedShift = bedItem ? Math.abs(bedItem.mins - avgBedMins) : 0;
+      // Worst WW violation size (how many minutes over max)
+      const worstOver = Math.max(0, ...wakeWindows.map(ww2 => ww2.gap - ww.max));
 
       return {
         penalty: (eventInNap ? 5000 : 0) + (!fitsInWindow ? 3000 : 0) + 
-                 wwViolations * 500 + wakeShift * 10 + bedShift * 3 +
+                 wwViolations * 1000 + worstOver * 20 + wwTooShort * 200 +
+                 wakeShift * 10 + bedShift * 3 +
                  (bedItem && bedItem.mins > 20*60+30 ? 400 : 0) +
                  (bedItem && bedItem.mins < 17*60+30 ? 400 : 0),
         eventInNap, fitsInWindow, wwViolations, wakeShift
@@ -7706,8 +7712,11 @@ function App(){
       candidates.push({sched, ...score, wakeShift: shift, source: "shift"});
     }
 
-    // Strategy 3: Nap-before-event approach — put a nap ending before the event
-    for (let gap = ww.min; gap <= ww.min + 20; gap += 5) {
+    // Strategy 3: Nap-before-event — put a nap ending before the event
+    // Gap between nap end and event start must be small enough that total awake (gap + event) ≤ ww.max
+    const minGap = 15; // minimum rest before event
+    const maxGap = Math.min(ww.max - clampedDur, ww.min + 20); // ensure gap + event ≤ max WW
+    for (let gap = Math.max(minGap, maxGap - 30); gap <= Math.max(minGap + 5, maxGap); gap += 5) {
       const napEndBefore = eventTimeMins - gap;
       if (napEndBefore < avgWakeMins + ww.min) continue; // can't fit any nap
       const napStartBefore = napEndBefore - avgNapDur;
@@ -7741,11 +7750,25 @@ function App(){
       sched.push({type:"nap_end", mins:napEndBefore, label:`Nap ${thisN} end`});
       sched.push({type:"event", mins:eventTimeMins, label:eventLabel||"Event", endMins:eventEndMins});
 
-      // After event: remaining naps
+      // After event: remaining naps — CRITICAL: awake time counts from last nap end, not event end
+      const lastNapEndBeforeEvent = napEndBefore; // baby has been awake since THIS time
       let afterC = eventEndMins;
       for (let i = 0; i < napCount - thisN; i++) {
-        const nww = clampWakeWindow(progressiveWW(w, thisN + i, napCount), w);
-        const nStart = afterC + nww;
+        const targetWW = clampWakeWindow(progressiveWW(w, thisN + i, napCount), w);
+        // Total awake = from last nap end to next nap start
+        const awakeAlready = afterC - lastNapEndBeforeEvent;
+        let nStart;
+        if (i === 0) {
+          // First nap after event: must respect WW from napEndBefore
+          nStart = lastNapEndBeforeEvent + targetWW;
+          if (nStart < eventEndMins + 5) nStart = eventEndMins + 5; // can't nap during event, min 5min gap
+          // If already past max WW, nap ASAP after event
+          if (awakeAlready >= targetWW) nStart = eventEndMins + 5;
+        } else {
+          // Subsequent naps: normal WW from previous nap end
+          const prevNapEnd = sched.filter(s=>s.type==="nap_end").slice(-1)[0]?.mins || afterC;
+          nStart = prevNapEnd + targetWW;
+        }
         if (nStart > 17*60+30) break;
         sched.push({type:"nap_start", mins:nStart, label:`Nap ${thisN+i+1} start`});
         sched.push({type:"nap_end", mins:nStart + avgNapDur, label:`Nap ${thisN+i+1} end`});
@@ -7914,6 +7937,138 @@ function App(){
       eventLabel: eventLabel || "Event",
       eventTime: fmt12(mtp(eventTimeMins)),
       napCount: safeFormatted.filter(s=>s.type==="nap_start").length,
+      warnings
+    };
+  }
+
+  // Schedule maker: baby SLEEPS during the event (car ride, pram walk, etc.)
+  function buildScheduleWithSleepEvent(eventTimeMins, eventLabel, eventDurMins) {
+    if (!age) return null;
+    const w = age.totalWeeks;
+    const ww = getWakeWindow(w);
+    const profile = getAgeNapProfile(w);
+    const napCount = profile.expectedNaps;
+    const mtp = m => {const h=Math.floor(((m%1440)+1440)%1440/60);const mm=((m%60)+60)%60;return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;};
+
+    // Get personal averages
+    const dk = Object.keys(days).sort().slice(-7);
+    let avgNapDur = 50, avgWakeMins = 7*60, avgBedMins = 19*60;
+    if (dk.length >= 3) {
+      const napDurs = [], wakes = [], beds = [];
+      dk.forEach(d => {
+        const entries = days[d]||[];
+        entries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n=>{const d2=minDiff(n.start,n.end);if(d2>=10&&d2<=180)napDurs.push(d2);});
+        const wake = entries.find(e=>e.type==="wake"&&!e.night);
+        if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
+        const bed = entries.find(e=>e.type==="sleep"&&!e.night);
+        if(bed){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
+      });
+      if(napDurs.length) avgNapDur = Math.round(napDurs.reduce((a,b)=>a+b,0)/napDurs.length);
+      if(wakes.length) avgWakeMins = Math.round(wakes.reduce((a,b)=>a+b,0)/wakes.length);
+      if(beds.length) avgBedMins = Math.round(beds.reduce((a,b)=>a+b,0)/beds.length);
+    }
+    avgNapDur = Math.max(20, Math.min(90, avgNapDur));
+    const eventEndMins = eventTimeMins + (eventDurMins || 60);
+
+    // The event IS a nap — build day with this nap slot fixed
+    // Try different wake times and figure out which nap the event replaces
+    const candidates = [];
+
+    for (let shift = -30; shift <= 30; shift += 5) {
+      const wake = clampWake(avgWakeMins + shift);
+      const sched = [{type:"wake", mins:wake, label:"Wake up"}];
+      let cursor = wake;
+      let eventUsed = false;
+
+      for (let i = 0; i < napCount; i++) {
+        const wwLen = clampWakeWindow(progressiveWW(w, i, napCount), w);
+        const naturalNapStart = cursor + wwLen;
+
+        // Check if this nap slot overlaps with the event timing
+        // Event should start within ~30min of when a nap would naturally fall
+        if (!eventUsed && Math.abs(naturalNapStart - eventTimeMins) < ww.max) {
+          // Use event as this nap
+          const gapToEvent = eventTimeMins - cursor;
+          // Only use if wake window to event is reasonable
+          if (gapToEvent >= ww.min - 15 && gapToEvent <= ww.max + 15) {
+            sched.push({type:"nap_start", mins:eventTimeMins, label:`Nap ${i+1} start (${eventLabel})`});
+            sched.push({type:"nap_end", mins:eventEndMins, label:`Nap ${i+1} end`});
+            sched.push({type:"event", mins:eventTimeMins, label:`😴 ${eventLabel}`, endMins:eventEndMins});
+            cursor = eventEndMins;
+            eventUsed = true;
+            continue;
+          }
+        }
+
+        // Normal nap
+        if (naturalNapStart > 17*60+30) break;
+        // Skip this nap if it would overlap with event
+        const naturalNapEnd = naturalNapStart + avgNapDur;
+        if (!eventUsed && naturalNapStart < eventEndMins && naturalNapEnd > eventTimeMins) {
+          // This nap collides — use event instead
+          const gapToEvent = eventTimeMins - cursor;
+          sched.push({type:"nap_start", mins:eventTimeMins, label:`Nap ${i+1} start (${eventLabel})`});
+          sched.push({type:"nap_end", mins:eventEndMins, label:`Nap ${i+1} end`});
+          sched.push({type:"event", mins:eventTimeMins, label:`😴 ${eventLabel}`, endMins:eventEndMins});
+          cursor = eventEndMins;
+          eventUsed = true;
+          continue;
+        }
+
+        sched.push({type:"nap_start", mins:naturalNapStart, label:`Nap ${i+1} start`});
+        sched.push({type:"nap_end", mins:naturalNapEnd, label:`Nap ${i+1} end`});
+        cursor = naturalNapEnd;
+      }
+
+      // Bedtime
+      const bedWW = clampWakeWindow(progressiveWW(w, napCount, napCount), w);
+      const bed = clampBedtime(cursor + bedWW);
+      sched.push({type:"bed", mins:bed, label:"Bedtime"});
+
+      // Score
+      const wakeWindows = [];
+      for (let i = 0; i < sched.length; i++) {
+        const s = sched[i];
+        if (s.type === "wake" || s.type === "nap_end") {
+          const next = sched.find((n,j) => j > i && (n.type === "nap_start" || n.type === "bed"));
+          if (next) wakeWindows.push({gap: next.mins - s.mins});
+        }
+      }
+      const wwViolations = wakeWindows.filter(ww2 => ww2.gap > ww.max + 10 || ww2.gap < ww.min - 10).length;
+      const penalty = (!eventUsed ? 5000 : 0) +
+                      wwViolations * 1000 +
+                      Math.abs(shift) * 10 +
+                      Math.abs(bed - avgBedMins) * 3;
+
+      candidates.push({sched, penalty, wakeShift: shift, eventUsed});
+    }
+
+    candidates.sort((a,b) => a.penalty - b.penalty);
+    const best = candidates[0];
+    if (!best) return null;
+
+    const formatted = best.sched.filter(s => s.type !== "event").map(s => ({
+      ...s,
+      time: s.endMins ? fmt12(mtp(s.mins)) + " – " + fmt12(mtp(s.endMins)) : fmt12(mtp(s.mins)),
+      isEvent: s.label.includes(eventLabel),
+      isSleepEvent: s.label.includes(eventLabel)
+    }));
+
+    const adjustment = best.wakeShift;
+    const adjustText = adjustment === 0 ? "No schedule change needed — event replaces a nap" :
+      adjustment > 0 ? `Wake ${adjustment}min later than usual` :
+      `Wake ${Math.abs(adjustment)}min earlier than usual`;
+
+    const warnings = [];
+    if (!best.eventUsed) warnings.push("Could not fit sleep event into any nap slot — try a different time");
+
+    return {
+      schedule: formatted,
+      adjustment: adjustText,
+      adjustMins: adjustment,
+      eventLabel: eventLabel || "Event",
+      eventTime: fmt12(mtp(eventTimeMins)),
+      napCount: formatted.filter(s=>s.type==="nap_start").length,
       warnings
     };
   }
@@ -13161,7 +13316,8 @@ function App(){
               </div>
             </div>
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5,textAlign:"center"}}>
-              💡 White noise helps babies sleep by mimicking the sounds of the womb. Keep volume below 50dB — about as loud as a quiet conversation.
+              💡 White noise helps babies sleep by mimicking womb sounds. Keep volume below 50dB — about as loud as a quiet conversation.
+              <br/><br/>📱 On iPhones, sound may pause when the screen locks. Keep the screen on (dim brightness) or use the native Do Not Disturb mode for uninterrupted playback.
             </div>
           </div>
         </div>
@@ -14312,11 +14468,26 @@ function App(){
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
-              Enter a time {babyName||"baby"} needs to be awake, and we'll build the optimal day around it.
+              Enter a time {babyName||"baby"} needs to be awake or asleep, and we'll build the optimal day around it.
             </div>
 
-            <Inp label="What's happening?" type="text" placeholder="e.g. Baby class, Doctor visit, Family lunch" value={smEvent.label} onChange={e=>setSmEvent(f=>({...f,label:e.target.value}))}/>
-            <TimeInput label="Time baby needs to be awake" value={smEvent.time} onChange={t=>setSmEvent(f=>({...f,time:t}))}/>
+            <Inp label="What's happening?" type="text" placeholder="e.g. Baby class, Doctor visit, Car journey" value={smEvent.label} onChange={e=>setSmEvent(f=>({...f,label:e.target.value}))}/>
+
+            {/* Awake or Asleep toggle */}
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Does baby need to be…</label>
+              <div style={{display:"flex",borderRadius:12,overflow:"hidden",border:`1.5px solid ${C.blush}`}}>
+                {[["awake","☀️ Awake"],["asleep","😴 Asleep"]].map(([id,label])=>(
+                  <button key={id} onPointerDown={e=>{e.preventDefault();haptic(8);setSmEvent(f=>({...f,mode:id}));setSmResult(null);}}
+                    style={{flex:1,padding:"10px 8px",border:"none",background:smEvent.mode===id?(id==="awake"?"rgba(212,168,85,0.15)":"rgba(111,168,152,0.15)"):"var(--card-bg)",color:smEvent.mode===id?(id==="awake"?C.gold:C.mint):C.lt,fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,transition:"all 0.15s"}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div style={{fontSize:11,color:C.lt,marginTop:4}}>{smEvent.mode==="awake"?"Baby must stay awake during this event":"Baby can nap during this — e.g. car ride, pram walk"}</div>
+            </div>
+
+            <TimeInput label={smEvent.mode==="awake"?"Time baby needs to be awake":"Event start time"} value={smEvent.time} onChange={t=>setSmEvent(f=>({...f,time:t}))}/>
 
             <div style={{marginBottom:12}}>
               <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>How long for?</label>
@@ -14328,29 +14499,32 @@ function App(){
                   </button>
                 ))}
               </div>
-              <div style={{fontSize:11,color:C.lt,marginTop:4}}>Baby will be awake for this long during the event</div>
+              <div style={{fontSize:11,color:C.lt,marginTop:4}}>{smEvent.mode==="awake"?"Baby will be awake for this long":"Event lasts this long — baby can sleep through it"}</div>
             </div>
 
             <PBtn onClick={()=>{
               if(!smEvent.time) return;
               const[h,m]=smEvent.time.split(":").map(Number);
-              const result = buildScheduleAroundEvent(h*60+m, smEvent.label || "Event", smEvent.duration || 60);
+              const result = smEvent.mode==="asleep"
+                ? buildScheduleWithSleepEvent(h*60+m, smEvent.label || "Event", smEvent.duration || 60)
+                : buildScheduleAroundEvent(h*60+m, smEvent.label || "Event", smEvent.duration || 60);
               setSmResult(result);
             }}>🧩 Build Schedule</PBtn>
 
             {smResult && (
               <div style={{marginTop:16}}>
-                <div style={{background:"var(--card-bg-alt)",border:`1.5px solid ${C.mint}44`,borderRadius:16,padding:"14px",marginBottom:12}}>
+                <div style={{background:"var(--card-bg-alt)",border:`1.5px solid ${C.mint}44`,borderRadius:16,padding:"14px",marginBottom:12,position:"relative"}}>
+                  <button onClick={()=>setSmResult(null)} style={{position:"absolute",top:10,right:10,width:28,height:28,borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:14,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}>✕</button>
                   <div style={{fontSize:12,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Optimised Schedule</div>
                   <div style={{fontSize:12,color:C.lt,marginBottom:10}}>{smResult.adjustment}</div>
                   <div style={{display:"flex",flexDirection:"column",gap:0}}>
                     {smResult.schedule.map((s,i)=>(
                       <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:i<smResult.schedule.length-1?`1px solid var(--card-border)`:"none"}}>
-                        <div style={{width:8,height:8,borderRadius:99,background:s.isEvent?C.gold:s.type==="wake"?"#d4a855":s.type==="bed"?C.sky:s.type.includes("nap")?C.mint:C.lt,flexShrink:0}}/>
+                        <div style={{width:8,height:8,borderRadius:99,background:s.isEvent?C.gold:s.isSleepEvent?"#9878d0":s.type==="wake"?"#d4a855":s.type==="bed"?C.sky:s.type.includes("nap")?C.mint:C.lt,flexShrink:0}}/>
                         <div style={{flex:1}}>
-                          <span style={{fontSize:13,fontWeight:s.isEvent?800:600,color:s.isEvent?C.gold:C.deep}}>{s.label}</span>
+                          <span style={{fontSize:13,fontWeight:s.isEvent||s.isSleepEvent?800:600,color:s.isEvent?C.gold:s.isSleepEvent?"#9878d0":C.deep}}>{s.label}</span>
                         </div>
-                        <div style={{fontFamily:_fM,fontSize:14,fontWeight:700,color:s.isEvent?C.gold:s.type==="bed"?C.sky:C.mint}}>
+                        <div style={{fontFamily:_fM,fontSize:14,fontWeight:700,color:s.isEvent?C.gold:s.isSleepEvent?"#9878d0":s.type==="bed"?C.sky:C.mint}}>
                           {s.time}
                         </div>
                       </div>
