@@ -10068,7 +10068,7 @@ function App(){
                       napEnd = napStart + avgNapDur;
                     }
                     if (napStart + ww.min > maxBed) break; // no room
-                    const napEnd = napStart + avgNapDur;
+                    napEnd = napStart + avgNapDur;
                     items.push({
                       icon: "⏱️", label: `Nap ${napIdx+1}`,
                       time: `${fmt12(mtp(napStart))} – ${fmt12(mtp(napEnd))}`,
