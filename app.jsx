@@ -1377,11 +1377,12 @@ function App(){
   // When subscriptions are added, change default to false and gate with RevenueCat
   const[isPremium]=useState(true);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
-
   // ── Breastfeeding Support Layer ──
-  const[bfSupport,setBfSupport]=useState(null); // {title, body, icon}
-  const bfSupportShownRef=useRef(false); // max one per session
+  const[bfSupport,setBfSupport]=useState(null);
+  const bfSupportShownRef=useRef(false);
   const[lastBreastSide,setLastBreastSide]=useState(()=>{try{return localStorage.getItem("last_breast_side")||null;}catch{return null;}});
+  // ── 4-tier Wellbeing Check-in ──
+  const[wellbeingResponse,setWellbeingResponse]=useState(()=>{try{const v=JSON.parse(localStorage.getItem("wb_response_v1")||"null");if(v&&v.date===todayStr())return v.key;return null;}catch{return null;}});
   const[msFilter,setMsFilter]=useState("all");
   const[appointments,setAppointments]=useState(()=>{
     try{const v=localStorage.getItem("appointments_v1");return v?JSON.parse(v):[];}catch{return [];}
@@ -1476,7 +1477,7 @@ function App(){
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
     const[growthLogOpen,setGrowthLogOpen]=useState(false);
-  const[insightSection,setInsightSection]=useState({trends:true,sleep:true,feeding:true,reports:false});
+  const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
   const[insightFilter,setInsightFilter]=useState("all");
   const[devFilter,setDevFilter]=useState("all");
   const toggleInsight=(k)=>setInsightSection(p=>({...p,[k]:!p[k]}));
@@ -2979,14 +2980,64 @@ function App(){
     if (_lastSleep !== null) _awakeMin = Math.max(0, _nowM - _lastSleep);
 
     let _dot, _label, _timing;
-    const _reassurances = [
-      "You're doing great — " + _name + "'s rhythm is settling nicely.",
-      "Every baby is different. Follow " + _name + "'s cues and trust yourself.",
-      "Short naps are common at this stage — they'll lengthen over time.",
-      "You're learning " + _name + ", and that's enough.",
-      "This is normal for " + _name + "'s age. You've got this."
-    ];
-    const _reassure = _reassurances[Math.floor((_h * 60 + new Date().getMinutes()) / 30) % _reassurances.length];
+
+    // ── Contextual reassurance based on day pattern ──
+    const _allFeeds = _today.filter(e => e.type === "feed" && !e.night);
+    const _totalNapMin = _naps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
+    const _isNightTime = _h >= 22 || _h < 5;
+    const _isIrregularDay = _napsDone > 0 && _naps.some(n => minDiff(n.start, n.end) < 20) && _allFeeds.length > 6;
+    const _isHighNeedDay = _allFeeds.length >= 8 || (_napsDone >= 1 && _naps.every(n => minDiff(n.start, n.end) < 35));
+    const _isStableDay = _napsDone >= 2 && _naps.every(n => minDiff(n.start, n.end) >= 30) && !_isHighNeedDay;
+    // Rare parent support — max once per day, only after tough patterns
+    const _parentSupportShown = (()=>{try{return localStorage.getItem("parent_nudge_date")===todayStr();}catch{return false;}})();
+    const _showParentNudge = !_parentSupportShown && _h >= 14 && _isHighNeedDay && Math.random() < 0.3;
+
+    let _reassure;
+    if (_isNightTime) {
+      const _nightMsgs = [
+        "You're not alone — this part is hard.",
+        "The nights are long but you're doing something incredible.",
+        "Rest when you can. You're doing enough.",
+        "This won't last forever. You're showing up when it matters most."
+      ];
+      _reassure = _nightMsgs[_h % _nightMsgs.length];
+    } else if (_showParentNudge) {
+      _reassure = ["Have you had water today? You matter too.", "Don't forget to look after yourself today — you're important too."][_h % 2];
+      try{localStorage.setItem("parent_nudge_date",todayStr());}catch{}
+    } else if (_isIrregularDay) {
+      _reassure = "Today didn't follow a pattern — that happens, especially during changes.";
+    } else if (_isHighNeedDay) {
+      _reassure = "Higher-need day — completely normal. " + _name + " needs a bit more today.";
+    } else if (_isStableDay) {
+      _reassure = "You're finding your flow — " + _name + "'s rhythm is coming together.";
+    } else {
+      const _defaultMsgs = [
+        "You're doing great — " + _name + "'s rhythm is settling nicely.",
+        "Every baby is different. Follow " + _name + "'s cues and trust yourself.",
+        "You're learning " + _name + ", and that's enough.",
+        "This is normal for " + _name + "'s age. You've got this.",
+        "You're building a rhythm together."
+      ];
+      _reassure = _defaultMsgs[Math.floor((_h * 60 + new Date().getMinutes()) / 30) % _defaultMsgs.length];
+    }
+
+    // ── "Right now" action line ──
+    let _rightNow = null;
+    if (!napOn && !_hasBed && _pred && !_pred.isOverdue) {
+      const _pParts2 = _pred.napStart_min.split(":").map(Number);
+      const _mUntil = Math.max(0, _pParts2[0]*60+_pParts2[1] - _nowM);
+      if (_mUntil <= 15) _rightNow = "Right now: look for sleepy cues and offer a nap";
+      else if (_allFeeds.length > 0 && _awakeMin > 20 && _awakeMin < 45) _rightNow = "Right now: a good time for play or tummy time";
+    } else if (!napOn && !_hasBed && _pred && _pred.isOverdue) {
+      _rightNow = "Right now: offer a short nap — dim lights, quiet voice";
+    } else if (_napsComplete && !_hasBed && _bed && !_bed.estimated) {
+      const _bP = _bed.time.split(":").map(Number);
+      const _mBed = Math.max(0, _bP[0]*60+_bP[1] - _nowM);
+      if (_mBed <= 30 && _mBed > 10) _rightNow = "Right now: start the wind-down routine";
+      else if (_mBed <= 10) _rightNow = "Right now: into the cot — bedtime";
+    } else if (_allFeeds.length === 0 && _hasWake && _awakeMin > 30) {
+      _rightNow = "Right now: offer a feed or comfort";
+    }
 
     // ── Morning: no wake logged ──
     if (!_hasWake && _h >= 5 && _h <= 10) {
@@ -3018,7 +3069,7 @@ function App(){
           <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:14,fontWeight:600,cursor:_cP}}>
             Log night wake
           </button>
-          <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:10,textAlign:"center"}}>You're doing wonderfully. Try to rest.</div>
+          <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:10,textAlign:"center"}}>{_h >= 0 && _h < 4 ? "You're not alone — this part is hard. Try to rest." : "You're doing wonderfully. Try to rest."}</div>
         </div>
       );
     }
@@ -3079,6 +3130,9 @@ function App(){
         : "This is based on age-appropriate guidance for " + fmtAge(age) + ".");
     }
     _whyLines.push("Look for sleepy cues: yawning, eye rubbing, staring. These usually appear 5–10 min before the ideal nap time.");
+    if (isPremium && _pred && _pred.sourceLabel && _pred.sourceLabel.includes("pattern")) {
+      _whyLines.push("This is unique to " + _name + " — based on their Bubba Rhythm.");
+    }
     _whyLines.push("Source: NHS/WHO guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
 
     return (
@@ -3087,7 +3141,8 @@ function App(){
           <div style={{width:10,height:10,borderRadius:"50%",background:_dot,boxShadow:"0 0 8px "+_dot+"60",animation:"candlePulse 4s ease-in-out infinite"}}/>
           <span style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{_label}</span>
         </div>
-        <div style={{fontSize:13,color:C.mid,marginBottom:8,paddingLeft:20}}>{_timing}</div>
+        <div style={{fontSize:13,color:C.mid,marginBottom:_rightNow?4:8,paddingLeft:20}}>{_timing}</div>
+        {_rightNow && <div style={{fontSize:12,color:C.ter,fontWeight:600,paddingLeft:20,marginBottom:6}}>{_rightNow}</div>}
         <div style={{fontSize:12,color:C.lt,fontStyle:"italic",paddingLeft:20,marginBottom:heroWhyOpen?12:0}}>{_reassure}</div>
         <div style={{paddingLeft:20,marginTop:8}}>
           <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);}} style={{background:"none",border:"none",padding:0,fontSize:12,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
@@ -4028,7 +4083,7 @@ function App(){
     return {
       avgSleep: Math.round(avg*10)/10, target: Math.round(target*10)/10,
       deficit: Math.round(deficit*10)/10, days: consecutive,
-      message: `${name} has averaged ${Math.round(avg*10)/10}h of total sleep over the last ${dk.length} days — about ${Math.round(deficit*10)/10}h below the recommended ${Math.round(target*10)/10}h.`,
+      message: `${name} has averaged ${Math.round(avg*10)/10}h of total sleep over the last ${dk.length} days — about ${Math.round(deficit*10)/10}h below the typical ${Math.round(target*10)/10}h for this age.`,
       advice: "Sleep debt accumulates over consecutive days. An extra-early bedtime tonight (as early as 6:00pm) can help reset. Even 30 minutes earlier makes a measurable difference. If you're feeling the effects of broken sleep too, that's completely valid — looking after a tired baby while running on empty is genuinely tough. Reach out to someone if you need a break."
     };
   }
@@ -5183,10 +5238,10 @@ function App(){
         statusMsg=`Total intake was above average at ${fmtVol(totalMl,FU)} — common during growth spurts.`;
       } else if (metMinimum) {
         status="ok"; color=C.mint; bg="var(--card-bg)"; icon="✓";
-        statusMsg=`Good day — ${fmtVol(totalMl,FU)} total, meeting the minimum recommended intake of ${fmtVol(totalMin,FU)}. Day feeds: ${fmtVol(dayMl,FU)}, night feeds: ${fmtVol(nightMl,FU)}.`;
+        statusMsg=`Good day — ${fmtVol(totalMl,FU)} total, meeting the typical intake of ${fmtVol(totalMin,FU)}. Day feeds: ${fmtVol(dayMl,FU)}, night feeds: ${fmtVol(nightMl,FU)}.`;
       } else {
         status="low"; color=C.ter; bg="var(--card-bg)"; icon="⚠️";
-        statusMsg=`Total intake was ${fmtVol(totalMl,FU)} — ${fmtVol(dayShortfall,FU)} a little under the recommended ${fmtVol(totalMin,FU)}. Day feeds: ${fmtVol(dayMl,FU)}, night feeds: ${fmtVol(nightMl,FU)}. One low day is nothing to worry about.`;
+        statusMsg=`Total intake was ${fmtVol(totalMl,FU)} — ${fmtVol(dayShortfall,FU)} a little under the typical ${fmtVol(totalMin,FU)} for this age. Day feeds: ${fmtVol(dayMl,FU)}, night feeds: ${fmtVol(nightMl,FU)}. One low day is nothing to worry about.`;
       }
     } else if (bedLogged) {
       if (totalHigh) {
@@ -5198,7 +5253,7 @@ function App(){
       } else {
 
         status="low"; color=C.ter; bg="var(--card-bg)"; icon="⚠️";
-        statusMsg=`Total milk today was ${fmtVol(totalMl,FU)} — ${fmtVol(dayShortfall,FU)} below the recommended minimum of ${fmtVol(totalMin,FU)}.`;
+        statusMsg=`Total milk today was ${fmtVol(totalMl,FU)} — ${fmtVol(dayShortfall,FU)} below the typical range of ${fmtVol(totalMin,FU)} for this age.`;
         sleepLink = {
           icon:"🌙",
           title:"Expect a hunger wake tonight",
@@ -5400,7 +5455,7 @@ function App(){
       } else if (bedH > 20) {
         insights.push({
           type:"warn", icon:"🌙", title:"Late Average Bedtime",
-          body:`Average bedtime of ${mtp(avgBed)} is later than the recommended 6:30–7:30pm window. Overtired babies often fight sleep and wake more at night — the later the bedtime, the higher cortisol levels tend to be. A gradual 10–15 min earlier each night can reset this without disruption.`
+          body:`Average bedtime of ${mtp(avgBed)} is later than the typical 6:30–7:30pm window for most babies. Overtired babies often fight sleep and wake more at night — the later the bedtime, the higher cortisol levels tend to be. A gradual 10–15 min earlier each night can reset this without disruption.`
         });
       }
     }
@@ -7068,9 +7123,9 @@ function App(){
     }
     setBreastSide(side);
     setBreastActive(true);
-    // Remember starting side for "which side next?"
-    setLastBreastSide(side === "L" ? "L" : "R");
-    try{localStorage.setItem("last_breast_side",side === "L" ? "L" : "R");}catch{}
+    // Remember starting side for which-side-next helper
+    setLastBreastSide(side);
+    try{localStorage.setItem("last_breast_side",side);}catch{}
   }
   function pauseBreastTimer(){setBreastActive(false);}
   function switchBreastSide(side){
@@ -7078,91 +7133,33 @@ function App(){
     setBreastSide(side);
   }
   // ═══ Breastfeeding Support — contextual reassurance ═══
-  function getBreastfeedingInsight(entryTime, entrySide) {
-    if (bfSupportShownRef.current) return null; // max one per session
+  function getBreastfeedingInsight(entryTime) {
+    if (bfSupportShownRef.current) return null;
     const today = days[selDay] || [];
     const nowH = new Date().getHours();
     const isNight = nowH >= 21 || nowH < 6;
-
-    // Gather recent feeds
     const allFeeds = today.filter(e => e.type === "feed" && !e.night);
     const breastFeeds = allFeeds.filter(e => e.feedType === "breast");
     const bottleFeeds = allFeeds.filter(e => e.feedType === "milk" || e.feedType === "bottle");
     const isCombi = bottleFeeds.length > 0 && breastFeeds.length > 0;
-
-    // Recent 3h breast feeds
     const entryMins = entryTime ? (()=>{const[h,m]=entryTime.split(":").map(Number);return h*60+m;})() : nowH*60+new Date().getMinutes();
-    const recent3h = breastFeeds.filter(e => {
-      const t = timeVal(e);
-      const diff = entryMins - t;
-      return diff >= 0 && diff <= 180;
-    });
-
-    // Recent bottle feeds within 1h of this breastfeed
-    const nearbyBottle = bottleFeeds.some(e => {
-      const t = timeVal(e);
-      return Math.abs(entryMins - t) <= 60;
-    });
-
-    // Wet nappies today
+    const recent3h = breastFeeds.filter(e => { const t = timeVal(e); const diff = entryMins - t; return diff >= 0 && diff <= 180; });
+    const nearbyBottle = bottleFeeds.some(e => Math.abs(entryMins - timeVal(e)) <= 60);
     const wetCount = today.filter(e => e.type === "poop" && (e.poopType === "wet" || (e.poopType || "").includes("wet"))).length;
-
-    // 1. Combi-feeding day
-    if (isCombi && nearbyBottle) {
-      return {
-        icon: "🍼🤱",
-        title: "Today looks like a mixed feeding day",
-        body: "Focus on the full day's pattern, not one feed. You're doing a great job combining."
-      };
-    }
-
-    // 2. Cluster feeding (3+ breast feeds within 3 hours, not combi)
-    if (recent3h.length >= 3 && !nearbyBottle) {
-      return {
-        icon: "🤍",
-        title: "This looks like cluster feeding",
-        body: "Very normal, especially in the evening or during growth spurts. Your body is responding exactly as it should."
-      };
-    }
-
-    // 3. Night feed reassurance
-    if (isNight) {
-      return {
-        icon: "🌙",
-        title: "Night feeds are doing important work",
-        body: "Overnight feeds are common and can help support milk supply. You're doing brilliantly."
-      };
-    }
-
-    // 4. Reassuring pattern (6+ feeds + 4+ wet nappies by afternoon)
-    if (breastFeeds.length >= 5 && wetCount >= 4 && nowH >= 14) {
-      return {
-        icon: "💚",
-        title: "Today's signs look reassuring",
-        body: "Feeding pattern and wet nappies suggest things may be going well. Trust yourself."
-      };
-    }
-
-    // 5. Soft escalation (few feeds + few wet nappies late in day)
-    if (nowH >= 16 && breastFeeds.length <= 3 && wetCount <= 2) {
-      return {
-        icon: "💛",
-        title: "Worth a closer look",
-        body: "If this keeps happening and you're worried, it may help to speak to your health visitor, midwife, or breastfeeding specialist."
-      };
-    }
-
-    // 6. General encouragement (fallback)
+    const _bfName = babyName || "Baby";
+    if (isCombi && nearbyBottle) return { icon: "\uD83C\uDF7C\uD83E\uDD31", title: "Today looks like a mixed feeding day", body: "Focus on the full day\u2019s pattern, not one feed. You\u2019re doing a great job combining." };
+    if (recent3h.length >= 3 && !nearbyBottle) return { icon: "\uD83E\uDD0D", title: "This looks like cluster feeding", body: "Very normal, especially in the evening or during growth spurts. Your body is responding exactly as it should." };
+    if (isNight) return { icon: "\uD83C\uDF19", title: "Night feeds are doing important work", body: "Overnight feeds are common and can help support milk supply. You\u2019re doing brilliantly." };
+    if (breastFeeds.length >= 5 && wetCount >= 4 && nowH >= 14) return { icon: "\uD83D\uDC9A", title: "Today\u2019s signs look reassuring", body: "Feeding pattern and wet nappies suggest things may be going well. Trust yourself." };
+    if (nowH >= 16 && breastFeeds.length <= 3 && wetCount <= 2) return { icon: "\uD83D\uDC9B", title: "Worth a closer look", body: "If this keeps happening and you\u2019re worried, it may help to speak to your health visitor, midwife, or breastfeeding specialist." };
     if (breastFeeds.length >= 2) {
-      const _bfName = babyName || "Baby";
       const msgs = [
-        { title: "You're feeding beautifully", body: _bfName + " is lucky to have you. Every feed counts." },
-        { title: "Another feed logged", body: "Consistency is what matters — and you're showing up." },
-        { title: "Building the rhythm", body: "Every breastfeed helps " + _bfName + "'s body and yours find the pattern." },
+        { title: "You\u2019re feeding beautifully", body: _bfName + " is lucky to have you. Every feed counts." },
+        { title: "Another feed logged", body: "Consistency is what matters \u2014 and you\u2019re showing up." },
+        { title: "Building the rhythm", body: "Every breastfeed helps " + _bfName + "\u2019s body and yours find the pattern." },
       ];
-      return { icon: "🤱", ...msgs[breastFeeds.length % msgs.length] };
+      return { icon: "\uD83E\uDD31", ...msgs[breastFeeds.length % msgs.length] };
     }
-
     return null;
   }
 
@@ -7180,13 +7177,13 @@ function App(){
     trackEvent("entry_logged",{type:"breast_feed"});
     try{navigator.vibrate&&navigator.vibrate([40,30,40]);}catch{}
     showToast("🤱 Feed Logged ✓",1200,1);
-    // ── Breastfeeding Support Layer trigger ──
-    const _side = entry.breastR > entry.breastL ? "R" : entry.breastL > 0 ? "L" : null;
-    if (_side) { setLastBreastSide(_side); try{localStorage.setItem("last_breast_side",_side);}catch{} }
-    const _insight = getBreastfeedingInsight(entry.time, _side);
-    if (_insight && !bfSupportShownRef.current) {
+    // ── Breastfeeding Support trigger ──
+    const _bfSide = entry.breastR > entry.breastL ? "R" : entry.breastL > 0 ? "L" : null;
+    if (_bfSide) { setLastBreastSide(_bfSide); try{localStorage.setItem("last_breast_side",_bfSide);}catch{} }
+    const _bfInsight = getBreastfeedingInsight(entry.time);
+    if (_bfInsight && !bfSupportShownRef.current) {
       bfSupportShownRef.current = true;
-      setTimeout(() => setBfSupport(_insight), 1400); // show after toast fades
+      setTimeout(() => setBfSupport(_bfInsight), 1400);
     }
   }
   function cancelBreastTimer(){
@@ -9385,8 +9382,6 @@ function App(){
                 </div>
               )}
 
-              {/* Pending bottle snaps banner */}
-
               {/* ═══ Breastfeeding Support Card ═══ */}
               {bfSupport && (
                 <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1.5px solid rgba(123,104,238,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:10,animation:"popIn 0.3s ease",boxShadow:"var(--card-shadow)"}}>
@@ -9403,20 +9398,22 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ Which Side Next? — breastfeeding memory helper ═══ */}
+              {/* ═══ Which Side Next? ═══ */}
               {lastBreastSide && !breastStartTime && selDay===todayStr() && !bfSupport && (()=>{
-                const nextSide = lastBreastSide === "L" ? "Right" : "Left";
-                const lastSideLabel = lastBreastSide === "L" ? "Left" : "Right";
+                const _nextSide = lastBreastSide === "L" ? "Right" : "Left";
+                const _lastLabel = lastBreastSide === "L" ? "Left" : "Right";
                 return (
                   <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",marginBottom:10,borderRadius:12,background:"var(--card-bg)",border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)"}}>
                     <span style={{fontSize:14}}>🤱</span>
                     <div style={{flex:1}}>
-                      <span style={{fontSize:12,color:C.mid}}>Last started on: <strong style={{color:C.deep}}>{lastSideLabel}</strong></span>
-                      <span style={{fontSize:12,color:C.lt,marginLeft:8}}>· You may want to start on: <strong style={{color:C.ter}}>{nextSide}</strong></span>
+                      <span style={{fontSize:12,color:C.mid}}>Last started on: <strong style={{color:C.deep}}>{_lastLabel}</strong></span>
+                      <span style={{fontSize:12,color:C.lt,marginLeft:8}}>· Start on: <strong style={{color:C.ter}}>{_nextSide}</strong></span>
                     </div>
                   </div>
                 );
               })()}
+
+              {/* Pending bottle snaps banner */}
 
               {/* ═══ Planner ═══ */}
               {/* Dashed add buttons — only show for empty sections */}
@@ -10494,8 +10491,8 @@ function App(){
                 );
               })()}
 
-              {/* ═══ PARTNER INVITE PROMPT — viral growth mechanic ═══ */}
-              {selDay===todayStr() && !childSyncCodes[resolvedActiveId] && Object.keys(days).length >= 3 && (
+              {/* ═══ PARTNER INVITE — moved to Account tab per UX strategy ═══ */}
+              {false && selDay===todayStr() && !childSyncCodes[resolvedActiveId] && Object.keys(days).length >= 3 && (
                 <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:`1.5px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:12,boxShadow:"var(--card-shadow)"}}>
                   <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
                     <span style={{fontSize:24,flexShrink:0}}>👨‍👩‍👧</span>
@@ -10510,8 +10507,8 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ SHARE TODAY'S RECAP — viral sharing ═══ */}
-              {selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 3 && (
+              {/* ═══ SHARE RECAP — moved to Insights per UX strategy ═══ */}
+              {false && selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 3 && (
                 <button onClick={()=>{haptic();generateDailyRecapCard();}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"13px 16px",borderRadius:16,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
                   <span style={{fontSize:18}}>📸</span>
                   <span style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:_fI}}>Share Today's Recap</span>
@@ -10519,8 +10516,8 @@ function App(){
                 </button>
               )}
 
-              {/* ═══ PARENT WELLBEING CHECK-IN ═══ */}
-              {selDay===todayStr() && (()=>{
+              {/* ═══ WELLBEING — moved to Insights per UX strategy ═══ */}
+              {false && selDay===todayStr() && (()=>{
                 const dk2=Object.keys(days).sort().slice(-5);
                 if(dk2.length<3) return null;
                 const avgNightWakes=dk2.reduce((s,d)=>{
@@ -10640,7 +10637,7 @@ function App(){
             ? "\n\n📞 PANDA: 1300 726 306 (Mon–Fri 9am–7:30pm AEST)\n📞 Beyond Blue: 1300 22 4636 (24/7)\n📞 Lifeline: 13 11 14 (24/7)\n📞 Your GP or child health nurse"
             : "\n\n📞 PANDAS Foundation: 0808 196 1776 (free, Mon–Fri 11am–10pm)\n📞 Samaritans: 116 123 (free, 24/7)\n🌐 NHS Talking Therapies: self-refer via nhs.uk\n📞 Health visitor — call your GP surgery to be connected";
 
-          const wellbeingCard = wellbeingDue ? (
+          const wellbeingCard = false && wellbeingDue ? (
             <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(111,168,152,0.08))",border:`1.5px solid rgba(123,104,238,0.2)`,borderRadius:18,padding:"16px",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                 <div style={{fontSize:15,fontWeight:700,color:C.deep}}>💜 How are you doing?</div>
@@ -10742,6 +10739,32 @@ function App(){
                 ))}
               </div>
 
+              {/* ── Today with Baby — emotional summary ── */}
+              {(()=>{
+                const _tName = babyName || "Baby";
+                const _tToday = days[todayStr()] || [];
+                const _tNaps = _tToday.filter(e=>e.type==="nap"&&!e.night);
+                const _tFeeds = _tToday.filter(e=>e.type==="feed"&&!e.night);
+                const _tNightWakes = _tToday.filter(e=>e.night);
+                if (_tNaps.length + _tFeeds.length < 2) return null;
+                const _tLongestNap = _tNaps.length ? Math.max(..._tNaps.map(n=>minDiff(n.start,n.end))) : 0;
+                const _tTotalSleep = _tNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                const _tIsStable = _tNaps.length >= 2 && _tNaps.every(n=>minDiff(n.start,n.end)>=25);
+                const _tIsHighNeed = _tFeeds.length >= 8 || (_tNaps.length >= 1 && _tNaps.every(n=>minDiff(n.start,n.end)<30));
+                const _tVerdict = _tIsStable ? "A steady day overall" : _tIsHighNeed ? "A higher-need day — completely normal" : "Building the day together";
+                const _tStats = [];
+                if (_tNaps.length) _tStats.push(_tNaps.length + " nap" + (_tNaps.length>1?"s":""));
+                if (_tFeeds.length) _tStats.push(_tFeeds.length + " feed" + (_tFeeds.length>1?"s":""));
+                if (_tLongestNap >= 45) _tStats.push("longest nap " + hm(_tLongestNap));
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                    <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:6}}>Today with {_tName}</div>
+                    <div style={{fontSize:12,color:C.mid,marginBottom:4}}>{_tStats.join(" · ")}</div>
+                    <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>{_tVerdict}</div>
+                  </div>
+                );
+              })()}
+
               {/* ── Weekly Summary Card ── */}
               {(()=>{
                 const _dk=Object.keys(days).sort().slice(-7);
@@ -10753,6 +10776,21 @@ function App(){
                   <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
                     <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:8}}>{_headline}</div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{_totalNaps} naps · {_nightWakes} night wakes this week</div>
+                    {(()=>{
+                      const _celeb = [];
+                      const _allDk = Object.keys(days).sort();
+                      if (_allDk.length >= 2) {
+                        const _prevWk = _allDk.slice(-14,-7);
+                        const _prevWakes = _prevWk.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0);
+                        if (_prevWakes > 0 && _nightWakes < _prevWakes) _celeb.push("Fewer night wakes than last week");
+                      }
+                      const _allNaps = _dk.flatMap(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).map(n=>minDiff(n.start,n.end)));
+                      const _longestEver = Math.max(...Object.keys(days).flatMap(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).map(n=>minDiff(n.start,n.end))),0);
+                      const _thisWeekLongest = _allNaps.length ? Math.max(..._allNaps) : 0;
+                      if (_thisWeekLongest > 0 && _thisWeekLongest >= _longestEver) _celeb.push("Longest nap yet — " + hm(_thisWeekLongest));
+                      if (!_celeb.length) return null;
+                      return <div style={{fontSize:11,color:C.mint,fontWeight:600,marginTop:6}}>{_celeb[0]} ✨</div>;
+                    })()}
                   </div>
                 );
               })()}
@@ -10806,6 +10844,28 @@ function App(){
                 );
               })()}
               </div>}
+
+              {/* ── Behaviour insight (Insights only) ── */}
+              {(()=>{
+                const _bDk = Object.keys(days).sort().slice(-3);
+                if (_bDk.length < 3) return null;
+                const _bAvgNapDur = (()=>{
+                  const ns = _bDk.flatMap(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).map(n=>minDiff(n.start,n.end)));
+                  return ns.length ? Math.round(ns.reduce((a,b)=>a+b,0)/ns.length) : 0;
+                })();
+                const _bAvgWakes = Math.round(_bDk.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0) / _bDk.length * 10) / 10;
+                const _bAvgFeeds = Math.round(_bDk.reduce((s,d)=>(days[d]||[]).filter(e=>e.type==="feed"&&!e.night).length+s,0) / _bDk.length * 10) / 10;
+                let _bMsg = null;
+                if (_bAvgWakes >= 3 && _bAvgNapDur < 35) _bMsg = "Frequent waking may be linked to shorter naps — longer day sleep can help build night sleep.";
+                else if (_bAvgFeeds >= 8) _bMsg = "More feeds recently may be linked to growth or comfort — very common at this age.";
+                else if (_bAvgNapDur >= 60 && _bAvgWakes <= 1) _bMsg = "Longer naps and fewer night wakes — the rhythm is strengthening.";
+                if (!_bMsg) return null;
+                return (
+                  <div style={{fontSize:12,color:C.lt,fontStyle:"italic",padding:"8px 14px",marginBottom:8,lineHeight:1.5}}>
+                    {_bMsg}
+                  </div>
+                );
+              })()}
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
               {(insightFilter==="all"||insightFilter==="sleep") && <div>
@@ -11515,6 +11575,61 @@ function App(){
 
               </div>}
 
+
+              {/* ═══ WELLBEING CHECK-IN (4-tier) ═══ */}
+              {wellbeingDue && !wellbeingResponse && (
+                <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>How are you feeling this week?</div>
+                  <div style={{display:"flex",gap:8}}>
+                    {[
+                      {emoji:"🎉",label:"Great",key:"great"},
+                      {emoji:"😊",label:"Okay",key:"okay"},
+                      {emoji:"😴",label:"Tired",key:"tired"},
+                      {emoji:"😣",label:"Overwhelmed",key:"overwhelmed"}
+                    ].map(opt=>(
+                      <button key={opt.key} onClick={()=>{haptic();setWellbeingResponse(opt.key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key:opt.key,date:todayStr()}));}catch{}}}
+                        style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:"1.5px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP}}>
+                        <span style={{fontSize:22}}>{opt.emoji}</span>
+                        <span style={{fontSize:11,fontWeight:600,color:C.mid}}>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Wellbeing response card */}
+              {wellbeingResponse && (()=>{
+                const _wbName = babyName || "Baby";
+                const responses = {
+                  great: { icon: "🌟", title: "Yes! Love that energy!", body: "You're smashing it and " + _wbName + " is thriving because of you. Days like this are what it's all about — soak it in. 💛" },
+                  okay: { icon: "💛", title: "That's lovely to hear.", body: "You're doing an amazing job — " + _wbName + " is lucky to have you. Enjoy the good moments, you've earned them." },
+                  tired: { icon: "🧡", title: "That's completely understandable.", body: _wbName + "'s age is hard work, and tiredness is real. You're showing up every day and that matters more than you know. Be kind to yourself today." },
+                  overwhelmed: { icon: "💜", title: "Thank you for being honest — that takes strength.", body: "Feeling overwhelmed doesn't mean you're failing. It means you're carrying a lot.\n\nIf you'd like to talk to someone:\n🧡 PANDAS: 0808 196 1776\n📞 Samaritans: 116 123\n💬 Or speak to your GP or health visitor — they hear this every day." }
+                };
+                const r = responses[wellbeingResponse] || responses.okay;
+                return (
+                  <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                      <div style={{display:"flex",gap:8,alignItems:"flex-start",flex:1}}>
+                        <span style={{fontSize:22}}>{r.icon}</span>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>{r.title}</div>
+                          <div style={{fontSize:13,color:C.mid,lineHeight:1.6,whiteSpace:"pre-line"}}>{r.body}</div>
+                        </div>
+                      </div>
+                      <button onClick={()=>setWellbeingResponse(null)} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP}}>✕</button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ═══ SHARE RECAP — moved from Today ═══ */}
+              {selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 3 && (
+                <button onClick={()=>{haptic();generateDailyRecapCard();}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"13px 16px",borderRadius:16,border:"1.5px solid " + C.blush,background:"var(--card-bg)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
+                  <span style={{fontSize:18}}>📸</span>
+                  <span style={{fontSize:14,fontWeight:700,color:C.deep}}>Share Today's Recap</span>
+                </button>
+              )}
+
               {/* ── REPORTS & TRENDS (collapsible) ── */}
               {(insightFilter==="all"||insightFilter==="reports") && <div>
               {collHead("reports","📊","Reports & Trends")}
@@ -11893,7 +12008,10 @@ function App(){
                 ))}
               </div>
 
-              {/* ── This Week's Focus ── */}
+              {/* ── THIS WEEK section header ── */}
+              <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:4}}>✨ This Week</div>
+
+              {/* ── Current Phase Card (renamed from This Week's Focus) ── */}
               {(devFilter==="all"||devFilter==="activities") && <div>
               {ageWeeks && (()=>{
                 const advice = getDevAdvice(ageWeeks);
@@ -11902,7 +12020,7 @@ function App(){
                 return (
                   <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(111,168,152,0.06))",border:`1.5px solid rgba(123,104,238,0.15)`,borderRadius:18,padding:"14px 16px",marginBottom:14}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:4,fontSize:14,fontWeight:700,color:C.deep}}>🎯 This week's focus <HelpBtn title="This Week's Focus" body="The top 3 activities for your baby's exact age in weeks, based on NHS and WHO developmental guidance. Updates automatically as your baby grows. Tap any activity for more detail."/></div>
+                      <div style={{display:"flex",alignItems:"center",gap:4,fontSize:14,fontWeight:700,color:C.deep}}>✨ This week with {babyName||"baby"} <HelpBtn title="This Week's Focus" body="The top 3 activities for your baby's exact age in weeks, based on NHS and WHO developmental guidance. Updates automatically as your baby grows. Tap any activity for more detail."/></div>
                       <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Week {ageWeeks}</span>
                     </div>
                     {focus.map((a,i)=>(
@@ -11919,7 +12037,7 @@ function App(){
               })()}
 
               </div>}
-              {/* ── COMING UP — Development Phase ── */}
+              {/* ── Current Phase — Development ── */}
               {(devFilter==="all"||devFilter==="activities") && <div>
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
@@ -12048,6 +12166,42 @@ function App(){
               </div>
               
               </div>}
+              {/* ═══ First Tastes — daily weaning suggestion ═══ */}
+              {age && age.totalWeeks >= 26 && (devFilter==="all"||devFilter==="activities") && (()=>{
+                const _ftFoods = [
+                  {food:"Steamed carrot 🥕",note:"Soft, gentle, easy first food",prep:"Steam until very soft, cut into finger-length strips"},
+                  {food:"Mashed avocado 🥑",note:"Creamy, nutritious, mild flavour",prep:"Mash half a ripe avocado with a fork — no need to cook"},
+                  {food:"Banana slices 🍌",note:"Sweet and easy to hold",prep:"Peel and cut lengthways into strips for easy grip"},
+                  {food:"Sweet potato 🍠",note:"Naturally sweet and soft",prep:"Steam or roast until very soft, cut into wedges"},
+                  {food:"Steamed broccoli 🥦",note:"Great for tiny hands to hold",prep:"Steam florets until soft — the stem makes a natural handle"},
+                  {food:"Porridge fingers 🥣",note:"Warm, filling, easy texture",prep:"Cook oats thick, spread on tray, cool, cut into strips"},
+                  {food:"Courgette sticks 🥒",note:"Mild and gentle on tummy",prep:"Steam or roast until soft, cut into finger-length strips"},
+                ];
+                const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+                const _ft = _ftFoods[_doy % _ftFoods.length];
+                const _weanCount = (weaning||[]).length;
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>🍽 First Tastes</div>
+                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:3}}>Try: {_ft.food}</div>
+                    <div style={{fontSize:12,color:C.mid,marginBottom:6}}>{_ft.note}</div>
+                    <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:8}}>{_ft.prep}</div>
+                    <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:8}}>It's okay if they only taste it — this is learning, not eating.</div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <button onClick={()=>{haptic();setShowWeanForm(true);setWeanForm({food:_ft.food.replace(/\s*[\u{1F300}-\u{1FFFF}]/gu,"").trim(),date:todayStr(),reaction:"liked",note:""});}}
+                        style={{padding:"8px 16px",borderRadius:99,border:"1.5px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:12,fontWeight:700,cursor:_cP}}>
+                        Log attempt
+                      </button>
+                      {_weanCount > 0 && <span style={{fontSize:11,color:C.lt}}>{_weanCount} foods explored 🌈</span>}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── PROGRESS section header ── */}
+              <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:14}}>📈 Progress</div>
+              <div style={{fontSize:12,color:C.lt,marginBottom:8,fontStyle:"italic"}}>What {babyName||"baby"} is working on</div>
+
               {/* ── Milestones ── */}
               {(devFilter==="all"||devFilter==="milestones") && <div>
               {ageWeeks && (
@@ -12109,7 +12263,7 @@ function App(){
                 </>
               )}
               <div className="glass-card" style={{...card, marginBottom:14}}>
-                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🎯 Activities for right now <HelpBtn title="Activities" body="Age-appropriate play and learning activities based on NHS and WHO developmental guidance. Filter by category. These update automatically as your baby grows."/></div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🎮 Let's Play <HelpBtn title="Activities" body="Age-appropriate play and learning activities based on NHS and WHO developmental guidance. Filter by category. These update automatically as your baby grows."/></div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
                   {[{key:"all",label:"All",icon:"✦"},...ACT_CATS].map(c=>(
                     <button key={c.key} onClick={()=>setDevActFilter(c.key)}
@@ -12179,6 +12333,9 @@ function App(){
               </div>
 
               </div>}
+                {/* ── TOOLS section header ── */}
+                <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:14}}>🛠 Tools</div>
+
                 {/* ── Teething Tracker ── */}
                 {(devFilter==="all"||devFilter==="teething") && <div>
                 <div style={{marginTop:16}}>
@@ -12287,14 +12444,28 @@ function App(){
             {tab==="settings"&&(
         <div style={{padding:"0 16px 100px",maxWidth:520,margin:"0 auto"}}>
 
-          {/* ── SETTINGS ── */}
-          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:4}}>⚙️ Settings</div>
+          {/* ── ACCOUNT ── */}
+          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:4}}>👤 Account</div>
+          {/* ── Subscription Status ── */}
+          <div style={{background:"var(--card-bg-solid)",border:"1px solid " + C.blush,borderRadius:16,padding:"14px 16px",marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:C.deep}}>OBubba Free</div>
+                <div style={{fontSize:11,color:C.lt}}>Logging + basic guidance</div>
+              </div>
+              <button onClick={()=>{haptic();showToast("🚀 Premium coming soon!",2000,1);}} style={{background:"linear-gradient(135deg,"+C.ter+",#a85a44)",border:"none",borderRadius:99,padding:"9px 18px",color:"white",fontSize:12,fontWeight:700,cursor:_cP}}>
+                Understand your baby's rhythm →
+              </button>
+            </div>
+          </div>
+
+
 
           {/* Enquiries & Feedback */}
           <a href="mailto:hello@obubba.com?subject=OBubba%20Feedback" style={{display:"flex",alignItems:"center",gap:12,background:"linear-gradient(135deg,rgba(192,112,136,0.08),rgba(111,168,152,0.08))",border:"1.5px solid rgba(192,112,136,0.2)",borderRadius:16,padding:"14px 16px",marginBottom:14,textDecoration:"none",cursor:_cP}}>
             <span style={{fontSize:22}}>💬</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Enquiries & Feedback</div>
+              <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Need a hand?</div>
               <div style={{fontSize:11,color:C.lt}}>Questions, suggestions or issues — we'd love to hear from you</div>
             </div>
             <span style={{fontSize:13,color:C.ter,fontWeight:700}}>Email →</span>
@@ -12612,6 +12783,13 @@ function App(){
               </div>
               <div style={{fontSize:11,color:C.lt,marginTop:8}}>Version 1.0 · © {new Date().getFullYear()} OBubba · <a href="https://obubba.com/privacy" target="_blank" style={{color:C.lt}}>Privacy Policy</a></div>
             </div>
+
+
+          {/* ── Emotional Sign-off ── */}
+          <div style={{textAlign:"center",padding:"24px 16px 8px",marginBottom:16}}>
+            <div style={{width:40,height:1,background:C.blush,margin:"0 auto 16px",opacity:0.5}}/>
+            <div style={{fontSize:12,color:C.lt,fontStyle:"italic",lineHeight:1.6}}>For the long days and even longer nights — from someone who's been there.</div>
+          </div>
 
             {/* Delete Account — Apple App Store requirement */}
             <div style={{marginTop:14,textAlign:"center"}}>
@@ -14163,12 +14341,22 @@ function App(){
               if(nwForm.settleDuration) entry.settleDuration = parseInt(nwForm.settleDuration);
               if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
-                const existing = d[selDay]||[];
                 const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                // ── Night wake routing: pre-wake entries belong to previous day ──
+                const saveH = parseInt(saveTime.split(":")[0]);
+                const todayHasWake = (d[selDay]||[]).some(e=>e.type==="wake"&&!e.night);
+                const prevHasBed = (d[_pd]||[]).some(e=>e.type==="sleep"&&!e.night);
+                const isEarlyMorning = saveH >= 0 && saveH < 10;
+                const routeToPrevDay = isEarlyMorning && !todayHasWake && prevHasBed;
+                const targetDay = routeToPrevDay ? _pd : selDay;
+                const existing = d[targetDay]||[];
                 const filtered = nightEditId ? existing.filter(x=>x.id!==nightEditId) : existing;
                 const combined = [...filtered, entry];
-                try { return{...d,[selDay]:autoClassifyNight(combined, d[_pd]||null).map(x => x.nightLocked ? {...x, night: true} : x)}; }
-                catch(err) { console.warn("classify err:",err); return{...d,[selDay]:combined}; }
+                const prevForClassify = routeToPrevDay
+                  ? (()=>{const dt2=new Date(_pd+"T12:00:00");dt2.setDate(dt2.getDate()-1);return dt2.toISOString().slice(0,10);})()
+                  : _pd;
+                try { return{...d,[targetDay]:autoClassifyNight(combined, d[prevForClassify]||null).map(x => x.nightLocked ? {...x, night: true} : x)}; }
+                catch(err) { console.warn("classify err:",err); return{...d,[targetDay]:combined}; }
               });
               setShowNightWake(false);
               setNightEditId(null);
