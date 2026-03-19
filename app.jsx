@@ -230,7 +230,7 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
 const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"💩"};
 const NAMES={feed:"Feed",nap:"Nap",wake:"Wake Up",sleep:"Bedtime",poop:"Nappy"};
 const POOP_TYPES=["Yellow/seedy","Mustard","Green","Brown","Dark green","Orange","Black/tarry","White/pale","Mucousy","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Meconium","Other"];
-const POOP_SAFETY_FLAGS={"Black/tarry":`Black or tarry stools after the first few days may need medical attention — contact your ${_doctor}.`,"White/pale":`Persistently pale or chalky stools can indicate a liver condition — mention this to your ${_doctor} promptly.`,"Bloody/streaked":`Blood in stools can have many causes, but if new or persistent, contact your ${_doctor}.`,"Meconium":"Meconium (dark, sticky first stools) is normal in the first 48–72 hours. If still passing meconium after day 3–4, mention it to your midwife or ."};
+const POOP_SAFETY_FLAGS={"Black/tarry":`Black or tarry stools after the first few days may need medical attention — contact your ${_doctor}.`,"White/pale":`Persistently pale or chalky stools can indicate a liver condition — mention this to your ${_doctor} promptly.`,"Bloody/streaked":`Blood in stools can have many causes, but if new or persistent, contact your ${_doctor}.`,"Meconium":"Meconium (dark, sticky first stools) is normal in the first 48–72 hours. If still passing meconium after day 3–4, mention it to your midwife or health visitor."};
 
 // 14 major UK allergens — NHS/FSA
 const ALLERGENS = {
@@ -1402,7 +1402,7 @@ function App(){
   const[lastBreastSide,setLastBreastSide]=useState(()=>{try{return localStorage.getItem("last_breast_side")||null;}catch{return null;}});
   // ── 4-tier Wellbeing Check-in ──
   const[wellbeingResponse,setWellbeingResponse]=useState(()=>{try{const v=JSON.parse(localStorage.getItem("wb_response_v1")||"null");if(v&&v.date===todayStr())return v.key;return null;}catch{return null;}});
-  const[msFilter,setMsFilter]=useState("all");
+  const[msFilter,setMsFilter]=useState("social");
   const[appointments,setAppointments]=useState(()=>{
     try{const v=localStorage.getItem("appointments_v1");return v?JSON.parse(v):[];}catch{return [];}
   }); // [{id, date, time, title, note, reminded}]
@@ -1499,11 +1499,11 @@ function App(){
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
     const[growthLogOpen,setGrowthLogOpen]=useState(false);
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
-  const[insightFilter,setInsightFilter]=useState("all");
-  const[devFilter,setDevFilter]=useState("all");
+  const[insightFilter,setInsightFilter]=useState("sleep");
+  const[devFilter,setDevFilter]=useState("activities");
   const toggleInsight=(k)=>setInsightSection(p=>({...p,[k]:!p[k]}));
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
-  const[devActFilter,setDevActFilter]=useState("all");
+  const[devActFilter,setDevActFilter]=useState("motor");
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null);
   const[nappyMode,setNappyMode]=useState(null);
@@ -3170,7 +3170,7 @@ function App(){
     } else if (!isPremium && Object.keys(days).length >= 3) {
       _whyLines.push("🔒 " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see it.");
     }
-    _whyLines.push("Source: NHS/WHO guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
+    _whyLines.push("Sleep timing based on NHS Start4Life, AASM (American Academy of Sleep Medicine), and WHO Infant Health guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
 
     return (
       <div className="glass-card prio-glow" style={{padding:"18px 16px",marginBottom:12}}>
@@ -3190,7 +3190,7 @@ function App(){
               {_whyLines.map((ln,i)=>(
                 <div key={i} style={{fontSize:12,color:i===_whyLines.length-1?"var(--text-lt)":"var(--text-mid)",marginBottom:i<_whyLines.length-1?8:0,lineHeight:1.5}}>{ln}</div>
               ))}
-              <div style={{fontSize:11,color:C.lt,marginTop:10,fontStyle:"italic",borderTop:"1px solid var(--card-border)",paddingTop:8}}>OBubba provides general guidance based on your baby's patterns and published health guidelines. It is not medical advice.</div>
+              <div style={{fontSize:11,color:C.lt,marginTop:10,fontStyle:"italic",borderTop:"1px solid var(--card-border)",paddingTop:8}}>Sleep and wake windows: NHS Start4Life, AASM, WHO. Growth data: WHO Child Growth Standards. Feeding: NHS/WHO complementary feeding guidance. Development: NHS Start4Life developmental milestones. This is general guidance — not medical advice. If you have concerns, speak to your {_doctor}.</div>
             </div>
           )}
         </div>
@@ -4508,9 +4508,9 @@ function App(){
     const hasBreast = Object.values(days).slice(-3).some(arr => (arr || []).some(e => e.feedType === "breast"));
     let message = null;
     if (daysSince >= 3 && hasBreast && w >= 6) {
-      message = `No poop in ${daysSince} days — this can be normal for breastfed babies after 6 weeks. If ${babyName || "baby"} seems uncomfortable, mention it to your .`;
+      message = `No poop in ${daysSince} days — this can be normal for breastfed babies after 6 weeks. If ${babyName || "baby"} seems uncomfortable, mention it to your ${_doctor}.`;
     } else if (daysSince >= 3 && !hasBreast) {
-      message = `No poop in ${daysSince} days. Formula-fed babies typically go daily. If ${babyName || "baby"} seems uncomfortable or straining, speak to your .`;
+      message = `No poop in ${daysSince} days. Formula-fed babies typically go daily. If ${babyName || "baby"} seems uncomfortable or straining, speak to your GP or health visitor.`;
     } else if (daysSince >= 2) {
       message = `Last poop was ${daysSince} days ago.`;
     }
@@ -5019,7 +5019,7 @@ function App(){
     const napProfile = getAgeNapProfile(w);
     const mtp = m => `${String(Math.floor((m<0?m+24*60:m)/60)%24).padStart(2,"0")}:${String(((m%60)+60)%60).padStart(2,"0")}`;
 
-    // ── 24h sleep targets by age (NHS/WHO) ──
+    // ── 24h sleep targets by age (AASM Paediatric Sleep Duration Consensus + NHS Start4Life) ──
     const sleepTarget24h = w < 6 ? {min:14*60,max:17*60} : w < 13 ? {min:12*60,max:15*60}
       : w < 26 ? {min:12*60,max:15*60} : w < 52 ? {min:12*60,max:14*60}
       : w < 78 ? {min:11*60,max:14*60} : {min:11*60,max:14*60};
@@ -5295,7 +5295,7 @@ function App(){
         sleepLink = {
           icon:"🌙",
           title:"Expect a hunger wake tonight",
-          body:`With intake a little short today, baby may wake ${expectedNightFeeds} time${expectedNightFeeds==="1"?"":"s"} from genuine hunger overnight — that's completely normal. Responding to those feeds will help make up today's shortfall. One low day is nothing to worry about; if low intake continues for several days, mention it to your .`
+          body:`With intake a little short today, baby may wake ${expectedNightFeeds} time${expectedNightFeeds==="1"?"":"s"} from genuine hunger overnight — that's completely normal. Responding to those feeds will help make up today's shortfall. One low day is nothing to worry about; if low intake continues for several days, mention it to your ${_doctor}.`
         };
       }
     } else if (approachingBed) {
@@ -5536,7 +5536,7 @@ function App(){
       if (feedTrend === "falling" && mlRecent3 < 400) {
         insights.push({
           type:"warn", icon:"🍼", title:"Milk Intake Dropping",
-          body:`The last 3 days have averaged ${fmtVol(Math.round(mlRecent3),FU)} — down from ${Math.round(mlOlder)}ml earlier in the week${weekLabel}. A sustained drop below 400ml/day is worth monitoring; if it continues for more than 3–4 days, mention it to your .`
+          body:`The last 3 days have averaged ${fmtVol(Math.round(mlRecent3),FU)} — down from ${Math.round(mlOlder)}ml earlier in the week${weekLabel}. A sustained drop below 400ml/day is worth monitoring; if it continues for more than 3–4 days, mention it to your ${_doctor}.`
         });
       } else if (feedTrend === "rising" && mlRecent3 > 1100) {
         insights.push({
@@ -7725,7 +7725,7 @@ function App(){
     }
 
     lines.push("Report generated by OBubba — obubba.com");
-    lines.push("Based on NHS & WHO guidelines");
+    lines.push("Sleep: NHS/AASM · Growth: WHO · Feeding: NHS/WHO · Development: NHS Start4Life");
 
     return { text: lines.join("\n"), name, period: `${fmtDate(dk[0])} – ${fmtDate(dk[dk.length-1])}`, days: dk.length };
   }
@@ -8792,7 +8792,7 @@ function App(){
                 </div>
               ))}
             </div>
-            <div style={{fontSize:12,color:_wMute,textAlign:"center",zIndex:1,marginBottom:24,lineHeight:1.5,maxWidth:300}}>Built with <strong style={{color:_wTrustHi,fontWeight:600}}>NHS</strong>, <strong style={{color:_wTrustHi,fontWeight:600}}>AASM</strong>, and <strong style={{color:_wTrustHi,fontWeight:600}}>WHO</strong> guidelines, recommendations, and research.</div>
+            <div style={{fontSize:12,color:_wMute,textAlign:"center",zIndex:1,marginBottom:24,lineHeight:1.5,maxWidth:300}}>Sleep timing: <strong style={{color:_wTrustHi,fontWeight:600}}>NHS Start4Life</strong> & <strong style={{color:_wTrustHi,fontWeight:600}}>AASM</strong>. Growth: <strong style={{color:_wTrustHi,fontWeight:600}}>WHO Child Growth Standards</strong>. Development: <strong style={{color:_wTrustHi,fontWeight:600}}>NHS Start4Life</strong> milestones.</div>
             <button onClick={()=>setObStep(1)} style={{width:"100%",maxWidth:320,padding:16,border:_bN,borderRadius:99,fontSize:17,fontWeight:700,color:"white",cursor:_cP,zIndex:1,background:"linear-gradient(135deg, #c9705a, #a85a44)",boxShadow:_wCtaShadow,marginBottom:12,fontFamily:_fI}}>Start Tracking →</button>
 
           </div>
@@ -8947,21 +8947,21 @@ function App(){
 
             {tutStep >= 0 && (()=>{
         const TUT_STEPS = [
-          { icon:"👋", title:"Welcome to OBubba!", body:"Your all-in-one baby tracker and parenting companion. Quick tour — takes about 60 seconds. Tap anywhere to continue." },
-          { icon:"🍼", title:"Quick Logging", body:"One-tap row: Feed, Breast, Nappy, Nap, Pump, Wake, Photo, Crying helper. Below: Appointment, Reminder, Pin Note. Shake your phone to undo any accidental log within 15 seconds." },
-          { icon:"⏱", title:"Smart Timers", body:"Nap timer: tap to start, pill shows elapsed time, tap pill to stop. Tap ✎ to adjust the start time if baby fell asleep earlier. Breast timer: tap L/R to switch sides, warns at 40/60 min. Night timer: shows sleep stretch since bedtime in calm blue." },
-          { icon:"🧠", title:"Intelligent Predictions", body:"Predictions blend sleep science (adenosine/cortisol model) with your baby's personal patterns. The app learns per-nap-position wake windows, adjusts for short/long naps, and aligns with natural circadian dips (9-10am, 12-2pm). Confidence improves with data." },
-          { icon:"🌙", title:"Night & Bedtime", body:"Log bedtime to start the night timer. Log night wakes with feed amount, soothing method, and duration (hours + minutes). The app tracks sleep stretches, self-settling rate, habitual wakes, and gives age-appropriate night wake advice." },
-          { icon:"🌉", title:"Bridge Naps", body:"If the wake window to bedtime would be too long, OBubba suggests a short bridge nap. You'll see a comparison: bedtime without the bridge vs with it. The bridge nap keeps baby from getting overtired before bed." },
-          { icon:"😢", title:"Crying Helper", body:"Ranks likely reasons using feeds, wake windows, nappy timing, teething age, and past data. Nappy score now checks time since last change. Quick-action buttons let you log a feed or nap directly from the helper." },
-          { icon:"💊", title:"Health Tracking", body:`Medicine & temperature tracker with fever alerts (38°C+ under 3 months = call ${_helpLine}). Nappy tracking with hydration counter (6 wet/day target), poop frequency, and colour safety flags. Nappy reminder: set 2h, 2.5h, or 3h alerts in Account.` },
-          { icon:"📊", title:"Insights Tab", body:"Organised by topic: Sleep & Bedtime (score, predictions, sleep intelligence, safe sleep, tomorrow's schedule), Feeding & Nutrition (intake tracker, night feed trends, breast duration), Growth Percentiles (WHO charts, trend detection), Trends, and Day Reports." },
-          { icon:"🧩", title:"Development Tab", body:"'This week's focus' shows 3 activities for your baby's exact age. NHS milestone checklist with photo sharing on completion. Teething tracker with tappable tooth diagram. Weaning journal with allergen detection." },
-          { icon:"📏", title:"Growth & Percentiles", body:"Log weight and height to see WHO growth curves. Percentile tracking only warns if baby is DROPPING centiles — being on the 5th or 95th is perfectly fine if they've always been there. Growth & feeding correlation shown alongside." },
-          { icon:"👩‍🍼", title:"Care Guide & Sharing", body:`Shareable care guide with feeding, sleep, nappies, emergency contacts, and safe sleep. QR code at the bottom for caregivers to scan. Partner sync: both parents see the same data via backup code.` },
-          { icon:"🌓", title:"Dark Mode & Settings", body:"Auto dark mode or toggle manually. Nappy reminder intervals in Account. Multiple children supported — swipe header to switch. Delete account available at bottom of Account tab." },
-          { icon:"💜", title:"Parent Wellbeing", body:`Weekly check-in asks how you're doing. Celebration mascot for great days, and full support signposting (${_isUS?"PSI, 988 Lifeline":_isAU?"PANDA, Beyond Blue, Lifeline":"PANDAS, Samaritans, NHS"}) when you're struggling. You matter too.` },
-          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start your day. Predictions get smarter with every log. Tap ? icons for feature help. Replay this tour anytime from Account." },
+          { icon:"👋", title:"Welcome to OBubba!", body:"Your baby companion — calm, smart, and built around you. Quick tour of where everything lives. Tap anywhere to continue." },
+          { icon:"📱", title:"Today Tab — your home screen", body:"Everything you need right now lives here. Hero Card at the top shows what baby needs. One-tap log row below for feeds, naps, nappies. Notes & Reminders section (tap to expand) holds appointments, pinned notes, and medicine logs." },
+          { icon:"🔍", title:"Hidden features on Today", body:"Long-press any log button for the advanced form (add detail, backdate). Long-press Nap to set an earlier start time. The + button scrolls to more options. Shake your phone to undo any accidental log within 15 seconds." },
+          { icon:"🤱", title:"Breastfeeding support", body:"After logging a breastfeed, you'll see a contextual support card — cluster feeding reassurance, night feed encouragement, or a gentle flag if intake seems low. 'Which Side Next' helper remembers which breast to start on." },
+          { icon:"⏱", title:"Smart Timers", body:"Nap: tap to start, tap the pill in the header to stop. Tap ✎ to adjust the start time. Breast: tap L/R to switch sides — warns at 40/60 min. Night: calm blue timer tracks sleep since bedtime." },
+          { icon:"🧠", title:"Hero Card — the brain", body:"The coloured dot shows baby's state. The timing line counts wake/sleep time. 'Right now:' tells you what to do next. Tap 'Why?' to see the science behind the suggestion — wake window data, sleepy cue reminders, and sources." },
+          { icon:"😢", title:"Crying? & Sounds — in the header", body:"Both live in the header bar on Today. Crying helper ranks likely reasons using feeds, wake windows, nappy timing, teething, and past data. Sound machine plays white noise, rain, heartbeat. Quick-action buttons log feeds or naps directly." },
+          { icon:"💊", title:"Health Tracking (Today tab)", body:`Medicine & temperature logging in Notes & Reminders section (expand it). Fever alert: 38°C+ under 3 months = call ${_helpLine}. Nappy tracking counts wet nappies (6/day target), poop frequency, and flags concerning colours. Set nappy reminders in Account.` },
+          { icon:"💡", title:"Insights Tab — understanding patterns", body:"Pick a topic: Sleep, Feeding, Growth, or Reports. Each shows trends, analysis, and gentle explanations. Weekly summary at top. Wellbeing check-in asks how YOU are doing — with real support resources if you're struggling. Everything collapses neatly when you switch topics." },
+          { icon:"🧩", title:"Development Tab — activities & milestones", body:"Pick a focus: Activities, Milestones, Teeth, or Weaning. Let's Play shows age-appropriate activities. First Tastes suggests a new food daily (from 6 months) with allergen safety warnings. Milestone tracker shows what baby is working on right now." },
+          { icon:"🥄", title:"Weaning safety built in", body:"When you log food, OBubba auto-detects all 14 UK/FSA allergens and warns you. It also flags foods to avoid (honey, whole nuts, raw shellfish, high-mercury fish). NHS recommends starting with vegetables before fruit. Allergen foods (egg, peanut) are introduced early per latest NHS guidance to reduce allergy risk." },
+          { icon:"👩‍🍼", title:"Sharing & Account tab", body:"Shareable care guide with QR code for caregivers. Partner sync — share your backup code so both parents see the same data. Family & Sharing section for managing connections. Data & Privacy section for exports and backups." },
+          { icon:"📋", title:"Notes understand messy input", body:"Type naturally — 'fed 120ml at 2pm' or 'napped 45 mins from 1' — OBubba parses times, amounts, and durations from freeform text. Pin important notes (allergies, GP details) and they stay visible on Today. Appointments support travel time alerts." },
+          { icon:"💜", title:"You matter too", body:`Weekly wellbeing check-in on the Insights tab. If you're struggling, real support: ${_isUS?"Postpartum Support International (1-800-944-4773), 988 Crisis Lifeline":_isAU?"PANDA (1300 726 306), Beyond Blue (1300 22 4636)":"PANDAS (0808 196 1776), Samaritans (116 123)"}. Rare gentle nudges: 'Have you had water today?'` },
+          { icon:"🎉", title:"You're all set!", body:"Log a wake time to start your day. Predictions get smarter with every log. Tap any ? icon for help on that feature. Long-press log buttons for advanced options. Replay this tour anytime from Account." },
         ];
 
         const dismissTutorial = () => {
@@ -9796,7 +9796,7 @@ function App(){
                                           {/* Age guidance */}
               {ageStage&&(
                 <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"12px 14px",marginBottom:12,boxShadow:"var(--card-shadow)"}}>
-                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,display:"flex",alignItems:"center"}}>{ageStage.label} <HelpBtn title="Age Guidance" body="These ranges are based on paediatric sleep research — not rigid targets. Every baby is different. The prediction engine uses your baby's actual patterns alongside these ranges to give personalised suggestions. If you have concerns about your baby's sleep or development, speak to your  or GP."/></div>
+                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,display:"flex",alignItems:"center"}}>{ageStage.label} <HelpBtn title="Age Guidance" body="These ranges are from AASM (American Academy of Sleep Medicine) and NHS Start4Life — not rigid targets. Every baby is different. The prediction engine uses your baby's actual patterns alongside these ranges to give personalised suggestions. If you have concerns about your baby's sleep or development, speak to your GP or health visitor."/></div>
                   <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:8}}>{ageStage.tip}</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                     {[{icon:"😴",val:ageStage.napGoal},{icon:"🍼",val:ageStage.feedGoal},{icon:"🌙",val:ageStage.nightNote}].map((x,i)=>(
@@ -10933,7 +10933,6 @@ function App(){
               {/* Insight category filter bar */}
               <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
                 {[
-                  {id:"all",label:"All",icon:"✨"},
                   {id:"sleep",label:"Sleep",icon:"😴"},
                   {id:"feeding",label:"Feeding",icon:"🍼"},
                   {id:"growth",label:"Growth",icon:"📏"},
@@ -11042,7 +11041,7 @@ function App(){
               )}
 
               {/* ── Weekly Wins ── */}
-              {(insightFilter==="all") && <div>
+              {(true) && <div>
               {(()=>{
                 const dk = Object.keys(days).sort();
                 if (dk.length < 7) return null;
@@ -11122,7 +11121,7 @@ function App(){
               })()}
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="sleep") && <div>
+              {(insightFilter==="sleep") && <div>
               {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -11592,7 +11591,7 @@ function App(){
               })()}
 
               {/* ── FEEDING & NUTRITION (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="feeding") && <div>
+              {(insightFilter==="feeding") && <div>
               {collHead("feeding","🍼","Feeding & Nutrition")}
               {insightSection.feeding && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -11692,7 +11691,7 @@ function App(){
               )}
 
               {/* ── GROWTH PERCENTILE BANNER ── */}
-              {(insightFilter==="all"||insightFilter==="growth") && <div>
+              {(insightFilter==="growth") && <div>
               <div style={{background:`linear-gradient(135deg,${latestW?percentileColor(latestW?.pct, wTrend)+"18":"#f5f0eb"},${latestW?percentileColor(latestW?.pct, wTrend)+"08":"#ede8e0"})`, border:`2px solid ${latestW ? percentileColor(latestW?.pct, wTrend)+"44" : C.blush}`, borderRadius:20, marginBottom:14, overflow:"hidden"}}>
                 <div style={{padding:"16px 16px 14px"}}>
                   <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>📏 Growth Percentiles</div>
@@ -11871,7 +11870,7 @@ function App(){
                   great: { icon: "🌟", title: "Yes! Love that energy!", body: "You're smashing it and " + _wbName + " is thriving because of you. Days like this are what it's all about — soak it in. 💛" },
                   okay: { icon: "💛", title: "That's lovely to hear.", body: "You're doing an amazing job — " + _wbName + " is lucky to have you. Enjoy the good moments, you've earned them." },
                   tired: { icon: "🧡", title: "That's completely understandable.", body: _wbName + "'s age is hard work, and tiredness is real. You're showing up every day and that matters more than you know. Be kind to yourself today." },
-                  overwhelmed: { icon: "💜", title: "Thank you for being honest — that takes strength.", body: "Feeling overwhelmed doesn't mean you're failing. It means you're carrying a lot.\n\nIf you'd like to talk to someone:\n🧡 PANDAS: 0808 196 1776\n📞 Samaritans: 116 123\n💬 Or speak to your GP or health visitor — they hear this every day." }
+                  overwhelmed: { icon: "💜", title: "Thank you for being honest — that takes strength.", body: "Feeling overwhelmed doesn't mean you're failing. It means you're carrying a lot.\n\nIf you'd like to talk to someone:\n" + (_isUS ? "📞 Postpartum Support International: 1-800-944-4773\n📞 988 Crisis Lifeline: 988\n💬 Or speak to your pediatrician or OB-GYN." : _isAU ? "📞 PANDA: 1300 726 306\n📞 Beyond Blue: 1300 22 4636\n💬 Or speak to your GP or child health nurse." : "🧡 PANDAS: 0808 196 1776\n📞 Samaritans: 116 123\n💬 Or speak to your GP or health visitor — they hear this every day.") }
                 };
                 const r = responses[wellbeingResponse] || responses.okay;
                 return (
@@ -11899,7 +11898,7 @@ function App(){
               )}
 
               {/* ── REPORTS & TRENDS (collapsible) ── */}
-              {(insightFilter==="all"||insightFilter==="reports") && <div>
+              {(insightFilter==="reports") && <div>
               {collHead("reports","📊","Reports & Trends")}
               {insightSection.reports && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
@@ -12125,12 +12124,12 @@ function App(){
           const devAdvice = getDevAdvice(ageWeeks);
 
           const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks !== null && ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
-          const filteredActs = devActFilter === "all" ? nowActs : nowActs.filter(a => a.cat === devActFilter);
+          const filteredActs = nowActs.filter(a => a.cat === devActFilter);
 
           // ── Milestone components ──
           const doneCount = MILESTONES.filter(m => milestones[m.id]?.date).length;
           const ageLabel = fmtAge(age);
-          const catOk   = (m) => msFilter === "all" || m.cat === msFilter;
+          const catOk   = (m) => m.cat === msFilter;
           const nowMs   = MILESTONES.filter(m => catOk(m) && ageWeeks >= m.weeks[0] && m.weeks[0] <= ageWeeks + 4 && m.weeks[2] >= ageWeeks - 4);
           const pastMs  = MILESTONES.filter(m => catOk(m) && m.weeks[2] < ageWeeks - 4 && milestones[m.id]?.date);
           const futureMs = MILESTONES.filter(m => catOk(m) && m.weeks[0] > ageWeeks + 4);
@@ -12263,9 +12262,8 @@ function App(){
               {/* Development category filter bar */}
               <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
                 {[
-                  {id:"all",label:"All",icon:"✨"},
                   {id:"activities",label:"Activities",icon:"🎯"},
-                  {id:"milestones",label:"Milestones",icon:"🏆"}, // filtered to current age range in render
+                  {id:"milestones",label:"Milestones",icon:"🏆"},
                   {id:"teething",label:"Teeth",icon:"🦷"},
                   {id:"weaning",label:"Weaning",icon:"🥄"},
                 ].map(f=>(
@@ -12276,11 +12274,44 @@ function App(){
                 ))}
               </div>
 
-              {/* ── THIS WEEK section header ── */}
-              <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:4}}>✨ This Week</div>
+              {/* ── PROGRESS section — ELEVATED to top per user request ── */}
+              {/* Milestone Summary Card — at top of Development tab */}
+              {ageWeeks && (()=>{
+                const _msDone = MILESTONES.filter(m => milestones[m.id]?.date).length;
+                const _msNow = MILESTONES.filter(m => ageWeeks >= m.weeks[0] && m.weeks[0] <= ageWeeks + 4 && m.weeks[2] >= ageWeeks - 4);
+                const _msPending = _msNow.filter(m => !milestones[m.id]?.date);
+                const _ageLabel = age ? fmtAge(age) : "";
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <div>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>What {babyName||"baby"} is working on</div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.ter,lineHeight:1}}>
+                          {_ageLabel} <span style={{fontSize:12,color:C.lt,fontFamily:_fM,fontWeight:400}}>· wk {ageWeeks}</span>
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.mint,lineHeight:1}}>{_msDone}</div>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt}}>logged</div>
+                      </div>
+                    </div>
+                    <div style={{background:C.blush,borderRadius:99,height:5,overflow:"hidden"}}>
+                      <div style={{height:"100%",borderRadius:99,background:"linear-gradient(90deg,"+C.ter+","+C.mint+")",width:Math.round(_msDone/MILESTONES.length*100)+"%",transition:"width 0.4s"}}/>
+                    </div>
+                    <div style={{fontSize:10,fontFamily:_fM,color:C.lt,marginTop:3}}>{_msDone} of {MILESTONES.length} logged</div>
+                    {_msPending.length > 0 && (
+                      <div style={{fontSize:12,color:C.mid,marginTop:8}}>
+                        {_msPending.length} milestone{_msPending.length>1?"s":""} due now — <span style={{color:C.ter,fontWeight:600,cursor:_cP}} onClick={()=>{const el=document.querySelector("[data-milestones]");if(el)el.scrollIntoView({behavior:"smooth"});}}>scroll to see →</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* THIS WEEK — label is inside Let's Play card */}
 
               {/* ── Let's Play — ELEVATED to top per strategy ── */}
-              {(devFilter==="all"||devFilter==="activities") && ageWeeks && <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+              {(devFilter==="activities") && ageWeeks && <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🎮 Let's Play — Little moments that build big milestones</div>
                 {(()=>{
                   const _lpActs = DEV_ACTIVITIES.filter(a=>ageWeeks>=a.weeks[0]&&ageWeeks<=a.weeks[1]);
@@ -12298,34 +12329,9 @@ function App(){
                 })()}
               </div>}
 
-              {/* ── Current Phase Card (renamed from This Week's Focus) ── */}
-              {(devFilter==="all"||devFilter==="activities") && <div>
-              {ageWeeks && (()=>{
-                const advice = getDevAdvice(ageWeeks);
-                if (!advice.length) return null;
-                const focus = advice.slice(0, 3);
-                return (
-                  <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(111,168,152,0.06))",border:`1.5px solid rgba(123,104,238,0.15)`,borderRadius:18,padding:"14px 16px",marginBottom:14}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:4,fontSize:14,fontWeight:700,color:C.deep}}>✨ This week with {babyName||"baby"} <HelpBtn title="This Week's Focus" body="The top 3 activities for your baby's exact age in weeks, based on NHS and WHO developmental guidance. Updates automatically as your baby grows. Tap any activity for more detail."/></div>
-                      <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Week {ageWeeks}</span>
-                    </div>
-                    {focus.map((a,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderTop:i>0?`1px solid ${C.blush}`:"none"}}>
-                        <span style={{fontSize:18,flexShrink:0}}>{a.icon}</span>
-                        <div>
-                          <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:2}}>{a.title}</div>
-                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{a.body.split(".")[0]}.</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              </div>}
+              {/* This Week's Focus — REMOVED (merged into Let's Play) */}
               {/* ── Current Phase — Development ── */}
-              {(devFilter==="all"||devFilter==="activities") && <div>
+              {(devFilter==="activities") && <div>
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
                 const dobDate = new Date(babyDob+"T00:00:00");
@@ -12341,7 +12347,7 @@ function App(){
 
                 return (
                   <div style={{marginBottom:14}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4,fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:12}}>Coming Up <HelpBtn title="Development Phases" body="Based on the Wonder Weeks research, babies go through predictable developmental leaps. Each phase has an unsettled period (fussiness, clinginess, poor sleep) followed by new skills emerging. OBubba shows you what's coming and when to expect it."/></div>
+                    <div style={{display:"flex",alignItems:"center",gap:4,fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:12}}>Coming Up <HelpBtn title="Development Phases" body="Babies go through predictable developmental phases. Each phase has an unsettled period (fussiness, clinginess, poor sleep) followed by new skills emerging. OBubba shows you what's coming and when to expect it."/></div>
 
                     {isPrePhase && heroPhase && (()=>{
                       const sd=fmtD2(wkToDate2(heroPhase.windowStart)), pd=fmtD2(wkToDate2(heroPhase.peakWeek)), ed=fmtD2(wkToDate2(heroPhase.windowEnd));
@@ -12439,43 +12445,67 @@ function App(){
                 );
               })()}
 
-              <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:`1px solid ${C.rose}`,borderRadius:20,padding:"16px",marginBottom:14,display:"flex",alignItems:"center",gap:14,boxShadow:"var(--card-shadow)"}}>
-                <div style={{width:52,height:52,borderRadius:16,background:`linear-gradient(135deg,${C.ter},#a85a44)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  <span style={{fontSize:24}}>🧩</span>
-                </div>
-                <div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep}}>{name}'s Development</div>
-                  <div style={{fontSize:13,color:C.mid,marginTop:2}}>
-                    {age ? `${fmtAge(age)}${age.months >= 1 ? ` · ${age.totalWeeks} weeks old` : ""}` : "Set a date of birth to personalise"}
-                  </div>
-                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:3}}>Based on NHS & WHO guidelines</div>
-                </div>
-              </div>
+              {/* Oliver's Development card — REMOVED per UX strategy */}
               
               </div>}
+              {/* ═══ Weaning Readiness Check — NHS 3 signs ═══ */}
+              {age && age.totalWeeks >= 24 && age.totalWeeks < 28 && (devFilter==="weaning"||devFilter==="activities") && !(weaning||[]).length && (
+                <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>🍽 Is {babyName||"baby"} ready for food?</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>NHS recommends waiting until around 6 months. Look for all 3 signs together:</div>
+                  {[
+                    {sign:"Can stay sitting up and hold their head steady",icon:"🪑"},
+                    {sign:"Can coordinate eyes, hands and mouth — looks at food, picks it up, puts it in mouth",icon:"👀"},
+                    {sign:"Can swallow food (not push it back out with tongue)",icon:"👅"},
+                  ].map((s,i)=>(
+                    <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"4px 0",fontSize:12,color:C.mid}}>
+                      <span>{s.icon}</span><span>{s.sign}</span>
+                    </div>
+                  ))}
+                  <div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginTop:8}}>These signs rarely all appear before 6 months. Chewing fists, waking at night, or wanting extra milk are NOT signs of readiness.</div>
+                </div>
+              )}
+
               {/* ═══ First Tastes — daily weaning suggestion ═══ */}
-              {age && age.totalWeeks >= 26 && (devFilter==="all"||devFilter==="activities") && (()=>{
+              {age && age.totalWeeks >= 26 && (devFilter==="activities"||devFilter==="weaning") && (()=>{
+                // NHS recommends vegetables first to avoid sweet preference
                 const _ftFoods = [
-                  {food:"Steamed carrot 🥕",note:"Soft, gentle, easy first food",prep:"Steam until very soft, cut into finger-length strips"},
-                  {food:"Mashed avocado 🥑",note:"Creamy, nutritious, mild flavour",prep:"Mash half a ripe avocado with a fork — no need to cook"},
-                  {food:"Banana slices 🍌",note:"Sweet and easy to hold",prep:"Peel and cut lengthways into strips for easy grip"},
-                  {food:"Sweet potato 🍠",note:"Naturally sweet and soft",prep:"Steam or roast until very soft, cut into wedges"},
-                  {food:"Steamed broccoli 🥦",note:"Great for tiny hands to hold",prep:"Steam florets until soft — the stem makes a natural handle"},
-                  {food:"Porridge fingers 🥣",note:"Warm, filling, easy texture",prep:"Cook oats thick, spread on tray, cool, cut into strips"},
-                  {food:"Courgette sticks 🥒",note:"Mild and gentle on tummy",prep:"Steam or roast until soft, cut into finger-length strips"},
+                  {food:"Steamed carrot 🥕",note:"Soft, gentle, easy first food",prep:"Steam until very soft, cut into finger-length strips",cat:"veg"},
+                  {food:"Steamed broccoli 🥦",note:"Great for tiny hands to hold",prep:"Steam florets until soft — the stem makes a natural handle",cat:"veg"},
+                  {food:"Courgette sticks 🥒",note:"Mild and gentle on tummy",prep:"Steam or roast until soft, cut into finger-length strips",cat:"veg"},
+                  {food:"Sweet potato 🍠",note:"Naturally sweet and soft",prep:"Steam or roast until very soft, cut into wedges",cat:"veg"},
+                  {food:"Mashed avocado 🥑",note:"Creamy, nutritious, mild flavour",prep:"Mash half a ripe avocado with a fork — no need to cook",cat:"veg"},
+                  {food:"Steamed cauliflower 🥬",note:"Soft and mild — easy to mash or hold",prep:"Steam florets until very soft",cat:"veg"},
+                  {food:"Mashed peas 🟢",note:"Iron-rich and bright — babies love the colour",prep:"Steam and lightly mash with a fork — leave some texture",cat:"veg"},
+                  {food:"Banana slices 🍌",note:"Sweet and easy to hold",prep:"Peel and cut lengthways into strips for easy grip",cat:"fruit"},
+                  {food:"Porridge fingers 🥣",note:"Warm, filling, easy texture",prep:"Cook oats thick, spread on tray, cool, cut into strips",cat:"grain"},
+                  {food:"Well-cooked egg 🥚",note:"Great protein — introduce early to reduce allergy risk",prep:"Hard boil and mash, or scramble soft. Use Lion-stamped eggs (UK)",cat:"allergen"},
+                  {food:"Smooth peanut butter on toast 🥜",note:"Early introduction may reduce peanut allergy risk",prep:"Spread very thinly on toast fingers — never give whole nuts",cat:"allergen"},
+                  {food:"Plain yoghurt 🥛",note:"Full-fat, no added sugar — good calcium source",prep:"Offer on a pre-loaded spoon or mix with mashed fruit",cat:"dairy"},
+                  {food:"Soft cooked salmon 🐟",note:"Rich in omega-3 for brain development",prep:"Steam or bake, flake carefully and check for bones",cat:"protein"},
+                  {food:"Lentil dhal 🍲",note:"Iron-rich, soft, perfect texture",prep:"Cook red lentils until very soft with mild spices (cumin, turmeric)",cat:"protein"},
                 ];
+                // Phase-based filtering per NHS: veg first 2 weeks, then add fruit/grain, then protein/allergens
+                const _wksSinceWean = Math.max(0, age.totalWeeks - 26);
+                const _ftFiltered = _wksSinceWean < 2 
+                  ? _ftFoods.filter(f => f.cat === "veg")
+                  : _wksSinceWean < 4 
+                    ? _ftFoods.filter(f => ["veg","fruit","grain"].includes(f.cat))
+                    : _ftFoods; // 4+ weeks: all foods including protein and allergens
                 const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
-                const _ft = _ftFoods[_doy % _ftFoods.length];
+                const _ft = _ftFiltered[_doy % _ftFiltered.length];
                 const _weanCount = (weaning||[]).length;
                 return (
                   <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
                     <div style={{fontSize:11,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>🍽 First Tastes</div>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:3}}>Try: {_ft.food}</div>
-                    <div style={{fontSize:12,color:C.mid,marginBottom:6}}>{_ft.note}</div>
+                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:3}}>Try: {_ft.food}{_ft.cat==="allergen"&&<span style={{fontSize:9,background:"rgba(212,168,85,0.2)",color:C.gold,padding:"1px 6px",borderRadius:99,marginLeft:6,fontWeight:600}}>ALLERGEN</span>}</div>
+                    <div style={{fontSize:12,color:_ft.allergen?C.gold:C.mid,marginBottom:6}}>{_ft.note}</div>
+                    {_ft.phase && <div style={{fontSize:10,color:C.lt,fontFamily:_fM,marginBottom:4}}>Phase: {_ft.phase}</div>}
                     <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:8}}>{_ft.prep}</div>
-                    <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:8}}>It's okay if they only taste it — this is learning, not eating.</div>
+                    <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:4}}>It's okay if they only taste it — this is learning, not eating.</div>
+                    <div style={{fontSize:10,color:C.lt,marginBottom:8}}>💡 NHS tip: start with vegetables before fruit to encourage savoury tastes</div>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <button onClick={()=>{haptic();setShowWeanForm(true);setWeanForm({food:_ft.food.replace(/\s*[\u{1F300}-\u{1FFFF}]/gu,"").trim(),date:todayStr(),reaction:"liked",note:""});}}
+                      <button onClick={()=>{haptic();setShowWeaningForm(true);setWeaningForm({food:_ft.food.replace(/\s*[\u{1F300}-\u{1FFFF}]/gu,"").trim(),date:todayStr(),reaction:"liked",note:""});}}
                         style={{padding:"8px 16px",borderRadius:99,border:"1.5px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:12,fontWeight:700,cursor:_cP}}>
                         Log attempt
                       </button>
@@ -12485,12 +12515,36 @@ function App(){
                 );
               })()}
 
-              {/* ── PROGRESS section header ── */}
-              <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:14}}>📈 Progress</div>
-              <div style={{fontSize:12,color:C.lt,marginBottom:8,fontStyle:"italic"}}>What {babyName||"baby"} is working on</div>
 
-              {/* ── Milestones — filtered to current age range ── */}
-              {(devFilter==="all"||devFilter==="milestones") && <div>
+              {/* ═══ Foods to Avoid — NHS safety guidance ═══ */}
+              {age && age.totalWeeks >= 26 && (devFilter==="weaning") && (
+                <div style={{border:"1.5px solid rgba(232,87,74,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:12,background:"rgba(232,87,74,0.03)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                    <span style={{fontSize:14}}>🚫</span>
+                    <span style={{fontSize:12,fontWeight:700,color:"#c04040"}}>Foods to avoid</span>
+                    <HelpBtn title="Foods to Avoid" body={"Based on NHS and WHO guidance for babies under 12 months. These foods can pose serious health risks. Always check labels for hidden ingredients like honey and salt."}/>
+                  </div>
+                  {[
+                    {food:"Honey",why:"Risk of infant botulism — never before 12 months, including in cooking",icon:"🍯"},
+                    {food:"Whole nuts",why:"Choking hazard under 5 years. Smooth nut butters or finely ground are fine from 6 months",icon:"🥜"},
+                    {food:"Added salt",why:"Babies' kidneys can't process it. Don't add salt to food or use stock cubes",icon:"🧂"},
+                    {food:"Added sugar",why:"Damages teeth and encourages a sweet tooth. No sugar in food or drinks",icon:"🍬"},
+                    {food:"Raw shellfish",why:"Risk of food poisoning. Thoroughly cooked shellfish is fine from 6 months",icon:"🦐"},
+                    {food:"Shark, swordfish, marlin",why:"High mercury levels can affect baby's developing nervous system",icon:"🐟"},
+                    {food:"Cow's milk as a drink",why:"Not suitable as a main drink under 12 months — fine in cooking from 6 months",icon:"🥛"},
+                    {food:"Rice drinks",why:"Can contain arsenic — avoid until at least 5 years old",icon:"🍶"},
+                  ].map((f,i)=>(
+                    <div key={i} style={{display:"flex",gap:8,padding:"4px 0",borderTop:i>0?"1px solid rgba(232,87,74,0.08)":"none",fontSize:12}}>
+                      <span style={{flexShrink:0}}>{f.icon}</span>
+                      <div><strong style={{color:"#c04040"}}>{f.food}:</strong> <span style={{color:C.mid}}>{f.why}</span></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Milestones — full detail section ── */}
+              <div data-milestones="true">
+              {(devFilter==="milestones") && <div>
               {ageWeeks && (
                 <>
                 <div className="glass-card" style={{...card,marginBottom:12,padding:"12px 16px"}}>
@@ -12512,7 +12566,7 @@ function App(){
                   <div style={{fontSize:10,fontFamily:_fM,color:C.lt,marginTop:3}}>{doneCount} of {MILESTONES.length} logged</div>
                 </div>
                 <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:4,marginBottom:12,WebkitOverflowScrolling:"touch"}}>
-                  {[{key:"all",icon:"⭐",label:"All"},...MILESTONE_CATS].map(c=>(
+                  {[...MILESTONE_CATS].map(c=>(
                     <button key={c.key} onClick={()=>setMsFilter(c.key)}
                       style={{flexShrink:0,padding:"7px 14px",borderRadius:999,border:"1px solid var(--card-border)",background:msFilter===c.key?"var(--chip-bg-active)":"var(--chip-bg)",color:msFilter===c.key?C.ter:C.mid,fontSize:12,fontWeight:msFilter===c.key?700:400,cursor:_cP,fontFamily:_fI,whiteSpace:"nowrap"}}>
                       {c.icon} {c.label}
@@ -12522,7 +12576,7 @@ function App(){
                 <div className="glass-card" style={{...card,padding:"4px 14px 8px",marginBottom:10}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0 6px",borderBottom:`1px solid ${C.blush}`,marginBottom:2}}>
                     <span style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Due now · tap to mark achieved</span>
-                    <HelpBtn title="Milestones" body="Showing milestones for your baby's current age. Tap the circle to mark as achieved — it'll move to the Achieved section. Every baby develops at their own pace. If concerned, speak to your ."/>
+                    <HelpBtn title="Milestones" body="Showing milestones for your baby's current age. Tap the circle to mark as achieved — it'll move to the Achieved section. Every baby develops at their own pace. If concerned, speak to your GP or health visitor."/>
                   </div>
                   {nowMsPending.length === 0
                     ? <div style={{textAlign:"center",padding:"18px 0",color:C.lt,fontSize:13}}>All caught up! No pending milestones for this age.</div>
@@ -12544,7 +12598,7 @@ function App(){
                 <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:12,padding:"12px 14px",marginTop:6,marginBottom:14}}>
                   <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
                     <span style={{fontWeight:700,color:C.deep}}>ℹ️ A note on milestones</span><br/>
-                    Every baby develops at their own pace — these ranges are general guidelines. If you have concerns, speak to your  or GP.
+                    Every baby develops at their own pace — these ranges are general guidelines. If you have concerns, speak to your GP or health visitor.
                   </div>
                 </div>
                 </>
@@ -12552,7 +12606,7 @@ function App(){
               <div className="glass-card" style={{...card, marginBottom:14}}>
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🎮 Let's Play <HelpBtn title="Activities" body="Age-appropriate play and learning activities based on NHS and WHO developmental guidance. Filter by category. These update automatically as your baby grows."/></div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
-                  {[{key:"all",label:"All",icon:"✦"},...ACT_CATS].map(c=>(
+                  {[...ACT_CATS].map(c=>(
                     <button key={c.key} onClick={()=>setDevActFilter(c.key)}
                       style={{padding:"7px 14px",borderRadius:999,border:"1px solid var(--card-border)",background:devActFilter===c.key?"var(--chip-bg-active)":"var(--chip-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",fontSize:12,fontWeight:600,color:devActFilter===c.key?C.ter:C.mid,cursor:_cP,fontFamily:_fI,transition:"all 0.2s",boxShadow:devActFilter===c.key?"var(--chip-shadow-active)":"var(--chip-shadow)"}}>
                       {c.icon} {c.label}
@@ -12615,13 +12669,13 @@ function App(){
               <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:12,padding:"12px 14px",marginBottom:4}}>
                 <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
                   <span style={{fontWeight:700,color:C.deep}}>ℹ️ About this guidance</span><br/>
-                  Activities and advice are based on NHS Start4Life and WHO Child Development guidelines, as well as Kinedu-style developmental play principles. Every baby develops at their own pace — use these as inspiration, not a checklist. If you have concerns about development, speak to your  or GP.
+                  Activities: NHS Start4Life developmental play guidance. Milestones: NHS developmental reviews framework. Growth: WHO Child Growth Standards. Every baby develops at their own pace — use these as inspiration, not a checklist. If you have concerns, speak to your ${_doctor}.
                 </div>
               </div>
 
               </div>}
               {/* ═══ Memories — Photo Gallery (moved from Today) ═══ */}
-              {(devFilter==="all") && (()=>{
+              {(devFilter==="activities") && (()=>{
                 const allPhotos = (photos||[]).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
                 if (!allPhotos.length) return null;
                 return (
@@ -12641,11 +12695,12 @@ function App(){
                 );
               })()}
 
+              </div>{/* end milestones scroll target */}
                 {/* ── TOOLS section header ── */}
-                <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,marginTop:14}}>🛠 Tools</div>
+                {/* Tools — teething/weaning have built-in labels */}
 
                 {/* ── Teething Tracker ── */}
-                {(devFilter==="all"||devFilter==="teething") && <div>
+                {(devFilter==="teething") && <div>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker <HelpBtn title="Teething Tracker" body="Log each tooth as it appears with date and symptoms. OBubba tracks teething patterns and factors teething into the crying helper. Most babies get their first tooth around 6 months."/></div>
@@ -12697,7 +12752,7 @@ function App(){
 
                 </div>}
                 {/* ── Weaning / Food Journal ── */}
-                {(devFilter==="all"||devFilter==="weaning") && <div>
+                {(devFilter==="weaning") && <div>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal <HelpBtn title="Weaning Journal" body="Track foods introduced, reactions (loved/neutral/disliked), and notes. NHS recommends introducing solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."/></div>
@@ -13003,7 +13058,7 @@ function App(){
                 </div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px",marginBottom:10}}>
                   <div style={{fontWeight:700,color:C.deep,marginBottom:4}}>NHS Mode</div>
-                  Uses standard NHS and WHO recommended wake windows and nap counts for your baby's age. Population-level guidelines that work well for most babies. Best when starting out, sleep is unpredictable, or you prefer official recommendations.
+                  Uses wake windows and nap counts from NHS Start4Life and AASM sleep guidance for your baby's age. Population-level guidelines that work well for most babies. Best when starting out, sleep is unpredictable, or you prefer evidence-based recommendations.
                 </div>
                 <div style={{fontSize:12,color:C.lt,lineHeight:1.55}}>
                   <div style={{fontWeight:600,color:C.mid,marginBottom:4}}>This setting affects:</div>
@@ -13164,7 +13219,7 @@ function App(){
 
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:520,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px env(safe-area-inset-bottom,0)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
         {["day","insights","develop","settings"].map(t=>(
-          <button key={t} onClick={()=>{haptic();setTab(t);setLogPanel(null);}} style={tabSt(t)}>
+          <button key={t} onClick={()=>{haptic();setTab(t);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);}} style={tabSt(t)}>
             <span style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
             {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
@@ -14136,13 +14191,38 @@ function App(){
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🥄 Log Food</div>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>What food?</div>
             <input placeholder="e.g. Avocado, sweet potato, banana..." value={weaningForm.food} onChange={e=>setWeaningForm(f=>({...f,food:e.target.value}))} autoFocus style={{width:"100%",fontSize:16,padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,marginBottom:detectAllergens(weaningForm.food).length?6:14,boxSizing:_bBB,fontFamily:_fI}}/>
+            {/* ── Foods to avoid warning ── */}
             {(()=>{
+              const _lower = (weaningForm.food||"").toLowerCase();
+              const _avoid = [];
+              if (_lower.includes("honey")) _avoid.push({food:"Honey",reason:"Risk of infant botulism — not safe under 12 months (NHS)"});
+              if (/whole nut|nuts/.test(_lower) && !_lower.includes("butter") && !_lower.includes("ground") && !_lower.includes("crushed")) _avoid.push({food:"Whole nuts",reason:"Choking hazard — under 5s. Use smooth butter or finely ground instead"});
+              if (/shark|swordfish|marlin/.test(_lower)) _avoid.push({food:"High-mercury fish",reason:"Can affect baby's developing nervous system (NHS)"});
+              if (/raw (shellfish|prawn|shrimp|oyster)/.test(_lower)) _avoid.push({food:"Raw shellfish",reason:"Risk of food poisoning — must be thoroughly cooked"});
+              if (/rice (milk|drink)/.test(_lower)) _avoid.push({food:"Rice milk",reason:"Contains arsenic — not suitable under 5 years (NHS)"});
+              if (_avoid.length) return (
+                <div style={{background:"rgba(232,87,74,0.08)",border:"1.5px solid rgba(232,87,74,0.25)",borderRadius:12,padding:"8px 12px",marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#e8574a",marginBottom:3}}>🚫 Not recommended for babies</div>
+                  {_avoid.map((a,i)=><div key={i} style={{fontSize:11,color:"#c04040",lineHeight:1.5}}><strong>{a.food}:</strong> {a.reason}</div>)}
+                </div>
+              );
+              return null;
+            })()}
+            {(()=>{
+              const _isHoney = (weaningForm.food||"").toLowerCase().includes("honey");
               const allergens = detectAllergens(weaningForm.food);
+              if (_isHoney && age && age.months < 12) return (
+                <div style={{background:"rgba(232,87,74,0.08)",borderRadius:12,padding:"10px 12px",marginBottom:14,border:"1.5px solid rgba(232,87,74,0.3)"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#c04040",marginBottom:3}}>🚫 Honey is not safe under 12 months</div>
+                  <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>Honey can contain bacteria that cause infant botulism — a serious illness. This applies to all forms including cooked honey and honey in baked goods. NHS guidance: do not give honey until after baby's first birthday.</div>
+                </div>
+              );
               if (!allergens.length) return null;
               return (
                 <div style={{background:"rgba(212,168,85,0.1)",border:"1.5px solid rgba(212,168,85,0.3)",borderRadius:12,padding:"8px 12px",marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:700,color:C.gold,marginBottom:3}}>⚠️ Contains major allergen{allergens.length>1?"s":""}: {allergens.join(", ")}</div>
-                  <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>NHS recommends introducing one allergen at a time, early in the day, so you can watch for reactions over several hours.</div>
+                  <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>NHS recommends introducing one allergen at a time, early in the day, so you can watch for reactions over several hours. Start with a small amount (¼ teaspoon). If no reaction, gradually increase over the next few days. Once introduced, keep giving it regularly (at least once a week).</div>
+                  <div style={{fontSize:11,color:"#c04040",lineHeight:1.4,marginTop:4}}>🚨 Signs of allergic reaction: rash, swelling (lips/eyes), vomiting, diarrhoea, breathing difficulty. If severe (breathing/swelling) — call {_emergNum} immediately.</div>
                 </div>
               );
             })()}
@@ -14165,7 +14245,11 @@ function App(){
             {weaningForm.reaction==="allergic"&&(
               <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.08)",border:"1px solid rgba(232,87,74,0.2)",marginBottom:14}}>
                 <div style={{fontSize:12,color:"#e8574a",fontWeight:600}}>⚠️ If you suspect an allergic reaction</div>
-                <div style={{fontSize:11,color:"#c04040",marginTop:3,lineHeight:1.5}}>Note symptoms (rash, swelling, vomiting, diarrhoea). If severe (breathing difficulty, swelling of face/lips), call emergency services immediately. For mild reactions, contact your doctor. Avoid this food until you've spoken to a professional.</div>
+                <div style={{fontSize:11,color:"#c04040",marginTop:3,lineHeight:1.5}}>Note symptoms (rash, swelling, vomiting, diarrhoea).
+
+Mild reactions: localised rash, slight swelling around mouth — contact your . Avoid this food until reviewed.
+
+Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy — call  immediately. Do not wait.</div>
               </div>
             )}
             <button onPointerDown={e=>{
