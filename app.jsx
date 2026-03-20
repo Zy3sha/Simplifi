@@ -1491,9 +1491,7 @@ function App(){
   const[showWellbeing,setShowWellbeing]=useState(false);
   const wellbeingDue = (()=>{
     if(!lastWellbeingDate) return true;
-    const last = new Date(lastWellbeingDate+"T12:00:00");
-    const now = new Date();
-    return (now - last) / (1000*60*60*24) >= 7;
+    return lastWellbeingDate !== todayStr();
   })();
   useEffect(()=>{try{localStorage.setItem("carer_notes_v1",carerNotes);}catch{}},[carerNotes]);
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
@@ -3054,9 +3052,6 @@ function App(){
     const _isIrregularDay = _napsDone > 0 && _naps.some(n => minDiff(n.start, n.end) < 20) && _allFeeds.length > 6;
     const _isHighNeedDay = _allFeeds.length >= 8 || (_napsDone >= 1 && _naps.every(n => minDiff(n.start, n.end) < 35));
     const _isStableDay = _napsDone >= 2 && _naps.every(n => minDiff(n.start, n.end) >= 30) && !_isHighNeedDay;
-    // Rare parent support — max once per day, only after tough patterns
-    const _parentSupportShown = (()=>{try{return localStorage.getItem("parent_nudge_date")===todayStr();}catch{return false;}})();
-    const _showParentNudge = !_parentSupportShown && _h >= 14 && _isHighNeedDay && Math.random() < 0.3;
 
     let _reassure;
     if (_isNightTime) {
@@ -3067,18 +3062,65 @@ function App(){
         "This won't last forever. You're showing up when it matters most."
       ];
       _reassure = _nightMsgs[_h % _nightMsgs.length];
-    } else if (_showParentNudge) {
-      _reassure = ["Have you had water today? You matter too.", "Don't forget to look after yourself today — you're important too."][_h % 2];
-      try{localStorage.setItem("parent_nudge_date",todayStr());}catch{}
     } else {
-      // Use data-specific reassurance when available
-      const _smart = smartReassurance();
-      _reassure = _smart || "You're doing great — " + _name + "'s rhythm is settling nicely.";
+      // Daily rotating encouraging messages — always show
+      const _dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+      const _morningMsgs = [
+        "Let's start the new day with cuddles and kisses 🤍",
+        "Every new day with " + _name + " is a gift. Soak it in.",
+        "Today is full of little moments that matter. Enjoy them.",
+        _name + " is so lucky to have you. What a team you make.",
+        "The best part of today? It's brand new. Make it yours.",
+        "Slow mornings are the sweetest. No rush, just love.",
+        "Another day of watching " + _name + " grow. You're doing beautifully.",
+        "Good things are happening — even on the hard days.",
+        "You're building something amazing, one day at a time.",
+        "Start with a smile — " + _name + " will give you one back 🤍",
+        "Today's goal: be present. Everything else can wait.",
+        _name + "'s favourite person just woke up. That's you.",
+        "These days are long but the years are short. Treasure today.",
+        "You showed up again today. That's everything.",
+      ];
+      _reassure = _morningMsgs[_dayOfYear % _morningMsgs.length];
     }
+
+    // ── Self-care nudge — separate line, shows from 10am daily until tapped ──
+    const _parentNudgeShown = (()=>{try{return localStorage.getItem("parent_nudge_date")===todayStr();}catch{return false;}})();
+    const _selfCareNudges = [
+      "💧 Have you had water today? You matter too.",
+      "🍽️ Remember to have a bite to eat — you need fuel too.",
+      "🫁 Take three slow breaths. You're doing enough.",
+      "☀️ Step outside for a minute if you can. Fresh air resets everything.",
+      "🤍 Be kind to yourself today. You're showing up every day and that's everything.",
+      "💪 You're stronger than you think. Give yourself credit.",
+      "📱 Put your phone down for 5 minutes and just be with " + _name + ".",
+      "🧡 Have you spoken to another adult today? Connection matters.",
+      "🛁 When " + _name + " naps, do something just for you. Even 10 minutes counts.",
+      "💜 You don't have to be perfect. You just have to be there.",
+    ];
+    const _selfCareNudge = (!_parentNudgeShown && !_isNightTime && _h >= 10)
+      ? _selfCareNudges[Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000) % _selfCareNudges.length]
+      : null;
 
     // ── "Right now" action line (expanded) ──
     const _expandedRN = expandedRightNow();
     let _rightNow = _expandedRN ? ("Right now: " + _expandedRN.text) : null;
+
+    // ── Feed & nappy gentle context ──
+    let _feedNappyHint = null;
+    if (_hasWake) {
+      const _hints = [];
+      const _lastFeed = [..._today.filter(e=>e.type==="feed")].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
+      const _lastNappy = [..._today.filter(e=>e.type==="poop"||e.poopType)].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
+      const _feedGapM = _lastFeed ? _nowM - timeVal(_lastFeed) : 999;
+      const _nappyGapM = _lastNappy ? _nowM - timeVal(_lastNappy) : 999;
+      const _feedThreshM = age ? (age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : 210) : 180;
+      if (_feedGapM >= _feedThreshM) _hints.push("Feed due — last one " + hm(_feedGapM) + " ago");
+      else if (_lastFeed) _hints.push("Next feed around " + fmt12((()=>{const [fh,fm]=_lastFeed.time.split(":").map(Number);const t=fh*60+fm+_feedThreshM;return `${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;})()));
+      if (_nappyGapM >= 150) _hints.push("Nappy check — last one " + hm(_nappyGapM) + " ago");
+      else if (_lastNappy) _hints.push("Nappy last changed " + hm(_nappyGapM) + " ago");
+      if (_hints.length) _feedNappyHint = _hints.join(" · ");
+    }
 
     // ── Morning: no wake logged ──
     if (!_hasWake && _h >= 5 && _h <= 10) {
@@ -3150,18 +3192,19 @@ function App(){
       const _minsUntilNap = Math.max(0, _pParts[0]*60+_pParts[1] - _nowM);
       const _isPersonal = _pred.sourceLabel && _pred.sourceLabel.includes("pattern");
       const _rhythmTag = _isPersonal ? " · OBubba Rhythm" : "";
+      const _napTimeStr = fmt12(_pred.napStart_min);
       if (_minsUntilNap <= 10) {
         _dot = "#D4A855"; _label = "Nap window open";
         _timing = "Awake " + hm(_awakeMin) + " · Ready for a nap now" + _rhythmTag;
       } else if (_minsUntilNap <= 20) {
         _dot = "#D4A855"; _label = "Ready for a nap";
-        _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min" + _rhythmTag;
+        _timing = "Awake " + hm(_awakeMin) + " · Nap at ~" + _napTimeStr + _rhythmTag;
       } else if (_minsUntilNap <= 30) {
         _dot = "#D4A855"; _label = "Settling time";
-        _timing = "Awake " + hm(_awakeMin) + " · Nap in ~" + _minsUntilNap + " min — watch for cues" + _rhythmTag;
+        _timing = "Awake " + hm(_awakeMin) + " · Nap at ~" + _napTimeStr + " — watch for cues" + _rhythmTag;
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · Next nap in ~" + _minsUntilNap + " min" + _rhythmTag;
+        _timing = "Awake " + hm(_awakeMin) + " · Next nap around " + _napTimeStr + _rhythmTag;
       }
     } else if (_hasWake && _allFeeds.length > 0) {
       // Check if feed window is opening (2.5h+ since last feed)
@@ -3206,7 +3249,14 @@ function App(){
         </div>
         <div style={{fontSize:13,color:C.mid,marginBottom:_rightNow?4:8,paddingLeft:20}}>{_timing}</div>
         {_rightNow && <div style={{fontSize:12,color:C.ter,fontWeight:600,paddingLeft:20,marginBottom:6}}>{_rightNow}</div>}
+        {_feedNappyHint && <div style={{fontSize:11,color:C.lt,paddingLeft:20,marginBottom:6,fontFamily:_fM}}>🍼💩 {_feedNappyHint}</div>}
         <div style={{fontSize:12,color:C.lt,fontStyle:"italic",paddingLeft:20,marginBottom:heroWhyOpen?12:0}}>{_reassure}</div>
+        {_selfCareNudge && (
+          <button onClick={()=>{try{localStorage.setItem("parent_nudge_date",todayStr());}catch{};showToast("💜 You matter too",2000,1);}} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(123,104,238,0.06)",border:"1px solid rgba(123,104,238,0.15)",borderRadius:10,padding:"6px 12px",marginLeft:20,marginTop:6,marginBottom:heroWhyOpen?12:0,cursor:_cP}}>
+            <span style={{fontSize:12,color:"#7B68EE",lineHeight:1.5}}>{_selfCareNudge}</span>
+            <span style={{fontSize:10,color:C.lt,flexShrink:0}}>✓ Done</span>
+          </button>
+        )}
         <div style={{paddingLeft:20,marginTop:8}}>
           <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);if(STORE_READY&&!heroWhyOpen&&!isPremium&&Object.keys(days).length>=3)setTimeout(()=>triggerPaywall("why"),800);}} style={{background:"none",border:"none",padding:0,fontSize:12,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
             {heroWhyOpen?"Hide":"Why?"} <span style={{fontSize:9,transform:heroWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
@@ -10428,7 +10478,7 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>{haptic();const el=document.querySelector("[data-actions-grid]");if(el)el.scrollIntoView({behavior:"smooth",block:"center"});}},
+                  {emoji:"➕",label:"More",action:()=>{haptic();setTimeout(()=>{const el=document.querySelector("[data-actions-grid]");if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{openLogPanel("feed");}},50);}},
                 ].map(({emoji,label,action,longAction})=>{
                   let _lpTimer = null;
                   let _lpFired = false;
@@ -14494,7 +14544,9 @@ function App(){
         </Sheet>
       )}
       {modal==="entry"&&(
-        <Sheet onClose={()=>{setModal(null);setEditEntry(null);}} title={editEntry?"Edit Entry":"Add Entry"}>
+        <Sheet onClose={()=>{setModal(null);setEditEntry(null);}} title={editEntry?(eType==="feed"?"Edit Feed":eType==="nap"?"Edit Nap":eType==="wake"?"Edit Wake":eType==="sleep"?"Edit Bedtime":eType==="poop"?"Edit Nappy":"Edit Entry"):"Add Entry"}>
+          {/* Type selector — only show when ADDING, not editing */}
+          {!editEntry && (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:15}}>
             {["feed","nap","wake","sleep","poop"].map(t=>(
               <div key={t} onClick={()=>setEType(t)} style={{padding:"10px 6px",borderRadius:14,border:`2px solid ${eType===t?C.ter:C.blush}`,background:eType===t?"var(--chip-bg-active)":C.warm,textAlign:"center",cursor:_cP}}>
@@ -14503,6 +14555,7 @@ function App(){
               </div>
             ))}
           </div>
+          )}
 
           {eType==="feed"&&<>
             <div style={{display:"flex",gap:6,marginBottom:12}}>
@@ -14547,18 +14600,36 @@ function App(){
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                 {["start","end"].map(k=>(
                   <div key={k}>
-                    <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{k}</label>
+                    <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{k==="start"?"Started":"Ended"}</label>
                     <TimeInput value={form[k]} onChange={t=>setForm(f=>({...f,[k]:t}))} style={{marginBottom:0}}/>
                   </div>
                 ))}
               </div>
+              {editEntry && (
+                <button onClick={()=>{
+                  haptic();
+                  // Set nap start to the edited start time, start the timer
+                  const startT = form.start || nowTime();
+                  const entryId = editEntry.id;
+                  setDays(d=>{
+                    const entries = (d[selDay]||[]).map(e=>e.id===entryId?{...e,start:startT,end:startT,duration:0,_active:true}:e);
+                    return{...d,[selDay]:entries};
+                  });
+                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",entryId);}catch{}
+                  setNapStartT(startT);setNapSec(0);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
+                  setModal(null);setEditEntry(null);
+                  showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);
+                }} style={{width:"100%",padding:"12px",borderRadius:14,border:`2px solid ${C.mint}`,background:"rgba(111,168,152,0.08)",color:C.mint,fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:12}}>
+                  ⏱ Set as Ongoing (start timer)
+                </button>
+              )}
               <Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>
             </>
           )}
 
           {(eType==="wake"||eType==="sleep")&&(
             <>
-              <TimeInput label="Time" value={form.time} onChange={t=>setForm(f=>({...f,time:t}))}/>
+              <TimeInput label={eType==="sleep"?"Bedtime":"Wake Time"} value={form.time} onChange={t=>setForm(f=>({...f,time:t}))}/>
               <Inp label="Note (optional)" type="text" placeholder="e.g. fussy, didn't finish…" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>
             </>
           )}
@@ -14633,6 +14704,21 @@ function App(){
           )}
 
           <PBtn onClick={saveEntry}>{editEntry?"Update Entry":"Save Entry"}</PBtn>
+          {editEntry && (
+            <button onClick={()=>{
+              haptic();
+              showConfirm("Delete this entry?", "This will remove the " + (NAMES[eType]||"entry").toLowerCase() + " at " + fmt12(editEntry.time||editEntry.start||"") + " from today's log.", ()=>{
+                setDays(d=>{
+                  const updated = (d[selDay]||[]).filter(x=>x.id!==editEntry.id);
+                  return{...d,[selDay]:updated};
+                });
+                setModal(null);setEditEntry(null);
+                showToast("Entry deleted",1500,1);
+              });
+            }} style={{width:"100%",padding:"12px",borderRadius:14,border:"none",background:"none",color:"#e8574a",fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:8}}>
+              🗑️ Delete this entry
+            </button>
+          )}
         </Sheet>
       )}
 
@@ -14951,7 +15037,10 @@ function App(){
       {/* ═══ Sound Machine ═══ */}
       {showSoundMachine&&(
         <div onClick={()=>setShowSoundMachine(false)} style={{position:"fixed",inset:0,background:"rgba(20,15,30,0.7)",backdropFilter:"blur(8px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 32px",maxWidth:420,width:"100%",boxShadow:"0 -10px 40px rgba(0,0,0,0.3)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 32px",maxWidth:420,width:"100%",boxShadow:"0 -10px 40px rgba(0,0,0,0.3)",position:"relative"}}>
+            <div style={{position:"absolute",top:16,right:16}}>
+              <button onClick={()=>setShowSoundMachine(false)} style={{width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <div>
@@ -15067,8 +15156,11 @@ function App(){
       {/* ═══ Teething Form ═══ */}
       {showTeethingForm&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowTeethingForm(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+              <button onClick={()=>setShowTeethingForm(false)} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🦷 Log New Tooth</div>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Tap the tooth</div>
             {(()=>{
@@ -15159,7 +15251,10 @@ function App(){
       {/* ═══ Weaning Form ═══ */}
       {showWeaningForm&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowWeaningForm(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
+            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+              <button onClick={()=>setShowWeaningForm(false)} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            </div>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🥄 Log Food</div>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>What food?</div>
@@ -15246,7 +15341,10 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
         const lowConf = topScore < 50;
         return (
         <div onPointerDown={e=>{if(e.target===e.currentTarget){setShowCryingHelper(false);setCryingResult(null);}}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"80vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"80vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+              <button onClick={()=>{setShowCryingHelper(false);setCryingResult(null);}} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            </div>
             <div onClick={()=>{setShowCryingHelper(false);setCryingResult(null);}} style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px",cursor:_cP}}/>
             <div style={{textAlign:"center",marginBottom:16}}>
               <div style={{fontSize:32,marginBottom:6}}>😢</div>
@@ -15410,7 +15508,9 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
       {showCarerCard&&(
         <div onClick={()=>setShowCarerCard(false)} onTouchEnd={e=>{if(e.target===e.currentTarget)setShowCarerCard(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div onClick={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
-            <button onClick={()=>setShowCarerCard(false)} style={{position:"absolute",top:16,right:16,width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}>✕</button>
+            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+              <button onClick={()=>setShowCarerCard(false)} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            </div>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:40,marginBottom:8}}>👩‍🍼</div>
@@ -15546,7 +15646,10 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
       )}
             {showNightWake&&(
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);}}}>
-          <div onPointerDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div onPointerDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} onTouchStart={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+              <button onClick={()=>{setShowNightWake(false);setNightEditId(null);}} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            </div>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 {nightEditId?"Edit":"Log"} Night Wake</div>
 
@@ -15872,7 +15975,10 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
       )}
       {showFamilyModal && (
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowFamilyModal(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
+            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+              <button onClick={()=>setShowFamilyModal(false)} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            </div>
 
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:6}}>Data & Sync</div>
@@ -16217,7 +16323,10 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
                         {/* ═══ Schedule Maker Modal ═══ */}
       {showScheduleMaker && (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",position:"relative"}}>
+            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+              <button onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+            </div>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
