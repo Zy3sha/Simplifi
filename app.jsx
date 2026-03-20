@@ -3175,26 +3175,42 @@ function App(){
       // Check today's entries AND yesterday's night entries for last feed/nappy
       const _prevDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
       const _allRecent = [..._today, ...(days[_prevDay]||[]).filter(e=>e.night)];
-      const _lastFeed = [..._allRecent.filter(e=>(e.type==="feed"||((e.type==="wake")&&e.night&&(e.amount||0)>0))&&e.time)].sort((a,b)=>{ 
+      // Sort by time — only wrap times before 5am (genuine night entries), not all AM times
+      const _sortByRecent = (a,b) => {
         const ta=timeVal(a), tb=timeVal(b);
-        const ka=ta<12*60?ta+1440:ta, kb=tb<12*60?tb+1440:tb;
+        const ka=ta<5*60?ta+1440:ta, kb=tb<5*60?tb+1440:tb;
         return ka-kb;
-      }).pop();
-      const _lastNappy = [..._allRecent.filter(e=>e.type==="poop"&&e.time)].sort((a,b)=>{
-        const ta=timeVal(a), tb=timeVal(b);
-        const ka=ta<12*60?ta+1440:ta, kb=tb<12*60?tb+1440:tb;
-        return ka-kb;
-      }).pop();
+      };
+      const _lastFeed = [..._allRecent.filter(e=>(e.type==="feed"||((e.type==="wake")&&e.night&&(e.amount||0)>0))&&e.time)].sort(_sortByRecent).pop();
+      const _lastNappy = [..._allRecent.filter(e=>e.type==="poop"&&e.time)].sort(_sortByRecent).pop();
+
+      // Calculate baby's actual average feed interval from recent days (last 5 days)
+      let _avgFeedInterval = null;
+      try {
+        const _recentDayKeys = Object.keys(days).sort().slice(-5);
+        const _intervals = [];
+        _recentDayKeys.forEach(dk => {
+          const _dayFeeds = (days[dk]||[]).filter(e=>e.type==="feed"&&e.time&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+          for (let i=1; i<_dayFeeds.length; i++) {
+            const gap = timeVal(_dayFeeds[i]) - timeVal(_dayFeeds[i-1]);
+            if (gap > 30 && gap < 600) _intervals.push(gap); // Only count reasonable gaps
+          }
+        });
+        if (_intervals.length >= 3) _avgFeedInterval = Math.round(_intervals.reduce((s,v)=>s+v,0) / _intervals.length);
+      } catch {}
+      // Blend baby's average with age guideline (favour baby's rhythm when we have enough data)
+      const _ageThreshM = age ? (age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : 210) : 180;
+      const _feedThreshM = _avgFeedInterval ? Math.round(_avgFeedInterval * 0.7 + _ageThreshM * 0.3) : _ageThreshM;
+
       if (_lastFeed) {
         const _lfMins = timeVal(_lastFeed);
         let _feedGapM = _nowM - _lfMins;
         if (_feedGapM < 0) _feedGapM += 1440;
-        const _feedThreshM = age ? (age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : 210) : 180;
         if (_feedGapM >= _feedThreshM && _feedGapM < 900) _hints.push("might be ready for a feed — last one " + hm(_feedGapM) + " ago");
         else if (_feedGapM >= 0 && _feedGapM < 900) {
           const [fh,fm]=_lastFeed.time.split(":").map(Number);
           const t=fh*60+fm+_feedThreshM;
-          _hints.push("feeds often happen around " + fmt12(`${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`));
+          _hints.push("next feed predicted ~" + fmt12(`${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`) + (_avgFeedInterval ? " (based on " + _name + "'s rhythm)" : ""));
         }
       } else {
         _hints.push("could be ready for a feed soon");
