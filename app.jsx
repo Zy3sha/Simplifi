@@ -1365,6 +1365,7 @@ function App(){
   // When subscriptions are added, change default to false and gate with RevenueCat
   const[isPremium]=useState(STORE_READY ? false : true);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
+  const[poopWhyOpen,setPoopWhyOpen]=useState(false);
   const[todayPlanOpen,setTodayPlanOpen]=useState(false);
   const[notesOpen,setNotesOpen]=useState(false);
   const[showNapStartPicker,setShowNapStartPicker]=useState(false);
@@ -4694,29 +4695,22 @@ function App(){
   // ── Poop Frequency Awareness ──
   function getPoopFrequency() {
     if (!age) return null;
-    const dk = Object.keys(days).sort().slice(-7);
+    const dk = Object.keys(days).sort().slice(-14);
+    if (!dk.length) return null;
     let lastPoopDay = null;
     for (let i = dk.length - 1; i >= 0; i--) {
       const hasReal = (days[dk[i]] || []).some(e => e.type === "poop" && e.poopType && e.poopType !== "wet");
       if (hasReal) { lastPoopDay = dk[i]; break; }
     }
-    if (!lastPoopDay) return dk.length >= 3 ? { daysSince: dk.length, message: "No poop logged in the last week." } : null;
     const today = new Date(todayStr() + "T12:00:00");
+    if (!lastPoopDay) {
+      return dk.length >= 3 ? { daysSince: dk.length, neverLogged: true } : null;
+    }
     const last = new Date(lastPoopDay + "T12:00:00");
     const daysSince = Math.round((today - last) / (1000 * 60 * 60 * 24));
-    if (daysSince <= 1) return null;
-
     const w = age.totalWeeks;
     const hasBreast = Object.values(days).slice(-3).some(arr => (arr || []).some(e => e.feedType === "breast"));
-    let message = null;
-    if (daysSince >= 3 && hasBreast && w >= 6) {
-      message = `No poop in ${daysSince} days — this can be normal for breastfed babies after 6 weeks. If ${babyName || "baby"} seems uncomfortable, mention it to your ${_doctor}.`;
-    } else if (daysSince >= 3 && !hasBreast) {
-      message = `No poop in ${daysSince} days. Formula-fed babies typically go daily. If ${babyName || "baby"} seems uncomfortable or straining, speak to your GP or health visitor.`;
-    } else if (daysSince >= 2) {
-      message = `Last poop was ${daysSince} days ago.`;
-    }
-    return message ? { daysSince, message } : null;
+    return { daysSince, hasBreast, ageWeeks: w };
   }
 
   // ── Prediction Accuracy Tracker (background) ──
@@ -10568,7 +10562,7 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>{haptic();openLogPanel("feed");}},
+                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);requestAnimationFrame(()=>{requestAnimationFrame(()=>{const el=document.querySelector("[data-actions-grid]");if(el){el.scrollIntoView({behavior:"smooth",block:"start"});}else{openLogPanel("feed");}});});}},
                 ].map(({emoji,label,action,longAction})=>{
                   let _lpTimer = null;
                   let _lpFired = false;
@@ -10896,17 +10890,37 @@ function App(){
                   {(()=>{
                     const pf = getPoopFrequency();
                     if (!pf) return null;
+                    const _pName = babyName || "baby";
+                    const _isBreast = pf.hasBreast;
+                    const _warn = pf.daysSince >= 3;
                     return (
-                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${pf.daysSince>=3?C.gold+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
+                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${_warn?C.gold+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
                         <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>💩 Last poop</div>
-                        <div style={{fontSize:13,fontWeight:700,color:pf.daysSince>=3?C.gold:C.mid}}>{pf.daysSince}d ago</div>
-                        {pf.daysSince >= 2 && (()=>{
-                          const _isBreast = (days[selDay]||[]).some(e=>e.feedType==="breast") || (days[(()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return localDateStr(d);})()]||[]).some(e=>e.feedType==="breast");
-                          if (_isBreast && pf.daysSince <= 7) return <div style={{fontSize:10,color:C.lt,marginTop:3,lineHeight:1.4}}>Breastfed babies can go up to a week between poos after 6 weeks — perfectly normal (NHS)</div>;
-                          if (!_isBreast && pf.daysSince >= 3) return <div style={{fontSize:10,color:C.lt,marginTop:3,lineHeight:1.4}}>Formula-fed babies usually poo at least every 3 days. If {babyName||"baby"} seems comfortable, it's probably fine — but worth mentioning to your {_doctor} if it continues</div>;
-                          if (pf.daysSince >= 3) return <div style={{fontSize:10,color:C.lt,marginTop:3,lineHeight:1.4}}>Every baby has their own rhythm. If {babyName||"baby"} seems comfortable, there's usually nothing to worry about — but worth a chat with your {_doctor} if you're concerned</div>;
-                          return null;
-                        })()}
+                        <div style={{fontSize:13,fontWeight:700,color:_warn?C.gold:C.mid}}>{pf.neverLogged ? "Not logged" : pf.daysSince === 0 ? "Today" : pf.daysSince + "d ago"}</div>
+                        {pf.daysSince >= 2 && (
+                          <div style={{fontSize:11,color:_warn?C.gold:C.lt,marginTop:4,lineHeight:1.4}}>
+                            {_isBreast && pf.daysSince <= 7
+                              ? "This can be normal for breastfed babies"
+                              : !_isBreast && pf.daysSince >= 3
+                              ? "Formula-fed babies usually poo more often"
+                              : pf.daysSince >= 3
+                              ? "Every baby has their own rhythm"
+                              : pf.daysSince + " days — keeping an eye"}
+                          </div>
+                        )}
+                        <button onClick={(ev)=>{ev.stopPropagation();haptic();setPoopWhyOpen(!poopWhyOpen);}} style={{background:"none",border:"none",padding:"4px 0 0",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:3,marginTop:4}}>
+                          {poopWhyOpen?"Hide":"Why?"} <span style={{fontSize:8,transform:poopWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+                        </button>
+                        {poopWhyOpen && (
+                          <div style={{marginTop:6,padding:"10px",borderRadius:10,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",fontSize:11,color:C.mid,lineHeight:1.6}}>
+                            <div style={{fontWeight:700,marginBottom:4,color:C.deep}}>What's normal?</div>
+                            <div style={{marginBottom:6}}>🤱 <strong>Breastfed babies</strong> — In the first few weeks, several poos a day is common. After about 6 weeks, breastfed babies can go anywhere from several times a day to once a week. Going up to 7 days without a poo can be completely normal as long as the poo is soft when it comes (NHS).</div>
+                            <div style={{marginBottom:6}}>🍼 <strong>Formula-fed babies</strong> — Tend to poo more regularly, usually at least every 3 days. Poo is often firmer and darker than breastfed poo. Going longer than 3 days without a poo is less common for formula-fed babies (NHS).</div>
+                            <div style={{marginBottom:6}}>🥣 <strong>After starting solids</strong> — Poo often changes colour, texture, and frequency. This is normal as their digestive system adjusts to new foods.</div>
+                            <div style={{marginBottom:6,fontStyle:"italic",color:C.lt}}>Every baby is different — what matters most is that {_pName} seems comfortable and the poo is a normal consistency when it comes.</div>
+                            <div style={{paddingTop:6,borderTop:"1px solid var(--card-border)",color:C.ter}}>💬 If {_pName} seems uncomfortable, is straining a lot, or you're worried, it's always worth having a chat with your {_doctor} or health visitor. They're there to help and would rather you ask than worry.</div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
