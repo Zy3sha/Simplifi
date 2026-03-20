@@ -2866,11 +2866,7 @@ function App(){
       const morningM = morningWake ? timeVal(morningWake) : null;
       return (days[selDay]||[]).filter(e=>{
         if(!e.night) return false;
-        if(e.nightLocked) return true;
-        const tM = timeVal(e);
-        if(morningM !== null && tM < morningM && tM < 12*60) return false;
-        if(tM < bedM && tM >= 12*60) return false;
-        return true;
+        return isTonight(timeVal(e), bedM, morningM);
       }).sort((a,b)=>{
         const ta = timeVal(a), tb = timeVal(b);
         const ka = ta >= bedM ? ta : (ta < 12*60 ? ta + 1440 : ta);
@@ -2919,11 +2915,7 @@ function App(){
       // Only include TONIGHT's wakes (after bedtime, not early AM from last night)
       const _nightWakes = (days[selDay]||[]).filter(e=>{
         if(!e.night) return false;
-        if(e.nightLocked) return true;
-        const tM = timeVal(e);
-        if(_morningM !== null && tM < _morningM && tM < 12*60) return false;
-        if(tM < _bedM && tM >= 12*60) return false;
-        return true;
+        return isTonight(timeVal(e), _bedM, _morningM);
       }).sort((a,b)=>{
         const ta = timeVal(a), tb = timeVal(b);
         const ka = ta >= _bedM ? ta : (ta < 12*60 ? ta + 1440 : ta);
@@ -3271,6 +3263,32 @@ function App(){
     if(changed) setDays(d=>({...d,[selDay]:reclassified}));
   },[selDay, entries.length, _bedtimeCount]);
 
+  // ── Shared helper: is this night entry from TONIGHT or LAST NIGHT? ──
+  // Key insight: at 12:26am, an entry at 4:29am is IN THE FUTURE — it can't be tonight's.
+  // AM entries that haven't happened yet (relative to now) must be from yesterday's night.
+  function isTonight(entryMins, bedMins, morningMins) {
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    
+    // PM entry (noon to midnight)
+    if (entryMins >= 12*60) {
+      // After bedtime → tonight. Before bedtime → not a valid night entry.
+      return bedMins !== null ? entryMins >= bedMins : entryMins >= 19*60;
+    }
+    
+    // AM entry (midnight to noon)
+    if (nowMins < 12*60) {
+      // We're currently in AM (overnight). Entry time > now+5min = hasn't happened yet tonight = last night.
+      if (entryMins > nowMins + 5) return false;
+      return true;
+    }
+    
+    // We're in PM (daytime) looking at AM entries from this morning:
+    // Before morning wake = last night's. After or no morning wake = tonight's (unlikely in PM but safe).
+    if (morningMins !== null && entryMins < morningMins) return false;
+    return morningMins === null;
+  }
+
   const dayE=entries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
   const nightE=(()=>{
     const raw=entries.filter(e=>e.night);
@@ -3279,20 +3297,7 @@ function App(){
     const morningWake=entries.find(e=>e.type==="wake"&&!e.night);
     const morningMins=morningWake?timeVal(morningWake):null;
     
-    // Rule: "woke up for the day" starts a new day.
-    // Night wakes BEFORE morning wake AND before noon = last night's (hide them).
-    // Night wakes AFTER bedtime OR nightLocked entries = tonight's (show them).
-    // If no morning wake logged, show all night entries (it's still "last night" continuing).
-    const filtered = raw.filter(e=>{
-      // Always show entries the user explicitly logged as night wakes
-      if(e.nightLocked) return true;
-      const tMins = timeVal(e);
-      // If morning wake exists, hide AM entries that happened before it (last night's)
-      if(morningMins !== null && tMins < morningMins && tMins < 12*60) return false;
-      // Hide entries between noon and bedtime (shouldn't be night entries but just in case)
-      if(bedMins !== null && tMins < bedMins && tMins >= 12*60) return false;
-      return true;
-    });
+    const filtered = raw.filter(e=>isTonight(timeVal(e), bedMins, morningMins));
     
     // Sort chronologically from bedtime: PM wakes first, then AM (cross-midnight)
     const sortBed = bedMins || 22*60;
@@ -3308,13 +3313,11 @@ function App(){
   const totalMlWithNight=(()=>{
     const _mwEntry = entries.find(e=>e.type==="wake"&&!e.night);
     const _mwMins = _mwEntry ? timeVal(_mwEntry) : null;
-    // Only count tonight's night feeds, not early AM from last night
+    const _bedE = entries.find(e=>e.type==="sleep"&&!e.night);
+    const _bedM = _bedE ? timeVal(_bedE) : null;
     const thisDayNightWakeMl=entries.filter(e=>{
       if(!e.night || e.type!=="wake" || !(e.amount>0)) return false;
-      if(e.nightLocked) return true;
-      const tM = timeVal(e);
-      if(_mwMins !== null && tM < _mwMins && tM < 12*60) return false;
-      return true;
+      return isTonight(timeVal(e), _bedM, _mwMins);
     }).reduce((s,f)=>s+(f.amount||0),0);
     return totalMl+thisDayNightWakeMl;
   })();
@@ -5251,18 +5254,11 @@ function App(){
     const _morningMins = _morningWake ? timeVal(_morningWake) : null;
     const dayMilkFeeds  = allMilkFeeds.filter(e => {
       if (!e.night) return true;
-      // Early AM feeds before morning wake are last night's — exclude from today's night count
-      const tM = timeVal(e);
-      if (_morningMins !== null && tM < _morningMins && tM < 12*60) return false;
-      return false; // all other night feeds go to nightMilkFeeds
+      return !isTonight(timeVal(e), _bedMins, _morningMins);
     });
     const nightMilkFeeds = allMilkFeeds.filter(e => {
       if (!e.night) return false;
-      if (e.nightLocked) return true;
-      const tM = timeVal(e);
-      if (_morningMins !== null && tM < _morningMins && tM < 12*60) return false;
-      if (_bedMins !== null && tM < _bedMins && tM >= 12*60) return false;
-      return true;
+      return isTonight(timeVal(e), _bedMins, _morningMins);
     });
     const totalMl   = allMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
     const dayMl     = dayMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
@@ -6453,13 +6449,7 @@ function App(){
     // Only count wakes from TONIGHT (after today's bedtime, excluding early AM from last night)
     const _nightWakes = _today.filter(e => {
       if (!e.night) return false;
-      if (e.nightLocked) return true;
-      const tMins = timeVal(e);
-      // If morning wake exists, exclude wakes before it (those are last night's)
-      if (_morningMins !== null && tMins < _morningMins && tMins < 12 * 60) return false;
-      // If bedtime exists, only include wakes after bedtime
-      if (_bedMins !== null && tMins < _bedMins && tMins >= 12 * 60) return false;
-      return true;
+      return isTonight(timeVal(e), _bedMins, _morningMins);
     }).sort((a, b) => { const ta = timeVal(a), tb = timeVal(b); const na = ta >= 18 * 60 ? ta : ta + 24 * 60; const nb = tb >= 18 * 60 ? tb : tb + 24 * 60; return na - nb; });
     const _wakeNum = _nightWakes.length;
 
