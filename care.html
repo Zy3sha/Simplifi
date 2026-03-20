@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>OBubba — Carer Log</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FFFCF9; --card: #fff; --border: #f0e8e0; --deep: #2C1F1A; --mid: #5B4F5F;
+  --lt: #A898AC; --ter: #C07088; --mint: #50C878; --blush: #F5E6DC; --gold: #D4A855;
+  --font: 'DM Sans', -apple-system, sans-serif; --serif: 'Playfair Display', Georgia, serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--deep); min-height: 100vh; padding: 0 0 100px; }
+.container { max-width: 480px; margin: 0 auto; padding: 20px 16px; }
+.header { text-align: center; padding: 24px 0 16px; }
+.header .emoji { font-size: 48px; margin-bottom: 8px; }
+.header h1 { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--deep); }
+.header .sub { font-size: 13px; color: var(--lt); margin-top: 4px; }
+.header .age { font-size: 14px; color: var(--mid); margin-top: 2px; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 18px 16px; margin-bottom: 12px; }
+.card-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--deep); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+.guide-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #f8f4f0; }
+.guide-row:last-child { border-bottom: none; }
+.guide-label { color: var(--lt); }
+.guide-value { font-weight: 600; color: var(--mid); }
+.guide-tip { font-size: 12px; color: var(--lt); margin-top: 8px; line-height: 1.5; font-style: italic; }
+
+.log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.log-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 12px; border-radius: 16px; border: 1.5px solid var(--border); background: var(--card); cursor: pointer; transition: all 0.15s; font-family: var(--font); }
+.log-btn:active { transform: scale(0.96); background: var(--blush); }
+.log-btn .icon { font-size: 28px; }
+.log-btn .label { font-size: 13px; font-weight: 600; color: var(--mid); }
+
+.form-section { display: none; }
+.form-section.active { display: block; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--lt); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+.form-input { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--border); font-size: 16px; font-family: var(--font); color: var(--deep); background: #faf8f5; outline: none; margin-bottom: 12px; }
+.form-input:focus { border-color: var(--ter); }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.chip { padding: 8px 16px; border-radius: 99px; border: 1.5px solid var(--border); background: var(--card); font-size: 14px; font-weight: 600; color: var(--mid); cursor: pointer; transition: all 0.15s; font-family: var(--font); }
+.chip.sel { background: var(--ter); color: white; border-color: var(--ter); }
+
+.submit-btn { width: 100%; padding: 14px; border-radius: 99px; border: none; background: linear-gradient(135deg, #C07088, #a85a44); color: white; font-size: 16px; font-weight: 700; cursor: pointer; font-family: var(--font); margin-top: 8px; }
+.submit-btn:active { transform: scale(0.97); }
+.cancel-btn { width: 100%; padding: 12px; border-radius: 99px; border: none; background: transparent; color: var(--lt); font-size: 14px; cursor: pointer; font-family: var(--font); margin-top: 4px; }
+
+.my-log { margin-top: 8px; }
+.log-entry { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: #faf8f5; margin-bottom: 8px; }
+.log-entry .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.log-entry .info { flex: 1; font-size: 13px; color: var(--mid); }
+.log-entry .time { font-size: 12px; color: var(--lt); font-weight: 500; }
+.log-entry .del { background: none; border: none; color: #e06070; font-size: 18px; cursor: pointer; padding: 4px; }
+
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px); background: var(--deep); color: white; padding: 12px 24px; border-radius: 99px; font-size: 14px; font-weight: 600; transition: transform 0.3s; z-index: 999; pointer-events: none; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+.loading { text-align: center; padding: 60px 20px; }
+.loading .spinner { width: 40px; height: 40px; border: 3px solid var(--blush); border-top-color: var(--ter); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-card { text-align: center; padding: 40px 20px; }
+.error-card .emoji { font-size: 48px; margin-bottom: 12px; }
+
+.powered { text-align: center; font-size: 11px; color: var(--lt); margin-top: 24px; }
+.powered a { color: var(--ter); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div id="app" class="container">
+  <div class="loading">
+    <div class="spinner"></div>
+    <div style="font-size:14px;color:var(--mid)">Loading care guide...</div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInAnonymously }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCdHzmheQRbtzP_JI1FuWcZLeW8yVja5-0",
+  authDomain: "obubba-d9ccc.firebaseapp.com",
+  projectId: "obubba-d9ccc",
+  storageBucket: "obubba-d9ccc.firebasestorage.app",
+  messagingSenderId: "1091432133381",
+  appId: "1:1091432133381:web:1cd4d0ce7397affeae7d6c"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
+
+// Get backup code from URL
+const params = new URLSearchParams(window.location.search);
+const code = params.get("c") || params.get("code") || "";
+const container = document.getElementById("app");
+
+if (!code) {
+  container.innerHTML = `<div class="error-card"><div class="emoji">🔒</div><div style="font-family:var(--serif);font-size:22px;color:var(--deep);margin-bottom:8px">No access code</div><div style="font-size:14px;color:var(--lt);line-height:1.5">Scan the QR code from the parent's OBubba app to access the care guide and log entries.</div></div>`;
+} else {
+  init();
+}
+
+async function init() {
+  try {
+    await signInAnonymously(auth);
+    const snap = await getDoc(doc(db, "families", code));
+    if (!snap.exists()) {
+      container.innerHTML = `<div class="error-card"><div class="emoji">😕</div><div style="font-family:var(--serif);font-size:22px;color:var(--deep);margin-bottom:8px">Code not found</div><div style="font-size:14px;color:var(--lt);line-height:1.5">This care code doesn't match any family. Check with the parent for the correct QR code.</div></div>`;
+      return;
+    }
+    const data = snap.data();
+    renderApp(data);
+  } catch (e) {
+    console.error(e);
+    container.innerHTML = `<div class="error-card"><div class="emoji">⚠️</div><div style="font-family:var(--serif);font-size:20px;color:var(--deep);margin-bottom:8px">Connection issue</div><div style="font-size:14px;color:var(--lt)">Check your internet and try again.</div></div>`;
+  }
+}
+
+function renderApp(data) {
+  // Extract baby info
+  const children = data.children || {};
+  const activeId = data.activeChild || Object.keys(children)[0];
+  const child = children[activeId] || {};
+  const name = child.name || "Baby";
+  const dob = child.dob || "";
+  const ageStr = dob ? calcAge(dob) : "";
+  const emergencyContacts = child.emergencyContacts || [];
+
+  // Extract recent data for guide
+  const days = child.days || {};
+  const dk = Object.keys(days).sort();
+  const today = new Date().toISOString().split("T")[0];
+  const todayEntries = days[today] || days[dk[dk.length-1]] || [];
+  const recentFeeds = todayEntries.filter(e => e.type === "feed");
+  const lastFeed = recentFeeds.sort((a,b) => cmpTime(a,b)).pop();
+  const feedType = recentFeeds.length ? (recentFeeds.some(e=>e.feedType==="breast") ? "Breast" : "Bottle") : "—";
+  const avgAmount = recentFeeds.length ? Math.round(recentFeeds.reduce((s,e) => s+(e.amount||0), 0) / recentFeeds.filter(e=>e.amount).length) : 0;
+
+  // Session ID for this carer visit
+  const sessionId = "session_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
+  let myEntries = [];
+
+  container.innerHTML = `
+    <div class="header">
+      <div class="emoji">👶</div>
+      <h1>${name}'s Care Guide</h1>
+      ${ageStr ? `<div class="age">${ageStr}</div>` : ""}
+      <div class="sub">Carer log — your entries are saved for ${name}'s parent to review</div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card" style="background:linear-gradient(135deg, rgba(123,104,238,0.04), rgba(192,112,136,0.04)); border-color: rgba(123,104,238,0.15);">
+      <div class="card-title">💡 How this works</div>
+      <div style="font-size:13px;color:var(--mid);line-height:1.6;">
+        This page lets you log feeds, naps, and nappy changes while caring for ${name}. Everything you log here is <strong>saved for ${name}'s parent to review</strong> — they'll see your entries in their app and can accept them into ${name}'s day log.
+      </div>
+      <div style="font-size:12px;color:var(--lt);margin-top:10px;line-height:1.5;">
+        <div style="margin-bottom:4px;">📱 <strong>You can only see what you log</strong> — you don't have access to ${name}'s full history or the parent's app data.</div>
+        <div style="margin-bottom:4px;">✏️ <strong>You can edit or delete</strong> anything you've logged today using the × button below.</div>
+        <div>🔒 <strong>This page is private</strong> — only people with this QR code can access it.</div>
+      </div>
+    </div>
+
+    <!-- Care Guide -->
+    <div class="card">
+      <div class="card-title">🍼 Feeding</div>
+      <div class="guide-row"><span class="guide-label">Type</span><span class="guide-value">${feedType}</span></div>
+      ${avgAmount ? `<div class="guide-row"><span class="guide-label">Typical amount</span><span class="guide-value">~${avgAmount}ml</span></div>` : ""}
+      ${lastFeed ? `<div class="guide-row"><span class="guide-label">Last feed</span><span class="guide-value">${fmt12(lastFeed.time)}${lastFeed.amount ? " — "+lastFeed.amount+"ml" : ""}</span></div>` : ""}
+      <div class="guide-tip">💡 Feed every ${getAgeWeeks(dob) < 8 ? "2–3" : "3–4"} hours, or sooner if ${name} shows hunger cues like rooting or hand-to-mouth. Follow ${name}'s lead.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">😴 Sleep</div>
+      <div class="guide-row"><span class="guide-label">Wake window</span><span class="guide-value">${getWW(dob)}</span></div>
+      <div class="guide-tip">When ${name} shows sleepy cues (yawning, eye rubbing, looking away), it's nap time. A quiet, dim room helps.</div>
+    </div>
+
+    ${emergencyContacts.length ? `
+    <div class="card">
+      <div class="card-title">📞 Emergency Contacts</div>
+      ${emergencyContacts.filter(c=>c.name&&c.phone).map(c => `<div class="guide-row"><span class="guide-label">${c.name}</span><span class="guide-value"><a href="tel:${c.phone}" style="color:var(--ter);text-decoration:none">${c.phone}</a></span></div>`).join("")}
+    </div>` : ""}
+
+    <!-- Log Section -->
+    <div class="card" id="log-card">
+      <div class="card-title">📝 Log an Entry</div>
+      <div id="log-grid" class="log-grid">
+        <button class="log-btn" data-type="feed"><span class="icon">🍼</span><span class="label">Feed</span></button>
+        <button class="log-btn" data-type="nap"><span class="icon">😴</span><span class="label">Nap</span></button>
+        <button class="log-btn" data-type="nappy"><span class="icon">💩</span><span class="label">Nappy</span></button>
+        <button class="log-btn" data-type="note"><span class="icon">📝</span><span class="label">Note</span></button>
+      </div>
+
+      <!-- Feed Form -->
+      <div id="form-feed" class="form-section">
+        <div class="form-label">Feed type</div>
+        <div class="chip-row">
+          <button class="chip sel" data-feed="bottle">🍼 Bottle</button>
+          <button class="chip" data-feed="breast">🤱 Breast</button>
+          <button class="chip" data-feed="solids">🥣 Solids</button>
+        </div>
+        <div class="form-label">Amount (ml) — optional</div>
+        <input type="number" id="feed-amount" class="form-input" placeholder="e.g. 150" inputmode="numeric">
+        <div class="form-label">Time</div>
+        <input type="time" id="feed-time" class="form-input">
+        <div class="form-label">Note — optional</div>
+        <input type="text" id="feed-note" class="form-input" placeholder="e.g. took well, fussy">
+        <button class="submit-btn" id="submit-feed">Log Feed</button>
+        <button class="cancel-btn" data-cancel>Cancel</button>
+      </div>
+
+      <!-- Nap Form -->
+      <div id="form-nap" class="form-section">
+        <div class="form-label">Started</div>
+        <input type="time" id="nap-start" class="form-input">
+        <div class="form-label">Ended — leave blank if still sleeping</div>
+        <input type="time" id="nap-end" class="form-input">
+        <div class="form-label">Note — optional</div>
+        <input type="text" id="nap-note" class="form-input" placeholder="e.g. settled quickly, contact nap">
+        <button class="submit-btn" id="submit-nap">Log Nap</button>
+        <button class="cancel-btn" data-cancel>Cancel</button>
+      </div>
+
+      <!-- Nappy Form -->
+      <div id="form-nappy" class="form-section">
+        <div class="form-label">Type</div>
+        <div class="chip-row">
+          <button class="chip sel" data-nappy="wet">💧 Wet</button>
+          <button class="chip" data-nappy="dirty">💩 Dirty</button>
+          <button class="chip" data-nappy="both">💧💩 Both</button>
+        </div>
+        <div class="form-label">Time</div>
+        <input type="time" id="nappy-time" class="form-input">
+        <div class="form-label">Note — optional</div>
+        <input type="text" id="nappy-note" class="form-input" placeholder="e.g. colour, rash">
+        <button class="submit-btn" id="submit-nappy">Log Nappy</button>
+        <button class="cancel-btn" data-cancel>Cancel</button>
+      </div>
+
+      <!-- Note Form -->
+      <div id="form-note" class="form-section">
+        <div class="form-label">Note</div>
+        <input type="text" id="note-text" class="form-input" placeholder="e.g. seemed happy, had tummy time">
+        <div class="form-label">Time</div>
+        <input type="time" id="note-time" class="form-input">
+        <button class="submit-btn" id="submit-note">Log Note</button>
+        <button class="cancel-btn" data-cancel>Cancel</button>
+      </div>
+    </div>
+
+    <!-- My Entries -->
+    <div class="card">
+      <div class="card-title">📋 Your Logged Entries</div>
+      <div id="my-entries" class="my-log">
+        <div style="font-size:13px;color:var(--lt);text-align:center;padding:12px">No entries yet — log something above</div>
+      </div>
+    </div>
+
+    <div class="powered">Powered by <a href="https://obubba.com">OBubba</a> — parenthood in your pocket</div>
+  `;
+
+  // Set default times to now
+  const now = new Date();
+  const nowStr = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+  ["feed-time","nap-start","nappy-time","note-time"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = nowStr;
+  });
+
+  // Wire up log buttons
+  let activeForm = null;
+  let feedType2 = "bottle";
+  let nappyType = "wet";
+
+  document.querySelectorAll(".log-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const type = btn.dataset.type;
+      document.querySelectorAll(".form-section").forEach(f => f.classList.remove("active"));
+      document.getElementById("log-grid").style.display = "none";
+      document.getElementById("form-" + type).classList.add("active");
+      activeForm = type;
+      // Reset time to now
+      const n2 = new Date();
+      const ns = `${String(n2.getHours()).padStart(2,"0")}:${String(n2.getMinutes()).padStart(2,"0")}`;
+      ["feed-time","nap-start","nappy-time","note-time"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = ns;
+      });
+    });
+  });
+
+  document.querySelectorAll("[data-cancel]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".form-section").forEach(f => f.classList.remove("active"));
+      document.getElementById("log-grid").style.display = "grid";
+      activeForm = null;
+    });
+  });
+
+  // Chip selectors
+  document.querySelectorAll("[data-feed]").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll("[data-feed]").forEach(c => c.classList.remove("sel"));
+      chip.classList.add("sel");
+      feedType2 = chip.dataset.feed;
+    });
+  });
+  document.querySelectorAll("[data-nappy]").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll("[data-nappy]").forEach(c => c.classList.remove("sel"));
+      chip.classList.add("sel");
+      nappyType = chip.dataset.nappy;
+    });
+  });
+
+  // Submit handlers
+  document.getElementById("submit-feed").addEventListener("click", async () => {
+    const entry = {
+      type: "feed",
+      feedType: feedType2,
+      amount: parseInt(document.getElementById("feed-amount").value) || 0,
+      time: document.getElementById("feed-time").value || nowStr,
+      note: document.getElementById("feed-note").value || "",
+      loggedAt: new Date().toISOString(),
+      carerSession: sessionId
+    };
+    await saveEntry(entry);
+  });
+
+  document.getElementById("submit-nap").addEventListener("click", async () => {
+    const entry = {
+      type: "nap",
+      start: document.getElementById("nap-start").value || nowStr,
+      end: document.getElementById("nap-end").value || "",
+      time: document.getElementById("nap-start").value || nowStr,
+      note: document.getElementById("nap-note").value || "",
+      loggedAt: new Date().toISOString(),
+      carerSession: sessionId
+    };
+    await saveEntry(entry);
+  });
+
+  document.getElementById("submit-nappy").addEventListener("click", async () => {
+    const entry = {
+      type: "poop",
+      poopType: nappyType,
+      time: document.getElementById("nappy-time").value || nowStr,
+      note: document.getElementById("nappy-note").value || "",
+      loggedAt: new Date().toISOString(),
+      carerSession: sessionId
+    };
+    await saveEntry(entry);
+  });
+
+  document.getElementById("submit-note").addEventListener("click", async () => {
+    const text = document.getElementById("note-text").value;
+    if (!text.trim()) { toast("Please add a note"); return; }
+    const entry = {
+      type: "note",
+      text: text,
+      time: document.getElementById("note-time").value || nowStr,
+      loggedAt: new Date().toISOString(),
+      carerSession: sessionId
+    };
+    await saveEntry(entry);
+  });
+
+  async function saveEntry(entry) {
+    try {
+      const entryId = "carer_" + Date.now() + "_" + Math.random().toString(36).slice(2,6);
+      entry.id = entryId;
+      entry.date = new Date().toISOString().split("T")[0];
+      await setDoc(doc(db, "carer_logs", code, "entries", entryId), {
+        ...entry,
+        createdAt: serverTimestamp()
+      });
+      myEntries.push(entry);
+      renderEntries();
+      // Reset form
+      document.querySelectorAll(".form-section").forEach(f => f.classList.remove("active"));
+      document.getElementById("log-grid").style.display = "grid";
+      document.querySelectorAll(".form-input").forEach(i => { if (i.type !== "time") i.value = ""; });
+      toast("✓ Logged — parent will see this");
+    } catch (e) {
+      console.error(e);
+      toast("Failed to save — check connection");
+    }
+  }
+
+  function renderEntries() {
+    const el = document.getElementById("my-entries");
+    if (!myEntries.length) {
+      el.innerHTML = `<div style="font-size:13px;color:var(--lt);text-align:center;padding:12px">No entries yet</div>`;
+      return;
+    }
+    el.innerHTML = myEntries.map((e, i) => {
+      const icon = e.type === "feed" ? "🍼" : e.type === "nap" ? "😴" : e.type === "poop" ? "💩" : "📝";
+      const color = e.type === "feed" ? "#C07088" : e.type === "nap" ? "#7B68EE" : e.type === "poop" ? "#D4A855" : "#A898AC";
+      let desc = "";
+      if (e.type === "feed") desc = (e.feedType || "bottle") + (e.amount ? " — " + e.amount + "ml" : "");
+      else if (e.type === "nap") desc = "Nap" + (e.start ? " from " + fmt12(e.start) : "") + (e.end ? " to " + fmt12(e.end) : " (ongoing)");
+      else if (e.type === "poop") desc = (e.poopType || "wet") + " nappy";
+      else desc = e.text || "Note";
+      if (e.note && e.type !== "note") desc += " · " + e.note;
+      return `<div class="log-entry">
+        <div class="dot" style="background:${color}"></div>
+        <div class="info">${icon} ${desc}</div>
+        <div class="time">${fmt12(e.time)}</div>
+        <button class="del" data-del="${i}">×</button>
+      </div>`;
+    }).join("");
+
+    el.querySelectorAll("[data-del]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const idx = parseInt(btn.dataset.del);
+        const entry = myEntries[idx];
+        try {
+          await deleteDoc(doc(db, "carer_logs", code, "entries", entry.id));
+          myEntries.splice(idx, 1);
+          renderEntries();
+          toast("Entry removed");
+        } catch (e) { toast("Couldn't delete"); }
+      });
+    });
+  }
+
+  // Load any existing entries from this session
+  loadExisting();
+  async function loadExisting() {
+    try {
+      const snap = await getDocs(collection(db, "carer_logs", code, "entries"));
+      const today2 = new Date().toISOString().split("T")[0];
+      snap.forEach(d => {
+        const e = d.data();
+        if (e.date === today2) myEntries.push(e);
+      });
+      if (myEntries.length) renderEntries();
+    } catch (e) { /* ignore */ }
+  }
+}
+
+// Helpers
+function calcAge(dob) {
+  const b = new Date(dob + "T12:00:00");
+  const now = new Date();
+  let months = (now.getFullYear() - b.getFullYear()) * 12 + (now.getMonth() - b.getMonth());
+  if (now.getDate() < b.getDate()) months--;
+  const weeks = Math.floor((now - b) / (7*86400000));
+  if (months < 1) return weeks + " weeks old";
+  return months + (months === 1 ? " month" : " months") + " old";
+}
+
+function getAgeWeeks(dob) {
+  if (!dob) return 20;
+  return Math.floor((new Date() - new Date(dob + "T12:00:00")) / (7*86400000));
+}
+
+function getWW(dob) {
+  const w = getAgeWeeks(dob);
+  if (w < 6) return "30–60 min";
+  if (w < 13) return "45–90 min";
+  if (w < 26) return "1.5–2.5 hrs";
+  if (w < 39) return "2–3 hrs";
+  return "2.5–4 hrs";
+}
+
+function cmpTime(a, b) {
+  return (a.time || "").localeCompare(b.time || "");
+}
+
+function fmt12(t) {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 || 12;
+  return h12 + ":" + String(m).padStart(2, "0") + ampm;
+}
+
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2500);
+}
+</script>
+</body>
+</html>
