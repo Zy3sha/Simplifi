@@ -3018,6 +3018,7 @@ function App(){
   },[selDay, days, age, timerMode]);
   // ═══ HERO CARD — Bubba Rhythm ═══
   function renderHeroCard() {
+   try {
     if (!age || !selDay || selDay !== todayStr()) return null;
     const _today = days[selDay] || [];
     const _hasWake = _today.some(e => e.type === "wake" && !e.night);
@@ -3054,6 +3055,7 @@ function App(){
     const _isStableDay = _napsDone >= 2 && _naps.every(n => minDiff(n.start, n.end) >= 30) && !_isHighNeedDay;
 
     let _reassure;
+    try {
     if (_isNightTime) {
       const _nightMsgs = [
         "You're not alone — this part is hard.",
@@ -3083,8 +3085,11 @@ function App(){
       ];
       _reassure = _morningMsgs[_dayOfYear % _morningMsgs.length];
     }
+    } catch(e) { _reassure = "You're doing great 🤍"; }
 
     // ── Self-care nudge — separate line, shows from 10am daily until tapped ──
+    let _selfCareNudge = null;
+    try {
     const _parentNudgeShown = (()=>{try{return localStorage.getItem("parent_nudge_date")===todayStr();}catch{return false;}})();
     const _selfCareNudges = [
       "💧 Have you had water today? You matter too.",
@@ -3098,29 +3103,33 @@ function App(){
       "🛁 When " + _name + " naps, do something just for you. Even 10 minutes counts.",
       "💜 You don't have to be perfect. You just have to be there.",
     ];
-    const _selfCareNudge = (!_parentNudgeShown && !_isNightTime && _h >= 10)
+    _selfCareNudge = (!_parentNudgeShown && !_isNightTime && _h >= 10)
       ? _selfCareNudges[Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000) % _selfCareNudges.length]
       : null;
+    } catch(e) { _selfCareNudge = null; }
 
     // ── "Right now" action line (expanded) ──
-    const _expandedRN = expandedRightNow();
+    let _expandedRN = null;
+    try { _expandedRN = expandedRightNow(); } catch(e) {}
     let _rightNow = _expandedRN ? ("Right now: " + _expandedRN.text) : null;
 
     // ── Feed & nappy gentle context ──
     let _feedNappyHint = null;
+    try {
     if (_hasWake) {
       const _hints = [];
-      const _lastFeed = [..._today.filter(e=>e.type==="feed")].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
-      const _lastNappy = [..._today.filter(e=>e.type==="poop"||e.poopType)].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
+      const _lastFeed = [..._today.filter(e=>e.type==="feed"&&e.time)].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
+      const _lastNappy = [..._today.filter(e=>(e.type==="poop")&&e.time)].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
       const _feedGapM = _lastFeed ? _nowM - timeVal(_lastFeed) : 999;
       const _nappyGapM = _lastNappy ? _nowM - timeVal(_lastNappy) : 999;
       const _feedThreshM = age ? (age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : 210) : 180;
-      if (_feedGapM >= _feedThreshM) _hints.push("Feed due — last one " + hm(_feedGapM) + " ago");
-      else if (_lastFeed) _hints.push("Next feed around " + fmt12((()=>{const [fh,fm]=_lastFeed.time.split(":").map(Number);const t=fh*60+fm+_feedThreshM;return `${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;})()));
-      if (_nappyGapM >= 150) _hints.push("Nappy check — last one " + hm(_nappyGapM) + " ago");
-      else if (_lastNappy) _hints.push("Nappy last changed " + hm(_nappyGapM) + " ago");
+      if (_feedGapM >= _feedThreshM && _feedGapM < 900) _hints.push("Feed due — last one " + hm(_feedGapM) + " ago");
+      else if (_lastFeed && _feedGapM >= 0) _hints.push("Next feed around " + fmt12((()=>{const [fh,fm]=_lastFeed.time.split(":").map(Number);const t=fh*60+fm+_feedThreshM;return `${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;})()));
+      if (_nappyGapM >= 150 && _nappyGapM < 900) _hints.push("Nappy check — last one " + hm(_nappyGapM) + " ago");
+      else if (_lastNappy && _nappyGapM >= 0) _hints.push("Nappy last changed " + hm(_nappyGapM) + " ago");
       if (_hints.length) _feedNappyHint = _hints.join(" · ");
     }
+    } catch(e) { _feedNappyHint = null; }
 
     // ── Morning: no wake logged ──
     if (!_hasWake && _h >= 5 && _h <= 10) {
@@ -3272,6 +3281,19 @@ function App(){
         </div>
       </div>
     );
+   } catch(err) {
+    console.error("HeroCard error:", err);
+    return (
+      <div className="glass-card" style={{padding:"18px 16px",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:10,height:10,borderRadius:"50%",background:"#7BA68C"}}/>
+          <span style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Good morning! ☀️</span>
+        </div>
+        <div style={{fontSize:13,color:C.mid,marginTop:6}}>{babyName||"Baby"}'s day is underway</div>
+        <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6}}>You're doing great 🤍</div>
+      </div>
+    );
+   }
   }
 
   function getAgeStage(){
