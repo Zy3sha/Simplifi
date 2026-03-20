@@ -1974,13 +1974,13 @@ function App(){
     if(carerUnsubRef.current) { carerUnsubRef.current(); carerUnsubRef.current=null; }
     if(!fbReady || !backupCode || !window._fb) return;
     try {
-      const {db, collection, onSnapshot, query, orderBy} = window._fb;
-      if(!collection) return; // firebase.js needs to export collection
+      const {db, collection, onSnapshot} = window._fb;
+      if(!collection) return;
       const colRef = collection(db, "carer_logs", backupCode, "entries");
-      const q = query ? query(colRef, orderBy("createdAt","desc")) : colRef;
-      carerUnsubRef.current = onSnapshot(q, (snap)=>{
+      carerUnsubRef.current = onSnapshot(colRef, (snap)=>{
         const entries = [];
         snap.forEach(d => entries.push({id:d.id, ...d.data()}));
+        entries.sort((a,b) => (b.loggedAt||"").localeCompare(a.loggedAt||""));
         setCarerEntries(entries);
       }, (err)=>{ console.warn("Carer log listener error:",err); });
     } catch(e) { console.warn("Carer logs not available:",e); }
@@ -8585,7 +8585,7 @@ function App(){
     </div>`);
 
     // QR code points to carer portal — backup code is the access token
-    const carerPortalUrl = `https://obubba.com/care.html?code=${encodeURIComponent(backupCode||"")}`;
+    const carerPortalUrl = `https://obubba.com/care.html?code=${encodeURIComponent(backupCode||"")}&child=${encodeURIComponent(resolvedActiveId||"")}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
 
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
@@ -8602,19 +8602,18 @@ function App(){
     const html = generateCarerCardHTML();
     const name = babyName || "Baby";
 
+    const _closeBar = `<div style="position:sticky;top:0;z-index:99;background:#FFFCF9;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0e8e0"><button onclick="window.close();history.back();" style="padding:8px 20px;border-radius:99px;border:none;background:#C07088;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif">← Back to App</button><button onclick="window.print()" style="padding:8px 20px;border-radius:99px;border:1.5px solid #f0e8e0;background:white;color:#5B4F5F;font-size:14px;font-weight:600;cursor:pointer;font-family:-apple-system,sans-serif">🖨️ Print</button></div>`;
     // Try native share first (mobile)
     if (navigator.share) {
       const blob = new Blob([html], { type: "text/html" });
       const file = new File([blob], `${name}-care-guide.html`, { type: "text/html" });
       navigator.share({ title: `${name}'s Care Guide`, files: [file] }).catch(() => {
-        // Fallback: open in new tab
         const w = (()=>{try{return window.open("","_blank");}catch{return null;}})();
-        if (w) { w.document.write(html); w.document.close(); }
+        if (w) { w.document.write(html.replace("<body>","<body>"+_closeBar)); w.document.close(); }
       });
     } else {
-      // Desktop: open in new tab for printing
       const w = (()=>{try{return window.open("","_blank");}catch{return null;}})();
-      if (w) { w.document.write(html); w.document.close(); }
+      if (w) { w.document.write(html.replace("<body>","<body>"+_closeBar)); w.document.close(); }
     }
   }
 
@@ -10020,7 +10019,7 @@ function App(){
           { icon:"💊", title:"Health & Growth", body:`Medicine & temperature logging in Notes & Reminders (expand it). Fever alert: 38°C+ under 3 months = call ${_helpLine}. Growth section shows date, measurement, and percentile for each weigh-in. Nappy tracker counts wet nappies (6/day target) and flags concerning colours.` },
           { icon:"🧩", title:"Development Tab", body:"Activities: age-appropriate play ideas with 'why this matters'. Milestones: what baby is working on now — tap to mark achieved. Teeth: visual tooth chart. Weaning: daily food suggestions, allergen detection for all 14 UK allergens, foods to avoid, and reaction tracking. Appears from around 6 months." },
           { icon:"🔍", title:"Hidden features", body:"Long-press any log button for the advanced form. The + button scrolls to more options (pump, tummy time, medicine, notes). Shake your phone to undo any accidental log within 15 seconds. Smart text parsing understands 'fed 120ml at 2pm' or 'napped 45 mins from 1'." },
-          { icon:"👩‍🍼", title:"Sharing & Account", body:"Shareable care guide with QR code for caregivers (includes safe sleep, emergency numbers, routine). Partner sync — share your backup code so both parents see the same data. Photo diary for milestone moments." },
+          { icon:"👩‍🍼", title:"Sharing & Carer Portal", body:"Share a Care Guide with babysitters, grandparents, or nursery — it includes feeding info, sleep windows, and emergency contacts. The QR code opens a Carer Portal where they can log feeds, naps, and nappy changes. You'll see their entries in the app under 'Carer Activity' and can accept or dismiss each one. Carers can only see what they log — they never see your data. Partner sync lets both parents share the same data in real time." },
           { icon:"💜", title:"You matter too", body:`Weekly wellbeing check-in on the Insights tab — Great, Okay, Struggling, or Need Support. If you're struggling, real support resources: ${_isUS?"Postpartum Support International (1-800-944-4773), 988 Crisis Lifeline":_isAU?"PANDA (1300 726 306), Beyond Blue (1300 22 4636)":"PANDAS (0808 196 1776), Samaritans (116 123)"}. You'll also see gentle nudges like 'Have you had water today?'` },
           { icon:"🎉", title:"You're all set!", body:"Log a wake time to start your day. Predictions get smarter with every log — by day 3, OBubba starts learning your baby's unique rhythm. Tap any ? icon for help. Replay this tour anytime from Account." },
         ];
@@ -10569,7 +10568,7 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);setTimeout(()=>{const el=document.querySelector("[data-actions-grid]");if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{openLogPanel("feed");}},150);}},
+                  {emoji:"➕",label:"More",action:()=>{haptic();openLogPanel("feed");}},
                 ].map(({emoji,label,action,longAction})=>{
                   let _lpTimer = null;
                   let _lpFired = false;
@@ -13111,7 +13110,8 @@ function App(){
                       html2+="</table>";
                       if(rNight2.length){html2+="<h2>Night</h2><table>";rNight2.forEach((e,i)=>{html2+="<tr><td>"+(e.amount>0?"🍼":"🌟")+" "+(i+1)+"</td><td>"+fmt12(e.time)+"</td><td>"+(e.amount?fmtVol(e.amount,FU):"")+(e.selfSettled?" Self settled":"")+"</td></tr>";});html2+="</table>";}
                       html2+="<br><p style='color:#999;font-size:12px'>OBubba — obubba.com</p></body></html>";
-                      w.document.write(html2);w.document.close();w.print();
+                      const closeBar2=`<div style="position:sticky;top:0;z-index:99;background:white;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee"><button onclick="window.close();history.back();" style="padding:8px 20px;border-radius:99px;border:none;background:#C07088;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:system-ui">← Back</button><button onclick="window.print()" style="padding:8px 20px;border-radius:99px;border:1.5px solid #ddd;background:white;color:#555;font-size:14px;font-weight:600;cursor:pointer;font-family:system-ui">🖨️ Print</button></div>`;
+                      w.document.write(html2.replace("<body>","<body>"+closeBar2));w.document.close();
                     }} style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:12,border:`1px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP}}>
                       <span style={{fontSize:16}}>🖨️</span>
                       <div style={{textAlign:"left"}}>
@@ -14040,7 +14040,7 @@ function App(){
             <button onClick={()=>setShowCarerCard(true)} style={{display:"flex",alignItems:"center",gap:14,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
               <span style={{fontSize:24}}>👩‍🍼</span>
               <div>
-                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:15,fontWeight:700,color:C.deep}}>Carer Card <HelpBtn title="Carer Card" body="Generate a shareable care guide for anyone looking after your baby — babysitters, grandparents, nursery. Includes feeding, sleep, safe sleep, emergency contacts, comfort items, and custom notes. Share as a link or print it."/></div>
+                <div style={{display:"flex",alignItems:"center",gap:4,fontSize:15,fontWeight:700,color:C.deep}}>Carer Card <HelpBtn title="Carer Card & Portal" body={"Generate a shareable care guide for anyone looking after "+( babyName||"your baby")+" — babysitters, grandparents, nursery.\n\n📋 The Care Guide includes feeding info, sleep windows, safe sleep guidance, emergency contacts, and your pinned notes.\n\n📱 The QR code opens a Carer Portal where carers can log feeds, naps, and nappy changes from their own phone.\n\n🔒 Carers can only see what they log — they never have access to your data, history, or app.\n\n✓ You'll see their entries under 'Carer Activity' below and can accept them into "+(babyName||"baby")+"'s day log, or dismiss them.\n\nEach child has their own QR code — switch children before sharing."}/></div>
                 <div style={{fontSize:12,color:C.lt,marginTop:2}}>Share routine, feeding info &amp; safe sleep with a babysitter</div>
               </div>
             </button>
@@ -14048,7 +14048,7 @@ function App(){
               <button onClick={()=>{haptic();setShowCarerReview(true);}} style={{display:"flex",alignItems:"center",gap:14,background:"rgba(123,104,238,0.06)",border:"1.5px solid rgba(123,104,238,0.2)",borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
                 <span style={{fontSize:24}}>📋</span>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Carer Activity</div>
+                  <div style={{display:"flex",alignItems:"center",gap:4,fontSize:15,fontWeight:700,color:C.deep}}>Carer Activity <HelpBtn title="Carer Activity" body={"When someone uses the Carer Portal (via the QR code on your Care Guide), their logged feeds, naps, and nappy changes appear here.\n\nTap to review each entry. Accept adds it to "+(babyName||"baby")+"'s day log. Dismiss removes it. You're always in control — nothing goes into your data without your approval."}/></div>
                   <div style={{fontSize:12,color:C.lt,marginTop:2}}>Review {carerEntries.length} entr{carerEntries.length===1?"y":"ies"} logged by your carer</div>
                 </div>
                 <span style={{background:"#7B68EE",color:"white",fontSize:12,fontWeight:700,borderRadius:99,padding:"3px 10px",minWidth:24,textAlign:"center"}}>{carerEntries.length}</span>
@@ -15689,8 +15689,9 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
             <button onClick={()=>{
               haptic();
               const html = generateCarerCardHTML();
+              const closeBar = `<div style="position:sticky;top:0;z-index:99;background:#FFFCF9;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0e8e0"><button onclick="window.close();history.back();" style="padding:8px 20px;border-radius:99px;border:none;background:#C07088;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif">← Back to App</button><button onclick="window.print()" style="padding:8px 20px;border-radius:99px;border:1.5px solid #f0e8e0;background:white;color:#5B4F5F;font-size:14px;font-weight:600;cursor:pointer;font-family:-apple-system,sans-serif">🖨️ Print</button></div>`;
               const w = (()=>{try{return window.open("","_blank");}catch{return null;}})();
-              if(w){ w.document.write(html); w.document.close(); }
+              if(w){ w.document.write(html.replace("<body>","<body>"+closeBar)); w.document.close(); }
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
               🖨️ Preview / Print
             </button>
