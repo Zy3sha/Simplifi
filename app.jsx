@@ -1373,7 +1373,7 @@ function App(){
   const[paywallContext,setPaywallContext]=useState(""); // which trigger
   const paywallShownRef=useRef(false); // max 1 per session
   const[trialStart]=useState(()=>{try{return localStorage.getItem("obubba_trial_start")||null;}catch{return null;}});
-  const trialActive = trialStart && (Date.now() - new Date(trialStart).getTime()) < 7*24*60*60*1000;
+  const trialActive = trialStart && (Date.now() - new Date(trialStart).getTime()) < 14*24*60*60*1000;
   const trialExpired = trialStart && !trialActive;
   // Trial banner dismissed today?
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
@@ -1662,18 +1662,32 @@ function App(){
       style={{width:20,height:20,borderRadius:"50%",border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.lt,fontSize:11,fontWeight:700,cursor:_cP,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:4}}>?</button>
   );
   // Premium gate — wraps premium features. When isPremium=false, shows blurred preview + upgrade prompt
-  const PremiumGate = ({children, feature}) => {
+  const PremiumGate = ({children, feature, context}) => {
     if (isPremium || !STORE_READY) return children;
     return (
       <div style={{position:"relative",overflow:"hidden",borderRadius:16,marginBottom:12}}>
         <div style={{filter:"blur(4px)",opacity:0.5,pointerEvents:"none"}}>{children}</div>
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"rgba(255,252,249,0.7)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",borderRadius:16,padding:16}}>
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:isDark?"rgba(8,14,28,0.75)":"rgba(255,252,249,0.75)",backdropFilter:"blur(2px)",WebkitBackdropFilter:"blur(2px)",borderRadius:16,padding:16}}>
           <div style={{fontSize:28,marginBottom:8}}>🔒</div>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:4,textAlign:"center"}}>{feature||"Premium Feature"}</div>
-          <div style={{fontSize:12,color:C.lt,marginBottom:10,textAlign:"center"}}>Upgrade to unlock predictions, insights, and more</div>
-          <button onClick={()=>showToast("🚀 Premium coming soon!",2000,1)} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:99,padding:"9px 22px",color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>Upgrade</button>
+          <div style={{fontSize:12,color:C.lt,marginBottom:10,textAlign:"center"}}>Unlock personalised guidance based on {babyName||"your baby"}'s data</div>
+          <button onClick={()=>triggerPaywall(context||"general")} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:99,padding:"9px 22px",color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>Unlock Premium</button>
         </div>
       </div>
+    );
+  };
+  // Inline teaser for locked premium features — shows value without hiding
+  const PremiumTeaser = ({icon, label, description, context}) => {
+    if (isPremium || !STORE_READY) return null;
+    return (
+      <button onClick={()=>triggerPaywall(context||"general")} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{fontSize:22,opacity:0.5}}>{icon||"🔒"}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:600,color:C.deep}}>{label} <span style={{fontSize:11,color:C.ter,fontWeight:700}}>PREMIUM</span></div>
+          {description && <div style={{fontSize:12,color:C.lt,marginTop:2}}>{description}</div>}
+        </div>
+        <div style={{fontSize:11,fontWeight:600,color:C.ter}}>Unlock →</div>
+      </button>
     );
   };
   const theme = babySex==="girl"
@@ -2882,7 +2896,7 @@ function App(){
       document.removeEventListener("resume", snapAllTimers);
       clearInterval(periodicSnap);
     };
-  },[napOn, napPaused, napStartT, breastActive, breastStartTime]);
+  },[napOn, napPaused, napStartT, breastActive, breastStartTime, breastSide]);
   useEffect(()=>{
     if(breastActive && breastSide){
       breastRef.current=setInterval(()=>{
@@ -3187,17 +3201,16 @@ function App(){
     let _feedNappyHint = null;
     try {
       const _hints = [];
-      // Check today's entries AND yesterday's night entries for last feed/nappy
+      // Find last feed and nappy — prioritise TODAY's entries, only fall back to yesterday's night entries
       const _prevDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
-      const _allRecent = [..._today, ...(days[_prevDay]||[]).filter(e=>e.night)];
-      // Sort by time — only wrap times before 5am (genuine night entries), not all AM times
-      const _sortByRecent = (a,b) => {
-        const ta=timeVal(a), tb=timeVal(b);
-        const ka=ta<5*60?ta+1440:ta, kb=tb<5*60?tb+1440:tb;
-        return ka-kb;
-      };
-      const _lastFeed = [..._allRecent.filter(e=>(e.type==="feed"||((e.type==="wake")&&e.night&&(e.amount||0)>0))&&e.time)].sort(_sortByRecent).pop();
-      const _lastNappy = [..._allRecent.filter(e=>e.type==="poop"&&e.time)].sort(_sortByRecent).pop();
+      const _todayFeeds = _today.filter(e=>(e.type==="feed")&&e.time&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+      const _todayNappies = _today.filter(e=>e.type==="poop"&&e.time&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+      // Yesterday's night entries (sorted by time, ascending)
+      const _nightFeeds = [...(_today.filter(e=>e.type==="feed"&&e.night&&e.time)), ...((days[_prevDay]||[]).filter(e=>e.type==="feed"&&e.night&&e.time))].sort((a,b)=>timeVal(a)-timeVal(b));
+      const _nightNappies = [...(_today.filter(e=>e.type==="poop"&&e.night&&e.time)), ...((days[_prevDay]||[]).filter(e=>e.type==="poop"&&e.night&&e.time))].sort((a,b)=>timeVal(a)-timeVal(b));
+      // Most recent = last today daytime entry, or if none, last night entry
+      const _lastFeed = _todayFeeds.length ? _todayFeeds[_todayFeeds.length-1] : (_nightFeeds.length ? _nightFeeds[_nightFeeds.length-1] : null);
+      const _lastNappy = _todayNappies.length ? _todayNappies[_todayNappies.length-1] : (_nightNappies.length ? _nightNappies[_nightNappies.length-1] : null);
 
       // Calculate baby's actual average feed interval from recent days (last 5 days)
       let _avgFeedInterval = null;
@@ -3290,12 +3303,31 @@ function App(){
     let _rightNow = _expandedRN ? ("Right now: " + _expandedRN.text) : null;
 
     if (napOn) {
-      _dot = "#7B68EE"; _label = "Sleeping peacefully";
       const _napMins = Math.floor(napSec / 60);
-      const _expDur = Math.round((_profile.idealNapDurMin + _profile.idealNapDurMax) / 2);
-      const _rem = Math.max(0, _expDur - _napMins);
-      _timing = "Sleeping " + _napMins + " min" + (_rem > 0 ? " · Expected wake ~" + _rem + " min" : " · May wake soon");
-      if (_feedNappyHint) _feedNappyHint = "When " + _name + " wakes, " + _feedNappyHint;
+      // Check if this is a bridge nap
+      const _activeEntry = napEntryId ? _today.find(e => e.id === napEntryId) : null;
+      const _isBridgeNap = _activeEntry && _activeEntry.isBridge;
+      
+      if (_isBridgeNap) {
+        _dot = "#D4A855"; _label = "Bridge nap 🌉";
+        const _bridgeTarget = 20;
+        const _rem = Math.max(0, _bridgeTarget - _napMins);
+        if (_napMins < _bridgeTarget) {
+          _timing = "Sleeping " + _napMins + " min · Gently wake " + _name + " around " + _bridgeTarget + " min";
+        } else if (_napMins < 30) {
+          _timing = "Sleeping " + _napMins + " min · Time to gently wake " + _name;
+          _rightNow = "Right now: " + _bridgeTarget + " min is up — a gentle wake helps keep bedtime on track";
+        } else {
+          _timing = "Sleeping " + _napMins + " min · That's OK — we'll nudge bedtime a little later";
+        }
+        if (_feedNappyHint) _feedNappyHint = "When " + _name + " wakes, " + _feedNappyHint;
+      } else {
+        _dot = "#7B68EE"; _label = "Sleeping peacefully";
+        const _expDur = Math.round((_profile.idealNapDurMin + _profile.idealNapDurMax) / 2);
+        const _rem = Math.max(0, _expDur - _napMins);
+        _timing = "Sleeping " + _napMins + " min" + (_rem > 0 ? " · Expected wake ~" + _rem + " min" : " · May wake soon");
+        if (_feedNappyHint) _feedNappyHint = "When " + _name + " wakes, " + _feedNappyHint;
+      }
     } else if (_hasBed) {
       _dot = "#7B68EE"; _label = "Sleeping for the night";
       const _bedEntry2 = _today.find(e => e.type === "sleep" && !e.night);
@@ -3376,6 +3408,25 @@ function App(){
       _whyLines.push("🔒 " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see it.");
     }
     _whyLines.push("Sleep timing based on NHS Start4Life, AASM (American Academy of Sleep Medicine), and WHO Infant Health guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
+
+    // ── Premium gate: strip prediction details for free users ──
+    if (STORE_READY && !isPremium && !trialActive) {
+      // Free users see: basic awake time + generic wake window range
+      // NOT: personalised nap times, bridge nap suggestions, bedtime countdowns
+      if (_dot === "#D4A855" || _dot === "#E8937A") {
+        // Nap approaching / overdue / bridge nap → generic
+        _timing = "Awake " + hm(_awakeMin) + " · Typical wake window: " + _ww.label;
+        _label = _awakeMin > _ww.max ? "Getting tired" : "Watch for sleepy cues";
+      }
+      if (_label === "All naps complete" || _label === "Bridge nap suggested") {
+        _timing = _napsDone + " nap" + (_napsDone!==1?"s":"") + " done today · Awake " + hm(_awakeMin);
+        _label = "Naps done for today";
+      }
+      if (_label === "Winding down for bed") {
+        _timing = "Awake " + hm(_awakeMin) + " · Bedtime approaching";
+      }
+      _rightNow = null;
+    }
 
     return (
       <div className="glass-card prio-glow" style={{padding:"18px 16px",marginBottom:12}}>
@@ -3460,8 +3511,6 @@ function App(){
   // Auto-reclassify night entries whenever entries or selected day changes
   React.useEffect(()=>{
     if(!entries.length) return;
-    const hasBed = entries.some(e=>e.type==="sleep"&&!e.night);
-    if(!hasBed) return;
     const prevD = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().split("T")[0];})();
     const reclassified = autoClassifyNight([...entries], days[prevD]||null);
     let changed = false;
@@ -7065,17 +7114,23 @@ function App(){
 
     const bedtimes = sorted.filter(e => e.type === "sleep" && !e.night);
     let bedtime = bedtimes.length ? bedtimes[bedtimes.length-1].time : null;
+    let usingPrevDayBedtime = false;
 
     // Phantom-entry fix: if no bedtime logged today, fall back to previous day's bedtime
-    // so early-morning entries (e.g. 3am feed) still get classified as night:true
+    // BUT only use it to classify midnight–5am entries (the overnight carry-over)
+    // NEVER use yesterday's bedtime to classify today's daytime/evening entries
     if (!bedtime && prevDayEntries) {
       const prevBeds = prevDayEntries.filter(e => e.type === "sleep" && !e.night);
-      if (prevBeds.length) bedtime = prevBeds[prevBeds.length-1].time;
+      if (prevBeds.length) {
+        bedtime = prevBeds[prevBeds.length-1].time;
+        usingPrevDayBedtime = true;
+      }
     }
-    // If still no bedtime, use a safe default of 19:00 for classification purposes
-    if (!bedtime) {
-      // Only reclassify entries that are clearly overnight (midnight–04:59)
-      // NEVER create phantom classifications for 5am+ entries
+
+    // If no bedtime at all, or using previous day's bedtime:
+    // Only reclassify entries that are clearly overnight (midnight–04:59)
+    // NEVER classify 5am+ entries as night based on stale/missing bedtime
+    if (!bedtime || usingPrevDayBedtime) {
       return entries.map(e => {
         if (e.nightLocked) return e;
         if (e.type !== "wake" && e.type !== "feed") return e;
@@ -7106,6 +7161,14 @@ function App(){
 
       const tMins = timeVal({time: t});
       const h = parseInt(t.split(":")[0]);
+
+      // HARD SAFETY: entries between 5am and 8pm are NEVER night
+      // (bedtime before 8pm for a baby is rare; even if logged, evening feeds before bed are daytime)
+      if (h >= 5 && h < 20 && !e.nightLocked) {
+        if (e.night) return {...e, night: false};
+        return e;
+      }
+
       const afterBed = tMins > bedMins;
 
       // Grace period: feeds within 30 mins of bedtime are likely settling/dream feeds, not night wakes
@@ -7114,12 +7177,10 @@ function App(){
       if (inGracePeriod) return e; // keep as daytime
 
       const morningMins = morningWakeTime ? timeVal({time: morningWakeTime}) : 6*60;
-      const crossMidnight = tMins < bedMins && tMins < morningMins && h >= 0 && h < 6;
+      const crossMidnight = tMins < bedMins && tMins < morningMins && h >= 0 && h < 5;
 
       const shouldBeNight = afterBed || crossMidnight;
 
-      // isMorningOrAfter only applies to early-morning entries (before bedtime),
-      // NOT to entries after bedtime — those are always night
       const isMorningOrAfter = morningWakeTime && tMins >= morningMins && tMins <= bedMins;
 
       if (shouldBeNight && !isMorningOrAfter) return {...e, night: true};
@@ -8129,7 +8190,7 @@ function App(){
     const entryId=uid();
     // Log nap entry immediately with start time (end will be filled when timer stops)
     setDays(d=>{
-      const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,end:t,duration:0,night:false,note:"",_active:true}];
+      const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,end:t,duration:0,night:false,note:"",_active:true,isBridge:!!bridgeNapScheduled}];
       const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
       return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
     });
@@ -8410,8 +8471,16 @@ function App(){
     if (durMins > 0 && !isNightTime && !hasBedtime && age) {
       const w = age.totalWeeks;
       const napProfile = getAgeNapProfile(w);
-      // 4-month regression awareness (14-20 weeks)
-      if (durMins < 30 && w >= 14 && w <= 22) {
+      // Check if this was a bridge nap
+      const _wasBridge = napEntryId && (days[selDay]||[]).some(e => e.id === napEntryId && e.isBridge);
+      if (_wasBridge) {
+        if (durMins <= 25) {
+          setTimeout(()=>showToast("🌉 Perfect bridge nap! Bedtime should go smoothly tonight",3000,1),500);
+        } else {
+          setTimeout(()=>showToast("🌉 Bridge nap went a bit long — that's OK! We'll nudge bedtime slightly later to keep things balanced",4000,2),500);
+        }
+      } else if (durMins < 30 && w >= 14 && w <= 22) {
+        // 4-month regression awareness (14-20 weeks)
         setTimeout(()=>showToast("💡 Short naps are very common during the 4-month sleep cycle change — this is temporary and a sign of healthy brain development",5000,2),500);
       } else if (durMins < 30 && w >= 17) {
         // Overtired/undertired diagnostic
@@ -10292,19 +10361,23 @@ function App(){
             )}
             {/* Active nap timer */}
             {napOn && (()=>{
-              const napWarn = napSec >= 14400; // 4h — urgent
-              const napCaution = napSec >= 10800; // 3h — caution
-              const pillBg = napPaused ? "var(--card-bg-solid)" : napWarn ? "#e8574a" : napCaution ? C.gold : C.mint;
-              const pillBorder = napPaused ? `2px solid ${napCaution?C.gold:C.mint}` : "2px solid transparent";
+              // Check if this is a bridge nap
+              const _isBridgeTimer = napEntryId && (days[selDay]||[]).some(e => e.id === napEntryId && e.isBridge);
+              const napWarn = _isBridgeTimer ? napSec >= 1800 : napSec >= 14400; // Bridge: 30m, Normal: 4h
+              const napCaution = _isBridgeTimer ? napSec >= 1200 : napSec >= 10800; // Bridge: 20m, Normal: 3h
+              const pillBg = napPaused ? "var(--card-bg-solid)" : napWarn ? "#e8574a" : napCaution ? C.gold : (_isBridgeTimer ? "#D4A855" : C.mint);
+              const pillBorder = napPaused ? `2px solid ${napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)}` : "2px solid transparent";
+              const bridgeIcon = _isBridgeTimer ? "🌉" : "";
+              const cautionLabel = _isBridgeTimer && napCaution && !napWarn ? "Gently wake" : (napCaution && !napPaused ? "Tap to stop" : "");
               return (
               <div style={{position:"relative"}}>
               <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:5,background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP,animation:napWarn?"pulse 1s infinite":"none"}}>
-                <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?(napCaution?C.gold:C.mint):"white"}}>{napPaused?"⏸":napWarn?"⚠️":napCaution?"⏰":"😴"} {fmtSec(napSec)}</span>
-                {napCaution && !napPaused && <span style={{fontSize:10,color:"rgba(255,255,255,0.8)",fontFamily:_fM}}>Tap to stop</span>}
-                <button onClick={(e)=>{e.stopPropagation();haptic();setShowNapStartEdit(!showNapStartEdit);}} style={{background:napPaused?(napCaution?C.gold+"30":"rgba(111,168,152,0.15)"):"rgba(255,255,255,0.2)",border:_bN,borderRadius:99,padding:"3px 6px",fontSize:10,color:napPaused?(napCaution?C.gold:C.mint):"white",cursor:_cP,fontWeight:600}}>
+                <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"white"}}>{napPaused?"⏸":napWarn?"⚠️":napCaution?"⏰":(_isBridgeTimer?"🌉":"😴")} {fmtSec(napSec)}</span>
+                {cautionLabel && !napPaused && <span style={{fontSize:10,color:"rgba(255,255,255,0.8)",fontFamily:_fM}}>{cautionLabel}</span>}
+                <button onClick={(e)=>{e.stopPropagation();haptic();setShowNapStartEdit(!showNapStartEdit);}} style={{background:napPaused?(napCaution?C.gold+"30":"rgba(111,168,152,0.15)"):"rgba(255,255,255,0.2)",border:_bN,borderRadius:99,padding:"3px 6px",fontSize:10,color:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"white",cursor:_cP,fontWeight:600}}>
                   ✎
                 </button>
-                <button onClick={(e)=>{e.stopPropagation();haptic();napPaused?resumeNap():pauseNap();}} style={{background:napPaused?(napCaution?C.gold:C.mint):"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"3px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>
+                <button onClick={(e)=>{e.stopPropagation();haptic();napPaused?resumeNap():pauseNap();}} style={{background:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"3px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>
                   {napPaused?"▶":"⏸"}
                 </button>
               </div>
@@ -10408,6 +10481,34 @@ function App(){
                 );
               }
               const isBed = bedCountdown !== null;
+              // Premium gate: countdown pill shows live countdown for premium, basic info for free
+              if (STORE_READY && !isPremium && !trialActive) {
+                // Free: show basic awake time or generic wake window
+                const _wwLabel = age ? getWakeWindow(age.totalWeeks).label : "";
+                const _todayE2 = (days[selDay]||[]).filter(e=>!e.night);
+                const _wakeE2 = _todayE2.find(e=>e.type==="wake");
+                const _napsE2 = _todayE2.filter(e=>e.type==="nap"&&e.end);
+                let _lastAwake2 = _wakeE2 ? timeVal(_wakeE2) : null;
+                _napsE2.forEach(n=>{if(n.end){const t=timeVal({time:n.end});if(t>(_lastAwake2||0))_lastAwake2=t;}});
+                const _nowM2 = new Date().getHours()*60+new Date().getMinutes();
+                const _awakeMins2 = _lastAwake2!==null ? _nowM2 - _lastAwake2 : 0;
+                if (!_wakeE2) {
+                  return (
+                    <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
+                      style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:C.ter}}>
+                      ☀️ Log wake
+                    </button>
+                  );
+                }
+                return (
+                  <button onClick={()=>triggerPaywall("nap_prediction")}
+                    style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontFamily:_fM}}>
+                    <span style={{fontSize:13}}>⏱️</span>
+                    <span style={{fontSize:13,fontWeight:600,color:C.mid}}>Awake {hm(_awakeMins2)}</span>
+                    <span style={{fontSize:10,color:C.lt}}>· WW {_wwLabel}</span>
+                  </button>
+                );
+              }
               // Check if bridge nap is forced (wake window would be unsafe)
               const _bedPred = bedtimePrediction();
               if (isBed && _bedPred?.forceBridge && !bridgeNapScheduled) {
@@ -11268,15 +11369,25 @@ function App(){
               </button>
               <div style={{display:todayPlanOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 12px 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
 
+              {/* Premium gate for Today's Plan */}
+              {STORE_READY && !isPremium && !trialActive && todayPlanOpen && (
+                <div style={{padding:"16px 12px",textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>📋</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:6}}>Today's Full Plan</div>
+                  <div style={{fontSize:12,color:C.lt,marginBottom:12,lineHeight:1.5}}>See predicted nap times, bridge naps, and bedtime based on {babyName||"your baby"}'s rhythm</div>
+                  <button onClick={()=>triggerPaywall("today_plan")} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:99,padding:"10px 24px",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>Unlock Today's Plan</button>
+                </div>
+              )}
+
               {/* Tomorrow's schedule — premium teaser */}
-              {STORE_READY && !isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (
+              {STORE_READY && !isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (isPremium || trialActive) && (
                 <button onClick={()=>triggerPaywall("tomorrow")} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
                   📋 Plan ahead — see tomorrow's predicted schedule →
                 </button>
               )}
 
-              {/* Today's Plan — completed events + full day projection */}
-              {(()=>{
+              {/* Today's Plan — completed events + full day projection (premium or trial only) */}
+              {(isPremium || trialActive || !STORE_READY) && (()=>{
                 if (!age) return null;
                 const todayEntries = days[selDay] || [];
                 const wake = todayEntries.find(e => e.type === "wake" && !e.night);
@@ -11499,7 +11610,7 @@ function App(){
                   // Activity label: "time - Activity (type)" format
                   const actLabel = (() => {
                     if (e.type === "nap" && e.start && e.end) {
-                      return `${fmt12(e.start)}-${fmt12(e.end)} - Nap`;
+                      return `${fmt12(e.start)}-${fmt12(e.end)} - ${e.isBridge ? "Bridge Nap 🌉" : "Nap"}`;
                     }
                     const timeStr = e.time || e.start || "";
                     const timeDisplay = timeStr ? fmt12(timeStr) : "";
@@ -15136,25 +15247,35 @@ function App(){
             <button onClick={()=>setShowPaywall(false)} style={{position:"absolute",top:14,right:14,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP}}>✕</button>
             <div style={{fontSize:36,marginBottom:12}}>✨</div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:8}}>Understand {babyName||"baby"}'s rhythm</div>
-            <div style={{fontSize:14,color:C.mid,lineHeight:1.6,marginBottom:20}}>
-              {paywallContext==="why" ? "See personalised insights based on " + (babyName||"baby") + "'s unique patterns."
+            <div style={{fontSize:14,color:C.mid,lineHeight:1.6,marginBottom:6}}>
+              {paywallContext==="nap_prediction" ? "See exactly when " + (babyName||"baby") + " should nap next — predicted from their real patterns."
+              : paywallContext==="bedtime" ? "Know the best bedtime tonight based on " + (babyName||"baby") + "'s naps and sleep pressure."
+              : paywallContext==="crying" ? "See ranked causes based on " + (babyName||"baby") + "'s actual data — not just generic suggestions."
+              : paywallContext==="today_plan" ? "See the full predicted schedule with nap times, bridge naps and bedtime."
+              : paywallContext==="sleep_analysis" ? "Understand " + (babyName||"baby") + "'s sleep patterns like a sleep consultant would."
               : paywallContext==="weekly" ? "Track how " + (babyName||"baby") + "'s patterns are evolving week by week."
               : paywallContext==="activities" ? "Unlock the full activity library to support " + (babyName||"baby") + "'s development."
               : paywallContext==="tomorrow" ? "Plan ahead with tomorrow's predicted schedule."
-              : "Unlock deeper insights, personalised predictions, and the full activity library."}
+              : paywallContext==="growth" ? "See " + (babyName||"baby") + "'s growth on WHO percentile charts."
+              : paywallContext==="partner" ? "Share tracking with your partner so you're both in sync."
+              : paywallContext==="export" ? "Export " + (babyName||"baby") + "'s data to share with your health visitor or GP."
+              : paywallContext==="trial" ? "Your free trial has ended. Keep the insights that help you understand " + (babyName||"baby") + "."
+              : "Unlock personalised predictions, sleep intelligence, and insights based on " + (babyName||"baby") + "'s real data."}
             </div>
+            <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:18}}>You're seeing basic insights — unlock the full picture</div>
             <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
-              <button onClick={()=>{setShowPaywall(false);showToast("🚀 Premium coming soon!",2000,1);}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,"+C.ter+",#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP}}>
-                Try free for 7 days
+              <button onClick={()=>{setShowPaywall(false);if(window._purchases)window._purchases.purchase&&window._purchases.getOfferings().then(o=>o&&o.annual&&window._purchases.purchase(o.annual));else showToast("🚀 Premium coming soon!",2000,1);}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,"+C.ter+",#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP}}>
+                Try free for 14 days
               </button>
-              <div style={{fontSize:12,color:C.lt}}>Then £3.99/month or £29.99/year</div>
+              <div style={{fontSize:12,color:C.lt}}>Then £4.99/month or £29.99/year</div>
               <div style={{fontSize:11,color:C.lt}}>Less than a coffee a month ☕ · Cancel anytime</div>
             </div>
             <div style={{display:"flex",gap:12,justifyContent:"center",fontSize:11,color:C.lt}}>
-              <span>£3.99/mo</span>
-              <span style={{color:C.ter,fontWeight:700}}>£29.99/yr (save 37%)</span>
+              <span>£4.99/mo</span>
+              <span style={{color:C.ter,fontWeight:700}}>£29.99/yr (save 50%)</span>
               <span>£59.99 lifetime</span>
             </div>
+            {window._purchases && <button onClick={()=>{setShowPaywall(false);window._purchases.restore().then(r=>{if(r.isPremium)showToast("✅ Premium restored!",2000,1);else showToast("No active subscription found",2000,1);});}} style={{marginTop:12,background:"none",border:"none",color:C.lt,fontSize:11,cursor:_cP,textDecoration:"underline"}}>Restore purchases</button>}
           </div>
         </div>
       )}
@@ -15461,8 +15582,13 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
 
       {/* Why Is My Baby Crying? — helper sheet */}
       {showCryingHelper&&(()=>{
-        const reasons = getCryingAnalysis();
-        const topScore = reasons.length ? reasons[0].score : 0;
+        const _fullReasons = getCryingAnalysis();
+        const _isFreeUser = STORE_READY && !isPremium && !trialActive;
+        // Free: show top 3 reasons but strip personalised data, scores, ranking
+        const reasons = _isFreeUser ? _fullReasons.slice(0,3).map(r => ({
+          ...r, detail: r.action, score: 0, urgency: "low"
+        })) : _fullReasons;
+        const topScore = _isFreeUser ? 0 : (reasons.length ? reasons[0].score : 0);
         const lowConf = topScore < 50;
         return (
         <div onPointerDown={e=>{if(e.target===e.currentTarget){setShowCryingHelper(false);setCryingResult(null);}}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
