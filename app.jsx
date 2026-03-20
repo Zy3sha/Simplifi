@@ -11176,7 +11176,27 @@ function App(){
               })()}
 
               <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:4}}>
-                <HelpBtn title="Today's Summary" body={"These numbers update as you log throughout the day. Here's a rough guide for " + fmtAge(age) + ":\n\n🍼 Milk intake — Newborns: 150–200ml per kg per day. By 6 months: roughly 600–900ml total. This varies a lot between babies and feed types.\n\n💩 Nappies — Expect 6+ wet nappies in 24 hours (a sign of good hydration). Dirty nappies vary widely — breastfed babies can go days between poos after 6 weeks.\n\n😴 Day sleep — Newborns: 4–5 hours across many naps. 3–6 months: 3–4 hours across 3–4 naps. 6–12 months: 2–3 hours across 2–3 naps.\n\n⏱️ Nap time — Short naps (30–45 min) are completely normal under 6 months. Naps often lengthen naturally around 5–6 months.\n\nThese are general ranges, not targets. Every baby is different — if " + (babyName||"baby") + " is content, feeding well, and gaining weight, you're doing great.\n\n💬 If anything concerns you, your " + _doctor + " or health visitor is always happy to help."}/>
+                <HelpBtn title="Today's Summary" body={(()=>{
+                  const _w = age ? age.totalWeeks : 0;
+                  const _n = babyName || "baby";
+                  const _milkTip = _w < 6 ? "🍼 Milk — Around 150–200ml per kg of body weight per day. Little tummies empty quickly, so frequent feeds are normal."
+                    : _w < 13 ? "🍼 Milk — Roughly 150–200ml per kg per day, typically 5–8 feeds. " + _n + " may start spacing feeds out a little."
+                    : _w < 26 ? "🍼 Milk — Around 600–900ml total per day across 4–6 feeds. This varies a lot between babies."
+                    : _w < 52 ? "🍼 Milk — Around 500–700ml per day as solids increase. Milk is still the main source of nutrition until 12 months."
+                    : "🍼 Milk — Roughly 350–500ml per day alongside meals. Whole cow's milk is fine from 12 months.";
+                  const _nappyTip = _w < 6 ? "💩 Nappies — At least 6 wet nappies in 24 hours. Frequent poos are normal — some babies poo after every feed."
+                    : _w < 26 ? "💩 Nappies — 6+ wet nappies a day. Breastfed babies can go up to a week between poos after 6 weeks — completely normal if the poo is soft."
+                    : "💩 Nappies — 6+ wet nappies a day. Poo may change colour and texture with new foods — this is normal.";
+                  const _sleepTip = _w < 6 ? "😴 Day sleep — 4–5 hours across many short naps. Newborn sleep is unpredictable and that's okay."
+                    : _w < 13 ? "😴 Day sleep — 3.5–5 hours across 4–5 naps. Naps are often short (30–45 min) — this is completely normal."
+                    : _w < 26 ? "😴 Day sleep — 2.5–3.5 hours across 3 naps. Some naps may start lengthening around now."
+                    : _w < 39 ? "😴 Day sleep — 2–3 hours across 2–3 naps. The third nap often drops around 7–8 months."
+                    : _w < 52 ? "😴 Day sleep — 2–2.5 hours across 2 naps. Some babies move to one nap around 12–15 months."
+                    : "😴 Day sleep — 1.5–2.5 hours, usually 1 nap. If " + _n + " is resisting the second nap, they may be ready for one.";
+                  const _napLen = _w < 26 ? "⏱️ Nap length — Short naps (30–45 min) are completely normal at this age. They often lengthen around 5–6 months."
+                    : "⏱️ Nap length — Naps of 1–2 hours are typical. The odd shorter nap is nothing to worry about.";
+                  return "These numbers update as you log throughout the day. Here's what's typical for " + fmtAge(age) + ":\n\n" + _milkTip + "\n\n" + _nappyTip + "\n\n" + _sleepTip + "\n\n" + _napLen + "\n\nThese are general ranges, not targets. Every baby is different — if " + _n + " is content, feeding well, and gaining weight, you're doing great.\n\n💬 If anything concerns you, your " + _doctor + " or health visitor is always happy to help.";
+                })()}/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
