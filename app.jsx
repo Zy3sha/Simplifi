@@ -2015,6 +2015,33 @@ function App(){
     showToast("Entry removed",1500,0);
   }
 
+  function endCarerSession() {
+    if (!backupCode || !window._fb) return;
+    try {
+      const {db, doc, setDoc, serverTimestamp} = window._fb;
+      setDoc(doc(db, "carer_logs", backupCode, "_meta", "session"), {
+        ended: true,
+        endedAt: serverTimestamp(),
+        endedBy: window._fbUid || "parent"
+      }).then(() => {
+        showToast("🔒 Carer session ended", 2000, 1);
+      }).catch(e => {
+        console.error("End session error:", e);
+        showToast("Couldn't end session — check connection", 2000, 2);
+      });
+    } catch(e) { showToast("Couldn't end session", 2000, 2); }
+  }
+
+  function restartCarerSession() {
+    if (!backupCode || !window._fb) return;
+    try {
+      const {db, doc, deleteDoc} = window._fb;
+      deleteDoc(doc(db, "carer_logs", backupCode, "_meta", "session")).then(() => {
+        showToast("✓ Carer portal is open again", 2000, 1);
+      }).catch(() => {});
+    } catch(e) {}
+  }
+
   const [restoreDone, setRestoreDone] = React.useState(false);
 
   const restoreRanRef = React.useRef(false);
@@ -10562,7 +10589,7 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);requestAnimationFrame(()=>{requestAnimationFrame(()=>{const el=document.querySelector("[data-actions-grid]");if(el){el.scrollIntoView({behavior:"smooth",block:"start"});}else{openLogPanel("feed");}});});}},
+                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);setTimeout(()=>{const el=document.getElementById("detail-log-grid");if(el){el.scrollIntoView({behavior:"smooth",block:"start"});}else{openLogPanel("feed");}},350);}},
                 ].map(({emoji,label,action,longAction})=>{
                   let _lpTimer = null;
                   let _lpFired = false;
@@ -10940,7 +10967,7 @@ function App(){
                 </div>
               )}
               {/* 3. Quick actions */}
-              <div data-actions-grid="true" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
+              <div data-actions-grid="true" id="detail-log-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
                   {id:"nappy", icon:"💩", label:"Nappy"},
@@ -14066,6 +14093,15 @@ function App(){
                   <div style={{fontSize:12,color:C.lt,marginTop:2}}>Review {carerEntries.length} entr{carerEntries.length===1?"y":"ies"} logged by your carer</div>
                 </div>
                 <span style={{background:"#7B68EE",color:"white",fontSize:12,fontWeight:700,borderRadius:99,padding:"3px 10px",minWidth:24,textAlign:"center"}}>{carerEntries.length}</span>
+              </button>
+            )}
+            {backupCode&&(
+              <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the carer portal — your carer won't be able to log any more entries. You can start a new session anytime by sharing a new Care Guide.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{display:"flex",alignItems:"center",gap:14,background:"rgba(224,96,112,0.04)",border:"1.5px solid rgba(224,96,112,0.15)",borderRadius:16,padding:"14px 16px",cursor:_cP,textAlign:"left",width:"100%"}}>
+                <span style={{fontSize:24}}>🔒</span>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",alignItems:"center",gap:4,fontSize:15,fontWeight:700,color:C.deep}}>End Carer Session <HelpBtn title="End Carer Session" body={"This immediately locks the carer portal. Anyone with the QR code will see a 'Session ended' message and won't be able to log anything new.\n\nExisting entries they've already logged will stay in your Carer Activity for you to review.\n\nTo start a new session, just share a new Care Guide — it generates a fresh link."}/></div>
+                  <div style={{fontSize:12,color:C.lt,marginTop:2}}>Lock the carer portal so no more entries can be logged</div>
+                </div>
               </button>
             )}
             {backupCode&&(

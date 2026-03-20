@@ -6,59 +6,57 @@
 <title>OBubba — Carer Log</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg: #FFFCF9; --card: #fff; --border: #f0e8e0; --deep: #2C1F1A; --mid: #5B4F5F;
-  --lt: #A898AC; --ter: #C07088; --mint: #50C878; --blush: #F5E6DC; --gold: #D4A855;
-  --font: 'DM Sans', -apple-system, sans-serif; --serif: 'Playfair Display', Georgia, serif;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font); background: var(--bg); color: var(--deep); min-height: 100vh; padding: 0 0 100px; }
-.container { max-width: 480px; margin: 0 auto; padding: 20px 16px; }
-.header { text-align: center; padding: 24px 0 16px; }
-.header .emoji { font-size: 48px; margin-bottom: 8px; }
-.header h1 { font-family: var(--serif); font-size: 24px; font-weight: 700; color: var(--deep); }
-.header .sub { font-size: 13px; color: var(--lt); margin-top: 4px; }
-.header .age { font-size: 14px; color: var(--mid); margin-top: 2px; }
-.tabs { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; padding: 2px; }
-.tab { flex: 1; padding: 10px 14px; border-radius: 14px; border: 1.5px solid var(--border); background: var(--card); font-size: 14px; font-weight: 600; color: var(--mid); cursor: pointer; text-align: center; transition: all 0.15s; font-family: var(--font); white-space: nowrap; }
-.tab.active { background: var(--ter); color: white; border-color: var(--ter); }
-.card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 18px 16px; margin-bottom: 12px; }
-.card-title { font-family: var(--serif); font-size: 18px; font-weight: 700; color: var(--deep); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-.guide-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #f8f4f0; }
-.guide-row:last-child { border-bottom: none; }
-.guide-label { color: var(--lt); }
-.guide-value { font-weight: 600; color: var(--mid); }
-.guide-tip { font-size: 12px; color: var(--lt); margin-top: 8px; line-height: 1.5; font-style: italic; }
-.log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-.log-btn { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 12px; border-radius: 16px; border: 1.5px solid var(--border); background: var(--card); cursor: pointer; transition: all 0.15s; font-family: var(--font); }
-.log-btn:active { transform: scale(0.96); background: var(--blush); }
-.log-btn .icon { font-size: 28px; }
-.log-btn .label { font-size: 13px; font-weight: 600; color: var(--mid); }
-.form-section { display: none; }
-.form-section.active { display: block; }
-.form-label { font-size: 11px; font-weight: 600; color: var(--lt); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
-.form-input { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--border); font-size: 16px; font-family: var(--font); color: var(--deep); background: #faf8f5; outline: none; margin-bottom: 12px; -webkit-appearance: none; }
-.form-input:focus { border-color: var(--ter); }
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.chip { padding: 8px 16px; border-radius: 99px; border: 1.5px solid var(--border); background: var(--card); font-size: 14px; font-weight: 600; color: var(--mid); cursor: pointer; transition: all 0.15s; font-family: var(--font); }
-.chip.sel { background: var(--ter); color: white; border-color: var(--ter); }
-.submit-btn { width: 100%; padding: 14px; border-radius: 99px; border: none; background: linear-gradient(135deg, #C07088, #a85a44); color: white; font-size: 16px; font-weight: 700; cursor: pointer; font-family: var(--font); margin-top: 8px; }
-.submit-btn:active { transform: scale(0.97); }
-.cancel-btn { width: 100%; padding: 12px; border-radius: 99px; border: none; background: transparent; color: var(--lt); font-size: 14px; cursor: pointer; font-family: var(--font); margin-top: 4px; }
-.log-entry { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: #faf8f5; margin-bottom: 8px; }
-.log-entry .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.log-entry .info { flex: 1; font-size: 13px; color: var(--mid); }
-.log-entry .time { font-size: 12px; color: var(--lt); font-weight: 500; }
-.log-entry .del { background: none; border: none; color: #e06070; font-size: 18px; cursor: pointer; padding: 4px; }
-.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px); background: var(--deep); color: white; padding: 12px 24px; border-radius: 99px; font-size: 14px; font-weight: 600; transition: transform 0.3s; z-index: 999; pointer-events: none; }
-.toast.show { transform: translateX(-50%) translateY(0); }
-.loading { text-align: center; padding: 60px 20px; }
-.loading .spinner { width: 40px; height: 40px; border: 3px solid var(--blush); border-top-color: var(--ter); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.error-card { text-align: center; padding: 40px 20px; }
-.error-card .emoji { font-size: 48px; margin-bottom: 12px; }
-.powered { text-align: center; font-size: 11px; color: var(--lt); margin-top: 24px; }
-.powered a { color: var(--ter); text-decoration: none; }
+:root{--bg:#FFFCF9;--card:#fff;--border:#f0e8e0;--deep:#2C1F1A;--mid:#5B4F5F;--lt:#A898AC;--ter:#C07088;--mint:#50C878;--blush:#F5E6DC;--gold:#D4A855;--font:'DM Sans',-apple-system,sans-serif;--serif:'Playfair Display',Georgia,serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--deep);min-height:100vh;padding:0 0 100px}
+.container{max-width:480px;margin:0 auto;padding:20px 16px}
+.header{text-align:center;padding:24px 0 16px}
+.header .emoji{font-size:48px;margin-bottom:8px}
+.header h1{font-family:var(--serif);font-size:24px;font-weight:700;color:var(--deep)}
+.header .sub{font-size:13px;color:var(--lt);margin-top:4px}
+.header .age{font-size:14px;color:var(--mid);margin-top:2px}
+.tabs{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding:2px}
+.tab{flex:1;padding:10px 14px;border-radius:14px;border:1.5px solid var(--border);background:var(--card);font-size:14px;font-weight:600;color:var(--mid);cursor:pointer;text-align:center;transition:all 0.15s;font-family:var(--font);white-space:nowrap}
+.tab.active{background:var(--ter);color:white;border-color:var(--ter)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px 16px;margin-bottom:12px}
+.card-title{font-family:var(--serif);font-size:18px;font-weight:700;color:var(--deep);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.guide-row{display:flex;justify-content:space-between;padding:6px 0;font-size:14px;border-bottom:1px solid #f8f4f0}
+.guide-row:last-child{border-bottom:none}
+.guide-label{color:var(--lt)}
+.guide-value{font-weight:600;color:var(--mid)}
+.guide-tip{font-size:12px;color:var(--lt);margin-top:8px;line-height:1.5;font-style:italic}
+.log-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.log-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 12px;border-radius:16px;border:1.5px solid var(--border);background:var(--card);cursor:pointer;transition:all 0.15s;font-family:var(--font)}
+.log-btn:active{transform:scale(0.96);background:var(--blush)}
+.log-btn .icon{font-size:28px}
+.log-btn .label{font-size:13px;font-weight:600;color:var(--mid)}
+.form-section{display:none}
+.form-section.active{display:block}
+.form-label{font-size:11px;font-weight:600;color:var(--lt);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px}
+.form-input{width:100%;padding:12px 14px;border-radius:14px;border:1.5px solid var(--border);font-size:16px;font-family:var(--font);color:var(--deep);background:#faf8f5;outline:none;margin-bottom:12px;-webkit-appearance:none}
+.form-input:focus{border-color:var(--ter)}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chip{padding:8px 16px;border-radius:99px;border:1.5px solid var(--border);background:var(--card);font-size:14px;font-weight:600;color:var(--mid);cursor:pointer;transition:all 0.15s;font-family:var(--font)}
+.chip.sel{background:var(--ter);color:white;border-color:var(--ter)}
+.submit-btn{width:100%;padding:14px;border-radius:99px;border:none;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:var(--font);margin-top:8px}
+.submit-btn:active{transform:scale(0.97)}
+.cancel-btn{width:100%;padding:12px;border-radius:99px;border:none;background:transparent;color:var(--lt);font-size:14px;cursor:pointer;font-family:var(--font);margin-top:4px}
+.log-entry{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#faf8f5;margin-bottom:8px}
+.log-entry .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.log-entry .info{flex:1;font-size:13px;color:var(--mid)}
+.log-entry .time{font-size:12px;color:var(--lt);font-weight:500}
+.log-entry .del{background:none;border:none;color:#e06070;font-size:18px;cursor:pointer;padding:4px}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--deep);color:white;padding:12px 24px;border-radius:99px;font-size:14px;font-weight:600;transition:transform 0.3s;z-index:999;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.loading{text-align:center;padding:60px 20px}
+.loading .spinner{width:40px;height:40px;border:3px solid var(--blush);border-top-color:var(--ter);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-card{text-align:center;padding:40px 20px}
+.error-card .emoji{font-size:48px;margin-bottom:12px}
+.powered{text-align:center;font-size:11px;color:var(--lt);margin-top:24px}
+.powered a{color:var(--ter);text-decoration:none}
+.ended-card{text-align:center;padding:40px 20px}
+.ended-card .emoji{font-size:48px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -69,7 +67,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--deep); min-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp, onSnapshot }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, signInAnonymously }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -96,16 +94,40 @@ if (!code) {
   container.innerHTML = `<div class="error-card"><div class="emoji">🔒</div><div style="font-family:var(--serif);font-size:22px;color:var(--deep);margin-bottom:8px">No access code</div><div style="font-size:14px;color:var(--lt);line-height:1.5">Scan the QR code from the parent's OBubba app to access the care guide and log entries.</div></div>`;
 } else { init(); }
 
+// Remember accessed children in localStorage
+function getAccessedChildren() {
+  try { return JSON.parse(localStorage.getItem("obubba_carer_children_" + code) || "{}"); } catch { return {}; }
+}
+function saveAccessedChild(id, name) {
+  const stored = getAccessedChildren();
+  stored[id] = { name, lastAccessed: new Date().toISOString() };
+  try { localStorage.setItem("obubba_carer_children_" + code, JSON.stringify(stored)); } catch {}
+}
+
 async function init() {
   try {
     await signInAnonymously(auth);
+
+    // Check if session has been ended by parent
+    const sessionDoc = await getDoc(doc(db, "carer_logs", code, "_meta", "session"));
+    if (sessionDoc.exists() && sessionDoc.data().ended) {
+      container.innerHTML = `<div class="ended-card"><div class="emoji">👋</div><div style="font-family:var(--serif);font-size:22px;color:var(--deep);margin-bottom:8px">Session ended</div><div style="font-size:14px;color:var(--lt);line-height:1.5">The parent has ended this carer session. Thank you for looking after their little one!</div></div>`;
+      return;
+    }
+
+    // Listen for session end in real time
+    onSnapshot(doc(db, "carer_logs", code, "_meta", "session"), (snap) => {
+      if (snap.exists() && snap.data().ended) {
+        container.innerHTML = `<div class="ended-card"><div class="emoji">👋</div><div style="font-family:var(--serif);font-size:22px;color:var(--deep);margin-bottom:8px">Session ended</div><div style="font-size:14px;color:var(--lt);line-height:1.5">The parent has ended this carer session. Thank you for looking after their little one!</div></div>`;
+      }
+    });
+
     const snap = await getDoc(doc(db, "families", code));
     if (!snap.exists()) {
       container.innerHTML = `<div class="error-card"><div class="emoji">😕</div><div style="font-family:var(--serif);font-size:22px;color:var(--deep);margin-bottom:8px">Code not found</div><div style="font-size:14px;color:var(--lt);line-height:1.5">This care code doesn't match any family. Check with the parent for the correct QR code.</div></div>`;
       return;
     }
     const data = snap.data();
-    // Parse children — stored as JSON string
     let children = {};
     try { children = typeof data.children === "string" ? JSON.parse(data.children) : (data.children || {}); }
     catch(e) { console.warn("Parse error:", e); }
@@ -116,8 +138,11 @@ async function init() {
       return;
     }
 
-    // Pick the requested child or first
     let activeId = requestedChildId && children[requestedChildId] ? requestedChildId : childIds[0];
+
+    // Save this child as accessed
+    saveAccessedChild(activeId, children[activeId].name || "Baby");
+
     renderApp(children, activeId);
   } catch (e) {
     console.error(e);
@@ -134,7 +159,14 @@ function renderApp(allChildren, activeId) {
   const sessionId = "session_" + Date.now() + "_" + Math.random().toString(36).slice(2,8);
   let myEntries = [];
 
-  // Recent data for guide
+  // Save accessed child
+  saveAccessedChild(activeId, name);
+
+  // Build tabs from accessed children (not all children)
+  const accessed = getAccessedChildren();
+  const accessedIds = Object.keys(accessed).filter(id => allChildren[id]);
+  const showTabs = accessedIds.length > 1;
+
   const days = child.days || {};
   const dk = Object.keys(days).sort();
   const today = new Date().toISOString().split("T")[0];
@@ -152,19 +184,16 @@ function renderApp(allChildren, activeId) {
       <div class="sub">Your entries are saved for ${name}'s parent to review</div>
     </div>`;
 
-  // Child tabs if multiple children
-  if (childIds.length > 1) {
+  if (showTabs) {
     html += `<div class="tabs">`;
-    childIds.forEach(id => {
-      const c = allChildren[id];
-      const n = c.name || "Baby";
+    accessedIds.forEach(id => {
+      const n = accessed[id].name || "Baby";
       html += `<button class="tab${id===activeId?" active":""}" data-child-tab="${id}">${n}</button>`;
     });
     html += `</div>`;
   }
 
   html += `
-    <!-- How it works -->
     <div class="card" style="background:linear-gradient(135deg, rgba(123,104,238,0.04), rgba(192,112,136,0.04)); border-color: rgba(123,104,238,0.15);">
       <div class="card-title">💡 How this works</div>
       <div style="font-size:13px;color:var(--mid);line-height:1.6;">
@@ -177,7 +206,6 @@ function renderApp(allChildren, activeId) {
       </div>
     </div>
 
-    <!-- Care Guide -->
     <div class="card">
       <div class="card-title">🍼 Feeding</div>
       <div class="guide-row"><span class="guide-label">Type</span><span class="guide-value">${feedType}</span></div>
@@ -192,7 +220,6 @@ function renderApp(allChildren, activeId) {
       <div class="guide-tip">When ${name} shows sleepy cues (yawning, eye rubbing, looking away), it's nap time. A quiet, dim room helps.</div>
     </div>
 
-    <!-- Log Section -->
     <div class="card" id="log-card">
       <div class="card-title">📝 Log an Entry</div>
       <div id="log-grid" class="log-grid">
@@ -266,17 +293,14 @@ function renderApp(allChildren, activeId) {
 
   // Wire child tabs
   document.querySelectorAll("[data-child-tab]").forEach(tab => {
-    tab.addEventListener("click", () => { renderApp(allChildren, tab.dataset.childTab); });
+    tab.addEventListener("click", () => renderApp(allChildren, tab.dataset.childTab));
   });
 
-  // Default times
   const nowStr = getNowStr();
   ["feed-time","nap-start","nappy-time","note-time"].forEach(id => { const el = document.getElementById(id); if(el) el.value = nowStr; });
 
-  // Form state
   let feedType2 = "bottle", nappyType = "wet";
 
-  // Log buttons
   document.querySelectorAll(".log-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".form-section").forEach(f => f.classList.remove("active"));
@@ -300,27 +324,23 @@ function renderApp(allChildren, activeId) {
     chip.addEventListener("click", () => { document.querySelectorAll("[data-nappy]").forEach(c => c.classList.remove("sel")); chip.classList.add("sel"); nappyType = chip.dataset.nappy; });
   });
 
-  // Submit handlers
   document.getElementById("submit-feed").addEventListener("click", () => saveEntry({
-    type: "feed", feedType: feedType2, amount: parseInt(document.getElementById("feed-amount").value) || 0,
-    time: document.getElementById("feed-time").value || nowStr, note: document.getElementById("feed-note").value || ""
+    type:"feed", feedType:feedType2, amount:parseInt(document.getElementById("feed-amount").value)||0,
+    time:document.getElementById("feed-time").value||nowStr, note:document.getElementById("feed-note").value||""
   }));
-
   document.getElementById("submit-nap").addEventListener("click", () => saveEntry({
-    type: "nap", start: document.getElementById("nap-start").value || nowStr,
-    end: document.getElementById("nap-end").value || "", time: document.getElementById("nap-start").value || nowStr,
-    note: document.getElementById("nap-note").value || ""
+    type:"nap", start:document.getElementById("nap-start").value||nowStr,
+    end:document.getElementById("nap-end").value||"", time:document.getElementById("nap-start").value||nowStr,
+    note:document.getElementById("nap-note").value||""
   }));
-
   document.getElementById("submit-nappy").addEventListener("click", () => saveEntry({
-    type: "poop", poopType: nappyType, time: document.getElementById("nappy-time").value || nowStr,
-    note: document.getElementById("nappy-note").value || ""
+    type:"poop", poopType:nappyType, time:document.getElementById("nappy-time").value||nowStr,
+    note:document.getElementById("nappy-note").value||""
   }));
-
   document.getElementById("submit-note").addEventListener("click", () => {
     const text = document.getElementById("note-text").value;
     if (!text.trim()) { toast("Please add a note"); return; }
-    saveEntry({ type: "note", text, time: document.getElementById("note-time").value || nowStr });
+    saveEntry({ type:"note", text, time:document.getElementById("note-time").value||nowStr });
   });
 
   async function saveEntry(entry) {
@@ -337,15 +357,15 @@ function renderApp(allChildren, activeId) {
       renderEntries();
       document.querySelectorAll(".form-section").forEach(f => f.classList.remove("active"));
       document.getElementById("log-grid").style.display = "grid";
-      document.querySelectorAll(".form-input").forEach(i => { if (i.type !== "time") i.value = ""; });
+      document.querySelectorAll(".form-input").forEach(i => { if(i.type!=="time") i.value = ""; });
       toast("✓ Logged — " + name + "'s parent will see this");
-    } catch (e) { console.error(e); toast("Failed to save — check connection"); }
+    } catch(e) { console.error(e); toast("Failed to save — check connection"); }
   }
 
   function renderEntries() {
     const el = document.getElementById("my-entries");
     if (!myEntries.length) { el.innerHTML = `<div style="font-size:13px;color:var(--lt);text-align:center;padding:12px">No entries yet</div>`; return; }
-    el.innerHTML = myEntries.map((e, i) => {
+    el.innerHTML = myEntries.map((e,i) => {
       const icon = e.type==="feed"?"🍼":e.type==="nap"?"😴":e.type==="poop"?"💩":"📝";
       const color = e.type==="feed"?"#C07088":e.type==="nap"?"#7B68EE":e.type==="poop"?"#D4A855":"#A898AC";
       let desc = "";
@@ -358,16 +378,17 @@ function renderApp(allChildren, activeId) {
     }).join("");
     el.querySelectorAll("[data-del]").forEach(btn => {
       btn.addEventListener("click", async () => {
-        const entry = myEntries[parseInt(btn.dataset.del)];
+        const idx = parseInt(btn.dataset.del);
+        const entry = myEntries[idx];
         try { await deleteDoc(doc(db, "carer_logs", code, "entries", entry.id)); } catch(e) {}
-        myEntries.splice(parseInt(btn.dataset.del), 1);
+        myEntries.splice(idx, 1);
         renderEntries();
         toast("Entry removed");
       });
     });
   }
 
-  // Load existing entries for today
+  // Load existing entries for today for this child
   (async () => {
     try {
       const snap = await getDocs(collection(db, "carer_logs", code, "entries"));
