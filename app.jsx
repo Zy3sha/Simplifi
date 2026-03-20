@@ -8236,9 +8236,6 @@ function App(){
     }
     setBreastSide(side);
     setBreastActive(true);
-    // Remember starting side for which-side-next helper
-    setLastBreastSide(side);
-    try{localStorage.setItem("last_breast_side",side);}catch{}
   }
   function pauseBreastTimer(){setBreastActive(false);}
   function switchBreastSide(side){
@@ -8292,7 +8289,7 @@ function App(){
     showToast("🤱 Feed Logged ✓",1200,1);
     // ── Breastfeeding Support trigger ──
     const _bfSide = entry.breastR > entry.breastL ? "R" : entry.breastL > 0 ? "L" : null;
-    if (_bfSide) { setLastBreastSide(_bfSide); try{localStorage.setItem("last_breast_side",_bfSide);}catch{} }
+    if (_bfSide && totalSec >= 60) { setLastBreastSide(_bfSide); try{localStorage.setItem("last_breast_side",_bfSide);}catch{} }
     const _bfInsight = getBreastfeedingInsight(entry.time);
     if (_bfInsight && !bfSupportShownRef.current) {
       bfSupportShownRef.current = true;
@@ -10653,6 +10650,8 @@ function App(){
 
               {/* ═══ Which Side Next? ═══ */}
               {lastBreastSide && !breastStartTime && selDay===todayStr() && !bfSupport && (()=>{
+                const _todayBreast = (days[selDay]||[]).filter(e=>e.feedType==="breast"&&((e.breastL||0)+(e.breastR||0))>=1);
+                if (!_todayBreast.length) return null;
                 const _nextSide = lastBreastSide === "L" ? "Right" : "Left";
                 const _lastLabel = lastBreastSide === "L" ? "Left" : "Right";
                 return (
