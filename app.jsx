@@ -10457,23 +10457,6 @@ function App(){
               {/* ═══ HERO CARD — Bubba Rhythm ═══ */}
               {renderHeroCard()}
 
-              {/* ═══ DAY NARRATIVE — story of the day ═══ */}
-              {selDay===todayStr()&&(()=>{
-                const _narr = generateDayNarrative();
-                if (!_narr || !_narr.lines.length) return null;
-                return (
-                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:10}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                      <span style={{fontSize:13}}>{_narr.mood==="great"?"🌟":_narr.mood==="tough"?"💜":_narr.mood==="improving"?"📈":"📝"}</span>
-                      <span style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>{babyName?possessive(babyName)+" ":""}Day Story</span>
-                    </div>
-                    {_narr.lines.map((ln,i)=>(
-                      <div key={i} style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:i<_narr.lines.length-1?6:0}}>{ln}</div>
-                    ))}
-                  </div>
-                );
-              })()}
-
               {/* ═══ DISRUPTION DIAGNOSTIC — what's going on? ═══ */}
               {selDay===todayStr()&&(()=>{
                 const _diag = disruptionDiagnostic();
@@ -10589,7 +10572,7 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);setTimeout(()=>{const el=document.getElementById("detail-log-grid");if(el){el.scrollIntoView({behavior:"smooth",block:"start"});}else{openLogPanel("feed");}},350);}},
+                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);setTimeout(()=>{const el=document.getElementById("detail-log-grid");if(el){const rect=el.getBoundingClientRect();const scrollTop=window.pageYOffset||document.documentElement.scrollTop;window.scrollTo({top:scrollTop+rect.top-80,behavior:"smooth"});}else{openLogPanel("feed");}},400);}},
                 ].map(({emoji,label,action,longAction})=>{
                   let _lpTimer = null;
                   let _lpFired = false;
@@ -10935,19 +10918,9 @@ function App(){
                               : pf.daysSince + " days — keeping an eye"}
                           </div>
                         )}
-                        <button onClick={(ev)=>{ev.stopPropagation();haptic();setPoopWhyOpen(!poopWhyOpen);}} style={{background:"none",border:"none",padding:"4px 0 0",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:3,marginTop:4}}>
-                          {poopWhyOpen?"Hide":"Why?"} <span style={{fontSize:8,transform:poopWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+                        <button onClick={(ev)=>{ev.stopPropagation();haptic();setPoopWhyOpen(true);}} style={{background:"none",border:"none",padding:"4px 0 0",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:3,marginTop:4}}>
+                          Why? <span style={{fontSize:8}}>▶</span>
                         </button>
-                        {poopWhyOpen && (
-                          <div style={{marginTop:6,padding:"10px",borderRadius:10,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",fontSize:11,color:C.mid,lineHeight:1.6}}>
-                            <div style={{fontWeight:700,marginBottom:4,color:C.deep}}>What's normal?</div>
-                            <div style={{marginBottom:6}}>🤱 <strong>Breastfed babies</strong> — In the first few weeks, several poos a day is common. After about 6 weeks, breastfed babies can go anywhere from several times a day to once a week. Going up to 7 days without a poo can be completely normal as long as the poo is soft when it comes (NHS).</div>
-                            <div style={{marginBottom:6}}>🍼 <strong>Formula-fed babies</strong> — Tend to poo more regularly, usually at least every 3 days. Poo is often firmer and darker than breastfed poo. Going longer than 3 days without a poo is less common for formula-fed babies (NHS).</div>
-                            <div style={{marginBottom:6}}>🥣 <strong>After starting solids</strong> — Poo often changes colour, texture, and frequency. This is normal as their digestive system adjusts to new foods.</div>
-                            <div style={{marginBottom:6,fontStyle:"italic",color:C.lt}}>Every baby is different — what matters most is that {_pName} seems comfortable and the poo is a normal consistency when it comes.</div>
-                            <div style={{paddingTop:6,borderTop:"1px solid var(--card-border)",color:C.ter}}>💬 If {_pName} seems uncomfortable, is straining a lot, or you're worried, it's always worth having a chat with your {_doctor} or health visitor. They're there to help and would rather you ask than worry.</div>
-                          </div>
-                        )}
                       </div>
                     );
                   })()}
@@ -11883,6 +11856,23 @@ function App(){
                   <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Beautiful card for Stories & WhatsApp</span>
                 </button>
               )}
+
+              {/* ═══ DAY NARRATIVE — story of the day (bottom of page) ═══ */}
+              {selDay===todayStr()&&(()=>{
+                const _narr = generateDayNarrative();
+                if (!_narr || !_narr.lines.length) return null;
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                      <span style={{fontSize:13}}>{_narr.mood==="great"?"🌟":_narr.mood==="tough"?"💜":_narr.mood==="improving"?"📈":"📝"}</span>
+                      <span style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>{babyName?possessive(babyName)+" ":""}Day Story</span>
+                    </div>
+                    {_narr.lines.map((ln,i)=>(
+                      <div key={i} style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:i<_narr.lines.length-1?6:0}}>{ln}</div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* ═══ WELLBEING — moved to Insights per UX strategy ═══ */}
               {false && selDay===todayStr() && (()=>{
@@ -15749,6 +15739,28 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
               Close
             </button>
             </div>{/* end scroll container */}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Poop Info Modal ═══ */}
+      {poopWhyOpen&&(
+        <div onClick={()=>setPoopWhyOpen(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:400,width:"100%",maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep}}>💩 What's normal?</div>
+              <button onClick={()=>setPoopWhyOpen(false)} style={{width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+            </div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.7}}>
+              <div style={{marginBottom:10}}>🤱 <strong>Breastfed babies</strong> — In the first few weeks, several poos a day is common. After about 6 weeks, breastfed babies can go anywhere from several times a day to once a week. Going up to 7 days without a poo can be completely normal as long as the poo is soft when it comes (NHS).</div>
+              <div style={{marginBottom:10}}>🍼 <strong>Formula-fed babies</strong> — Tend to poo more regularly, usually at least every 3 days. Poo is often firmer and darker than breastfed poo. Going longer than 3 days without a poo is less common for formula-fed babies (NHS).</div>
+              <div style={{marginBottom:10}}>🥣 <strong>After starting solids</strong> — Poo often changes colour, texture, and frequency. This is normal as their digestive system adjusts to new foods.</div>
+              <div style={{marginBottom:10,fontStyle:"italic",color:C.lt}}>Every baby is different — what matters most is that {babyName||"baby"} seems comfortable and the poo is a normal consistency when it comes.</div>
+              <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(192,112,136,0.06)",border:"1.5px solid rgba(192,112,136,0.15)",color:C.ter,lineHeight:1.6}}>💬 If {babyName||"baby"} seems uncomfortable, is straining a lot, or you're worried, it's always worth having a chat with your {_doctor} or health visitor. They're there to help and would rather you ask than worry.</div>
+            </div>
+            <button onClick={()=>setPoopWhyOpen(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:16}}>
+              Got it
+            </button>
           </div>
         </div>
       )}
