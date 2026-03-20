@@ -3294,9 +3294,16 @@ function App(){
     } else if (_napsComplete && _bed && !_bed.estimated) {
       const _bParts = _bed.time.split(":").map(Number);
       const _minsUntilBed = Math.max(0, _bParts[0]*60+_bParts[1] - _nowM);
+      // Check if a bridge nap is suggested — if so, naps aren't truly complete
+      let _bridgeInfo = null;
+      try { _bridgeInfo = earlyBedtimeRisk(); } catch {}
       if (_minsUntilBed <= 30) {
         _dot = "#6B5B95"; _label = "Winding down for bed";
         _timing = "Bedtime in ~" + _minsUntilBed + " min · Wind-down time";
+      } else if (_bridgeInfo && _bridgeInfo.suggestBridge) {
+        const _bStart = fmt12(`${String(Math.floor(_bridgeInfo.bridgeStart/60)%24).padStart(2,"0")}:${String(_bridgeInfo.bridgeStart%60).padStart(2,"0")}`);
+        _dot = "#D4A855"; _label = "Bridge nap suggested";
+        _timing = "Short nap ~" + _bStart + " (~20 min) · Then bedtime at ~" + fmt12(_bed.time);
       } else {
         _dot = "#7BA68C"; _label = "All naps complete";
         _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " done today";
