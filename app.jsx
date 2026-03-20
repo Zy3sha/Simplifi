@@ -2945,6 +2945,11 @@ function App(){
       }
     }
     tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, bed, bedMins, napsDone, expectedNaps, pred };
+    // Also store bridge nap info for countdown
+    try {
+      const bridgeInfo = earlyBedtimeRisk();
+      tickDataRef.current.bridgeInfo = bridgeInfo;
+    } catch { tickDataRef.current.bridgeInfo = null; }
   },[selDay, days, age, bridgeNapScheduled]);
   const countdownRef = React.useRef(null);
   useEffect(()=>{
@@ -3026,6 +3031,16 @@ function App(){
       setNightElapsed(null);
 
       if (bedtimeConditionMet) {
+        // Check if a bridge nap is suggested — countdown to bridge nap instead of bedtime
+        const { bridgeInfo } = tickDataRef.current;
+        if (bridgeInfo && bridgeInfo.suggestBridge && bridgeInfo.bridgeStart) {
+          // Count down to bridge nap, not bedtime
+          const bridgeStartMins = bridgeInfo.bridgeStart;
+          const minsUntilBridge = Math.max(0, bridgeStartMins - nowMins);
+          setNapCountdown(Math.round(minsUntilBridge * 60));
+          setBedCountdown(null);
+          return;
+        }
         setNapCountdown(null);
         // Bug 1: bedtime countdown in seconds, clamped ≥ 0
         setBedCountdown(Math.round(minsUntilBed * 60));
@@ -3996,8 +4011,10 @@ function App(){
       const needsBridgeNap = bedtimeFloor > absoluteLatestBed;
       if (needsBridgeNap && !bridgeNapScheduled) {
         const bridgeStart = lastNapEndMins + ww.min;
-        const bridgeEnd = bridgeStart + 20;
-        const postBridgeBed = bridgeEnd + ww.min;
+        const bridgeEnd = bridgeStart + 20; // 20 min max — beyond enters deep sleep
+        // Post-bridge: 60-90 min to bed (bridge doesn't reset full WW)
+        const postBridgeWindow = Math.min(ww.min, 90);
+        const postBridgeBed = bridgeEnd + postBridgeWindow;
         const clampedPostBridge = clampBedtime(postBridgeBed, age.totalWeeks);
         const hh = Math.floor(clampedPostBridge/60)%24, mm = clampedPostBridge%60;
         return {
@@ -5395,11 +5412,17 @@ function App(){
 
     // Bridge nap if needed
     if (hasBridge) {
-      const bridgeStart = anchorBed - 90;
-      const bridgeEnd = anchorBed - 60;
-      if (bridgeStart > cursor) {
-        schedule.push({ label: "Bridge nap", time: `${mtp(bridgeStart)} – ${mtp(bridgeEnd)}`, icon: "🌉", type: "bridge", durMins: 30 });
-        projectedTotalNap += 30;
+      // Bridge nap: 20 min max (research says >20 min enters deep sleep, counterproductive)
+      // Start at last nap end + minimum wake window (sleep pressure needed)
+      // Post-bridge bedtime: 60-90 min after wake (bridge doesn't reset full WW)
+      const bridgeWW = Math.min(ww.min, 120); // Cap pre-bridge WW at 2hrs
+      const bridgeStart = cursor + bridgeWW;
+      const bridgeDur = 20; // Max 20 min per sleep consultant consensus
+      const bridgeEnd = bridgeStart + bridgeDur;
+      const postBridgeWindow = Math.min(ww.min, 90); // Cap post-bridge at 90 min — bridge doesn't reset full WW
+      if (bridgeStart > cursor && bridgeEnd < anchorBed) {
+        schedule.push({ label: "Bridge nap", time: `${mtp(bridgeStart)} – ${mtp(bridgeEnd)}`, icon: "🌉", type: "bridge", durMins: bridgeDur });
+        projectedTotalNap += bridgeDur;
       }
     }
 
