@@ -192,7 +192,7 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
   if(bedEntry && nightWakes.length>0){
     let mins = nightWakes[0]._sk - bedMins;
     if(mins<=0) mins+=1440;
-    if(mins>0) wins.push({from:bedEntry.time, to:nightWakes[0].time, mins, night:true});
+    if(mins>0 && mins<840) wins.push({from:bedEntry.time, to:nightWakes[0].time, mins, night:true}); // cap at 14h
   }
 
   // between night wakes — account for soothing duration
@@ -201,8 +201,8 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     const dur = parseInt(prevWake.assistedDuration) || 0;
     let fromSk = prevWake._sk + dur; // sleep resumes after soothing
     let mins = nightWakes[i]._sk - fromSk;
-    if(mins<=0) mins+=1440;
-    if(mins>0) wins.push({from:prevWake.time, to:nightWakes[i].time, mins, night:true});
+    // If gap is zero or negative (overlapping entries / soothing covers next wake), skip
+    if(mins>0 && mins<840) wins.push({from:prevWake.time, to:nightWakes[i].time, mins, night:true});
   }
 
   // last night wake → morning wake — account for soothing duration
@@ -212,8 +212,9 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     let fromSk = last._sk + dur;
     let mins = morningMins + 1440 - fromSk;
     if(morningMins > fromSk) mins = morningMins - fromSk;
+    // Only add 1440 for genuine midnight crossing, not for negative gaps
     if(mins<=0) mins+=1440;
-    if(mins>0) wins.push({from:last.time, to:morningWake.time, mins, night:true});
+    if(mins>0 && mins<840) wins.push({from:last.time, to:morningWake.time, mins, night:true});
   }
 
   // no wakes at all — full bedtime to morning
@@ -221,7 +222,7 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     let mins = morningMins + 1440 - bedMins;
     if(morningMins > bedMins) mins = morningMins - bedMins;
     if(mins<=0) mins+=1440;
-    if(mins>0) wins.push({from:bedEntry.time, to:morningWake.time, mins, night:true});
+    if(mins>0 && mins<840) wins.push({from:bedEntry.time, to:morningWake.time, mins, night:true});
   }
 
   return wins;
@@ -6882,7 +6883,8 @@ function App(){
       bigPic += " At " + fmtAge(age) + ", babies typically need " + _totalExpected + " hours in 24 hours, split between " + _profile.expectedNaps + " nap" + (_profile.expectedNaps > 1 ? "s" : "") + " and a longer overnight stretch.";
 
       if (_totalAvg > 0) {
-        const totalH = Math.round(_totalAvg / 6) / 10;
+        const _clampedTotal = Math.min(_totalAvg, 24 * 60); // Can't sleep more than 24h in a day
+        const totalH = Math.round(_clampedTotal / 6) / 10;
         bigPic += " " + _n + "'s total of about " + totalH + " hours is " + (_totalAvg >= _expected.min * 0.9 ? "right on track." : "a little below target — but every baby has different sleep needs.");
       }
     }
