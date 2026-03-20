@@ -1352,25 +1352,7 @@ function App(){
   });
 
   const[selDay,setSelDay]=useState(()=>{
-    // Pick the active logging day: today if it has a wake, else yesterday if it has bedtime, else today
-    const td = todayStr();
-    try {
-      const stored = localStorage.getItem("children_v1");
-      if (stored) {
-        const ch = JSON.parse(stored);
-        const activeId = localStorage.getItem("active_child");
-        const child = activeId ? ch[activeId] : Object.values(ch)[0];
-        if (child && child.days) {
-          const todayHasWake = (child.days[td]||[]).some(e => e.type === "wake" && !e.night);
-          if (todayHasWake) return td;
-          const yd = new Date(); yd.setDate(yd.getDate()-1);
-          const yesterday = `${yd.getFullYear()}-${String(yd.getMonth()+1).padStart(2,"0")}-${String(yd.getDate()).padStart(2,"0")}`;
-          const yHasBed = (child.days[yesterday]||[]).some(e => e.type === "sleep" && !e.night);
-          if (yHasBed) return yesterday;
-        }
-      }
-    } catch {}
-    return td;
+    return todayStr();
   });
   const[tab,setTab]=useState("day");
   // ═══ STORE LAUNCH FLAG ═══
@@ -10500,7 +10482,7 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>{haptic();setTimeout(()=>{const el=document.querySelector("[data-actions-grid]");if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{openLogPanel("feed");}},50);}},
+                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);setTimeout(()=>{const el=document.querySelector("[data-actions-grid]");if(el){el.scrollIntoView({behavior:"smooth",block:"center"});}else{openLogPanel("feed");}},150);}},
                 ].map(({emoji,label,action,longAction})=>{
                   let _lpTimer = null;
                   let _lpFired = false;
@@ -14641,7 +14623,7 @@ function App(){
                   setNapStartT(startT);setNapSec(0);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
                   setModal(null);setEditEntry(null);
                   showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);
-                }} style={{width:"100%",padding:"12px",borderRadius:14,border:`2px solid ${C.mint}`,background:"rgba(111,168,152,0.08)",color:C.mint,fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:12}}>
+                }} style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:"linear-gradient(135deg,#50a888,#3a8870)",color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:12,boxShadow:"0 4px 12px rgba(80,168,136,0.35)"}}>
                   ⏱ Set as Ongoing (start timer)
                 </button>
               )}
