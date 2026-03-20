@@ -4659,7 +4659,8 @@ function App(){
     if (pred && !pred.isOverdue) {
       const [ph, pm] = pred.napStart_min.split(":").map(Number);
       const minsUntil = ph * 60 + pm - nowMins;
-      if (minsUntil > 0 && minsUntil <= 20) return { emoji: "😴", text: `Nap window opening in ~${minsUntil} minutes. Watch for tired cues.`, priority: "high", why: `Sleep pressure (adenosine) has been building since the last sleep. At ${fmtAge(age)}, the wake window is ${pred.wakeWindowMin||""}–${pred.wakeWindowMax||""} min. Putting baby down in this window means they'll settle faster and sleep longer.` };
+      if (minsUntil > 0 && minsUntil <= 10) return { emoji: "😴", text: `Nap window is open — look for sleepy cues.`, priority: "high", why: `Sleep pressure (adenosine) has been building since the last sleep. At ${fmtAge(age)}, the wake window is ${pred.wakeWindowMin||""}–${pred.wakeWindowMax||""} min. Putting ${name} down in this window means they'll settle faster and sleep longer.` };
+      if (minsUntil > 10 && minsUntil <= 20) return { emoji: "😴", text: `Nap window opening in ~${minsUntil} minutes. Watch for early tired cues.`, priority: "high", why: `Sleep pressure (adenosine) has been building since the last sleep. At ${fmtAge(age)}, the wake window is ${pred.wakeWindowMin||""}–${pred.wakeWindowMax||""} min. Putting ${name} down in this window means they'll settle faster and sleep longer.` };
     }
     if (pred && pred.isOverdue) return { emoji: "😴", text: `${name} may be overdue for a nap. Try settling now — dim lights, quiet voice.`, priority: "high", why: `${name} has been awake past the maximum wake window for ${fmtAge(age)}. When babies stay awake too long, cortisol (a stress hormone) kicks in, making them "wired tired" — harder to settle and more likely to take a short nap.` };
 
@@ -6951,8 +6952,8 @@ function App(){
     if (_pred && !_pred.isOverdue) {
       const _pM = _pred.napStart_min.split(":").map(Number);
       const _mUntil = Math.max(0, _pM[0] * 60 + _pM[1] - _nowM);
-      if (_mUntil <= 15) return { text: "Look for sleepy cues — nap window is open", priority: "high" };
-      if (_mUntil <= 30) return { text: "Nap in ~" + _mUntil + " min — wind down play, dim lights", priority: "med" };
+      if (_mUntil <= 10) return { text: "Look for sleepy cues — nap window is open", priority: "high" };
+      if (_mUntil <= 25) return { text: "Nap in ~" + _mUntil + " min — wind down play, dim lights", priority: "med" };
     }
 
     // Overdue
