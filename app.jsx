@@ -1420,6 +1420,7 @@ function App(){
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
   const recapPhotoRef=useRef(null); // hidden input for recap card photo
+  const microReassureRef=useRef(false); // once-per-session micro-reassurance
   const[recapExtraPhoto,setRecapExtraPhoto]=useState(null); // base64 data URL
   const[msSharePrompt,setMsSharePrompt]=useState(null); // {milestoneId, label}
   const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0});
@@ -3090,28 +3091,50 @@ function App(){
       : null;
     } catch(e) { _selfCareNudge = null; }
 
-    // ── "Right now" action line (expanded) ──
-    let _expandedRN = null;
-    try { _expandedRN = expandedRightNow(); } catch(e) {}
-    let _rightNow = _expandedRN ? ("Right now: " + _expandedRN.text) : null;
-
-    // ── Feed & nappy gentle context ──
+    // ── Feed & nappy gentle context (computed early, used in all card variants) ──
     let _feedNappyHint = null;
     try {
-    if (_hasWake) {
       const _hints = [];
-      const _lastFeed = [..._today.filter(e=>e.type==="feed"&&e.time)].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
-      const _lastNappy = [..._today.filter(e=>(e.type==="poop")&&e.time)].sort((a,b)=>timeVal(a)-timeVal(b)).pop();
-      const _feedGapM = _lastFeed ? _nowM - timeVal(_lastFeed) : 999;
-      const _nappyGapM = _lastNappy ? _nowM - timeVal(_lastNappy) : 999;
-      const _feedThreshM = age ? (age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : 210) : 180;
-      if (_feedGapM >= _feedThreshM && _feedGapM < 900) _hints.push("Feed due — last one " + hm(_feedGapM) + " ago");
-      else if (_lastFeed && _feedGapM >= 0) _hints.push("Next feed around " + fmt12((()=>{const [fh,fm]=_lastFeed.time.split(":").map(Number);const t=fh*60+fm+_feedThreshM;return `${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;})()));
-      if (_nappyGapM >= 150 && _nappyGapM < 900) _hints.push("Nappy check — last one " + hm(_nappyGapM) + " ago");
-      else if (_lastNappy && _nappyGapM >= 0) _hints.push("Nappy last changed " + hm(_nappyGapM) + " ago");
+      // Check today's entries AND yesterday's night entries for last feed/nappy
+      const _prevDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+      const _allRecent = [..._today, ...(days[_prevDay]||[]).filter(e=>e.night)];
+      const _lastFeed = [..._allRecent.filter(e=>(e.type==="feed"||((e.type==="wake")&&e.night&&(e.amount||0)>0))&&e.time)].sort((a,b)=>{ 
+        const ta=timeVal(a), tb=timeVal(b);
+        const ka=ta<12*60?ta+1440:ta, kb=tb<12*60?tb+1440:tb;
+        return ka-kb;
+      }).pop();
+      const _lastNappy = [..._allRecent.filter(e=>e.type==="poop"&&e.time)].sort((a,b)=>{
+        const ta=timeVal(a), tb=timeVal(b);
+        const ka=ta<12*60?ta+1440:ta, kb=tb<12*60?tb+1440:tb;
+        return ka-kb;
+      }).pop();
+      if (_lastFeed) {
+        const _lfMins = timeVal(_lastFeed);
+        let _feedGapM = _nowM - _lfMins;
+        if (_feedGapM < 0) _feedGapM += 1440;
+        const _feedThreshM = age ? (age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : 210) : 180;
+        if (_feedGapM >= _feedThreshM && _feedGapM < 900) _hints.push("might be ready for a feed — last one " + hm(_feedGapM) + " ago");
+        else if (_feedGapM >= 0 && _feedGapM < 900) {
+          const [fh,fm]=_lastFeed.time.split(":").map(Number);
+          const t=fh*60+fm+_feedThreshM;
+          _hints.push("feeds often happen around " + fmt12(`${String(Math.floor(t/60)%24).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`));
+        }
+      } else {
+        _hints.push("could be ready for a feed soon");
+      }
+      if (_lastNappy) {
+        const _lnMins = timeVal(_lastNappy);
+        let _nappyGapM = _nowM - _lnMins;
+        if (_nappyGapM < 0) _nappyGapM += 1440;
+        if (_nappyGapM >= 150 && _nappyGapM < 900) _hints.push("a fresh nappy might help — last one " + hm(_nappyGapM) + " ago");
+        else if (_nappyGapM >= 0 && _nappyGapM < 900) _hints.push("nappy changed " + hm(_nappyGapM) + " ago");
+      } else {
+        _hints.push("a fresh nappy could be nice");
+      }
       if (_hints.length) _feedNappyHint = _hints.join(" · ");
-    }
     } catch(e) { _feedNappyHint = null; }
+
+    // ── "Right now" action line (expanded) ──
 
     // ── Morning: no wake logged ──
     if (!_hasWake && _h >= 5 && _h <= 10) {
@@ -3122,6 +3145,7 @@ function App(){
             <span style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Good morning! ☀️</span>
           </div>
           <div style={{fontSize:13,color:C.mid,marginBottom:6}}>Tap to start {_name}'s day</div>
+          {_feedNappyHint && !_hasWake && <div style={{fontSize:11,color:C.lt,marginBottom:6,fontFamily:_fM}}>🍼 When {_name} wakes, {_feedNappyHint}</div>}
           <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>{_reassure}</div>
         </button>
       );
@@ -3153,27 +3177,33 @@ function App(){
     }
 
     // ── Determine status ──
+    let _expandedRN = null;
+    try { _expandedRN = expandedRightNow(); } catch(e) {}
+    let _rightNow = _expandedRN ? ("Right now: " + _expandedRN.text) : null;
+
     if (napOn) {
       _dot = "#7B68EE"; _label = "Sleeping peacefully";
       const _napMins = Math.floor(napSec / 60);
       const _expDur = Math.round((_profile.idealNapDurMin + _profile.idealNapDurMax) / 2);
       const _rem = Math.max(0, _expDur - _napMins);
       _timing = "Sleeping " + _napMins + " min" + (_rem > 0 ? " · Expected wake ~" + _rem + " min" : " · May wake soon");
+      if (_feedNappyHint) _feedNappyHint = "When " + _name + " wakes, " + _feedNappyHint;
     } else if (_hasBed) {
       _dot = "#7B68EE"; _label = "Sleeping for the night";
       const _bedEntry2 = _today.find(e => e.type === "sleep" && !e.night);
       _timing = nightElapsed !== null && nightElapsed > 0
         ? "Sleeping since " + (_bedEntry2 ? fmt12(_bedEntry2.time) : "") + " · " + Math.floor(nightElapsed/3600) + "h " + Math.floor((nightElapsed%3600)/60) + "m"
         : "";
+      if (_feedNappyHint) _feedNappyHint = "If " + _name + " stirs, " + _feedNappyHint;
     } else if (_pred && _pred.isOverdue) {
       _dot = "#E8937A"; _label = "Winding down soon";
-      _timing = "Awake " + hm(_awakeMin) + " · Past the nap window — try settling now";
+      _timing = "Awake " + hm(_awakeMin) + " · Past the nap window — settling time";
     } else if (_napsComplete && _bed && !_bed.estimated) {
       const _bParts = _bed.time.split(":").map(Number);
       const _minsUntilBed = Math.max(0, _bParts[0]*60+_bParts[1] - _nowM);
       if (_minsUntilBed <= 30) {
         _dot = "#6B5B95"; _label = "Winding down for bed";
-        _timing = "Bedtime in ~" + _minsUntilBed + " min · Start wind-down";
+        _timing = "Bedtime in ~" + _minsUntilBed + " min · Wind-down time";
       } else {
         _dot = "#7BA68C"; _label = "All naps complete";
         _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " done today";
@@ -3192,7 +3222,7 @@ function App(){
         _timing = "Awake " + hm(_awakeMin) + " · Nap at ~" + _napTimeStr + _rhythmTag;
       } else if (_minsUntilNap <= 30) {
         _dot = "#D4A855"; _label = "Settling time";
-        _timing = "Awake " + hm(_awakeMin) + " · Nap at ~" + _napTimeStr + " — watch for cues" + _rhythmTag;
+        _timing = "Awake " + hm(_awakeMin) + " · Nap at ~" + _napTimeStr + " — sleepy cues may start soon" + _rhythmTag;
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
         _timing = "Awake " + hm(_awakeMin) + " · Next nap around " + _napTimeStr + _rhythmTag;
@@ -3203,7 +3233,7 @@ function App(){
       const _minsSinceFeed = _nowM - _lastFeedTime;
       if (_minsSinceFeed >= 150) {
         _dot = "#7aabc4"; _label = "Feed window opening";
-        _timing = "Last feed " + hm(_minsSinceFeed) + " ago · " + (age && age.totalWeeks < 3 ? "Wake to feed every 2–3h (NHS newborn guidance)" : "offer a feed if " + _name + " shows cues");
+        _timing = "Last feed " + hm(_minsSinceFeed) + " ago · " + (age && age.totalWeeks < 3 ? "little ones this age often need feeding every 2–3h" : _name + " might be getting peckish");
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
         _timing = "Awake " + hm(_awakeMin) + " · Enjoying the day";
@@ -3240,7 +3270,16 @@ function App(){
         </div>
         <div style={{fontSize:13,color:C.mid,marginBottom:_rightNow?4:8,paddingLeft:20}}>{_timing}</div>
         {_rightNow && <div style={{fontSize:12,color:C.ter,fontWeight:600,paddingLeft:20,marginBottom:6}}>{_rightNow}</div>}
-        {_feedNappyHint && <div style={{fontSize:11,color:C.lt,paddingLeft:20,marginBottom:6,fontFamily:_fM}}>🍼💩 {_feedNappyHint}</div>}
+        {_feedNappyHint && <div style={{fontSize:11,color:C.lt,paddingLeft:20,marginBottom:6,fontFamily:_fM}}>🍼 {_feedNappyHint}</div>}
+        {_feedNappyHint && _allFeeds.length >= 6 && !napOn && !_hasBed && !microReassureRef.current && (()=>{
+          microReassureRef.current = true;
+          const _microMsgs = [
+            "You're responding to " + _name + " — that matters most.",
+            "You're doing exactly what " + _name + " needs.",
+            "Every feed is love. You're doing brilliantly.",
+          ];
+          return <div style={{fontSize:11,color:"#7B68EE",paddingLeft:20,marginBottom:4,fontStyle:"italic"}}>{_microMsgs[new Date().getDate()%_microMsgs.length]}</div>;
+        })()}
         <div style={{fontSize:12,color:C.lt,fontStyle:"italic",paddingLeft:20,marginBottom:heroWhyOpen?12:0}}>{_reassure}</div>
         {_selfCareNudge && (
           <button onClick={()=>{try{localStorage.setItem("parent_nudge_date",todayStr());}catch{};showToast("💜 You matter too",2000,1);}} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(123,104,238,0.06)",border:"1px solid rgba(123,104,238,0.15)",borderRadius:10,padding:"6px 12px",marginLeft:20,marginTop:6,marginBottom:heroWhyOpen?12:0,cursor:_cP}}>
@@ -4427,7 +4466,7 @@ function App(){
       }
 
       if (!nightSuggestion && w < 26) {
-        nightSuggestion = "Night wakes are completely normal at this age. Baby's stomach is small and they genuinely need feeding overnight. This will naturally reduce as they grow.";
+        nightSuggestion = "Night wakes are completely normal at this age. Little tummies empty quickly and overnight feeds are doing important work. This naturally settles as they grow.";
       } else if (!nightSuggestion) {
         nightSuggestion = "Consistent bedtime routine, dark room, and giving baby a moment to self-settle before intervening can help reduce unnecessary wakes over time.";
       }
@@ -4560,7 +4599,7 @@ function App(){
       const [bh, bm] = bed.time.split(":").map(Number);
       const minsUntilBed = bh * 60 + bm - nowMins;
       if (minsUntilBed > 0 && minsUntilBed <= 10) return { emoji: "🌙", text: `Bedtime in ~${minsUntilBed} minutes. ${name} should be in the cot soon.`, priority: "high", why: `Melatonin (the sleep hormone) peaks between 7–7:30pm for most babies. Putting baby down during this window means they'll fall asleep faster. Missing it triggers cortisol, which fights sleep.` };
-      if (minsUntilBed > 10 && minsUntilBed <= 30) return { emoji: "🛁", text: `Start wind-down now — bedtime in ~${minsUntilBed} minutes. Dim lights, bath, quiet time.`, priority: "med", why: `A consistent wind-down routine (15–20 min) signals the brain to release melatonin. Dim lights suppress cortisol. Starting the routine now means ${name} will be relaxed and ready when the sleep window opens.` };
+      if (minsUntilBed > 10 && minsUntilBed <= 30) return { emoji: "🛁", text: `Wind-down time — bedtime in ~${minsUntilBed} minutes. A calm, dim space helps.`, priority: "med", why: `A consistent wind-down routine (15–20 min) signals the brain to release melatonin. Dim lights suppress cortisol. Starting the routine now means ${name} will be relaxed and ready when the sleep window opens.` };
     }
 
     return null;
@@ -6529,8 +6568,8 @@ function App(){
     const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : age.totalWeeks < 26 ? 210 : 270;
 
     let _topReason = null;
-    if (_feedGap > _feedThreshold) _topReason = "Last feed was " + hm(_feedGap) + " ago — likely hungry";
-    else if (_feedGap > _feedThreshold * 0.8) _topReason = "Last feed " + hm(_feedGap) + " ago — may be hungry";
+    if (_feedGap > _feedThreshold) _topReason = "Last feed was " + hm(_feedGap) + " ago — might be waking for a feed";
+    else if (_feedGap > _feedThreshold * 0.8) _topReason = "Last feed " + hm(_feedGap) + " ago — could be looking for a feed or comfort";
 
     let _contextLine = null;
     if (_avgWakes !== null && _wakeNum > 0) {
@@ -6842,7 +6881,7 @@ function App(){
     }
 
     // Overdue
-    if (_pred && _pred.isOverdue) return { text: "Past the nap window — try settling now. Dim lights, quiet voice", priority: "high" };
+    if (_pred && _pred.isOverdue) return { text: "Past the nap window — a quiet, dim space might help", priority: "high" };
 
     // Bedtime approaching
     if (_naps.length >= _profile.expectedNaps) {
@@ -6864,7 +6903,7 @@ function App(){
     if (_feeds.length > 0) {
       const _lastFeedTime = Math.max(..._feeds.map(f => timeVal(f)));
       const _feedGap = _nowM - _lastFeedTime;
-      if (_feedGap >= 150) return { text: (age && age.totalWeeks < 3) ? "Wake to feed — newborns need feeding every 2–3 hours (NHS)" : "Last feed was " + hm(_feedGap) + " ago — offer a feed if " + _n + " shows cues", priority: "med" };
+      if (_feedGap >= 150) return { text: (age && age.totalWeeks < 3) ? "Little tummies empty quickly at this age — feeding every 2–3 hours is normal" : "Last feed was " + hm(_feedGap) + " ago — " + _n + " could be getting peckish", priority: "med" };
     } else if (_wakeE && _awakeMin > 30) {
       return { text: "No feeds logged yet — offer a feed", priority: "med" };
     }
@@ -10798,11 +10837,11 @@ function App(){
                     const veryOverdue = effectiveOverdue && fs.gap > fs.threshold * 1.5;
                     return (
                       <div style={{flex:1,background:effectiveOverdue?"rgba(192,112,136,0.06)":"var(--card-bg)",border:`${effectiveOverdue?"1.5px":"1px"} solid ${effectiveOverdue?C.ter+"50":C.blush}`,borderRadius:16,padding:effectiveOverdue?"12px 14px":"10px 12px",transition:"all 0.3s",animation:veryOverdue?"pulse 2s infinite":"none"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:effectiveOverdue?C.ter:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🍼 {effectiveOverdue?"Feed due":isSleeping?"Last feed (sleeping)":"Last feed"}</div>
+                        <div style={{fontSize:11,fontFamily:_fM,color:effectiveOverdue?C.ter:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🍼 {effectiveOverdue?"Might be ready for a feed":isSleeping?"Last feed (sleeping)":"Last feed"}</div>
                         <div style={{fontSize:effectiveOverdue?15:13,fontWeight:700,color:effectiveOverdue?C.ter:C.mid}}>{hm(fs.gap)} ago</div>
-                        {effectiveOverdue && age && age.totalWeeks < 3 && <div style={{fontSize:11,color:C.ter,marginTop:3,lineHeight:1.4}}>Newborns should be woken to feed every 2–3 hours until birth weight is regained (NHS). If unsure, check with your {_doctor}.</div>}
-                        {effectiveOverdue && (!age || age.totalWeeks >= 3) && <div style={{fontSize:11,color:C.mid,marginTop:3,lineHeight:1.4}}>{isSleeping ? "Try a feed and nappy change if " + (babyName||"baby") + " wakes up" : (babyName||"Baby") + " may be ready for a feed — follow their cues"}</div>}
-                        {effectiveOverdue && <div style={{fontSize:9,color:"var(--text-mid)",marginTop:3,fontFamily:_fI,lineHeight:1.5}}>Why? {fs.avgGap ? `Based on ${babyName||"baby"}'s average feed gap of ${hm(fs.avgGap)} over the last 5 days.` : `Age-typical feed spacing for ${fmtAge(age)}.`} Babies show hunger cues like rooting, lip-smacking, and hand-to-mouth.</div>}
+                        {effectiveOverdue && age && age.totalWeeks < 3 && <div style={{fontSize:11,color:C.ter,marginTop:3,lineHeight:1.4}}>Newborns need feeding every 2–3 hours until birth weight is regained (NHS). If you're unsure, have a chat with your {_doctor}.</div>}
+                        {effectiveOverdue && (!age || age.totalWeeks >= 3) && <div style={{fontSize:11,color:C.mid,marginTop:3,lineHeight:1.4}}>{isSleeping ? "When " + (babyName||"baby") + " wakes, a feed and fresh nappy might help" : (babyName||"Baby") + " might be getting hungry — you might notice rooting or hand-to-mouth"}</div>}
+                        {effectiveOverdue && <div style={{fontSize:9,color:"var(--text-mid)",marginTop:3,fontFamily:_fI,lineHeight:1.5}}>{fs.avgGap ? `Based on ${babyName||"baby"}'s rhythm — feeds often happen around every ${hm(fs.avgGap)}.` : `A gentle guide for ${fmtAge(age)}.`}</div>}
                       </div>
                     );
                   })()}
