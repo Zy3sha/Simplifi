@@ -3049,12 +3049,17 @@ function App(){
         // Check if a bridge nap is suggested — countdown to bridge nap instead of bedtime
         const { bridgeInfo } = tickDataRef.current;
         if (bridgeInfo && bridgeInfo.suggestBridge && bridgeInfo.bridgeStart) {
-          // Count down to bridge nap, not bedtime
           const bridgeStartMins = bridgeInfo.bridgeStart;
-          const minsUntilBridge = Math.max(0, bridgeStartMins - nowMins);
-          setNapCountdown(Math.round(minsUntilBridge * 60));
-          setBedCountdown(null);
-          return;
+          const minsUntilBridge = bridgeStartMins - nowMins;
+          // If bridge nap window hasn't passed yet, count down to it
+          // Give 30 min past bridge start before switching to bedtime
+          // (parent might still put baby down a bit late)
+          if (minsUntilBridge > -30) {
+            setNapCountdown(Math.round(Math.max(0, minsUntilBridge) * 60));
+            setBedCountdown(null);
+            return;
+          }
+          // Bridge window passed without a nap → fall through to bedtime countdown
         }
         setNapCountdown(null);
         // Bug 1: bedtime countdown in seconds, clamped ≥ 0
@@ -3349,9 +3354,20 @@ function App(){
         _dot = "#6B5B95"; _label = "Winding down for bed";
         _timing = "Bedtime in ~" + _minsUntilBed + " min · Wind-down time";
       } else if (_bridgeInfo && _bridgeInfo.suggestBridge) {
-        const _bStart = fmt12(`${String(Math.floor(_bridgeInfo.bridgeStart/60)%24).padStart(2,"0")}:${String(_bridgeInfo.bridgeStart%60).padStart(2,"0")}`);
-        _dot = "#D4A855"; _label = "Bridge nap suggested";
-        _timing = "Short nap ~" + _bStart + " (~20 min) · Then bedtime at ~" + fmt12(_bed.time);
+        const _bridgeStartMins = _bridgeInfo.bridgeStart;
+        const _minsUntilBridge = _bridgeStartMins - _nowM;
+        if (_minsUntilBridge > -30) {
+          // Bridge nap window still open
+          const _bStart = fmt12(`${String(Math.floor(_bridgeStartMins/60)%24).padStart(2,"0")}:${String(_bridgeStartMins%60).padStart(2,"0")}`);
+          _dot = "#D4A855"; _label = "Bridge nap suggested";
+          _timing = _minsUntilBridge > 0
+            ? "Short nap ~" + _bStart + " (~20 min) · Then bedtime at ~" + fmt12(_bed.time)
+            : "Bridge nap window is now — a quick 20 min nap can help";
+        } else {
+          // Bridge window passed — baby didn't nap, switch to bedtime
+          _dot = "#7BA68C"; _label = "Skipped bridge nap — that's OK";
+          _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _name + " may be a bit tired — an earlier bedtime helps";
+        }
       } else {
         _dot = "#7BA68C"; _label = "All naps complete";
         _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " done today";
@@ -3631,10 +3647,19 @@ function App(){
   }
 
   // Progressive wake windows: WW increases through the day
+  // Research: for 5+ months, shortest WW is morning, longest is before bedtime
+  // Exception: under 4 months, the last WW before bed is often SHORT (baby exhausted after 12+ hours)
   function progressiveWW(ageWeeks, napIndex, totalNaps) {
     const ww = getWakeWindow(ageWeeks);
     const range = ww.max - ww.min;
     if (totalNaps <= 1) return ww.midpoint;
+    const months = ageWeeks / 4.33;
+    // Under 4 months: last WW before bed should be short (similar to first WW)
+    // Baby Sleep Site + Kelly Martin: "keep the last wake window short — 1 to 1.5 hours"
+    if (months < 4 && napIndex >= totalNaps) {
+      // This is the bedtime WW — keep it at the shorter end
+      return Math.round(ww.min + range * 0.3);
+    }
     const ratio = Math.min(napIndex / totalNaps, 1);
     return Math.round(ww.min + range * ratio);
   }
@@ -3733,28 +3758,38 @@ function App(){
       sourceLabel = `age-appropriate wake windows for ${fmtAge(age)}`;
     }
 
-    // ── Sleep pressure adjustment: short nap = shorter next WW, long nap = longer ──
-    // Based on adenosine clearance model: more sleep = more adenosine cleared = can stay awake longer
+    // ── Sleep pressure adjustment: short nap = shorter next WW ──
+    // Research consensus (Taking Cara Babies, Baby Sleep Site, Huckleberry):
+    // After a nap ≤ 40 min, shorten next WW by 30-45 min to prevent overtiredness
+    // After a very short nap (< 20 min), shorten by up to 45-60 min
+    // After a long nap, slightly extend next WW (more sleep pressure cleared)
     if (napsDoneToday2 > 0) {
       const lastNap = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b))[napsDoneToday2-1];
       if (lastNap && lastNap.start && lastNap.end) {
         const lastDur = minDiff(lastNap.start, lastNap.end);
         const idealMin = napProfile2.idealNapDurMin;
         const idealMax = napProfile2.idealNapDurMax;
-        if (lastDur < 30 && age.totalWeeks >= 17) {
-          // Catnap (< 30min after 4mo) — less adenosine cleared, shorten next WW by 15min
+        if (lastDur <= 20 && age.totalWeeks >= 17) {
+          // Micro-nap (≤ 20min) — barely cleared any sleep pressure, shorten significantly
+          const reduction = Math.min(45, Math.round((wakeWindowMax - ww.min) * 0.5));
+          wakeWindowMin = Math.max(ww.min, wakeWindowMin - reduction);
+          wakeWindowMax = Math.max(wakeWindowMin + 10, wakeWindowMax - reduction);
+          sourceLabel += " (shortened — very short nap)";
+        } else if (lastDur <= 40 && age.totalWeeks >= 17) {
+          // Short nap (≤ 40min / single sleep cycle) — shorten next WW by 30min
+          const reduction = Math.min(30, Math.round((wakeWindowMax - ww.min) * 0.4));
+          wakeWindowMin = Math.max(ww.min, wakeWindowMin - reduction);
+          wakeWindowMax = Math.max(wakeWindowMin + 10, wakeWindowMax - reduction);
+          sourceLabel += " (shortened — short nap, sleep pressure still high)";
+        } else if (lastDur < idealMin * 0.6) {
+          // Below-target nap (but > 40min) — modest reduction
           wakeWindowMin = Math.max(ww.min, wakeWindowMin - 15);
           wakeWindowMax = Math.max(wakeWindowMin + 10, wakeWindowMax - 15);
-          sourceLabel += " (shortened — catnap, less sleep pressure cleared)";
-        } else if (lastDur < idealMin * 0.6) {
-          // Very short nap — reduce WW by ~10min
-          wakeWindowMin = Math.max(ww.min, wakeWindowMin - 10);
-          wakeWindowMax = Math.max(wakeWindowMin + 10, wakeWindowMax - 10);
-          sourceLabel += " (shortened — short nap)";
+          sourceLabel += " (shortened — below-target nap)";
         } else if (lastDur > idealMax + 15) {
-          // Long nap — more adenosine cleared, extend next WW by 10min
-          wakeWindowMin = Math.min(ww.max, wakeWindowMin + 10);
-          wakeWindowMax = Math.min(ww.max, wakeWindowMax + 10);
+          // Long nap — more adenosine cleared, extend next WW by 10-15min
+          wakeWindowMin = Math.min(ww.max, wakeWindowMin + 15);
+          wakeWindowMax = Math.min(ww.max, wakeWindowMax + 15);
           sourceLabel += " (extended — long nap, more sleep pressure cleared)";
         }
       }
@@ -4114,7 +4149,14 @@ function App(){
     for (let i = 0; i < napsRemaining; i++) {
       const napIdx = napsDone + i;
       // Use age-appropriate progressive wake window (same as predictNextNap and tomorrowSchedule)
-      const rawWW = progressiveWW(age.totalWeeks, napIdx, adjustedExpected);
+      let rawWW = progressiveWW(age.totalWeeks, napIdx, adjustedExpected);
+      // Short-nap adjustment: if the previous nap was short, reduce this WW
+      const prevNap = i === 0 ? todayNaps[todayNaps.length - 1] : null;
+      if (prevNap && prevNap.start && prevNap.end && age.totalWeeks >= 17) {
+        const prevDur = minDiff(prevNap.start, prevNap.end);
+        if (prevDur <= 20) rawWW = Math.max(ww.min, rawWW - 45);
+        else if (prevDur <= 40) rawWW = Math.max(ww.min, rawWW - 30);
+      }
       const thisWW = clampWakeWindow(rawWW, age.totalWeeks);
       const napStart = projectedLastNapEnd + thisWW;
       const napEnd = napStart + avgNapDur;
