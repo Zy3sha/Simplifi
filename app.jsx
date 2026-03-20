@@ -6162,10 +6162,15 @@ function App(){
     const _prevDayKey = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return localDateStr(dt);})();
     const _prevDay = days[_prevDayKey] || [];
     const _prevBed = _prevDay.find(e => e.type === "sleep" && !e.night);
-    const _nightWakeCount = _nightWakes.length;
-    const _prevNightWakes = _prevDay.filter(e => e.night).length + _nightWakeCount;
+    // Last night's wakes = yesterday's night entries (after bed) + today's early AM entries (before morning wake)
+    const _morningWakeMins = _wakeE ? timeVal(_wakeE) : null;
+    const _lastNightWakes = [
+      ..._prevDay.filter(e => e.night),
+      ..._today.filter(e => e.night && (_morningWakeMins === null || timeVal(e) < _morningWakeMins) && timeVal(e) < 12*60)
+    ];
+    const _nightWakeCount = _lastNightWakes.length;
     const _avgNightWakes = _recent7.length >= 3 ? Math.round(_recent7.reduce((s, d) => s + (days[d] || []).filter(e => e.night).length, 0) / _recent7.length * 10) / 10 : null;
-    const _selfSettled = _nightWakes.filter(e => e.selfSettled).length;
+    const _selfSettled = _lastNightWakes.filter(e => e.selfSettled).length;
 
     if (_wakeE && (_prevBed || _nightWakeCount > 0)) {
       if (_nightWakeCount === 0 && _prevBed) {
@@ -8415,8 +8420,9 @@ function App(){
         ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical amount</td><td style="padding:4px 0;font-weight:600">~${fmtVol(avgAmount, FU)} per feed</td></tr>` : ""}
         ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
         ${lastFeed ? `<tr><td style="padding:4px 0;color:#A898AC">Last feed</td><td style="padding:4px 0;font-weight:600">${fmt12(lastFeed.time)}${lastFeed.amount ? " — " + fmtVol(lastFeed.amount, FU) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
-        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#A898AC">Next feed due ~</td><td style="padding:4px 0;font-weight:600">${fmt12(nextFeedEst)}</td></tr>` : ""}
+        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#A898AC">Next feed around</td><td style="padding:4px 0;font-weight:600">~${fmt12(nextFeedEst)}</td></tr>` : ""}
       </table>
+      <p style="font-size:13px;color:#7A6B7E;margin:8px 0 4px;line-height:1.5">💡 <b>Feed every ${age&&age.totalWeeks<8?"2–3":"3–4"} hours</b> — or sooner if ${name} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Don't worry about exact timing — follow ${name}'s lead.</p>
       ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${name} may feed on demand. Breast milk is stored in the fridge — use within 24 hours.</p>` : ""}
     </div>`);
 
@@ -10853,6 +10859,13 @@ function App(){
                       <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${pf.daysSince>=3?C.gold+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
                         <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>💩 Last poop</div>
                         <div style={{fontSize:13,fontWeight:700,color:pf.daysSince>=3?C.gold:C.mid}}>{pf.daysSince}d ago</div>
+                        {pf.daysSince >= 2 && (()=>{
+                          const _isBreast = (days[selDay]||[]).some(e=>e.feedType==="breast") || (days[(()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return localDateStr(d);})()]||[]).some(e=>e.feedType==="breast");
+                          if (_isBreast && pf.daysSince <= 7) return <div style={{fontSize:10,color:C.lt,marginTop:3,lineHeight:1.4}}>Breastfed babies can go up to a week between poos after 6 weeks — perfectly normal (NHS)</div>;
+                          if (!_isBreast && pf.daysSince >= 3) return <div style={{fontSize:10,color:C.lt,marginTop:3,lineHeight:1.4}}>Formula-fed babies usually poo at least every 3 days. If {babyName||"baby"} seems comfortable, it's probably fine — but worth mentioning to your {_doctor} if it continues</div>;
+                          if (pf.daysSince >= 3) return <div style={{fontSize:10,color:C.lt,marginTop:3,lineHeight:1.4}}>Every baby has their own rhythm. If {babyName||"baby"} seems comfortable, there's usually nothing to worry about — but worth a chat with your {_doctor} if you're concerned</div>;
+                          return null;
+                        })()}
                       </div>
                     );
                   })()}
@@ -15550,10 +15563,11 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
       {/* ═══ Carer Card Modal ═══ */}
       {showCarerCard&&(
         <div onClick={()=>setShowCarerCard(false)} onTouchEnd={e=>{if(e.target===e.currentTarget)setShowCarerCard(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
-            <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+          <div onClick={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:520,maxHeight:"92vh",position:"relative",display:"flex",flexDirection:"column"}}>
+            <div style={{display:"flex",justifyContent:"flex-end",padding:"16px 16px 0",flexShrink:0}}>
               <button onClick={()=>setShowCarerCard(false)} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
+            <div style={{overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"0 20px 40px"}}>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:40,marginBottom:8}}>👩‍🍼</div>
@@ -15631,6 +15645,7 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
             <button onClick={()=>setShowCarerCard(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
               Close
             </button>
+            </div>{/* end scroll container */}
           </div>
         </div>
       )}
