@@ -10029,7 +10029,7 @@ function App(){
             {tutStep >= 0 && (()=>{
         const TUT_STEPS = [
           { icon:"👋", title:"Welcome to OBubba!", body:"Your baby companion — calm, smart, and built around you. Quick tour of where everything lives. Tap anywhere to continue." },
-          { icon:"📱", title:"Today Tab — your home screen", body:"Everything you need right now lives here. Hero Card shows what baby needs and why. Day Story below tells the story of your baby's day in plain English. One-tap log row for feeds, naps, nappies. Notes & Reminders (tap to expand) holds appointments, pinned notes, and medicine logs." },
+          { icon:"📱", title:"Today Tab — your home screen", body:"Everything you need right now lives here. Hero Card shows what baby needs and why. One-tap log row for feeds, naps, nappies. Notes & Reminders (tap to expand) holds appointments, pinned notes, and medicine logs. Scroll down past the summary stats to find the detailed log — every entry for the day with full times and edit options. Day Story and tracking streaks live at the bottom." },
           { icon:"🧠", title:"Hero Card — the brain", body:"The coloured dot shows baby's state. The timing line counts wake/sleep time. When predictions use your baby's personal data, you'll see 'OBubba Rhythm' beside the time. 'Right now:' tells you what to do — nap approaching, feed due, bedtime starting, tummy time window, and more. Tap 'Why?' to see the science." },
           { icon:"📖", title:"Day Story & Victories", body:"Below the Hero Card, the Day Story explains what's happening — night wake count, nap quality vs average, feed pace, and what to expect next. Victory cards celebrate progress you might miss: self-settling improvements, longer stretches, nap gains." },
           { icon:"🔍", title:"When things are tough", body:"If sleep is disrupted for 2+ nights, a Disruption Card appears automatically. It cross-references developmental leaps, teething, regressions, and illness to explain WHY and tell you when it usually passes. No guessing." },
@@ -10039,7 +10039,7 @@ function App(){
           { icon:"💡", title:"Insights Tab", body:"Pick a topic: Sleep, Feeding, Growth, or Reports. Sleep Story explains your baby's sleep in plain English — how nights are going, nap patterns, the science behind predictions, and what you can do. Includes Rhythm Confidence score showing how predictable the schedule is becoming. Feed Insights spots cluster feeding, growth spurts, and feed-sleep connections." },
           { icon:"💊", title:"Health & Growth", body:`Medicine & temperature logging in Notes & Reminders (expand it). Fever alert: 38°C+ under 3 months = call ${_helpLine}. Growth section shows date, measurement, and percentile for each weigh-in. Nappy tracker counts wet nappies (6/day target) and flags concerning colours.` },
           { icon:"🧩", title:"Development Tab", body:"Activities: age-appropriate play ideas with 'why this matters'. Milestones: what baby is working on now — tap to mark achieved. Teeth: visual tooth chart. Weaning: daily food suggestions, allergen detection for all 14 UK allergens, foods to avoid, and reaction tracking. Appears from around 6 months." },
-          { icon:"🔍", title:"Hidden features", body:"Long-press any log button for the advanced form. The + button scrolls to more options (pump, tummy time, medicine, notes). Shake your phone to undo any accidental log within 15 seconds. Smart text parsing understands 'fed 120ml at 2pm' or 'napped 45 mins from 1'." },
+          { icon:"🔍", title:"Hidden features", body:"Long-press any log button for the advanced form (e.g. long-press Nap for a custom start time). Scroll down past the summary stats to find the full detailed log with pump, tummy time, medicine, and notes. Shake your phone to undo any accidental log within 15 seconds. Smart text parsing understands 'fed 120ml at 2pm' or 'napped 45 mins from 1'." },
           { icon:"👩‍🍼", title:"Sharing & Carer Portal", body:"Share a Care Guide with babysitters, grandparents, or nursery — it includes feeding info, sleep windows, and emergency contacts. The QR code opens a Carer Portal where they can log feeds, naps, and nappy changes. You'll see their entries in the app under 'Carer Activity' and can accept or dismiss each one. Carers can only see what they log — they never see your data. Partner sync lets both parents share the same data in real time." },
           { icon:"💜", title:"You matter too", body:`Weekly wellbeing check-in on the Insights tab — Great, Okay, Struggling, or Need Support. If you're struggling, real support resources: ${_isUS?"Postpartum Support International (1-800-944-4773), 988 Crisis Lifeline":_isAU?"PANDA (1300 726 306), Beyond Blue (1300 22 4636)":"PANDAS (0808 196 1776), Samaritans (116 123)"}. You'll also see gentle nudges like 'Have you had water today?'` },
           { icon:"🎉", title:"You're all set!", body:"Log a wake time to start your day. Predictions get smarter with every log — by day 3, OBubba starts learning your baby's unique rhythm. Tap any ? icon for help. Replay this tour anytime from Account." },
@@ -10476,22 +10476,6 @@ function App(){
                 );
               })()}
 
-              {/* ═══ VICTORY TRACKER — celebrate progress ═══ */}
-              {selDay===todayStr()&&(()=>{
-                const _vic = victoryTracker();
-                if (!_vic || !_vic.length) return null;
-                return (
-                  <div className="glass-card" style={{padding:"12px 16px",marginBottom:10,background:"linear-gradient(135deg,rgba(80,200,120,0.04),rgba(111,168,152,0.04))"}}>
-                    {_vic.slice(0,2).map((v,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:i<Math.min(_vic.length,2)-1?6:0}}>
-                        <span style={{fontSize:14,flexShrink:0}}>{v.icon}</span>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{v.text}</div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-
               {/* Smart time-of-day prompt */}
               {selDay===todayStr()&&(()=>{
                 const h=new Date().getHours();
@@ -10572,7 +10556,6 @@ function App(){
 
                   {emoji:"📷",label:"Photo",action:()=>capturePhoto(null)},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"➕",label:"More",action:()=>{haptic();setNotesOpen(false);setTodayPlanOpen(false);setTimeout(()=>{const el=document.getElementById("detail-log-grid");if(el){const rect=el.getBoundingClientRect();const scrollTop=window.pageYOffset||document.documentElement.scrollTop;window.scrollTo({top:scrollTop+rect.top-80,behavior:"smooth"});}else{openLogPanel("feed");}},400);}},
                 ].map(({emoji,label,action,longAction})=>{
                   let _lpTimer = null;
                   let _lpFired = false;
@@ -10683,25 +10666,6 @@ function App(){
               })()}
 
               {/* Pending bottle snaps banner */}
-
-              {/* ═══ Quick Status Strip — 3 data points only ═══ */}
-              {selDay===todayStr() && (()=>{
-                const _qToday = days[selDay] || [];
-                const _qWet = _qToday.filter(e=>e.type==="poop"&&(e.poopType==="wet"||(e.poopType||"").includes("wet"))).length;
-                const _qFeeds = _qToday.filter(e=>e.type==="feed"&&!e.night);
-                const _qLastFeed = _qFeeds.length ? fmt12(_qFeeds.sort((a,b)=>timeVal(b)-timeVal(a))[0].time) : "—";
-                const _qNaps = _qToday.filter(e=>e.type==="nap"&&!e.night);
-                const _qTotalSleep = _qNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-                return (
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-around",padding:"8px 12px",marginBottom:10,borderRadius:12,background:"var(--card-bg)",border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)",fontSize:12,color:C.mid}}>
-                    <span>💧 {_qWet} wet</span>
-                    <span style={{opacity:0.3}}>·</span>
-                    <span>🍼 Last {_qLastFeed}</span>
-                    <span style={{opacity:0.3}}>·</span>
-                    <span>😴 {hm(_qTotalSleep)} sleep</span>
-                  </div>
-                );
-              })()}
 
               {/* ═══ Notes & Reminders — collapsible ═══ */}
               {(()=>{
@@ -10854,78 +10818,6 @@ function App(){
                 );
               })()}
 
-              {/* ── Quick Status Row: Hydration + Feed Spacing ── */}
-              {selDay === todayStr() && (
-                <div style={{display:"flex",gap:8,marginBottom:12}}>
-                  {/* Wet nappy counter — only for breastfed babies */}
-                  {(()=>{
-                    const recent = Object.keys(days).sort().slice(-7);
-                    const hasBreast = recent.some(d=>(days[d]||[]).some(e=>e.feedType==="breast"));
-                    if (!hasBreast) return null;
-                    const h = getHydrationStatus();
-                    const pct = Math.min(100, Math.round(h.wetCount / h.target * 100));
-                    return (
-                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${h.met?C.mint+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                          <span style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>💧 Hydration</span>
-                          <HelpBtn title="Hydration" body="NHS guidance: 6+ wet nappies in 24 hours indicates adequate hydration for babies over 5 days old. This counter tracks today's wet nappies. Especially important for breastfed babies where you can't measure intake volume."/>
-                          <span style={{fontSize:12,fontWeight:700,color:h.met?C.mint:C.mid}}>{h.wetCount}/{h.target}</span>
-                        </div>
-                        <div style={{height:4,borderRadius:99,background:C.blush}}>
-                          <div style={{height:4,borderRadius:99,background:h.met?C.mint:C.gold,width:`${pct}%`,transition:"width 0.3s"}}/>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {/* Feed spacing */}
-                  {(()=>{
-                    const fs = getFeedSpacing();
-                    if (!fs) return null;
-                    // Don't flag as overdue if baby is sleeping (bedtime logged, no morning wake yet)
-                    const hasBedtime = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
-                    const isSleeping = hasBedtime && !napOn;
-                    const effectiveOverdue = fs.overdue && !isSleeping;
-                    const veryOverdue = effectiveOverdue && fs.gap > fs.threshold * 1.5;
-                    return (
-                      <div style={{flex:1,background:effectiveOverdue?"rgba(192,112,136,0.06)":"var(--card-bg)",border:`${effectiveOverdue?"1.5px":"1px"} solid ${effectiveOverdue?C.ter+"50":C.blush}`,borderRadius:16,padding:effectiveOverdue?"12px 14px":"10px 12px",transition:"all 0.3s",animation:veryOverdue?"pulse 2s infinite":"none"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:effectiveOverdue?C.ter:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🍼 {effectiveOverdue?"Might be ready for a feed":isSleeping?"Last feed (sleeping)":"Last feed"}</div>
-                        <div style={{fontSize:effectiveOverdue?15:13,fontWeight:700,color:effectiveOverdue?C.ter:C.mid}}>{hm(fs.gap)} ago</div>
-                        {effectiveOverdue && age && age.totalWeeks < 3 && <div style={{fontSize:11,color:C.ter,marginTop:3,lineHeight:1.4}}>Newborns need feeding every 2–3 hours until birth weight is regained (NHS). If you're unsure, have a chat with your {_doctor}.</div>}
-                        {effectiveOverdue && (!age || age.totalWeeks >= 3) && <div style={{fontSize:11,color:C.mid,marginTop:3,lineHeight:1.4}}>{isSleeping ? "When " + (babyName||"baby") + " wakes, a feed and fresh nappy might help" : (babyName||"Baby") + " might be getting hungry — you might notice rooting or hand-to-mouth"}</div>}
-                        {effectiveOverdue && <div style={{fontSize:9,color:"var(--text-mid)",marginTop:3,fontFamily:_fI,lineHeight:1.5}}>{fs.avgGap ? `Based on ${babyName||"baby"}'s rhythm — feeds often happen around every ${hm(fs.avgGap)}.` : `A gentle guide for ${fmtAge(age)}.`}</div>}
-                      </div>
-                    );
-                  })()}
-                  {/* Poop tracker */}
-                  {(()=>{
-                    const pf = getPoopFrequency();
-                    if (!pf) return null;
-                    const _pName = babyName || "baby";
-                    const _isBreast = pf.hasBreast;
-                    const _warn = pf.daysSince >= 3;
-                    return (
-                      <div style={{flex:1,background:"var(--card-bg)",border:`1px solid ${_warn?C.gold+"40":C.blush}`,borderRadius:16,padding:"10px 12px"}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>💩 Last poop</div>
-                        <div style={{fontSize:13,fontWeight:700,color:_warn?C.gold:C.mid}}>{pf.neverLogged ? "Not logged" : pf.daysSince === 0 ? "Today" : pf.daysSince + "d ago"}</div>
-                        {pf.daysSince >= 2 && (
-                          <div style={{fontSize:11,color:_warn?C.gold:C.lt,marginTop:4,lineHeight:1.4}}>
-                            {_isBreast && pf.daysSince <= 7
-                              ? "This can be normal for breastfed babies"
-                              : !_isBreast && pf.daysSince >= 3
-                              ? "Formula-fed babies usually poo more often"
-                              : pf.daysSince >= 3
-                              ? "Every baby has their own rhythm"
-                              : pf.daysSince + " days — keeping an eye"}
-                          </div>
-                        )}
-                        <button onClick={(ev)=>{ev.stopPropagation();haptic();setPoopWhyOpen(true);}} style={{background:"none",border:"none",padding:"4px 0 0",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:3,marginTop:4}}>
-                          Why? <span style={{fontSize:8}}>▶</span>
-                        </button>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
 
                                           {/* Age guidance */}
               {ageStage&&(
@@ -11282,6 +11174,9 @@ function App(){
                 );
               })()}
 
+              <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:4}}>
+                <HelpBtn title="Today's Summary" body={"These numbers update as you log throughout the day. Here's a rough guide for " + fmtAge(age) + ":\n\n🍼 Milk intake — Newborns: 150–200ml per kg per day. By 6 months: roughly 600–900ml total. This varies a lot between babies and feed types.\n\n💩 Nappies — Expect 6+ wet nappies in 24 hours (a sign of good hydration). Dirty nappies vary widely — breastfed babies can go days between poos after 6 weeks.\n\n😴 Day sleep — Newborns: 4–5 hours across many naps. 3–6 months: 3–4 hours across 3–4 naps. 6–12 months: 2–3 hours across 2–3 naps.\n\n⏱️ Nap time — Short naps (30–45 min) are completely normal under 6 months. Naps often lengthen naturally around 5–6 months.\n\nThese are general ranges, not targets. Every baby is different — if " + (babyName||"baby") + " is content, feeding well, and gaining weight, you're doing great.\n\n💬 If anything concerns you, your " + _doctor + " or health visitor is always happy to help."}/>
+              </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
                   {big:totalMlWithNight?mlToDisplay(totalMlWithNight,FU):dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,unit:totalMlWithNight?volLabel(FU):"meals",label:totalMlWithNight?"Total Milk":"Solids",color:C.ter,bg:"var(--card-bg)"},
@@ -11869,6 +11764,22 @@ function App(){
                     </div>
                     {_narr.lines.map((ln,i)=>(
                       <div key={i} style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:i<_narr.lines.length-1?6:0}}>{ln}</div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* ═══ VICTORY TRACKER — celebrate progress (bottom) ═══ */}
+              {selDay===todayStr()&&(()=>{
+                const _vic = victoryTracker();
+                if (!_vic || !_vic.length) return null;
+                return (
+                  <div className="glass-card" style={{padding:"12px 16px",marginBottom:10,background:"linear-gradient(135deg,rgba(80,200,120,0.04),rgba(111,168,152,0.04))"}}>
+                    {_vic.slice(0,2).map((v,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:i<Math.min(_vic.length,2)-1?6:0}}>
+                        <span style={{fontSize:14,flexShrink:0}}>{v.icon}</span>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{v.text}</div>
+                      </div>
                     ))}
                   </div>
                 );
