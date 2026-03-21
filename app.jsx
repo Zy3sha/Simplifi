@@ -1560,6 +1560,15 @@ function App(){
   const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
   const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
+  const[partnerTick,setPartnerTick]=useState(0);
+  // Tick every 30s if there are partner's active entries (forces badge update)
+  React.useEffect(()=>{
+    const entries = days[selDay]||[];
+    const hasPartnerActive = entries.some(e=>e._active && e.id && !(window._localEntryIds && window._localEntryIds.has(e.id)));
+    if(!hasPartnerActive) return;
+    const iv = setInterval(()=>setPartnerTick(t=>t+1), 10000);
+    return ()=>clearInterval(iv);
+  },[days, selDay]);
   const[napSec,setNapSec]=useState(()=>{
     try{
       const on=localStorage.getItem("nap_on")==="1";
@@ -1727,6 +1736,8 @@ function App(){
   const[obUsernameStatus,setObUsernameStatus]=useState("idle");
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
   const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");return(u&&!v)?"login":null;}catch{return null;}});
+  const[showBioPrompt,setShowBioPrompt]=useState(false);
+  const bioAttemptedRef=React.useRef(false);
   const[authMode,setAuthMode]=useState("login");
   const[showBetaBanner,setShowBetaBanner]=useState(()=>{
     try{
@@ -9712,6 +9723,36 @@ function App(){
 
   const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
   const tabLabels={day:"Today",insights:"Insights",develop:"Development",settings:"Account"};
+  // Auto-trigger Face ID on login screen
+  React.useEffect(()=>{
+    if(!authScreen || authMode!=="login" || bioAttemptedRef.current) return;
+    if(!window._isNative || !window._biometricAuth) return;
+    const bioUser = localStorage.getItem("bio_user");
+    const bioPin = localStorage.getItem("bio_pin");
+    const bioEnabled = localStorage.getItem("bio_enabled");
+    if(!bioUser || !bioPin || !bioEnabled) return;
+    bioAttemptedRef.current = true;
+    (async()=>{
+      try{
+        const avail = await window._biometricAuth.isAvailable();
+        if(!avail) return;
+        setAuthUsername(bioUser);
+        const result = await window._biometricAuth.authenticate();
+        if(result.success){
+          setAuthLoading(true);
+          const ok = await verifyLogin(bioUser, bioPin);
+          if(ok){
+            try{localStorage.setItem("onboarded_v2","1");}catch{}
+            setOnboarded(true); setAuthScreen(null); setTab("day");
+          } else {
+            setAuthError("Face ID passed but PIN changed — please sign in manually");
+            setAuthLoading(false);
+          }
+        }
+      }catch(e){ console.warn("Bio auth failed:",e); }
+    })();
+  },[authScreen, authMode]);
+
   if (authScreen) {
     const isLogin = authMode === "login";
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin && agreedToTerms : true);
@@ -9725,7 +9766,7 @@ function App(){
         const ok = await verifyLogin(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          try{ localStorage.setItem("bio_user",authUsername); localStorage.setItem("bio_pin",pin); }catch{}
+
           setOnboarded(true); setAuthScreen(null); setTab("day");
         } else {
           setAuthError("Wrong PIN — try again");
@@ -9775,22 +9816,7 @@ function App(){
           <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:10}}>
             {isLogin?"PIN":"Choose a PIN"}
           </label>
-          {isLogin && window._biometricAuth && window._isNative && (()=>{
-            try{ const u=localStorage.getItem("bio_user"); const p=localStorage.getItem("bio_pin"); if(u&&p) return true; }catch{} return false;
-          })() && (
-            <button onClick={async()=>{
-              try{
-                const result = await window._biometricAuth.authenticate();
-                if(result.success){
-                  const u=localStorage.getItem("bio_user");
-                  const p=localStorage.getItem("bio_pin");
-                  if(u&&p){setAuthUsername(u);setAuthPin(p);handleAuth(p);}
-                }
-              }catch(e){setAuthError("Face ID failed");}
-            }} style={{width:"100%",padding:"14px",borderRadius:14,border:"1.5px solid "+C.blush,background:"var(--card-bg)",cursor:_cP,fontSize:15,fontWeight:700,color:C.deep,fontFamily:_fI,marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-              <span style={{fontSize:22}}>🔐</span> Sign in with Face ID
-            </button>
-          )}
+
           {authLoading ? (
             <div style={{textAlign:"center",padding:"24px 0",fontSize:13,color:C.mid,fontFamily:_fM}}>⏳ {isLogin?"Signing in…":"Creating account…"}</div>
           ) : (
