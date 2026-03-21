@@ -1946,7 +1946,6 @@ function App(){
           if(Array.isArray(dayArr)) {
             ch.days[dk] = dayArr.filter(e => !e._deleted).map(e => {
               const c = {...e};
-              delete c._active;
               if(c.type === "nap" && c.start && c.start === c.end) delete c.end;
               return c;
             });
@@ -11729,7 +11728,7 @@ function App(){
                     if (e.type === "nap" && e.start && e.end && e.start !== e.end && !e._active) {
                       return `${fmt12(e.start)}-${fmt12(e.end)} - ${e.isBridge ? "Bridge Nap 🌉" : "Nap"}`;
                     }
-                    if (e.type === "nap" && e.start && (e._active || e.start === e.end)) {
+                    if (e.type === "nap" && e.start && (e._active || e.start === e.end || !e.end)) {
                       return `${fmt12(e.start)} - ${e.isBridge ? "Bridge Nap 🌉" : "Nap"} (ongoing)`;
                     }
                     const timeStr = e.time || e.start || "";
