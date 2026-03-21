@@ -39,8 +39,8 @@ const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(
 const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 const fmtSec = s => s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 const haptic=(ms=10)=>{try{if(window._nativeHaptic){window._nativeHaptic(typeof ms==="string"?ms:"medium");return;}if(navigator.vibrate){navigator.vibrate(typeof ms==="number"?ms:10);}}catch{}};
-// Native keyboard: scroll focused input into view + add bottom padding
-if(typeof window!=="undefined"){document.addEventListener("focusin",function(ev){var el=ev.target;if(el&&(el.tagName==="INPUT"||el.tagName==="TEXTAREA"||el.tagName==="SELECT")){setTimeout(function(){el.scrollIntoView({behavior:"smooth",block:"center"});},400);}});var _kbStyle=document.createElement("style");_kbStyle.textContent="@supports(padding-bottom:env(keyboard-inset-height)){[style*=\"position: fixed\"][style*=\"inset: 0\"]{padding-bottom:env(keyboard-inset-height,0px)!important;}}";document.head.appendChild(_kbStyle);}
+// Native keyboard: adjust viewport when keyboard appears
+if(typeof window!=="undefined"&&window.visualViewport){let _lastFocused=null;document.addEventListener("focusin",function(ev){_lastFocused=ev.target;});window.visualViewport.addEventListener("resize",function(){const kbH=window.innerHeight-window.visualViewport.height;document.documentElement.style.setProperty("--keyboard-height",kbH+"px");if(_lastFocused&&kbH>100){setTimeout(function(){_lastFocused.scrollIntoView({behavior:"smooth",block:"center"});},100);}});window.visualViewport.addEventListener("scroll",function(){document.documentElement.style.setProperty("--vv-offset",window.visualViewport.offsetTop+"px");});}
 const _locale = (navigator.language||"en-GB").toLowerCase();
 const _toothLabels = {"UR-E":"Upper right 2nd molar","UR-D":"Upper right 1st molar","UR-C":"Upper right canine","UR-B":"Upper right lateral","UR-A":"Upper right central","UL-A":"Upper left central","UL-B":"Upper left lateral","UL-C":"Upper left canine","UL-D":"Upper left 1st molar","UL-E":"Upper left 2nd molar","LR-E":"Lower right 2nd molar","LR-D":"Lower right 1st molar","LR-C":"Lower right canine","LR-B":"Lower right lateral","LR-A":"Lower right central","LL-A":"Lower left central","LL-B":"Lower left lateral","LL-C":"Lower left canine","LL-D":"Lower left 1st molar","LL-E":"Lower left 2nd molar"};
 const toothLabel = (id) => _toothLabels[id] || id;
@@ -293,7 +293,7 @@ const _fM="monospace",_fI="inherit",_cP="pointer",_bBB="border-box",_ls1="0.1em"
 function Sheet({onClose,title,children}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 80px",width:"100%",maxWidth:520,maxHeight:"85vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(80px + var(--keyboard-height, 0px))",width:"100%",maxWidth:520,maxHeight:"85vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
         <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
         {title&&<div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:16}}>{title}</div>}
         {children}
@@ -2428,6 +2428,7 @@ function App(){
       try {
         const snap = await getDoc(doc(db,"usernames",normaliseUsername(val)));
         setAuthUsernameStatus(snap.exists() ? "found" : "notfound");
+        if(snap.exists()) try{document.activeElement.blur();}catch{}
       } catch(e) { setAuthUsernameStatus("idle"); }
     }, 500);
   }
@@ -7795,9 +7796,19 @@ function App(){
 
   async function requestNotifications(){
     try{
-      const p=await Notification.requestPermission();
-      setNotifPermission(p);
-    }catch{}
+      if(window._isNative){
+        const {PushNotifications} = await import("@capacitor/push-notifications");
+        const perm = await PushNotifications.requestPermissions();
+        if(perm.receive==="granted"){
+          await PushNotifications.register();
+          setNotifPermission("granted");
+          showToast("🔔 Notifications enabled ✓",2000,1);
+        }
+      } else {
+        const p=await Notification.requestPermission();
+        setNotifPermission(p);
+      }
+    }catch(e){ console.warn("Notification request failed:",e); }
   }
 
         function quickAddLog(type, data){
@@ -8827,11 +8838,25 @@ function App(){
       const blob = new Blob([html], { type: "text/html" });
       const file = new File([blob], `${name}-care-guide.html`, { type: "text/html" });
       navigator.share({ title: `${name}'s Care Guide`, files: [file] }).catch(() => {
-        const w = (()=>{try{return window.open("","_blank");}catch{return null;}})();
+        const w = (()=>{
+              if(window._isNative){
+                const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;";
+                document.body.appendChild(d);
+                return {document:{open:()=>{},write:(h)=>{d.innerHTML=h.replace('window.close();history.back();','document.getElementById("print-overlay").remove();');},close:()=>{}}};
+              }
+              if(window._isNative){const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;";document.body.appendChild(d);return{document:{open:()=>{},write:(h)=>{d.innerHTML=h.replace("window.close();history.back();","document.getElementById(\"print-overlay\").remove();");},close:()=>{}}};} try{return window.open("","_blank");}catch{return null;}
+            })();
         if (w) { w.document.write(html.replace("<body>","<body>"+_closeBar)); w.document.close(); }
       });
     } else {
-      const w = (()=>{try{return window.open("","_blank");}catch{return null;}})();
+      const w = (()=>{
+              if(window._isNative){
+                const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;";
+                document.body.appendChild(d);
+                return {document:{open:()=>{},write:(h)=>{d.innerHTML=h.replace('window.close();history.back();','document.getElementById("print-overlay").remove();');},close:()=>{}}};
+              }
+              if(window._isNative){const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;";document.body.appendChild(d);return{document:{open:()=>{},write:(h)=>{d.innerHTML=h.replace("window.close();history.back();","document.getElementById(\"print-overlay\").remove();");},close:()=>{}}};} try{return window.open("","_blank");}catch{return null;}
+            })();
       if (w) { w.document.write(html.replace("<body>","<body>"+_closeBar)); w.document.close(); }
     }
   }
@@ -9700,6 +9725,7 @@ function App(){
         const ok = await verifyLogin(authUsername, pin);
         if(ok) {
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+          try{ localStorage.setItem("bio_user",authUsername); localStorage.setItem("bio_pin",pin); }catch{}
           setOnboarded(true); setAuthScreen(null); setTab("day");
         } else {
           setAuthError("Wrong PIN — try again");
@@ -9749,6 +9775,22 @@ function App(){
           <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:10}}>
             {isLogin?"PIN":"Choose a PIN"}
           </label>
+          {isLogin && window._biometricAuth && window._isNative && (()=>{
+            try{ const u=localStorage.getItem("bio_user"); const p=localStorage.getItem("bio_pin"); if(u&&p) return true; }catch{} return false;
+          })() && (
+            <button onClick={async()=>{
+              try{
+                const result = await window._biometricAuth.authenticate();
+                if(result.success){
+                  const u=localStorage.getItem("bio_user");
+                  const p=localStorage.getItem("bio_pin");
+                  if(u&&p){setAuthUsername(u);setAuthPin(p);handleAuth(p);}
+                }
+              }catch(e){setAuthError("Face ID failed");}
+            }} style={{width:"100%",padding:"14px",borderRadius:14,border:"1.5px solid "+C.blush,background:"var(--card-bg)",cursor:_cP,fontSize:15,fontWeight:700,color:C.deep,fontFamily:_fI,marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <span style={{fontSize:22}}>🔐</span> Sign in with Face ID
+            </button>
+          )}
           {authLoading ? (
             <div style={{textAlign:"center",padding:"24px 0",fontSize:13,color:C.mid,fontFamily:_fM}}>⏳ {isLogin?"Signing in…":"Creating account…"}</div>
           ) : (
@@ -11785,8 +11827,15 @@ function App(){
                     else if(e.feedType==="solids") badgeVal=null;
                     else badgeVal=e.amount?fmtVol(e.amount,FU):null;
                   } else if(e.type==="nap"){
-                    const dur=e.start&&e.end?minDiff(e.start,e.end):0;
-                    badgeVal=dur>0?hm(dur):null;
+                    if(e._active || !e.end || e.start===e.end){
+                      const startMins=e.start?parseInt(e.start.split(':')[0])*60+parseInt(e.start.split(':')[1]):0;
+                      const nowM=new Date().getHours()*60+new Date().getMinutes();
+                      let elapsed=nowM-startMins; if(elapsed<0)elapsed+=1440;
+                      badgeVal=elapsed>0?hm(elapsed)+' ⏱':'⏱';
+                    } else {
+                      const dur=e.start&&e.end?minDiff(e.start,e.end):0;
+                      badgeVal=dur>0?hm(dur):null;
+                    }
                   } else if(e.type==="poop"){
                     const raw = e.poopType||"";
                     const isDirty = raw.startsWith("wet + ");
@@ -12216,12 +12265,10 @@ function App(){
                     setLastWellbeingDate(todayStr());
                     try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};
                     const msg = pick(wellbeingMsgs[label]);
-                    if(label==="Great"){
-                      showMascot("celebration", "💜 "+msg, 5000);
-                    } else if(label==="Struggling"||label==="Need support"){
-                      setShowWellbeing({msg, label});
+                    if(label==="Struggling"||label==="Need support"){
+                      setShowWellbeing({msg: msg + wellbeingResources, label});
                     } else {
-                      showToast("💜 "+msg,5000,3);
+                      showMascot(label==="Great"?"celebration":"happy", "💜 "+msg, 5000);
                     }
                   }} style={{flex:1,minWidth:70,padding:"10px 6px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:3,touchAction:"manipulation"}}>
                     <span style={{fontSize:20}}>{emoji}</span>
@@ -13348,7 +13395,7 @@ function App(){
                       </div>
                     </button>
                     <button onClick={()=>{
-                      const w=(()=>{try{return window.open("","_blank");}catch{return null;}})();
+                      const w=(()=>{if(window._isNative){const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;";document.body.appendChild(d);return{document:{open:()=>{},write:(h)=>{d.innerHTML=h.replace("window.close();history.back();","document.getElementById(\"print-overlay\").remove();");},close:()=>{}}};} try{return window.open("","_blank");}catch{return null;}})();
                       if(!w)return;
                       const rEntries2=(days[selDay]||[]).filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
                       const rNight2=(days[selDay]||[]).filter(e=>e.night);
@@ -15966,7 +16013,14 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
               haptic();
               const html = generateCarerCardHTML();
               const closeBar = `<div style="position:sticky;top:0;z-index:99;background:#FFFCF9;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0e8e0"><button onclick="window.close();history.back();" style="padding:8px 20px;border-radius:99px;border:none;background:#C07088;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif">← Back to App</button><button onclick="window.print()" style="padding:8px 20px;border-radius:99px;border:1.5px solid #f0e8e0;background:white;color:#5B4F5F;font-size:14px;font-weight:600;cursor:pointer;font-family:-apple-system,sans-serif">🖨️ Print</button></div>`;
-              const w = (()=>{try{return window.open("","_blank");}catch{return null;}})();
+              const w = (()=>{
+              if(window._isNative){
+                const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;";
+                document.body.appendChild(d);
+                return {document:{open:()=>{},write:(h)=>{d.innerHTML=h.replace('window.close();history.back();','document.getElementById("print-overlay").remove();');},close:()=>{}}};
+              }
+              if(window._isNative){const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;";document.body.appendChild(d);return{document:{open:()=>{},write:(h)=>{d.innerHTML=h.replace("window.close();history.back();","document.getElementById(\"print-overlay\").remove();");},close:()=>{}}};} try{return window.open("","_blank");}catch{return null;}
+            })();
               if(w){ w.document.write(html.replace("<body>","<body>"+closeBar)); w.document.close(); }
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
               🖨️ Preview / Print
@@ -17159,7 +17213,7 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
               @keyframes mascotTextIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
             `}</style>
             <img
-              src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
+              src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="happy"?"obubba-happy.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
               alt=""
               style={{width:220,height:220,objectFit:"contain",animation:"mascotFloat 2s ease-in-out 0.5s infinite",filter:"drop-shadow(0 16px 36px rgba(217,207,243,0.45))"}}
             />
