@@ -17173,4 +17173,4 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
     </div>
   );
 }
-createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(App)));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(App)));
