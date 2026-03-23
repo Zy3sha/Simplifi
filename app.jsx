@@ -3547,6 +3547,9 @@ function App(){
     const _h0 = new Date().getHours();
     const _hasBed = _today.some(e => e.type === "sleep" && !e.night);
     const _hasWake = _useYesterday ? false : _today.some(e => e.type === "wake" && !e.night);
+    // Day is effectively underway if there are ANY daytime entries (feeds, naps, nappies)
+    // even if wake wasn't explicitly logged — parents often just start feeding/changing
+    const _dayStarted = _hasWake || _today.filter(e => !e.night && (e.type === "feed" || e.type === "nap" || e.type === "poop")).length > 0;
     const _name = babyName || "Baby";
     const _h = new Date().getHours();
     const _nowM = _h * 60 + new Date().getMinutes();
@@ -3567,6 +3570,10 @@ function App(){
       if (e.type === "wake") _lastSleep = timeVal(e);
       if (e.type === "nap" && e.end) _lastSleep = timeVal({time: e.end});
     });
+    // If no wake entry but day has started, use first daytime entry as effective wake
+    if (_lastSleep === null && _dayStarted && _dayE.length > 0) {
+      _lastSleep = timeVal(_dayE[0]);
+    }
     if (_lastSleep !== null) _awakeMin = Math.max(0, _nowM - _lastSleep);
 
     let _dot, _label, _timing;
@@ -3853,7 +3860,7 @@ function App(){
         })();
 
     // ── Morning: no wake logged ──
-    if (!_hasWake && _h >= 5 && _h <= 10) {
+    if (!_dayStarted && _h >= 5 && _h <= 10) {
       return (
         <button onClick={()=>{haptic();handleSmartWake();}} className="glass-card prio-glow" style={{width:"100%",padding:"20px 18px",marginBottom:12,cursor:_cP,textAlign:"left"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
@@ -3861,7 +3868,7 @@ function App(){
             <span style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Good morning! ☀️</span>
           </div>
           <div style={{fontSize:13,color:C.mid,marginBottom:6}}>Tap to start {_name}'s day</div>
-          {_feedNappyHint && !_hasWake && <div style={{fontSize:11,color:C.lt,marginBottom:6,fontFamily:_fM}}>🍼 When {_name} wakes, {_feedNappyHint}</div>}
+          {_feedNappyHint && !_dayStarted && <div style={{fontSize:11,color:C.lt,marginBottom:6,fontFamily:_fM}}>🍼 When {_name} wakes, {_feedNappyHint}</div>}
           <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>{_reassure}</div>
         </button>
       );
@@ -4089,7 +4096,7 @@ function App(){
         _dot = "#7BA68C"; _label = "All good right now";
         _timing = "Awake " + hm(_awakeMin) + " · Nap " + (_napsDone+1) + " of " + _adjustedExpected + " around " + _napTimeStr + _rhythmTag;
       }
-    } else if (_hasWake && _allFeedsIncNight.length > 0) {
+    } else if (_dayStarted && _allFeedsIncNight.length > 0) {
       // Find most recent feed — prioritise today's entries over yesterday's night feeds
       const _todayFeedsInc = _allFeedsIncNight.filter(e => !e.night || (e.night && timeVal(e) < 720 && _nowM < 720));
       const _srcFeeds = _todayFeedsInc.length > 0 ? _todayFeedsInc : _allFeedsIncNight;
@@ -4108,9 +4115,10 @@ function App(){
         _dot = "#7BA68C"; _label = "All good right now";
         _timing = "Awake " + hm(_awakeMin) + (!_napsComplete ? " · Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" : " · Enjoying the day");
       }
-    } else if (_hasWake) {
+    } else if (_dayStarted) {
       _dot = "#7BA68C"; _label = "All good right now";
       _timing = "Awake " + hm(_awakeMin) + (!_napsComplete ? " · Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" : " · Enjoying the day");
+      if (!_hasWake) _rightNow = "Tip: Log a ☀️ Wake to unlock more accurate nap predictions";
     } else {
       _dot = "#A89898"; _label = "Ready to start";
       _timing = "Log a wake to start tracking " + _name + "'s day";
@@ -4844,6 +4852,40 @@ function App(){
         adjustReason, bedSource: hasAvg?"avg":"age", baseBedMins: baseBed, adjustMins,
         needsBridge: false, lastNapEndMins, lastWW: finalMins - lastNapEndMins, estimated: false
       };
+    }
+
+    // ═══ SKIP-NAP CHECK: Would another nap push bedtime past 8pm? ═══
+    // If so, treat naps as done and calculate early bedtime from last nap end
+    if (!napsAreDone && napsDone >= 1 && todayNaps.length > 0) {
+      const _lastNapDone = todayNaps[todayNaps.length - 1];
+      if (_lastNapDone && _lastNapDone.end) {
+        const [_lh, _lm] = _lastNapDone.end.split(":").map(Number);
+        const _lastEndM = _lh * 60 + _lm;
+        const _minNapDur = napProfile.idealNapDurMin;
+        const _earliestNextStart = _lastEndM + ww.min;
+        const _earliestNextEnd = _earliestNextStart + _minNapDur;
+        const _earliestBed = _earliestNextEnd + ww.min;
+        const _totalWithNap = todayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0) + _minNapDur;
+        const _maxDaySleep = napProfile.idealTotalMax || 300;
+        if (_earliestBed > 20 * 60 || _totalWithNap > _maxDaySleep) {
+          // Skip remaining naps — calculate early bedtime
+          const _idealBedM = _lastEndM + Math.round((ww.min + ww.max) / 2);
+          const _clampedBed = clampBedtime(_idealBedM, age.totalWeeks);
+          const _hh = Math.floor(_clampedBed/60)%24, _mm = _clampedBed%60;
+          return {
+            time: `${String(_hh).padStart(2,"0")}:${String(_mm).padStart(2,"0")}`,
+            adjustReason: "Nap skipped — early bedtime to protect overnight sleep",
+            bedSource: hasAvg ? "avg" : "age",
+            baseBedMins: _clampedBed,
+            adjustMins: 0,
+            needsBridge: false,
+            lastNapEndMins: _lastEndM,
+            lastWW: _clampedBed - _lastEndM,
+            estimated: false,
+            napsRemaining: 0
+          };
+        }
+      }
     }
 
     // ═══ PHASE 2: Naps still to go — project forward ═══
@@ -11455,9 +11497,10 @@ function App(){
                 const _napsE2 = _todayE2.filter(e=>e.type==="nap"&&e.end);
                 let _lastAwake2 = _wakeE2 ? timeVal(_wakeE2) : null;
                 _napsE2.forEach(n=>{if(n.end){const t=timeVal({time:n.end});if(t>(_lastAwake2||0))_lastAwake2=t;}});
+                if (_lastAwake2 === null && _todayE2.length > 0) _lastAwake2 = timeVal(_todayE2[0]);
                 const _nowM2 = new Date().getHours()*60+new Date().getMinutes();
                 const _awakeMins2 = _lastAwake2!==null ? _nowM2 - _lastAwake2 : 0;
-                if (!_wakeE2) {
+                if (!_wakeE2 && _todayE2.length === 0) {
                   return (
                     <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
                       style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:C.ter}}>
@@ -11491,6 +11534,18 @@ function App(){
               const isBedNow = isBed && bedCountdown <= 0;
               const isNow = isNapNow || isBedNow;
               if(isNeutral) {
+                if (_todayE2.length > 0) {
+                  // Day has entries but no nap prediction — show awake timer
+                  const _wwLabel2 = age ? getWakeWindow(age.totalWeeks).label : "";
+                  return (
+                    <button onClick={()=>triggerPaywall("nap_prediction")}
+                      style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontFamily:_fM}}>
+                      <span style={{fontSize:13}}>⏱️</span>
+                      <span style={{fontSize:13,fontWeight:600,color:C.mid}}>Awake {hm(_awakeMins2)}</span>
+                      <span style={{fontSize:10,color:C.lt}}>· WW {_wwLabel2}</span>
+                    </button>
+                  );
+                }
                 return (
                   <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
                     style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:C.ter}}>
