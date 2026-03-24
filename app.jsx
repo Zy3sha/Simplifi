@@ -1,6 +1,3 @@
-import React from "react";
-import * as ReactDOM from "react-dom";
-import { createRoot } from "react-dom/client";
 
 const { useState, useEffect, useRef } = React;
 
@@ -19563,4 +19560,4 @@ Severe (anaphylaxis): breathing difficulty, swelling of face/throat, pale/floppy
     </div>
   );
 }
-createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(App)));
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(App)));
