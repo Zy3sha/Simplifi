@@ -358,7 +358,7 @@ struct ActionBtn: View {
         .frame(height: 48)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(filled ? color : color.opacity(0.25))
+                .fill(filled ? color.opacity(0.85) : color.opacity(0.25))
         )
         .environment(\.colorScheme, .light)
     }

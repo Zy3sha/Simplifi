@@ -39,6 +39,7 @@ end
 target 'App' do
   capacitor_pods
   # Add your Pods here
+  pod 'FirebaseCrashlytics'
 end
 
 post_install do |installer|

@@ -2648,7 +2648,7 @@ function App(){
             }
           }
         }catch(ex){console.warn("[OBubba] LA cleanup error:",ex);}
-      }, 2000);
+      }, 5000);
     }
 
     // Listen for app resume — refresh data + update widgets
@@ -5656,7 +5656,7 @@ function App(){
     try {
       var todayKey = new Date().toISOString().split("T")[0];
       var rd = (resolvedDay && resolvedDay.entries && resolvedDay.entries.length > 0) ? resolvedDay.entries : (days[todayKey] || []);
-      var feeds = rd.filter(function(e) { return e.type === "feed"; });
+      var feeds = rd.filter(function(e) { return e.type === "feed" || !!e.feedType; });
       var naps = rd.filter(function(e) { return e.type === "nap"; });
       // Also check raw today entries — resolvedDay can miss naps in edge cases
       var _rawTodayNaps = (days[todayKey]||[]).filter(function(e){ return e.type === "nap"; });
@@ -5666,9 +5666,10 @@ function App(){
       if (_tdNapsDone > naps.length) {
         while (naps.length < _tdNapsDone) naps.push({type:"nap",_placeholder:true});
       }
-      var nappies = rd.filter(function(e) { return e.type === "poop" || e.type === "nappy"; });
+      var _isNappy = function(e) { return e.type === "poop" || e.type === "nappy" || !!e.poopType; };
+      var nappies = rd.filter(_isNappy);
       // Also check raw today entries — resolvedDay can miss nappies in edge cases
-      var _rawTodayNappies = (days[todayKey]||[]).filter(function(e){ return e.type === "poop" || e.type === "nappy"; });
+      var _rawTodayNappies = (days[todayKey]||[]).filter(_isNappy);
       if (_rawTodayNappies.length > nappies.length) nappies = _rawTodayNappies;
       // Last feed: prefer the most recent DAYTIME feed; only fall back to night feed if no daytime feeds exist.
       // (Night feeds sort numerically lower e.g. 3:40am = 220mins vs 1:30pm = 810mins, so they would

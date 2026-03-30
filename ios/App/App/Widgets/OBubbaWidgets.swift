@@ -16,13 +16,22 @@ private func widgetStorePendingEntry(_ dict: [String: Any]) {
     var entry = dict
     let fmt = DateFormatter()
     fmt.dateFormat = "HH:mm"
-    fmt.locale = Locale(identifier: "en_US_POSIX")
+    fmt.locale = Locale(identifier: "en_US_POSIX")  // Force 24-hour regardless of device setting
     entry["time"] = fmt.string(from: Date())
     guard let data = try? JSONSerialization.data(withJSONObject: entry),
-          let json = String(data: data, encoding: .utf8),
-          let defaults = UserDefaults(suiteName: widgetAppGroupId) else { return }
-    defaults.set(json, forKey: "pendingSiriEntry")
-    defaults.synchronize()
+          let json = String(data: data, encoding: .utf8) else { return }
+
+    // Write to BOTH UserDefaults AND file for reliability (cross-process race condition)
+    if let defaults = UserDefaults(suiteName: widgetAppGroupId) {
+        defaults.set(json, forKey: "pendingSiriEntry")
+        defaults.synchronize()
+    }
+
+    // Also write to shared file — more reliable across processes
+    if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: widgetAppGroupId) {
+        let fileURL = containerURL.appendingPathComponent("pendingWidgetEntry.json")
+        try? json.write(to: fileURL, atomically: true, encoding: .utf8)
+    }
 }
 
 @available(iOS 17.0, *)
@@ -349,7 +358,7 @@ struct ActionBtn: View {
         .frame(height: 48)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(filled ? color : color.opacity(0.12))
+                .fill(filled ? color.opacity(0.85) : color.opacity(0.25))
         )
         .environment(\.colorScheme, .light)
     }
@@ -825,48 +834,35 @@ struct OBubbaTimerLiveActivity: Widget {
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: OBubbaTimerAttributes.self) { context in
-            // ── Lock Screen / Notification Banner (compact) ──
-            HStack(spacing: 10) {
-                // Left: small icon
-                ZStack {
-                    Circle()
-                        .fill(brandRose.opacity(0.1))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: timerIcon(context.attributes.timerType))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(brandRose)
-                }
+            // ── Lock Screen / Notification Banner (ultra-compact) ──
+            HStack(spacing: 8) {
+                // Left: tiny icon
+                Image(systemName: timerIcon(context.attributes.timerType))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(brandRose)
 
-                // Middle: label + optional side
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("\(context.attributes.babyName)'s \(timerLabel(context.attributes.timerType))")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(brandDeep)
-                        .lineLimit(1)
-                    if let side = context.state.side {
-                        Text("\(side.capitalized) side")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(brandDeep.opacity(0.4))
-                    }
+                // Middle: label
+                Text("\(context.attributes.babyName)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(brandDeep)
+                    .lineLimit(1)
+
+                if let side = context.state.side {
+                    Text("· \(side.capitalized)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(brandDeep.opacity(0.4))
                 }
 
                 Spacer()
 
-                // Right: timer + next nap
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(context.state.startTime, style: .timer)
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandRose)
-                        .monospacedDigit()
-                    if let nextNap = context.state.nextNap, !nextNap.isEmpty {
-                        Text(nextNap)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundColor(brandPurple)
-                    }
-                }
+                // Right: timer only
+                Text(context.state.startTime, style: .timer)
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .foregroundColor(brandRose)
+                    .monospacedDigit()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
             .background(
                 LinearGradient(
                     colors: [brandBg, brandCream],
