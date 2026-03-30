@@ -2633,16 +2633,29 @@ function App(){
           var _hasNap = localStorage.getItem("nap_on") === "true" || localStorage.getItem("nap_on") === "1";
           var _hasBreast = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
           if(!_hasNap && !_hasBreast){
-            // Check if today has a bedtime without a morning wake — that's a legit sleeping LA
+            // Check if today has an active bedtime — only active if no wake AFTER bedtime
             var _todayK = new Date().toISOString().split("T")[0];
             var _todayEntries = [];
             try{var _dRaw=localStorage.getItem("days_v2");if(_dRaw){var _dObj=JSON.parse(_dRaw);_todayEntries=_dObj[_todayK]||[];}}catch{}
-            var _hasBed = _todayEntries.some(function(e){return e.type==="sleep"&&!e.night;});
-            var _hasWake = _todayEntries.some(function(e){return e.type==="wake"&&!e.night;});
-            if(!_hasBed || _hasWake){
-              // No active timer and no active bedtime → kill any orphaned Live Activities
+            var _bedE = findBedtime(_todayEntries);
+            var _bedStillActive = false;
+            if (_bedE) {
+              var _wakeE = findMorningWake(_todayEntries);
+              // Wake at 9am (540) before bed at 7pm (1140) → this morning's wake, not tonight's
+              _bedStillActive = !_wakeE || (timeVal(_wakeE) < timeVal(_bedE));
+            }
+            if(!_bedStillActive){
               console.log("[OBubba] Cleaning up orphaned Live Activities");
               window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
+            } else {
+              // Bedtime still active — restart LA for Dynamic Island
+              console.log("[OBubba] Bedtime active on launch — restarting Live Activity");
+              try {
+                var _bT = _bedE.time.split(":").map(Number);
+                var _bD = new Date(); _bD.setHours(_bT[0], _bT[1], 0, 0);
+                if (_bD > new Date()) _bD.setDate(_bD.getDate() - 1);
+                window.Capacitor.Plugins.OBLiveActivity.start({type:"sleep",babyName:localStorage.getItem("babyName")||"Baby",startTime:_bD.getTime()}).catch(function(){});
+              } catch(ex2){}
             }
           }
         }catch(ex){console.warn("[OBubba] LA cleanup error:",ex);}
@@ -5701,20 +5714,9 @@ function App(){
       // Determine active timer
       var activeTimer = null, timerStartTime = null, timerStartMs = null, activeSide = null;
       if (napOn && napStartT) { activeTimer = "nap"; timerStartTime = napStartT; timerStartMs = _hhmToMs(napStartT); }
-      // Try resolvedDay first, then today's raw entries
+      // Try resolvedDay first, then today's raw entries as fallback
+      var _prevKey = (function(){ var dt=new Date(todayKey+"T12:00:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
       var _bedEntry = findBedtime(rd) || findBedtime(days[todayKey]||[]);
-      // Cross-midnight fix: bedtime logged yesterday evening, still running overnight
-      // Only check yesterday if: it's before 10am, yesterday has bedtime, no morning wake today
-      if (!_bedEntry && !activeTimer) {
-        var _nowH = new Date().getHours();
-        if (_nowH < 10) {
-          var _yKey = (function(){ var dt=new Date(todayKey+"T12:00:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
-          var _yBed = findBedtime(days[_yKey]||[]);
-          if (_yBed && !findMorningWake(days[todayKey]||[]) && !findMorningWake(rd)) {
-            _bedEntry = _yBed;
-          }
-        }
-      }
       var _hasBed = !!_bedEntry;
       if (_bedEntry && !activeTimer) {
         // Check if baby has woken up — if there's a morning wake AFTER bedtime, timer is over

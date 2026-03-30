@@ -2633,16 +2633,29 @@ function App(){
           var _hasNap = localStorage.getItem("nap_on") === "true" || localStorage.getItem("nap_on") === "1";
           var _hasBreast = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
           if(!_hasNap && !_hasBreast){
-            // Check if today has a bedtime without a morning wake — that's a legit sleeping LA
+            // Check if today has an active bedtime — only active if no wake AFTER bedtime
             var _todayK = new Date().toISOString().split("T")[0];
             var _todayEntries = [];
             try{var _dRaw=localStorage.getItem("days_v2");if(_dRaw){var _dObj=JSON.parse(_dRaw);_todayEntries=_dObj[_todayK]||[];}}catch{}
-            var _hasBed = _todayEntries.some(function(e){return e.type==="sleep"&&!e.night;});
-            var _hasWake = _todayEntries.some(function(e){return e.type==="wake"&&!e.night;});
-            if(!_hasBed || _hasWake){
-              // No active timer and no active bedtime → kill any orphaned Live Activities
+            var _bedE = findBedtime(_todayEntries);
+            var _bedStillActive = false;
+            if (_bedE) {
+              var _wakeE = findMorningWake(_todayEntries);
+              // Wake at 9am (540) before bed at 7pm (1140) → this morning's wake, not tonight's
+              _bedStillActive = !_wakeE || (timeVal(_wakeE) < timeVal(_bedE));
+            }
+            if(!_bedStillActive){
               console.log("[OBubba] Cleaning up orphaned Live Activities");
               window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
+            } else {
+              // Bedtime still active — restart LA for Dynamic Island
+              console.log("[OBubba] Bedtime active on launch — restarting Live Activity");
+              try {
+                var _bT = _bedE.time.split(":").map(Number);
+                var _bD = new Date(); _bD.setHours(_bT[0], _bT[1], 0, 0);
+                if (_bD > new Date()) _bD.setDate(_bD.getDate() - 1);
+                window.Capacitor.Plugins.OBLiveActivity.start({type:"sleep",babyName:localStorage.getItem("babyName")||"Baby",startTime:_bD.getTime()}).catch(function(){});
+              } catch(ex2){}
             }
           }
         }catch(ex){console.warn("[OBubba] LA cleanup error:",ex);}
@@ -5656,11 +5669,12 @@ function App(){
       var rd = (resolvedDay && resolvedDay.entries && resolvedDay.entries.length > 0) ? resolvedDay.entries : (days[todayKey] || []);
       var feeds = rd.filter(function(e) { return e.type === "feed"; });
       var naps = rd.filter(function(e) { return e.type === "nap"; });
-      // Fallback: if resolvedDay has fewer naps than tickData says, use tickData count
-      // (resolvedDay can miss naps in cross-day edge cases)
+      // Also check raw today entries — resolvedDay can miss naps in edge cases
+      var _rawTodayNaps = (days[todayKey]||[]).filter(function(e){ return e.type === "nap"; });
+      if (_rawTodayNaps.length > naps.length) naps = _rawTodayNaps;
+      // Fallback: if tickData says more naps than entries show, use tickData count
       var _tdNapsDone = (tickDataRef.current || {}).napsDone || 0;
       if (_tdNapsDone > naps.length) {
-        // Inject placeholder entries so the count is correct
         while (naps.length < _tdNapsDone) naps.push({type:"nap",_placeholder:true});
       }
       var nappies = rd.filter(function(e) { return e.type === "poop"; });
@@ -5700,25 +5714,21 @@ function App(){
       // Determine active timer
       var activeTimer = null, timerStartTime = null, timerStartMs = null, activeSide = null;
       if (napOn && napStartT) { activeTimer = "nap"; timerStartTime = napStartT; timerStartMs = _hhmToMs(napStartT); }
-      // Try resolvedDay first, then today's raw entries
+      // Try resolvedDay first, then today's raw entries as fallback
+      var _prevKey = (function(){ var dt=new Date(todayKey+"T12:00:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
       var _bedEntry = findBedtime(rd) || findBedtime(days[todayKey]||[]);
-      // Cross-midnight fix: bedtime logged yesterday evening, still running overnight
-      // Only check yesterday if: it's before 10am, yesterday has bedtime, no morning wake today
-      if (!_bedEntry && !activeTimer) {
-        var _nowH = new Date().getHours();
-        if (_nowH < 10) {
-          var _yKey = (function(){ var dt=new Date(todayKey+"T12:00:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
-          var _yBed = findBedtime(days[_yKey]||[]);
-          if (_yBed && !findMorningWake(days[todayKey]||[]) && !findMorningWake(rd)) {
-            _bedEntry = _yBed;
-          }
-        }
-      }
       var _hasBed = !!_bedEntry;
       if (_bedEntry && !activeTimer) {
-        // Check if baby has woken up — if there's a morning wake, bedtime timer is over
+        // Check if baby has woken up — if there's a morning wake AFTER bedtime, timer is over
+        // (A morning wake BEFORE bedtime is from this morning, not tonight — ignore it)
         var _morningWake = findMorningWake(rd);
-        if (!_morningWake) {
+        var _bedM = timeVal(_bedEntry);
+        var _wakeIsAfterBed = _morningWake && (timeVal(_morningWake) < _bedM);
+        // Wake at 9am (540) < Bed at 19:00 (1140) → wake is before bed → timer still active
+        // Wake at 7am (420) > Bed at 23:00 (1380)? No, 420 < 1380 → before bed → timer active
+        // Cross-midnight: wake at 7am (420) with bed at 21:00 (1260) → 420 < 1260 → before → active
+        // Morning after: wake would be on NEXT day, carried into rd by resolveObubbaDay
+        if (!_morningWake || _wakeIsAfterBed) {
           activeTimer = "bed";
           // Show elapsed since last wake/settle, not since bedtime — matches Live Activity behaviour
           var _bedM2 = timeVal(_bedEntry);
