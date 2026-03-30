@@ -82,7 +82,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 // Fix iOS double-tap delay: tell browser not to wait for zoom gesture on interactive elements
 (function(){
   const s = document.createElement("style");
-  s.textContent = "html{overscroll-behavior:none!important;}body{overscroll-behavior:none!important;-webkit-overflow-scrolling:touch;overflow-x:hidden!important;}button,input,select,textarea,a,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}";
+  s.textContent = "html,body{overscroll-behavior:none!important;overflow-x:hidden!important;max-width:100vw!important;}body{-webkit-overflow-scrolling:touch;position:relative;}button,input,select,textarea,a,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}input,textarea,select{max-width:100%!important;box-sizing:border-box!important;}";
   document.head.appendChild(s);
 })();
 
@@ -25242,9 +25242,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📅 Add Appointment</div>
             <Inp label="Title" type="text" placeholder="e.g. Health visitor, GP, vaccination" value={apptForm.title} onChange={e=>setApptForm(f=>({...f,title:e.target.value}))}/>
-            <div style={{display:"flex",gap:12,alignItems:"flex-end"}}>
-              <div style={{flex:1,minWidth:0,overflow:"hidden"}}><Inp label="Date" type="date" value={apptForm.date} onChange={e=>setApptForm(f=>({...f,date:e.target.value}))}/></div>
-              <div style={{flex:1,minWidth:0,overflow:"hidden"}}><Inp label="Time" type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))}/></div>
+            <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
+              <div style={{flex:"1 1 50%",minWidth:0}}><Inp label="Date" type="date" value={apptForm.date} onChange={e=>setApptForm(f=>({...f,date:e.target.value}))}/></div>
+              <div style={{flex:"1 1 50%",minWidth:0}}><Inp label="Time" type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))}/></div>
             </div>
             <div style={{marginBottom:12}}>
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Location (optional)</label>
@@ -25349,9 +25349,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 : `This reminder will ping you every time you log a ${reminderForm.trigger.replace("after_","").replace("_"," ")}. Stays active until you mark it done.`
             }</div>}
             {!reminderForm.trigger && (
-              <div style={{display:"flex",gap:12}}>
-                <div style={{flex:1,minWidth:0,overflow:"hidden"}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
-                <div style={{flex:1,minWidth:0,overflow:"hidden"}}><Inp label="Time" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
+              <div style={{display:"flex",gap:10}}>
+                <div style={{flex:"1 1 50%",minWidth:0}}><Inp label="Date" type="date" value={reminderForm.date} onChange={e=>setReminderForm(f=>({...f,date:e.target.value}))}/></div>
+                <div style={{flex:"1 1 50%",minWidth:0}}><Inp label="Time" type="time" value={reminderForm.time} onChange={e=>setReminderForm(f=>({...f,time:e.target.value}))}/></div>
               </div>
             )}
             {!reminderForm.trigger && reminderForm.time && (
