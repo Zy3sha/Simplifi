@@ -2633,28 +2633,25 @@ function App(){
           var _hasNap = localStorage.getItem("nap_on") === "true" || localStorage.getItem("nap_on") === "1";
           var _hasBreast = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
           if(!_hasNap && !_hasBreast){
-            // Check if today has an active bedtime — only active if no wake AFTER bedtime
-            var _todayK = new Date().toISOString().split("T")[0];
-            var _todayEntries = [];
-            try{var _dRaw=localStorage.getItem("days_v2");if(_dRaw){var _dObj=JSON.parse(_dRaw);_todayEntries=_dObj[_todayK]||[];}}catch{}
-            var _bedE = findBedtime(_todayEntries);
-            var _bedStillActive = false;
-            if (_bedE) {
-              var _wakeE = findMorningWake(_todayEntries);
-              // Wake at 9am (540) before bed at 7pm (1140) → this morning's wake, not tonight's
-              _bedStillActive = !_wakeE || (timeVal(_wakeE) < timeVal(_bedE));
-            }
-            if(!_bedStillActive){
+            // Check widget data we just wrote — if it has an active timer, don't kill the LA
+            // (Don't read localStorage days_v2 — data may be in SQLite only)
+            var _wdRaw = null;
+            try { _wdRaw = localStorage.getItem("_lastWidgetData"); } catch{}
+            var _wdTimer = null;
+            if (_wdRaw) { try { _wdTimer = JSON.parse(_wdRaw).activeTimer; } catch{} }
+            if(!_wdTimer){
               console.log("[OBubba] Cleaning up orphaned Live Activities");
               window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
             } else {
-              // Bedtime still active — restart LA for Dynamic Island
-              console.log("[OBubba] Bedtime active on launch — restarting Live Activity");
+              // Active timer detected — restart LA for Dynamic Island
+              console.log("[OBubba] Active timer (" + _wdTimer + ") on launch — restarting Live Activity");
               try {
-                var _bT = _bedE.time.split(":").map(Number);
-                var _bD = new Date(); _bD.setHours(_bT[0], _bT[1], 0, 0);
-                if (_bD > new Date()) _bD.setDate(_bD.getDate() - 1);
-                window.Capacitor.Plugins.OBLiveActivity.start({type:"sleep",babyName:localStorage.getItem("babyName")||"Baby",startTime:_bD.getTime()}).catch(function(){});
+                var _wdObj = JSON.parse(_wdRaw);
+                var _startMs = _wdObj.timerStartMs;
+                if (_startMs) {
+                  var _type = _wdTimer === "feed" ? "feed" : "sleep";
+                  window.Capacitor.Plugins.OBLiveActivity.start({type:_type,babyName:_wdObj.babyName||"Baby",startTime:_startMs,side:_wdObj.breastSide||undefined}).catch(function(){});
+                }
               } catch(ex2){}
             }
           }
@@ -5874,6 +5871,8 @@ function App(){
         } catch(ex){}
       }
       localStorage.setItem("ob_widget_data_v1", JSON.stringify(widgetData));
+      // Also cache for orphan LA cleanup (needs activeTimer/timerStartMs on next launch)
+      try { localStorage.setItem("_lastWidgetData", JSON.stringify(widgetData)); } catch{}
 
       // Send directly to native WidgetKit bridge
       console.log("[OBubba] Widget data:", JSON.stringify(widgetData));
