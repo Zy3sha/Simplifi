@@ -60,6 +60,7 @@ try {
       }
       // Body-level scroll: check document scroll position
       const doc = document.scrollingElement || document.documentElement;
+      if (doc.scrollHeight <= doc.clientHeight) return; // page fits viewport — nothing to bounce
       const dy = e.touches[0].pageY - _startY;
       if ((doc.scrollTop <= 0 && dy > 0) || (doc.scrollTop + doc.clientHeight >= doc.scrollHeight && dy < 0)) {
         e.preventDefault();
@@ -5005,19 +5006,12 @@ function App(){
   },[fbReady, familyUsername, familyCode]);
   function dedupEntries(entries) {
     const seen = new Set();
-    function contentKey(e) {
-      if (e.type === "nap") return `nap|${e.start}|${e.end}`;
-      if (e.type === "feed" && e.feedType === "breast") return `breast|${e.time}|${e.breastL}|${e.breastR}`;
-      if (e.type === "feed") return `feed|${e.time}|${e.amount}`;
-      if (e.type === "poop") return `poop|${e.time}|${e.poopType}`;
-      if (e.type === "wake") return `wake|${e.time}|${e.night?'n':'d'}`;
-      if (e.type === "sleep") return `sleep|${e.time}`;
-      return `${e.type}|${e.time}`;
-    }
     return entries.filter(e => {
-      const key = contentKey(e);
-      if (seen.has(key)) return false;
-      seen.add(key);
+      if (e.id) {
+        if (seen.has(e.id)) return false;
+        seen.add(e.id);
+        return true;
+      }
       return true;
     });
   }
@@ -12064,31 +12058,9 @@ function App(){
   //   (B) it is before noon AND previous day had bedtime AND before morning wake
   // Uses findMorningWake() and findBedtime() — NEVER checks e.night to find these.
   function autoClassifyNight(entries, prevDayEntries) {
-    const bedEntry  = findBedtime(entries);
-    const bedMins   = bedEntry ? timeVal(bedEntry) : null;
-    const morningWk = findMorningWake(entries);
-    const wakeMins  = morningWk ? timeVal(morningWk) : null;
-    const prevBed   = findBedtime(prevDayEntries || []);
-    return entries.map(e => {
-      // Respect nightLocked — user explicitly logged this as a night wake, never reclassify
-      if (e.nightLocked) return e;
-      // Non-feed/wake are always day
-      if (e.type !== "wake" && e.type !== "feed") return {...e, night: false};
-      if (!e.time) return {...e, night: false};
-      const t = timeVal(e);
-      // Rule A: at or after bedtime on this day → night
-      if (bedMins !== null && t >= bedMins) return {...e, night: true};
-      // Rule B: early-morning carry-over — STRICT boundaries to prevent day leaking
-      // If morning wake exists: entries before wake time are night (prev bed required)
-      // If NO morning wake: only entries before 5am are night (safe dawn cutoff)
-      // This prevents feeds at 9am from being eaten when wake isn't logged yet
-      if (t < 12 * 60 && (prevBed || bedMins !== null)) {
-        if (wakeMins !== null && t < wakeMins) return {...e, night: true};
-        if (wakeMins === null && t < 5 * 60) return {...e, night: true};
-      }
-      // Everything else → day
-      return {...e, night: false};
-    });
+    // Disabled: retroactive reclassification was causing entries to vanish from the day view
+    // when bedtime existed. Night flag is now set once at entry creation time and never changed.
+    return entries;
   }
   function openEdit(entry){
     // Night entries open in the night wake form
@@ -15420,8 +15392,11 @@ function App(){
     setDays(d=>{
       const c={...d};
       delete c[dayToDelete];
-      const rem = Object.keys(c).sort().filter(k=>k!==dayToDelete);
-      setSelDay(rem[rem.length-1]||null);
+      // Ensure today always exists so the UI never goes blank
+      const t = todayStr();
+      if(!c[t]) c[t] = [];
+      const rem = Object.keys(c).sort();
+      setSelDay(rem.includes(t) ? t : rem[rem.length-1] || t);
       return c;
     });
     setConfirmDeleteDay(false);
@@ -16615,7 +16590,12 @@ function App(){
           {/* Day navigation bar: arrows + date + calendar + search */}
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
             <button onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:12,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:16,color:C.mid,flexShrink:0}}>‹</button>
-            <button onClick={()=>{setCalMonth(selDay.slice(0,7));setShowCalendar(true);}} style={{flex:1,background:"var(--card-bg-solid)",border:`1.5px solid ${C.ter}`,borderRadius:14,padding:"8px 14px",cursor:_cP,textAlign:"center"}}>
+            <button onClick={()=>{setCalMonth(selDay.slice(0,7));setShowCalendar(true);}}
+              onContextMenu={e=>{e.preventDefault();haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");}}
+              onTouchStart={e=>{e.currentTarget._lp=setTimeout(()=>{haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");},600);}}
+              onTouchEnd={e=>{clearTimeout(e.currentTarget._lp);}}
+              onTouchMove={e=>{clearTimeout(e.currentTarget._lp);}}
+              style={{flex:1,background:"var(--card-bg-solid)",border:`1.5px solid ${C.ter}`,borderRadius:14,padding:"8px 14px",cursor:_cP,textAlign:"center"}}>
               <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{fmtLong(selDay)}</div>
               <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginTop:1}}>{selDay===todayStr()?"Today":""}</div>
             </button>
