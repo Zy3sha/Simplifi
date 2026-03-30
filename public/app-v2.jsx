@@ -2504,11 +2504,11 @@ function App(){
         case 'baby_summary': setTab("insights"); break;
         // One-touch quick actions from widget
         case 'quick_feed':
-          quickAddLog("feed", {time:timeNow, feedType:"bottle", amount:0, note:"via widget"});
+          quickAddLog("feed", {type:"feed", time:timeNow, feedType:"bottle", amount:0, note:"via widget"});
           showToast("🍼 Feed logged via Widget ✓", 3000, 1);
           break;
         case 'quick_nappy':
-          quickAddLog("poop", {time:timeNow, poopType:"wet", note:"via widget"});
+          quickAddLog("poop", {type:"poop", time:timeNow, poopType:"wet", note:"via widget"});
           showToast("💩 Nappy logged via Widget ✓", 3000, 1);
           break;
         case 'toggle_nap': {
@@ -2554,11 +2554,11 @@ function App(){
               const timeNow = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
               const time = entry.time || timeNow;
               if(entry.type==='wake') {
-                quickAddLog("wake", {time, night:false, note:"via Siri"});
+                quickAddLog("wake", {type:"wake", time, night:false, note:"via Siri"});
                 showToast(entry.source==='widget' ? "☀️ Wake logged via Widget ✓" : "☀️ Morning wake logged via Siri ✓", 3000, 1);
               } else if(entry.type==='feed') {
                 const _amt = entry.amount ? parseInt(entry.amount) : 0;
-                quickAddLog("feed", {time, feedType:entry.feedType||"bottle", amount:_amt, note:_amt ? `${_amt}ml via Siri` : "via Siri"});
+                quickAddLog("feed", {type:"feed", time, feedType:entry.feedType||"bottle", amount:_amt, note:_amt ? `${_amt}ml via Siri` : "via Siri"});
                 showToast(_amt ? `🍼 Feed (${_amt}ml) logged via Siri ✓` : "🍼 Feed logged via Siri ✓", 3000, 1);
               } else if(entry.type==='nap_start') {
                 // Full nap start — mirror startNap() logic so entry is created + persisted
@@ -2586,13 +2586,13 @@ function App(){
                 if(_napActive2) { endNap(); }
                 showToast("😴 Timer stopped via widget ✓", 3000, 1);
               } else if(entry.type==='sleep') {
-                quickAddLog("sleep", {time, night:false, note:"via Siri"});
+                quickAddLog("sleep", {type:"sleep", time, night:false, note:"via Siri"});
                 showToast("🌙 Bedtime logged via Siri ✓", 3000, 1);
               } else if(entry.type==='poop') {
                 const _pType = entry.poopType||"wet";
                 const _pColour = entry.poopColour||"";
                 const _pNote = _pColour ? `${_pColour} via Siri` : "via Siri";
-                quickAddLog("poop", {time, poopType:_pType, poopColour:_pColour, note:_pNote});
+                quickAddLog("poop", {type:"poop", time, poopType:_pType, poopColour:_pColour, note:_pNote});
                 showToast(_pColour ? `💩 ${_pType} nappy (${_pColour}) logged via Siri ✓` : `💩 ${_pType} nappy logged via Siri ✓`, 3000, 1);
               } else if(entry.type==='night_wake') {
                 // Night wake via Siri — build the wake entry
@@ -2601,10 +2601,10 @@ function App(){
                 const _nwType = entry.assistedType || "";
                 const _nwMl = entry.ml ? parseInt(entry.ml) : 0;
                 const _nwNote = _nwSelf ? "Self-settled (via Siri)" : `${_nwType}${_nwMl ? " "+_nwMl+"ml" : ""} (via Siri)`;
-                quickAddLog("wake", {time, night:true, selfSettled:_nwSelf, assisted:_nwAssisted, assistedType:_nwType, ml:_nwMl, note:_nwNote});
+                quickAddLog("wake", {type:"wake", time, night:true, selfSettled:_nwSelf, assisted:_nwAssisted, assistedType:_nwType, ml:_nwMl, note:_nwNote});
                 // Also log the feed if milk was given
                 if(_nwType==="milk" && _nwMl > 0) {
-                  quickAddLog("feed", {time, feedType:"milk", amount:_nwMl, night:true, note:"Night feed (via Siri)"});
+                  quickAddLog("feed", {type:"feed", time, feedType:"milk", amount:_nwMl, night:true, note:"Night feed (via Siri)"});
                 }
                 showToast(_nwSelf ? "🌙 Night wake (self-settled) logged via Siri ✓" : `🌙 Night wake (${_nwType}${_nwMl?" "+_nwMl+"ml":""}) logged via Siri ✓`, 3000, 1);
               } else if(entry.type==='breast_start') {
