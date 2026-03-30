@@ -126,6 +126,8 @@ struct WidgetData: Codable {
     let lastNappyTime: String?
     let lastNappyType: String?
     let nextPrediction: String?
+    let nextPredictionMs: Double?
+    let nextPredictionLabel: String?
     let activeTimer: String?
     let timerStartTime: String?
     let timerStartMs: Double?
@@ -138,7 +140,7 @@ struct WidgetData: Codable {
         case babyName, feedCount, sleepCount, nappyCount
         case lastFeedTime, lastFeedType, lastSleepTime, nextFeedEstimate
         case theme, updatedAt, lastFeedAmount
-        case lastNappyTime, lastNappyType, nextPrediction
+        case lastNappyTime, lastNappyType, nextPrediction, nextPredictionMs, nextPredictionLabel
         case activeTimer, timerStartTime, timerStartMs, timerLabel
         case breastSide, showNursing, lastBreastSide
     }
@@ -178,6 +180,8 @@ struct WidgetData: Codable {
         lastNappyTime = Self.flexString(c, .lastNappyTime)
         lastNappyType = Self.flexString(c, .lastNappyType)
         nextPrediction = Self.flexString(c, .nextPrediction)
+        nextPredictionMs = Self.flexDouble(c, .nextPredictionMs)
+        nextPredictionLabel = Self.flexString(c, .nextPredictionLabel)
         activeTimer = Self.flexString(c, .activeTimer)
         timerStartTime = Self.flexString(c, .timerStartTime)
         timerStartMs = Self.flexDouble(c, .timerStartMs)
@@ -195,9 +199,17 @@ struct WidgetData: Codable {
         self.lastFeedType = lastFeedType; self.lastSleepTime = lastSleepTime
         self.nextFeedEstimate = nextFeedEstimate; self.theme = theme; self.updatedAt = updatedAt
         self.lastFeedAmount = nil; self.lastNappyTime = nil; self.lastNappyType = nil
-        self.nextPrediction = nil; self.activeTimer = nil; self.timerStartTime = nil
+        self.nextPrediction = nil; self.nextPredictionMs = nil; self.nextPredictionLabel = nil
+        self.activeTimer = nil; self.timerStartTime = nil
         self.timerStartMs = nil; self.timerLabel = nil; self.breastSide = nil
         self.showNursing = nil; self.lastBreastSide = nil
+    }
+
+    var predictionTargetDate: Date? {
+        guard let ms = nextPredictionMs, ms > 1_000_000_000_000 else { return nil }
+        let date = Date(timeIntervalSince1970: ms / 1000.0)
+        // Only return if in the future
+        return date > Date() ? date : nil
     }
 
     var timerStartDate: Date? {
@@ -393,7 +405,22 @@ struct OBubbaSmallWidgetView: View {
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(brandDeep)
                 Spacer()
-                if !hasTimer, let pred = d.nextPrediction, !pred.isEmpty {
+                if !hasTimer, let targetDate = d.predictionTargetDate,
+                   let label = d.nextPredictionLabel, !label.isEmpty {
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text(label)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(brandPurple.opacity(0.7))
+                        Text(targetDate, style: .relative)
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .foregroundColor(brandPurple)
+                            .monospacedDigit()
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(brandPurple.opacity(0.1))
+                    .clipShape(Capsule())
+                } else if !hasTimer, let pred = d.nextPrediction, !pred.isEmpty {
                     Text(pred)
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundColor(brandPurple)
@@ -537,7 +564,24 @@ struct OBubbaMediumWidgetView: View {
                     .padding(.vertical, 5)
                     .background(brandRose.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                } else if let targetDate = d.predictionTargetDate,
+                          let label = d.nextPredictionLabel, !label.isEmpty {
+                    // Live countdown to next nap/bedtime
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(label)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(brandPurple.opacity(0.7))
+                        Text(targetDate, style: .relative)
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .foregroundColor(brandPurple)
+                            .monospacedDigit()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(brandPurple.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 } else if let pred = d.nextPrediction, !pred.isEmpty {
+                    // Fallback: static prediction text
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
                             .font(.system(size: 9, weight: .semibold))
@@ -550,15 +594,6 @@ struct OBubbaMediumWidgetView: View {
                     .padding(.vertical, 5)
                     .background(brandPurple.opacity(0.08))
                     .clipShape(Capsule())
-                } else if let lf = d.lastFeedTime, !lf.isEmpty {
-                    HStack(spacing: 3) {
-                        Image(systemName: "drop.fill")
-                            .font(.system(size: 8))
-                            .foregroundColor(brandRose.opacity(0.5))
-                        Text("Fed \(lf)")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(brandDeep.opacity(0.45))
-                    }
                 }
             }
 

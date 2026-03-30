@@ -5700,7 +5700,20 @@ function App(){
       // Determine active timer
       var activeTimer = null, timerStartTime = null, timerStartMs = null, activeSide = null;
       if (napOn && napStartT) { activeTimer = "nap"; timerStartTime = napStartT; timerStartMs = _hhmToMs(napStartT); }
-      var _bedEntry = findBedtime(rd);
+      // Try resolvedDay first, then today's raw entries
+      var _bedEntry = findBedtime(rd) || findBedtime(days[todayKey]||[]);
+      // Cross-midnight fix: bedtime logged yesterday evening, still running overnight
+      // Only check yesterday if: it's before 10am, yesterday has bedtime, no morning wake today
+      if (!_bedEntry && !activeTimer) {
+        var _nowH = new Date().getHours();
+        if (_nowH < 10) {
+          var _yKey = (function(){ var dt=new Date(todayKey+"T12:00:00"); dt.setDate(dt.getDate()-1); return dt.toISOString().split("T")[0]; })();
+          var _yBed = findBedtime(days[_yKey]||[]);
+          if (_yBed && !findMorningWake(days[todayKey]||[]) && !findMorningWake(rd)) {
+            _bedEntry = _yBed;
+          }
+        }
+      }
       var _hasBed = !!_bedEntry;
       if (_bedEntry && !activeTimer) {
         // Check if baby has woken up — if there's a morning wake, bedtime timer is over
@@ -5746,9 +5759,11 @@ function App(){
       // Last nappy
       var lastNappy = nappies.length ? nappies.sort(function(a,b) { return timeVal(a) - timeVal(b); }).pop() : null;
 
-      // Next predicted event — show nap/bed prediction on widget
-      // Use 12h format so the widget displays correctly (e.g. "Nap ~3:59pm" not "Nap ~15:59")
+      // Next predicted event — show nap/bed countdown on widget
+      // Pass both formatted string AND epoch ms so widget can show live countdown
       var nextPrediction = null;
+      var nextPredictionMs = null;
+      var nextPredictionLabel = null;
       try {
         var td = tickDataRef.current || {};
         // If next predicted nap is within 30 min of bedtime, it IS bedtime — show "Bed"
@@ -5757,15 +5772,26 @@ function App(){
           var npH = Math.floor(td.nextNapMins/60)%24, npM = Math.round(td.nextNapMins%60);
           var _napNum = (td.napsDone || 0) + 1;
           nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2,"0") + ":" + String(npM).padStart(2,"0"));
+          nextPredictionLabel = "Nap " + _napNum;
+          var _npDate = new Date(); _npDate.setHours(npH, npM, 0, 0);
+          if (_npDate.getTime() < Date.now()) _npDate.setDate(_npDate.getDate() + 1);
+          nextPredictionMs = _npDate.getTime();
         } else if (td.bedMins && (td.napsComplete || _napIsActuallyBed) && !td.hasBedtime) {
           var bpH = Math.floor(td.bedMins/60)%24, bpM = Math.round(td.bedMins%60);
           nextPrediction = "Bed ~" + fmt12(String(bpH).padStart(2,"0") + ":" + String(bpM).padStart(2,"0"));
+          nextPredictionLabel = "Bedtime";
+          var _bpDate = new Date(); _bpDate.setHours(bpH, bpM, 0, 0);
+          if (_bpDate.getTime() < Date.now()) _bpDate.setDate(_bpDate.getDate() + 1);
+          nextPredictionMs = _bpDate.getTime();
         }
-        // If no nap/bed prediction but we DO have bedtime predicted and naps aren't done yet,
-        // show the bedtime anyway as a fallback so widget never falls through to "Fed"
+        // Fallback: show bedtime if no nap/bed prediction but bedtime IS predicted
         if (!nextPrediction && td.bedMins && !td.hasBedtime) {
           var _fbH = Math.floor(td.bedMins/60)%24, _fbM = Math.round(td.bedMins%60);
           nextPrediction = "Bed ~" + fmt12(String(_fbH).padStart(2,"0") + ":" + String(_fbM).padStart(2,"0"));
+          nextPredictionLabel = "Bedtime";
+          var _fbDate = new Date(); _fbDate.setHours(_fbH, _fbM, 0, 0);
+          if (_fbDate.getTime() < Date.now()) _fbDate.setDate(_fbDate.getDate() + 1);
+          nextPredictionMs = _fbDate.getTime();
         }
       } catch(ex2) {}
 
@@ -5801,6 +5827,8 @@ function App(){
         lastNappyType: lastNappy ? String(lastNappy.poopType || "") : null,
         nextFeedEstimate: nextFeedEst ? String(nextFeedEst) : null,
         nextPrediction: nextPrediction ? String(nextPrediction) : null,
+        nextPredictionMs: nextPredictionMs ? parseFloat(nextPredictionMs) : null,
+        nextPredictionLabel: nextPredictionLabel ? String(nextPredictionLabel) : null,
         theme: "light",
         updatedAt: Date.now(),
         activeTimer: activeTimer ? String(activeTimer) : null,
