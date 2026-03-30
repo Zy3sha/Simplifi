@@ -5677,7 +5677,7 @@ function App(){
       if (_tdNapsDone > naps.length) {
         while (naps.length < _tdNapsDone) naps.push({type:"nap",_placeholder:true});
       }
-      var nappies = rd.filter(function(e) { return e.type === "poop"; });
+      var nappies = rd.filter(function(e) { return e.type === "poop" || e.type === "nappy"; });
       // Last feed: prefer the most recent DAYTIME feed; only fall back to night feed if no daytime feeds exist.
       // (Night feeds sort numerically lower e.g. 3:40am = 220mins vs 1:30pm = 810mins, so they would
       //  incorrectly appear as "last feed" in the old logic that boosted them by +1440.)

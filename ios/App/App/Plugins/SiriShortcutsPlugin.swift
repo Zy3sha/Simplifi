@@ -97,6 +97,9 @@ public class SiriShortcutsPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
+        // Force refresh from disk — widget extension may have written since last read
+        defaults.synchronize()
+
         guard let json = defaults.string(forKey: "pendingSiriEntry") else {
             call.resolve(["entry": NSNull()])
             return
