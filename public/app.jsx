@@ -2541,7 +2541,8 @@ function App(){
     // Check pending Siri entries — on cold start and on resume
     // Actually log the entry directly instead of just opening a panel
     function _checkSiriPending() {
-      if(_getPlatform()!=='ios') return;
+      // Use Capacitor check — _getPlatform relies on OBNative which may not be ready yet
+      if(!window.Capacitor?.isNativePlatform?.()) return;
       try {
         if(window.Capacitor?.Plugins?.OBSiriShortcuts) {
           window.Capacitor.Plugins.OBSiriShortcuts.checkPendingEntry().then(function(r){
@@ -5745,7 +5746,7 @@ function App(){
       // Last nappy
       var lastNappy = nappies.length ? nappies.sort(function(a,b) { return timeVal(a) - timeVal(b); }).pop() : null;
 
-      // Next predicted event — always show nap/bed prediction, never fall back to feed estimate
+      // Next predicted event — show nap/bed prediction on widget
       // Use 12h format so the widget displays correctly (e.g. "Nap ~3:59pm" not "Nap ~15:59")
       var nextPrediction = null;
       try {
@@ -5760,7 +5761,12 @@ function App(){
           var bpH = Math.floor(td.bedMins/60)%24, bpM = Math.round(td.bedMins%60);
           nextPrediction = "Bed ~" + fmt12(String(bpH).padStart(2,"0") + ":" + String(bpM).padStart(2,"0"));
         }
-        // Don't fall back to feed estimate — nap/bed is more useful on the widget
+        // If no nap/bed prediction but we DO have bedtime predicted and naps aren't done yet,
+        // show the bedtime anyway as a fallback so widget never falls through to "Fed"
+        if (!nextPrediction && td.bedMins && !td.hasBedtime) {
+          var _fbH = Math.floor(td.bedMins/60)%24, _fbM = Math.round(td.bedMins%60);
+          nextPrediction = "Bed ~" + fmt12(String(_fbH).padStart(2,"0") + ":" + String(_fbM).padStart(2,"0"));
+        }
       } catch(ex2) {}
 
       // Breastfeeding detection: show nursing buttons if breast feed logged in last 7 days
@@ -13463,9 +13469,12 @@ function App(){
       if (_la) {
         const [_sh,_sm] = t.split(":").map(Number);
         const _startDate = new Date(); _startDate.setHours(_sh,_sm,0,0);
-        _la.stopPrediction?.().catch(()=>{});
-        _la.stop?.().catch(()=>{});
-        setTimeout(()=>{ _startLA({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime()}); }, 400);
+        Promise.all([
+          _la.stopPrediction?.().catch(()=>{}),
+          _la.stop?.().catch(()=>{})
+        ]).then(function(){
+          setTimeout(()=>{ _startLA({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime()}); }, 600);
+        });
       }
     } catch(ex) {}
     // Force widget to refresh immediately — bypass the 60s rate limit via explicit reloadAll
@@ -13641,13 +13650,17 @@ function App(){
       const _la = window.Capacitor?.Plugins?.OBLiveActivity;
       if(_la) {
         // Stop BOTH prediction LA and any existing timer LA before starting bedtime timer
-        _la.stopPrediction?.().catch(()=>{});
-        _la.stop?.().catch(()=>{});
-        setTimeout(()=>{
-          _startLA({type:'sleep',babyName:babyName||'Baby',startTime:_bedDate.getTime()})
-            .then(function(r){console.log("[OBubba] Bedtime Live Activity started:",JSON.stringify(r));})
-            .catch(function(e){console.error("[OBubba] Bedtime Live Activity FAILED:",e);});
-        }, 400);
+        // Use sequential stops with proper delay to avoid iOS ActivityKit race conditions
+        Promise.all([
+          _la.stopPrediction?.().catch(()=>{}),
+          _la.stop?.().catch(()=>{})
+        ]).then(function(){
+          setTimeout(()=>{
+            _startLA({type:'sleep',babyName:babyName||'Baby',startTime:_bedDate.getTime()})
+              .then(function(r){console.log("[OBubba] Bedtime Live Activity started:",JSON.stringify(r));})
+              .catch(function(e){console.error("[OBubba] Bedtime Live Activity FAILED:",e);});
+          }, 600);
+        });
       }
     }
     fireEventReminders("after_bedtime");
