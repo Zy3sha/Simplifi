@@ -96,6 +96,7 @@ public class SiriShortcutsPlugin: CAPPlugin, CAPBridgedPlugin {
         if let defaults = UserDefaults(suiteName: appGroupId) {
             defaults.synchronize()
             if let json = defaults.string(forKey: "pendingSiriEntry") {
+                print("[OBSiriShortcuts] Found entry in UserDefaults: \(json)")
                 defaults.removeObject(forKey: "pendingSiriEntry")
                 defaults.synchronize()
                 call.resolve(["entry": json])
@@ -106,10 +107,16 @@ public class SiriShortcutsPlugin: CAPPlugin, CAPBridgedPlugin {
         // Fallback: check shared file (used by widget extension — more reliable cross-process)
         if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) {
             let fileURL = containerURL.appendingPathComponent("pendingWidgetEntry.json")
-            if let json = try? String(contentsOf: fileURL, encoding: .utf8), !json.isEmpty {
-                try? FileManager.default.removeItem(at: fileURL)
-                call.resolve(["entry": json])
-                return
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                print("[OBSiriShortcuts] Found pending file at: \(fileURL.path)")
+                if let json = try? String(contentsOf: fileURL, encoding: .utf8), !json.isEmpty {
+                    print("[OBSiriShortcuts] File entry: \(json)")
+                    try? FileManager.default.removeItem(at: fileURL)
+                    call.resolve(["entry": json])
+                    return
+                } else {
+                    print("[OBSiriShortcuts] File exists but empty or unreadable")
+                }
             }
         }
 
@@ -127,6 +134,7 @@ private func storePendingSiriEntry(_ dict: [String: Any]) {
     var entry = dict
     let df = DateFormatter()
     df.dateFormat = "HH:mm"
+    df.locale = Locale(identifier: "en_US_POSIX")
     entry["time"] = df.string(from: Date())
     guard let data = try? JSONSerialization.data(withJSONObject: entry),
           let json = String(data: data, encoding: .utf8),

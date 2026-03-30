@@ -37,11 +37,6 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let side = call.getString("side")
         let nextNap = call.getString("nextNap")
 
-        let attributes = OBubbaTimerAttributes(
-            timerType: type,
-            babyName: babyName
-        )
-
         let state = OBubbaTimerAttributes.ContentState(
             startTime: Date(timeIntervalSince1970: startTime / 1000),
             elapsed: 0,
@@ -49,11 +44,21 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             nextNap: nextNap
         )
 
-        // End any existing activities first to prevent duplicates
         Task {
-            for existing in Activity<OBubbaTimerAttributes>.activities {
-                await existing.end(nil, dismissalPolicy: .immediate)
+            // If there's already an active LA, just update it (avoids expanded banner)
+            let existing = Activity<OBubbaTimerAttributes>.activities
+            if let current = existing.first {
+                await current.update(.init(state: state, staleDate: nil))
+                print("[OBLiveActivity] Updated existing LA instead of creating new one")
+                call.resolve(["activityId": current.id])
+                return
             }
+
+            // No existing activity — create a new one
+            let attributes = OBubbaTimerAttributes(
+                timerType: type,
+                babyName: babyName
+            )
 
             do {
                 let activity = try Activity.request(
@@ -61,6 +66,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                     content: .init(state: state, staleDate: nil),
                     pushType: nil
                 )
+                print("[OBLiveActivity] Created new LA: \(activity.id)")
                 call.resolve(["activityId": activity.id])
             } catch {
                 call.reject("Failed to start Live Activity: \(error.localizedDescription)")
