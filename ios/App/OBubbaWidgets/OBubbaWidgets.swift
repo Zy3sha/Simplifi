@@ -18,10 +18,19 @@ private func widgetStorePendingEntry(_ dict: [String: Any]) {
     fmt.dateFormat = "HH:mm"
     entry["time"] = fmt.string(from: Date())
     guard let data = try? JSONSerialization.data(withJSONObject: entry),
-          let json = String(data: data, encoding: .utf8),
-          let defaults = UserDefaults(suiteName: widgetAppGroupId) else { return }
-    defaults.set(json, forKey: "pendingSiriEntry")
-    defaults.synchronize()
+          let json = String(data: data, encoding: .utf8) else { return }
+
+    // Write to BOTH UserDefaults AND file for reliability (cross-process race condition)
+    if let defaults = UserDefaults(suiteName: widgetAppGroupId) {
+        defaults.set(json, forKey: "pendingSiriEntry")
+        defaults.synchronize()
+    }
+
+    // Also write to shared file — more reliable across processes
+    if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: widgetAppGroupId) {
+        let fileURL = containerURL.appendingPathComponent("pendingWidgetEntry.json")
+        try? json.write(to: fileURL, atomically: true, encoding: .utf8)
+    }
 }
 
 @available(iOS 17.0, *)

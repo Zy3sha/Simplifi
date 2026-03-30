@@ -92,23 +92,28 @@ public class SiriShortcutsPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func checkPendingEntry(_ call: CAPPluginCall) {
-        guard let defaults = UserDefaults(suiteName: appGroupId) else {
-            call.resolve(["entry": NSNull()])
-            return
+        // Try UserDefaults first (used by Siri intents in main app process)
+        if let defaults = UserDefaults(suiteName: appGroupId) {
+            defaults.synchronize()
+            if let json = defaults.string(forKey: "pendingSiriEntry") {
+                defaults.removeObject(forKey: "pendingSiriEntry")
+                defaults.synchronize()
+                call.resolve(["entry": json])
+                return
+            }
         }
 
-        // Force refresh from disk — widget extension may have written since last read
-        defaults.synchronize()
-
-        guard let json = defaults.string(forKey: "pendingSiriEntry") else {
-            call.resolve(["entry": NSNull()])
-            return
+        // Fallback: check shared file (used by widget extension — more reliable cross-process)
+        if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) {
+            let fileURL = containerURL.appendingPathComponent("pendingWidgetEntry.json")
+            if let json = try? String(contentsOf: fileURL, encoding: .utf8), !json.isEmpty {
+                try? FileManager.default.removeItem(at: fileURL)
+                call.resolve(["entry": json])
+                return
+            }
         }
 
-        defaults.removeObject(forKey: "pendingSiriEntry")
-        defaults.synchronize()
-
-        call.resolve(["entry": json])
+        call.resolve(["entry": NSNull()])
     }
 }
 
