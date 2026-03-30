@@ -44,8 +44,9 @@ const config: CapacitorConfig = {
 
     // ── Keyboard ──
     Keyboard: {
-      resize: 'body',
-      resizeOnFullScreen: true,
+      resize: 'none',
+      resizeOnFullScreen: false,
+      scroll: false,
     },
 
     // ── Status Bar ──
@@ -108,7 +109,7 @@ const config: CapacitorConfig = {
   // ── iOS-specific ──
   ios: {
     scheme: 'OBubba',
-    contentInset: 'automatic',
+    contentInset: 'always',
     allowsLinkPreview: true,
     backgroundColor: '#F0DDD6',
     preferredContentMode: 'mobile',

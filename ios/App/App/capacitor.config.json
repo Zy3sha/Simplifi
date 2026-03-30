@@ -36,8 +36,9 @@
 			"useDialog": true
 		},
 		"Keyboard": {
-			"resize": "body",
-			"resizeOnFullScreen": true
+			"resize": "none",
+			"resizeOnFullScreen": false,
+			"scroll": false
 		},
 		"StatusBar": {
 			"overlaysWebView": true,
@@ -84,7 +85,7 @@
 	},
 	"ios": {
 		"scheme": "OBubba",
-		"contentInset": "automatic",
+		"contentInset": "always",
 		"allowsLinkPreview": true,
 		"backgroundColor": "#F0DDD6",
 		"preferredContentMode": "mobile",

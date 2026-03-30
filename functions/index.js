@@ -57,6 +57,22 @@ async function sendPush(uid, { title, body, data = {} }) {
   }
 }
 
+// Helper: get today's date string in user's timezone (approximate — default UTC)
+function todayKey() {
+  const d = new Date();
+  return d.toISOString().split("T")[0];
+}
+
+// Helper: check if a timestamp is from today
+function isToday(timestamp) {
+  if (!timestamp) return false;
+  const ts = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  const today = new Date();
+  return ts.getFullYear() === today.getFullYear() &&
+    ts.getMonth() === today.getMonth() &&
+    ts.getDate() === today.getDate();
+}
+
 // ── Feed reminder: notify if no feed logged in 4+ hours ─────────
 exports.feedReminder = onSchedule("every 30 minutes", async () => {
   const cutoff = Date.now() - 4 * 60 * 60 * 1000; // 4 hours ago
@@ -65,23 +81,110 @@ exports.feedReminder = onSchedule("every 30 minutes", async () => {
   for (const doc of tokens.docs) {
     const uid = doc.id;
     try {
-      // Check user's last feed from their synced data
-      const userDoc = await db.collection("users").doc(uid).get();
-      if (!userDoc.exists) continue;
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      if (!actDoc.exists) continue;
 
-      const data = userDoc.data();
+      const data = actDoc.data();
       const lastFeedTime = data.lastFeedTimestamp;
+
+      // Only alert during daytime hours (7am-10pm) and if last feed was 4+ hours ago
+      const hour = new Date().getHours();
+      if (hour < 7 || hour > 22) continue;
 
       if (lastFeedTime && lastFeedTime.toMillis() < cutoff) {
         const hoursSince = Math.round((Date.now() - lastFeedTime.toMillis()) / 3600000);
+        // Don't spam — check if we already sent a feed reminder today
+        const sentKey = `feedReminder_${todayKey()}_${uid}`;
+        const sentDoc = await db.collection("push_log").doc(sentKey).get();
+        if (sentDoc.exists) continue;
+
         await sendPush(uid, {
-          title: "Feed Reminder",
+          title: "🍼 Feed Reminder",
           body: `It's been ${hoursSince} hours since the last feed. Time for another?`,
           data: { action: "log_feed", channelId: "obubba_reminders" },
         });
+        await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
       }
     } catch (err) {
       console.error(`Feed reminder for ${uid}:`, err.message);
+    }
+  }
+});
+
+// ── No feed all day: alert if it's past 10am and zero feeds logged today ──
+exports.noFeedAlert = onSchedule("every 1 hours", async () => {
+  const hour = new Date().getHours();
+  // Only check between 10am and 8pm
+  if (hour < 10 || hour > 20) return;
+
+  const tokens = await db.collection("fcm_tokens").get();
+
+  for (const doc of tokens.docs) {
+    const uid = doc.id;
+    try {
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      if (!actDoc.exists) continue;
+
+      const data = actDoc.data();
+      const lastFeed = data.lastFeedTimestamp;
+
+      // If no feed today at all
+      if (!lastFeed || !isToday(lastFeed)) {
+        // Don't spam — one alert per day
+        const sentKey = `noFeed_${todayKey()}_${uid}`;
+        const sentDoc = await db.collection("push_log").doc(sentKey).get();
+        if (sentDoc.exists) continue;
+
+        await sendPush(uid, {
+          title: "🍼 No feeds logged today",
+          body: "Tap to log a feed — keeping track helps spot patterns early.",
+          data: { action: "log_feed", channelId: "obubba_reminders" },
+        });
+        await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
+      }
+    } catch (err) {
+      console.error(`No feed alert for ${uid}:`, err.message);
+    }
+  }
+});
+
+// ── Morning wake reminder: feed logged but no wake ──────────────
+// If a feed is logged today but no morning wake, nudge the parent
+exports.noWakeAlert = onSchedule("every 1 hours", async () => {
+  const hour = new Date().getHours();
+  // Only check between 8am and 12pm — after that, wake was probably just missed
+  if (hour < 8 || hour > 12) return;
+
+  const tokens = await db.collection("fcm_tokens").get();
+
+  for (const doc of tokens.docs) {
+    const uid = doc.id;
+    try {
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      if (!actDoc.exists) continue;
+
+      const data = actDoc.data();
+      const lastFeed = data.lastFeedTimestamp;
+      const lastWake = data.lastWakeTimestamp;
+
+      // Feed logged today but no wake today
+      const feedToday = lastFeed && isToday(lastFeed);
+      const wakeToday = lastWake && isToday(lastWake);
+
+      if (feedToday && !wakeToday) {
+        const sentKey = `noWake_${todayKey()}_${uid}`;
+        const sentDoc = await db.collection("push_log").doc(sentKey).get();
+        if (sentDoc.exists) continue;
+
+        await sendPush(uid, {
+          title: "☀️ Morning wake not logged",
+          body: "You've logged a feed but no wake time. Tap to log the morning wake — it helps predict naps accurately.",
+          data: { action: "log_wake", channelId: "obubba_reminders" },
+        });
+        await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
+      }
+    } catch (err) {
+      console.error(`No wake alert for ${uid}:`, err.message);
     }
   }
 });
@@ -99,7 +202,7 @@ exports.medicineReminder = onSchedule("every 15 minutes", async () => {
     const data = doc.data();
     try {
       await sendPush(data.uid, {
-        title: `Medicine: ${data.name}`,
+        title: `💊 Medicine: ${data.name}`,
         body: `Time for ${data.dose || ""} ${data.name}`,
         data: { action: "log_medicine", channelId: "obubba_reminders" },
       });
@@ -127,7 +230,7 @@ exports.appointmentReminder = onSchedule("every 15 minutes", async () => {
     try {
       const travelNote = data.travelMins ? ` Leave in ${data.travelMins} mins.` : "";
       await sendPush(data.uid, {
-        title: `Upcoming: ${data.title}`,
+        title: `📅 Upcoming: ${data.title}`,
         body: `In 1 hour${data.time ? " at " + data.time : ""}.${travelNote}`,
         data: { action: "appointments", channelId: "obubba_reminders" },
       });
@@ -146,8 +249,8 @@ exports.onNewUser = onDocumentCreated("fcm_tokens/{uid}", async (event) => {
   await db.collection("scheduled_pushes").add({
     uid,
     sendAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    title: "Welcome to OBubba!",
-    body: "Tip: Long-press the quick buttons for detailed logging. You can also say \"Hey Siri, log a feed in OBubba\".",
+    title: "Welcome to OBubba! 🧸",
+    body: "Tip: Long-press the quick buttons for detailed logging. You can also say \"Hey Siri, start nap in OBubba\".",
     data: { action: "open" },
     sent: false,
   });
@@ -190,7 +293,7 @@ exports.weeklyDigest = onSchedule("every monday 08:00", async () => {
       if (prefs.exists && prefs.data().weeklyDigest === false) continue;
 
       await sendPush(uid, {
-        title: "Your Weekly Summary is Ready",
+        title: "📊 Your Weekly Summary is Ready",
         body: "See how baby's week went — feeds, sleep patterns, and milestones.",
         data: { action: "baby_summary", channelId: "obubba_milestones" },
       });
@@ -198,4 +301,178 @@ exports.weeklyDigest = onSchedule("every monday 08:00", async () => {
       console.error(`Weekly digest for ${uid}:`, err.message);
     }
   }
+});
+
+// ── Monthly birthday: celebrate baby turning X months ────────────
+exports.monthlyBirthday = onSchedule("every day 09:00", async () => {
+  const tokens = await db.collection("fcm_tokens").get();
+  const today = new Date();
+
+  for (const doc of tokens.docs) {
+    const uid = doc.id;
+    try {
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      if (!actDoc.exists) continue;
+      const data = actDoc.data();
+      if (!data.babyDob) continue;
+
+      const dob = data.babyDob.toDate ? data.babyDob.toDate() : new Date(data.babyDob);
+      // Check if today is the monthly anniversary
+      if (dob.getDate() !== today.getDate()) continue;
+      const months = (today.getFullYear() - dob.getFullYear()) * 12 + (today.getMonth() - dob.getMonth());
+      if (months <= 0 || months > 24) continue;
+
+      const sentKey = `monthly_${months}_${uid}`;
+      const sentDoc = await db.collection("push_log").doc(sentKey).get();
+      if (sentDoc.exists) continue;
+
+      const name = data.babyName || "Baby";
+      await sendPush(uid, {
+        title: `🎂 ${name} is ${months} month${months !== 1 ? "s" : ""} old today!`,
+        body: `Happy ${months}-month birthday! Check the Development tab for new milestones entering ${name}'s window.`,
+        data: { action: "development", channelId: "obubba_milestones" },
+      });
+      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
+    } catch (err) {
+      console.error(`Monthly birthday for ${uid}:`, err.message);
+    }
+  }
+});
+
+// ── New development phase: notify when baby enters a wonder week/phase ──
+exports.developmentPhase = onSchedule("every day 09:30", async () => {
+  const tokens = await db.collection("fcm_tokens").get();
+
+  // Wonder Weeks leap starts (in weeks from due date)
+  const leapWeeks = [5, 8, 12, 19, 26, 37, 46, 55, 64, 75];
+  const leapNames = [
+    "Changing Sensations", "Patterns", "Smooth Transitions",
+    "Events", "Relationships", "Categories", "Sequences",
+    "Programmes", "Principles", "Systems"
+  ];
+
+  for (const doc of tokens.docs) {
+    const uid = doc.id;
+    try {
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      if (!actDoc.exists) continue;
+      const data = actDoc.data();
+      if (!data.babyDob) continue;
+
+      const dob = data.babyDob.toDate ? data.babyDob.toDate() : new Date(data.babyDob);
+      const ageWeeks = Math.floor((Date.now() - dob.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const name = data.babyName || "Baby";
+
+      // Check if baby just entered a leap week
+      const leapIdx = leapWeeks.indexOf(ageWeeks);
+      if (leapIdx === -1) continue;
+
+      const sentKey = `leap_${ageWeeks}_${uid}`;
+      const sentDoc = await db.collection("push_log").doc(sentKey).get();
+      if (sentDoc.exists) continue;
+
+      await sendPush(uid, {
+        title: `🧠 Leap ${leapIdx + 1}: ${leapNames[leapIdx]}`,
+        body: `${name} is entering a new developmental leap! Expect fussiness — it's a sign of brain growth. Check Development for details.`,
+        data: { action: "development", channelId: "obubba_milestones" },
+      });
+      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
+    } catch (err) {
+      console.error(`Development phase for ${uid}:`, err.message);
+    }
+  }
+});
+
+// ── New milestones unlocked: notify when milestones enter baby's window ──
+exports.milestonesUnlocked = onSchedule("every day 10:00", async () => {
+  const tokens = await db.collection("fcm_tokens").get();
+
+  for (const doc of tokens.docs) {
+    const uid = doc.id;
+    try {
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      if (!actDoc.exists) continue;
+      const data = actDoc.data();
+      if (!data.babyDob) continue;
+
+      const dob = data.babyDob.toDate ? data.babyDob.toDate() : new Date(data.babyDob);
+      const ageWeeks = Math.floor((Date.now() - dob.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const name = data.babyName || "Baby";
+
+      // Check weekly — only alert once per week
+      const weekKey = `milestones_w${ageWeeks}_${uid}`;
+      const sentDoc = await db.collection("push_log").doc(weekKey).get();
+      if (sentDoc.exists) continue;
+
+      // Only notify at key age milestones (every 4 weeks after 8 weeks)
+      if (ageWeeks < 8 || ageWeeks % 4 !== 0) continue;
+
+      await sendPush(uid, {
+        title: `✨ New milestones for ${name}`,
+        body: `At ${Math.round(ageWeeks / 4.3)} months, new milestones are entering ${name}'s window. Check the Development tab to see what to look for!`,
+        data: { action: "development", channelId: "obubba_milestones" },
+      });
+      await db.collection("push_log").doc(weekKey).set({ sentAt: new Date() });
+    } catch (err) {
+      console.error(`Milestones for ${uid}:`, err.message);
+    }
+  }
+});
+
+// ── Re-engagement: gentle nudge if inactive for 3+ days ─────────
+exports.reEngagement = onSchedule("every day 11:00", async () => {
+  const tokens = await db.collection("fcm_tokens").get();
+  const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+
+  for (const doc of tokens.docs) {
+    const uid = doc.id;
+    try {
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      if (!actDoc.exists) continue;
+      const data = actDoc.data();
+      const lastUpdate = data.updatedAt;
+      if (!lastUpdate) continue;
+
+      const lastMs = lastUpdate.toMillis ? lastUpdate.toMillis() : new Date(lastUpdate).getTime();
+      if (lastMs > threeDaysAgo) continue; // Active recently — skip
+
+      // Don't spam — once per week max
+      const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+      const sentKey = `reengage_w${weekNum}_${uid}`;
+      const sentDoc = await db.collection("push_log").doc(sentKey).get();
+      if (sentDoc.exists) continue;
+
+      const name = data.babyName || "Baby";
+      const daysSince = Math.round((Date.now() - lastMs) / (24 * 60 * 60 * 1000));
+
+      const messages = [
+        { title: `📱 ${name} misses you!`, body: `It's been ${daysSince} days. A quick log keeps ${name}'s sleep predictions accurate.` },
+        { title: `☀️ Fresh day, fresh start`, body: `Pick up where you left off — ${name}'s patterns are waiting to be discovered.` },
+        { title: `📊 Keep the data flowing`, body: `Regular logging makes OBubba's predictions smarter. Just one entry makes a difference!` },
+      ];
+      const msg = messages[daysSince % messages.length];
+
+      await sendPush(uid, {
+        title: msg.title,
+        body: msg.body,
+        data: { action: "open", channelId: "obubba_reminders" },
+      });
+      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
+    } catch (err) {
+      console.error(`Re-engagement for ${uid}:`, err.message);
+    }
+  }
+});
+
+// ── Cleanup: purge old push_log entries (older than 3 days) ─────
+exports.cleanupPushLog = onSchedule("every day 03:00", async () => {
+  const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+  const old = await db.collection("push_log")
+    .where("sentAt", "<", cutoff)
+    .limit(200)
+    .get();
+
+  const batch = db.batch();
+  old.docs.forEach(doc => batch.delete(doc.ref));
+  if (old.docs.length > 0) await batch.commit();
 });

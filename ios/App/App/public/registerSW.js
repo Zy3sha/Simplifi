@@ -1,1 +1,1 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/sw.js', { scope: '/' })})}
+if('serviceWorker' in navigator) {window.addEventListener('load', function() {try{if(location.protocol==='https:'||location.protocol==='http:'){navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(){})}}catch(e){}})}
