@@ -16,6 +16,7 @@ private func widgetStorePendingEntry(_ dict: [String: Any]) {
     var entry = dict
     let fmt = DateFormatter()
     fmt.dateFormat = "HH:mm"
+    fmt.locale = Locale(identifier: "en_US_POSIX")
     entry["time"] = fmt.string(from: Date())
     guard let data = try? JSONSerialization.data(withJSONObject: entry),
           let json = String(data: data, encoding: .utf8),
