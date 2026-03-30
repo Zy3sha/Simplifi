@@ -2643,16 +2643,8 @@ function App(){
               console.log("[OBubba] Cleaning up orphaned Live Activities");
               window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
             } else {
-              // Active timer detected — restart LA for Dynamic Island
-              console.log("[OBubba] Active timer (" + _wdTimer + ") on launch — restarting Live Activity");
-              try {
-                var _wdObj = JSON.parse(_wdRaw);
-                var _startMs = _wdObj.timerStartMs;
-                if (_startMs) {
-                  var _type = _wdTimer === "feed" ? "feed" : "sleep";
-                  window.Capacitor.Plugins.OBLiveActivity.start({type:_type,babyName:_wdObj.babyName||"Baby",startTime:_startMs,side:_wdObj.breastSide||undefined}).catch(function(){});
-                }
-              } catch(ex2){}
+              // Active timer detected — leave existing LA alone (don't restart, which would trigger banner)
+              console.log("[OBubba] Active timer (" + _wdTimer + ") detected — keeping existing Live Activity");
             }
           }
         }catch(ex){console.warn("[OBubba] LA cleanup error:",ex);}
