@@ -5656,11 +5656,12 @@ function App(){
       var rd = (resolvedDay && resolvedDay.entries && resolvedDay.entries.length > 0) ? resolvedDay.entries : (days[todayKey] || []);
       var feeds = rd.filter(function(e) { return e.type === "feed"; });
       var naps = rd.filter(function(e) { return e.type === "nap"; });
-      // Fallback: if resolvedDay has fewer naps than tickData says, use tickData count
-      // (resolvedDay can miss naps in cross-day edge cases)
+      // Also check raw today entries — resolvedDay can miss naps in edge cases
+      var _rawTodayNaps = (days[todayKey]||[]).filter(function(e){ return e.type === "nap"; });
+      if (_rawTodayNaps.length > naps.length) naps = _rawTodayNaps;
+      // Fallback: if tickData says more naps than entries show, use tickData count
       var _tdNapsDone = (tickDataRef.current || {}).napsDone || 0;
       if (_tdNapsDone > naps.length) {
-        // Inject placeholder entries so the count is correct
         while (naps.length < _tdNapsDone) naps.push({type:"nap",_placeholder:true});
       }
       var nappies = rd.filter(function(e) { return e.type === "poop"; });
@@ -5716,9 +5717,16 @@ function App(){
       }
       var _hasBed = !!_bedEntry;
       if (_bedEntry && !activeTimer) {
-        // Check if baby has woken up — if there's a morning wake, bedtime timer is over
+        // Check if baby has woken up — if there's a morning wake AFTER bedtime, timer is over
+        // (A morning wake BEFORE bedtime is from this morning, not tonight — ignore it)
         var _morningWake = findMorningWake(rd);
-        if (!_morningWake) {
+        var _bedM = timeVal(_bedEntry);
+        var _wakeIsAfterBed = _morningWake && (timeVal(_morningWake) < _bedM);
+        // Wake at 9am (540) < Bed at 19:00 (1140) → wake is before bed → timer still active
+        // Wake at 7am (420) > Bed at 23:00 (1380)? No, 420 < 1380 → before bed → timer active
+        // Cross-midnight: wake at 7am (420) with bed at 21:00 (1260) → 420 < 1260 → before → active
+        // Morning after: wake would be on NEXT day, carried into rd by resolveObubbaDay
+        if (!_morningWake || _wakeIsAfterBed) {
           activeTimer = "bed";
           // Show elapsed since last wake/settle, not since bedtime — matches Live Activity behaviour
           var _bedM2 = timeVal(_bedEntry);
