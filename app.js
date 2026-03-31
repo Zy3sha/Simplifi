@@ -19867,6 +19867,7 @@ function App() {
         babyName: babyName || "Baby",
         updatedAt: new Date().toISOString(),
         photoCount: memories.length,
+        active: true,
         memories: memories
       };
       await fsSet("shared_albums", code, albumData, false);
@@ -56073,7 +56074,7 @@ function App() {
       }
     }, albumSyncing ? "Syncing..." : "📤 Share album link") : /*#__PURE__*/React.createElement("button", {
       onClick: async () => {
-        if (!isPremium && STORE_READY) {
+        if (!isPremium && !trialActive && STORE_READY) {
           setPaywallContext("partner");
           setShowPaywall(true);
           setShowMemoryBook(false);
@@ -57867,4 +57868,9 @@ function AppRouter() {
 if (!window.__obReactMounted) {
   window.__obReactMounted = true;
   ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary, null, React.createElement(AppRouter)));
+  // Hide web splash screen (not needed on native — Capacitor handles its own)
+  setTimeout(function () {
+    var s = document.getElementById('ob-splash');
+    if (s) s.style.display = 'none';
+  }, 300);
 }
