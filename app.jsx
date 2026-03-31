@@ -3412,7 +3412,7 @@ function App(){
   const[nappyMode,setNappyMode]=useState(null);
   const[nappyTime,setNappyTime]=useState("");
   const[selectedPoopTypes,setSelectedPoopTypes]=useState([]);
-  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
+  const[logForm,setLogForm]=useState({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:"auto",napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false,wakeTime:""});
   const[eType,setEType]=useState("feed");
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
@@ -12047,7 +12047,7 @@ function App(){
   }
 
   function openLogPanel(panel){
-    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:(()=>{const h=new Date().getHours();return(h>=6&&h<20)?"nap":"bed";})(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false});
+    setLogForm({feedType:"bottle",amount:"",breastL:"",breastR:"",pumpL:"",pumpR:"",pumpTotal:"",pumpDuration:"",pumpStart:"",note:"",poopType:"wet",sleepType:(()=>{const h=new Date().getHours();return(h>=6&&h<20)?"nap":"bed";})(),napStart:"",napEnd:"",bedTime:"",feedTime:"",feedTimeSet:false,wakeTime:""});
     setLogPanel(panel);
   }
   // ── SECTION 6: NIGHT CLASSIFICATION ENGINE ──────────────────────────
@@ -22885,7 +22885,7 @@ function App(){
       {logPanel==="wake"&&(
         <Sheet onClose={()=>setLogPanel(null)} title="☀️ Log Wake Up">
           <div style={{marginBottom:12}}>
-            <TimeInput label="Wake Time" value={logForm.feedTime} onChange={t=>setLogForm(f=>({...f,feedTime:t}))}/>
+            <TimeInput label="Wake Time" value={logForm.wakeTime} onChange={t=>setLogForm(f=>({...f,wakeTime:t}))}/>
           </div>
           {(()=>{
             const dayEntries = days[selDay]||[];
@@ -22897,7 +22897,7 @@ function App(){
                     ☀️ Logs morning wake time — used to calculate wake windows and today's nap schedule.
                   </div>
                   <PBtn onClick={()=>{
-                    const t = logForm.feedTime || nowTime();
+                    const t = logForm.wakeTime || nowTime();
                     quickAddLog("wake",{type:"wake",time:t,night:false,note:""});
                     setLogPanel(null);
                   }}>✓ Log Wake Up</PBtn>
@@ -22912,11 +22912,11 @@ function App(){
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   <PBtn v="pri" onClick={()=>{
                     setLogPanel(null);
-                    setNwForm({time:logForm.feedTime||nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
+                    setNwForm({time:logForm.wakeTime||nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
                     setShowNightWake(true);
                   }}>🌙 Night Wake</PBtn>
                   <PBtn v="ghost" onClick={()=>{
-                    const t = logForm.feedTime || nowTime();
+                    const t = logForm.wakeTime || nowTime();
                     const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
                     const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
                     setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
