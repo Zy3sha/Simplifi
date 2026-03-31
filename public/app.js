@@ -29080,14 +29080,14 @@ function App() {
       marginBottom: 10,
       background: "var(--card-bg-solid)"
     }
-  }, (appointments.filter(a => new Date(a.date + "T23:59:59") >= new Date()).length === 0 || reminders.filter(r => !r.done).length === 0 || pinnedNotes.length === 0) && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
       marginBottom: 10,
       flexWrap: "wrap"
     }
-  }, appointments.filter(a => new Date(a.date + "T23:59:59") >= new Date()).length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setApptForm({
         date: todayStr(),
@@ -29113,7 +29113,7 @@ function App() {
       color: C.mid,
       fontFamily: _fI
     }
-  }, "\uD83D\uDCC5 Appointment"), reminders.filter(r => !r.done).length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCC5 Appointment"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setReminderForm({
         text: "",
@@ -29137,7 +29137,7 @@ function App() {
       color: C.mid,
       fontFamily: _fI
     }
-  }, "\uD83D\uDD14 Reminder"), pinnedNotes.length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDD14 Reminder"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowAddPin(true),
     style: {
       flex: 1,
@@ -43145,31 +43145,11 @@ function App() {
       color: C.deep
     }
   }, babyName ? possessive(babyName) + " Family" : "Account"), familyUsername && /*#__PURE__*/React.createElement("div", {
-    onClick: () => {
-      if (!window._ownerTaps) window._ownerTaps = {
-        count: 0,
-        last: 0
-      };
-      const now = Date.now();
-      if (now - window._ownerTaps.last > 2000) window._ownerTaps.count = 0;
-      window._ownerTaps.count++;
-      window._ownerTaps.last = now;
-      if (window._ownerTaps.count >= 10) {
-        window._ownerTaps.count = 0;
-        try {
-          localStorage.setItem("ob_owner_unlock", "zyesha2026");
-        } catch {}
-        location.reload();
-      }
-    },
     style: {
       fontSize: 12,
       fontFamily: _fM,
       color: C.lt,
-      marginTop: 2,
-      cursor: "default",
-      WebkitUserSelect: "none",
-      userSelect: "none"
+      marginTop: 2
     }
   }, "Logged in as ", /*#__PURE__*/React.createElement("strong", {
     style: {
@@ -44228,7 +44208,30 @@ function App() {
       color: C.mid,
       lineHeight: 1.7
     }
-  }, "OBubba is a baby tracking and parenting companion app. It is ", /*#__PURE__*/React.createElement("b", null, "not a medical device"), " and does not provide medical advice, diagnosis, or treatment."), /*#__PURE__*/React.createElement("div", {
+  }, "OBubba is a baby tracking and parenting companion app. It is ", /*#__PURE__*/React.createElement("b", null, "not a medical device"), " and does not provide medical advice, diagnosis, or ", /*#__PURE__*/React.createElement("span", {
+    onClick: () => {
+      const now = Date.now();
+      if (!window._ownerTaps2) window._ownerTaps2 = {
+        count: 0,
+        last: 0
+      };
+      if (now - window._ownerTaps2.last > 2000) window._ownerTaps2.count = 0;
+      window._ownerTaps2.count++;
+      window._ownerTaps2.last = now;
+      if (window._ownerTaps2.count >= 7) {
+        window._ownerTaps2.count = 0;
+        try {
+          localStorage.setItem("ob_owner_unlock", "zyesha2026");
+        } catch {}
+        location.reload();
+      }
+    },
+    style: {
+      cursor: "default",
+      WebkitUserSelect: "none",
+      userSelect: "none"
+    }
+  }, "treatment"), "."), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: C.mid,
@@ -47186,9 +47189,9 @@ function App() {
     }, {
       key: "annual",
       label: "Annual",
-      price: "£39.99",
+      price: "£44.99",
       sub: "/year",
-      badge: "Save 33%"
+      badge: "Save 25%"
     }, {
       key: "lifetime",
       label: "Lifetime",
@@ -47318,7 +47321,7 @@ function App() {
         marginLeft: "auto",
         marginRight: "auto"
       }
-    }, "Built by a mum who's been there. For less than a coffee a month \u2014 no more guessing, no more juggling 5 apps."), /*#__PURE__*/React.createElement("button", {
+    }, "Built by a mum who's been there. For less than a coffee a month \u2014 give yourself the gift of restful nights."), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         haptic();
         if (window._purchases && window._purchases.restore) {

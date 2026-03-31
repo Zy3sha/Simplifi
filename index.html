@@ -69,7 +69,7 @@
   <!-- External libraries -->
   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+  <!-- Babel removed — app.jsx is now pre-compiled to app.js -->
 
   <!-- Firebase -->
   <script type="module" src="firebase.js"></script>
@@ -105,7 +105,10 @@
 <!-- Theme system (must run immediately for no flash) -->
 <script src="theme.js"></script>
 
-<!-- App loader (fetches app.jsx, compiles, + utilities) -->
+<!-- Pre-compiled app (no Babel needed) -->
+<script src="app.js" defer></script>
+
+<!-- App loader (glass effects, error handler, service worker) -->
 <script src="loader.js"></script>
 </body>
 </html>
