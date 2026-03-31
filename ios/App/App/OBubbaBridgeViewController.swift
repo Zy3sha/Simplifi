@@ -11,6 +11,7 @@ class OBubbaBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(SiriShortcutsPlugin())
         bridge?.registerPluginInstance(WidgetBridgePlugin())
         bridge?.registerPluginInstance(TravelTimePlugin())
+        bridge?.registerPluginInstance(StorePlugin())
     }
 
     override open func viewDidLoad() {

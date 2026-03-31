@@ -17,6 +17,7 @@ public class TravelTimePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private var locationManager: CLLocationManager?
     private var pendingCall: CAPPluginCall?
     private var pendingAddress: String?
+    private var pendingDestination: CLLocationCoordinate2D?
 
     /// Calculate travel time from current location to a destination address.
     /// Returns { travelMins: Int, distanceKm: Double, address: String }
@@ -85,32 +86,74 @@ public class TravelTimePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     }
 
     private func calculateRoute(to destination: CLLocationCoordinate2D, call: CAPPluginCall) {
-        // Try to get current location
-        let locationManager = CLLocationManager()
-        let authStatus = locationManager.authorizationStatus
+        if locationManager == nil {
+            locationManager = CLLocationManager()
+            locationManager?.delegate = self
+        }
+        let authStatus = locationManager!.authorizationStatus
 
         if authStatus == .notDetermined {
-            // We don't have permission — estimate from a stored home location or return error
-            call.reject("Location permission not granted. Please enable Location Services for OBubba.")
+            // Request permission — store destination + call for when permission comes back
+            pendingCall = call
+            pendingDestination = destination
+            locationManager?.requestWhenInUseAuthorization()
             return
         }
 
         if authStatus == .denied || authStatus == .restricted {
             // Fallback: use a rough estimate based on distance from centre of UK
-            // This is better than nothing for users who deny location
-            let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5) // Central UK
+            let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5)
             self.performRouteCalculation(from: defaultLocation, to: destination, call: call, approximate: true)
             return
         }
 
         // We have permission — get current location
-        if let currentLocation = locationManager.location {
+        if let currentLocation = locationManager?.location {
             self.performRouteCalculation(from: currentLocation.coordinate, to: destination, call: call, approximate: false)
         } else {
-            // Location not available yet — use a rough estimate
-            let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5)
-            self.performRouteCalculation(from: defaultLocation, to: destination, call: call, approximate: true)
+            // Location not ready yet — request a single update
+            pendingCall = call
+            pendingDestination = destination
+            locationManager?.requestLocation()
         }
+    }
+
+    // Called when authorization changes (after user taps Allow/Deny)
+    public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        guard status != .notDetermined, let call = pendingCall, let dest = pendingDestination else { return }
+        pendingCall = nil
+        pendingDestination = nil
+
+        if status == .authorizedWhenInUse || status == .authorizedAlways {
+            if let loc = manager.location {
+                performRouteCalculation(from: loc.coordinate, to: dest, call: call, approximate: false)
+            } else {
+                // Still no location — request one
+                pendingCall = call
+                pendingDestination = dest
+                manager.requestLocation()
+            }
+        } else {
+            // Denied — use fallback
+            let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5)
+            performRouteCalculation(from: defaultLocation, to: dest, call: call, approximate: true)
+        }
+    }
+
+    public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let loc = locations.last, let call = pendingCall, let dest = pendingDestination else { return }
+        pendingCall = nil
+        pendingDestination = nil
+        performRouteCalculation(from: loc.coordinate, to: dest, call: call, approximate: false)
+    }
+
+    public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        guard let call = pendingCall, let dest = pendingDestination else { return }
+        pendingCall = nil
+        pendingDestination = nil
+        // Fallback on error
+        let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5)
+        performRouteCalculation(from: defaultLocation, to: dest, call: call, approximate: true)
     }
 
     private func performRouteCalculation(from source: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D, call: CAPPluginCall, approximate: Bool) {
