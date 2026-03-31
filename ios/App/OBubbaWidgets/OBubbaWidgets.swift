@@ -34,7 +34,6 @@ private func widgetStorePendingEntry(_ dict: [String: Any]) {
     }
 }
 
-@available(iOS 17.0, *)
 struct OBWidgetLogFeedIntent: AppIntent {
     static var title: LocalizedStringResource = "Quick Log Feed"
     static var description = IntentDescription("Log a feed from the widget")
@@ -45,7 +44,6 @@ struct OBWidgetLogFeedIntent: AppIntent {
     }
 }
 
-@available(iOS 17.0, *)
 struct OBWidgetLogNappyIntent: AppIntent {
     static var title: LocalizedStringResource = "Quick Log Nappy"
     static var description = IntentDescription("Log a nappy from the widget")
@@ -56,7 +54,6 @@ struct OBWidgetLogNappyIntent: AppIntent {
     }
 }
 
-@available(iOS 17.0, *)
 struct OBWidgetToggleTimerIntent: AppIntent {
     static var title: LocalizedStringResource = "Toggle Timer"
     static var description = IntentDescription("Start or stop the nap timer from widget")
@@ -81,7 +78,6 @@ struct OBWidgetToggleTimerIntent: AppIntent {
     }
 }
 
-@available(iOS 17.0, *)
 struct OBWidgetBreastLeftIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Left Breast"
     static var description = IntentDescription("Start left breast feed timer from widget")
@@ -92,7 +88,6 @@ struct OBWidgetBreastLeftIntent: AppIntent {
     }
 }
 
-@available(iOS 17.0, *)
 struct OBWidgetBreastRightIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Right Breast"
     static var description = IntentDescription("Start right breast feed timer from widget")
@@ -478,21 +473,19 @@ struct OBubbaSmallWidgetView: View {
 
             // Footer — Stop button when timer running, feed time otherwise
             if hasTimer {
-                if #available(iOS 17.0, *) {
-                    Button(intent: OBWidgetToggleTimerIntent()) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "stop.fill")
-                                .font(.system(size: 9, weight: .bold))
-                            Text("Stop")
-                                .font(.system(size: 11, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(brandRose)
-                        .clipShape(Capsule())
-                    }.buttonStyle(.plain)
-                }
+                Button(intent: OBWidgetToggleTimerIntent()) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Stop")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(brandRose)
+                    .clipShape(Capsule())
+                }.buttonStyle(.plain)
             } else if !hasTimer {
                 if let lf = d.lastFeedTime, !lf.isEmpty {
                     HStack(spacing: 3) {
@@ -610,33 +603,31 @@ struct OBubbaMediumWidgetView: View {
             Spacer(minLength: 5)
 
             // ── ROW 2: Action Buttons (big, tappable) ──
-            if #available(iOS 17.0, *) {
-                HStack(spacing: 8) {
-                    if d.showNursing == true {
-                        let leftIsNext = d.lastBreastSide != "left"
-                        Button(intent: OBWidgetBreastLeftIntent()) {
-                            BreastBtn(letter: "L", isNext: leftIsNext)
-                        }.buttonStyle(.plain)
-                        Button(intent: OBWidgetBreastRightIntent()) {
-                            BreastBtn(letter: "R", isNext: !leftIsNext)
-                        }.buttonStyle(.plain)
-                    } else {
-                        Button(intent: OBWidgetLogFeedIntent()) {
-                            ActionBtn(icon: "drop.fill", label: "Feed", color: brandRose)
-                        }.buttonStyle(.plain)
-                    }
-                    Button(intent: OBWidgetLogNappyIntent()) {
-                        ActionBtn(icon: "leaf.fill", label: "Nappy", color: brandMint)
+            HStack(spacing: 8) {
+                if d.showNursing == true {
+                    let leftIsNext = d.lastBreastSide != "left"
+                    Button(intent: OBWidgetBreastLeftIntent()) {
+                        BreastBtn(letter: "L", isNext: leftIsNext)
                     }.buttonStyle(.plain)
-                    Button(intent: OBWidgetToggleTimerIntent()) {
-                        ActionBtn(
-                            icon: hasTimer ? "stop.fill" : "play.fill",
-                            label: hasTimer ? "Stop" : "Nap",
-                            color: hasTimer ? brandRose : brandPurple,
-                            filled: hasTimer
-                        )
+                    Button(intent: OBWidgetBreastRightIntent()) {
+                        BreastBtn(letter: "R", isNext: !leftIsNext)
+                    }.buttonStyle(.plain)
+                } else {
+                    Button(intent: OBWidgetLogFeedIntent()) {
+                        ActionBtn(icon: "drop.fill", label: "Feed", color: brandRose)
                     }.buttonStyle(.plain)
                 }
+                Button(intent: OBWidgetLogNappyIntent()) {
+                    ActionBtn(icon: "leaf.fill", label: "Nappy", color: brandMint)
+                }.buttonStyle(.plain)
+                Button(intent: OBWidgetToggleTimerIntent()) {
+                    ActionBtn(
+                        icon: hasTimer ? "stop.fill" : "play.fill",
+                        label: hasTimer ? "Stop" : "Nap",
+                        color: hasTimer ? brandRose : brandPurple,
+                        filled: hasTimer
+                    )
+                }.buttonStyle(.plain)
             }
 
             Spacer(minLength: 5)
@@ -834,35 +825,54 @@ struct OBubbaTimerLiveActivity: Widget {
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: OBubbaTimerAttributes.self) { context in
-            // ── Lock Screen / Notification Banner (ultra-compact) ──
-            HStack(spacing: 8) {
-                // Left: tiny icon
-                Image(systemName: timerIcon(context.attributes.timerType))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(brandRose)
+            // ── Lock Screen / Notification Banner ──
+            HStack(spacing: 0) {
+                // Left: icon circle + baby name below
+                VStack(spacing: 2) {
+                    ZStack {
+                        Circle()
+                            .fill(brandRose.opacity(0.15))
+                            .frame(width: 34, height: 34)
+                        Image(systemName: timerIcon(context.attributes.timerType))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(brandRose)
+                    }
+                    Text(context.attributes.babyName)
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(brandDeep.opacity(0.5))
+                        .lineLimit(1)
+                }
+                .frame(width: 48)
+                .padding(.trailing, 8)
 
-                // Middle: label
-                Text("\(context.attributes.babyName)")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(brandDeep)
-                    .lineLimit(1)
-
-                if let side = context.state.side {
-                    Text("· \(side.capitalized)")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(brandDeep.opacity(0.4))
+                // Middle: label + timer
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(timerLabel(context.attributes.timerType))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(brandDeep.opacity(0.45))
+                    Text(context.state.startTime, style: .timer)
+                        .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep)
+                        .monospacedDigit()
                 }
 
                 Spacer()
 
-                // Right: timer only
-                Text(context.state.startTime, style: .timer)
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
-                    .foregroundColor(brandRose)
-                    .monospacedDigit()
+                // Right: side info
+                if let side = context.state.side {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(side.capitalized)")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(brandRose.opacity(0.7))
+                        Text("side")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(brandDeep.opacity(0.35))
+                    }
+                    .padding(.leading, 8)
+                }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .background(
                 LinearGradient(
                     colors: [brandBg, brandCream],

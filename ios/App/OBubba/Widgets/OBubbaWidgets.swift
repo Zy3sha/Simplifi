@@ -824,44 +824,50 @@ struct OBubbaTimerLiveActivity: Widget {
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: OBubbaTimerAttributes.self) { context in
-            // ── Lock Screen / Notification Banner (compact) ──
-            HStack(spacing: 10) {
-                // Left: small icon
-                ZStack {
-                    Circle()
-                        .fill(brandRose.opacity(0.1))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: timerIcon(context.attributes.timerType))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(brandRose)
-                }
-
-                // Middle: label + optional side
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("\(context.attributes.babyName)'s \(timerLabel(context.attributes.timerType))")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(brandDeep)
-                        .lineLimit(1)
-                    if let side = context.state.side {
-                        Text("\(side.capitalized) side")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(brandDeep.opacity(0.4))
+            // ── Lock Screen / Notification Banner ──
+            HStack(spacing: 0) {
+                // Left: icon circle + baby name below
+                VStack(spacing: 2) {
+                    ZStack {
+                        Circle()
+                            .fill(brandRose.opacity(0.15))
+                            .frame(width: 34, height: 34)
+                        Image(systemName: timerIcon(context.attributes.timerType))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(brandRose)
                     }
+                    Text(context.attributes.babyName)
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .foregroundColor(brandDeep.opacity(0.5))
+                        .lineLimit(1)
+                }
+                .frame(width: 48)
+                .padding(.trailing, 8)
+
+                // Middle: label + timer
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(timerLabel(context.attributes.timerType))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(brandDeep.opacity(0.45))
+                    Text(context.state.startTime, style: .timer)
+                        .font(.system(size: 26, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep)
+                        .monospacedDigit()
                 }
 
                 Spacer()
 
-                // Right: timer + next nap
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(context.state.startTime, style: .timer)
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandRose)
-                        .monospacedDigit()
-                    if let nextNap = context.state.nextNap, !nextNap.isEmpty {
-                        Text(nextNap)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundColor(brandPurple)
+                // Right: side info
+                if let side = context.state.side {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(side.capitalized)")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(brandRose.opacity(0.7))
+                        Text("side")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(brandDeep.opacity(0.35))
                     }
+                    .padding(.leading, 8)
                 }
             }
             .padding(.horizontal, 16)
