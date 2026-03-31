@@ -108,6 +108,15 @@
 <!-- Pre-compiled app (no Babel needed) -->
 <script src="/app.js" defer></script>
 
+<!-- Hide splash once app.js has loaded and executed -->
+<script>
+  // Failsafe: hide splash after app.js runs (defer = after DOM parsed)
+  // Also hide after timeout in case app.js takes long
+  function _hideSplash(){var s=document.getElementById('ob-splash');if(s){s.style.opacity='0';s.style.transition='opacity 0.3s';setTimeout(function(){s.style.display='none';},300);}}
+  window.addEventListener('load', function(){setTimeout(_hideSplash, 200);});
+  setTimeout(_hideSplash, 3000); // absolute failsafe
+</script>
+
 <!-- App loader (glass effects, error handler, service worker) -->
 <script src="/loader.js"></script>
 </body>
