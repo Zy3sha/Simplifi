@@ -1,102 +1,246 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OBubba Home Screen Widget — matches iOS design -->
-<RelativeLayout
+<!-- OBubba Widget — matches iOS with combi feeding support -->
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="14dp"
-    android:background="@drawable/widget_background">
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_bg_gradient">
 
-    <!-- Row 1: Baby name -->
-    <TextView
-        android:id="@+id/tv_baby_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:text="Baby"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="#5B4F5F"
-        android:fontFamily="sans-serif-medium" />
-
-    <!-- Row 2: Prediction pill (green bg, shows next nap/bed time) -->
+    <!-- Row 1: Baby name + timer/prediction pill -->
     <LinearLayout
-        android:id="@+id/prediction_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/tv_baby_name"
-        android:layout_marginTop="8dp"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
         <TextView
-            android:id="@+id/tv_prediction"
+            android:id="@+id/tv_baby_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Baby"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:textColor="#5B4F5F"
+            android:fontFamily="sans-serif-medium" />
+
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text=""
-            android:textSize="13sp"
-            android:textColor="#5B7A6B"
-            android:background="@drawable/widget_prediction_bg"
-            android:padding="8dp"
-            android:gravity="center"
-            android:fontFamily="sans-serif-medium" />
+            android:gravity="end|center_vertical"
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/tv_nap_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text=""
-            android:textSize="11sp"
-            android:textColor="#8B7EC8"
-            android:fontFamily="sans-serif-medium" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/widget_timer_pill"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="3dp"
+                android:paddingBottom="3dp">
+
+                <TextView
+                    android:id="@+id/tv_timer_dot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="8sp"
+                    android:textColor="#C07088"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_timer_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="10sp"
+                    android:textColor="#8B7EC8"
+                    android:fontFamily="sans-serif-medium" />
+
+                <Chronometer
+                    android:id="@+id/timer_chrono"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="3dp"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#5B4F5F"
+                    android:fontFamily="sans-serif-medium"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tv_prediction"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="#8B7EC8"
+                    android:fontFamily="sans-serif-medium" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_since"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="1dp"
+                android:textSize="9sp"
+                android:textColor="#A89898"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Quick action buttons (pinned to bottom) -->
+    <!-- Row 2: Breast L / R buttons (only visible for nursing mums) -->
+    <LinearLayout
+        android:id="@+id/breast_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/btn_breast_l"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/widget_btn_feed"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/tv_bl_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="L"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#C07088" />
+            <TextView
+                android:id="@+id/tv_bl_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text=""
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#C07088" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_breast_r"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/widget_btn_feed"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <TextView
+                android:id="@+id/tv_br_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="R"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#C07088" />
+            <TextView
+                android:id="@+id/tv_br_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text=""
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#C07088" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 3: Feed, Nappy, Nap/Stop -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
+        android:layout_marginTop="6dp"
         android:orientation="horizontal"
-        android:gravity="center">
+        android:gravity="center"
+        android:baselineAligned="false">
 
-        <Button
-            android:id="@+id/btn_log_feed"
+        <LinearLayout
+            android:id="@+id/btn_feed"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
-            android:text="Feed"
-            android:textSize="12sp"
-            android:textColor="#C07088"
-            android:background="@drawable/widget_action_bg"
-            android:textAllCaps="false" />
+            android:background="@drawable/widget_btn_feed"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tv_feed_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🍼"
+                android:textSize="18sp" />
+            <TextView
+                android:id="@+id/tv_feed_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Feed"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#C07088" />
+        </LinearLayout>
 
-        <Button
-            android:id="@+id/btn_log_nappy"
+        <LinearLayout
+            android:id="@+id/btn_nappy"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
             android:layout_marginEnd="4dp"
-            android:text="Nappy"
-            android:textSize="12sp"
-            android:textColor="#7BA68C"
-            android:background="@drawable/widget_action_bg"
-            android:textAllCaps="false" />
+            android:background="@drawable/widget_btn_nappy"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🍃"
+                android:textSize="18sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nappy"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#6FA898" />
+        </LinearLayout>
 
-        <Button
-            android:id="@+id/btn_log_sleep"
+        <LinearLayout
+            android:id="@+id/btn_nap_stop"
             android:layout_width="0dp"
-            android:layout_height="38dp"
+            android:layout_height="52dp"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
-            android:text="Nap"
-            android:textSize="12sp"
-            android:textColor="#8B7EC8"
-            android:background="@drawable/widget_action_bg"
-            android:textAllCaps="false" />
+            android:background="@drawable/widget_btn_nap"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tv_ns_icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▶"
+                android:textSize="18sp" />
+            <TextView
+                android:id="@+id/tv_ns_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nap"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="#8B7EC8" />
+        </LinearLayout>
     </LinearLayout>
-</RelativeLayout>
+</LinearLayout>

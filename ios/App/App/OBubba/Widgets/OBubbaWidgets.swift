@@ -636,6 +636,9 @@ struct OBubbaMediumWidgetView: View {
 
             // ── ROW 2: Action Buttons (big, tappable via deep links) ──
             HStack(spacing: 8) {
+                Link(destination: URL(string: "obubba://?action=quick_feed")!) {
+                    ActionBtn(icon: "drop.fill", label: "Feed", color: brandRose)
+                }
                 if d.showNursing == true {
                     let leftIsNext = d.lastBreastSide != "left"
                     Link(destination: URL(string: "obubba://?action=breast_left")!) {
@@ -643,10 +646,6 @@ struct OBubbaMediumWidgetView: View {
                     }
                     Link(destination: URL(string: "obubba://?action=breast_right")!) {
                         BreastBtn(letter: "R", isNext: !leftIsNext)
-                    }
-                } else {
-                    Link(destination: URL(string: "obubba://?action=quick_feed")!) {
-                        ActionBtn(icon: "drop.fill", label: "Feed", color: brandRose)
                     }
                 }
                 Link(destination: URL(string: "obubba://?action=quick_nappy")!) {

@@ -11,6 +11,8 @@ public class MainActivity extends BridgeActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(WidgetBridgePlugin.class);
+        registerPlugin(com.obubba.app.plugins.PrintPlugin.class);
+        registerPlugin(com.obubba.app.plugins.StorePlugin.class);
         super.onCreate(savedInstanceState);
         handleAction(getIntent());
     }

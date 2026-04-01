@@ -7,6 +7,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.SystemClock;
+import android.view.View;
 import android.widget.RemoteViews;
 import com.obubba.app.R;
 import com.obubba.app.MainActivity;
@@ -19,80 +21,143 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
         updateWidgets(context, appWidgetManager, appWidgetIds);
     }
 
-    private static PendingIntent makeActionIntent(Context context, String action, int requestCode) {
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.setAction(Intent.ACTION_VIEW);
-        // Unique data URI so Android doesn't collapse PendingIntents
-        intent.setData(Uri.parse("obubba://widget/" + action));
-        intent.putExtra("action", action);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        return PendingIntent.getActivity(context, requestCode, intent,
+    private static PendingIntent makeIntent(Context context, String action, int code) {
+        Intent i = new Intent(context, MainActivity.class);
+        i.setAction(Intent.ACTION_VIEW);
+        i.setData(Uri.parse("obubba://w/" + action + "/" + code));
+        i.putExtra("action", action);
+        i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        return PendingIntent.getActivity(context, code, i,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    public static void updateWidgets(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
+    public static void updateWidgets(Context context, AppWidgetManager mgr, int[] ids) {
         SharedPreferences prefs = context.getSharedPreferences("obubba_widget_data", Context.MODE_PRIVATE);
-        String jsonStr = prefs.getString("widgetData", null);
+        String json = prefs.getString("widgetData", null);
 
-        for (int widgetId : appWidgetIds) {
-            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_summary);
+        for (int id : ids) {
+            RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_summary);
 
-            // Open app on tap
-            Intent openIntent = new Intent(context, MainActivity.class);
-            openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(
-                context, 0, openIntent,
+            // Whole widget opens app
+            Intent open = new Intent(context, MainActivity.class);
+            open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            v.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context, 0, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
-            // Quick action buttons with unique URIs
-            views.setOnClickPendingIntent(R.id.btn_log_feed, makeActionIntent(context, "quick_feed", 1));
-            views.setOnClickPendingIntent(R.id.btn_log_nappy, makeActionIntent(context, "quick_nappy", 2));
-            views.setOnClickPendingIntent(R.id.btn_log_sleep, makeActionIntent(context, "toggle_nap", 3));
+            // Always wire nappy
+            v.setOnClickPendingIntent(R.id.btn_nappy, makeIntent(context, "quick_nappy", 3));
+            // Always wire feed
+            v.setOnClickPendingIntent(R.id.btn_feed, makeIntent(context, "quick_feed", 1));
 
-            if (jsonStr != null) {
-                try {
-                    JSONObject data = new JSONObject(jsonStr);
-                    String babyName = data.optString("babyName", "Baby");
-                    String nextPrediction = data.optString("nextPrediction", "");
-                    String nextPredictionLabel = data.optString("nextPredictionLabel", "");
-                    String activeTimer = data.optString("activeTimer", "");
-                    String timerLabel = data.optString("timerLabel", "");
-                    String timerStartTime = data.optString("timerStartTime", "");
-                    String lastFeedTime = data.optString("lastFeedTime", "");
-
-                    // Baby name with emoji
-                    views.setTextViewText(R.id.tv_baby_name, "\uD83E\uDDF8 " + babyName);
-
-                    // Prediction or timer display
-                    if (activeTimer != null && !activeTimer.isEmpty() && !activeTimer.equals("null")) {
-                        // Active timer — show elapsed
-                        String label = (timerLabel != null && !timerLabel.isEmpty() && !timerLabel.equals("null"))
-                            ? timerLabel : "Timer";
-                        views.setTextViewText(R.id.tv_prediction, label + " started " + timerStartTime);
-                        views.setTextViewText(R.id.tv_nap_label, "");
-                    } else if (nextPrediction != null && !nextPrediction.isEmpty() && !nextPrediction.equals("null")) {
-                        // Show next prediction
-                        views.setTextViewText(R.id.tv_prediction, nextPrediction);
-                        views.setTextViewText(R.id.tv_nap_label, "");
-                    } else if (lastFeedTime != null && !lastFeedTime.isEmpty() && !lastFeedTime.equals("null")) {
-                        views.setTextViewText(R.id.tv_prediction, "Last feed: " + lastFeedTime);
-                        views.setTextViewText(R.id.tv_nap_label, "");
-                    } else {
-                        views.setTextViewText(R.id.tv_prediction, "Open app to sync");
-                        views.setTextViewText(R.id.tv_nap_label, "");
-                    }
-                } catch (Exception e) {
-                    views.setTextViewText(R.id.tv_baby_name, "OBubba");
-                    views.setTextViewText(R.id.tv_prediction, "Open app to sync");
-                    views.setTextViewText(R.id.tv_nap_label, "");
-                }
-            } else {
-                views.setTextViewText(R.id.tv_baby_name, "OBubba");
-                views.setTextViewText(R.id.tv_prediction, "Open app to start tracking");
-                views.setTextViewText(R.id.tv_nap_label, "");
+            if (json == null) {
+                v.setTextViewText(R.id.tv_baby_name, "OBubba");
+                v.setTextViewText(R.id.tv_prediction, "Open app");
+                hide(v); defaults(v, context);
+                mgr.updateAppWidget(id, v); continue;
             }
 
-            appWidgetManager.updateAppWidget(widgetId, views);
+            try {
+                JSONObject d = new JSONObject(json);
+                String name = d.optString("babyName", "Baby");
+                String pred = d.optString("nextPrediction", "");
+                String timer = d.optString("activeTimer", "");
+                String label = d.optString("timerLabel", "");
+                String startT = d.optString("timerStartTime", "");
+                boolean nursing = d.optBoolean("showNursing", false);
+                String lastSide = d.optString("lastBreastSide", "");
+                String side = d.optString("breastSide", "");
+                long startMs = 0;
+                try { if (!d.isNull("timerStartMs")) startMs = (long) d.optDouble("timerStartMs", 0); } catch (Exception x) {}
+
+                v.setTextViewText(R.id.tv_baby_name, "\uD83E\uDDF8 " + name);
+
+                boolean active = timer != null && !timer.isEmpty() && !timer.equals("null") && startMs > 1000000000000L;
+
+                // ── Breast row: show for nursing mums ──
+                if (nursing) {
+                    v.setViewVisibility(R.id.breast_row, View.VISIBLE);
+                    boolean nextL = "R".equals(side.isEmpty() ? lastSide : side);
+                    v.setTextViewText(R.id.tv_bl_label, nextL ? "NEXT" : "");
+                    v.setTextViewText(R.id.tv_br_label, !nextL ? "NEXT" : "");
+                    v.setOnClickPendingIntent(R.id.btn_breast_l, makeIntent(context, "breast_left", 5));
+                    v.setOnClickPendingIntent(R.id.btn_breast_r, makeIntent(context, "breast_right", 6));
+                } else {
+                    v.setViewVisibility(R.id.breast_row, View.GONE);
+                }
+
+                if (active) {
+                    // Timer pill
+                    v.setViewVisibility(R.id.tv_timer_dot, View.VISIBLE);
+                    v.setTextViewText(R.id.tv_timer_dot, "\u25CF ");
+                    v.setViewVisibility(R.id.timer_chrono, View.VISIBLE);
+                    v.setViewVisibility(R.id.tv_prediction, View.GONE);
+                    long elapsed = System.currentTimeMillis() - startMs;
+                    v.setChronometer(R.id.timer_chrono, SystemClock.elapsedRealtime() - elapsed, null, true);
+                    String lbl = (label != null && !label.isEmpty() && !label.equals("null")) ? label : "Timer";
+                    v.setTextViewText(R.id.tv_timer_label, lbl + " ");
+
+                    // Since time
+                    if (startT != null && !startT.isEmpty() && !startT.equals("null")) {
+                        v.setViewVisibility(R.id.tv_since, View.VISIBLE);
+                        try {
+                            String[] p = startT.split(":");
+                            int h = Integer.parseInt(p[0]), m = Integer.parseInt(p[1]);
+                            String ap = h >= 12 ? "pm" : "am";
+                            int h12 = h == 0 ? 12 : h > 12 ? h - 12 : h;
+                            v.setTextViewText(R.id.tv_since, "since " + h12 + ":" + String.format("%02d", m) + ap);
+                        } catch (Exception e) { v.setTextViewText(R.id.tv_since, "since " + startT); }
+                    } else {
+                        v.setViewVisibility(R.id.tv_since, View.GONE);
+                    }
+
+                    // Nap/Stop → Stop
+                    v.setTextViewText(R.id.tv_ns_icon, "\u25A0");
+                    v.setTextViewText(R.id.tv_ns_label, "Stop");
+                    v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_stop);
+                    v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "stop_timer", 4));
+
+                } else {
+                    // Prediction
+                    v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
+                    v.setViewVisibility(R.id.timer_chrono, View.GONE);
+                    v.setViewVisibility(R.id.tv_prediction, View.VISIBLE);
+                    v.setViewVisibility(R.id.tv_since, View.GONE);
+                    v.setTextViewText(R.id.tv_timer_label, "");
+
+                    if (pred != null && !pred.isEmpty() && !pred.equals("null")) {
+                        v.setTextViewText(R.id.tv_prediction, pred);
+                    } else {
+                        String feed = d.optString("lastFeedTime", "");
+                        v.setTextViewText(R.id.tv_prediction, (feed != null && !feed.isEmpty() && !feed.equals("null")) ? "Fed " + feed : "");
+                    }
+
+                    // Nap button
+                    v.setTextViewText(R.id.tv_ns_icon, "\u25B6");
+                    v.setTextViewText(R.id.tv_ns_label, "Nap");
+                    v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_nap);
+                    v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "toggle_nap", 4));
+                }
+            } catch (Exception e) {
+                v.setTextViewText(R.id.tv_baby_name, "OBubba");
+                v.setTextViewText(R.id.tv_prediction, "Open app");
+                hide(v); defaults(v, context);
+            }
+
+            mgr.updateAppWidget(id, v);
         }
+    }
+
+    private static void hide(RemoteViews v) {
+        v.setViewVisibility(R.id.timer_chrono, View.GONE);
+        v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
+        v.setViewVisibility(R.id.tv_since, View.GONE);
+        v.setViewVisibility(R.id.breast_row, View.GONE);
+    }
+
+    private static void defaults(RemoteViews v, Context ctx) {
+        v.setTextViewText(R.id.tv_ns_icon, "\u25B6");
+        v.setTextViewText(R.id.tv_ns_label, "Nap");
+        v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_nap);
+        v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(ctx, "toggle_nap", 4));
     }
 }

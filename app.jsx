@@ -3260,7 +3260,24 @@ function App(){
   // ── Breastfeeding Support Layer ──
   const[bfSupport,setBfSupport]=useState(null);
   const bfSupportShownRef=useRef(false);
-  const[lastBreastSide,setLastBreastSide]=useState(()=>{try{return localStorage.getItem("last_breast_side")||null;}catch{return null;}});
+  const[lastBreastSide,setLastBreastSide]=useState(()=>{
+    try{
+      const cached = localStorage.getItem("last_breast_side");
+      if (cached) return cached;
+      // Initialize from most recent breast feed in data
+      const allDays = Object.keys(days).sort().reverse();
+      for (const dk of allDays) {
+        const breastFeeds = (days[dk]||[]).filter(e => e.type==="feed" && e.feedType==="breast" && (e.breastL || e.breastR));
+        if (breastFeeds.length) {
+          const last = breastFeeds[breastFeeds.length - 1];
+          const side = (last.breastR||0) > (last.breastL||0) ? "R" : "L";
+          localStorage.setItem("last_breast_side", side);
+          return side;
+        }
+      }
+      return null;
+    }catch{return null;}
+  });
   // ── 4-tier Wellbeing Check-in ──
   const[wellbeingResponse,setWellbeingResponse]=useState(()=>{try{const v=JSON.parse(localStorage.getItem("wb_response_v1")||"null");if(v&&v.date===todayStr())return v.key;return null;}catch{return null;}});
   const[msFilter,setMsFilter]=useState("all");
@@ -12076,9 +12093,17 @@ function App(){
 
       // Suggested bedtime — use tick engine prediction (same as Today's Plan) for consistency
       const _td = tickDataRef.current || {};
-      if (_td.bedMins) {
-        // Use the tick engine's bedtime — this is the same prediction shown in Today's Plan
-        let suggestedBed = _td.bedMins;
+      // Call bedtimePrediction() directly so it matches Today's Plan exactly
+      let _freshBedMins = _td.bedMins;
+      try {
+        const _freshBed = bedtimePrediction();
+        if (_freshBed && _freshBed.time) {
+          const _bp = _freshBed.time.split(":").map(Number);
+          _freshBedMins = _bp[0] * 60 + _bp[1];
+        }
+      } catch {}
+      if (_freshBedMins) {
+        let suggestedBed = _freshBedMins;
         let bedReason = "";
         if (_todayNapMins > 0 && _avgDayMins && _todayNapMins < _avgDayMins - 20) {
           bedReason = _n + "'s naps were shorter than usual today, so an earlier bedtime will help prevent overtiredness.";
@@ -14788,8 +14813,9 @@ function App(){
     const name = babyName || "Baby";
     const finalHtml = await prepareCareCardHTML();
 
-    // Native iOS: generate PDF via CareCardPlugin, then share via system sheet
+    // Native: generate PDF via CareCardPlugin, then share via system sheet (iOS + Android)
     const careCard = window.Capacitor?.Plugins?.OBCareCard;
+    console.log("[OBubba] shareCareCard — OBCareCard plugin:", careCard ? "FOUND" : "NOT FOUND", "methods:", careCard ? Object.keys(careCard) : "n/a");
     if(careCard) {
       try {
         const result = await careCard.generatePDF({
@@ -14812,18 +14838,19 @@ function App(){
       }
     }
 
-    // Android/Web fallback: try Capacitor Share plugin first, then navigator.share
-    try {
-      const _sharePlugin = window.Capacitor?.Plugins?.Share;
-      if (_sharePlugin) {
-        // Capacitor Share supports text sharing on all platforms
-        const _plainText = finalHtml.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 2000);
-        await _sharePlugin.share({ title: `${name}'s Care Guide`, text: _plainText, dialogTitle: `Share ${name}'s Care Guide` });
+    // Android: use OBCareCard plugin to generate PDF (opens system print/save dialog)
+    const _ccAndroid = window.Capacitor?.Plugins?.OBCareCard;
+    if (_ccAndroid) {
+      try {
+        await _ccAndroid.generatePDF({ html: finalHtml, fileName: `${name}-Care-Guide.pdf` });
         return;
+      } catch(e) {
+        if (e.name === "AbortError") return;
+        console.warn("Android PDF share failed:", e);
       }
-    } catch(e) { if (e.name === "AbortError") return; console.warn("Capacitor share failed:", e); }
+    }
 
-    // Try navigator.share with file
+    // Web fallback: share HTML file or copy
     try {
       const blob = new Blob([finalHtml], { type: "text/html" });
       const file = new File([blob], `${name}-Care-Guide.html`, { type: "text/html" });
@@ -14841,15 +14868,19 @@ function App(){
     const name = babyName || "Baby";
     const finalHtml = await prepareCareCardHTML();
 
-    // Native iOS: use CareCardPlugin.printHTML for native print dialog
+    // Native: use CareCardPlugin.printHTML for native print dialog (iOS + Android)
     const careCard = window.Capacitor?.Plugins?.OBCareCard;
-    if(careCard) {
+    console.log("[OBubba] printCareCard — OBCareCard plugin:", careCard ? "FOUND" : "NOT FOUND");
+    console.log("[OBubba] printCareCard — all plugins:", Object.keys(window.Capacitor?.Plugins || {}));
+    if(careCard && careCard.printHTML) {
       try {
+        console.log("[OBubba] Calling printHTML...");
         await careCard.printHTML({ html: finalHtml, jobName: `${name}'s Care Guide` });
+        console.log("[OBubba] printHTML success");
         return;
       } catch(e) {
-        console.warn("Native print failed:", e);
-        showToast("Could not open print dialog", 2000, 0);
+        console.warn("[OBubba] printHTML failed:", e, e.message);
+        showToast("Print failed: " + (e.message||"unknown error"), 3000, 0);
         return;
       }
     }
@@ -14859,20 +14890,33 @@ function App(){
   }
 
   function openCareCardPreview(finalHtml, name) {
-    // Define share/print helpers on window so close bar buttons work
-    window._obShare = () => shareCarerCard();
-    window._obPrint = () => printCareCard();
+    // Remove any existing overlay
+    const _existing = document.getElementById("print-overlay");
+    if (_existing) _existing.remove();
 
-    const _closeBar = `<div class="no-print" style="position:sticky;top:0;z-index:99;background:#FFFCF9;padding:12px 16px;padding-top:max(52px, calc(env(safe-area-inset-top,48px) + 8px));display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0e8e0"><button onclick="document.getElementById('print-overlay').remove()" style="padding:8px 20px;border-radius:99px;border:none;background:#C07088;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif">← Back</button><div style="display:flex;gap:8px"><button onclick="window._obShare()" style="padding:8px 20px;border-radius:99px;border:1.5px solid #f0e8e0;background:white;color:#5B4F5F;font-size:14px;font-weight:600;cursor:pointer;font-family:-apple-system,sans-serif">📤 Share</button><button onclick="window._obPrint()" style="padding:8px 20px;border-radius:99px;border:1.5px solid #f0e8e0;background:white;color:#5B4F5F;font-size:14px;font-weight:600;cursor:pointer;font-family:-apple-system,sans-serif">🖨️ Print</button></div></div>`;
-    const w = (()=>{
-      if(window._isNative){
-        const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;max-width:100vw;box-sizing:border-box;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;";
-        document.body.appendChild(d);
-        return {document:{open:()=>{},write:(h)=>{d.innerHTML=h;},close:()=>{}}};
-      }
-      try{return window.open("","_blank");}catch{return null;}
-    })();
-    if (w) { w.document.write(finalHtml.replace("<body>","<body>"+_closeBar)); w.document.close(); }
+    const d = document.createElement("div");
+    d.id = "print-overlay";
+    d.style.cssText = "position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;max-width:100vw;box-sizing:border-box;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;";
+    document.body.appendChild(d);
+
+    // Action bar
+    const bar = document.createElement("div");
+    bar.style.cssText = "position:sticky;top:0;z-index:99;background:#FFFCF9;padding:12px 16px;padding-top:max(52px, calc(env(safe-area-inset-top,48px) + 8px));display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0e8e0";
+
+    const backBtn = document.createElement("button");
+    backBtn.textContent = "← Back";
+    backBtn.style.cssText = "padding:8px 20px;border-radius:99px;border:none;background:#C07088;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent";
+    backBtn.addEventListener("touchend", function(e) { e.preventDefault(); d.remove(); });
+    backBtn.addEventListener("click", function() { d.remove(); });
+
+    bar.appendChild(backBtn);
+
+    // Content
+    const content = document.createElement("div");
+    content.innerHTML = finalHtml;
+
+    d.appendChild(bar);
+    d.appendChild(content);
   }
 
   function generateWeeklyDigest() {
@@ -16956,7 +17000,7 @@ function App(){
               _hasBreast && (
                 <button onClick={()=>{haptic();var _ns=lastBreastSide==="L"?"R":"L";startBreastTimer(_ns);}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
                   <span>🤱 Start Feed</span>
-                  {lastBreastSide && selDay===todayStr() && <span style={{fontSize:10,fontWeight:400,color:C.lt}}>{"Next: "}{lastBreastSide==="L" ? "Right ➡️" : "Left ⬅️"}</span>}
+                  {lastBreastSide && <span style={{fontSize:10,fontWeight:400,color:C.lt}}>{"Next: "}{lastBreastSide==="L" ? "Right ➡️" : "Left ⬅️"}</span>}
                 </button>
               )
             )}
@@ -23119,7 +23163,8 @@ function App(){
               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>📋 Legal & About</div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>About OBubba</div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7}}>
-                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or <span onClick={()=>{
+                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or <span onTouchEnd={(e)=>{
+                  e.preventDefault();
                   const now=Date.now();
                   if(!window._ownerTaps2) window._ownerTaps2={count:0,last:0};
                   if(now-window._ownerTaps2.last>2000) window._ownerTaps2.count=0;
@@ -23127,10 +23172,23 @@ function App(){
                   window._ownerTaps2.last=now;
                   if(window._ownerTaps2.count>=7){
                     window._ownerTaps2.count=0;
-                    try{localStorage.setItem("ob_owner_unlock","zyesha2026");}catch{}
-                    location.reload();
+                    try{localStorage.setItem("ob_owner_unlock","zyesha2026");localStorage.setItem("ob_premium","1");}catch{}
+                    setIsPremium(true);
+                    showToast("🔓 Premium unlocked",1500,1);
                   }
-                }} style={{cursor:"default",WebkitUserSelect:"none",userSelect:"none"}}>treatment</span>.
+                }} onClick={()=>{
+                  const now=Date.now();
+                  if(!window._ownerTaps2) window._ownerTaps2={count:0,last:0};
+                  if(now-window._ownerTaps2.last>2000) window._ownerTaps2.count=0;
+                  window._ownerTaps2.count++;
+                  window._ownerTaps2.last=now;
+                  if(window._ownerTaps2.count>=7){
+                    window._ownerTaps2.count=0;
+                    try{localStorage.setItem("ob_owner_unlock","zyesha2026");localStorage.setItem("ob_premium","1");}catch{}
+                    setIsPremium(true);
+                    showToast("🔓 Premium unlocked",1500,1);
+                  }
+                }} style={{cursor:"default",padding:"0 2px",WebkitTapHighlightColor:"transparent"}}>treatment</span>.
               </div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:6}}>
                 Sleep predictions, feeding guidance, and developmental information are based on publicly available guidelines from the NHS, WHO, AAP (American Academy of Pediatrics), NHMRC (Australia), and paediatric sleep research. OBubba is not affiliated with or endorsed by any of these organisations or any healthcare provider.
@@ -25241,14 +25299,18 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
 
             {/* Action buttons */}
             <div onClick={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{position:"relative",zIndex:10}}>
-            <button onClick={e=>{e.stopPropagation();e.preventDefault();haptic();shareCarerCard();}} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
-              📤 Share Care Guide
+            <button onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();shareCarerCard();}} onClick={e=>{e.stopPropagation();haptic();shareCarerCard();}} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
+              📤 Share and Print
             </button>
-            <button onClick={async e=>{e.stopPropagation();e.preventDefault();
+            <button onTouchEnd={async e=>{e.preventDefault();e.stopPropagation();
               haptic();
               const html = await prepareCareCardHTML();
               openCareCardPreview(html, babyName||"Baby");
-            }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
+            }} onClick={async e=>{e.stopPropagation();
+              haptic();
+              const html = await prepareCareCardHTML();
+              openCareCardPreview(html, babyName||"Baby");
+            }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
               📋 Preview
             </button>
             <button onClick={e=>{e.stopPropagation();setShowCarerCard(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,touchAction:"manipulation"}}>
@@ -26342,8 +26404,32 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               </div>
 
               <div style={{display:"flex",gap:8}}>
-                <button onClick={()=>{navigator.share?navigator.share({title:"Health Report — "+report.name,text:report.text}):navigator.clipboard.writeText(report.text);}} style={{flex:1,padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>📤 Share with Doctor</button>
-                <button onClick={()=>{navigator.clipboard.writeText(report.text);}} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>📋 Copy</button>
+                <button onClick={async()=>{
+                  const _title = "Health Report — " + report.name;
+                  const _text = report.text;
+                  const _html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${_title}</title><style>body{font-family:-apple-system,sans-serif;padding:24px;max-width:700px;margin:auto;line-height:1.7;color:#333;font-size:13px}h1{color:#5B4F5F;font-size:20px;border-bottom:2px solid #F0DDD6;padding-bottom:8px;margin-bottom:16px}h2{color:#8B7EC8;font-size:14px;margin-top:20px;text-transform:uppercase;letter-spacing:1px}pre{white-space:pre-wrap;font-family:inherit;margin:0}p.footer{color:#aaa;font-size:10px;margin-top:30px;border-top:1px solid #eee;padding-top:8px}</style></head><body><h1>${_title}</h1><pre>${_text.replace(/</g,"&lt;").replace(/═══\s*([A-Z &]+)/g,"</pre><h2>$1</h2><pre>")}</pre><p class="footer">Generated by OBubba — obubba.com</p></body></html>`;
+                  // Native: generate PDF via OBCareCard plugin (iOS + Android)
+                  const _cc = window.Capacitor?.Plugins?.OBCareCard;
+                  if (_cc) {
+                    try {
+                      const r = await _cc.generatePDF({ html: _html, fileName: report.name.replace(/\s+/g,"-") + "-Report.pdf" });
+                      if (r?.filePath && navigator.share) {
+                        await navigator.share({ title: _title, url: "file://" + r.filePath });
+                      }
+                      return;
+                    } catch(e) { if (e.name === "AbortError") return; console.warn("PDF share failed:", e); }
+                  }
+                  // Web fallback: share HTML file
+                  try {
+                    const _blob = new Blob([_html], { type: "text/html" });
+                    const _file = new File([_blob], report.name.replace(/\s+/g,"-") + "-Report.html", { type: "text/html" });
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [_file] })) {
+                      await navigator.share({ title: _title, files: [_file] }); return;
+                    }
+                  } catch(e) { if (e.name === "AbortError") return; }
+                  try { await navigator.clipboard.writeText(_text); showToast("📋 Report copied to clipboard", 2000, 0); } catch {}
+                }} style={{flex:1,padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>📤 Share with Doctor</button>
+                <button onClick={()=>{navigator.clipboard.writeText(report.text).then(()=>showToast("📋 Copied to clipboard",1500,0));}} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>📋 Copy</button>
               </div>
               <button onClick={()=>setShowHVReport(false)} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:_bN,background:"transparent",color:C.lt,fontSize:13,cursor:_cP}}>Close</button>
             </div>
