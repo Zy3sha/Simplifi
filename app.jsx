@@ -2710,8 +2710,14 @@ function App(){
             var _wdTimer = null;
             if (_wdRaw) { try { _wdTimer = JSON.parse(_wdRaw).activeTimer; } catch{} }
             if(!_wdTimer){
-              console.log("[OBubba] Cleaning up orphaned Live Activities");
-              window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
+              // Only stop timer LAs — don't kill prediction LAs (they're intentional)
+              var _timerModeNow = localStorage.getItem("timer_mode_v1");
+              if (_timerModeNow === "prediction" || _timerModeNow === "idle") {
+                console.log("[OBubba] No active timer, prediction mode — keeping prediction LA");
+              } else {
+                console.log("[OBubba] Cleaning up orphaned Live Activities");
+                window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
+              }
             } else {
               console.log("[OBubba] Active timer (" + _wdTimer + ") detected — keeping existing Live Activity");
             }
@@ -5699,6 +5705,20 @@ function App(){
         }
       }
 
+      // 1b. Refresh Live Activity prediction label on resume
+      if(napOn && napStartT && _isNative) {
+        try {
+          const [_rh,_rm]=napStartT.split(":").map(Number);
+          if(!isNaN(_rh)&&!isNaN(_rm)){
+            const _rd=new Date();_rd.setHours(_rh,_rm,0,0);
+            if(_rd>new Date()) _rd.setDate(_rd.getDate()-1);
+            const _rElapsed=Math.floor((Date.now()-_rd.getTime())/1000);
+            const _rNapNum=((tickDataRef.current||{}).napsDone||0)+1;
+            _updateLA({elapsed:_rElapsed,side:null,nextNap:"Nap "+_rNapNum});
+          }
+        } catch{}
+      }
+
       // 2. Night/bedtime timer — recalculate from wall clock
       const { hasBedtime, lastNightEvent, nextDayHasWake } = tickDataRef.current || {};
       if(hasBedtime && lastNightEvent && !nextDayHasWake) {
@@ -6316,8 +6336,17 @@ function App(){
         const td = tickDataRef.current || {};
         const now = new Date();
         const nowMins = now.getHours() * 60 + now.getMinutes();
-        if (!td.napsComplete && td.nextNapMins !== null && td.nextNapMins > nowMins) {
-          const nH = Math.floor(td.nextNapMins / 60), nM = td.nextNapMins % 60;
+        // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
+        let _predNapMins = td.nextNapMins;
+        try {
+          const _predFresh = (isPremium || trialActive) ? predictNextNap() : null;
+          if (_predFresh && _predFresh.napStart_min) {
+            const _pf = _predFresh.napStart_min.split(":").map(Number);
+            _predNapMins = _pf[0]*60+_pf[1];
+          }
+        } catch {}
+        if (!td.napsComplete && _predNapMins !== null && _predNapMins > nowMins) {
+          const nH = Math.floor(_predNapMins / 60), nM = _predNapMins % 60;
           const napNum = (td.napsDone || 0) + 1;
           const key = "nap" + napNum + "_" + nH + ":" + nM;
           if (_predLAState !== key) {
@@ -6409,12 +6438,25 @@ function App(){
     const _napsDone = _completedNaps.length;
     const _totalNapMin = _completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     const _ageExpected = _profile.expectedNaps;
-    const _structExpected = napStructure ? napStructure.effectiveNapCount : _ageExpected;
-    // Check if a long nap today reduced sleep debt enough to drop a nap
-    const _avgNapDurHero = _napsDone > 0 ? Math.round(_totalNapMin / _napsDone) : Math.round((_profile.idealNapDurMin + _profile.idealNapDurMax) / 2);
-    const _longNapDropped = _napsDone > 0 && _totalNapMin > _structExpected * _avgNapDurHero * 0.85 && _structExpected > 1 && _totalNapMin >= _profile.idealTotalMax * 0.75;
-    const _adjustedExpected = _longNapDropped ? Math.max(_napsDone, _structExpected - 1) : _structExpected;
-    const _longNapNote = _longNapDropped ? " (long nap today)" : "";
+    let _structExpected = napStructure ? napStructure.effectiveNapCount : _ageExpected;
+    // Match predictNextNap() logic: long first nap (≥75min) → one fewer nap today
+    if (_completedNaps.length >= 1) {
+      const _firstDur = minDiff(_completedNaps[0].start, _completedNaps[0].end);
+      if (_firstDur >= 75 && _structExpected > 1) _structExpected = _structExpected - 1;
+      else if (_firstDur < 40) _structExpected = Math.max(_structExpected, _ageExpected);
+    }
+    // Nap budget exhausted → no more naps
+    if (_totalNapMin >= _profile.idealTotalMax) _structExpected = Math.min(_structExpected, _napsDone);
+    // Consult predictNextNap() — if it returns null, no more naps fit today
+    // This ensures hero card matches Today's Plan exactly
+    try {
+      if (_napsDone > 0 && !napOn) {
+        const _heroP = predictNextNap();
+        if (!_heroP) _structExpected = Math.min(_structExpected, _napsDone);
+      }
+    } catch {}
+    const _adjustedExpected = _structExpected;
+    const _longNapNote = (_structExpected < _ageExpected) ? " (adjusted today)" : "";
     let _napsComplete = _napsDone >= _adjustedExpected;
     const _dailySleepMax = _profile.idealNapDurMax * _adjustedExpected;
 
@@ -6701,7 +6743,7 @@ function App(){
         _dot = "#D4A855"; _label = "Nap " + (_napsDone + 1) + " — long";
         _timing = "Sleeping " + hm(_napMins) + " · Past the typical " + _napMax + " min max";
       } else {
-        _dot = "#7BA68C"; _label = "Nap " + (_napsDone + 1) + " of " + _adjustedExpected;
+        _dot = "#7BA68C"; _label = "Nap " + (_napsDone + 1);
         _timing = "Sleeping " + hm(_napMins) + " · " + _name + " is resting well";
       }
     }
@@ -6741,7 +6783,7 @@ function App(){
       } else {
         _dot = _bridgeNapNeeded ? "#D4A855" : "#7BA68C";
         _label = _bridgeNapNeeded ? "Catnap needed" : "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Catnap" : "Nap " + (_napsDone+1) + " of " + _adjustedExpected) + " around " + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : _longNapNote) + _rhythmTag;
+        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Catnap" : "Nap " + (_napsDone+1)) + " around " + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : _longNapNote) + _rhythmTag;
       }
     }
     // ── PRIORITY 5a-bridge: Bridge nap needed but no prediction available (fallback) ──
@@ -6778,11 +6820,11 @@ function App(){
       } catch {}
       if (_shouldSkip) {
         _dot = "#6B5B95"; _label = "Skip nap " + (_napsDone+1) + " — early bedtime";
-        _timing = _napsDone + " of " + _adjustedExpected + " naps done · Aim for bedtime ~" + (_earlyBedStr || "6:30pm");
+        _timing = _napsDone + " naps done · Aim for bedtime ~" + (_earlyBedStr || "6:30pm");
         _rightNow = "An early bedtime protects overnight sleep better than a late nap. Sleep consultants recommend: when in doubt, protect bedtime.";
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" + _longNapNote;
+        _timing = "Awake " + hm(_awakeMin) + " · Nap " + (_napsDone+1) + " still to come" + _longNapNote;
       }
     }
     // ── PRIORITY 5c: All naps done — bedtime context ──
@@ -6835,13 +6877,13 @@ function App(){
         _timing = "Last feed " + hm(_feedGapM) + " ago · " + (_w < 3 ? "little ones this age often need feeding every 2–3h" : _name + " might be getting peckish");
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + (!_napsComplete ? " · Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" + _longNapNote : " · Enjoying the day");
+        _timing = "Awake " + hm(_awakeMin) + (!_napsComplete ? " · Nap " + (_napsDone+1) + " still to come" + _longNapNote : " · Enjoying the day");
       }
     }
     // ── PRIORITY 7: Day started but nothing specific ──
     else if (_dayStarted) {
       _dot = "#7BA68C"; _label = "All good right now";
-      _timing = "Awake " + hm(_awakeMin) + " · " + (_napsComplete ? "Enjoying the day" : "Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" + _longNapNote);
+      _timing = "Awake " + hm(_awakeMin) + " · " + (_napsComplete ? "Enjoying the day" : "Nap " + (_napsDone+1) + " still to come" + _longNapNote);
     }
     // ── PRIORITY 8: Day not started (after 10am) ──
     else {
@@ -10935,9 +10977,18 @@ function App(){
 
     // ── 3. Nap Prediction ──
     const td=tickDataRef.current||{};
-    if(td.nextNapMins&&!td.napsComplete&&!td.hasBedtime&&!napOn){
-      const napH=Math.floor(td.nextNapMins/60);
-      const napM=td.nextNapMins%60;
+    // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
+    let _notifNapMins = td.nextNapMins;
+    try {
+      const _notifPred = (isPremium || trialActive) ? predictNextNap() : null;
+      if (_notifPred && _notifPred.napStart_min) {
+        const _np = _notifPred.napStart_min.split(":").map(Number);
+        _notifNapMins = _np[0]*60+_np[1];
+      }
+    } catch {}
+    if(_notifNapMins&&!td.napsComplete&&!td.hasBedtime&&!napOn){
+      const napH=Math.floor(_notifNapMins/60);
+      const napM=_notifNapMins%60;
       const napTime=new Date();napTime.setHours(napH,napM,0,0);
       // Notify 10 min before predicted nap
       const napAlert=new Date(napTime.getTime()-10*60*1000);
@@ -10950,7 +11001,7 @@ function App(){
       try {
         const _ww = age ? getWakeWindow(age.totalWeeks) : null;
         if (_ww && _ww.min) {
-          const napWindowMins = td.nextNapMins - Math.round((_ww.max - _ww.min) / 2); // approx when min WW is hit
+          const napWindowMins = _notifNapMins - Math.round((_ww.max - _ww.min) / 2); // approx when min WW is hit
           const nwH = Math.floor(napWindowMins / 60), nwM = napWindowMins % 60;
           const windowOpen = new Date(); windowOpen.setHours(nwH, nwM, 0, 0);
           if (windowOpen.getTime() > now && windowOpen.getTime() < now + 12*3600000) {

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Base app theme -->
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="colorPrimary">@color/obubba_pink</item>
         <item name="colorPrimaryDark">@color/obubba_pink</item>
         <item name="colorAccent">@color/obubba_pink</item>

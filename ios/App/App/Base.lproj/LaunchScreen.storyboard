@@ -32,7 +32,7 @@
                                 <color key="textColor" red="0.659" green="0.596" blue="0.596" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                             </label>
                         </subviews>
-                        <color key="backgroundColor" red="1.0" green="0.988" blue="0.976" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <color key="backgroundColor" red="0.941" green="0.867" blue="0.839" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
                             <constraint firstItem="img-01" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="cx01"/>
                             <constraint firstItem="img-01" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="-80" id="cy01"/>
