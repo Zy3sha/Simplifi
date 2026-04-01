@@ -3188,13 +3188,15 @@ function App(){
   const[paywallPlan,setPaywallPlan]=useState("annual"); // selected plan in paywall
   const paywallShownRef=useRef(false); // max 1 per session
   // ── 14-day trial: auto-starts on first app open, seamless, no sign-up ──
+  // Native gets its own trial key so PWA→App Store migrators get a fresh 14 days
   const[trialStart]=useState(()=>{
     try {
-      let ts = localStorage.getItem("obubba_trial_start");
+      const key = STORE_READY ? "obubba_native_trial_start" : "obubba_trial_start";
+      let ts = localStorage.getItem(key);
       if (!ts) {
         // Auto-start trial on first ever open — seamless, no prompt
         ts = new Date().toISOString();
-        localStorage.setItem("obubba_trial_start", ts);
+        localStorage.setItem(key, ts);
       }
       return ts;
     } catch { return null; }

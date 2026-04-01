@@ -270,8 +270,8 @@ try{const a=JSON.parse(localStorage.getItem("appointments_v1")||"[]");return a.s
 const[paywallPlan,setPaywallPlan]=useState("annual");// selected plan in paywall
 const paywallShownRef=useRef(false);// max 1 per session
 // ── 14-day trial: auto-starts on first app open, seamless, no sign-up ──
-const[trialStart]=useState(()=>{try{let ts=localStorage.getItem("obubba_trial_start");if(!ts){// Auto-start trial on first ever open — seamless, no prompt
-ts=new Date().toISOString();localStorage.setItem("obubba_trial_start",ts);}return ts;}catch{return null;}});const trialDaysLeft=trialStart?Math.max(0,14-Math.floor((Date.now()-new Date(trialStart).getTime())/(24*60*60*1000))):14;const trialActive=trialStart&&Date.now()-new Date(trialStart).getTime()<14*24*60*60*1000;const trialExpired=trialStart&&!trialActive;// Trial banner dismissed today?
+const[trialStart]=useState(()=>{try{const key=STORE_READY?"obubba_native_trial_start":"obubba_trial_start";let ts=localStorage.getItem(key);if(!ts){// Auto-start trial on first ever open — seamless, no prompt
+ts=new Date().toISOString();localStorage.setItem(key,ts);}return ts;}catch{return null;}});const trialDaysLeft=trialStart?Math.max(0,14-Math.floor((Date.now()-new Date(trialStart).getTime())/(24*60*60*1000))):14;const trialActive=trialStart&&Date.now()-new Date(trialStart).getTime()<14*24*60*60*1000;const trialExpired=trialStart&&!trialActive;// Trial banner dismissed today?
 const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});function triggerPaywall(context){if(!STORE_READY||isPremium||trialActive||paywallShownRef.current)return;paywallShownRef.current=true;setPaywallContext(context);setShowPaywall(true);}const[napCustomStart,setNapCustomStart]=useState("");// ── Founding Supporter Review Prompt ──
 // Shows once for early users when they migrate to the native App Store / Google Play app
 // Flow: Thank you → Love it? → App Store review  OR  Needs work? → Feedback email form
