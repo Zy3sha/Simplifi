@@ -1,127 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OBubba Home Screen Widget Layout -->
-<LinearLayout
+<!-- OBubba Home Screen Widget — matches iOS design -->
+<RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="14dp"
     android:background="@drawable/widget_background">
 
-    <!-- Header: Baby name -->
+    <!-- Row 1: Baby name -->
     <TextView
         android:id="@+id/tv_baby_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
         android:text="Baby"
-        android:textSize="18sp"
+        android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="#5B4F5F"
         android:fontFamily="sans-serif-medium" />
 
-    <!-- Last feed time -->
-    <TextView
-        android:id="@+id/tv_last_feed"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Last feed: --:--"
-        android:textSize="13sp"
-        android:textColor="#C07088"
-        android:layout_marginTop="4dp" />
-
-    <!-- Stats row -->
+    <!-- Row 2: Prediction pill (green bg, shows next nap/bed time) -->
     <LinearLayout
+        android:id="@+id/prediction_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_below="@id/tv_baby_name"
+        android:layout_marginTop="8dp"
         android:orientation="horizontal"
-        android:layout_marginTop="12dp"
         android:gravity="center_vertical">
 
-        <!-- Feeds -->
         <TextView
-            android:id="@+id/tv_feed_count"
+            android:id="@+id/tv_prediction"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="0 feeds"
-            android:textSize="12sp"
-            android:textColor="#7A6B7E"
-            android:drawableStart="@drawable/ic_feed"
-            android:drawablePadding="4dp" />
+            android:text=""
+            android:textSize="13sp"
+            android:textColor="#5B7A6B"
+            android:background="@drawable/widget_prediction_bg"
+            android:padding="8dp"
+            android:gravity="center"
+            android:fontFamily="sans-serif-medium" />
 
-        <!-- Sleeps -->
         <TextView
-            android:id="@+id/tv_sleep_count"
-            android:layout_width="0dp"
+            android:id="@+id/tv_nap_label"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="0 sleeps"
-            android:textSize="12sp"
-            android:textColor="#7A6B7E"
-            android:drawableStart="@drawable/ic_sleep"
-            android:drawablePadding="4dp" />
-
-        <!-- Nappies -->
-        <TextView
-            android:id="@+id/tv_nappy_count"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="0 nappies"
-            android:textSize="12sp"
-            android:textColor="#7A6B7E"
-            android:drawableStart="@drawable/ic_nappy"
-            android:drawablePadding="4dp" />
+            android:layout_marginStart="8dp"
+            android:text=""
+            android:textSize="11sp"
+            android:textColor="#8B7EC8"
+            android:fontFamily="sans-serif-medium" />
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <!-- Quick action buttons -->
+    <!-- Quick action buttons (pinned to bottom) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
         android:orientation="horizontal"
         android:gravity="center">
 
         <Button
             android:id="@+id/btn_log_feed"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="38dp"
             android:layout_weight="1"
-            android:layout_marginEnd="3dp"
-            android:text="🍼 Feed"
-            android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/widget_button_bg"
+            android:layout_marginEnd="4dp"
+            android:text="Feed"
+            android:textSize="12sp"
+            android:textColor="#C07088"
+            android:background="@drawable/widget_action_bg"
             android:textAllCaps="false" />
 
         <Button
             android:id="@+id/btn_log_nappy"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="38dp"
             android:layout_weight="1"
-            android:layout_marginStart="3dp"
-            android:layout_marginEnd="3dp"
-            android:text="💩 Nappy"
-            android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/widget_button_bg"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:text="Nappy"
+            android:textSize="12sp"
+            android:textColor="#7BA68C"
+            android:background="@drawable/widget_action_bg"
             android:textAllCaps="false" />
 
         <Button
             android:id="@+id/btn_log_sleep"
             android:layout_width="0dp"
-            android:layout_height="36dp"
+            android:layout_height="38dp"
             android:layout_weight="1"
-            android:layout_marginStart="3dp"
-            android:text="😴 Nap"
-            android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:background="@drawable/widget_button_bg"
+            android:layout_marginStart="4dp"
+            android:text="Nap"
+            android:textSize="12sp"
+            android:textColor="#8B7EC8"
+            android:background="@drawable/widget_action_bg"
             android:textAllCaps="false" />
     </LinearLayout>
-</LinearLayout>
+</RelativeLayout>

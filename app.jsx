@@ -4230,9 +4230,17 @@ function App(){
         _carerInfoCloud.carerComfort = localStorage.getItem("carer_comfort_v1")||"";
         _carerInfoCloud.savedMeds = JSON.parse(localStorage.getItem("saved_meds_v1")||"[]");
       } catch(_) {}
+      // Sync appointments, reminders, pinned notes across devices
+      var _sharedData = {};
+      try {
+        _sharedData.appointments = JSON.parse(localStorage.getItem("appointments_v1")||"[]");
+        _sharedData.reminders = JSON.parse(localStorage.getItem("reminders_v1")||"[]");
+        _sharedData.pinnedNotes = JSON.parse(localStorage.getItem("pinned_notes_v1")||"[]");
+      } catch(_) {}
       await fsSet("families", code, {
         children: JSON.stringify(cleanForCloud),
         carerInfo: JSON.stringify(_carerInfoCloud),
+        sharedData: JSON.stringify(_sharedData),
         updatedAt: serverTimestamp(),
         updatedBy: myUid,
         writeToken
@@ -4283,6 +4291,38 @@ function App(){
             if(incomingCount > cloudEntryCountRef.current) cloudEntryCountRef.current = incomingCount;
             return merged;
           });
+        }
+        // Restore appointments, reminders, pinned notes from cloud
+        if(d.sharedData) {
+          try {
+            const sd = JSON.parse(d.sharedData);
+            if(Array.isArray(sd.appointments) && sd.appointments.length > 0) {
+              setAppointments(prev => {
+                const ids = new Set(prev.map(a=>a.id));
+                const merged = [...prev];
+                let added = false;
+                sd.appointments.forEach(a => { if(!ids.has(a.id)) { merged.push(a); added = true; } });
+                if(added) setNotesOpen(true);
+                return merged;
+              });
+            }
+            if(Array.isArray(sd.reminders) && sd.reminders.length > 0) {
+              setReminders(prev => {
+                const ids = new Set(prev.map(r=>r.id));
+                const merged = [...prev];
+                sd.reminders.forEach(r => { if(!ids.has(r.id)) merged.push(r); });
+                return merged;
+              });
+            }
+            if(Array.isArray(sd.pinnedNotes) && sd.pinnedNotes.length > 0) {
+              setPinnedNotes(prev => {
+                const ids = new Set(prev.map(n=>n.id));
+                const merged = [...prev];
+                sd.pinnedNotes.forEach(n => { if(!ids.has(n.id)) merged.push(n); });
+                return merged;
+              });
+            }
+          } catch(_) {}
         }
         // Restore carer card data from cloud (survives reinstall)
         if(d.carerInfo) {
@@ -7302,8 +7342,20 @@ function App(){
 
     // Bug 3: blend personal average (last 5 days) with age guidance
     let wakeWindowMin, wakeWindowMax, sourceLabel;
-    const _recentResolved = getResolvedRecentDays(days, selDay, 14);
-    const _recentWithNaps = _recentResolved.filter(rd => rd.entries.some(e => e.type==="nap" && !e.night && e.start && e.end));
+    // Use relaxed filter for predictions: only need wake + at least one nap (not bedtime)
+    // getResolvedRecentDays requires both wake + bedtime which excludes many valid days
+    const _recentResolved = (function(){
+      var keys = Object.keys(days).filter(function(k) {
+        if (k === selDay) return false;
+        var ent = days[k];
+        if (!ent || !ent.length) return false;
+        var hasWake = ent.some(function(e){ return e.type === "wake" && !e.night; });
+        var hasNap = ent.some(function(e){ return e.type === "nap" && !e.night && e.start && e.end; });
+        return hasWake && hasNap;
+      }).sort().slice(-14);
+      return keys.map(function(k){ return { dayKey: k, entries: days[k] || [] }; });
+    })();
+    const _recentWithNaps = _recentResolved;
 
     // ── Per-nap-position wake window (smarter) ──
     const napsDoneToday2 = napsDoneToday;
@@ -7329,8 +7381,25 @@ function App(){
       }
     });
 
-    // Blend: personal position data (60%) + NHS progressive (40%)
-    if (positionWWs.length >= 2) {
+    // If not enough position-specific data, gather ALL wake windows from recent days as fallback
+    if (positionWWs.length < 1) {
+      _recentWithNaps.forEach((rd, dayIdx) => {
+        const de = rd.entries.filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+        const wakeE = de.find(e=>e.type==="wake");
+        if (!wakeE) return;
+        const napsD = de.filter(e=>e.type==="nap");
+        for (let i = 0; i < napsD.length; i++) {
+          const napI = napsD[i];
+          const pe = i === 0 ? wakeE.time : napsD[i-1].end;
+          if (!pe || !napI.start) continue;
+          const gap = minDiff(pe, napI.start);
+          const weight = 1.4 - (dayIdx / Math.max(1, _recentWithNaps.length - 1)) * 0.7;
+          if (gap >= 20 && gap <= ww.max + 15) positionWWs.push({gap, weight: weight * 0.7});
+        }
+      });
+    }
+    // Blend: personal data + NHS progressive (even 1 data point is better than pure NHS)
+    if (positionWWs.length >= 1) {
       const sorted2 = [...positionWWs].sort((a,b)=>a.gap-b.gap);
       // Only trim outliers if we have enough data (5+). Otherwise use all entries.
       const trimmed = sorted2.length >= 5
@@ -14743,7 +14812,18 @@ function App(){
       }
     }
 
-    // Web fallback: share HTML file (non-native platforms only)
+    // Android/Web fallback: try Capacitor Share plugin first, then navigator.share
+    try {
+      const _sharePlugin = window.Capacitor?.Plugins?.Share;
+      if (_sharePlugin) {
+        // Capacitor Share supports text sharing on all platforms
+        const _plainText = finalHtml.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 2000);
+        await _sharePlugin.share({ title: `${name}'s Care Guide`, text: _plainText, dialogTitle: `Share ${name}'s Care Guide` });
+        return;
+      }
+    } catch(e) { if (e.name === "AbortError") return; console.warn("Capacitor share failed:", e); }
+
+    // Try navigator.share with file
     try {
       const blob = new Blob([finalHtml], { type: "text/html" });
       const file = new File([blob], `${name}-Care-Guide.html`, { type: "text/html" });
@@ -14774,8 +14854,8 @@ function App(){
       }
     }
 
-    // Web fallback: window.print() on non-native platforms
-    try { window.print(); } catch(e) { showToast("Printing not supported on this device", 2000, 0); }
+    // Web/Android fallback: open care card preview with print option
+    openCareCardPreview(finalHtml, name);
   }
 
   function openCareCardPreview(finalHtml, name) {
