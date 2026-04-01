@@ -5906,9 +5906,9 @@ function App(){
       var nextPredictionLabel = null;
       try {
         var td = tickDataRef.current || {};
-        // Use full prediction (personal rhythm) when available, fall back to simple midpoint (guidelines)
+        // Premium: use full prediction (personal rhythm); Free: use simple guidelines midpoint
         var _predNapMins = td.nextNapMins;
-        if (td.pred && td.pred.napStart_min) {
+        if (isPremium && td.pred && td.pred.napStart_min) {
           var _pParts = td.pred.napStart_min.split(":").map(Number);
           _predNapMins = _pParts[0] * 60 + _pParts[1];
         }
@@ -6002,7 +6002,7 @@ function App(){
         window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(widgetData) }).catch(function(){});
       }
     } catch(e) { console.warn("Widget data update failed:", e); }
-  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay]);
+  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay, isPremium]);
 
   // ── Simple tick: baby's day is wake → WW → nap → WW → nap → bedtime ──
   const tickDataRef = React.useRef({});
@@ -6111,9 +6111,9 @@ function App(){
         const bH = Math.floor(td.bedMins / 60), bM = td.bedMins % 60;
         return "Bed " + fmt12(`${String(bH).padStart(2,"0")}:${String(bM).padStart(2,"0")}`);
       }
-      // Use full prediction (personal rhythm) when available, fall back to simple midpoint (guidelines)
+      // Premium: use full prediction (personal rhythm); Free: use simple guidelines midpoint
       var _laNapMins = td.nextNapMins;
-      if (td.pred && td.pred.napStart_min) {
+      if (isPremium && td.pred && td.pred.napStart_min) {
         const _laParts = td.pred.napStart_min.split(":").map(Number);
         _laNapMins = _laParts[0] * 60 + _laParts[1];
       }
@@ -6502,6 +6502,14 @@ function App(){
     // ── Nap & bedtime predictions ──
     let _pred = null; try { _pred = predictNextNap(); } catch {}
     let _bed = null; try { _bed = bedtimePrediction(); } catch {}
+    // Free users: override _pred nap times with simple guidelines midpoint for consistency
+    const _isFreeHero = STORE_READY && !isPremium && !trialActive;
+    if (_isFreeHero && _pred && tickDataRef.current && tickDataRef.current.nextNapMins != null) {
+      const _simMins = tickDataRef.current.nextNapMins;
+      const _simH = Math.floor(_simMins/60)%24, _simM = _simMins%60;
+      _pred.napStart_min = `${String(_simH).padStart(2,"0")}:${String(_simM).padStart(2,"0")}`;
+      _pred.napStart_max = _pred.napStart_min;
+    }
 
     // ── Night feed hint (newborns need scheduled feeds) ──
     const _needsScheduledNightFeeds = _w < 6 || (weights && weights.length >= 2 && weights[weights.length-1].kg < weights[0].kg);
