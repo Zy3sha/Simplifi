@@ -271,7 +271,10 @@ const[paywallPlan,setPaywallPlan]=useState("annual");// selected plan in paywall
 const paywallShownRef=useRef(false);// max 1 per session
 // ── 14-day trial: auto-starts on first app open, seamless, no sign-up ──
 const[trialStart]=useState(()=>{try{let ts=localStorage.getItem("obubba_trial_start");if(!ts){// Auto-start trial on first ever open — seamless, no prompt
-ts=new Date().toISOString();localStorage.setItem("obubba_trial_start",ts);}return ts;}catch{return null;}});const trialDaysLeft=trialStart?Math.max(0,14-Math.floor((Date.now()-new Date(trialStart).getTime())/(24*60*60*1000))):14;const trialActive=trialStart&&Date.now()-new Date(trialStart).getTime()<14*24*60*60*1000;const trialExpired=trialStart&&!trialActive;// Trial banner dismissed today?
+ts=new Date().toISOString();localStorage.setItem("obubba_trial_start",ts);}return ts;}catch{return null;}});// Trial duration: 28 days for pre-launch testers (installed before public launch), 14 days after
+const _trialDuration=(()=>{// Pre-launch window: testers who install before this date get extended trial
+const PRE_LAUNCH_CUTOFF="2026-05-01T00:00:00Z";// change to your public launch date
+if(trialStart&&new Date(trialStart).getTime()<new Date(PRE_LAUNCH_CUTOFF).getTime())return 28;return 14;})();const trialDaysLeft=trialStart?Math.max(0,_trialDuration-Math.floor((Date.now()-new Date(trialStart).getTime())/(24*60*60*1000))):_trialDuration;const trialActive=trialStart&&Date.now()-new Date(trialStart).getTime()<_trialDuration*24*60*60*1000;const trialExpired=trialStart&&!trialActive;// Trial banner dismissed today?
 const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});function triggerPaywall(context){if(!STORE_READY||isPremium||trialActive||paywallShownRef.current)return;paywallShownRef.current=true;setPaywallContext(context);setShowPaywall(true);}const[napCustomStart,setNapCustomStart]=useState("");// ── Founding Supporter Review Prompt ──
 // Shows once for early users when they migrate to the native App Store / Google Play app
 // Flow: Thank you → Love it? → App Store review  OR  Needs work? → Feedback email form

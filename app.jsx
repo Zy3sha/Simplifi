@@ -3207,8 +3207,15 @@ function App(){
       return ts;
     } catch { return null; }
   });
-  const trialDaysLeft = trialStart ? Math.max(0, 14 - Math.floor((Date.now() - new Date(trialStart).getTime()) / (24*60*60*1000))) : 14;
-  const trialActive = trialStart && (Date.now() - new Date(trialStart).getTime()) < 14*24*60*60*1000;
+  // Trial duration: 28 days for pre-launch testers (installed before public launch), 14 days after
+  const _trialDuration = (()=>{
+    // Pre-launch window: testers who install before this date get extended trial
+    const PRE_LAUNCH_CUTOFF = "2026-05-01T00:00:00Z"; // change to your public launch date
+    if (trialStart && new Date(trialStart).getTime() < new Date(PRE_LAUNCH_CUTOFF).getTime()) return 28;
+    return 14;
+  })();
+  const trialDaysLeft = trialStart ? Math.max(0, _trialDuration - Math.floor((Date.now() - new Date(trialStart).getTime()) / (24*60*60*1000))) : _trialDuration;
+  const trialActive = trialStart && (Date.now() - new Date(trialStart).getTime()) < _trialDuration*24*60*60*1000;
   const trialExpired = trialStart && !trialActive;
   // Trial banner dismissed today?
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
