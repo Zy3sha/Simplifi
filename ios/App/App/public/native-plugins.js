@@ -591,12 +591,10 @@ var OBLiveActivity = {
   }
 };
 
-// ── 15. HEALTHKIT (iOS) / GOOGLE FIT (Android) ──────────────────
 var OBHealth = {
   isAvailable: function() {
     if (!isNative()) return Promise.resolve(false);
     if (getPlatform() === 'ios') {
-      var HK = _plug('OBHealthKit');
       if (!HK) return Promise.resolve(false);
       try { return HK.isAvailable().catch(function() { return false; }); }
       catch(e) { return Promise.resolve(false); }
@@ -606,7 +604,6 @@ var OBHealth = {
 
   requestPermission: function() {
     if (!isNative()) return Promise.resolve(false);
-    var HK = _plug('OBHealthKit');
     if (!HK) return Promise.resolve(false);
     try {
       return HK.requestAuthorization({ read: ['weight', 'height'], write: ['weight', 'height'] })
@@ -617,7 +614,6 @@ var OBHealth = {
 
   saveWeight: function(opts) {
     if (!isNative()) return Promise.resolve();
-    var HK = _plug('OBHealthKit');
     if (!HK) return Promise.resolve();
     try { return HK.saveWeight({ kg: opts.kg, date: opts.date }).catch(function(){}); }
     catch(e) { return Promise.resolve(); }
@@ -625,7 +621,6 @@ var OBHealth = {
 
   saveHeight: function(opts) {
     if (!isNative()) return Promise.resolve();
-    var HK = _plug('OBHealthKit');
     if (!HK) return Promise.resolve();
     try { return HK.saveHeight({ cm: opts.cm, date: opts.date }).catch(function(){}); }
     catch(e) { return Promise.resolve(); }
@@ -790,94 +785,6 @@ var OBPreferences = {
   }
 };
 
-// ── 21. IN-APP PURCHASES (StoreKit 2) ────────────────────────────
-var OBStore = {
-  _products: null, // cached after first load
-  _premium: null,  // cached entitlement status
-
-  /** Load products from App Store. Returns array of product info. */
-  getProducts: function() {
-    if (OBStore._products) return Promise.resolve(OBStore._products);
-    if (!isNative()) return Promise.resolve([]);
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.resolve([]);
-    return Store.getProducts().then(function(r) {
-      OBStore._products = r.products || [];
-      return OBStore._products;
-    }).catch(function(e) {
-      console.warn('[OBStore] getProducts failed:', e);
-      return [];
-    });
-  },
-
-  /** Get a specific product by period: "monthly", "annual", or "lifetime" */
-  getProduct: function(period) {
-    return OBStore.getProducts().then(function(products) {
-      if (period === 'lifetime') {
-        return products.find(function(p) { return p.type === 'nonConsumable'; }) || null;
-      }
-      return products.find(function(p) { return p.period === period; }) || null;
-    });
-  },
-
-  /** Get pricing formatted for display. Returns {monthly, annual, lifetime} */
-  getOfferings: function() {
-    return OBStore.getProducts().then(function(products) {
-      var offerings = {};
-      products.forEach(function(p) {
-        if (p.type === 'nonConsumable') {
-          offerings.lifetime = p;
-        } else if (p.period === 'monthly') {
-          offerings.monthly = p;
-        } else if (p.period === 'annual') {
-          offerings.annual = p;
-        }
-      });
-      return offerings;
-    });
-  },
-
-  /** Purchase a product. Pass the product object (from getOfferings). */
-  purchase: function(product) {
-    if (!product || !product.id) return Promise.reject('No product');
-    if (!isNative()) return Promise.reject('Not native');
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.reject('Store not available');
-    return Store.purchase({ productId: product.id }).then(function(r) {
-      if (r.isPremium) OBStore._premium = true;
-      return r;
-    });
-  },
-
-  /** Restore previous purchases */
-  restore: function() {
-    if (!isNative()) return Promise.resolve({ isPremium: false });
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.resolve({ isPremium: false });
-    return Store.restore().then(function(r) {
-      OBStore._premium = r.isPremium;
-      return r;
-    });
-  },
-
-  /** Check if user has active premium entitlement */
-  checkEntitlements: function() {
-    if (OBStore._premium !== null) return Promise.resolve(OBStore._premium);
-    if (!isNative()) return Promise.resolve(false);
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.resolve(false);
-    return Store.getEntitlements().then(function(r) {
-      OBStore._premium = r.isPremium;
-      return r.isPremium;
-    });
-  }
-};
-
-// Expose as window._purchases for paywall compatibility
-if (typeof window !== 'undefined') {
-  window._purchases = OBStore;
-}
-
 // ── EXPORT ALL ──────────────────────────────────────────────────
 window.OBNative = {
   isNative: isNative,
@@ -901,8 +808,7 @@ window.OBNative = {
   lifecycle: OBAppLifecycle,
   screen: OBScreen,
   statusBar: OBStatusBar,
-  preferences: OBPreferences,
-  store: OBStore
+  preferences: OBPreferences
 };
 
 // ── AUTO-INIT on native ─────────────────────────────────────────

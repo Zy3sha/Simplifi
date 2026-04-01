@@ -592,11 +592,11 @@ var OBLiveActivity = {
 };
 
 // ── 15. HEALTHKIT (iOS) / GOOGLE FIT (Android) ──────────────────
-var OBHealth = {
+var OBHealth = { // DISABLED - HealthKit removed
   isAvailable: function() {
     if (!isNative()) return Promise.resolve(false);
     if (getPlatform() === 'ios') {
-      var HK = _plug('OBHealthKit');
+      // var HK = _plug('OBHealthKit'); // DISABLED
       if (!HK) return Promise.resolve(false);
       try { return HK.isAvailable().catch(function() { return false; }); }
       catch(e) { return Promise.resolve(false); }
@@ -606,7 +606,7 @@ var OBHealth = {
 
   requestPermission: function() {
     if (!isNative()) return Promise.resolve(false);
-    var HK = _plug('OBHealthKit');
+    // var HK = _plug('OBHealthKit'); // DISABLED
     if (!HK) return Promise.resolve(false);
     try {
       return HK.requestAuthorization({ read: ['weight', 'height'], write: ['weight', 'height'] })
@@ -617,7 +617,7 @@ var OBHealth = {
 
   saveWeight: function(opts) {
     if (!isNative()) return Promise.resolve();
-    var HK = _plug('OBHealthKit');
+    // var HK = _plug('OBHealthKit'); // DISABLED
     if (!HK) return Promise.resolve();
     try { return HK.saveWeight({ kg: opts.kg, date: opts.date }).catch(function(){}); }
     catch(e) { return Promise.resolve(); }
@@ -625,7 +625,7 @@ var OBHealth = {
 
   saveHeight: function(opts) {
     if (!isNative()) return Promise.resolve();
-    var HK = _plug('OBHealthKit');
+    // var HK = _plug('OBHealthKit'); // DISABLED
     if (!HK) return Promise.resolve();
     try { return HK.saveHeight({ cm: opts.cm, date: opts.date }).catch(function(){}); }
     catch(e) { return Promise.resolve(); }
@@ -808,7 +808,7 @@ window.OBNative = {
   siri: OBSiri,
   widgets: OBWidgets,
   liveActivity: OBLiveActivity,
-  health: OBHealth,
+  // health: OBHealth, // DISABLED
   speech: OBSpeech,
   lifecycle: OBAppLifecycle,
   screen: OBScreen,
