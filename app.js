@@ -10991,7 +10991,7 @@ function App() {
     } catch (e) {
       console.warn("Widget data update failed:", e);
     }
-  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay]);
+  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
 
   // ── Simple tick: baby's day is wake → WW → nap → WW → nap → bedtime ──
   const tickDataRef = React.useRef({});
@@ -57974,9 +57974,12 @@ function AppRouter() {
 if (!window.__obReactMounted) {
   window.__obReactMounted = true;
   ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary, null, React.createElement(AppRouter)));
-  // Hide web splash screen (not needed on native — Capacitor handles its own)
+  // Hide splash screens ASAP — both web and native
   setTimeout(function () {
     var s = document.getElementById('ob-splash');
     if (s) s.style.display = 'none';
+    try {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide();
+    } catch {}
   }, 300);
 }
