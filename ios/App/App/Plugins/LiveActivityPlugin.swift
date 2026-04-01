@@ -37,8 +37,17 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         let side = call.getString("side")
         let nextNap = call.getString("nextNap")
 
+        var startDate = Date(timeIntervalSince1970: startTime / 1000)
+        // Safety: if startDate is in the future, it was yesterday (cross-midnight)
+        if startDate > Date() {
+            startDate = startDate.addingTimeInterval(-86400)
+            print("[OBLiveActivity] Cross-midnight fix: adjusted startDate back 24h to \(startDate)")
+        }
+        let elapsed = Date().timeIntervalSince(startDate)
+        print("[OBLiveActivity] start() — startDate=\(startDate), elapsed=\(Int(elapsed))s (\(String(format: "%.0f", elapsed/3600))h), now=\(Date())")
+
         let state = OBubbaTimerAttributes.ContentState(
-            startTime: Date(timeIntervalSince1970: startTime / 1000),
+            startTime: startDate,
             elapsed: 0,
             side: side,
             nextNap: nextNap
@@ -49,7 +58,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             let existing = Activity<OBubbaTimerAttributes>.activities
             if let current = existing.first {
                 await current.update(.init(state: state, staleDate: nil))
-                print("[OBLiveActivity] Updated existing LA instead of creating new one")
+                print("[OBLiveActivity] Updated existing LA — startDate=\(startDate), elapsed=\(elapsed)s")
                 call.resolve(["activityId": current.id])
                 return
             }

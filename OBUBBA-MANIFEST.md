@@ -2,7 +2,16 @@
 **Last updated: 2026-03-28 — pre-launch session**
 
 ## App Ethos
-OBubba is a hug from one tired parent to another. Every message, prompt, and notification should be gentle, warm, and supportive. Never clinical. Never judgmental. Always reassuring.
+
+OBubba was made by a tired mum at 3am who got fed up juggling 5 different apps. It's designed to feel like a hug — a source of comfort for tired parents everywhere, from someone who was and is in the same boat, someone who truly understands.
+
+Every message, prompt, and notification should be gentle, warm, and supportive. Never clinical. Never judgmental. Always reassuring.
+
+**Free OBubba** is meant to be genuinely helpful — tracking, basic age-based predictions, and all the essentials a parent needs. No guilt, no lock-outs.
+
+**Premium OBubba** is designed to be everything a parent needs to have a happy life, a happy baby, and the confidence to enjoy their baby instead of worrying. Premium predictions learn the baby's personal rhythm — like having an accomplished sleep consultant in your pocket — so parents never have to guess what to do when their baby doesn't follow generic one-size-fits-all advice.
+
+We want to truly change the parenting app game to one of empathy and understanding. The paywall should never feel like a lock-out — it should feel like an invitation from a friend who wants to help even more.
 
 ## Core Concept
 A baby's day is simple: wake → wake window → nap → wake window → nap → ... → bedtime. The app tracks this rhythm and predicts next events.
