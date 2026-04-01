@@ -23,3 +23,7 @@ ios/App/App/.claude/
 
 # Misc
 *.log
+
+# Android signing
+android/key.properties
+android/app/obubba-release.jks
