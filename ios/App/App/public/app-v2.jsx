@@ -3093,7 +3093,7 @@ function App(){
   const _isOwner = (()=>{
     try {
       // Check multiple identifiers: localStorage flag, or baby name match as fallback
-      if(localStorage.getItem("ob_owner_unlock")==="zyesha2026") return true;
+      if(localStorage.getItem("ob_owner_unlock")==="1") return true;
     } catch{}
     return false;
   })();
@@ -22165,7 +22165,7 @@ function App(){
                 window._ownerTaps.last=now;
                 if(window._ownerTaps.count>=10){
                   window._ownerTaps.count=0;
-                  try{localStorage.setItem("ob_owner_unlock","zyesha2026");}catch{}
+                  try{localStorage.setItem("ob_owner_unlock","1");}catch{}
                   location.reload();
                 }
               }} style={{fontSize:12,fontFamily:_fM,color:C.lt,marginTop:2,cursor:"default",WebkitUserSelect:"none",userSelect:"none"}}>Logged in as <strong style={{color:C.ter}}>{familyUsername.replace(/\s+/g,"").toLowerCase()}</strong></div>}

@@ -3175,7 +3175,7 @@ function App(){
   // Owner override — always gets premium (your personal devices)
   const _isOwner = (()=>{
     try {
-      if(localStorage.getItem("ob_owner_unlock")==="zyesha2026") return true;
+      if(localStorage.getItem("ob_owner_unlock")==="1") return true;
     } catch{}
     return false;
   })();
@@ -23049,7 +23049,7 @@ function App(){
                   window._ownerTaps2.last=now;
                   if(window._ownerTaps2.count>=7){
                     window._ownerTaps2.count=0;
-                    try{localStorage.setItem("ob_owner_unlock","zyesha2026");}catch{}
+                    try{localStorage.setItem("ob_owner_unlock","1");}catch{}
                     location.reload();
                   }
                 }} style={{cursor:"default",WebkitUserSelect:"none",userSelect:"none"}}>treatment</span>.
