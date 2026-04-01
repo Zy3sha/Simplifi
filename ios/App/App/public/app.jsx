@@ -639,10 +639,10 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     .filter(e => {
       // Include wakes that are after bedtime (cross-midnight on same day) or very early morning (00:00-07:00)
       const t = timeVal(e);
-      return t >= bedMins || t < morningMins;
+      return t >= bedMins || t <= morningMins;
     });
   const nightWakesNextDay = [...next]
-    .filter(e => e.night && timeVal(e) < morningMins);
+    .filter(e => e.night && timeVal(e) <= morningMins);
 
   // Merge, sort by absolute time (thisDay wakes after midnight wrap around)
   const allNightWakes = [...nightWakesThisDay, ...nightWakesNextDay];
@@ -5906,10 +5906,16 @@ function App(){
       var nextPredictionLabel = null;
       try {
         var td = tickDataRef.current || {};
+        // Use full prediction (personal rhythm) when available, fall back to simple midpoint (guidelines)
+        var _predNapMins = td.nextNapMins;
+        if (td.pred && td.pred.napStart_min) {
+          var _pParts = td.pred.napStart_min.split(":").map(Number);
+          _predNapMins = _pParts[0] * 60 + _pParts[1];
+        }
         // If next predicted nap is within 30 min of bedtime, it IS bedtime — show "Bed"
-        var _napIsActuallyBed = td.nextNapMins && td.bedMins && (td.nextNapMins >= td.bedMins - 30);
-        if (td.nextNapMins && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
-          var npH = Math.floor(td.nextNapMins/60)%24, npM = Math.round(td.nextNapMins%60);
+        var _napIsActuallyBed = _predNapMins && td.bedMins && (_predNapMins >= td.bedMins - 30);
+        if (_predNapMins && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
+          var npH = Math.floor(_predNapMins/60)%24, npM = Math.round(_predNapMins%60);
           var _napNum = (td.napsDone || 0) + 1;
           nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2,"0") + ":" + String(npM).padStart(2,"0"));
           nextPredictionLabel = "Nap " + _napNum;
@@ -6105,8 +6111,14 @@ function App(){
         const bH = Math.floor(td.bedMins / 60), bM = td.bedMins % 60;
         return "Bed " + fmt12(`${String(bH).padStart(2,"0")}:${String(bM).padStart(2,"0")}`);
       }
-      if (td.nextNapMins && !td.napsComplete) {
-        const nH = Math.floor(td.nextNapMins / 60), nM = td.nextNapMins % 60;
+      // Use full prediction (personal rhythm) when available, fall back to simple midpoint (guidelines)
+      var _laNapMins = td.nextNapMins;
+      if (td.pred && td.pred.napStart_min) {
+        const _laParts = td.pred.napStart_min.split(":").map(Number);
+        _laNapMins = _laParts[0] * 60 + _laParts[1];
+      }
+      if (_laNapMins && !td.napsComplete) {
+        const nH = Math.floor(_laNapMins / 60), nM = _laNapMins % 60;
         const napNum = (td.napsDone || 0) + 1;
         return "Nap " + napNum + " " + fmt12(`${String(nH).padStart(2,"0")}:${String(nM).padStart(2,"0")}`);
       }
