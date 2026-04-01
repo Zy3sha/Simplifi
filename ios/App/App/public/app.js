@@ -736,9 +736,9 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
   const nightWakesThisDay = [...thisDayEntries].filter(e => e.night && (e.type === "wake" || e.type === "feed")).filter(e => {
     // Include wakes that are after bedtime (cross-midnight on same day) or very early morning (00:00-07:00)
     const t = timeVal(e);
-    return t >= bedMins || t < morningMins;
+    return t >= bedMins || t <= morningMins;
   });
-  const nightWakesNextDay = [...next].filter(e => e.night && timeVal(e) < morningMins);
+  const nightWakesNextDay = [...next].filter(e => e.night && timeVal(e) <= morningMins);
 
   // Merge, sort by absolute time (thisDay wakes after midnight wrap around)
   const allNightWakes = [...nightWakesThisDay, ...nightWakesNextDay];
@@ -2257,6 +2257,8 @@ const _fM = "monospace",
   _ls08 = "0.08em",
   _bN = "none",
   _oN = "none";
+const _isTablet = typeof window !== "undefined" && window.innerWidth >= 768;
+const _maxW = _isTablet ? 720 : 520;
 function Sheet({
   onClose,
   title,
@@ -2333,7 +2335,7 @@ function Sheet({
       borderRadius: "24px 24px 0 0",
       padding: "18px 18px 24px",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       maxHeight: kbH > 0 ? `calc(100vh - ${kbH + 20}px)` : "85vh",
       overflowY: "auto",
       WebkitOverflowScrolling: "touch",
@@ -7011,9 +7013,34 @@ function App() {
     (async () => {
       try {
         if (_isNative && window.Capacitor && window.Capacitor.Plugins.LocalNotifications) {
-          const r = await window.Capacitor.Plugins.LocalNotifications.checkPermissions();
+          const LN = window.Capacitor.Plugins.LocalNotifications;
+          const r = await LN.checkPermissions();
           console.log("[OBubba] Notification permission check:", JSON.stringify(r));
           setNotifPermission(r.display === "granted" ? "granted" : "default");
+          // Create notification channels for Android (required for Android 8+)
+          if (window.Capacitor.getPlatform?.() === "android" && LN.createChannel) {
+            try {
+              await LN.createChannel({
+                id: "obubba_reminders",
+                name: "OBubba Reminders",
+                description: "Nap predictions, bedtime alerts, and appointment reminders",
+                importance: 4,
+                sound: "notification.wav",
+                vibration: true
+              });
+              await LN.createChannel({
+                id: "med_reminders",
+                name: "Medicine Reminders",
+                description: "Medicine and temperature logging reminders",
+                importance: 4,
+                sound: "notification.wav",
+                vibration: true
+              });
+              console.log("[OBubba] Android notification channels created");
+            } catch (e) {
+              console.warn("[OBubba] Channel creation error:", e);
+            }
+          }
         } else if ("Notification" in window) {
           setNotifPermission(Notification.permission);
         }
@@ -8233,14 +8260,18 @@ function App() {
             const _lastWake = _nightWakesT.length ? _nightWakesT[_nightWakesT.length - 1] : null;
             let _startMins;
             if (_lastWake) {
-              const _wMins = timeVal(_lastWake) + (parseInt(_lastWake.assistedDuration) || 0);
-              _startMins = _wMins;
+              _startMins = timeVal(_lastWake) - (parseInt(_lastWake.assistedDuration) || 0); // MINUS soothing
+              if (_startMins < 0) _startMins += 1440;
             } else {
               _startMins = _bedMinsX;
             }
+            // Build startDate — handle cross-midnight correctly
             const _startDate = new Date();
-            _startDate.setHours(Math.floor(_startMins / 60) % 24, _startMins % 60, 0, 0);
-            if (_startDate > new Date()) _startDate.setDate(_startDate.getDate() - 1);
+            const _nowMins = _startDate.getHours() * 60 + _startDate.getMinutes();
+            const _displayMins = _startMins % 1440; // wrap to 24h
+            _startDate.setHours(Math.floor(_displayMins / 60) % 24, _displayMins % 60, 0, 0);
+            // If start time appears to be in the future (e.g. bedtime 23:55 but it's now 00:05), it was yesterday
+            if (_startDate.getTime() > Date.now() + 60000) _startDate.setDate(_startDate.getDate() - 1);
             _la.start({
               type: 'sleep',
               babyName: babyName || 'Baby',
@@ -9455,7 +9486,11 @@ function App() {
     try {
       if (!_isReclaim) {
         const snap = await fsGet("usernames", key);
-        if (snap.exists()) return false;
+        if (snap.exists()) {
+          const existingData = snap.data();
+          // Allow overwriting deleted accounts — username is available again
+          if (!existingData.deleted) return false;
+        }
       }
       // Generate a fresh backup code for this new account — NEVER reuse existing codes
       const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -10797,10 +10832,12 @@ function App() {
             return ka - kb;
           });
           if (_nightWakesWidget.length) {
+            // Timer shows since wake time MINUS soothing (as if soothing was still sleep)
             var _lw2 = _nightWakesWidget[_nightWakesWidget.length - 1];
             var _sm2 = _lw2.assistedDuration ? parseInt(_lw2.assistedDuration) || 0 : 0;
             var _lwP = _lw2.time.split(":").map(Number);
-            var _lwM = _lwP[0] * 60 + _lwP[1] + _sm2;
+            var _lwM = _lwP[0] * 60 + _lwP[1] - _sm2; // MINUS soothing
+            if (_lwM < 0) _lwM += 1440; // wrap past midnight
             timerStartTime = String(Math.floor(_lwM / 60) % 24).padStart(2, "0") + ":" + String(_lwM % 60).padStart(2, "0");
             timerStartMs = _hhmToMs(timerStartTime);
           } else {
@@ -10836,10 +10873,17 @@ function App() {
       try {
         var td = tickDataRef.current || {};
         // If next predicted nap is within 30 min of bedtime, it IS bedtime — show "Bed"
-        var _napIsActuallyBed = td.nextNapMins && td.bedMins && td.nextNapMins >= td.bedMins - 30;
-        if (td.nextNapMins && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
-          var npH = Math.floor(td.nextNapMins / 60) % 24,
-            npM = Math.round(td.nextNapMins % 60);
+        // Use personal prediction (td.pred) for premium, simple midpoint (td.nextNapMins) for free
+        var _usePersonal = (isPremium || trialActive) && td.pred && td.pred.napStart_min;
+        var _napMinsForWidget = td.nextNapMins;
+        if (_usePersonal) {
+          var _pp = td.pred.napStart_min.split(":").map(Number);
+          _napMinsForWidget = _pp[0] * 60 + _pp[1];
+        }
+        var _napIsActuallyBed = _napMinsForWidget && td.bedMins && _napMinsForWidget >= td.bedMins - 30;
+        if (_napMinsForWidget && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
+          var npH = Math.floor(_napMinsForWidget / 60) % 24,
+            npM = Math.round(_napMinsForWidget % 60);
           var _napNum = (td.napsDone || 0) + 1;
           nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2, "0") + ":" + String(npM).padStart(2, "0"));
           nextPredictionLabel = "Nap " + _napNum;
@@ -10947,7 +10991,7 @@ function App() {
     } catch (e) {
       console.warn("Widget data update failed:", e);
     }
-  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay]);
+  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
 
   // ── Simple tick: baby's day is wake → WW → nap → WW → nap → bedtime ──
   const tickDataRef = React.useRef({});
@@ -11105,11 +11149,19 @@ function App() {
           bM = td.bedMins % 60;
         return "Bed " + fmt12(`${String(bH).padStart(2, "0")}:${String(bM).padStart(2, "0")}`);
       }
-      if (td.nextNapMins && !td.napsComplete) {
-        const nH = Math.floor(td.nextNapMins / 60),
-          nM = td.nextNapMins % 60;
-        const napNum = (td.napsDone || 0) + 1;
-        return "Nap " + napNum + " " + fmt12(`${String(nH).padStart(2, "0")}:${String(nM).padStart(2, "0")}`);
+      if (!td.napsComplete) {
+        // Use personal prediction for premium, simple midpoint for free
+        let _napM = td.nextNapMins;
+        if ((isPremium || trialActive) && td.pred && td.pred.napStart_min) {
+          const _pp = td.pred.napStart_min.split(":").map(Number);
+          _napM = _pp[0] * 60 + _pp[1];
+        }
+        if (_napM) {
+          const nH = Math.floor(_napM / 60),
+            nM = _napM % 60;
+          const napNum = (td.napsDone || 0) + 1;
+          return "Nap " + napNum + " " + fmt12(`${String(nH).padStart(2, "0")}:${String(nM).padStart(2, "0")}`);
+        }
       }
     } catch {}
     return null;
@@ -11530,10 +11582,27 @@ function App() {
       } catch {}
 
       // ── Nap & bedtime predictions ──
+      // For free users: use simple guideline midpoint so it matches widget/DI everywhere
+      // For premium: use full personal prediction from predictNextNap()
       let _pred = null;
-      try {
-        _pred = predictNextNap();
-      } catch {}
+      const _td2 = tickDataRef.current || {};
+      if (isPremium || trialActive) {
+        try {
+          _pred = predictNextNap();
+        } catch {}
+      } else if (_td2.nextNapMins) {
+        // Build a fake _pred object from the simple midpoint so the hero card displays it
+        const _simH = Math.floor(_td2.nextNapMins / 60) % 24,
+          _simM = _td2.nextNapMins % 60;
+        const _simStr = `${String(_simH).padStart(2, "0")}:${String(_simM).padStart(2, "0")}`;
+        const _nowMins2 = new Date().getHours() * 60 + new Date().getMinutes();
+        _pred = {
+          napStart_min: _simStr,
+          napStart_max: _simStr,
+          sourceLabel: "age-appropriate guidelines",
+          isOverdue: _nowMins2 > _td2.nextNapMins
+        };
+      }
       let _bed = null;
       try {
         _bed = bedtimePrediction();
@@ -19282,7 +19351,21 @@ function App() {
     const _h = new Date().getHours();
     const _nowM = _h * 60 + new Date().getMinutes();
     const _aw = age.totalWeeks;
-    const _pred = predictNextNap();
+    let _pred;
+    const _td3 = tickDataRef.current || {};
+    if (isPremium || trialActive) {
+      _pred = predictNextNap();
+    } else if (_td3.nextNapMins) {
+      const _sH = Math.floor(_td3.nextNapMins / 60) % 24,
+        _sM = _td3.nextNapMins % 60;
+      const _sStr = `${String(_sH).padStart(2, "0")}:${String(_sM).padStart(2, "0")}`;
+      _pred = {
+        napStart_min: _sStr,
+        napStart_max: _sStr,
+        sourceLabel: "age-appropriate guidelines",
+        isOverdue: _nowM > _td3.nextNapMins
+      };
+    }
     const _profile = getAgeNapProfile(_aw);
     if (napOn || _bedE) return null;
 
@@ -19867,6 +19950,7 @@ function App() {
         babyName: babyName || "Baby",
         updatedAt: new Date().toISOString(),
         photoCount: memories.length,
+        active: true,
         memories: memories
       };
       await fsSet("shared_albums", code, albumData, false);
@@ -20379,23 +20463,41 @@ function App() {
     }
   }
   function addApptToCalendar(a) {
-    var ev = {
-      title: a.title,
-      date: a.date,
-      time: a.time || "",
-      location: a.location || "",
-      note: a.note || "",
-      uid: "appt-" + a.id
-    };
-    if (a.travelMins > 0) ev.alarm = a.travelMins;else if (a.time) ev.alarm = 30; // Default 30 min reminder
-    shareICS(generateICS([ev]), "obubba-appointment.ics", ev);
+    var isAndroid = _isNative && window.Capacitor?.getPlatform?.() === "android";
+    if (isAndroid) {
+      // Android: use Google Calendar intent URL
+      var startDate = a.date.replace(/-/g, "") + (a.time ? "T" + a.time.replace(/:/g, "") + "00" : "");
+      var endDate = startDate; // same day
+      var url = "https://www.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(a.title) + "&dates=" + startDate + "/" + endDate;
+      if (a.location) url += "&location=" + encodeURIComponent(a.location);
+      if (a.note) url += "&details=" + encodeURIComponent(a.note);
+      window.open(url, "_system");
+    } else {
+      // iOS: use ICS file
+      var ev = {
+        title: a.title,
+        date: a.date,
+        time: a.time || "",
+        location: a.location || "",
+        note: a.note || "",
+        uid: "appt-" + a.id
+      };
+      if (a.travelMins > 0) ev.alarm = a.travelMins;else if (a.time) ev.alarm = 30;
+      shareICS(generateICS([ev]), "obubba-appointment.ics", ev);
+    }
     haptic("light");
   }
   function openInMaps(address) {
     if (!address) return;
     var encoded = encodeURIComponent(address);
-    // Apple Maps URL — works in WKWebView, opens Maps app
-    window.open("https://maps.apple.com/?daddr=" + encoded, "_system");
+    var isAndroid = _isNative && window.Capacitor?.getPlatform?.() === "android";
+    if (isAndroid) {
+      // Google Maps intent — opens Google Maps app on Android
+      window.open("https://www.google.com/maps/dir/?api=1&destination=" + encoded, "_system");
+    } else {
+      // Apple Maps URL — works in WKWebView, opens Maps app on iOS
+      window.open("https://maps.apple.com/?daddr=" + encoded, "_system");
+    }
   }
   function addPhasesToCalendar() {
     if (!babyDob) {
@@ -28055,7 +28157,7 @@ function App() {
       background: "var(--card-bg-solid)",
       borderTop: `2px solid ${C.ter}`,
       padding: "12px 16px",
-      maxWidth: 520,
+      maxWidth: _maxW,
       margin: "0 auto",
       boxShadow: "0 4px 16px rgba(201,112,90,0.12)",
       animation: "fadeUp 0.2s ease"
@@ -28136,7 +28238,7 @@ function App() {
   }, "\u2715"))), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: tab === "settings" ? "0 14px 90px" : "16px 14px 90px",
-      maxWidth: 520,
+      maxWidth: _maxW,
       margin: "0 auto",
       animation: "fadeIn 0.3s ease"
     }
@@ -29080,14 +29182,14 @@ function App() {
       marginBottom: 10,
       background: "var(--card-bg-solid)"
     }
-  }, (appointments.filter(a => new Date(a.date + "T23:59:59") >= new Date()).length === 0 || reminders.filter(r => !r.done).length === 0 || pinnedNotes.length === 0) && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
       marginBottom: 10,
       flexWrap: "wrap"
     }
-  }, appointments.filter(a => new Date(a.date + "T23:59:59") >= new Date()).length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setApptForm({
         date: todayStr(),
@@ -29113,7 +29215,7 @@ function App() {
       color: C.mid,
       fontFamily: _fI
     }
-  }, "\uD83D\uDCC5 Appointment"), reminders.filter(r => !r.done).length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCC5 Appointment"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       setReminderForm({
         text: "",
@@ -29137,7 +29239,7 @@ function App() {
       color: C.mid,
       fontFamily: _fI
     }
-  }, "\uD83D\uDD14 Reminder"), pinnedNotes.length === 0 && /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDD14 Reminder"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowAddPin(true),
     style: {
       flex: 1,
@@ -43095,7 +43197,7 @@ function App() {
   })()), tab === "settings" && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "0 16px 100px",
-      maxWidth: 520,
+      maxWidth: _maxW,
       margin: "0 auto",
       marginTop: -16
     }
@@ -43145,31 +43247,11 @@ function App() {
       color: C.deep
     }
   }, babyName ? possessive(babyName) + " Family" : "Account"), familyUsername && /*#__PURE__*/React.createElement("div", {
-    onClick: () => {
-      if (!window._ownerTaps) window._ownerTaps = {
-        count: 0,
-        last: 0
-      };
-      const now = Date.now();
-      if (now - window._ownerTaps.last > 2000) window._ownerTaps.count = 0;
-      window._ownerTaps.count++;
-      window._ownerTaps.last = now;
-      if (window._ownerTaps.count >= 10) {
-        window._ownerTaps.count = 0;
-        try {
-          localStorage.setItem("ob_owner_unlock", "zyesha2026");
-        } catch {}
-        location.reload();
-      }
-    },
     style: {
       fontSize: 12,
       fontFamily: _fM,
       color: C.lt,
-      marginTop: 2,
-      cursor: "default",
-      WebkitUserSelect: "none",
-      userSelect: "none"
+      marginTop: 2
     }
   }, "Logged in as ", /*#__PURE__*/React.createElement("strong", {
     style: {
@@ -44228,7 +44310,30 @@ function App() {
       color: C.mid,
       lineHeight: 1.7
     }
-  }, "OBubba is a baby tracking and parenting companion app. It is ", /*#__PURE__*/React.createElement("b", null, "not a medical device"), " and does not provide medical advice, diagnosis, or treatment."), /*#__PURE__*/React.createElement("div", {
+  }, "OBubba is a baby tracking and parenting companion app. It is ", /*#__PURE__*/React.createElement("b", null, "not a medical device"), " and does not provide medical advice, diagnosis, or ", /*#__PURE__*/React.createElement("span", {
+    onClick: () => {
+      const now = Date.now();
+      if (!window._ownerTaps2) window._ownerTaps2 = {
+        count: 0,
+        last: 0
+      };
+      if (now - window._ownerTaps2.last > 2000) window._ownerTaps2.count = 0;
+      window._ownerTaps2.count++;
+      window._ownerTaps2.last = now;
+      if (window._ownerTaps2.count >= 7) {
+        window._ownerTaps2.count = 0;
+        try {
+          localStorage.setItem("ob_owner_unlock", "zyesha2026");
+        } catch {}
+        location.reload();
+      }
+    },
+    style: {
+      cursor: "default",
+      WebkitUserSelect: "none",
+      userSelect: "none"
+    }
+  }, "treatment"), "."), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: C.mid,
@@ -44764,7 +44869,7 @@ function App() {
       justifyContent: "space-evenly",
       alignItems: "center",
       boxShadow: "var(--nav-shadow)",
-      maxWidth: 520,
+      maxWidth: _maxW,
       margin: "0 auto",
       borderRadius: "22px 22px 0 0",
       padding: "4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",
@@ -47186,9 +47291,9 @@ function App() {
     }, {
       key: "annual",
       label: "Annual",
-      price: "£39.99",
+      price: "£44.99",
       sub: "/year",
-      badge: "Save 33%"
+      badge: "Save 25%"
     }, {
       key: "lifetime",
       label: "Lifetime",
@@ -47318,7 +47423,7 @@ function App() {
         marginLeft: "auto",
         marginRight: "auto"
       }
-    }, "Built by a mum who's been there. For less than a coffee a month \u2014 no more guessing, no more juggling 5 apps."), /*#__PURE__*/React.createElement("button", {
+    }, "Built by a mum who's been there. For less than a coffee a month \u2014 give yourself the gift of restful nights."), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
         haptic();
         if (window._purchases && window._purchases.restore) {
@@ -48039,7 +48144,7 @@ function App() {
       borderRadius: "24px 24px 0 0",
       padding: "24px 20px 48px",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       margin: "0 auto",
       maxHeight: "88vh",
       overflowY: "auto"
@@ -48398,7 +48503,7 @@ function App() {
         borderRadius: "24px 24px 0 0",
         padding: "24px 20px 44px",
         width: "100%",
-        maxWidth: 520,
+        maxWidth: _maxW,
         margin: "0 auto",
         maxHeight: "90vh",
         overflowY: "auto"
@@ -48640,7 +48745,7 @@ function App() {
       borderRadius: "24px 24px 0 0",
       padding: "20px 18px 44px",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       margin: "0 auto",
       maxHeight: "90vh",
       overflowY: "auto"
@@ -48789,7 +48894,7 @@ function App() {
       borderRadius: "24px 24px 0 0",
       padding: "20px 16px 40px",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       margin: "0 auto"
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -49025,7 +49130,7 @@ function App() {
       background: "var(--bg-solid)",
       borderRadius: "28px 28px 0 0",
       padding: "28px 22px 48px",
-      maxWidth: 520,
+      maxWidth: _maxW,
       width: "100%",
       maxHeight: "90vh",
       overflowY: "auto"
@@ -50649,7 +50754,7 @@ function App() {
       WebkitBackdropFilter: "blur(var(--glass-blur))",
       borderRadius: "24px 24px 0 0",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       maxHeight: "92vh",
       position: "relative",
       display: "flex",
@@ -51124,7 +51229,7 @@ function App() {
       background: "var(--sheet-bg)",
       borderRadius: "24px 24px 0 0",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       maxHeight: "92vh",
       display: "flex",
       flexDirection: "column"
@@ -52242,12 +52347,13 @@ function App() {
         setShowNightWake(false);
         setNightEditId(null);
         showToast(nightEditId ? "🌟 Night Wake Updated ✓" : "🌟 Night Wake Logged ✓", 1200, 1);
-        // Restart bedtime Live Activity from settle time so Dynamic Island counts from last settle
+        // Restart bedtime Live Activity from wake time MINUS soothing (matches widget)
         if (_isNative && !nightEditId) {
           try {
             const [_wh, _wm] = saveTime.split(":").map(Number);
             const _smins = parseInt(nwForm.assistedDuration) || parseInt(nwForm.settleDuration) || 0;
-            const _totM = _wh * 60 + _wm + _smins;
+            let _totM = _wh * 60 + _wm - _smins; // MINUS soothing to match widget
+            if (_totM < 0) _totM += 1440;
             const _settleDate = new Date();
             _settleDate.setHours(Math.floor(_totM / 60) % 24, _totM % 60, 0, 0);
             if (_settleDate > new Date()) _settleDate.setDate(_settleDate.getDate() - 1);
@@ -53428,29 +53534,33 @@ function App() {
       fontFamily: _fI,
       outline: _bN
     }
-  })), _isNative && apptForm.location && apptForm.location.trim().length > 3 && /*#__PURE__*/React.createElement("button", {
+  })), apptForm.location && apptForm.location.trim().length > 3 && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (!window.Capacitor || !window.Capacitor.Plugins || !window.Capacitor.Plugins.OBTravelTime) {
-        showToast("Travel time requires the latest app update", 2000);
-        return;
-      }
-      showToast("Calculating travel time...", 2000);
-      window.Capacitor.Plugins.OBTravelTime.calculate({
-        address: apptForm.location.trim()
-      }).then(function (r) {
-        var mins = r.travelMins || 0;
-        setApptForm(function (f) {
-          return Object.assign({}, f, {
-            travelMins: mins
+      // Try native plugin first (iOS), fallback to manual
+      if (window.Capacitor?.Plugins?.OBTravelTime) {
+        showToast("Calculating travel time...", 2000);
+        window.Capacitor.Plugins.OBTravelTime.calculate({
+          address: apptForm.location.trim()
+        }).then(function (r) {
+          var mins = r.travelMins || 0;
+          setApptForm(function (f) {
+            return Object.assign({}, f, {
+              travelMins: mins
+            });
           });
+          var label = mins >= 60 ? Math.floor(mins / 60) + "h " + mins % 60 + "m" : mins + " min";
+          var driveLabel = r.drivingMins ? " (" + r.drivingMins + " driving + " + r.bufferMins + " buffer)" : "";
+          var distLabel = r.distanceKm ? " · " + (r.distanceKm < 1 ? Math.round(r.distanceKm * 1000) + "m" : r.distanceKm + "km") : "";
+          showToast("🚗 " + label + driveLabel + distLabel + (r.approximate ? " (approx)" : ""), 4000);
+        }).catch(function (err) {
+          showToast("Could not calculate: " + (err.message || err), 3000);
         });
-        var label = mins >= 60 ? Math.floor(mins / 60) + "h " + mins % 60 + "m" : mins + " min";
-        var driveLabel = r.drivingMins ? " (" + r.drivingMins + " driving + " + r.bufferMins + " buffer)" : "";
-        var distLabel = r.distanceKm ? " · " + (r.distanceKm < 1 ? Math.round(r.distanceKm * 1000) + "m" : r.distanceKm + "km") : "";
-        showToast("🚗 " + label + driveLabel + distLabel + (r.approximate ? " (approx)" : ""), 4000);
-      }).catch(function (err) {
-        showToast("Could not calculate: " + (err.message || err), 3000);
-      });
+      } else {
+        // No native plugin (Android/PWA) — open Google Maps for directions so user can see travel time
+        var encoded = encodeURIComponent(apptForm.location.trim());
+        window.open("https://www.google.com/maps/dir/?api=1&destination=" + encoded, "_system");
+        showToast("Check Google Maps for travel time, then set it below", 3000);
+      }
     },
     style: {
       padding: "10px 14px",
@@ -54927,7 +55037,7 @@ function App() {
       borderRadius: "24px 24px 0 0",
       padding: "18px 18px calc(40px + var(--keyboard-height, 0px))",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       maxHeight: "90vh",
       overflowY: "auto",
       WebkitOverflowScrolling: "touch",
@@ -55696,7 +55806,7 @@ function App() {
       borderRadius: "24px 24px 0 0",
       padding: "18px 18px 52px",
       width: "100%",
-      maxWidth: 520
+      maxWidth: _maxW
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -56070,7 +56180,7 @@ function App() {
       }
     }, albumSyncing ? "Syncing..." : "📤 Share album link") : /*#__PURE__*/React.createElement("button", {
       onClick: async () => {
-        if (!isPremium && STORE_READY) {
+        if (!isPremium && !trialActive && STORE_READY) {
           setPaywallContext("partner");
           setShowPaywall(true);
           setShowMemoryBook(false);
@@ -56604,7 +56714,7 @@ function App() {
       borderRadius: "24px 24px 0 0",
       padding: "24px 20px 40px",
       width: "100%",
-      maxWidth: 520,
+      maxWidth: _maxW,
       maxHeight: "92vh",
       overflowY: "auto",
       WebkitOverflowScrolling: "touch"
@@ -57864,4 +57974,12 @@ function AppRouter() {
 if (!window.__obReactMounted) {
   window.__obReactMounted = true;
   ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary, null, React.createElement(AppRouter)));
+  // Hide splash screens ASAP — both web and native
+  setTimeout(function () {
+    var s = document.getElementById('ob-splash');
+    if (s) s.style.display = 'none';
+    try {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide();
+    } catch {}
+  }, 300);
 }

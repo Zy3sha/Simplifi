@@ -6,7 +6,6 @@ class OBubbaBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(CareCardPlugin())
         bridge?.registerPluginInstance(DisableBouncePlugin())
-        bridge?.registerPluginInstance(HealthKitPlugin())
         bridge?.registerPluginInstance(LiveActivityPlugin())
         bridge?.registerPluginInstance(SiriShortcutsPlugin())
         bridge?.registerPluginInstance(WidgetBridgePlugin())

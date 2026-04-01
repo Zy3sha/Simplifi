@@ -416,10 +416,22 @@ struct OBubbaSmallWidgetView: View {
                         Text(label)
                             .font(.system(size: 8, weight: .bold))
                             .foregroundColor(brandPurple.opacity(0.7))
-                        Text(targetDate, style: .relative)
-                            .font(.system(size: 11, weight: .heavy, design: .rounded))
-                            .foregroundColor(brandPurple)
-                            .monospacedDigit()
+                        HStack(spacing: 3) {
+                            Text(targetDate, style: .relative)
+                                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                                .foregroundColor(brandPurple)
+                                .monospacedDigit()
+                            if let pred = d.nextPrediction, !pred.isEmpty {
+                                let timeOnly = pred.replacingOccurrences(of: "Nap \\d+ ~", with: "", options: .regularExpression)
+                                    .replacingOccurrences(of: "Bed ~", with: "")
+                                    .trimmingCharacters(in: .whitespaces)
+                                if !timeOnly.isEmpty {
+                                    Text(timeOnly)
+                                        .font(.system(size: 8, weight: .semibold))
+                                        .foregroundColor(brandPurple.opacity(0.5))
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -580,10 +592,23 @@ struct OBubbaMediumWidgetView: View {
                         Text(label)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(brandPurple.opacity(0.7))
-                        Text(targetDate, style: .relative)
-                            .font(.system(size: 13, weight: .heavy, design: .rounded))
-                            .foregroundColor(brandPurple)
-                            .monospacedDigit()
+                        HStack(spacing: 4) {
+                            Text(targetDate, style: .relative)
+                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .foregroundColor(brandPurple)
+                                .monospacedDigit()
+                            // Show predicted time next to countdown
+                            if let pred = d.nextPrediction, !pred.isEmpty {
+                                let timeOnly = pred.replacingOccurrences(of: "Nap \\d+ ~", with: "", options: .regularExpression)
+                                    .replacingOccurrences(of: "Bed ~", with: "")
+                                    .trimmingCharacters(in: .whitespaces)
+                                if !timeOnly.isEmpty {
+                                    Text(timeOnly)
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundColor(brandPurple.opacity(0.5))
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
