@@ -21429,10 +21429,14 @@ function App(){
                 let _phase = "";
                 let _behaviours = [];
                 let _tip = "";
-                if (ageWeeks < 6) {
-                  _phase = _dName + " is in the early adjustment period";
-                  _behaviours = ["Frequent feeding and sleeping", "Lots of reflexive movements"];
+                if (ageWeeks < 4) {
+                  _phase = _dName + " is in the 'fourth trimester' \u2014 adjusting to life outside the womb";
+                  _behaviours = ["Frequent feeding and sleeping", "Lots of reflexive movements", "Startles easily (Moro reflex)"];
                   _tip = "Skin-to-skin and responding to cues is everything right now";
+                } else if (ageWeeks < 6) {
+                  _phase = _dName + " is entering Phase 1 \u2014 Senses Awakening";
+                  _behaviours = ["More alert and aware of surroundings", "Notices differences in light, sound and smell", "May be fussier \u2014 the world just got more vivid"];
+                  _tip = "High-contrast patterns and gentle voice are perfect stimulation";
                 } else if (ageWeeks < 13) {
                   _phase = _dName + " is becoming more socially aware";
                   _behaviours = ["More eye contact and first smiles", "Starting to track objects and faces"];
@@ -21483,19 +21487,40 @@ function App(){
                     {/* Try today — 3 date-seeded activities */}
                     {todayActivities.length > 0 && (
                       <div style={{borderTop:`1px solid ${C.blush}`,paddingTop:10}}>
-                        <div style={{fontSize:12,fontWeight:700,color:C.ter,marginBottom:8}}>🎯 3 things to try today</div>
+                        <div style={{fontSize:12,fontWeight:700,color:C.ter,marginBottom:8}}>{"\u{1F3AF}"} 3 things to try today</div>
                         {todayActivities.map((act,i)=>(
                             <details key={i} style={{marginBottom:i<todayActivities.length-1?6:0}}>
                               <summary style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,fontFamily:_fI,textAlign:"left",listStyle:"none",WebkitAppearance:"none"}}>
                                 <span style={{fontSize:15,flexShrink:0}}>{act.icon}</span>
                                 <span style={{fontSize:13,fontWeight:600,color:C.deep,flex:1}}>{act.title}</span>
-                                <span style={{fontSize:10,color:C.lt}}>▼</span>
+                                <span style={{fontSize:10,color:C.lt}}>{"\u25BC"}</span>
                               </summary>
                               <div style={{padding:"8px 10px 6px 32px",fontSize:12,color:C.mid,lineHeight:1.55}}>{act.body}</div>
                             </details>
                         ))}
                       </div>
                     )}
+                    {/* Upcoming developmental phase */}
+                    {(()=>{
+                      const _nextPhase = DEV_PHASES.find(p => ageWeeks < p.windowStart);
+                      if (!_nextPhase) return null;
+                      const _weeksUntil = _nextPhase.windowStart - ageWeeks;
+                      return (
+                        <div style={{borderTop:`1px solid ${C.blush}`,paddingTop:10,marginTop:10}}>
+                          <div style={{fontSize:12,fontWeight:700,color:"#B8A8D0",marginBottom:6}}>{"\u{1F52E}"} Coming up: Phase {_nextPhase.phase} — {_nextPhase.name}</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:6}}>Around week {_nextPhase.windowStart} ({_weeksUntil === 1 ? "next week" : "in ~" + _weeksUntil + " weeks"}). You might notice:</div>
+                          <div style={{fontSize:11,color:C.lt,fontStyle:"italic",lineHeight:1.5}}>{_nextPhase.fussy}</div>
+                          {_nextPhase.skills.length > 0 && (
+                            <div style={{marginTop:6}}>
+                              <div style={{fontSize:11,color:C.lt,fontWeight:600,marginBottom:2}}>Skills to look for:</div>
+                              {_nextPhase.skills.slice(0,3).map((s,i) => (
+                                <div key={i} style={{fontSize:11,color:C.mid,paddingLeft:10}}>• {s}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
