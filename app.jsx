@@ -23790,15 +23790,21 @@ function App(){
             {(()=>{
               try {
                 const _letters = JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
-                if (!_letters.length) return null;
                 const _isBirthday = age && age.totalWeeks >= 52;
                 return (
                   <div style={{background:_isBirthday?"linear-gradient(135deg,rgba(155,139,184,0.08),rgba(200,180,220,0.06))":"var(--card-bg)",border:`1px solid ${_isBirthday?"rgba(155,139,184,0.3)":C.blush}`,borderRadius:16,padding:"14px 16px",marginTop:14}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <div style={{fontSize:11,fontFamily:_fM,color:_isBirthday?"#9B8BB8":C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>{"\u{1F48C}"} Time Capsule</div>
-                      <span style={{fontSize:11,color:C.lt}}>{_letters.length} letter{_letters.length!==1?"s":""} sealed</span>
+                      {_letters.length > 0 && <span style={{fontSize:11,color:C.lt}}>{_letters.length} letter{_letters.length!==1?"s":""} sealed</span>}
                     </div>
-                    {_isBirthday ? (
+                    {_letters.length === 0 ? (
+                      <div style={{textAlign:"center",padding:"12px 0"}}>
+                        <div style={{fontSize:28,marginBottom:8}}>{"\u{1F48C}"}</div>
+                        <div style={{fontSize:13,fontWeight:600,color:C.mid,marginBottom:4}}>Write a letter to your future self</div>
+                        <div style={{fontSize:12,color:C.lt,lineHeight:1.5,marginBottom:12}}>Capture how you're feeling right now. It'll be sealed and delivered on {babyName||"baby"}'s first birthday.</div>
+                        <button onClick={()=>setShowLetterPrompt(true)} style={{padding:"10px 24px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:13,fontWeight:700,cursor:_cP,boxShadow:"0 4px 16px rgba(155,139,184,0.3)"}}>Write a letter</button>
+                      </div>
+                    ) : _isBirthday ? (
                       <div>
                         <div style={{textAlign:"center",marginBottom:12}}>
                           <div style={{fontSize:32,marginBottom:6}}>{"\u{1F381}"}</div>
@@ -23825,6 +23831,7 @@ function App(){
                           </div>
                         ))}
                         <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",fontStyle:"italic"}}>These letters are sealed until {babyName||"baby"}'s first birthday {"\u{1F48C}"}</div>
+                        <button onClick={()=>setShowLetterPrompt(true)} style={{display:"block",margin:"10px auto 0",padding:"8px 20px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP}}>Write another letter</button>
                       </div>
                     )}
                   </div>
