@@ -13529,31 +13529,59 @@ function App(){
   }
 
   function shareICS(icsString, filename, eventData){
-    // On native iOS/Android, use share sheet with the .ics file
-    var blob=new Blob([icsString],{type:"text/calendar;charset=utf-8"});
-    var file=new File([blob],filename||"obubba-event.ics",{type:"text/calendar"});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({files:[file],title:"Add to Calendar"}).catch(function(){});
-    } else if(eventData) {
-      // Fallback: open Google Calendar web URL (works on all platforms)
-      var gcUrl = "https://calendar.google.com/calendar/render?action=TEMPLATE";
+    var isAndroid = _isNative && window.Capacitor?.getPlatform?.() === "android";
+    var isIOS = _isNative && !isAndroid;
+
+    if (isAndroid && eventData) {
+      // Android: open Google Calendar intent directly
+      var gcUrl = "https://www.google.com/calendar/render?action=TEMPLATE";
       gcUrl += "&text=" + encodeURIComponent(eventData.title || "");
       if(eventData.date){
         var ds = eventData.date.replace(/-/g,"");
         if(eventData.time) {
-          gcUrl += "&dates=" + ds + "T" + eventData.time.replace(/:/g,"") + "00/" + ds + "T" + (eventData.endTime||eventData.time).replace(/:/g,"") + "00";
-        } else {
-          gcUrl += "&dates=" + ds + "/" + ds;
-        }
+          var endT = eventData.endTime || (()=>{ var h=parseInt(eventData.time.split(":")[0])+1; return String(Math.min(h,23)).padStart(2,"0")+":"+eventData.time.split(":")[1]; })();
+          gcUrl += "&dates=" + ds + "T" + eventData.time.replace(/:/g,"") + "00/" + ds + "T" + endT.replace(/:/g,"") + "00";
+        } else { gcUrl += "&dates=" + ds + "/" + ds; }
       }
       if(eventData.location) gcUrl += "&location=" + encodeURIComponent(eventData.location);
       if(eventData.note) gcUrl += "&details=" + encodeURIComponent(eventData.note);
-      window.open(gcUrl, "_blank");
-    } else {
-      // Last fallback: download .ics
-      var url=URL.createObjectURL(blob);
-      var a=document.createElement("a");a.href=url;a.download=filename||"obubba-event.ics";a.click();
-      setTimeout(function(){URL.revokeObjectURL(url);},5000);
+      window.open(gcUrl, "_system");
+      return;
+    }
+
+    if (isIOS) {
+      // iOS: open .ics as data URL — iOS intercepts and offers "Add to Calendar"
+      var blob = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          // Use Capacitor Browser to open the data URL — iOS will show Calendar add sheet
+          if (window.Capacitor?.Plugins?.Browser) {
+            window.Capacitor.Plugins.Browser.open({url: reader.result});
+          } else {
+            window.open(reader.result);
+          }
+        } catch(e) {
+          // Fallback: share sheet with file
+          try {
+            var file = new File([blob], filename || "obubba-event.ics", {type:"text/calendar"});
+            navigator.share({files:[file], title:"Add to Calendar"}).catch(function(){});
+          } catch(e2) { console.warn("Calendar add failed", e2); }
+        }
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+
+    // PWA / fallback: try navigator.share with file, then Google Calendar URL
+    var blob2 = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
+    var file2 = new File([blob2], filename || "obubba-event.ics", {type:"text/calendar"});
+    if (navigator.canShare && navigator.canShare({files:[file2]})) {
+      navigator.share({files:[file2], title:"Add to Calendar"}).catch(function(){});
+    } else if (eventData) {
+      var gcUrl2 = "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(eventData.title || "");
+      if(eventData.date) { var ds2=eventData.date.replace(/-/g,""); gcUrl2+="&dates="+ds2+"/"+ds2; }
+      window.open(gcUrl2, "_blank");
     }
   }
 
@@ -13615,8 +13643,8 @@ function App(){
         uid:"phase-bloom-"+p.phase
       });
     });
-    shareICS(generateICS(events),"obubba-dev-phases.ics");
-    showToast("📅 "+events.length+" phase events ready to add",2500,1);
+    shareICS(generateICS(events),"obubba-dev-phases.ics", events[0]);
+    showToast("\u{1F4C5} "+events.length+" phase events ready to add",2500,1);
     haptic("success");
   }
 
