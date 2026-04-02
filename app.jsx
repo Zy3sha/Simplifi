@@ -16710,6 +16710,8 @@ function App(){
       try{ localStorage.setItem("onboarded_v2","1"); }catch{}
       try{ localStorage.setItem("ob_onboard_anon","1"); }catch{}
       try{ localStorage.setItem("ob_onboard_date", _obToday); }catch{}
+      // Trial start — only set if not already set (prevents resetting on same device)
+      try{ if(!localStorage.getItem("obubba_trial_start")) localStorage.setItem("obubba_trial_start", new Date().toISOString()); }catch{}
       // Set breast feeding preference if answered
       if (obFeedType === "breast" || obFeedType === "both") {
         try{ localStorage.setItem("_hasBreast","1"); }catch{}
