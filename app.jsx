@@ -23068,7 +23068,7 @@ function App(){
                       return (
                         <div key={i} style={{marginBottom:6,borderRadius:14,border:`1px solid ${_isOpen?C.ter+"40":C.blush}`,overflow:"hidden",background:"var(--card-bg)",opacity:_locked?0.6:1}}>
                           <button onClick={()=>{
-                            if(_locked){haptic();triggerPaywall("recipes");return;}
+                            if(_locked){haptic();setPremiumGateInfo({icon:"\u{1F9D1}\u{200D}\u{1F373}",label:"Recipe Library",description:"Unlock 50+ age-appropriate recipes with step-by-step instructions, allergen tags, and nutritional info \u2014 from first purees to family meals.",context:"recipes"});return;}
                             haptic(8);_setRecipeOpen(_isOpen?null:i);_setRecipePrep("method");
                           }}
                             style={{width:"100%",padding:"10px 14px",background:"none",border:"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:_cP,fontFamily:_fI,textAlign:"left"}}>
