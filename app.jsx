@@ -2108,68 +2108,44 @@ function UsernameSetForm({ normaliseUsername, reserveUsername, C }) {
 }
 
 function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regenerateChildSyncCode, unlinkChild, showToast, showConfirm, haptic, C }) {
-  const [newCode, setNewCode] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [showCreate, setShowCreate] = React.useState(false);
   const [showRegen, setShowRegen] = React.useState(false);
-  const [regenCode, setRegenCode] = React.useState("");
   const [regenError, setRegenError] = React.useState("");
 
   async function handleCreate() {
     setError("");
     setLoading(true);
-    const result = await createChildSyncCode(cid, newCode);
+    const result = await createChildSyncCode(cid);
     setLoading(false);
-    if(result.ok) { setNewCode(""); setShowCreate(false); }
-    else { setError(result.error); }
+    if(!result.ok) { setError(result.error); }
   }
 
   async function handleRegen() {
     setRegenError("");
     setLoading(true);
-    const result = await regenerateChildSyncCode(cid, regenCode);
+    const result = await regenerateChildSyncCode(cid);
     setLoading(false);
-    if(result.ok) { setRegenCode(""); setShowRegen(false); }
+    if(result.ok) { setShowRegen(false); }
     else { setRegenError(result.error); }
   }
 
   return (
     <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"12px 14px",border:`1px solid ${isShared?C.mint+"40":C.blush}`}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isShared||showCreate?8:0}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isShared?8:0}}>
         <div>
           <div style={{fontWeight:700,fontSize:15,color:C.deep}}>{child.name||"Unnamed child"}</div>
           <div style={{fontSize:12,color:C.lt}}>{isShared?"Sharing enabled":"Not shared yet"}</div>
         </div>
-        {!isShared && !showCreate ? (
-          <button onClick={()=>setShowCreate(true)} style={{padding:"7px 14px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,flexShrink:0}}>
-            Create code
+        {!isShared ? (
+          <button onClick={handleCreate} disabled={loading} style={{padding:"7px 14px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,flexShrink:0}}>
+            {loading?"Creating…":"Create code"}
           </button>
-        ) : !isShared ? null : (
+        ) : (
           <span style={{fontSize:18}}>🔗</span>
         )}
       </div>
-
-      {/* ── Create code form (not shared yet) ── */}
-      {!isShared && showCreate && (
-        <div style={{marginTop:4}}>
-          <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Choose a 6-character code (letters & numbers)</div>
-          <input value={newCode} onChange={e=>setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6))}
-            placeholder={"e.g. " + (child.name ? child.name.toUpperCase().replace(/[^A-Z]/g,"").slice(0,4) + "24" : "BABY24")} maxLength={6}
-            style={{width:"100%",fontSize:20,fontFamily:_fM,fontWeight:700,letterSpacing:"0.15em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${error?C.ter:C.blush}`,background:"var(--bg-solid)",color:C.ter,outline:_oN,marginBottom:6,boxSizing:_bBB}}/>
-          {error && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{error}</div>}
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={handleCreate} disabled={newCode.length!==6||loading}
-              style={{flex:1,padding:"10px",borderRadius:99,border:_bN,background:newCode.length===6?C.mint:"#e0f0ea",color:newCode.length===6?"white":"#a0c8b0",fontSize:14,fontWeight:700,cursor:newCode.length===6?_cP:"not-allowed",fontFamily:_fI}}>
-              {loading?"Creating…":"Create"}
-            </button>
-            <button onClick={()=>{setShowCreate(false);setNewCode("");setError("");}}
-              style={{padding:"10px 16px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",fontSize:13,fontWeight:600,color:C.lt,cursor:_cP,fontFamily:_fI}}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      {!isShared && error && <div style={{fontSize:12,color:C.ter,marginTop:4,textAlign:"center"}}>{error}</div>}
 
       {/* ── Shared: show code + actions ── */}
       {isShared && (
@@ -2202,35 +2178,16 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
           </div>
           <div style={{fontSize:12,color:C.lt,marginBottom:8}}>Share this code with a co-parent — they enter it under "Link a child" below. Change it anytime to stop sharing.</div>
 
-          {/* ── Change code form ── */}
-          {showRegen ? (
-            <div style={{marginBottom:8}}>
-              <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Enter a new code to replace <strong>{code}</strong>. Partner will need the new code.</div>
-              <input value={regenCode} onChange={e=>setRegenCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6))}
-                placeholder="New code" maxLength={6}
-                style={{width:"100%",fontSize:18,fontFamily:_fM,fontWeight:700,letterSpacing:"0.15em",textAlign:"center",padding:"9px",borderRadius:10,border:`1.5px solid ${regenError?C.ter:C.blush}`,background:"var(--bg-solid)",color:C.ter,outline:_oN,marginBottom:6,boxSizing:_bBB}}/>
-              {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={handleRegen} disabled={regenCode.length!==6||loading}
-                  style={{flex:1,padding:"8px",borderRadius:99,border:_bN,background:regenCode.length===6?C.ter:"#f0d0d0",color:regenCode.length===6?"white":"#c0a0a0",fontSize:13,fontWeight:700,cursor:regenCode.length===6?_cP:"not-allowed",fontFamily:_fI}}>
-                  {loading?"Saving…":"Change code"}
-                </button>
-                <button onClick={()=>{setShowRegen(false);setRegenCode("");setRegenError("");}}
-                  style={{padding:"8px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",fontSize:12,fontWeight:600,color:C.lt,cursor:_cP,fontFamily:_fI}}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <button onClick={()=>setShowRegen(true)} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
-                Change code
-              </button>
-              <button onClick={()=>unlinkChild(cid)} style={{fontSize:12,color:"#e8574a",background:_bN,border:_bN,cursor:_cP,padding:0,fontFamily:_fI,textDecoration:"underline"}}>
-                Remove from my app
-              </button>
-            </div>
-          )}
+          {/* ── Regenerate / unlink ── */}
+          {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <button onClick={()=>{showConfirm({title:"New sync code?",body:"This will generate a new code and disconnect your partner. They'll need the new code to reconnect.",confirm:"Generate new code",danger:false,onConfirm:handleRegen});}} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
+              New code
+            </button>
+            <button onClick={()=>unlinkChild(cid)} style={{fontSize:12,color:"#e8574a",background:_bN,border:_bN,cursor:_cP,padding:0,fontFamily:_fI,textDecoration:"underline"}}>
+              Remove from my app
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -5247,26 +5204,26 @@ function App(){
     });
     return merged;
   }
-  async function createChildSyncCode(childId, userCode) {
-    if(!window._fb || !userCode) return {ok:false, error:"Enter a code"};
-    const {serverTimestamp} = window._fb;
-    const code = userCode.trim().toUpperCase();
-    if(code.length !== 6) return {ok:false, error:"Code must be exactly 6 characters"};
-    if(!/^[A-Z0-9]+$/.test(code)) return {ok:false, error:"Letters and numbers only"};
-
-    // Check if code is already taken (allow reclaim if same owner)
-    try {
-      const snap = await fsGet("child_syncs", code);
-      if(snap.exists() && snap.data().isActive !== false) {
-        const _codeOwner = snap.data().ownerUid;
-        if(_codeOwner && _codeOwner !== (window._fbUid||"")) {
-          return {ok:false, error:"Code already taken — try another"};
-        }
-        // Same owner — reclaim it
-      }
-    } catch(e) {
-      return {ok:false, error:"No connection — try again"};
+  function _genSyncCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I to avoid confusion
+    let code = "";
+    for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    return code;
+  }
+  async function _genUniqueSyncCode() {
+    for(let attempt=0;attempt<10;attempt++){
+      const code = _genSyncCode();
+      try {
+        const snap = await fsGet("child_syncs", code);
+        if(!snap.exists() || snap.data().isActive === false) return code;
+      } catch { return code; } // offline — use it, collision is extremely unlikely
     }
+    return _genSyncCode(); // fallback after 10 attempts
+  }
+  async function createChildSyncCode(childId) {
+    if(!window._fb) return {ok:false, error:"Not connected — try again"};
+    const {serverTimestamp} = window._fb;
+    const code = await _genUniqueSyncCode();
 
     const child = children[childId];
     await fsSet("child_syncs", code, {
@@ -5296,29 +5253,12 @@ function App(){
     showToast("Sync code created ✓", 1500, 1);
     return {ok:true, code};
   }
-  async function regenerateChildSyncCode(childId, newUserCode) {
-    if(!window._fb || !newUserCode) return {ok:false, error:"Enter a new code"};
+  async function regenerateChildSyncCode(childId) {
+    if(!window._fb) return {ok:false, error:"Not connected — try again"};
     const {serverTimestamp} = window._fb;
     const currentCode = childSyncCodes[childId];
     if(!currentCode) return {ok:false, error:"No existing code"};
-    const newCode = newUserCode.trim().toUpperCase();
-    if(newCode.length !== 6) return {ok:false, error:"Code must be exactly 6 characters"};
-    if(!/^[A-Z0-9]+$/.test(newCode)) return {ok:false, error:"Letters and numbers only"};
-    if(newCode === currentCode) return {ok:false, error:"Same as current code"};
-
-    // Check if new code is already taken (allow reclaim if same owner)
-    try {
-      const snap = await fsGet("child_syncs", newCode);
-      if(snap.exists() && snap.data().isActive !== false) {
-        const _codeOwner = snap.data().ownerUid;
-        if(_codeOwner && _codeOwner !== (window._fbUid||"")) {
-          return {ok:false, error:"Code already taken — try another"};
-        }
-        // Same owner — reclaim it
-      }
-    } catch(e) {
-      return {ok:false, error:"No connection — try again"};
-    }
+    const newCode = await _genUniqueSyncCode();
 
     const child = children[childId];
     // Create new child_syncs document
