@@ -17094,7 +17094,7 @@ function App(){
             }} style={{width:"100%",padding:"13px",borderRadius:14,border:"none",background:claimStatus==="available"&&claimPin.length>=4?`linear-gradient(135deg,${C.ter},#a85a44)`:"var(--card-bg)",color:claimStatus==="available"&&claimPin.length>=4?"white":C.lt,fontSize:15,fontWeight:700,cursor:claimStatus==="available"&&claimPin.length>=4?_cP:"default",marginBottom:8,fontFamily:_fI,opacity:claimStatus==="saving"?0.6:1}}>
               {claimStatus==="saving"?"Creating...":"Create account"}
             </button>
-            <button onClick={()=>{setShowClaimPrompt(false);try{localStorage.setItem("ob_claim_dismissed","1");}catch{}}} style={{width:"100%",padding:"11px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Skip for now</button>
+            <button onClick={()=>{setShowClaimPrompt(false);try{localStorage.setItem("ob_claim_dismissed","1");}catch{};showToast("You can create an account anytime from Account \u2192 Share & Sync",3500,1);}} style={{width:"100%",padding:"11px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Skip for now</button>
           </div>
         </div>
       )}
@@ -25823,7 +25823,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             </div>
             <div style={{fontSize:12,color:"#B0A8B0",marginBottom:14,lineHeight:1.5}}>It takes 30 seconds. Just a username and a 4-digit PIN.</div>
             <button onClick={()=>{setShowDeferredAuth(false);setAuthMode("create");setAuthScreen("login");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Create Free Account</button>
-            <button onClick={()=>{try{localStorage.setItem("ob_account_prompt_dismissed","1");}catch{}setShowDeferredAuth(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>I'll do this later</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_account_prompt_dismissed","1");}catch{}setShowDeferredAuth(false);showToast("You can create an account anytime from Account \u2192 Share & Sync",3500,1);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>I'll do this later</button>
           </div>
         </div>
       )}
