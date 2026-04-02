@@ -24992,8 +24992,7 @@ function App(){
                     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
                     const isAndroid = /Android/i.test(navigator.userAgent);
                     if (isIOS) {
-                      // iOS App Store review URL — replace XXXXXXXXXX with your actual App Store ID
-                      window.location.href = "https://apps.apple.com/app/idXXXXXXXXXX?action=write-review";
+                      window.location.href = "https://apps.apple.com/app/id6760968757?action=write-review";
                     } else if (isAndroid) {
                       // Google Play review URL — replace with your actual package name
                       window.location.href = "https://play.google.com/store/apps/details?id=com.obubba.app";
