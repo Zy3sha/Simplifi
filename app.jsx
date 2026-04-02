@@ -13659,11 +13659,13 @@ function App(){
       }
     }
 
-    // Show day explainer popup on first wake or bedtime log
+    // Show day explainer popup on first wake or bedtime log, OR after 2-3 manual logs
     if((type==="wake"&&!data.night)||type==="sleep"){try{if(!localStorage.getItem("ob_day_explainer_v1")){localStorage.setItem("ob_day_explainer_v1","1");setTimeout(()=>setShowDayExplainer(true),600);}}catch{}}
 
     setSessionLogs(c=>{
       const n=c+1;
+      // After 3 manual logs, show day explainer if not yet shown
+      if(n===3){try{if(!localStorage.getItem("ob_day_explainer_v1")){localStorage.setItem("ob_day_explainer_v1","1");setTimeout(()=>setShowDayExplainer(true),800);}}catch{}}
       try{if(n===3 && !localStorage.getItem("tut_v2") && tutStep===-1) setTimeout(()=>setShowTutPrompt(true),800);}catch{}
       // After 3 logs, gently prompt to create account if no username yet
       try{if(n===3 && !familyUsername && !localStorage.getItem("family_username") && !localStorage.getItem("ob_claim_dismissed")) setTimeout(()=>setShowClaimPrompt(true),1200);}catch{}
@@ -16679,6 +16681,10 @@ function App(){
       setOnboarded(true);
       setTab("day");
       setSelDay(_obToday);
+      // Show day explainer immediately if bedtime was picked, or after a short delay for others
+      if (obTodayStatus === "bedtime") {
+        try{ if(!localStorage.getItem("ob_day_explainer_v1")){ localStorage.setItem("ob_day_explainer_v1","1"); setTimeout(()=>setShowDayExplainer(true), 1200); }}catch{}
+      }
     };
 
     const steps = [
