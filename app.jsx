@@ -12425,7 +12425,7 @@ function App(){
             const _prevHadWakes = _prevWakeCounts.length >= 3 && _prevWakeCounts.every(c => c > 0);
             if (_prevHadWakes) _bigWin = { text: "First full night with zero wakes!", type: "first_full_night" };
           }
-          if (_bigWin) setSleepWinPrompt(_bigWin);
+          if (_bigWin && !sleepWinPrompt) { setTimeout(()=>setSleepWinPrompt(_bigWin), 0); }
         }
       } catch {}
     } catch {}
@@ -19930,7 +19930,7 @@ function App(){
                 <PremiumTeaser icon="🧩" label="Schedule Builder" description="Plan naps around appointments or events with a personalised schedule" context="schedule_builder"/>
               ))}
 
-              {collHead("sleep","😴","Sleep & Bedtime")}
+              {collHead("sleep","😴","Sleep Analysis")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
 
