@@ -2184,7 +2184,7 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
                 Copy
               </button>
               <button onClick={async()=>{
-                const msg = `Join me on OBubba to track ${child.name||"baby"} together!\n\nEnter code: ${code}\n\nDownload OBubba and tap "Link a child" to get started.`;
+                const msg = `I'm using OBubba to track ${child.name||"baby"}'s feeds and sleep — here's your link to see it too.\n\nEnter code: ${code}\n\nDownload OBubba and tap "Link a child" to get started: https://obubba.com`;
                 try {
                   if(window.Capacitor?.Plugins?.Share) {
                     await window.Capacitor.Plugins.Share.share({title:`Track ${child.name||"baby"} with me`,text:msg});
@@ -3181,7 +3181,8 @@ function App(){
   })();
   // Premium state: owner always premium, otherwise check localStorage cache (updated by entitlement check)
   const _cachedPremium = (()=>{try{return localStorage.getItem("ob_premium")==="1";}catch{return false;}})();
-  const[isPremium,setIsPremium]=useState(_isOwner || _cachedPremium);
+  const _villageActive = (()=>{try{const ve=localStorage.getItem("ob_village_end");return ve && new Date(ve).getTime()>Date.now();}catch{return false;}})();
+  const[isPremium,setIsPremium]=useState(_isOwner || _cachedPremium || _villageActive);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
   const[poopWhyOpen,setPoopWhyOpen]=useState(false);
   const[todayPlanOpen,setTodayPlanOpen]=useState(false);
@@ -3263,6 +3264,28 @@ function App(){
     setReviewFeedback("");
     try { localStorage.setItem("ob_review_prompted_v1", "1"); } catch {}
   }
+
+  // ── Letters to Your Future Self — monthly prompt ──
+  React.useEffect(()=>{
+    try {
+      const _lastLetter = localStorage.getItem("ob_last_letter_date");
+      const _letterAge = age ? age.totalWeeks : 0;
+      if (_letterAge >= 2 && (!_lastLetter || (Date.now() - new Date(_lastLetter).getTime()) > 30*24*60*60*1000)) {
+        const t = setTimeout(()=>setShowLetterPrompt(true), 5000);
+        return ()=>clearTimeout(t);
+      }
+    } catch {}
+  },[]);
+
+  // ── Pass It On — invite a new parent at 10 months ──
+  React.useEffect(()=>{
+    try {
+      if (age && age.totalWeeks >= 40 && age.totalWeeks <= 48 && !localStorage.getItem("ob_pass_it_on_v1")) {
+        const t = setTimeout(()=>setShowPassItOn(true), 8000);
+        return ()=>clearTimeout(t);
+      }
+    } catch {}
+  },[]);
 
   // ── Breastfeeding Support Layer ──
   const[bfSupport,setBfSupport]=useState(null);
@@ -3564,6 +3587,11 @@ function App(){
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
   const[showDayExplainer,setShowDayExplainer]=useState(false);
+  const[showNoJudgement,setShowNoJudgement]=useState(()=>{try{return !localStorage.getItem("ob_no_judge_v1");}catch{return false;}});
+  const[badNightBadge,setBadNightBadge]=useState(null);
+  const[showLetterPrompt,setShowLetterPrompt]=useState(false);
+  const[letterText,setLetterText]=useState("");
+  const[showPassItOn,setShowPassItOn]=useState(false);
   const[carerEntries,setCarerEntries]=useState([]);
   const[showCarerReview,setShowCarerReview]=useState(false);
   // Bridge nap: tracks whether user added bridge nap to schedule (keyed by selDay)
@@ -6201,6 +6229,15 @@ function App(){
         else lastNightEvent = lw.time;
       }
       tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded };
+      // Bad Night Badge — solidarity after rough nights
+      try {
+        const _bnKey = "ob_bad_night_" + selDay;
+        if (nightWakes.length >= 4 && !localStorage.getItem(_bnKey)) {
+          localStorage.setItem(_bnKey, "1");
+          setBadNightBadge({wakes: nightWakes.length, day: selDay});
+          setTimeout(()=>setBadNightBadge(null), 8000);
+        }
+      } catch {}
     } else {
       tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded };
     }
@@ -6353,19 +6390,29 @@ function App(){
       setNightElapsed(null);
 
       // ── PHASE 2: Naps still to go → show countdown to next nap ──
-      if (!td.napsComplete && td.nextNapMins !== null) {
-        setBedCountdown(null);
-        const diffSec = Math.round((td.nextNapMins - nowMins) * 60);
-        setNapCountdown(Math.max(0, diffSec));
-        return;
+      // Call predictNextNap() directly so countdown matches Today's Plan exactly
+      if (!td.napsComplete) {
+        const _countdownPred = (isPremium || trialActive) ? predictNextNap() : null;
+        const _countdownNapMins = _countdownPred ? _countdownPred.napStart_min : td.nextNapMins;
+        if (_countdownNapMins !== null) {
+          setBedCountdown(null);
+          const diffSec = Math.round((_countdownNapMins - nowMins) * 60);
+          setNapCountdown(Math.max(0, diffSec));
+          return;
+        }
       }
 
       // ── PHASE 3: All naps done → bedtime countdown ──
-      if (td.napsComplete && td.bedMins !== null) {
-        setNapCountdown(null);
-        const diffSec = Math.round((td.bedMins - nowMins) * 60);
-        setBedCountdown(Math.max(0, diffSec));
-        return;
+      // Call bedtimePrediction() directly so countdown matches Today's Plan exactly
+      if (td.napsComplete) {
+        const _countdownBed = bedtimePrediction ? bedtimePrediction() : null;
+        const _countdownBedMins = _countdownBed ? _countdownBed.bedMins : td.bedMins;
+        if (_countdownBedMins !== null) {
+          setNapCountdown(null);
+          const diffSec = Math.round((_countdownBedMins - nowMins) * 60);
+          setBedCountdown(Math.max(0, diffSec));
+          return;
+        }
       }
 
       // ── PHASE 4: No data → neutral ──
@@ -7022,6 +7069,7 @@ function App(){
           <span style={{marginLeft:"auto",fontSize:9,padding:"2px 8px",borderRadius:99,background:usePersonalRecs===true?C.mint+"20":"#4a5a8020",color:usePersonalRecs===true?C.mint:"#4a5a80",fontWeight:700,fontFamily:_fM}}>{usePersonalRecs===true?"✨ Personal Rhythm":"📋 Guidelines"}</span>
         </div>
         <div style={{fontSize:13,color:C.mid,marginBottom:_secondary||_rightNow?4:8,paddingLeft:20}}>{_timing}</div>
+        {(()=>{const _rs=sleepScore();if(!_rs||_rs.score===null)return null;return(<div style={{display:"inline-flex",alignItems:"center",gap:4,background:sleepScoreColor(_rs.score)+"18",borderRadius:99,padding:"2px 10px",marginTop:6,marginLeft:20,marginBottom:4}}><span style={{fontSize:11,fontWeight:700,color:sleepScoreColor(_rs.score)}}>{_rs.score}</span><span style={{fontSize:10,color:sleepScoreColor(_rs.score)}}>rhythm</span></div>);})()}
         {/* Source label — shows where the prediction comes from */}
         {_pred && _pred.sourceLabel && <div style={{fontSize:10,color:C.lt,paddingLeft:20,marginBottom:4,fontStyle:"italic"}}>{_pred.sourceLabel.includes("pattern") ? "✨ Based on " + (babyName||"baby") + "'s personal rhythm" : "📋 " + _pred.sourceLabel}</div>}
         {_wakeMissing && (
@@ -11019,6 +11067,10 @@ function App(){
     const notifications=[];
     const stableId=(prefix,suffix)=>Math.abs(((prefix+suffix).split("").reduce((h,c)=>(h*31+c.charCodeAt(0))|0,0))%90000)+10000;
 
+    // Getting Quieter: reduce notification frequency as parent gains confidence
+    const _userWeeks = trialStart ? Math.floor((Date.now() - new Date(trialStart).getTime()) / (7*24*60*60*1000)) : 0;
+    const _quietFactor = _userWeeks >= 12 ? 0.5 : _userWeeks >= 8 ? 0.7 : _userWeeks >= 4 ? 0.85 : 1.0;
+
     // ── 1. User Reminders (one-shot + recurring) ──
     reminders.filter(r=>!r.done&&r.time).forEach(r=>{
       const [rH,rM]=(r.time||"09:00").split(":").map(Number);
@@ -11084,11 +11136,13 @@ function App(){
       const napH=Math.floor(_notifNapMins/60);
       const napM=_notifNapMins%60;
       const napTime=new Date();napTime.setHours(napH,napM,0,0);
-      // Notify 10 min before predicted nap
+      // Notify 10 min before predicted nap (subject to quiet factor)
       const napAlert=new Date(napTime.getTime()-10*60*1000);
       if(napAlert.getTime()>now&&napAlert.getTime()<now+12*3600000){
+        if (Math.random() <= _quietFactor) {
         const napLabel=`Nap ${(td.napsDone||0)+1} of ${td.expectedNaps||"?"}`;
         notifications.push({title:`${_bn}'s nap time approaching`,body:`${napLabel} — predicted around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}. Watch for sleepy cues.`,id:stableId("nap",todayKey+td.napsDone),schedule:{at:napAlert},sound:"notification.wav"});
+        }
       }
       // Notify when nap window opens (wake window minimum reached)
       // Calculate: last awake time + WW min = window open time
@@ -12960,186 +13014,241 @@ function App(){
     if(duration > 0) setTimeout(()=>setMascotPopup(null), duration);
   }
   // ── Social share card generator ──
-  async function shareCard(title, milestone, photoUrl){
+  // cardType: "milestone" (default), "sleepwin", "village", "referral", "rhythm", "badnight"
+  async function shareCard(title, milestone, photoUrl, cardType){
     const W=1080,H=1920;
     const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
     const ctx=canvas.getContext("2d");
     const name=babyName||"Baby";
+    if(!cardType) cardType="milestone";
 
     // Use provided photo, milestone photo, or profile pic
     const imgSrc = photoUrl || (milestone && milestones[milestone]?.photo) || activeChild.photo || null;
 
-    // Rich background gradient — warm pink/mauve/gold
-    const grad=ctx.createLinearGradient(0,0,W*0.3,H);
-    grad.addColorStop(0,"#E8C8D8");grad.addColorStop(0.25,"#DCC0D0");
-    grad.addColorStop(0.5,"#D8B8C8");grad.addColorStop(0.75,"#D0B0C4");
-    grad.addColorStop(1,"#C8A8C0");
+    // ═══ BACKGROUND — dreamy lilac/purple gradient with sparkles ═══
+    const grad=ctx.createLinearGradient(0,0,W,H);
+    grad.addColorStop(0,"#C8BFE8");grad.addColorStop(0.3,"#BDB4E0");
+    grad.addColorStop(0.5,"#D0C8EC");grad.addColorStop(0.7,"#C4BBE4");
+    grad.addColorStop(1,"#B8B0DC");
     ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
 
-    // Warm overlay gradient
-    const warm=ctx.createRadialGradient(W*0.5,H*0.25,0,W*0.5,H*0.25,W*0.8);
-    warm.addColorStop(0,"rgba(255,230,220,0.45)");warm.addColorStop(0.6,"rgba(240,200,210,0.15)");warm.addColorStop(1,"transparent");
-    ctx.fillStyle=warm;ctx.fillRect(0,0,W,H);
+    // Warm pink overlay at top
+    const warmTop=ctx.createRadialGradient(W*0.3,0,0,W*0.3,0,W*0.8);
+    warmTop.addColorStop(0,"rgba(230,200,220,0.4)");warmTop.addColorStop(1,"transparent");
+    ctx.fillStyle=warmTop;ctx.fillRect(0,0,W,H);
 
-    // Golden shimmer overlay
-    const gold=ctx.createRadialGradient(W*0.7,H*0.15,0,W*0.7,H*0.15,300);
-    gold.addColorStop(0,"rgba(255,220,160,0.25)");gold.addColorStop(1,"transparent");
-    ctx.fillStyle=gold;ctx.fillRect(0,0,W,H);
+    // Subtle golden glow
+    const goldGlow=ctx.createRadialGradient(W*0.6,H*0.12,0,W*0.6,H*0.12,400);
+    goldGlow.addColorStop(0,"rgba(255,230,180,0.15)");goldGlow.addColorStop(1,"transparent");
+    ctx.fillStyle=goldGlow;ctx.fillRect(0,0,W,H);
 
-    // Sparkles — varying sizes and opacities
-    for(let i=0;i<80;i++){
+    // Sparkles — white + gold dots scattered
+    for(let i=0;i<120;i++){
       const x=Math.random()*W,y=Math.random()*H;
-      const r=Math.random()*4+0.5;
-      const alpha=Math.random()*0.5+0.2;
-      const isGold=Math.random()>0.6;
-      ctx.fillStyle=isGold?`rgba(255,215,140,${alpha})`:`rgba(255,255,255,${alpha})`;
+      const r=Math.random()*3+0.3;
+      const alpha=Math.random()*0.6+0.15;
+      const isGold=Math.random()>0.75;
+      ctx.fillStyle=isGold?`rgba(255,220,160,${alpha})`:`rgba(255,255,255,${alpha})`;
       ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
-      // Cross sparkle for bigger ones
-      if(r>3){
-        ctx.strokeStyle=`rgba(255,255,255,${alpha*0.7})`;ctx.lineWidth=1;
-        ctx.beginPath();ctx.moveTo(x-r*2,y);ctx.lineTo(x+r*2,y);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(x,y-r*2);ctx.lineTo(x,y+r*2);ctx.stroke();
+      if(r>2.5){
+        ctx.strokeStyle=`rgba(255,255,255,${alpha*0.5})`;ctx.lineWidth=0.8;
+        ctx.beginPath();ctx.moveTo(x-r*2.5,y);ctx.lineTo(x+r*2.5,y);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(x,y-r*2.5);ctx.lineTo(x,y+r*2.5);ctx.stroke();
       }
     }
 
     // Soft glow orbs
-    [[W*0.2,H*0.08,280,"rgba(255,200,220,0.3)"],[W*0.8,H*0.12,200,"rgba(255,220,180,0.25)"],
-     [W*0.5,H*0.85,350,"rgba(210,190,240,0.2)"],[W*0.15,H*0.7,200,"rgba(255,210,200,0.2)"]].forEach(([gx,gy,gr,gc])=>{
+    [[W*0.15,H*0.06,300,"rgba(220,200,255,0.25)"],[W*0.85,H*0.1,220,"rgba(255,220,200,0.2)"],
+     [W*0.5,H*0.9,400,"rgba(200,190,240,0.15)"],[W*0.1,H*0.75,250,"rgba(230,210,240,0.2)"]].forEach(([gx,gy,gr,gc])=>{
       const g=ctx.createRadialGradient(gx,gy,0,gx,gy,gr);
       g.addColorStop(0,gc);g.addColorStop(1,"transparent");
       ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
     });
 
+    // ═══ MASCOT — top left corner ═══
+    let mascotImg=null;
+    try{
+      mascotImg=new Image();mascotImg.crossOrigin="anonymous";
+      await new Promise((res,rej)=>{mascotImg.onload=res;mascotImg.onerror=rej;mascotImg.src="obubba-happy.png";setTimeout(rej,3000);});
+      ctx.drawImage(mascotImg,20,30,340,340);
+    }catch{mascotImg=null;}
+
+    // ═══ "OBubba" LOGO — right of mascot ═══
+    ctx.textAlign="center";
+    ctx.font="bold 120px Georgia,serif";
+    ctx.fillStyle="rgba(180,170,220,0.5)";ctx.fillText("OBubba",W/2+80,200);
+    ctx.fillStyle="#E8E0F0";ctx.fillText("OBubba",W/2+78,198);
+
+    // ═══ "CELEBRATING" gold tracking ═══
+    ctx.font="bold 32px sans-serif";
+    ctx.fillStyle="#D4A855";
+    ctx.fillText("C E L E B R A T I N G",W/2,370);
+
+    // ═══ CARD-TYPE SPECIFIC CONTENT ═══
     ctx.textAlign="center";
 
-    // OBubba header
-    ctx.font="italic 48px Georgia,serif";ctx.fillStyle="#c9705a";
-    ctx.fillText("OBubba",W/2,90);
-    ctx.font="bold 56px Georgia,serif";ctx.fillStyle="#4A3F3F";
-    ctx.fillText("Milestone achieved",W/2,165);
-    ctx.font="22px sans-serif";ctx.fillStyle="#8A7878";
-    ctx.fillText("Celebrating baby\u2019s rhythm, one moment at a time",W/2,210);
-
-    // Photo or mascot — centered
-    let drewPhoto = false;
-    if(imgSrc){
-      try{
-        const img=new Image();img.crossOrigin="anonymous";
-        await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=imgSrc;setTimeout(rej,3000);});
-        // Draw circular photo with border
-        const photoSize=380,photoX=W/2-photoSize/2,photoY=270;
-        ctx.save();
-        ctx.beginPath();ctx.arc(W/2,photoY+photoSize/2,photoSize/2,0,Math.PI*2);ctx.clip();
-        // Cover-fit the image
-        const aspect=img.width/img.height;
-        let dw=photoSize,dh=photoSize;
-        if(aspect>1){dw=photoSize*aspect;} else {dh=photoSize/aspect;}
-        ctx.drawImage(img,W/2-dw/2,photoY+photoSize/2-dh/2,dw,dh);
-        ctx.restore();
-        // Photo border ring
-        ctx.strokeStyle="rgba(255,255,255,0.6)";ctx.lineWidth=6;
-        ctx.beginPath();ctx.arc(W/2,photoY+photoSize/2,photoSize/2+3,0,Math.PI*2);ctx.stroke();
-        // Golden inner ring
-        ctx.strokeStyle="rgba(212,168,85,0.35)";ctx.lineWidth=3;
-        ctx.beginPath();ctx.arc(W/2,photoY+photoSize/2,photoSize/2-2,0,Math.PI*2);ctx.stroke();
-        drewPhoto = true;
-      }catch{}
-    }
-    if(!drewPhoto){
-      // Fallback: mascot
-      try{
-        const img=new Image();img.crossOrigin="anonymous";
-        await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src="obubba-celebration.png";setTimeout(rej,3000);});
-        const mW=420,mH=420;
-        ctx.drawImage(img,W/2-mW/2,260,mW,mH);
-      }catch{
-        ctx.font="180px serif";ctx.fillText("\u{1f476}",W/2,520);
+    if(cardType==="sleepwin"){
+      ctx.font="bold 64px Georgia,serif";ctx.fillStyle="#3A3050";
+      const headLines=_wrapText(ctx,title||"A beautiful little win",W-140);
+      let hy=440;headLines.forEach(l=>{ctx.fillText(l,W/2,hy);hy+=78;});
+      const cardX=80,cardY=hy+40,cardW=W-160,cardH=700,cardR=32;
+      ctx.shadowColor="rgba(0,0,0,0.06)";ctx.shadowBlur=30;ctx.shadowOffsetY=8;
+      ctx.fillStyle="rgba(255,255,255,0.88)";
+      ctx.beginPath();ctx.roundRect(cardX,cardY,cardW,cardH,cardR);ctx.fill();
+      ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+      ctx.strokeStyle="rgba(255,255,255,0.5)";ctx.lineWidth=2;
+      ctx.beginPath();ctx.roundRect(cardX+3,cardY+3,cardW-6,cardH-6,cardR-2);ctx.stroke();
+      const details=typeof milestone==="object"?milestone:{};
+      ctx.font="bold 40px Georgia,serif";ctx.fillStyle="#4A3F55";
+      const msgLines=_wrapText(ctx,details.message||name+"'s sleep rhythm is getting stronger!",cardW-80);
+      let my=cardY+80;msgLines.forEach(l=>{ctx.fillText(l,W/2,my);my+=50;});
+      if(details.stat){
+        ctx.font="bold 72px Georgia,serif";ctx.fillStyle="#7A6AAA";ctx.fillText(details.stat,W/2,my+80);
+        ctx.font="24px sans-serif";ctx.fillStyle="#8A7888";ctx.fillText(details.statLabel||"",W/2,my+120);
       }
+      ctx.font="22px sans-serif";ctx.fillStyle="#A098B0";
+      ctx.fillText(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),W/2,cardY+cardH-40);
+
+    } else if(cardType==="village"||cardType==="referral"){
+      ctx.font="bold 64px Georgia,serif";ctx.fillStyle="#3A3050";
+      ctx.fillText(cardType==="village"?"It takes a village":"Pass it on to a friend",W/2,460);
+      if(cardType==="referral"){ctx.font="26px sans-serif";ctx.fillStyle="#6A5A80";ctx.fillText("Refer a friend",W/2,420);}
+      const cardX=80,cardY=520,cardW=W-160,cardH=750,cardR=32;
+      ctx.shadowColor="rgba(0,0,0,0.06)";ctx.shadowBlur=30;ctx.shadowOffsetY=8;
+      ctx.fillStyle="rgba(255,255,255,0.88)";
+      ctx.beginPath();ctx.roundRect(cardX,cardY,cardW,cardH,cardR);ctx.fill();
+      ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+      ctx.font="32px sans-serif";ctx.fillStyle="#5A5068";
+      const bodyLines=(cardType==="village"
+        ?"Invite friends to OBubba\nand you both get a week\nfree of OBubba Pro!"
+        :"Share this referral pass\nwith a friend and give them\na free week of OBubba.").split("\n");
+      let by=cardY+120;bodyLines.forEach(l=>{ctx.fillText(l,W/2,by);by+=48;});
+      if(cardType==="referral"){
+        const tX=W/2-200,tY=by+40,tW=400,tH=140;
+        ctx.fillStyle="rgba(240,228,200,0.9)";ctx.beginPath();ctx.roundRect(tX,tY,tW,tH,16);ctx.fill();
+        ctx.strokeStyle="rgba(180,150,100,0.3)";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(tX,tY,tW,tH,16);ctx.stroke();
+        ctx.font="bold 28px Georgia,serif";ctx.fillStyle="#8A6A30";ctx.fillText("Referral Pass",W/2,tY+50);
+        ctx.font="bold 36px Georgia,serif";ctx.fillStyle="#C44A20";ctx.fillText("1 FREE WEEK!",W/2,tY+100);
+      }
+      const btnY=cardY+cardH-160;
+      if(cardType==="village"){
+        [[W/2-200,"Refer a friend"],[W/2+40,"Join the village"]].forEach(([bx,label],idx)=>{
+          ctx.fillStyle=idx===0?"#c9705a":"#7A6AAA";
+          ctx.beginPath();ctx.roundRect(bx,btnY,220,56,28);ctx.fill();
+          ctx.font="bold 22px sans-serif";ctx.fillStyle="white";ctx.fillText(label,bx+110,btnY+36);
+        });
+      } else {
+        ctx.fillStyle="#c9705a";ctx.beginPath();ctx.roundRect(W/2-160,btnY,320,60,30);ctx.fill();
+        ctx.font="bold 26px sans-serif";ctx.fillStyle="white";ctx.fillText("Invite a friend",W/2,btnY+40);
+      }
+
+    } else if(cardType==="rhythm"){
+      ctx.font="bold 58px Georgia,serif";ctx.fillStyle="#3A3050";ctx.fillText(name+"'s Week",W/2,460);
+      const cardX=80,cardY=510,cardW=W-160,cardH=820,cardR=32;
+      ctx.shadowColor="rgba(0,0,0,0.06)";ctx.shadowBlur=30;ctx.shadowOffsetY=8;
+      ctx.fillStyle="rgba(255,255,255,0.88)";
+      ctx.beginPath();ctx.roundRect(cardX,cardY,cardW,cardH,cardR);ctx.fill();
+      ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+      const stats=typeof milestone==="object"?milestone:{};
+      [[stats.avgNaps||"--","avg naps/day"],[stats.avgNight||"--","avg night sleep"],
+       [stats.avgDay||"--","avg day sleep"],[stats.longestStretch||"--","longest stretch"]].forEach((s,i)=>{
+        const col=i%2,row=Math.floor(i/2);const colW2=(cardW-60)/2;
+        const sx=cardX+30+col*colW2+colW2/2,sy=cardY+80+row*200;
+        ctx.fillStyle="rgba(200,190,230,0.2)";ctx.beginPath();ctx.arc(sx,sy+40,60,0,Math.PI*2);ctx.fill();
+        ctx.font="bold 48px Georgia,serif";ctx.fillStyle="#5A4A80";ctx.fillText(s[0],sx,sy+55);
+        ctx.font="22px sans-serif";ctx.fillStyle="#8A7898";ctx.fillText(s[1],sx,sy+110);
+      });
+      if(stats.vibe){
+        ctx.font="bold 36px Georgia,serif";ctx.fillStyle="#5A4A80";ctx.fillText(stats.vibe,W/2,cardY+cardH-120);
+        ctx.font="22px sans-serif";ctx.fillStyle="#A098B0";ctx.fillText("This week's rhythm vibe",W/2,cardY+cardH-80);
+      }
+
+    } else if(cardType==="badnight"){
+      ctx.font="bold 64px Georgia,serif";ctx.fillStyle="#3A3050";ctx.fillText("Survived the night",W/2,460);
+      ctx.font="28px sans-serif";ctx.fillStyle="#6A5A80";ctx.fillText("and you're still here. That counts.",W/2,510);
+      ctx.fillStyle="rgba(255,255,255,0.15)";ctx.beginPath();ctx.arc(W/2,750,180,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="rgba(200,190,230,0.25)";ctx.beginPath();ctx.arc(W/2,750,150,0,Math.PI*2);ctx.fill();
+      ctx.font="120px serif";ctx.fillText("\u{1F3C5}",W/2,790);
+      const cardX=80,cardY=980,cardW=W-160,cardH=500,cardR=32;
+      ctx.fillStyle="rgba(255,255,255,0.85)";ctx.beginPath();ctx.roundRect(cardX,cardY,cardW,cardH,cardR);ctx.fill();
+      const details=typeof milestone==="object"?milestone:{};
+      ctx.font="bold 36px Georgia,serif";ctx.fillStyle="#4A3F55";
+      const msgLines=_wrapText(ctx,details.message||"Last night was rough. You showed up anyway. That\u2019s everything.",cardW-80);
+      let my=cardY+80;msgLines.forEach(l=>{ctx.fillText(l,W/2,my);my+=48;});
+      if(details.wakes){
+        ctx.font="bold 56px Georgia,serif";ctx.fillStyle="#7A6AAA";ctx.fillText(details.wakes+" wakes",W/2,my+60);
+        ctx.font="22px sans-serif";ctx.fillStyle="#A098B0";ctx.fillText("and you handled every one",W/2,my+100);
+      }
+
+    } else {
+      // MILESTONE CARD (default)
+      ctx.font="bold 64px Georgia,serif";ctx.fillStyle="#3A3050";
+      const headLines=_wrapText(ctx,title||"A special milestone",W-140);
+      let hy=440;headLines.forEach(l=>{ctx.fillText(l,W/2,hy);hy+=78;});
+      const cardX=80,cardY=hy+40,cardW=W-160,cardH=800,cardR=32;
+      ctx.shadowColor="rgba(0,0,0,0.06)";ctx.shadowBlur=30;ctx.shadowOffsetY=8;
+      ctx.fillStyle="rgba(255,255,255,0.88)";
+      ctx.beginPath();ctx.roundRect(cardX,cardY,cardW,cardH,cardR);ctx.fill();
+      ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+      ctx.strokeStyle="rgba(255,255,255,0.5)";ctx.lineWidth=2;
+      ctx.beginPath();ctx.roundRect(cardX+3,cardY+3,cardW-6,cardH-6,cardR-2);ctx.stroke();
+      // Browser-style dots
+      [cardX+30,cardX+52,cardX+74].forEach(dx=>{
+        ctx.fillStyle="rgba(180,170,200,0.4)";ctx.beginPath();ctx.arc(dx,cardY+30,6,0,Math.PI*2);ctx.fill();
+      });
+      [cardX+cardW-30,cardX+cardW-52,cardX+cardW-74].forEach(dx=>{
+        ctx.fillStyle="rgba(180,170,200,0.4)";ctx.beginPath();ctx.arc(dx,cardY+30,6,0,Math.PI*2);ctx.fill();
+      });
+      let drewPhoto=false;
+      if(imgSrc){
+        try{
+          const img=new Image();img.crossOrigin="anonymous";
+          await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=imgSrc;setTimeout(rej,3000);});
+          const boxW=380,boxH=320,gap=20;
+          const lx=cardX+(cardW-boxW*2-gap)/2,rx=lx+boxW+gap,by2=cardY+60;
+          ctx.fillStyle="rgba(230,225,245,0.6)";ctx.beginPath();ctx.roundRect(lx,by2,boxW,boxH,20);ctx.fill();
+          const mLabel=(typeof milestone==="object"?milestone?.emoji:milestones[milestone]?.emoji)||"\u2728";
+          ctx.font="120px serif";ctx.fillStyle="#5A4A80";ctx.fillText(mLabel,lx+boxW/2,by2+boxH/2+40);
+          ctx.save();ctx.beginPath();ctx.roundRect(rx,by2,boxW,boxH,20);ctx.clip();
+          const aspect=img.width/img.height;let dw=boxW,dh=boxH;
+          if(aspect>boxW/boxH){dh=boxW/aspect;}else{dw=boxH*aspect;}
+          ctx.drawImage(img,rx+boxW/2-dw/2,by2+boxH/2-dh/2,dw,dh);ctx.restore();
+          ctx.strokeStyle="rgba(255,255,255,0.4)";ctx.lineWidth=2;
+          ctx.beginPath();ctx.roundRect(rx,by2,boxW,boxH,20);ctx.stroke();
+          drewPhoto=true;
+        }catch{}
+      }
+      if(!drewPhoto&&mascotImg){ctx.drawImage(mascotImg,W/2-150,cardY+80,300,300);}
+      const titleY=drewPhoto?cardY+440:cardY+420;
+      ctx.font="bold 40px Georgia,serif";ctx.fillStyle="#3A3050";
+      const titleLines=_wrapText(ctx,(title||"A special milestone")+" \u{1f389}",cardW-80);
+      let ty=titleY;titleLines.forEach(l=>{ctx.fillText(l,W/2,ty);ty+=50;});
+      ctx.font="24px sans-serif";ctx.fillStyle="#A098B0";
+      ctx.fillText(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),W/2,ty+20);
+      const divY=ty+60;
+      ctx.strokeStyle="rgba(180,170,200,0.2)";ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(cardX+80,divY);ctx.lineTo(cardX+cardW-80,divY);ctx.stroke();
+      ctx.font="28px sans-serif";ctx.fillStyle="#5A5068";
+      ctx.fillText("Proud parent moment! Look who reached a",W/2,divY+45);
+      ctx.fillText("special milestone. \u{1f389}\u{1f476}",W/2,divY+83);
+      const btnY2=cardY+cardH-80;
+      ["\u{1F4F7}","\u{1F4F1}","\u{1F517}"].forEach((icon,i)=>{
+        ctx.fillStyle="rgba(180,170,200,0.5)";ctx.beginPath();ctx.arc(cardX+80+i*55,btnY2,22,0,Math.PI*2);ctx.fill();
+        ctx.font="22px sans-serif";ctx.fillText(icon,cardX+80+i*55,btnY2+8);
+      });
+      ctx.fillStyle="rgba(220,215,235,0.7)";ctx.beginPath();ctx.roundRect(cardX+cardW-200,btnY2-26,160,52,26);ctx.fill();
+      ctx.font="bold 24px sans-serif";ctx.fillStyle="#5A4A80";ctx.fillText("Share",cardX+cardW-120,btnY2+8);
     }
 
-    // Confetti-like shapes around mascot
-    const confettiColors=["#c9705a","#d4a855","#7aabc4","#50a888","#9878d0","#e8a0b0"];
-    for(let i=0;i<18;i++){
-      const angle=Math.random()*Math.PI*2;
-      const dist=220+Math.random()*100;
-      const cx=W/2+Math.cos(angle)*dist,cy=470+Math.sin(angle)*dist*0.6;
-      ctx.save();ctx.translate(cx,cy);ctx.rotate(Math.random()*Math.PI);
-      ctx.fillStyle=confettiColors[Math.floor(Math.random()*confettiColors.length)];
-      ctx.globalAlpha=0.5+Math.random()*0.3;
-      if(Math.random()>0.5){ctx.fillRect(-4,-10,8,20);}
-      else{ctx.beginPath();ctx.arc(0,0,5,0,Math.PI*2);ctx.fill();}
-      ctx.globalAlpha=1;ctx.restore();
-    }
-
-    // Main white card
-    const cardX=50,cardY=720,cardW=W-100,cardH=1050,cardR=36;
-    // Card shadow
-    ctx.shadowColor="rgba(0,0,0,0.08)";ctx.shadowBlur=40;ctx.shadowOffsetY=10;
-    ctx.fillStyle="rgba(255,255,255,0.92)";
-    ctx.beginPath();ctx.roundRect(cardX,cardY,cardW,cardH,cardR);ctx.fill();
-    ctx.shadowColor="transparent";ctx.shadowBlur=0;ctx.shadowOffsetY=0;
-    // Card border
-    ctx.strokeStyle="rgba(201,112,90,0.12)";ctx.lineWidth=2;
-    ctx.beginPath();ctx.roundRect(cardX,cardY,cardW,cardH,cardR);ctx.stroke();
-
-    // Milestone title — bold, wrapped
-    ctx.font="bold 44px Georgia,serif";ctx.fillStyle="#4A3F3F";
-    const titleLines=_wrapText(ctx,title+" \u2728",cardW-100);
-    let ty=cardY+80;
-    titleLines.forEach(l=>{ctx.fillText(l,W/2,ty);ty+=55;});
-
-    // Subtitle
-    ctx.font="26px sans-serif";ctx.fillStyle="#8A7878";
-    ctx.fillText(name+" reached a big milestone!",W/2,ty+25);
-
-    // Divider line
-    const divY=ty+65;
-    ctx.strokeStyle="rgba(180,150,140,0.2)";ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.moveTo(cardX+80,divY);ctx.lineTo(cardX+cardW-80,divY);ctx.stroke();
-
-    // Feature icons row — 3 columns with emoji + label
-    const features=[
-      ["\u{1F319}","Sleep","milestone"],
-      ["\u{1F4CA}","Learning baby\u2019s","rhythm"],
-      ["\u{1F52E}","Sleep prediction","working"]
-    ];
-    const colW=cardW/3,fy=divY+50;
-    features.forEach((f,i)=>{
-      const cx=cardX+colW*i+colW/2;
-      // Icon circle
-      ctx.fillStyle="rgba(245,228,220,0.6)";
-      ctx.beginPath();ctx.arc(cx,fy+30,36,0,Math.PI*2);ctx.fill();
-      ctx.font="32px serif";ctx.fillText(f[0],cx,fy+42);
-      // Labels
-      ctx.font="bold 18px sans-serif";ctx.fillStyle="#5B4F4F";
-      ctx.fillText(f[1],cx,fy+88);
-      ctx.font="18px sans-serif";ctx.fillStyle="#8A7878";
-      ctx.fillText(f[2],cx,fy+112);
-    });
-
-    // Powered by text
-    ctx.font="18px sans-serif";ctx.fillStyle="#B0A0A0";
-    ctx.fillText("Powered by OBubba\u2019s rhythm learning +",W/2,fy+170);
-    ctx.fillText("NHS & WHO guidance",W/2,fy+195);
-
-    // Bottom branding section — inside card
-    const brandY=cardY+cardH-130;
-    // Subtle separator
-    ctx.strokeStyle="rgba(180,150,140,0.15)";ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(cardX+80,brandY);ctx.lineTo(cardX+cardW-80,brandY);ctx.stroke();
-
-    ctx.font="bold 30px sans-serif";ctx.fillStyle="#4A3F3F";
-    ctx.fillText("Tracked with OBubba",W/2,brandY+50);
-    ctx.font="20px sans-serif";ctx.fillStyle="#A09090";
-    ctx.fillText("The baby app that learns your baby\u2019s rhythm",W/2,brandY+82);
-
-    // obubba.com at very bottom of card
-    ctx.font="bold 22px sans-serif";ctx.fillStyle="#c9705a";
-    ctx.fillText("obubba.com",W/2,brandY+118);
+    // BOTTOM BRANDING all card types
+    ctx.textAlign="center";
+    ctx.font="bold 28px sans-serif";ctx.fillStyle="rgba(255,255,255,0.7)";ctx.fillText("Tracked with OBubba",W/2,H-120);
+    ctx.font="20px sans-serif";ctx.fillStyle="rgba(255,255,255,0.5)";ctx.fillText("The baby app that learns your baby's rhythm",W/2,H-85);
+    ctx.font="bold 22px sans-serif";ctx.fillStyle="rgba(212,168,85,0.7)";ctx.fillText("obubba.com",W/2,H-50);
 
     let dataUrl;
-    try { dataUrl=canvas.toDataURL("image/png"); } catch { showToast("📸 Couldn't generate share card",2500,2); return; }
-    setSharePreview({title,milestone,dataUrl});
+    try { dataUrl=canvas.toDataURL("image/png"); } catch { showToast("\u{1F4F8} Couldn't generate share card",2500,2); return; }
+    setSharePreview({title,milestone,dataUrl,cardType});
   }
 
   function _wrapText(ctx,text,maxW){
@@ -14824,6 +14933,16 @@ function App(){
     const name = babyName || "Baby";
     const finalHtml = await prepareCareCardHTML();
 
+    // Village unlock: first Carer Portal share = 7 days premium
+    const _villageUnlock = ()=>{try {
+      if (!localStorage.getItem("ob_village_unlocked")) {
+        localStorage.setItem("ob_village_unlocked", "1");
+        const villageEnd = new Date(Date.now() + 7*24*60*60*1000).toISOString();
+        localStorage.setItem("ob_village_end", villageEnd);
+        showToast("🏘️ Village activated! 7 days of premium — because it takes a village.", 4000, 1);
+      }
+    } catch {}};
+
     // Native: generate PDF via CareCardPlugin, then share via system sheet (iOS + Android)
     const careCard = window.Capacitor?.Plugins?.OBCareCard;
     console.log("[OBubba] shareCareCard — OBCareCard plugin:", careCard ? "FOUND" : "NOT FOUND", "methods:", careCard ? Object.keys(careCard) : "n/a");
@@ -14835,9 +14954,11 @@ function App(){
         });
         if(result?.filePath && navigator.share) {
           await navigator.share({ title: `${name}'s Care Guide`, url: "file://" + result.filePath });
+          _villageUnlock();
           return;
         }
         if(result?.filePath) {
+          _villageUnlock();
           showToast("PDF saved — check Files app", 2000, 0);
           return;
         }
@@ -14854,6 +14975,7 @@ function App(){
     if (_ccAndroid) {
       try {
         await _ccAndroid.generatePDF({ html: finalHtml, fileName: `${name}-Care-Guide.pdf` });
+        _villageUnlock();
         return;
       } catch(e) {
         if (e.name === "AbortError") return;
@@ -14867,12 +14989,14 @@ function App(){
       const file = new File([blob], `${name}-Care-Guide.html`, { type: "text/html" });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ title: `${name}'s Care Guide`, files: [file] });
+        _villageUnlock();
         return;
       }
     } catch(e) { if (e.name === "AbortError") return; }
 
     // Last resort: open preview with action bar
     openCareCardPreview(finalHtml, name);
+    _villageUnlock();
   }
 
   async function printCareCard() {
@@ -25252,6 +25376,80 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 ☀️ Wake Up for the Day
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Letters to Your Future Self ═══ */}
+      {showLetterPrompt&&(
+        <div onClick={()=>setShowLetterPrompt(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:380,boxShadow:"0 12px 40px rgba(0,0,0,0.2)"}}>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:36,marginBottom:8}}>💌</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F"}}>A letter to your future self</div>
+              <div style={{fontSize:13,color:"#A89898",marginTop:4}}>Write something to read in a year. You'll be amazed how far you've come.</div>
+            </div>
+            <textarea value={letterText} onChange={e=>setLetterText(e.target.value)} placeholder={"Dear future me,\n\nRight now " + (babyName||"baby") + " is..."} style={{width:"100%",minHeight:120,padding:"12px",borderRadius:14,border:"1.5px solid #f0e8e0",background:"var(--card-bg)",color:"#5B4F5F",fontSize:14,lineHeight:1.6,fontFamily:"'DM Sans',sans-serif",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+            <div style={{display:"flex",gap:8,marginTop:12}}>
+              <button onClick={()=>{
+                if(letterText.trim()){
+                  try{
+                    const letters=JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
+                    letters.push({text:letterText.trim(),date:new Date().toISOString(),babyAge:age?age.totalWeeks+"w":""});
+                    localStorage.setItem("ob_letters_v1",JSON.stringify(letters));
+                    localStorage.setItem("ob_last_letter_date",new Date().toISOString());
+                  }catch{}
+                  setLetterText("");setShowLetterPrompt(false);
+                  showToast("💌 Letter saved — we'll remind you in a year",3000,1);
+                }
+              }} style={{flex:1,padding:"14px",borderRadius:99,border:"none",background:"#C07088",color:"white",fontSize:14,fontWeight:700,cursor:"pointer"}}>Save letter</button>
+              <button onClick={()=>{setShowLetterPrompt(false);try{localStorage.setItem("ob_last_letter_date",new Date().toISOString());}catch{};}} style={{padding:"14px 20px",borderRadius:99,border:"1px solid #f0e8e0",background:"var(--card-bg)",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Bad Night Badge ═══ */}
+      {badNightBadge&&(
+        <div style={{position:"fixed",top:60,left:"50%",transform:"translateX(-50%)",zIndex:180,background:"linear-gradient(135deg,#2c1f1a,#3d2e28)",borderRadius:20,padding:"16px 24px",maxWidth:340,width:"90%",boxShadow:"0 8px 32px rgba(0,0,0,0.3)",textAlign:"center",animation:"fadeInDown 0.4s ease"}}>
+          <div style={{fontSize:28,marginBottom:6}}>🫂</div>
+          <div style={{fontSize:14,fontWeight:700,color:"#f0ddd6",marginBottom:4}}>Rough night. You showed up anyway.</div>
+          <div style={{fontSize:12,color:"#a89898"}}>That counts. {badNightBadge.wakes} wakes is a lot — be gentle with yourself today.</div>
+        </div>
+      )}
+
+      {/* ═══ No Judgement Onboarding ═══ */}
+      {showNoJudgement&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.6)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",zIndex:210,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"var(--picker-bg)",borderRadius:28,padding:"32px 24px",width:"100%",maxWidth:380,boxShadow:"0 20px 60px rgba(0,0,0,0.3)",textAlign:"center"}}>
+            <div style={{fontSize:44,marginBottom:16}}>💛</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:"#5B4F5F",marginBottom:16}}>OBubba doesn't judge.</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.8,marginBottom:24,textAlign:"left"}}>
+              Not the formula. Not the co-sleeping. Not the screen time. Not the tears — yours or theirs.<br/><br/>
+              We're just here to help you understand your baby. However you're doing it, <strong style={{color:"#5B4F5F"}}>you're doing it right.</strong>
+            </div>
+            <button onClick={()=>{try{localStorage.setItem("ob_no_judge_v1","1");}catch{}setShowNoJudgement(false);}} style={{width:"100%",padding:"16px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",boxShadow:"0 4px 16px rgba(192,112,136,0.3)"}}>
+              Let's get started 💛
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Pass It On ═══ */}
+      {showPassItOn&&(
+        <div onClick={()=>setShowPassItOn(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:8}}>🎁</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>Know someone with a newborn?</div>
+            <div style={{fontSize:13,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>You've come so far with {babyName||"your little one"}. Pass on what helped you — send OBubba to a friend who's just starting out.</div>
+            <button onClick={async()=>{
+              try{localStorage.setItem("ob_pass_it_on_v1","1");}catch{}
+              const _sp=window.Capacitor?.Plugins?.Share;
+              if(_sp){try{await _sp.share({title:"OBubba — the app that helped me understand "+( babyName||"my baby"),text:"Hey! I've been using this baby app called OBubba and it genuinely helped me through the early months. It learns your baby's rhythm and tells you what's normal. Worth trying: https://obubba.com",dialogTitle:"Share OBubba"});setShowPassItOn(false);return;}catch{}}
+              try{if(navigator.share){await navigator.share({title:"OBubba",text:"Hey! I've been using OBubba and it genuinely helped. Worth trying: https://obubba.com"});}}catch{}
+              setShowPassItOn(false);
+            }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Share OBubba 💛</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_pass_it_on_v1","1");}catch{}setShowPassItOn(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
           </div>
         </div>
       )}
