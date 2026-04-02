@@ -4092,6 +4092,7 @@ function App(){
   const[claimUsername,setClaimUsername]=useState("");
   const[claimPin,setClaimPin]=useState("");
   const[claimStatus,setClaimStatus]=useState("idle"); // idle|checking|taken|available|saving|done|error
+  const[claimError,setClaimError]=useState("");
   const claimCheckRef=useRef(null);
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
 
@@ -5178,14 +5179,27 @@ function App(){
   }
   // Claim account: link username+PIN to EXISTING backup code — no data wipe, no new code
   async function claimAccount(username, pin) {
-    if(!window._fb || !username.trim() || !pin || pin.length < 4) return false;
+    if(!username.trim() || !pin || pin.length < 4) return {ok:false, error:"Username and 4+ digit PIN required"};
+    // Auto-initialize Firebase if not ready (anonymous onboarded users)
+    if(!window._fb) {
+      try{ await initFirebase(); }catch{}
+    }
+    if(!window._fb) return {ok:false, error:"No internet connection — please try again"};
     const {serverTimestamp} = window._fb;
     const key = normaliseUsername(username);
     try {
       const snap = await fsGet("usernames", key);
-      if(snap.exists()) return false; // taken
-      const code = backupCode || localStorage.getItem("backup_code");
-      if(!code) return false; // no backup code to link
+      if(snap.exists()) {
+        const _d = snap.data();
+        if(!_d.deleted) return {ok:false, error:"Username \""+username.trim()+"\" is taken — try another"};
+      }
+      // Generate backup code if anonymous user doesn't have one
+      let code = backupCode || localStorage.getItem("backup_code");
+      if(!code) {
+        code = "BK" + Array.from({length:6},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*31)]).join("");
+        setBackupCode(code);
+        try{ localStorage.setItem("backup_code", code); }catch{}
+      }
       await fsSet("usernames", key, {
         pinHash: hashPin(pin),
         backupCode: code,
@@ -5196,13 +5210,12 @@ function App(){
       setFamilyUsername(username.trim());
       try{ localStorage.setItem("family_username", username.trim()); }catch{}
       try{ localStorage.setItem("auth_verified","1"); }catch{}
-      // Anchor to Firebase UID
       if(window._fbUid) {
         try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:code, updatedAt:serverTimestamp()}, true); }catch{}
       }
       trackEvent("account_claimed_in_app");
-      return true;
-    } catch(e) { console.warn("Claim account error", e); return false; }
+      return {ok:true};
+    } catch(e) { console.warn("Claim account error", e); return {ok:false, error:"Connection error — check your internet and try again"}; }
   }
   async function saveRecoveryWord(word) {
     if(!window._fb || !familyUsername || !word.trim()) return false;
@@ -17072,12 +17085,12 @@ function App(){
                 value={claimPin} onChange={e=>setClaimPin(e.target.value.replace(/\D/g,"").slice(0,8))}
                 style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:15,fontFamily:_fM,boxSizing:_bBB,outline:_oN,letterSpacing:4,textAlign:"center"}}/>
             </div>
-            {claimStatus==="error"&&<div style={{fontSize:12,color:"#e8574a",marginBottom:8,textAlign:"center",fontFamily:_fM}}>Something went wrong — try again</div>}
+            {claimStatus==="error"&&<div style={{fontSize:12,color:"#e8574a",marginBottom:8,textAlign:"center",fontFamily:_fM}}>{claimError||"Something went wrong — try again"}</div>}
             <button disabled={claimStatus!=="available"||claimPin.length<4||claimStatus==="saving"} onClick={async()=>{
-              setClaimStatus("saving");
-              const ok=await claimAccount(claimUsername.trim(),claimPin);
-              if(ok){setClaimStatus("done");setShowClaimPrompt(false);showToast("Account created — your data is protected",2500,1);}
-              else{setClaimStatus("error");}
+              setClaimStatus("saving");setClaimError("");
+              const result=await claimAccount(claimUsername.trim(),claimPin);
+              if(result.ok){setClaimStatus("done");setShowClaimPrompt(false);showToast("Account created — your data is protected",2500,1);}
+              else{setClaimStatus("error");setClaimError(result.error||"Something went wrong");}
             }} style={{width:"100%",padding:"13px",borderRadius:14,border:"none",background:claimStatus==="available"&&claimPin.length>=4?`linear-gradient(135deg,${C.ter},#a85a44)`:"var(--card-bg)",color:claimStatus==="available"&&claimPin.length>=4?"white":C.lt,fontSize:15,fontWeight:700,cursor:claimStatus==="available"&&claimPin.length>=4?_cP:"default",marginBottom:8,fontFamily:_fI,opacity:claimStatus==="saving"?0.6:1}}>
               {claimStatus==="saving"?"Creating...":"Create account"}
             </button>
