@@ -3454,6 +3454,7 @@ function App(){
   const[showNightWake,setShowNightWake]=useState(false);
   const[nightEditId,setNightEditId]=useState(null);
   const[showWakePrompt,setShowWakePrompt]=useState(false);
+  const[showDayExplainer,setShowDayExplainer]=useState(false);
   const[nightSummaryText,setNightSummaryText]=useState(null);
   const[morningMsg,setMorningMsg]=useState(null);
   const[showCalendar,setShowCalendar]=useState(false);
@@ -13162,6 +13163,9 @@ function App(){
         }, 500);
       }
     }
+
+    // Show day explainer popup on first wake or bedtime log
+    if((type==="wake"&&!data.night)||type==="sleep"){try{if(!localStorage.getItem("ob_day_explainer_v1")){localStorage.setItem("ob_day_explainer_v1","1");setTimeout(()=>setShowDayExplainer(true),600);}}catch{}}
 
     setSessionLogs(c=>{
       const n=c+1;
@@ -24912,6 +24916,31 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 ☀️ Start of New Day
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Day Explainer — shown on first ever log */}
+      {showDayExplainer&&(
+        <div onClick={()=>setShowDayExplainer(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>☀️🌙</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:12}}>How Your Day Works</div>
+            <div style={{fontSize:14,color:C.mid,lineHeight:1.7,textAlign:"left",marginBottom:8}}>
+              OBubba wants your mornings to feel like a fresh start — so the OBubba day runs <strong style={{color:C.deep}}>wake-to-wake</strong>, not midnight-to-midnight.
+            </div>
+            <div style={{fontSize:14,color:C.mid,lineHeight:1.7,textAlign:"left",marginBottom:8}}>
+              Your day starts when you log <strong style={{color:C.deep}}>Morning Wake</strong> and ends when you log the next wake.
+            </div>
+            <div style={{fontSize:14,color:C.mid,lineHeight:1.7,textAlign:"left",marginBottom:8}}>
+              Night feeds & wakes (those after bedtime) belong to the day bedtime started on — not the next morning. So a 3am feed is part of last night, not today.
+            </div>
+            <div style={{fontSize:13,color:C.lt,lineHeight:1.6,textAlign:"left",marginBottom:20,fontStyle:"italic"}}>
+              This means your daily summary, nap patterns, and sleep stats all follow {babyName||"your baby"}'s natural rhythm.
+            </div>
+            <button onClick={()=>setShowDayExplainer(false)} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+              Got it!
+            </button>
           </div>
         </div>
       )}
