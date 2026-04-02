@@ -3917,17 +3917,18 @@ function App(){
     );
   };
   // Inline teaser — warm nudge that shows value, never feels like a lock-out
+  const[premiumGateInfo,setPremiumGateInfo]=useState(null); // {icon, label, description, context}
   const PremiumTeaser = ({icon, label, description, context}) => {
     if (isPremium || !STORE_READY) return null;
     if (trialActive) return null;
     return (
-      <button onClick={()=>triggerPaywall(context||"general")} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12,border:`1px solid ${C.ter}20`}}>
-        <div style={{fontSize:22}}>{icon||"💛"}</div>
+      <button onClick={()=>{haptic();setPremiumGateInfo({icon,label,description,context});}} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12,border:`1px solid ${C.ter}20`}}>
+        <div style={{fontSize:22}}>{icon||"\u{1F49B}"}</div>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:600,color:C.deep}}>{label}</div>
           {description && <div style={{fontSize:12,color:C.lt,marginTop:2,lineHeight:1.4}}>{description}</div>}
         </div>
-        <div style={{fontSize:11,fontWeight:600,color:C.ter,whiteSpace:"nowrap"}}>Try free →</div>
+        <div style={{fontSize:11,fontWeight:600,color:C.ter,whiteSpace:"nowrap"}}>{trialExpired?"Unlock \u2192":"Subscribe \u2192"}</div>
       </button>
     );
   };
@@ -26018,6 +26019,20 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 }} style={{padding:"8px 16px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:12,cursor:"pointer"}}>Later</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Premium Feature Gate Popup ═══ */}
+      {premiumGateInfo&&(
+        <div onClick={()=>setPremiumGateInfo(null)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:10}}>{premiumGateInfo.icon||"\u{1F49B}"}</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>{premiumGateInfo.label}</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>{premiumGateInfo.description}</div>
+            <div style={{fontSize:13,color:"#6A6070",lineHeight:1.6,marginBottom:16,padding:"10px 14px",background:"rgba(155,139,184,0.06)",borderRadius:12}}>For less than a coffee a month, unlock personalised predictions, sleep analysis, growth charts, and more for {babyName||"your baby"}.</div>
+            <button onClick={()=>{setPremiumGateInfo(null);triggerPaywall(premiumGateInfo.context||"general");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe — {"\u00A3"}4.99/month</button>
+            <button onClick={()=>setPremiumGateInfo(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
           </div>
         </div>
       )}
