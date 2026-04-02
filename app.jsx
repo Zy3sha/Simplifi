@@ -7148,8 +7148,8 @@ function App(){
     _whyLines.push("Look for sleepy cues: yawning, eye rubbing, staring. These usually appear 5–10 min before the ideal nap time.");
     if (isPremium && _pred && _pred.sourceLabel && _pred.sourceLabel.includes("pattern")) {
       _whyLines.push("This is unique to " + _name + " — based on their Bubba Rhythm.");
-    } else if (STORE_READY && !isPremium && Object.keys(days).length >= 3) {
-      _whyLines.push("🔒 " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see it.");
+    } else if (STORE_READY && !isPremium && !trialActive && Object.keys(days).length >= 3) {
+      _whyLines.push("\u{1F512} " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see it.");
     }
     _whyLines.push("Sleep timing based on NHS Start4Life, AASM (American Academy of Sleep Medicine), and WHO Infant Health guidelines for " + fmtAge(age) + ". Always follow your baby's individual cues.");
     // Three-drive explanation
@@ -19770,8 +19770,8 @@ function App(){
 
               {/* Weekly Summary + Wins removed — covered by hero card */}
 
-              {/* ═══ Bubba Rhythm Profile (PREMIUM placeholder) ═══ */}
-              {STORE_READY && Object.keys(days).length >= 3 && (
+              {/* ═══ Bubba Rhythm Profile (PREMIUM placeholder — only for non-premium/non-trial) ═══ */}
+              {STORE_READY && !isPremium && !trialActive && Object.keys(days).length >= 3 && (
                 <div className="glass-card" style={{padding:"16px",marginBottom:12,position:"relative",overflow:"hidden"}}>
                   <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4}}>Bubba Rhythm</div>
                   <div style={{fontSize:12,color:C.lt,marginBottom:12,fontStyle:"italic"}}>We're learning {babyName||"baby"}'s rhythm…</div>
