@@ -17671,7 +17671,7 @@ function App(){
                       <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{top.title}</span>
                     </div>
                     <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{top.brief}</div>
-                    <button onClick={()=>{haptic();showToast(top.detail,8000,2);}} style={{fontSize:12,color:C.ter,fontWeight:600,background:"none",border:"none",padding:0,cursor:_cP}}>
+                    <button onClick={()=>{haptic();setTab("develop");setDevFilter("milestones");}} style={{fontSize:12,color:C.ter,fontWeight:600,background:"none",border:"none",padding:0,cursor:_cP}}>
                       Tell me more →
                     </button>
                   </div>
@@ -19001,7 +19001,7 @@ function App(){
                     <div style={{flex:1}}>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:3}}>Sharing the load?</div>
                       <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:10}}>Invite your partner so they can see {babyName||"baby"}'s schedule, log feeds and naps, and stay in sync — even when you're resting.</div>
-                      <button onClick={()=>{haptic();setTab("settings");}} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"10px 20px",color:"white",fontSize:13,fontWeight:700,cursor:_cP,boxShadow:"0 4px 16px rgba(201,112,90,0.3)"}}>
+                      <button onClick={()=>{haptic();setTab("settings");setTimeout(()=>setShowFamilyModal(true),300);}} style={{background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:"none",borderRadius:99,padding:"10px 20px",color:"white",fontSize:13,fontWeight:700,cursor:_cP,boxShadow:"0 4px 16px rgba(201,112,90,0.3)"}}>
                         Set up partner sync →
                       </button>
                     </div>
