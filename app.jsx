@@ -13153,13 +13153,34 @@ function App(){
       ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
     });
 
-    // ═══ MASCOT — top left corner ═══
+    // ═══ BABY PHOTO or MASCOT — top left corner ═══
     let mascotImg=null;
-    try{
-      mascotImg=new Image();mascotImg.crossOrigin="anonymous";
-      await new Promise((res,rej)=>{mascotImg.onload=res;mascotImg.onerror=rej;mascotImg.src="obubba-happy.png";setTimeout(rej,3000);});
-      ctx.drawImage(mascotImg,20,30,340,340);
-    }catch{mascotImg=null;}
+    const _babyPhoto = activeChild?.photo || null;
+    if(_babyPhoto){
+      try{
+        const _bpImg=new Image();_bpImg.crossOrigin="anonymous";
+        await new Promise((res,rej)=>{_bpImg.onload=res;_bpImg.onerror=rej;_bpImg.src=_babyPhoto;setTimeout(rej,3000);});
+        // Draw circular baby photo
+        const _bpS=260,_bpX=40+_bpS/2,_bpY=50+_bpS/2;
+        ctx.save();ctx.beginPath();ctx.arc(_bpX,_bpY,_bpS/2,0,Math.PI*2);ctx.clip();
+        const _bpA=_bpImg.width/_bpImg.height;let _bpW=_bpS,_bpH=_bpS;
+        if(_bpA>1)_bpW=_bpS*_bpA;else _bpH=_bpS/_bpA;
+        ctx.drawImage(_bpImg,_bpX-_bpW/2,_bpY-_bpH/2,_bpW,_bpH);ctx.restore();
+        // Photo ring
+        ctx.strokeStyle="rgba(255,255,255,0.5)";ctx.lineWidth=4;
+        ctx.beginPath();ctx.arc(_bpX,_bpY,_bpS/2+2,0,Math.PI*2);ctx.stroke();
+        ctx.strokeStyle="rgba(212,168,85,0.3)";ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(_bpX,_bpY,_bpS/2+6,0,Math.PI*2);ctx.stroke();
+        mascotImg=_bpImg; // flag that we drew something
+      }catch{}
+    }
+    if(!mascotImg){
+      try{
+        mascotImg=new Image();mascotImg.crossOrigin="anonymous";
+        await new Promise((res,rej)=>{mascotImg.onload=res;mascotImg.onerror=rej;mascotImg.src="obubba-happy.png";setTimeout(rej,3000);});
+        ctx.drawImage(mascotImg,20,30,340,340);
+      }catch{mascotImg=null;}
+    }
 
     // ═══ "OBubba" LOGO — right of mascot ═══
     ctx.textAlign="center";
@@ -18988,14 +19009,7 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ SHARE RECAP — moved to Insights per UX strategy ═══ */}
-              {false && selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 3 && (
-                <button onClick={()=>{haptic();generateDailyRecapCard();}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"13px 16px",borderRadius:16,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
-                  <span style={{fontSize:18}}>📸</span>
-                  <span style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:_fI}}>Share Today's Recap</span>
-                  <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>Beautiful card for Stories & WhatsApp</span>
-                </button>
-              )}
+              {/* removed: Share Recap moved to Send to Family below */}
 
               {/* ═══ DAY NARRATIVE — story of the day (bottom of page) ═══ */}
               {selDay===todayStr()&&(()=>{
@@ -19014,13 +19028,12 @@ function App(){
                 );
               })()}
 
-              {/* ═══ SEND TO FAMILY — daily snapshot for grandparents ═══ */}
+              {/* ═══ SEND TO FAMILY — daily snapshot with baby photo ═══ */}
               {selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 2 && (
                 <button onClick={async()=>{
                   haptic();
                   try {
                     const _sfName = babyName || "Baby";
-                    const _sfDate = selDay;
                     const _sfEntries = days[selDay] || [];
                     const _sfWake = _sfEntries.find(e=>e.type==="wake"&&!e.night);
                     const _sfFeeds = _sfEntries.filter(e=>e.type==="feed"&&!e.night);
@@ -19028,28 +19041,101 @@ function App(){
                     const _sfNaps = _sfEntries.filter(e=>e.type==="nap"&&!e.night);
                     const _sfTotalNapMin = _sfNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
                     const _sfNappies = _sfEntries.filter(e=>e.type==="poop");
-                    const _sfNotes = pinnedNotes.filter(n=>n.pinned).map(n=>n.text);
                     const _sfTd = tickDataRef.current || {};
                     const _sfNext = _sfTd.napsComplete && _sfTd.bedMins ? "Bedtime ~"+fmt12(`${String(Math.floor(_sfTd.bedMins/60)%24).padStart(2,"0")}:${String(_sfTd.bedMins%60).padStart(2,"0")}`) : _sfTd.nextNapMins ? "Nap ~"+fmt12(`${String(Math.floor(_sfTd.nextNapMins/60)%24).padStart(2,"0")}:${String(_sfTd.nextNapMins%60).padStart(2,"0")}`) : null;
-                    let _sfMsg = _sfName + "'s Day — " + _sfDate + "\n\n";
-                    if (_sfWake) _sfMsg += "Wake: " + fmt12(_sfWake.time) + "\n";
-                    _sfMsg += "Feeds: " + _sfFeeds.length + (_sfTotalMl ? " (" + _sfTotalMl + "ml total)" : "") + "\n";
-                    _sfMsg += "Naps: " + _sfNaps.length + (_sfTotalNapMin ? " (" + hm(_sfTotalNapMin) + " total)" : "") + "\n";
-                    _sfMsg += "Nappies: " + _sfNappies.length + "\n";
-                    if (_sfNotes.length) _sfMsg += "\nNotes: " + _sfNotes.join(", ") + "\n";
-                    if (_sfNext) _sfMsg += "\nNext up: " + _sfNext + "\n";
-                    _sfMsg += "\nTracked with OBubba";
-                    const _sp = window.Capacitor?.Plugins?.Share;
-                    if (_sp) { await _sp.share({title:_sfName+"'s Day",text:_sfMsg,dialogTitle:"Send to Family"}); }
-                    else if (navigator.share) { await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
+                    // Generate image card with baby photo
+                    const W=1080,H=1350;
+                    const _cv=document.createElement("canvas");_cv.width=W;_cv.height=H;
+                    const _cx=_cv.getContext("2d");
+                    // Background
+                    const _bg=_cx.createLinearGradient(0,0,W,H);
+                    _bg.addColorStop(0,"#F5EDE8");_bg.addColorStop(0.5,"#F0E4DD");_bg.addColorStop(1,"#EDE0D8");
+                    _cx.fillStyle=_bg;_cx.fillRect(0,0,W,H);
+                    // Baby photo circle (if available)
+                    const _photoSrc = activeChild.photo || null;
+                    if(_photoSrc){
+                      try{
+                        const _pi=new Image();_pi.crossOrigin="anonymous";
+                        await new Promise((r,j)=>{_pi.onload=r;_pi.onerror=j;_pi.src=_photoSrc;setTimeout(j,3000);});
+                        const _ps=200;_cx.save();
+                        _cx.beginPath();_cx.arc(W/2,180,_ps/2,0,Math.PI*2);_cx.clip();
+                        const _pa=_pi.width/_pi.height;let _pw=_ps,_ph=_ps;
+                        if(_pa>1)_pw=_ps*_pa;else _ph=_ps/_pa;
+                        _cx.drawImage(_pi,W/2-_pw/2,180-_ph/2,_pw,_ph);_cx.restore();
+                        _cx.strokeStyle="rgba(201,112,90,0.3)";_cx.lineWidth=4;
+                        _cx.beginPath();_cx.arc(W/2,180,_ps/2+2,0,Math.PI*2);_cx.stroke();
+                      }catch{}
+                    } else {
+                      // Mascot fallback
+                      try{
+                        const _mi=new Image();_mi.crossOrigin="anonymous";
+                        await new Promise((r,j)=>{_mi.onload=r;_mi.onerror=j;_mi.src="obubba-happy.png";setTimeout(j,3000);});
+                        _cx.drawImage(_mi,W/2-100,80,200,200);
+                      }catch{}
+                    }
+                    _cx.textAlign="center";
+                    // Baby name + date
+                    _cx.font="bold 52px Georgia,serif";_cx.fillStyle="#4A3F3F";
+                    _cx.fillText(_sfName+"'s Day",W/2,340);
+                    _cx.font="24px sans-serif";_cx.fillStyle="#A09090";
+                    _cx.fillText(new Date(selDay+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"}),W/2,380);
+                    // Stats cards
+                    const _sx=100,_sw=W-200,_sy=430;
+                    _cx.fillStyle="rgba(255,255,255,0.8)";
+                    _cx.beginPath();_cx.roundRect(_sx,_sy,_sw,700,24);_cx.fill();
+                    const _stats=[
+                      ["\u2600\uFE0F","Woke up",_sfWake?fmt12(_sfWake.time):"--"],
+                      ["\u{1F37C}","Feeds",_sfFeeds.length+(_sfTotalMl?" ("+_sfTotalMl+"ml)":"")],
+                      ["\u{1F4A4}","Naps",_sfNaps.length+(_sfTotalNapMin?" ("+hm(_sfTotalNapMin)+")":"")],
+                      ["\u{1F6BC}","Nappies",String(_sfNappies.length)],
+                    ];
+                    if(_sfNext) _stats.push(["\u{1F52E}","Next up",_sfNext]);
+                    _stats.forEach((s,i)=>{
+                      const _ry=_sy+60+i*120;
+                      _cx.font="36px serif";_cx.textAlign="left";_cx.fillText(s[0],_sx+40,_ry+10);
+                      _cx.font="bold 28px sans-serif";_cx.fillStyle="#5B4F5F";_cx.fillText(s[1],_sx+100,_ry);
+                      _cx.font="28px sans-serif";_cx.fillStyle="#8A7F87";_cx.fillText(s[2],_sx+100,_ry+38);
+                      _cx.fillStyle="#4A3F3F";
+                      if(i<_stats.length-1){_cx.strokeStyle="rgba(180,160,150,0.15)";_cx.lineWidth=1;_cx.beginPath();_cx.moveTo(_sx+40,_ry+70);_cx.lineTo(_sx+_sw-40,_ry+70);_cx.stroke();}
+                    });
+                    // Branding
+                    _cx.textAlign="center";_cx.font="bold 22px sans-serif";_cx.fillStyle="#c9705a";
+                    _cx.fillText("Tracked with OBubba",W/2,H-40);
+                    // Share as image
+                    let _dataUrl;
+                    try{_dataUrl=_cv.toDataURL("image/png");}catch{_dataUrl=null;}
+                    if(_dataUrl){
+                      try{
+                        const _res=await fetch(_dataUrl);const _blob=await _res.blob();
+                        const _file=new File([_blob],"obubba-day-"+selDay+".png",{type:"image/png"});
+                        if(navigator.canShare&&navigator.canShare({files:[_file]})){
+                          await navigator.share({files:[_file],title:_sfName+"'s Day"});
+                        } else {
+                          const _sp=window.Capacitor?.Plugins?.Share;
+                          let _sfMsg=_sfName+"'s Day\n\n";
+                          if(_sfWake)_sfMsg+="Wake: "+fmt12(_sfWake.time)+"\n";
+                          _sfMsg+="Feeds: "+_sfFeeds.length+(_sfTotalMl?" ("+_sfTotalMl+"ml)":"")+"\n";
+                          _sfMsg+="Naps: "+_sfNaps.length+(_sfTotalNapMin?" ("+hm(_sfTotalNapMin)+")":"")+"\n";
+                          _sfMsg+="Nappies: "+_sfNappies.length+"\n";
+                          if(_sfNext)_sfMsg+="Next: "+_sfNext+"\n";
+                          _sfMsg+="\nTracked with OBubba";
+                          if(_sp){await _sp.share({title:_sfName+"'s Day",text:_sfMsg,dialogTitle:"Send to Family"});}
+                          else if(navigator.share){await navigator.share({title:_sfName+"'s Day",text:_sfMsg});}
+                        }
+                      }catch(e){if(e.name!=="AbortError")console.warn("Share error",e);}
+                    }
                   } catch {}
-                }} className="glass-card" style={{width:"100%",padding:"12px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:10,border:"none"}}>
-                  <span style={{fontSize:18}}>&#128140;</span>
-                  <div>
+                }} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12,border:"none"}}>
+                  {activeChild.photo ? (
+                    <img src={activeChild.photo} style={{width:42,height:42,borderRadius:21,objectFit:"cover",border:`2px solid ${C.blush}`}}/>
+                  ) : (
+                    <span style={{fontSize:24}}>{"\u{1F476}"}</span>
+                  )}
+                  <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Send to Family</div>
-                    <div style={{fontSize:11,color:C.lt}}>Share today's snapshot with grandparents</div>
+                    <div style={{fontSize:11,color:C.lt}}>Share {babyName||"baby"}'s day with grandparents</div>
                   </div>
-                  <span style={{marginLeft:"auto",fontSize:11,color:C.ter,fontWeight:600}}>&#128228;</span>
+                  <span style={{fontSize:16,color:C.ter}}>{"\u{1F4E8}"}</span>
                 </button>
               )}
 
@@ -20734,13 +20820,7 @@ function App(){
               </div>}
 
 
-              {/* ═══ SHARE RECAP — moved from Today ═══ */}
-              {selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 3 && (
-                <button onClick={()=>{haptic();generateDailyRecapCard();}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"13px 16px",borderRadius:16,border:"1.5px solid " + C.blush,background:"var(--card-bg)",cursor:_cP,marginBottom:12,boxShadow:"var(--card-shadow)"}}>
-                  <span style={{fontSize:18}}>📸</span>
-                  <span style={{fontSize:14,fontWeight:700,color:C.deep}}>Share Today's Recap</span>
-                </button>
-              )}
+              {/* removed: Share Recap consolidated into Send to Family on Day tab */}
 
               {/* ── REPORTS & TRENDS (collapsible) ── */}
               {(insightFilter==="reports") && <div>
