@@ -6277,8 +6277,8 @@ function App(){
     } else {
       tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded };
     }
-    // Keep pred/bed for other consumers
-    try { tickDataRef.current.pred = predictNextNap(); } catch {}
+    // Keep pred/bed for other consumers (premium/trial only for personal predictions)
+    try { tickDataRef.current.pred = (isPremium || trialActive) ? predictNextNap() : null; } catch {}
     try { tickDataRef.current.bed = bedtimePrediction(); } catch {}
     try { tickDataRef.current.bridgeInfo = earlyBedtimeRisk(); } catch {}
 
@@ -6619,7 +6619,7 @@ function App(){
     const _naps = _todayEntries.filter(e => e.type === "nap" && !e.night);
     // Only count naps that are actually finished (end differs from start and has positive duration)
     // The active nap entry has end===start while running — exclude it so "naps complete" doesn't fire early
-    const _completedNaps = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) > 0);
+    const _completedNaps = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5);
     const _napsDone = _completedNaps.length;
     const _totalNapMin = _completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     const _ageExpected = _profile.expectedNaps;
@@ -7451,7 +7451,7 @@ function App(){
   // ── SECTION 7: PREDICTION ENGINE (NAP & BEDTIME) ──────────────────
   function predictNextNap() {
     const ageWeeks = age ? age.totalWeeks : null;
-    if (!ageWeeks || !selDay) return null;
+    if (!ageWeeks || !selDay || !entries || !Array.isArray(entries)) return null;
 
     const bedEntry4 = entries.find(e => {if(e.type!=="sleep"||e.night) return false; const bh=parseInt((e.time||"00:00").split(":")[0]); return bh>=12;});
     if (bedEntry4) {
@@ -7933,6 +7933,7 @@ function App(){
     return C.ter;
   }
   function bedtimePrediction() {
+    if (!entries || !Array.isArray(entries)) return null;
     const today = entries;
     const todayNaps = today.filter(e => e.type === "nap" && !e.night && e.start && e.end && minDiff(e.start, e.end) >= 5 && minDiff(e.start, e.end) < 480);
     if (!age) return null;
