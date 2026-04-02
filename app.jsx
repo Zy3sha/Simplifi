@@ -21237,6 +21237,8 @@ function App(){
           const comingSoonMs = dueNowAll.filter(m => catOk(m) && ageWeeks < m.weeks[1] - 4);
           // Sub-group: "Keep Practising" — past typical age but still in window
           const keepPractisingMs = dueNowAll.filter(m => catOk(m) && ageWeeks > m.weeks[1] + 4);
+          // Upcoming: not yet in window but coming within next 8 weeks
+          const upcomingMs = MILESTONES.filter(m => catOk(m) && !milestones[m.id]?.date && ageWeeks < m.weeks[0] && m.weeks[0] <= ageWeeks + 8);
           // Achieved: all milestones marked as done
           const pastMs = MILESTONES.filter(m => catOk(m) && milestones[m.id]?.date);
           // Category breakdown — achieved counts
@@ -22170,7 +22172,7 @@ function App(){
               })()}
 
               {/* ═══ First Tastes + Try Tomorrow suggestion ═══ */}
-              {age && (weaningStarted || devFilter==="weaning") && (devFilter==="activities"||devFilter==="weaning") && (()=>{
+              {age && age.totalWeeks >= 17 && (weaningStarted || devFilter==="weaning") && (devFilter==="activities"||devFilter==="weaning") && (()=>{
                 const _wksSinceWean = Math.max(0, age.totalWeeks - 26);
                 const _allFoods = [
                   // Phase 1 — first 2 weeks: veg only (NHS recommends starting with vegetables)
@@ -22420,7 +22422,7 @@ function App(){
 
 
               {/* ═══ Foods to Avoid — NHS safety guidance ═══ */}
-              {age && (weaningStarted || devFilter==="weaning") && (devFilter==="weaning") && (
+              {age && age.totalWeeks >= 17 && (weaningStarted || devFilter==="weaning") && (devFilter==="weaning") && (
                 <div style={{border:"1.5px solid rgba(232,87,74,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:12,background:"rgba(232,87,74,0.03)"}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                     <span style={{fontSize:14}}>🚫</span>
@@ -22446,7 +22448,7 @@ function App(){
               )}
 
               {/* ═══ Allergen Checklist ═══ */}
-              {age && (weaningStarted || devFilter==="weaning") && devFilter==="weaning" && (()=>{
+              {age && age.totalWeeks >= 17 && (weaningStarted || devFilter==="weaning") && devFilter==="weaning" && (()=>{
                 const _introduced = ALLERGEN_GUIDE.filter(a => allergenIntroduced(weaning, a.id));
                 const _notDone = ALLERGEN_GUIDE.filter(a => !allergenIntroduced(weaning, a.id));
                 const _needsMaintaining = _introduced.filter(a => !allergenRecent(weaning, a.id));
@@ -22917,7 +22919,7 @@ function App(){
               })()}
 
               {/* ═══ Recipe Library (Premium) ═══ */}
-              {age && (weaningStarted || devFilter==="weaning") && devFilter==="weaning" && (()=>{
+              {age && age.totalWeeks >= 17 && (weaningStarted || devFilter==="weaning") && devFilter==="weaning" && (()=>{
                 const _currentStage = WEANING_STAGES.find(s=>age.totalWeeks>=s.weeksRange[0]&&age.totalWeeks<=s.weeksRange[1]) || WEANING_STAGES[0];
                 const _recipes = WEANING_RECIPES.filter(r=>r.stage===_recipeStage);
                 const _canAccess = isPremium || trialActive || !STORE_READY;
@@ -23209,8 +23211,16 @@ function App(){
                   </Accordion>
                 )}
 
+                {/* Upcoming milestones — not yet in window but coming soon */}
+                {upcomingMs.length > 0 && (
+                  <Accordion label="Coming Up Next" count={upcomingMs.length} open={true} toggle={()=>{}} accent={C.lt}
+                    helpText={"Milestones to look forward to in the next few weeks."}>
+                    {upcomingMs.sort((a,b)=>a.weeks[0]-b.weeks[0]).map(m => <MilestoneRow key={m.id} m={m}/>)}
+                  </Accordion>
+                )}
+
                 {/* Empty state */}
-                {onTrackMs.length === 0 && comingSoonMs.length === 0 && keepPractisingMs.length === 0 && pastMs.length === 0 && (
+                {onTrackMs.length === 0 && comingSoonMs.length === 0 && keepPractisingMs.length === 0 && upcomingMs.length === 0 && pastMs.length === 0 && (
                   <div style={{textAlign:"center",padding:"24px 16px",color:C.lt,fontSize:13}}>
                     No milestones to show{msFilter!=="all"?" in this category":""}. Try selecting "All" above.
                   </div>
