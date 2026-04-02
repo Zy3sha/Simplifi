@@ -5176,19 +5176,29 @@ function App(){
           if(!existingData.deleted) return false;
         }
       }
-      // Generate a fresh backup code for this new account — NEVER reuse existing codes
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      // Check if user already has data (anonymous onboarded user claiming account)
+      const _existingCode = backupCode || localStorage.getItem("backup_code");
+      const _existingChildren = childrenRef.current || {};
+      const _hasExistingData = Object.values(_existingChildren).some(c => c.name || Object.keys(c.days||{}).some(d => (c.days[d]||[]).length > 0));
+
       let newCode;
-      for(let attempt=0;attempt<20;attempt++){
-        newCode = "BK"+Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
-        const codeSnap = await fsGet("families", newCode);
-        if(!codeSnap.exists()) break;
+      if (_hasExistingData && _existingCode) {
+        // KEEP existing data + backup code — just attach username to it
+        newCode = _existingCode;
+      } else {
+        // Fresh account — generate new backup code
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        for(let attempt=0;attempt<20;attempt++){
+          newCode = "BK"+Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+          const codeSnap = await fsGet("families", newCode);
+          if(!codeSnap.exists()) break;
+        }
+        // Clear previous account data — safe because no existing data
+        const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
+        setChildren({[blankChild.id]:blankChild});
+        setActiveChildId(blankChild.id);
+        try{ localStorage.setItem("children_v1", JSON.stringify({[blankChild.id]:blankChild})); }catch{}
       }
-      // Clear any previous account data from this device — CRITICAL for multi-account safety
-      const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
-      setChildren({[blankChild.id]:blankChild});
-      setActiveChildId(blankChild.id);
-      try{ localStorage.setItem("children_v1", JSON.stringify({[blankChild.id]:blankChild})); }catch{}
       try{ localStorage.removeItem("family_code"); }catch{}
       setBackupCode(newCode);
       try{ localStorage.setItem("backup_code", newCode); }catch{}
@@ -18748,9 +18758,9 @@ function App(){
                 {dayE.length===0&&(
                   <div style={{textAlign:"center",padding:"22px 12px",background:"var(--card-bg-alt)",borderRadius:14,border:`1px dashed ${C.blush}`}}>
                     <div style={{fontSize:28,marginBottom:8}}>👆</div>
-                    <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>Nothing logged yet today</div>
+                    <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>Start {babyName||"baby"}'s day</div>
                     <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>
-                      Tap 🍼 Feed, 💩 Nappy or 😴 Sleep above to log an entry.
+                      Tap a button above to log {babyName||"baby"}'s first entry for today.
                     </div>
                   </div>
                 )}
