@@ -2070,38 +2070,66 @@ function fmtAge(age) {
   return parts.join(" ") || "Newborn";
 }
 
-function UsernameSetForm({ normaliseUsername, reserveUsername, C }) {
+function UsernameSetForm({ normaliseUsername, reserveUsername, saveRecoveryEmail, showToast, C }) {
   const [u, setU] = React.useState("");
+  const [pin, setPin] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [st, setSt] = React.useState("idle");
+  const [err, setErr] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
   const ref = React.useRef(null);
+  const canSubmit = st==="available" && pin.length===4 && !saving;
   return (
     <div>
-      <div style={{position:"relative",marginBottom:6}}>
-        <input value={u} onChange={e=>{
-          setU(e.target.value); setSt("checking");
-          clearTimeout(ref.current);
-          if(e.target.value.trim().length<3){setSt("invalid");return;}
-          ref.current=setTimeout(async()=>{
-            try{
-            if(!window._fb){setSt("idle");return;}
-            const {db,doc,getDoc}=window._fb;
-            const snap=await fsGet("usernames", normaliseUsername(e.target.value));
-            setSt(snap.exists()?"taken":"available");
-            }catch{setSt("idle");}
-          },600);
-        }} placeholder="e.g. TeamSmith"
-        style={{width:"100%",padding:"9px 36px 9px 12px",borderRadius:10,border:`1.5px solid ${st==="available"?"#50c878":st==="taken"?C.ter:C.blush}`,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
-        <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>
-          {st==="checking"?"⏳":st==="available"?"✅":st==="taken"?"❌":""}
-        </span>
+      <div style={{marginBottom:10}}>
+        <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.8px",display:"block",marginBottom:4}}>Username</label>
+        <div style={{position:"relative"}}>
+          <input value={u} onChange={e=>{
+            setU(e.target.value); setSt("checking"); setErr("");
+            clearTimeout(ref.current);
+            if(e.target.value.trim().length<3){setSt("invalid");return;}
+            ref.current=setTimeout(async()=>{
+              try{
+                if(!window._fb){
+                  await new Promise(r=>{let t=0;const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200);});
+                }
+                if(!window._fb){setSt("idle");return;}
+                const snap=await fsGet("usernames", normaliseUsername(e.target.value));
+                setSt(snap.exists()?"taken":"available");
+              }catch{setSt("idle");}
+            },600);
+          }} placeholder="e.g. TeamSmith" autoCapitalize="none" autoCorrect="off"
+          style={{width:"100%",padding:"9px 36px 9px 12px",borderRadius:10,border:`1.5px solid ${st==="available"?"#9BB8A8":st==="taken"?C.ter:C.blush}`,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB,background:"var(--card-bg-solid)"}}/>
+          <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>
+            {st==="checking"?"\u23F3":st==="available"?"\u2705":st==="taken"?"\u274C":""}
+          </span>
+        </div>
+        {st==="taken"&&<div style={{fontSize:11,color:C.ter,marginTop:3}}>That username is taken</div>}
       </div>
-      {st==="taken"&&<div style={{fontSize:12,color:C.ter,marginBottom:6}}>That username is taken — try another</div>}
+      <div style={{marginBottom:10}}>
+        <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.8px",display:"block",marginBottom:4}}>4-digit PIN</label>
+        <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={pin}
+          onChange={e=>setPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4))} placeholder="1234"
+          style={{width:"100%",fontSize:20,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${pin.length===4?"#9BB8A8":C.blush}`,fontFamily:_fM,textAlign:"center",letterSpacing:"0.3em",outline:_oN,boxSizing:_bBB,background:"var(--card-bg-solid)"}}/>
+      </div>
+      <div style={{marginBottom:12}}>
+        <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.8px",display:"block",marginBottom:4}}>Recovery email <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="For PIN/username recovery"
+          style={{width:"100%",fontSize:14,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${C.blush}`,fontFamily:_fI,outline:_oN,boxSizing:_bBB,background:"var(--card-bg-solid)"}}/>
+        <div style={{fontSize:10,color:C.lt,marginTop:3}}>If you forget your PIN or username, we look up your account with this email.</div>
+      </div>
+      {err&&<div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{err}</div>}
       <button onClick={async()=>{
-        if(st!=="available"||!u.trim()) return;
-        const ok = await reserveUsername(u);
-        if(!ok) setSt("taken");
-      }} disabled={st!=="available"} style={{width:"100%",padding:"9px",borderRadius:99,border:_bN,background:st==="available"?C.ter:"#f2d9cc",color:st==="available"?"white":"#b89890",fontSize:14,fontWeight:700,cursor:st==="available"?"pointer":"not-allowed",fontFamily:_fI}}>
-        Save username
+        if(!canSubmit) return;
+        setSaving(true); setErr("");
+        const ok = await reserveUsername(u, pin);
+        if(ok) {
+          if(email.trim().includes("@")) { try{await saveRecoveryEmail(email.trim());}catch{} }
+          showToast("Account created \u2014 your data is protected \u2705",2500,1);
+        } else { setErr("Username taken or connection error"); setSt("taken"); }
+        setSaving(false);
+      }} disabled={!canSubmit} style={{width:"100%",padding:"11px",borderRadius:99,border:_bN,background:canSubmit?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",color:canSubmit?"white":"rgba(155,139,184,0.5)",fontSize:14,fontWeight:700,cursor:canSubmit?"pointer":"not-allowed",fontFamily:_fI,boxShadow:canSubmit?"0 4px 16px rgba(155,139,184,0.3)":"none"}}>
+        {saving?"Creating...":"Create Account"}
       </button>
     </div>
   );
@@ -5121,7 +5149,12 @@ function App(){
     }, 500);
   }
   async function reserveUsername(username, pin) {
-    if(!window._fb || !username.trim()) return false;
+    if(!username.trim()) return false;
+    // Wait for Firebase if not ready yet (module may still be loading)
+    if(!window._fb) {
+      await new Promise(r => { let t=0; const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200); });
+    }
+    if(!window._fb) return false;
     // Disconnect any previous listener to prevent data crossover
     if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
     // Disconnect any previous account's listener to prevent data crossover
@@ -5180,9 +5213,9 @@ function App(){
   // Claim account: link username+PIN to EXISTING backup code — no data wipe, no new code
   async function claimAccount(username, pin) {
     if(!username.trim() || !pin || pin.length < 4) return {ok:false, error:"Username and 4+ digit PIN required"};
-    // Auto-initialize Firebase if not ready (anonymous onboarded users)
+    // Wait for Firebase if not ready yet (module may still be loading)
     if(!window._fb) {
-      try{ await initFirebase(); }catch{}
+      await new Promise(r => { let t=0; const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200); });
     }
     if(!window._fb) return {ok:false, error:"No internet connection — please try again"};
     const {serverTimestamp} = window._fb;
@@ -26627,7 +26660,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid var(--card-border)"}}>
                 <div style={{fontSize:13,fontWeight:700,color:"var(--gold)",marginBottom:4}}>No username set</div>
                 <div style={{fontSize:13,color:"var(--gold)",marginBottom:8}}>Set a username so your partner can find and sync with you.</div>
-                <UsernameSetForm normaliseUsername={normaliseUsername} reserveUsername={reserveUsername} C={C} />
+                <UsernameSetForm normaliseUsername={normaliseUsername} reserveUsername={reserveUsername} saveRecoveryEmail={saveRecoveryEmail} showToast={showToast} C={C} />
               </div>
             )}
 
