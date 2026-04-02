@@ -3211,17 +3211,16 @@ function App(){
     } catch {}
   },[days, isPremium, trialActive]);
 
-  // ── Deferred Account Creation Prompt (day 2-3 for anonymous users) ──
+  // ── Deferred Account Creation Prompt (after first few logs for anonymous users) ──
   useEffect(()=>{
     try {
-      if (!localStorage.getItem("ob_onboard_anon")) return; // not anonymous
-      if (localStorage.getItem("family_username")) return; // already has account
+      if (!localStorage.getItem("ob_onboard_anon")) return;
+      if (localStorage.getItem("family_username")) return;
       if (localStorage.getItem("ob_account_prompt_dismissed")) return;
-      const _obDate = localStorage.getItem("ob_onboard_date");
-      if (!_obDate) return;
-      const _daysSince = Math.floor((Date.now() - new Date(_obDate+"T12:00:00").getTime()) / 86400000);
-      if (_daysSince >= 2 && _daysSince <= 7) {
-        const _timer = setTimeout(()=>setShowDeferredAuth(true), 4000);
+      // Count total entries across all days
+      const _totalLogs = Object.values(days).reduce((s,d)=>s+(d||[]).length, 0);
+      if (_totalLogs >= 5) {
+        const _timer = setTimeout(()=>setShowDeferredAuth(true), 2000);
         return ()=>clearTimeout(_timer);
       }
     } catch {}
@@ -25747,10 +25746,25 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
         <div onClick={()=>{try{localStorage.setItem("ob_account_prompt_dismissed","1");}catch{}setShowDeferredAuth(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
             <div style={{fontSize:36,marginBottom:8}}>{"\u{1F512}"}</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>Keep your data safe</div>
-            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>Your tracking is only on this device right now. Create an account to back it up, sync with your partner, and access it on any device.</div>
-            <button onClick={()=>{setShowDeferredAuth(false);setAuthMode("create");setAuthScreen("login");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Create Account</button>
-            <button onClick={()=>{try{localStorage.setItem("ob_account_prompt_dismissed","1");}catch{}setShowDeferredAuth(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not yet</button>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:10}}>You're building something valuable</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:6}}>OBubba is already learning {babyName||"your baby"}'s rhythm from the logs you've made. Right now that data only lives on this device.</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>Create a free account to:</div>
+            <div style={{textAlign:"left",marginBottom:18,padding:"0 8px"}}>
+              {[
+                ["\u{1F4BE}","Back up your data so it's never lost"],
+                ["\u{1F46B}","Sync with your partner in real time"],
+                ["\u{1F4F1}","Access from any device"],
+                ["\u{2601}\uFE0F","Keep everything safe if you change phones"],
+              ].map(([icon,text],i)=>(
+                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
+                  <span style={{fontSize:16,flexShrink:0,marginTop:1}}>{icon}</span>
+                  <span style={{fontSize:13,color:"#6A6070",lineHeight:1.5}}>{text}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:12,color:"#B0A8B0",marginBottom:14,lineHeight:1.5}}>It takes 30 seconds. Just a username and a 4-digit PIN.</div>
+            <button onClick={()=>{setShowDeferredAuth(false);setAuthMode("create");setAuthScreen("login");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Create Free Account</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_account_prompt_dismissed","1");}catch{}setShowDeferredAuth(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>I'll do this later</button>
           </div>
         </div>
       )}
