@@ -16694,9 +16694,9 @@ function App(){
           <div style={{width:"100%",marginTop:20}}>
             <input autoFocus type="text" value={obName} onChange={e=>setObName(e.target.value)}
               placeholder="e.g. Oliver" autoCapitalize="words" autoComplete="off"
-              style={{width:"100%",fontSize:22,padding:"16px 18px",borderRadius:16,border:`2px solid ${obName.trim()?C.mint:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB,transition:"border-color 0.2s"}}/>
+              style={{width:"100%",fontSize:22,padding:"16px 18px",borderRadius:16,border:`2px solid ${obName.trim()?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB,transition:"border-color 0.2s"}}/>
             <button onClick={()=>obName.trim()&&setObStep(2)} disabled={!obName.trim()}
-              style={{width:"100%",marginTop:20,background:obName.trim()?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",border:_bN,borderRadius:99,padding:"14px",color:obName.trim()?"white":"#b89890",fontSize:16,fontWeight:700,cursor:obName.trim()?_cP:"not-allowed",boxShadow:obName.trim()?"0 4px 20px rgba(201,112,90,0.4)":"none"}}>
+              style={{width:"100%",marginTop:20,background:obName.trim()?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",border:_bN,borderRadius:99,padding:"14px",color:obName.trim()?"white":"rgba(155,139,184,0.5)",fontSize:16,fontWeight:700,cursor:obName.trim()?_cP:"not-allowed",boxShadow:obName.trim()?"0 4px 24px rgba(155,139,184,0.35), 0 0 20px rgba(155,139,184,0.1)":"none"}}>
               Continue {"\u2192"}
             </button>
             <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",marginTop:12,background:_bN,border:_bN,color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>
@@ -16712,18 +16712,18 @@ function App(){
         action: (
           <div style={{width:"100%",marginTop:20}}>
             <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)} max={todayStr()}
-              style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${obDob?C.mint:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB}}/>
+              style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${obDob?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB}}/>
             <div style={{display:"flex",gap:10,marginTop:16,justifyContent:"center"}}>
               {[["Girl","\u{1F338}","girl"],["Boy","\u{1F4D8}","boy"],["Prefer not to say","\u2728",""]].map(([label,emoji,val])=>(
                 <button key={val} onClick={()=>setObSex(val)}
-                  style={{flex:1,padding:"12px 8px",borderRadius:14,border:`2px solid ${obSex===val?C.mint:C.blush}`,background:obSex===val?"rgba(123,166,140,0.1)":"var(--card-bg-solid)",cursor:_cP,textAlign:"center"}}>
+                  style={{flex:1,padding:"12px 8px",borderRadius:14,border:`2px solid ${obSex===val?"#9BB8A8":C.blush}`,background:obSex===val?"rgba(155,184,168,0.1)":"var(--card-bg-solid)",cursor:_cP,textAlign:"center"}}>
                   <div style={{fontSize:20}}>{emoji}</div>
-                  <div style={{fontSize:12,fontWeight:600,color:obSex===val?C.mint:C.mid,marginTop:4}}>{label}</div>
+                  <div style={{fontSize:12,fontWeight:600,color:obSex===val?"#7BA68C":C.mid,marginTop:4}}>{label}</div>
                 </button>
               ))}
             </div>
             <button onClick={()=>obDob&&setObStep(3)} disabled={!obDob}
-              style={{width:"100%",marginTop:20,background:obDob?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",border:_bN,borderRadius:99,padding:"14px",color:obDob?"white":"#b89890",fontSize:16,fontWeight:700,cursor:obDob?_cP:"not-allowed",boxShadow:obDob?"0 4px 20px rgba(201,112,90,0.4)":"none"}}>
+              style={{width:"100%",marginTop:20,background:obDob?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",border:_bN,borderRadius:99,padding:"14px",color:obDob?"white":"rgba(155,139,184,0.5)",fontSize:16,fontWeight:700,cursor:obDob?_cP:"not-allowed",boxShadow:obDob?"0 4px 24px rgba(155,139,184,0.35), 0 0 20px rgba(155,139,184,0.1)":"none"}}>
               Continue {"\u2192"}
             </button>
           </div>
@@ -16743,8 +16743,8 @@ function App(){
             ].map(([val,emoji,label,sub2])=>(
               <button key={val} onClick={()=>{setObTodayStatus(val);setObStep(4);}}
                 style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",borderRadius:16,
-                  border:`1.5px solid ${obTodayStatus===val?C.mint:C.blush}`,
-                  background:obTodayStatus===val?"rgba(123,166,140,0.08)":"var(--card-bg-solid)",cursor:_cP,textAlign:"left"}}>
+                  border:`1.5px solid ${obTodayStatus===val?"#9BB8A8":C.blush}`,
+                  background:obTodayStatus===val?"rgba(155,184,168,0.08)":"var(--card-bg-solid)",cursor:_cP,textAlign:"left"}}>
                 <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
                 <div style={{flex:1}}>
                   <div style={{fontSize:15,fontWeight:700,color:C.deep}}>{label}</div>
@@ -16766,9 +16766,9 @@ function App(){
               <div style={{display:"flex",gap:10,marginBottom:16}}>
                 {[["Breast","\u{1F930}","breast"],["Bottle","\u{1F37C}","bottle"],["Both","\u{1F937}","both"]].map(([label,emoji,val])=>(
                   <button key={val} onClick={()=>setObFeedType(val)}
-                    style={{flex:1,padding:"14px 8px",borderRadius:14,border:`2px solid ${obFeedType===val?C.mint:C.blush}`,background:obFeedType===val?"rgba(123,166,140,0.1)":"var(--card-bg-solid)",cursor:_cP,textAlign:"center"}}>
+                    style={{flex:1,padding:"14px 8px",borderRadius:14,border:`2px solid ${obFeedType===val?"#9BB8A8":C.blush}`,background:obFeedType===val?"rgba(155,184,168,0.1)":"var(--card-bg-solid)",cursor:_cP,textAlign:"center"}}>
                     <div style={{fontSize:24}}>{emoji}</div>
-                    <div style={{fontSize:13,fontWeight:600,color:obFeedType===val?C.mint:C.mid,marginTop:4}}>{label}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:obFeedType===val?"#7BA68C":C.mid,marginTop:4}}>{label}</div>
                   </button>
                 ))}
               </div>
@@ -16786,7 +16786,7 @@ function App(){
               </div>
             )}
             <button onClick={()=>completeOnboarding()}
-              style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:_bN,borderRadius:99,padding:"16px",color:"white",fontSize:17,fontWeight:700,cursor:_cP,boxShadow:"0 4px 20px rgba(201,112,90,0.4)",fontFamily:_fI}}>
+              style={{width:"100%",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",border:_bN,borderRadius:99,padding:"16px",color:"white",fontSize:17,fontWeight:700,cursor:_cP,boxShadow:"0 4px 24px rgba(155,139,184,0.35), 0 0 20px rgba(155,139,184,0.1)",fontFamily:_fI}}>
               Let's go! {"\u2192"}
             </button>
           </div>
@@ -16805,7 +16805,7 @@ function App(){
     const _wPillBd = _dk ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${C.blush}`;
     const _wPillTxt = _dk ? "rgba(255,255,255,0.85)" : C.deep;
     const _wPillSub = _dk ? "rgba(255,255,255,0.45)" : C.lt;
-    const _wBrand = _dk ? "linear-gradient(135deg, #f5e0d0, #ffffff, #f0d0c0)" : "linear-gradient(135deg, #c9705a, #a85a44, #c9705a)";
+    const _wBrand = _dk ? "linear-gradient(135deg, #d0c0e0, #ffffff, #c8b8d8)" : "linear-gradient(135deg, #8B7BA8, #6B5B8A, #8B7BA8)";
     const _wMascotBg = _dk ? "#1e1038" : "#faf0ea";
     const _wMascotShadow = _dk ? "0 0 30px rgba(212,168,85,0.3), 0 0 60px rgba(201,112,90,0.15), 0 8px 32px rgba(0,0,0,0.4)" : "0 0 20px rgba(212,168,85,0.2), 0 0 40px rgba(201,112,90,0.1), 0 8px 24px rgba(0,0,0,0.06)";
     const _wCtaShadow = _dk ? "0 4px 20px rgba(201,112,90,0.4), 0 0 40px rgba(201,112,90,0.15)" : "0 4px 16px rgba(201,112,90,0.3)";
@@ -16827,7 +16827,7 @@ function App(){
             </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:42,fontWeight:800,letterSpacing:"-0.5px",zIndex:1,background:_wBrand,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>OBubba</div>
             <div style={{fontSize:14,color:_wTag,letterSpacing:"0.5px",zIndex:1,marginBottom:20}}>Parenthood in your pocket</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,textAlign:"center",lineHeight:1.3,zIndex:1,marginBottom:8,maxWidth:300,color:_wTxt,letterSpacing:"-0.3px"}}>Take the guesswork out of <span style={{background:"linear-gradient(135deg, #c9705a, #d4a855)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>parenting.</span></div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,textAlign:"center",lineHeight:1.3,zIndex:1,marginBottom:8,maxWidth:300,color:_wTxt,letterSpacing:"-0.3px"}}>Take the guesswork out of <span style={{background:_dk?"linear-gradient(135deg, #B8A8D0, #9B8BB8)":"linear-gradient(135deg, #8B7BA8, #A898C0)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>parenting.</span></div>
             <div style={{fontSize:14,lineHeight:1.5,color:_wSub,textAlign:"center",maxWidth:320,zIndex:1,marginBottom:16}}>Personalised sleep, feeding, and growth guidance that learns your baby's unique rhythm.</div>
             <div style={{display:"flex",flexDirection:"column",gap:6,width:"100%",maxWidth:340,zIndex:1,marginBottom:16}}>
               {[[["🔮","Sleep predictions"],["🧩","Schedule maker"]],[["📊","Rhythm learning"],["🛡️","Regression alerts"]],[["🍼","One-tap tracking"],["👨‍👩‍👧","Partner sync"]]].map((row,ri)=>(
@@ -16842,7 +16842,7 @@ function App(){
               ))}
             </div>
             <div style={{fontSize:11,color:_wMute,textAlign:"center",zIndex:1,marginBottom:16,lineHeight:1.4,maxWidth:280}}>Guided by <strong style={{color:_wTrustHi,fontWeight:600}}>NHS</strong>, <strong style={{color:_wTrustHi,fontWeight:600}}>WHO</strong> & <strong style={{color:_wTrustHi,fontWeight:600}}>AASM</strong> standards</div>
-            <button onClick={()=>setObStep(1)} style={{width:"100%",maxWidth:320,padding:15,border:_bN,borderRadius:99,fontSize:17,fontWeight:700,color:"white",cursor:_cP,zIndex:1,background:"linear-gradient(135deg, #c9705a, #a85a44)",boxShadow:_wCtaShadow,marginBottom:10,fontFamily:_fI}}>Start Tracking {"\u2192"}</button>
+            <button onClick={()=>setObStep(1)} style={{width:"100%",maxWidth:320,padding:15,border:_bN,borderRadius:99,fontSize:17,fontWeight:700,color:"white",cursor:_cP,zIndex:1,background:_dk?"linear-gradient(135deg, #8B7BA8, #6B5B8A)":"linear-gradient(135deg, #9B8BB8, #7B6BA0)",boxShadow:_dk?"0 4px 24px rgba(139,123,168,0.4), 0 0 40px rgba(139,123,168,0.15)":"0 4px 20px rgba(155,139,184,0.35), 0 0 30px rgba(155,139,184,0.1)",marginBottom:10,fontFamily:_fI}}>Start Tracking {"\u2192"}</button>
             <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",maxWidth:320,padding:12,border:_bN,borderRadius:99,background:"transparent",fontSize:14,fontWeight:600,color:_wMute,cursor:_cP,zIndex:1,fontFamily:_fI}}>I already have an account</button>
 
           </div>
@@ -16853,7 +16853,7 @@ function App(){
             <div style={{padding:"48px 28px 20px",display:"flex",alignItems:"center",gap:12}}>
               <button onClick={()=>setObStep(s=>s-1)} style={{width:38,height:38,borderRadius:11,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,color:C.mid,fontSize:17,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:_fI}}>←</button>
               <div style={{flex:1,height:3,background:C.blush,borderRadius:99,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${(obStep/_obMaxSteps)*100}%`,background:"linear-gradient(90deg,#c9705a,#e0825f)",borderRadius:99,transition:"width 0.4s ease"}}/>
+                <div style={{height:"100%",width:`${(obStep/_obMaxSteps)*100}%`,background:"linear-gradient(90deg,#9B8BB8,#B8A8D0)",borderRadius:99,transition:"width 0.4s ease"}}/>
               </div>
               <div style={{fontSize:12,color:C.lt,fontFamily:_fM,flexShrink:0}}>{obStep}/{_obMaxSteps}</div>
             </div>
@@ -16861,7 +16861,7 @@ function App(){
               <div style={{fontSize:46,marginBottom:14,lineHeight:1}}>{step.icon}</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.deep,lineHeight:1.22,whiteSpace:"pre-line",marginBottom:10}}>{step.title}</div>
               <div style={{fontSize:14,color:C.mid,lineHeight:1.65,marginBottom:22}}>{step.sub}</div>
-              <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:22,padding:"22px 18px",boxShadow:"0 2px 16px rgba(201,112,90,0.08)",boxSizing:"border-box",overflow:"hidden"}}>
+              <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:22,padding:"22px 18px",boxShadow:"0 2px 16px rgba(0,0,0,0.04)",boxSizing:"border-box",overflow:"hidden"}}>
                 {step.action}
               </div>
             </div>
