@@ -3965,6 +3965,7 @@ function App(){
   const[obNapStart,setObNapStart]=useState("");
   const[obNapEnd,setObNapEnd]=useState("");
   const[showDeferredAuth,setShowDeferredAuth]=useState(false);
+  const[familyShareGate,setFamilyShareGate]=useState(false);
   const[showImportAfterSetup,setShowImportAfterSetup]=useState(false);
   const[showFirstLogQ,setShowFirstLogQ]=useState(false);
   // Aliases for questionnaire state setters (PWA uses Q*, native uses Fq*)
@@ -19146,8 +19147,7 @@ function App(){
                 <button onClick={async()=>{
                   haptic();
                   if(!isPremium && !trialActive && STORE_READY) {
-                    showToast("Has your mum asked for the 100th time if "+(babyName||"baby")+" has been fed? Well\u2026 for just \u00A34.99/month, let\u2019s put grandma\u2019s mind at ease. Or not \u2014 I don\u2019t want to tell you how to live \uD83D\uDC40", 6000, 2);
-                    setTimeout(()=>triggerPaywall("family_share"), 1500);
+                    setFamilyShareGate(true);
                     return;
                   }
                   try {
@@ -26018,6 +26018,20 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 }} style={{padding:"8px 16px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:12,cursor:"pointer"}}>Later</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Send to Family Premium Gate ═══ */}
+      {familyShareGate&&(
+        <div onClick={()=>setFamilyShareGate(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:10}}>{"\u{1F4E8}"}</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:10}}>Send to Family</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:8}}>Has your mum asked for the 100th time if {babyName||"baby"} has been fed, how long they slept, how many nappies? {"\u{1F4AD}"}</div>
+            <div style={{fontSize:14,color:"#6A6070",lineHeight:1.7,marginBottom:16}}>Well{"\u2026"} for just {"\u00A3"}4.99/month, let{"\u2019"}s put grandma{"\u2019"}s mind at ease with a beautiful daily snapshot card. Or not {"\u2014"} I don{"\u2019"}t want to tell you how to live {"\u{1F440}"}</div>
+            <button onClick={()=>{setFamilyShareGate(false);triggerPaywall("family_share");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe {"\u2192"}</button>
+            <button onClick={()=>setFamilyShareGate(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
           </div>
         </div>
       )}
