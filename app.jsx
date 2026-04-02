@@ -3228,6 +3228,34 @@ function App(){
     setShowPaywall(true);
   }
   const[napCustomStart,setNapCustomStart]=useState("");
+  const[showCuriosityGap,setShowCuriosityGap]=useState(false);
+  // Curiosity gap paywall — soft nudge for users with 5-7 days of data
+  useEffect(()=>{
+    try {
+      if (!STORE_READY || isPremium || trialActive) return;
+      const _dayCount = Object.keys(days).length;
+      if (_dayCount < 5 || _dayCount > 7) return;
+      if (localStorage.getItem("ob_curiosity_shown")) return;
+      const _timer = setTimeout(()=>setShowCuriosityGap(true), 3000);
+      return ()=>clearTimeout(_timer);
+    } catch {}
+  },[days, isPremium, trialActive]);
+
+  // ── Deferred Account Creation Prompt (day 2-3 for anonymous users) ──
+  useEffect(()=>{
+    try {
+      if (!localStorage.getItem("ob_onboard_anon")) return; // not anonymous
+      if (localStorage.getItem("family_username")) return; // already has account
+      if (localStorage.getItem("ob_account_prompt_dismissed")) return;
+      const _obDate = localStorage.getItem("ob_onboard_date");
+      if (!_obDate) return;
+      const _daysSince = Math.floor((Date.now() - new Date(_obDate+"T12:00:00").getTime()) / 86400000);
+      if (_daysSince >= 2 && _daysSince <= 7) {
+        const _timer = setTimeout(()=>setShowDeferredAuth(true), 4000);
+        return ()=>clearTimeout(_timer);
+      }
+    } catch {}
+  },[days]);
 
   // ── Founding Supporter Review Prompt ──
   // Shows once for early users when they migrate to the native App Store / Google Play app
@@ -3322,6 +3350,7 @@ function App(){
     try{return localStorage.getItem("weekly_digest_v1")==="1";}catch{return false;}
   });
   const[showWeeklyDigest,setShowWeeklyDigest]=useState(false);
+  const[showWeeklySharePrompt,setShowWeeklySharePrompt]=useState(false);
   const[showHVReport,setShowHVReport]=useState(false);
   const[showScheduleMaker,setShowScheduleMaker]=useState(false);
   const[smEvent,setSmEvent]=useState({time:"12:00",label:"",duration:60,source:null,mode:"awake"});
@@ -3339,6 +3368,7 @@ function App(){
   const[showAddPin,setShowAddPin]=useState(false);
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
+  const[sleepWinPrompt,setSleepWinPrompt]=useState(null); // {text, type} — big sleep win auto-detection
   const recapPhotoRef=useRef(null); // hidden input for recap card photo
   const microReassureRef=useRef(false); // once-per-session micro-reassurance
   const[recapExtraPhoto,setRecapExtraPhoto]=useState(null); // base64 data URL
@@ -3378,6 +3408,17 @@ function App(){
     },60000);
     return()=>clearInterval(nappyReminderRef.current);
   },[nappyReminderMins, days]);
+  // Weekly rhythm share prompt (Sunday after 6pm)
+  useEffect(()=>{
+    try {
+      const _now = new Date();
+      if (_now.getDay() !== 0 || _now.getHours() < 18) return;
+      const _wk = todayStr().slice(0,7) + "-W" + Math.ceil(_now.getDate()/7);
+      if (localStorage.getItem("ob_weekly_share_prompt_" + _wk)) return;
+      if (Object.keys(days).length < 5) return;
+      setShowWeeklySharePrompt(true);
+    } catch {}
+  },[days]);
   // Medicine & temperature tracker
   const[meds,setMeds]=useState(()=>{try{const v=localStorage.getItem("meds_v1");return v?JSON.parse(v):{};}catch{return {};}});
   const[savedMeds,setSavedMeds]=useState(()=>{try{const v=localStorage.getItem("saved_meds_v1");return v?JSON.parse(v):[];}catch{return [];}});
@@ -3586,6 +3627,7 @@ function App(){
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
+  const[grandparentMode,setGrandparentMode]=useState(()=>{try{return localStorage.getItem("ob_grandparent_mode")==="1";}catch{return false;}});
   const[showDayExplainer,setShowDayExplainer]=useState(false);
   const[showNoJudgement,setShowNoJudgement]=useState(()=>{try{return !localStorage.getItem("ob_no_judge_v1");}catch{return false;}});
   const[badNightBadge,setBadNightBadge]=useState(null);
@@ -3919,6 +3961,11 @@ function App(){
   const[obSex,setObSex]=useState("");
   const[obBornEarly,setObBornEarly]=useState(false);
   const[obDueDate,setObDueDate]=useState("");
+  const[obTodayStatus,setObTodayStatus]=useState(""); // "woke"|"fed"|"napped"|"bedtime"
+  const[obFeedType,setObFeedType]=useState(""); // "breast"|"bottle"|"both"
+  const[obNapStart,setObNapStart]=useState("");
+  const[obNapEnd,setObNapEnd]=useState("");
+  const[showDeferredAuth,setShowDeferredAuth]=useState(false);
   const[showImportAfterSetup,setShowImportAfterSetup]=useState(false);
   const[showFirstLogQ,setShowFirstLogQ]=useState(false);
   // Aliases for questionnaire state setters (PWA uses Q*, native uses Fq*)
@@ -3937,7 +3984,7 @@ function App(){
   const[obUsername,setObUsername]=useState("");
   const[obUsernameStatus,setObUsernameStatus]=useState("idle");
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
-  const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");if(!u&&!v) return "login"; return(u&&!v)?"login":null;}catch{return "login";}});
+  const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");if(u&&!v) return "login"; return null;}catch{return null;}});
   const[showBioPrompt,setShowBioPrompt]=useState(false);
   const bioAttemptedRef=React.useRef(false);
   const[authMode,setAuthMode]=useState(()=>{
@@ -6245,6 +6292,43 @@ function App(){
     try { tickDataRef.current.pred = predictNextNap(); } catch {}
     try { tickDataRef.current.bed = bedtimePrediction(); } catch {}
     try { tickDataRef.current.bridgeInfo = earlyBedtimeRisk(); } catch {}
+
+    // ── BubbaRhythm Score (daily vibe score 0-100) ──
+    try {
+      const _rsDays = Object.keys(days).sort().slice(-7);
+      if (_rsDays.length >= 3 && age) {
+        let _rsScore = 70; // baseline
+        // Wake time consistency: gather morning wake times
+        const _rsWakeTimes = _rsDays.map(d => { const w = (days[d]||[]).find(e=>e.type==="wake"&&!e.night); return w ? timeVal(w) : null; }).filter(Boolean);
+        if (_rsWakeTimes.length >= 3) {
+          const _rsAvgWake = Math.round(_rsWakeTimes.reduce((s,v)=>s+v,0)/_rsWakeTimes.length);
+          const _rsWakeVar = Math.round(_rsWakeTimes.reduce((s,v)=>s+Math.abs(v-_rsAvgWake),0)/_rsWakeTimes.length);
+          _rsScore += _rsWakeVar <= 15 ? 10 : _rsWakeVar <= 30 ? 5 : -5;
+        }
+        // Nap count matching expected
+        const _rsProfile = getAgeNapProfile(age.totalWeeks);
+        const _rsTodayNaps = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).length;
+        if (_rsTodayNaps === _rsProfile.expectedNaps) _rsScore += 10;
+        else if (Math.abs(_rsTodayNaps - _rsProfile.expectedNaps) <= 1) _rsScore += 5;
+        // Night sleep duration
+        const _rsNightMins = _rsDays.map(d => { try { const nw = getNightWindows(days[d]||[], days[_rsDays[_rsDays.indexOf(d)+1]]||[]); return nw.reduce((s,w)=>s+w.mins,0); } catch { return 0; } }).filter(v=>v>120);
+        if (_rsNightMins.length >= 3) {
+          const _rsAvgNight = Math.round(_rsNightMins.reduce((s,v)=>s+v,0)/_rsNightMins.length);
+          _rsScore += _rsAvgNight >= 540 ? 10 : _rsAvgNight >= 420 ? 5 : 0;
+        }
+        // Bedtime consistency
+        const _rsBedTimes = _rsDays.map(d => { const b = findBedtime(days[d]||[]); return b ? timeVal(b) : null; }).filter(Boolean);
+        if (_rsBedTimes.length >= 3) {
+          const _rsAvgBed = Math.round(_rsBedTimes.reduce((s,v)=>s+v,0)/_rsBedTimes.length);
+          const _rsBedVar = Math.round(_rsBedTimes.reduce((s,v)=>s+Math.abs(v-_rsAvgBed),0)/_rsBedTimes.length);
+          _rsScore += _rsBedVar <= 15 ? 10 : _rsBedVar <= 30 ? 5 : -5;
+        }
+        _rsScore = Math.max(0, Math.min(100, _rsScore));
+        const _rsVibe = _rsScore >= 90 ? "Perfectly in sync" : _rsScore >= 80 ? "Finding their groove" : _rsScore >= 70 ? "A few curveballs" : _rsScore >= 60 ? "Adjusting" : "Tough day, you've got this";
+        tickDataRef.current.rhythmScore = _rsScore;
+        tickDataRef.current.rhythmVibe = _rsVibe;
+      }
+    } catch {}
   },[selDay, days, age, bridgeNapScheduled, napStructure]);
 
   // Helper: get next nap/bed label for Live Activity display (e.g. "Nap 2 2:00pm" or "Bed 7:30pm")
@@ -7070,6 +7154,7 @@ function App(){
         </div>
         <div style={{fontSize:13,color:C.mid,marginBottom:_secondary||_rightNow?4:8,paddingLeft:20}}>{_timing}</div>
         {(()=>{const _rs=sleepScore();if(!_rs||_rs.score===null)return null;return(<div style={{display:"inline-flex",alignItems:"center",gap:4,background:sleepScoreColor(_rs.score)+"18",borderRadius:99,padding:"2px 10px",marginTop:6,marginLeft:20,marginBottom:4}}><span style={{fontSize:11,fontWeight:700,color:sleepScoreColor(_rs.score)}}>{_rs.score}</span><span style={{fontSize:10,color:sleepScoreColor(_rs.score)}}>rhythm</span></div>);})()}
+        {(()=>{const _td=tickDataRef.current||{};if(!_td.rhythmScore)return null;const _rc=_td.rhythmScore>=80?"#7BA68C":_td.rhythmScore>=60?"#D4A855":"#A89898";return(<div style={{display:"inline-flex",alignItems:"center",gap:4,background:_rc+"18",borderRadius:99,padding:"2px 10px",marginTop:2,marginLeft:20,marginBottom:4}}><span style={{fontSize:11,fontWeight:700,color:_rc}}>{_td.rhythmScore}</span><span style={{fontSize:10,color:_rc}}>{_td.rhythmVibe}</span></div>);})()}
         {/* Source label — shows where the prediction comes from */}
         {_pred && _pred.sourceLabel && <div style={{fontSize:10,color:C.lt,paddingLeft:20,marginBottom:4,fontStyle:"italic"}}>{_pred.sourceLabel.includes("pattern") ? "✨ Based on " + (babyName||"baby") + "'s personal rhythm" : "📋 " + _pred.sourceLabel}</div>}
         {_wakeMissing && (
@@ -12267,6 +12352,33 @@ function App(){
       if (_avgWakes !== null && _avgWakes <= 1.5) _wins.push({ icon: "🌟", text: _avgWakes <= 1 ? "Excellent nights — only " + _avgWakes + " wake" + (_avgWakes !== 1 ? "s" : "") + " on average" : "Great nights — averaging just " + _avgWakes + " wakes" });
 
       if (_wins.length) sections.push({ type: "wins", title: "This Week's Wins", icon: "🎉", wins: _wins.slice(0, 4) });
+
+      // ── Big Win Detection for share prompt ──
+      try {
+        const _winKey = "ob_win_shared_" + todayStr();
+        if (!localStorage.getItem(_winKey)) {
+          let _bigWin = null;
+          // Longest stretch ever (> previous record by 30min+)
+          if (_longestStretches.length >= 2) {
+            const _allHistLS = Object.keys(days).sort().slice(0,-7).flatMap(d => {
+              try { const nw = getNightWindows(days[d]||[], days[Object.keys(days).sort()[Object.keys(days).sort().indexOf(d)+1]]||[]); return nw.length ? [Math.max(...nw.map(w=>w.mins))] : []; } catch { return []; }
+            }).filter(v=>v>60);
+            const _prevRecord = _allHistLS.length ? Math.max(..._allHistLS) : 0;
+            const _thisWeekBest = Math.max(..._longestStretches);
+            if (_prevRecord > 0 && _thisWeekBest > _prevRecord + 30) _bigWin = { text: "Longest sleep stretch ever — " + hm(_thisWeekBest) + "!", type: "longest_stretch" };
+          }
+          // Night wakes reduced by 50%+
+          if (!_bigWin && _prevAvgWakes !== null && _avgWakes !== null && _prevAvgWakes >= 2 && _avgWakes <= _prevAvgWakes * 0.5) {
+            _bigWin = { text: "Night wakes dropped from " + _prevAvgWakes + " to " + _avgWakes + " — half as many!", type: "wakes_halved" };
+          }
+          // First full night (0 wakes)
+          if (!_bigWin && _nightWakeCounts.length >= 3 && _nightWakeCounts.some(c => c === 0)) {
+            const _prevHadWakes = _prevWakeCounts.length >= 3 && _prevWakeCounts.every(c => c > 0);
+            if (_prevHadWakes) _bigWin = { text: "First full night with zero wakes!", type: "first_full_night" };
+          }
+          if (_bigWin) setSleepWinPrompt(_bigWin);
+        }
+      } catch {}
     } catch {}
 
     // ══════════════════════════════════════════════════════
@@ -16290,7 +16402,10 @@ function App(){
     try { if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide(); } catch {}
   },[]);
 
-  if (authScreen) {
+  // ── Skip auth on first launch — allow anonymous onboarding ──
+  // Auth screen only shows when user explicitly taps "I already have an account" from onboarding,
+  // or when deferred account prompt triggers (day 2-3)
+  if (authScreen && authScreen !== "deferred") {
     const isLogin = authMode === "login";
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin && agreedToTerms : true);
 
@@ -16499,119 +16614,177 @@ function App(){
     );
   }
   if (!onboarded) {
+    const _obMaxSteps = 4;
     const completeOnboarding = async () => {
-      if(obUsername.trim() && fbReady && obPin.length===4) {
-        await reserveUsername(obUsername, obPin);
+      // Save baby data
+      const _obChildName = (obName||"").trim();
+      if (_obChildName) {
+        updateChild({ name: _obChildName, dob: obDob||"", sex: obSex||"", dueDate: obDueDate||null });
       }
-      try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+      // Auto-generate first entries from onboarding answers
+      const _obToday = todayStr();
+      const _obNow = new Date();
+      const _obHH = String(_obNow.getHours()).padStart(2,"0");
+      const _obMM = String(_obNow.getMinutes()).padStart(2,"0");
+      const _obNowTime = _obHH + ":" + _obMM;
+      let _obEntries = [];
+      const _obWakeTime = (()=>{
+        // Estimate a reasonable morning wake based on current time
+        const h = _obNow.getHours();
+        if (h < 8) return "06:30";
+        if (h < 10) return "07:00";
+        if (h < 12) return "07:30";
+        return "07:00";
+      })();
 
-      // Tutorial now triggered after 3 logs, not on account creation
-      setNeedsChildSetup(true);
+      if (obTodayStatus === "woke") {
+        _obEntries.push({ type:"wake", time:_obNowTime, night:false });
+      } else if (obTodayStatus === "fed") {
+        _obEntries.push({ type:"wake", time:_obWakeTime, night:false });
+        const _feedTime = _obNow.getHours() < 9 ? _obWakeTime : _obNowTime;
+        _obEntries.push({ type:"feed", time:_feedTime, feedType:obFeedType||"bottle", amount:obFeedType==="breast"?0:120, side:obFeedType==="breast"?"L":"", night:false });
+      } else if (obTodayStatus === "napped") {
+        _obEntries.push({ type:"wake", time:_obWakeTime, night:false });
+        // Morning feed
+        const _amFeedH = parseInt(_obWakeTime.split(":")[0]) + 1;
+        _obEntries.push({ type:"feed", time:String(_amFeedH).padStart(2,"0")+":00", feedType:obFeedType||"bottle", amount:obFeedType==="breast"?0:150, side:obFeedType==="breast"?"L":"", night:false });
+        // Nap
+        const _napS = obNapStart || (String(_amFeedH+1).padStart(2,"0")+":30");
+        const _napE = obNapEnd || (String(_amFeedH+2).padStart(2,"0")+":15");
+        _obEntries.push({ type:"nap", start:_napS, end:_napE, time:_napS, night:false });
+      } else if (obTodayStatus === "bedtime") {
+        _obEntries.push({ type:"sleep", time:_obNowTime, night:false });
+      }
+
+      // Add entries to today
+      if (_obEntries.length > 0) {
+        const _existing = days[_obToday] || [];
+        const _merged = [..._existing];
+        _obEntries.forEach(e => {
+          e.id = uid();
+          e.src = "onboarding";
+          _merged.push(e);
+        });
+        setDays(prev => ({...prev, [_obToday]: _merged}));
+      }
+
+      // Set onboarding flags, but NO account creation
+      try{ localStorage.setItem("onboarded_v2","1"); }catch{}
+      try{ localStorage.setItem("ob_onboard_anon","1"); }catch{}
+      try{ localStorage.setItem("ob_onboard_date", _obToday); }catch{}
+      // Set breast feeding preference if answered
+      if (obFeedType === "breast" || obFeedType === "both") {
+        try{ localStorage.setItem("_hasBreast","1"); }catch{}
+      }
       setOnboarded(true);
+      setTab("day");
+      setSelDay(_obToday);
     };
 
     const steps = [
       { icon:"", title:"", sub:"", action:null },
       {
-        icon:"🔑",
-        title:"Welcome back\nor new here?",
-        sub:"Sign in to sync your existing data, or create a new account to get started.",
+        icon:"\u{1F476}",
+        title:"What's your little\none's name?",
+        sub:"We'll use this everywhere — predictions, insights, and those 4am reassurances.",
         action: (
-          <div style={{width:"100%",marginTop:24,display:"flex",flexDirection:"column",gap:12}}>
-            <button onClick={()=>setObStep(2)} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:_bN,borderRadius:16,padding:"18px",color:"white",fontSize:16,fontWeight:700,cursor:_cP,boxShadow:"0 4px 20px rgba(201,112,90,0.4)",fontFamily:_fI,textAlign:"left",display:"flex",alignItems:"center",gap:14,marginBottom:12}}>
-              <span style={{fontSize:28}}>✨</span>
-              <div>
-                <div style={{fontSize:16,fontWeight:700}}>Create new account</div>
-                <div style={{fontSize:13,opacity:0.82,fontWeight:400,marginTop:2}}>Set up a username & PIN</div>
-              </div>
+          <div style={{width:"100%",marginTop:20}}>
+            <input autoFocus type="text" value={obName} onChange={e=>setObName(e.target.value)}
+              placeholder="e.g. Oliver" autoCapitalize="words" autoComplete="off"
+              style={{width:"100%",fontSize:22,padding:"16px 18px",borderRadius:16,border:`2px solid ${obName.trim()?C.mint:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB,transition:"border-color 0.2s"}}/>
+            <button onClick={()=>obName.trim()&&setObStep(2)} disabled={!obName.trim()}
+              style={{width:"100%",marginTop:20,background:obName.trim()?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",border:_bN,borderRadius:99,padding:"14px",color:obName.trim()?"white":"#b89890",fontSize:16,fontWeight:700,cursor:obName.trim()?_cP:"not-allowed",boxShadow:obName.trim()?"0 4px 20px rgba(201,112,90,0.4)":"none"}}>
+              Continue \u2192
             </button>
-            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"18px",color:C.deep,fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,textAlign:"left",display:"flex",alignItems:"center",gap:14}}>
-              <span style={{fontSize:28}}>🔐</span>
-              <div>
-                <div style={{fontSize:16,fontWeight:700}}>I already have an account</div>
-                <div style={{fontSize:13,color:C.lt,fontWeight:400,marginTop:2}}>Sign in to restore your data</div>
-              </div>
+            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",marginTop:12,background:_bN,border:_bN,color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>
+              I already have an account \u2192
             </button>
           </div>
         )
       },
       {
-        icon:"👨‍👩‍👧",
-        title:"Choose a\nusername",
-        sub:'This is how your partner will find and sync with you. Something memorable like "TeamSmith" or "BabyJones2025".',
+        icon:"\u{1F382}",
+        title:"When was "+((obName||"").trim()||"baby")+" born?",
+        sub:"This helps OBubba give age-appropriate predictions, growth charts, and milestone tracking.",
         action: (
           <div style={{width:"100%",marginTop:20}}>
-            <div style={{position:"relative",marginBottom:8}}>
-              <input
-                autoFocus
-                type="text"
-                value={obUsername}
-                onChange={e=>checkUsername(e.target.value)}
-                placeholder="e.g. TeamSmith"
-                autoCapitalize="none" autoCorrect="off" spellCheck="false"
-                autoComplete="off" data-lpignore="true" data-form-type="other"
-                style={{width:"100%",fontSize:20,padding:"14px 48px 14px 18px",borderRadius:16,
-                  border:`2px solid ${
-                    obUsernameStatus==="available"?"#50c878":
-                    obUsernameStatus==="taken"||obUsernameStatus==="invalid"?C.ter:C.blush}`,
-                  background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",
-                  boxSizing:_bBB,transition:"border-color 0.2s"}}/>
-              <span style={{position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",fontSize:18}}>
-                {obUsernameStatus==="checking"?"⏳":
-                 obUsernameStatus==="available"?"✅":
-                 obUsernameStatus==="taken"?"❌":
-                 obUsernameStatus==="invalid"?"⚠️":""}
-              </span>
+            <input type="date" value={obDob} onChange={e=>setObDob(e.target.value)} max={todayStr()}
+              style={{width:"100%",fontSize:18,padding:"14px 18px",borderRadius:16,border:`2px solid ${obDob?C.mint:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB}}/>
+            <div style={{display:"flex",gap:10,marginTop:16,justifyContent:"center"}}>
+              {[["Girl","\u{1F338}","girl"],["Boy","\u{1F4D8}","boy"],["Prefer not to say","\u2728",""]].map(([label,emoji,val])=>(
+                <button key={val} onClick={()=>setObSex(val)}
+                  style={{flex:1,padding:"12px 8px",borderRadius:14,border:`2px solid ${obSex===val?C.mint:C.blush}`,background:obSex===val?"rgba(123,166,140,0.1)":"var(--card-bg-solid)",cursor:_cP,textAlign:"center"}}>
+                  <div style={{fontSize:20}}>{emoji}</div>
+                  <div style={{fontSize:12,fontWeight:600,color:obSex===val?C.mint:C.mid,marginTop:4}}>{label}</div>
+                </button>
+              ))}
             </div>
-            <div style={{fontSize:13,textAlign:"center",marginBottom:16,minHeight:20,
-              color:obUsernameStatus==="available"?"#50c878":
-                    obUsernameStatus==="taken"?C.ter:
-                    obUsernameStatus==="invalid"?"#b88a20":C.lt}}>
-              {obUsernameStatus==="available"?"✓ Username is available!":
-               obUsernameStatus==="taken"?"That username is taken — try another":
-               obUsernameStatus==="invalid"?"Must be at least 3 characters":
-               obUsernameStatus==="checking"?"Checking…":
-               "Your partner will use this to sync with you"}
-            </div>
-            <button
-              onClick={()=>obUsernameStatus==="available"?setObStep(3):completeOnboarding()}
-              disabled={obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid"}
-              style={{width:"100%",background:
-                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
-                  ?"#f2d9cc":`linear-gradient(135deg,#c9705a,#a85a44)`,
-                border:_bN,borderRadius:99,padding:"14px",color:
-                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
-                  ?"#b89890":"white",
-                fontSize:16,fontWeight:700,cursor:
-                (obUsernameStatus==="taken"||obUsernameStatus==="checking"||obUsernameStatus==="invalid")
-                  ?"not-allowed":"pointer",
-                boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,transition:"all 0.2s"}}>
-              {obUsernameStatus==="checking"?"Checking…":"Continue →"}
-            </button>
-            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:_bN,border:_bN,color:C.lt,fontSize:14,cursor:_cP,fontFamily:_fI}}>
-              Skip for now
+            <button onClick={()=>obDob&&setObStep(3)} disabled={!obDob}
+              style={{width:"100%",marginTop:20,background:obDob?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",border:_bN,borderRadius:99,padding:"14px",color:obDob?"white":"#b89890",fontSize:16,fontWeight:700,cursor:obDob?_cP:"not-allowed",boxShadow:obDob?"0 4px 20px rgba(201,112,90,0.4)":"none"}}>
+              Continue \u2192
             </button>
           </div>
         )
       },
       {
-        icon:"🔐",
-        title:"Create a PIN",
-        sub:"4 digits to protect your account. You'll only need this on new devices.",
+        icon:"\u{2600}\uFE0F",
+        title:"How's today going\nso far?",
+        sub:"Pick the closest one \u2014 this helps OBubba start with real data so predictions work right away.",
         action: (
-          <div style={{width:"100%",marginTop:20}}>
-            <PinPad value={obPin} onChange={setObPin} onComplete={()=>{}}/>
-            {obPin.length===4&&(
-              <div style={{marginTop:20}}>
-                {obPin2.length===0&&<div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:10}}>Confirm your PIN</div>}
-                {obPin2.length>0&&obPin2.length<4&&<div style={{fontSize:14,color:C.lt,textAlign:"center",marginBottom:10}}>Confirm your PIN</div>}
-                {obPin2.length===4&&obPin2!==obPin&&<div style={{fontSize:14,color:C.ter,textAlign:"center",marginBottom:10}}>PINs don't match — try again</div>}
-                
-                <PinPad value={obPin2} onChange={setObPin2} onComplete={(p)=>{ if(p===obPin) completeOnboarding(); }}/>
+          <div style={{width:"100%",marginTop:16,display:"flex",flexDirection:"column",gap:10}}>
+            {[
+              ["woke","\u{1F31E}","Just woke up","I'll log a morning wake for you"],
+              ["fed","\u{1F37C}","Already had a feed","Wake + feed logged"],
+              ["napped","\u{1F4A4}","Had a nap too","Wake + feed + nap logged"],
+              ["bedtime","\u{1F319}","It's bedtime","I'll log bedtime for you"],
+            ].map(([val,emoji,label,sub2])=>(
+              <button key={val} onClick={()=>{setObTodayStatus(val);setObStep(4);}}
+                style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",borderRadius:16,
+                  border:`1.5px solid ${obTodayStatus===val?C.mint:C.blush}`,
+                  background:obTodayStatus===val?"rgba(123,166,140,0.08)":"var(--card-bg-solid)",cursor:_cP,textAlign:"left"}}>
+                <span style={{fontSize:28,flexShrink:0}}>{emoji}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep}}>{label}</div>
+                  <div style={{fontSize:12,color:C.lt,marginTop:2}}>{sub2}</div>
+                </div>
+                <span style={{fontSize:16,color:C.lt}}>\u2192</span>
+              </button>
+            ))}
+          </div>
+        )
+      },
+      {
+        icon: obTodayStatus==="fed"||obTodayStatus==="napped"?"\u{1F37C}":obTodayStatus==="bedtime"?"\u{1F319}":"\u2728",
+        title: obTodayStatus==="fed"||obTodayStatus==="napped"?"Quick question \u2014\nhow do you feed?":obTodayStatus==="bedtime"?"Sweet dreams!":"All set!",
+        sub: obTodayStatus==="fed"||obTodayStatus==="napped"?"This helps OBubba show the right buttons and track breast sides.":obTodayStatus==="bedtime"?"OBubba will start learning "+(obName||"baby")+"'s rhythm from tonight.":"OBubba is ready to start learning "+(obName||"baby")+"'s rhythm.",
+        action: (
+          <div style={{width:"100%",marginTop:16}}>
+            {(obTodayStatus==="fed"||obTodayStatus==="napped")&&(
+              <div style={{display:"flex",gap:10,marginBottom:16}}>
+                {[["Breast","\u{1F930}","breast"],["Bottle","\u{1F37C}","bottle"],["Both","\u{1F937}","both"]].map(([label,emoji,val])=>(
+                  <button key={val} onClick={()=>setObFeedType(val)}
+                    style={{flex:1,padding:"14px 8px",borderRadius:14,border:`2px solid ${obFeedType===val?C.mint:C.blush}`,background:obFeedType===val?"rgba(123,166,140,0.1)":"var(--card-bg-solid)",cursor:_cP,textAlign:"center"}}>
+                    <div style={{fontSize:24}}>{emoji}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:obFeedType===val?C.mint:C.mid,marginTop:4}}>{label}</div>
+                  </button>
+                ))}
               </div>
             )}
-            <button onClick={()=>completeOnboarding()} style={{width:"100%",background:_bN,border:_bN,color:C.lt,fontSize:14,cursor:_cP,fontFamily:_fI,marginTop:16}}>
-              Skip PIN
+            {obTodayStatus==="napped"&&(
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.mid,marginBottom:8}}>Roughly when was the nap?</div>
+                <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                  <input type="time" value={obNapStart} onChange={e=>setObNapStart(e.target.value)}
+                    style={{flex:1,fontSize:16,padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center"}}/>
+                  <span style={{color:C.lt,fontSize:13}}>to</span>
+                  <input type="time" value={obNapEnd} onChange={e=>setObNapEnd(e.target.value)}
+                    style={{flex:1,fontSize:16,padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center"}}/>
+                </div>
+              </div>
+            )}
+            <button onClick={()=>completeOnboarding()}
+              style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:_bN,borderRadius:99,padding:"16px",color:"white",fontSize:17,fontWeight:700,cursor:_cP,boxShadow:"0 4px 20px rgba(201,112,90,0.4)",fontFamily:_fI}}>
+              Let's go! \u2192
             </button>
           </div>
         )
@@ -16706,9 +16879,9 @@ function App(){
             <div style={{padding:"48px 28px 20px",display:"flex",alignItems:"center",gap:12}}>
               <button onClick={()=>setObStep(s=>s-1)} style={{width:38,height:38,borderRadius:11,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,color:C.mid,fontSize:17,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:_fI}}>←</button>
               <div style={{flex:1,height:3,background:C.blush,borderRadius:99,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${(obStep/3)*100}%`,background:"linear-gradient(90deg,#c9705a,#e0825f)",borderRadius:99,transition:"width 0.4s ease"}}/>
+                <div style={{height:"100%",width:`${(obStep/_obMaxSteps)*100}%`,background:"linear-gradient(90deg,#c9705a,#e0825f)",borderRadius:99,transition:"width 0.4s ease"}}/>
               </div>
-              <div style={{fontSize:12,color:C.lt,fontFamily:_fM,flexShrink:0}}>{obStep}/3</div>
+              <div style={{fontSize:12,color:C.lt,fontFamily:_fM,flexShrink:0}}>{obStep}/{_obMaxSteps}</div>
             </div>
             <div key={obStep} style={{flex:1,padding:"0 28px",animation:"fadeUp 0.35s ease"}}>
               <div style={{fontSize:46,marginBottom:14,lineHeight:1}}>{step.icon}</div>
@@ -18817,7 +18990,7 @@ function App(){
               })()}
 
               {/* ═══ PARTNER INVITE — moved to Account tab per UX strategy ═══ */}
-              {false && selDay===todayStr() && !childSyncCodes[resolvedActiveId] && Object.keys(days).length >= 3 && (
+              {selDay===todayStr() && !childSyncCodes[resolvedActiveId] && Object.keys(days).length >= 3 && (
                 <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:`1.5px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:12,boxShadow:"var(--card-shadow)"}}>
                   <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
                     <span style={{fontSize:24,flexShrink:0}}>👨‍👩‍👧</span>
@@ -18857,6 +19030,45 @@ function App(){
                   </div>
                 );
               })()}
+
+              {/* ═══ SEND TO FAMILY — daily snapshot for grandparents ═══ */}
+              {selDay && (days[selDay]||[]).filter(e=>!e.night).length >= 2 && (
+                <button onClick={async()=>{
+                  haptic();
+                  try {
+                    const _sfName = babyName || "Baby";
+                    const _sfDate = selDay;
+                    const _sfEntries = days[selDay] || [];
+                    const _sfWake = _sfEntries.find(e=>e.type==="wake"&&!e.night);
+                    const _sfFeeds = _sfEntries.filter(e=>e.type==="feed"&&!e.night);
+                    const _sfTotalMl = _sfFeeds.reduce((s,f)=>s+(f.amount||0),0);
+                    const _sfNaps = _sfEntries.filter(e=>e.type==="nap"&&!e.night);
+                    const _sfTotalNapMin = _sfNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                    const _sfNappies = _sfEntries.filter(e=>e.type==="poop");
+                    const _sfNotes = pinnedNotes.filter(n=>n.pinned).map(n=>n.text);
+                    const _sfTd = tickDataRef.current || {};
+                    const _sfNext = _sfTd.napsComplete && _sfTd.bedMins ? "Bedtime ~"+fmt12(`${String(Math.floor(_sfTd.bedMins/60)%24).padStart(2,"0")}:${String(_sfTd.bedMins%60).padStart(2,"0")}`) : _sfTd.nextNapMins ? "Nap ~"+fmt12(`${String(Math.floor(_sfTd.nextNapMins/60)%24).padStart(2,"0")}:${String(_sfTd.nextNapMins%60).padStart(2,"0")}`) : null;
+                    let _sfMsg = _sfName + "'s Day — " + _sfDate + "\n\n";
+                    if (_sfWake) _sfMsg += "Wake: " + fmt12(_sfWake.time) + "\n";
+                    _sfMsg += "Feeds: " + _sfFeeds.length + (_sfTotalMl ? " (" + _sfTotalMl + "ml total)" : "") + "\n";
+                    _sfMsg += "Naps: " + _sfNaps.length + (_sfTotalNapMin ? " (" + hm(_sfTotalNapMin) + " total)" : "") + "\n";
+                    _sfMsg += "Nappies: " + _sfNappies.length + "\n";
+                    if (_sfNotes.length) _sfMsg += "\nNotes: " + _sfNotes.join(", ") + "\n";
+                    if (_sfNext) _sfMsg += "\nNext up: " + _sfNext + "\n";
+                    _sfMsg += "\nTracked with OBubba";
+                    const _sp = window.Capacitor?.Plugins?.Share;
+                    if (_sp) { await _sp.share({title:_sfName+"'s Day",text:_sfMsg,dialogTitle:"Send to Family"}); }
+                    else if (navigator.share) { await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
+                  } catch {}
+                }} className="glass-card" style={{width:"100%",padding:"12px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:10,border:"none"}}>
+                  <span style={{fontSize:18}}>&#128140;</span>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Send to Family</div>
+                    <div style={{fontSize:11,color:C.lt}}>Share today's snapshot with grandparents</div>
+                  </div>
+                  <span style={{marginLeft:"auto",fontSize:11,color:C.ter,fontWeight:600}}>&#128228;</span>
+                </button>
+              )}
 
               {/* ═══ VICTORY TRACKER — celebrate progress (bottom) ═══ */}
               {selDay===todayStr()&&(()=>{
@@ -25454,6 +25666,84 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
         </div>
       )}
 
+      {/* ═══ Curiosity Gap Paywall ═══ */}
+      {showCuriosityGap&&(
+        <div onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:8}}>&#128301;</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>OBubba noticed something</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:20}}>We've been watching {babyName||"your baby"}'s sleep this week and spotted an interesting pattern forming. Start your free trial to see what your data is telling you.</div>
+            <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);triggerPaywall("curiosity_gap");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Start Free Trial</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe Later</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Weekly Rhythm Share Prompt ═══ */}
+      {showWeeklySharePrompt&&(
+        <div onClick={()=>setShowWeeklySharePrompt(false)} style={{position:"fixed",top:0,left:0,right:0,zIndex:180,padding:"12px 16px",display:"flex",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:16,padding:"14px 18px",maxWidth:360,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.2)",display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:24}}>&#128202;</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:"#5B4F5F"}}>{babyName||"Baby"}'s week is ready to share!</div>
+              <div style={{display:"flex",gap:8,marginTop:8}}>
+                <button onClick={async()=>{
+                  const _now=new Date();const _wk=todayStr().slice(0,7)+"-W"+Math.ceil(_now.getDate()/7);
+                  try{localStorage.setItem("ob_weekly_share_prompt_"+_wk,"1");}catch{}
+                  try{
+                    const _sp=window.Capacitor?.Plugins?.Share;
+                    const _msg=(babyName||"Baby")+"'s weekly rhythm — tracked with OBubba";
+                    if(_sp){await _sp.share({title:(babyName||"Baby")+"'s Week",text:_msg,dialogTitle:"Share weekly rhythm"});}
+                    else if(navigator.share){await navigator.share({title:(babyName||"Baby")+"'s Week",text:_msg});}
+                  }catch{}
+                  setShowWeeklySharePrompt(false);
+                }} style={{padding:"8px 16px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:12,fontWeight:700,cursor:"pointer"}}>Share</button>
+                <button onClick={()=>{
+                  const _now=new Date();const _wk=todayStr().slice(0,7)+"-W"+Math.ceil(_now.getDate()/7);
+                  try{localStorage.setItem("ob_weekly_share_prompt_"+_wk,"1");}catch{}
+                  setShowWeeklySharePrompt(false);
+                }} style={{padding:"8px 16px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:12,cursor:"pointer"}}>Later</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Deferred Account Creation Prompt ═══ */}
+      {showDeferredAuth&&(
+        <div onClick={()=>{try{localStorage.setItem("ob_account_prompt_dismissed","1");}catch{}setShowDeferredAuth(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:8}}>{"\u{1F512}"}</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>Keep your data safe</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>Your tracking is only on this device right now. Create an account to back it up, sync with your partner, and access it on any device.</div>
+            <button onClick={()=>{setShowDeferredAuth(false);setAuthMode("create");setAuthScreen("login");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Create Account</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_account_prompt_dismissed","1");}catch{}setShowDeferredAuth(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not yet</button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Sleep Win Share Prompt ═══ */}
+      {sleepWinPrompt&&(
+        <div onClick={()=>setSleepWinPrompt(null)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:8}}>&#10024;</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>{babyName||"Baby"} had a beautiful little win!</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>{sleepWinPrompt.text}</div>
+            <button onClick={async()=>{
+              try{localStorage.setItem("ob_win_shared_"+todayStr(),"1");}catch{}
+              try{
+                const _sp=window.Capacitor?.Plugins?.Share;
+                const _msg=(babyName||"Baby")+" had a sleep win! "+sleepWinPrompt.text+" Tracked with OBubba.";
+                if(_sp){await _sp.share({title:(babyName||"Baby")+"'s Sleep Win",text:_msg,dialogTitle:"Share the win"});}
+                else if(navigator.share){await navigator.share({title:(babyName||"Baby")+"'s Sleep Win",text:_msg});}
+              }catch{}
+              setSleepWinPrompt(null);
+            }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Share it</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_win_shared_"+todayStr(),"1");}catch{}setSleepWinPrompt(null);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
+          </div>
+        </div>
+      )}
+
       {/* ═══ Day Explainer Popup ═══ */}
       {showDayExplainer&&(
         <div onClick={()=>setShowDayExplainer(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
@@ -25486,6 +25776,62 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               </div>
             </div>
 
+            {/* Grandparent Mode Toggle */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:grandparentMode?"rgba(123,166,140,0.1)":"var(--card-bg)",border:`1px solid ${grandparentMode?C.mint:C.blush}`,borderRadius:14,padding:"12px 16px",marginBottom:14}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Grandparent Mode</div>
+                <div style={{fontSize:11,color:C.lt,marginTop:2}}>Larger text, simplified view</div>
+              </div>
+              <button onClick={()=>{const nv=!grandparentMode;setGrandparentMode(nv);try{localStorage.setItem("ob_grandparent_mode",nv?"1":"0");}catch{};}} style={{width:48,height:28,borderRadius:14,border:"none",background:grandparentMode?"#7BA68C":"#ccc",position:"relative",cursor:_cP,transition:"background 0.2s"}}>
+                <div style={{width:22,height:22,borderRadius:11,background:"white",position:"absolute",top:3,left:grandparentMode?23:3,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
+              </button>
+            </div>
+
+            {grandparentMode ? (()=>{
+              // Simplified grandparent view — large text, essentials only
+              const _gpName = babyName || "Baby";
+              const _gpEntries = days[selDay] || [];
+              const _gpFeeds = _gpEntries.filter(e=>e.type==="feed"&&!e.night);
+              const _gpLastFeed = _gpFeeds.length ? _gpFeeds[_gpFeeds.length-1] : null;
+              const _gpNaps = _gpEntries.filter(e=>e.type==="nap"&&!e.night);
+              const _gpLastNap = _gpNaps.length ? _gpNaps[_gpNaps.length-1] : null;
+              const _gpNappies = _gpEntries.filter(e=>e.type==="poop");
+              const _gpLastNappy = _gpNappies.length ? _gpNappies[_gpNappies.length-1] : null;
+              const _gpNotes = pinnedNotes.filter(n=>n.pinned).map(n=>n.text);
+              const _gpTd = tickDataRef.current || {};
+              const _gpNextPred = _gpTd.nextNapMins ? fmt12(`${String(Math.floor(_gpTd.nextNapMins/60)%24).padStart(2,"0")}:${String(_gpTd.nextNapMins%60).padStart(2,"0")}`) : (_gpTd.bedMins ? "Bedtime ~" + fmt12(`${String(Math.floor(_gpTd.bedMins/60)%24).padStart(2,"0")}:${String(_gpTd.bedMins%60).padStart(2,"0")}`) : null);
+              const _gpFs = {fontSize:"18px",color:C.deep,lineHeight:"1.8",fontWeight:600};
+              const _gpLbl = {fontSize:"13px",color:C.lt,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6,fontWeight:700};
+              return (
+                <div style={{fontSize:18}}>
+                  <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"18px 20px",marginBottom:14}}>
+                    <div style={_gpLbl}>Last Feed</div>
+                    <div style={_gpFs}>{_gpLastFeed ? fmt12(_gpLastFeed.time) + (_gpLastFeed.feedType ? " · " + _gpLastFeed.feedType : "") + (_gpLastFeed.amount ? " · " + _gpLastFeed.amount + "ml" : "") : "None logged"}</div>
+                  </div>
+                  <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"18px 20px",marginBottom:14}}>
+                    <div style={_gpLbl}>Last Nap</div>
+                    <div style={_gpFs}>{_gpLastNap ? fmt12(_gpLastNap.start) + " — " + fmt12(_gpLastNap.end) + " (" + minDiff(_gpLastNap.start,_gpLastNap.end) + " min)" : "None yet"}</div>
+                  </div>
+                  <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"18px 20px",marginBottom:14}}>
+                    <div style={_gpLbl}>Last Nappy</div>
+                    <div style={_gpFs}>{_gpLastNappy ? fmt12(_gpLastNappy.time) : "None logged"}</div>
+                  </div>
+                  {_gpNotes.length > 0 && (
+                    <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"18px 20px",marginBottom:14}}>
+                      <div style={_gpLbl}>Important Notes</div>
+                      {_gpNotes.map((n,i)=>(<div key={i} style={_gpFs}>{n}</div>))}
+                    </div>
+                  )}
+                  {_gpNextPred && (
+                    <div style={{background:"rgba(123,166,140,0.08)",border:`1px solid ${C.mint}`,borderRadius:16,padding:"18px 20px",marginBottom:14}}>
+                      <div style={_gpLbl}>Next Up</div>
+                      <div style={_gpFs}>{_gpTd.napsComplete ? "Bedtime" : "Nap"} ~ {_gpNextPred}</div>
+                    </div>
+                  )}
+                </div>
+              );
+            })() : (
+            <React.Fragment>
             {/* Auto-included (from app data) */}
             <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:12}}>
               <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Auto-included from your data</div>
@@ -25538,6 +25884,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:14,padding:"0 4px",textAlign:"center"}}>
               Safe sleep section follows The Lullaby Trust's guidance for other carers. Emergency numbers are auto-detected from your region.
             </div>
+            </React.Fragment>
+            )}
 
             {/* Action buttons */}
             <div onClick={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{position:"relative",zIndex:10}}>
