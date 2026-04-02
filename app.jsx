@@ -19095,25 +19095,29 @@ function App(){
                     // Share as image
                     let _dataUrl;
                     try{_dataUrl=_cv.toDataURL("image/png");}catch{_dataUrl=null;}
-                    if(_dataUrl){
-                      try{
-                        const _res=await fetch(_dataUrl);const _blob=await _res.blob();
-                        const _file=new File([_blob],"obubba-day-"+selDay+".png",{type:"image/png"});
-                        if(navigator.canShare&&navigator.canShare({files:[_file]})){
-                          await navigator.share({files:[_file],title:_sfName+"'s Day"});
-                        } else {
-                          const _sp=window.Capacitor?.Plugins?.Share;
-                          let _sfMsg=_sfName+"'s Day\n\n";
-                          if(_sfWake)_sfMsg+="Wake: "+fmt12(_sfWake.time)+"\n";
-                          _sfMsg+="Feeds: "+_sfFeeds.length+(_sfTotalMl?" ("+_sfTotalMl+"ml)":"")+"\n";
-                          _sfMsg+="Naps: "+_sfNaps.length+(_sfTotalNapMin?" ("+hm(_sfTotalNapMin)+")":"")+"\n";
-                          _sfMsg+="Nappies: "+_sfNappies.length+"\n";
-                          if(_sfNext)_sfMsg+="Next: "+_sfNext+"\n";
-                          _sfMsg+="\nTracked with OBubba";
-                          if(_sp){await _sp.share({title:_sfName+"'s Day",text:_sfMsg,dialogTitle:"Send to Family"});}
-                          else if(navigator.share){await navigator.share({title:_sfName+"'s Day",text:_sfMsg});}
-                        }
-                      }catch(e){if(e.name!=="AbortError")console.warn("Share error",e);}
+                    // Build text summary for sharing
+                    let _sfMsg=_sfName+"'s Day \u2014 "+new Date(selDay+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+"\n\n";
+                    if(_sfWake)_sfMsg+="\u2600\uFE0F Wake: "+fmt12(_sfWake.time)+"\n";
+                    _sfMsg+="\u{1F37C} Feeds: "+_sfFeeds.length+(_sfTotalMl?" ("+_sfTotalMl+"ml)":"")+"\n";
+                    _sfMsg+="\u{1F4A4} Naps: "+_sfNaps.length+(_sfTotalNapMin?" ("+hm(_sfTotalNapMin)+")":"")+"\n";
+                    _sfMsg+="\u{1F6BC} Nappies: "+_sfNappies.length+"\n";
+                    if(_sfNext)_sfMsg+="\u{1F52E} Next: "+_sfNext+"\n";
+                    _sfMsg+="\nTracked with OBubba";
+                    // Try Capacitor Share first (works on native), then navigator.share (PWA)
+                    const _sp=window.Capacitor?.Plugins?.Share;
+                    if(_sp){
+                      await _sp.share({title:_sfName+"'s Day",text:_sfMsg,dialogTitle:"Send to Family"});
+                    } else if(navigator.share){
+                      // On PWA, try sharing the image file
+                      if(_dataUrl){
+                        try{
+                          const _res=await fetch(_dataUrl);const _blob=await _res.blob();
+                          const _file=new File([_blob],"obubba-day-"+selDay+".png",{type:"image/png"});
+                          if(navigator.canShare&&navigator.canShare({files:[_file]})){
+                            await navigator.share({files:[_file],title:_sfName+"'s Day"});
+                          } else { await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
+                        }catch(e2){ if(e2.name!=="AbortError") await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
+                      } else { await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
                     }
                   } catch {}
                 }} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12,border:"none"}}>
