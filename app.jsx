@@ -17080,9 +17080,9 @@ function App(){
               {claimStatus==="available"&&<div style={{fontSize:11,color:C.mint,marginTop:3,fontFamily:_fM}}>Available</div>}
             </div>
             <div style={{marginBottom:16}}>
-              <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,display:"block"}}>PIN (4+ digits)</label>
-              <input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="1234" maxLength={8}
-                value={claimPin} onChange={e=>setClaimPin(e.target.value.replace(/\D/g,"").slice(0,8))}
+              <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,display:"block"}}>PIN (4 digits)</label>
+              <input type="tel" inputMode="numeric" pattern="[0-9]*" placeholder="1234" maxLength={4}
+                value={claimPin} onChange={e=>setClaimPin(e.target.value.replace(/\D/g,"").slice(0,4))}
                 style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:15,fontFamily:_fM,boxSizing:_bBB,outline:_oN,letterSpacing:4,textAlign:"center"}}/>
             </div>
             {claimStatus==="error"&&<div style={{fontSize:12,color:"#e8574a",marginBottom:8,textAlign:"center",fontFamily:_fM}}>{claimError||"Something went wrong — try again"}</div>}
