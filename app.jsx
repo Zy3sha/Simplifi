@@ -3954,6 +3954,7 @@ function App(){
   const[obUsernameStatus,setObUsernameStatus]=useState("idle");
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
   const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");if(u&&!v) return "login"; return null;}catch{return null;}});
+  const[authRecoveryEmail,setAuthRecoveryEmail]=useState("");
   const[showBioPrompt,setShowBioPrompt]=useState(false);
   const bioAttemptedRef=React.useRef(false);
   const[authMode,setAuthMode]=useState(()=>{
@@ -16433,6 +16434,10 @@ function App(){
         if(pin !== pin2) { setAuthError("PINs don't match"); setAuthPin2(""); setAuthLoading(false); return; }
         const ok = await reserveUsername(authUsername, pin);
         if(ok) {
+          // Save recovery email if provided
+          if(authRecoveryEmail&&authRecoveryEmail.trim().includes("@")){
+            try{await saveRecoveryEmail(authRecoveryEmail.trim());}catch{}
+          }
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
           setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); setTab("day");
         } else { setAuthError("That username is taken — try another"); setAuthLoading(false); }
@@ -16470,45 +16475,59 @@ function App(){
               </div>
             )}
           </div>
-          <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:10}}>
-            {isLogin?"PIN":"Choose a PIN"}
-          </label>
-
-          {authLoading ? (
-            <div style={{textAlign:"center",padding:"24px 0",fontSize:13,color:C.mid,fontFamily:_fM}}>⏳ {isLogin?"Signing in…":"Creating account…"}</div>
-          ) : (
-            <PinPad value={authPin} onChange={p=>{setAuthPin(p);setAuthError("");}} onComplete={isLogin?handleAuth:null}/>
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>
+              {isLogin?"PIN":"Choose a 4-digit PIN"}
+            </label>
+            <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+              value={authPin} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,4);setAuthPin(v);setAuthError("");if(v.length===4&&isLogin)handleAuth(v);}}
+              placeholder="4-digit PIN"
+              style={{width:"100%",fontSize:24,padding:"12px 14px",borderRadius:12,border:`2px solid ${authPin.length===4?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fM,textAlign:"center",letterSpacing:"0.3em",boxSizing:_bBB}}/>
+          </div>
+          {!isLogin && !authLoading && (
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Confirm PIN</label>
+              <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                value={authPin2} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,4);setAuthPin2(v);setAuthError("");}}
+                placeholder="Re-enter PIN"
+                style={{width:"100%",fontSize:24,padding:"12px 14px",borderRadius:12,border:`2px solid ${authPin2.length===4&&authPin2===authPin?"#9BB8A8":authPin2.length===4&&authPin2!==authPin?C.ter:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fM,textAlign:"center",letterSpacing:"0.3em",boxSizing:_bBB}}/>
+              {authPin2.length===4&&authPin2!==authPin&&<div style={{fontSize:12,color:C.ter,textAlign:"center",marginTop:4}}>PINs don't match</div>}
+            </div>
           )}
-          {!isLogin && !authLoading && authPin.length===4 && (
-            <div style={{marginTop:16}}>
-              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:10}}>Confirm PIN</label>
-              <PinPad value={authPin2} onChange={p=>{setAuthPin2(p);setAuthError("");}} onComplete={null}/>
+          {!isLogin && !authLoading && (
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Recovery Email <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+              <input type="email" value={authRecoveryEmail||""} onChange={e=>setAuthRecoveryEmail(e.target.value)}
+                placeholder="For PIN or username recovery"
+                style={{width:"100%",fontSize:15,padding:"11px 14px",borderRadius:12,border:`2px solid ${C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,boxSizing:_bBB}}/>
+              <div style={{fontSize:11,color:C.lt,marginTop:4,lineHeight:1.4}}>If you forget your PIN or username, we can look up your account using this email. We'll never send marketing emails.</div>
             </div>
           )}
 
+          {authLoading && <div style={{textAlign:"center",padding:"16px 0",fontSize:13,color:C.mid,fontFamily:_fM}}>{isLogin?"Signing in...":"Creating account..."}</div>}
           {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
           {isLogin && !authLoading ? (
             <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4}
-              style={{width:"100%",marginTop:10,background:authPin.length===4&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                border:_bN,borderRadius:99,padding:"13px",color:authPin.length===4&&!authLoading?"white":"#b89890",
-                fontSize:15,fontWeight:700,cursor:authPin.length===4&&!authLoading?"pointer":"not-allowed",fontFamily:_fI,
-                boxShadow:authPin.length===4?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
-              Sign in with PIN →
+              style={{width:"100%",marginTop:10,background:authPin.length===4?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",
+                border:_bN,borderRadius:99,padding:"13px",color:authPin.length===4?"white":"rgba(155,139,184,0.5)",
+                fontSize:15,fontWeight:700,cursor:authPin.length===4?"pointer":"not-allowed",fontFamily:_fI,
+                boxShadow:authPin.length===4?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"all 0.2s"}}>
+              Sign In {"\u2192"}
             </button>
           ) : !isLogin && !authLoading ? (
             <div>
-              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:14,marginBottom:12,padding:"10px 12px",background:"var(--card-bg-alt)",borderRadius:12,border:`1.5px solid ${agreedToTerms?C.mint:C.blush}`}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:8,marginBottom:12,padding:"10px 12px",background:"var(--card-bg-alt)",borderRadius:12,border:`1.5px solid ${agreedToTerms?"#9BB8A8":C.blush}`}}>
                 <input type="checkbox" checked={agreedToTerms} onChange={e=>setAgreedToTerms(e.target.checked)}
-                  style={{marginTop:3,width:18,height:18,accentColor:C.ter,flexShrink:0,cursor:_cP}}/>
+                  style={{marginTop:3,width:18,height:18,accentColor:"#7BA68C",flexShrink:0,cursor:_cP}}/>
                 <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>
-                  I agree to the <a href="https://obubba.com/terms" target="_blank" style={{color:C.ter,fontWeight:600,textDecoration:"underline"}}>Terms & Conditions</a> and <a href="https://obubba.com/privacy" target="_blank" style={{color:C.ter,fontWeight:600,textDecoration:"underline"}}>Privacy Policy</a>
+                  I agree to the <a href="https://obubba.com/terms" target="_blank" style={{color:"#8B7BA8",fontWeight:600,textDecoration:"underline"}}>Terms & Conditions</a> and <a href="https://obubba.com/privacy" target="_blank" style={{color:"#8B7BA8",fontWeight:600,textDecoration:"underline"}}>Privacy Policy</a>
                 </div>
               </div>
               <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit}
-                style={{width:"100%",background:canSubmit&&!authLoading?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",
-                  border:_bN,borderRadius:99,padding:"13px",color:canSubmit&&!authLoading?"white":"#b89890",
-                  fontSize:15,fontWeight:700,cursor:canSubmit&&!authLoading?"pointer":"not-allowed",fontFamily:_fI,
-                  boxShadow:canSubmit?"0 4px 20px rgba(201,112,90,0.4)":"none",transition:"all 0.2s"}}>
+                style={{width:"100%",background:canSubmit?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",
+                  border:_bN,borderRadius:99,padding:"13px",color:canSubmit?"white":"rgba(155,139,184,0.5)",
+                  fontSize:15,fontWeight:700,cursor:canSubmit?"pointer":"not-allowed",fontFamily:_fI,
+                  boxShadow:canSubmit?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"all 0.2s"}}>
                 Create Account
               </button>
             </div>
@@ -16556,8 +16575,8 @@ function App(){
                     setForgotPinStep("newpin");
                   }
                 }} disabled={forgotPinLoading||!forgotEmail.includes("@")}
-                  style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:forgotEmail.includes("@")?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",color:forgotEmail.includes("@")?"white":"#b89890",fontSize:14,fontWeight:700,cursor:forgotEmail.includes("@")?"pointer":"not-allowed",fontFamily:_fI,marginBottom:10}}>
-                  {forgotPinLoading?"Checking…":forgotMode==="username"?"Find my username":"Verify email →"}
+                  style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:forgotEmail.includes("@")?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",color:forgotEmail.includes("@")?"white":"rgba(155,139,184,0.5)",fontSize:14,fontWeight:700,cursor:forgotEmail.includes("@")?"pointer":"not-allowed",fontFamily:_fI,marginBottom:10,boxShadow:forgotEmail.includes("@")?"0 4px 16px rgba(155,139,184,0.3)":"none"}}>
+                  {forgotPinLoading?"Checking...":forgotMode==="username"?"Find my username":"Verify email \u2192"}
                 </button>
                 <button onClick={()=>setShowForgotPin(false)} style={{width:"100%",padding:"10px",borderRadius:99,border:"none",background:"var(--card-bg-alt)",color:C.lt,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:_fI}}>Cancel</button>
               </>
@@ -16568,7 +16587,7 @@ function App(){
                 <div style={{fontSize:40,marginBottom:12}}>👤</div>
                 <div style={{fontSize:14,color:C.mid,marginBottom:8}}>Your username is:</div>
                 <div style={{fontSize:22,fontWeight:700,color:C.deep,marginBottom:20,fontFamily:"monospace",background:"var(--card-bg-alt)",padding:"10px 16px",borderRadius:12,display:"inline-block"}}>{forgotEmailResult.username}</div>
-                <button onClick={()=>{setAuthUsername(forgotEmailResult.username);setShowForgotPin(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:`linear-gradient(135deg,#c9705a,#a85a44)`,color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:_fI,marginBottom:8}}>Sign in with this username</button>
+                <button onClick={()=>{setAuthUsername(forgotEmailResult.username);setShowForgotPin(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:_fI,marginBottom:8,boxShadow:"0 4px 16px rgba(155,139,184,0.3)"}}>Sign in with this username</button>
                 <button onClick={()=>{setForgotMode("pin");setForgotPinStep("newpin");}} style={{width:"100%",padding:"10px",borderRadius:99,border:"none",background:"var(--card-bg-alt)",color:C.lt,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:_fI}}>I also forgot my PIN</button>
               </div>
             )}
@@ -16576,8 +16595,11 @@ function App(){
             {forgotPinStep==="newpin" && (
               <>
                 <div style={{fontSize:14,color:C.mid,marginBottom:6,lineHeight:1.6}}>Email verified for <strong>{forgotEmailResult?.username||authUsername}</strong></div>
-                <div style={{fontSize:14,color:"var(--mint)",marginBottom:16,fontWeight:600}}>Choose a new PIN:</div>
-                <PinPad value={forgotPinNewPin} onChange={p=>{setForgotPinNewPin(p);setForgotPinError("");}}/>
+                <div style={{fontSize:14,color:"var(--mint)",marginBottom:8,fontWeight:600}}>Choose a new PIN:</div>
+                <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4}
+                  value={forgotPinNewPin} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,4);setForgotPinNewPin(v);setForgotPinError("");}}
+                  placeholder="4-digit PIN" autoFocus
+                  style={{width:"100%",fontSize:24,padding:"12px 14px",borderRadius:12,border:`2px solid ${forgotPinNewPin.length===4?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fM,textAlign:"center",letterSpacing:"0.3em",boxSizing:_bBB,marginBottom:8}}/>
                 {forgotPinError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:8,fontWeight:600}}>{forgotPinError}</div>}
                 <button onClick={async()=>{
                   if(forgotPinNewPin.length!==4){setForgotPinError("Enter a 4-digit PIN");return;}
