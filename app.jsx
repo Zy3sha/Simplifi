@@ -21583,53 +21583,6 @@ function App(){
                       </div>
                     </div>
 
-                    {/* Witching Hour — all newborns */}
-                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                        <span style={{fontSize:20}}>{"\u{1F319}"}</span>
-                        <div style={{fontSize:14,fontWeight:700,color:C.deep}}>The Witching Hour</div>
-                      </div>
-                      <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>
-                        Most babies have an unsettled period between 5pm and 11pm. It peaks around 6-8 weeks and isn't caused by anything you're doing wrong — their nervous system is simply overstimulated from the day.
-                      </div>
-                      <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>
-                        <strong style={{color:C.mid}}>What helps:</strong> Dim the lights, reduce noise, skin-to-skin, gentle rocking, a warm bath. It passes by 3-4 months.
-                      </div>
-                    </div>
-
-                    {/* Common Newborn Skin — first 8 weeks */}
-                    {ageWeeks < 8 && (
-                      <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                          <span style={{fontSize:20}}>{"\u{1F476}"}</span>
-                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Newborn Skin — What's Normal</div>
-                        </div>
-                        {[
-                          ["\u{1FAE7}","Newborn acne","Tiny red/white bumps on face at 2-4 weeks. Mum's hormones. Don't squeeze — clears by 3-4 months."],
-                          ["\u{1F9F4}","Cradle cap","Yellow/white scaly patches on scalp. Massage with oil, brush gently, wash off. Harmless — takes weeks to clear."],
-                          ["\u{2744}\uFE0F","Dry/peeling skin","Normal in first 2 weeks, especially post-40 weeks. No lotion needed unless very dry."],
-                          ["\u{1F534}","Stork bites/marks","Pink patches on eyelids, forehead, or neck. Very common. Most fade by 18 months."],
-                        ].map(([emoji,title,desc],i)=>(
-                          <div key={i} style={{display:"flex",gap:10,padding:"6px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
-                            <span style={{fontSize:14,flexShrink:0,marginTop:2}}>{emoji}</span>
-                            <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}><strong style={{color:C.deep}}>{title}:</strong> {desc}</div>
-                          </div>
-                        ))}
-                        <div style={{fontSize:11,color:C.lt,marginTop:8,fontStyle:"italic"}}>See your GP if: spots look infected, rash doesn't blanch with pressure (glass test), or skin is hot/swollen.</div>
-                      </div>
-                    )}
-
-                    {/* PURPLE Crying preview for pre-peak babies */}
-                    {ageWeeks < 4 && (
-                      <div style={{background:"rgba(123,104,238,0.04)",border:`1px solid rgba(123,104,238,0.15)`,borderRadius:16,padding:"14px 16px",marginBottom:12}}>
-                        <div style={{fontSize:12,fontFamily:_fM,color:"#7b68ee",textTransform:"uppercase",letterSpacing:_ls1,marginBottom:6}}>{"\u{1F52E}"} Heads up — what's coming at 4-8 weeks</div>
-                        <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:4}}>The PURPLE Crying Phase</div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
-                          Around 4-6 weeks, most babies enter a peak crying period. It's completely normal, not caused by anything you're doing, and it ends by 3 months. OBubba will guide you through it when the time comes.
-                        </div>
-                      </div>
-                    )}
-
                     {/* Peak Crying Phase card — 4-12 weeks */}
                     {_isPeakCryingWindow && (
                       <div style={{background:"rgba(123,104,238,0.05)",border:"1.5px solid rgba(123,104,238,0.2)",borderRadius:16,padding:"14px 16px",marginBottom:12}}>
@@ -21728,8 +21681,60 @@ function App(){
 
               {/* THIS WEEK — label is inside Let's Play card */}
 
+              {/* ── Newborn awareness cards (Activities tab, < 13 weeks) ── */}
+              {devFilter==="activities" && ageWeeks !== null && ageWeeks < 13 && (
+                <div>
+                  {/* Witching Hour */}
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <span style={{fontSize:20}}>{"\u{1F319}"}</span>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>The Witching Hour</div>
+                    </div>
+                    <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>
+                      Most babies have an unsettled period between 5pm and 11pm. It peaks around 6-8 weeks and isn't caused by anything you're doing wrong — their nervous system is simply overstimulated from the day.
+                    </div>
+                    <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>
+                      <strong style={{color:C.mid}}>What helps:</strong> Dim the lights, reduce noise, skin-to-skin, gentle rocking, a warm bath. It passes by 3-4 months.
+                    </div>
+                  </div>
+
+                  {/* Newborn Skin — first 8 weeks */}
+                  {ageWeeks < 8 && (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                        <span style={{fontSize:20}}>{"\u{1F476}"}</span>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Newborn Skin — What's Normal</div>
+                      </div>
+                      {[
+                        ["\u{1FAE7}","Newborn acne","Tiny red/white bumps on face at 2-4 weeks. Mum's hormones. Don't squeeze — clears by 3-4 months."],
+                        ["\u{1F9F4}","Cradle cap","Yellow/white scaly patches on scalp. Massage with oil, brush gently, wash off. Harmless."],
+                        ["\u{2744}\uFE0F","Dry/peeling skin","Normal in first 2 weeks, especially post-40 weeks. No lotion needed unless very dry."],
+                        ["\u{1F534}","Stork bites","Pink patches on eyelids, forehead, or neck. Very common. Most fade by 18 months."],
+                      ].map(([emoji,title,desc],i)=>(
+                        <div key={i} style={{display:"flex",gap:10,padding:"6px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
+                          <span style={{fontSize:14,flexShrink:0,marginTop:2}}>{emoji}</span>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}><strong style={{color:C.deep}}>{title}:</strong> {desc}</div>
+                        </div>
+                      ))}
+                      <div style={{fontSize:11,color:C.lt,marginTop:8,fontStyle:"italic"}}>See your GP if: spots look infected, rash doesn't blanch (glass test), or skin is hot/swollen.</div>
+                    </div>
+                  )}
+
+                  {/* PURPLE Crying preview — before peak */}
+                  {ageWeeks < 4 && (
+                    <div style={{background:"rgba(123,104,238,0.04)",border:"1px solid rgba(123,104,238,0.15)",borderRadius:16,padding:"14px 16px",marginBottom:12}}>
+                      <div style={{fontSize:12,fontFamily:_fM,color:"#7b68ee",textTransform:"uppercase",letterSpacing:_ls1,marginBottom:6}}>{"\u{1F52E}"} Heads up — what's coming at 4-8 weeks</div>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:4}}>The PURPLE Crying Phase</div>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
+                        Around 4-6 weeks, most babies enter a peak crying period. It's completely normal, not caused by anything you're doing, and it ends by 3 months.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── Let's Play — ELEVATED to top per strategy ── */}
-              {(devFilter==="activities") && ageWeeks && <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+              {(devFilter==="activities") && ageWeeks !== null && <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🎮 Let's Play — Little moments that build big milestones</div>
                 {(()=>{
                   const _lpActs = DEV_ACTIVITIES.filter(a=>ageWeeks>=a.weeks[0]&&ageWeeks<=a.weeks[1]);
