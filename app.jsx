@@ -6214,7 +6214,7 @@ function App(){
   const tickDataRef = React.useRef({});
   React.useMemo(()=>{
     const ageWeeks = age ? age.totalWeeks : null;
-    if (!ageWeeks) { tickDataRef.current = {}; return; }
+    if (ageWeeks === null) { tickDataRef.current = {}; return; }
     const ww = getWakeWindow(ageWeeks);
     const napProfile = getAgeNapProfile(ageWeeks);
     const todayEntries = days[selDay] || [];
@@ -7459,7 +7459,7 @@ function App(){
     return Math.round(ww.min + range * ratio);
   }
   function getAgeNapProfile(ageWeeks) {
-    if (!ageWeeks) return { expectedNaps:3, idealNapDurMin:30, idealNapDurMax:90, idealTotalMin:120, idealTotalMax:240 };
+    if (ageWeeks === null) return { expectedNaps:3, idealNapDurMin:30, idealNapDurMax:90, idealTotalMin:120, idealTotalMax:240 };
     const months = ageWeeks / 4.33;
     if (ageWeeks < 6)  return { expectedNaps:5, idealNapDurMin:20, idealNapDurMax:60,  idealTotalMin:240, idealTotalMax:360 }; // 0–6wk
     if (months < 3)    return { expectedNaps:4, idealNapDurMin:30, idealNapDurMax:90,  idealTotalMin:180, idealTotalMax:300 }; // 6wk–3mo
@@ -7486,7 +7486,7 @@ function App(){
   // ── SECTION 7: PREDICTION ENGINE (NAP & BEDTIME) ──────────────────
   function predictNextNap() {
     const ageWeeks = age ? age.totalWeeks : null;
-    if (!ageWeeks || !selDay || !entries || !Array.isArray(entries)) return null;
+    if (ageWeeks === null || !selDay || !entries || !Array.isArray(entries)) return null;
 
     const bedEntry4 = entries.find(e => {if(e.type!=="sleep"||e.night) return false; const bh=parseInt((e.time||"00:00").split(":")[0]); return bh>=12;});
     if (bedEntry4) {
@@ -7861,7 +7861,7 @@ function App(){
     const napMinutes = todayNaps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
     const nightWakes = today.filter(e => e.night).length;
     const ageWeeks = age ? age.totalWeeks : null;
-    if (!ageWeeks) return { score: null, factors: [] };
+    if (ageWeeks === null) return { score: null, factors: [] };
     const ww = getWakeWindow(ageWeeks);
     const napProfile = getAgeNapProfile(ageWeeks);
     const expectedDaySleep = getExpectedDaySleepRange(ageWeeks);
@@ -21157,7 +21157,7 @@ function App(){
           const ageWeeks = age ? age.totalWeeks : null;
           const name = babyName || "Baby";
           function getDevAdvice(ageWeeks) {
-            if (!ageWeeks) return [];
+            if (ageWeeks === null) return [];
             if (ageWeeks < 6) return [
               { icon:"👁", title:"Visual stimulation", body:"Babies can only focus 20–30cm away. Hold high-contrast black-and-white patterns near their face. Mobiles above the cot help develop tracking." },
               { icon:"🗣", title:"Talk constantly", body:"Narrate everything you do. Your voice is the most important stimulus. Babies recognise parents' voices from birth and respond to tone before words." },
@@ -21410,7 +21410,7 @@ function App(){
           return (
             <div>
               {/* ── 🧠 DEVELOPMENT HERO CARD ── */}
-              {ageWeeks && (()=>{
+              {ageWeeks !== null && (()=>{
                 const _dName = name;
                 const _months = Math.round(ageWeeks / 4.33);
                 // Phase description based on age
@@ -22910,7 +22910,7 @@ function App(){
               {age && (weaningStarted || devFilter==="weaning") && devFilter==="weaning" && (()=>{
                 const _currentStage = WEANING_STAGES.find(s=>age.totalWeeks>=s.weeksRange[0]&&age.totalWeeks<=s.weeksRange[1]) || WEANING_STAGES[0];
                 const _recipes = WEANING_RECIPES.filter(r=>r.stage===_recipeStage);
-                const _canAccess = isPremium || !STORE_READY;
+                const _canAccess = isPremium || trialActive || !STORE_READY;
                 const _freeLimit = 2;
 
                 return (
@@ -22995,7 +22995,7 @@ function App(){
 
               {/* ═══ Weaning Stats Dashboard (Premium) ═══ */}
               {age && weaningStarted && devFilter==="weaning" && (weaning||[]).length > 0 && (()=>{
-                const _canAccess = isPremium || !STORE_READY;
+                const _canAccess = isPremium || trialActive || !STORE_READY;
                 if(!_canAccess) return (
                   <div style={{marginBottom:12,padding:"14px 16px",borderRadius:16,border:`1.5px solid ${C.ter}25`,background:`${C.ter}04`,textAlign:"center"}}>
                     <div style={{fontSize:22,marginBottom:6}}>📊</div>
@@ -23115,7 +23115,7 @@ function App(){
               {/* ── Milestones — redesigned section ── */}
               <div data-milestones="true">
               {(devFilter==="milestones") && <div>
-              {ageWeeks && (
+              {ageWeeks !== null && (
                 <>
                 {/* ── Progress Header — visual category bars ── */}
                 <div className="glass-card" style={{...card,marginBottom:14,padding:"16px 18px"}}>
@@ -23217,7 +23217,7 @@ function App(){
               {/* NHS & WHO Guidance */}
               <div className="glass-card" style={{...card, marginBottom:14}}>
                 <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🏥 NHS & WHO Guidance for this age</div>
-                {!ageWeeks ? (
+                {ageWeeks === null ? (
                   <div style={{textAlign:"center",padding:"16px",color:C.lt,fontSize:13}}>Set a date of birth to see age-appropriate guidance.</div>
                 ) : (
                   devAdvice.map((item, i) => (
