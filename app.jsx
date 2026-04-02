@@ -13561,26 +13561,19 @@ function App(){
     }
 
     if (isIOS) {
-      // iOS: open .ics as data URL — iOS intercepts and offers "Add to Calendar"
-      var blob = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
-      var reader = new FileReader();
-      reader.onload = function() {
-        try {
-          // Use Capacitor Browser to open the data URL — iOS will show Calendar add sheet
-          if (window.Capacitor?.Plugins?.Browser) {
-            window.Capacitor.Plugins.Browser.open({url: reader.result});
-          } else {
-            window.open(reader.result);
-          }
-        } catch(e) {
-          // Fallback: share sheet with file
-          try {
-            var file = new File([blob], filename || "obubba-event.ics", {type:"text/calendar"});
-            navigator.share({files:[file], title:"Add to Calendar"}).catch(function(){});
-          } catch(e2) { console.warn("Calendar add failed", e2); }
+      // iOS: share .ics file via native share sheet — iOS shows "Add to Calendar" option
+      try {
+        var blob = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
+        var file = new File([blob], filename || "obubba-event.ics", {type:"text/calendar"});
+        if (navigator.canShare && navigator.canShare({files:[file]})) {
+          navigator.share({files:[file], title:"Add to Calendar"}).catch(function(){});
+        } else {
+          // Fallback: download the .ics — iOS will offer to open in Calendar
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a"); a.href = url; a.download = filename || "obubba-event.ics"; a.click();
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
         }
-      };
-      reader.readAsDataURL(blob);
+      } catch(e) { console.warn("Calendar add failed", e); }
       return;
     }
 
