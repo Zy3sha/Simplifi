@@ -23880,8 +23880,9 @@ function App(){
               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>{"\u{1F4CB}"} Legal & About</div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>About OBubba</div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7}}>
-                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or <span onClick={(e)=>{
-                  e.stopPropagation();
+                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or <button onClick={(e)=>{
+                  e.stopPropagation();e.preventDefault();
+                  try{document.activeElement.blur();}catch{}
                   const now=Date.now();
                   if(!window._ownerTaps) window._ownerTaps={count:0,last:0};
                   if(now-window._ownerTaps.last>3000) window._ownerTaps.count=0;
@@ -23893,7 +23894,7 @@ function App(){
                     setIsPremium(true);
                     showToast("\u{1F513} Premium unlocked",1500,1);
                   }
-                }} style={{cursor:"default",padding:"4px 6px",margin:"-4px -6px",WebkitTapHighlightColor:"transparent",WebkitUserSelect:"none",userSelect:"none"}}>treatment</span>.
+                }} style={{background:"none",border:"none",color:"inherit",font:"inherit",padding:0,margin:0,cursor:"default",WebkitTapHighlightColor:"transparent",WebkitUserSelect:"none",userSelect:"none",display:"inline",lineHeight:"inherit"}}>treatment</button>.
               </div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:6}}>
                 Sleep predictions, feeding guidance, and developmental information are based on publicly available guidelines from the NHS, WHO, AAP (American Academy of Pediatrics), NHMRC (Australia), and paediatric sleep research. OBubba is not affiliated with or endorsed by any of these organisations or any healthcare provider.
