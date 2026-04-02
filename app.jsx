@@ -3563,6 +3563,7 @@ function App(){
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
+  const[showDayExplainer,setShowDayExplainer]=useState(false);
   const[carerEntries,setCarerEntries]=useState([]);
   const[showCarerReview,setShowCarerReview]=useState(false);
   // Bridge nap: tracks whether user added bridge nap to schedule (keyed by selDay)
@@ -13437,6 +13438,9 @@ function App(){
       }
     }
 
+    // Show day explainer popup on first wake or bedtime log
+    if((type==="wake"&&!data.night)||type==="sleep"){try{if(!localStorage.getItem("ob_day_explainer_v1")){localStorage.setItem("ob_day_explainer_v1","1");setTimeout(()=>setShowDayExplainer(true),600);}}catch{}}
+
     setSessionLogs(c=>{
       const n=c+1;
       try{if(n===3 && !localStorage.getItem("tut_v2") && tutStep===-1) setTimeout(()=>setShowTutPrompt(true),800);}catch{}
@@ -19333,7 +19337,8 @@ function App(){
               {(insightFilter==="sleep") && <div>
 
               {/* ═══ Tomorrow's Predicted Rhythm — top of insights ═══ */}
-              {(()=>{
+              {(isPremium || trialActive || !STORE_READY) ? (
+              (()=>{
                 const flex = tomorrowFlexSchedule();
                 const sched = flex ? flex.schedule : null;
                 if (!sched) return null;
@@ -19393,10 +19398,13 @@ function App(){
                     )}
                   </div>
                 );
-              })()}
+              })()
+              ) : (
+                <PremiumTeaser icon="📅" label="Tomorrow's Predicted Rhythm" description="See a personalised nap & bedtime schedule based on NHS guidance and your baby's sleep patterns" context="predicted_rhythm"/>
+              )}
 
               {/* ═══ SCHEDULE BUILDER — top of insights ═══ */}
-              {age && (
+              {age && ((isPremium || trialActive || !STORE_READY) ? (
                 <button onClick={()=>{haptic();setShowScheduleMaker(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"16px",marginBottom:12,borderRadius:16,border:`1.5px solid ${C.ter}30`,background:"var(--card-bg-solid)",boxShadow:"var(--card-shadow)",cursor:_cP,textAlign:"left"}}>
                   <div style={{width:44,height:44,borderRadius:14,background:`linear-gradient(135deg,${C.ter}15,${C.mint}15)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🧩</div>
                   <div style={{flex:1}}>
@@ -19405,7 +19413,9 @@ function App(){
                   </div>
                   <span style={{fontSize:13,color:C.ter,fontWeight:700}}>Build →</span>
                 </button>
-              )}
+              ) : (
+                <PremiumTeaser icon="🧩" label="Schedule Builder" description="Plan naps around appointments or events with a personalised schedule" context="schedule_builder"/>
+              ))}
 
               {collHead("sleep","😴","Sleep & Bedtime")}
               {insightSection.sleep && (
@@ -19426,6 +19436,8 @@ function App(){
                           <span style={{fontSize:15}}>📖</span>
                           <span style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep}}>{possessive(babyName||"Baby")} Sleep Story</span>
                         </div>
+                        {(isPremium || trialActive || !STORE_READY) ? (()=>{
+                    return (<>
                         {visibleSections.map((section,i)=>(
                           <div key={i} style={{marginBottom:i<visibleSections.length-1?14:0}}>
                             {/* Section header */}
@@ -19540,6 +19552,10 @@ function App(){
                             <span style={{fontSize:9,transform:sleepStoryExpanded?"rotate(180deg)":"none",transition:"transform 0.2s"}}>▼</span>
                           </button>
                         )}
+                    </>);
+                  })() : (
+                    <PremiumTeaser icon="📖" label="Sleep Story" description="A personalised narrative analysis of your baby's sleep patterns, trends, and expert guidance" context="sleep_story"/>
+                  )}
                       </div>
                     );
                   })()}
@@ -20013,7 +20029,7 @@ function App(){
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
 
                   {/* ═══ FEED INTELLIGENCE — pattern insights ═══ */}
-                  {(()=>{
+                  {(isPremium || trialActive || !STORE_READY) ? (()=>{
                     const _fi = feedIntelligence();
                     if (!_fi || !_fi.length) return null;
                     return (
@@ -20030,7 +20046,9 @@ function App(){
                         ))}
                       </div>
                     );
-                  })()}
+                  })() : (
+                    <PremiumTeaser icon="🧠" label="Feed Insights & Trends" description="Track feeding patterns, spot cluster feeds, volume changes, and growth spurts over the last 7-14 days" context="feed_insights"/>
+                  )}
 
                   {/* ═══ WEANING: Milk-to-Solid Ratio ═══ */}
                   {(()=>{
@@ -20250,6 +20268,7 @@ function App(){
                   })()}
 
                   {/* ── WHO Growth Charts ── */}
+                  {(isPremium || trialActive || !STORE_READY) ? (<>
                   {babyDob && weights.length >= 2 && (()=>{
                     const wData = weights.map(w => {
                       const ageMo = Math.round(((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*100)/100;
@@ -20356,6 +20375,9 @@ function App(){
                         </div>
                       )}
                     </div>
+                  )}
+                  </>) : (
+                    <PremiumTeaser icon="📊" label="Growth Charts" description="WHO growth standards with weight and height percentile charts tracking your baby's development" context="growth_charts"/>
                   )}
 
                   {/* Log inputs */}
@@ -21164,7 +21186,7 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🎮 Let's Play — Little moments that build big milestones</div>
                 {(()=>{
                   const _lpActs = DEV_ACTIVITIES.filter(a=>ageWeeks>=a.weeks[0]&&ageWeeks<=a.weeks[1]);
-                  const _lpShow = (isPremium || !STORE_READY) ? _lpActs.slice(0,3) : _lpActs.slice(0,1);
+                  const _lpShow = (isPremium || trialActive || !STORE_READY) ? _lpActs.slice(0,3) : _lpActs.slice(0,1);
                   if (!_lpShow.length) return <div style={{fontSize:12,color:C.lt}}>Activities will appear as {babyName||"baby"} grows</div>;
                   return _lpShow.map((a,i)=>(
                     <div key={a.id} style={{display:"flex",gap:10,padding:"8px 0",borderTop:i>0?"1px solid var(--card-border)":"none"}}>
@@ -25230,6 +25252,21 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 ☀️ Wake Up for the Day
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Day Explainer Popup ═══ */}
+      {showDayExplainer&&(
+        <div onClick={()=>setShowDayExplainer(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>☀️🌙</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"var(--text-deep,#5B4F5F)",marginBottom:12}}>How Your Day Works</div>
+            <div style={{fontSize:14,color:"var(--text-mid,#8A7F87)",lineHeight:1.7,textAlign:"left",marginBottom:8}}>OBubba wants your mornings to feel like a fresh start — so the OBubba day runs <strong style={{color:"var(--text-deep,#5B4F5F)"}}>wake-to-wake</strong>, not midnight-to-midnight.</div>
+            <div style={{fontSize:14,color:"var(--text-mid,#8A7F87)",lineHeight:1.7,textAlign:"left",marginBottom:8}}>Your day starts when you log <strong style={{color:"var(--text-deep,#5B4F5F)"}}>Morning Wake</strong> and ends when you log the next wake.</div>
+            <div style={{fontSize:14,color:"var(--text-mid,#8A7F87)",lineHeight:1.7,textAlign:"left",marginBottom:8}}>Night feeds & wakes (those after bedtime) belong to the day bedtime started on — not the next morning. So a 3am feed is part of last night, not today.</div>
+            <div style={{fontSize:13,color:"var(--text-lt,#A89898)",lineHeight:1.6,textAlign:"left",marginBottom:20,fontStyle:"italic"}}>This means your daily summary, nap patterns, and sleep stats all follow your baby's natural rhythm.</div>
+            <button onClick={()=>setShowDayExplainer(false)} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"#C07088",color:"white",fontSize:15,fontWeight:700,cursor:"pointer"}}>Got it!</button>
           </div>
         </div>
       )}
