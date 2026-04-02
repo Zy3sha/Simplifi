@@ -3906,7 +3906,7 @@ function App(){
     ? {primary:isDark?"rgba(45,31,42,0.8)":"#fde7e4",secondary:isDark?"rgba(61,42,56,0.8)":"#f5ccc7",grad:isDark?"linear-gradient(135deg,rgba(45,31,42,0.9),rgba(61,42,56,0.9))":"linear-gradient(135deg,#fde7e4,#f5ccc7)"}
     : babySex==="boy"
     ? {primary:isDark?"rgba(26,42,61,0.8)":"#eaf3fb",secondary:isDark?"rgba(30,52,80,0.8)":"#d0e6f5",grad:isDark?"linear-gradient(135deg,rgba(26,42,61,0.9),rgba(30,52,80,0.9))":"linear-gradient(135deg,#eaf3fb,#d0e6f5)"}
-    : {primary:isDark?"#c9705a":"#c9705a",secondary:isDark?"#7a5c52":"#7a5c52",grad:"linear-gradient(135deg,#c9705a,#a85a44)"};
+    : {primary:isDark?"rgba(35,50,45,0.8)":"#e4f2ec",secondary:isDark?"rgba(45,65,55,0.8)":"#d0e8de",grad:isDark?"linear-gradient(135deg,rgba(35,50,45,0.9),rgba(45,65,55,0.9))":"linear-gradient(135deg,#e4f2ec,#d0e8de)"};
   const[growthForm,setGrowthForm]=useState({date:todayStr(),kg:""});
   const[onboarded,setOnboarded]=useState(()=>{
     try{
