@@ -6640,7 +6640,10 @@ function App(){
       const _dayE = _todayEntries.filter(e => !e.night);
       if (_dayE.length > 0) _lastSleep = Math.min(..._dayE.filter(e=>e.time).map(e => timeVal(e)));
     }
-    const _awakeMin = _lastSleep !== null ? Math.max(0, _nowM - _lastSleep) : 0;
+    let _awakeMin = _lastSleep !== null ? Math.max(0, _nowM - _lastSleep) : 0;
+    // Cap unreasonable awake times — if no proper wake was logged, don't show misleading numbers
+    // Newborns max wake window is ~2h, older babies ~5h. If awake > 6h and no morning wake, something is off
+    if (_awakeMin > 360 && !_hasMorningWake) _awakeMin = 0;
 
     // ── Bridge nap detection: naps "complete" by count but too early for bedtime ──
     // If sleep budget is under OR gap to bedtime is too long, suggest a catnap
@@ -16636,10 +16639,25 @@ function App(){
   if (!onboarded) {
     const _obMaxSteps = 4;
     const completeOnboarding = async () => {
-      // Save baby data
+      // Save baby data — update state AND persist to localStorage immediately
+      // (the debounced localStorage save might not fire before re-render)
       const _obChildName = (obName||"").trim();
-      if (_obChildName) {
-        updateChild({ name: _obChildName, dob: obDob||"", sex: obSex||"", dueDate: obDueDate||null });
+      if (_obChildName || obDob) {
+        const _patch = { name: _obChildName, dob: obDob||"", sex: obSex||"", dueDate: obDueDate||null };
+        updateChild(_patch);
+        // Also save directly to localStorage so it's available on the very next render
+        try {
+          const _stored = JSON.parse(localStorage.getItem("children_v1")||"{}");
+          const _cid = Object.keys(_stored)[0];
+          if (_cid) {
+            _stored[_cid] = { ..._stored[_cid], ..._patch };
+            localStorage.setItem("children_v1", JSON.stringify(_stored));
+          }
+        } catch {}
+        // Save to legacy keys too (some code paths read these)
+        try { localStorage.setItem("bn_v2", _obChildName); } catch {}
+        try { if (obDob) localStorage.setItem("dob_v1", obDob); } catch {}
+        try { if (obSex) localStorage.setItem("sex_v1", obSex); } catch {}
       }
       // Auto-generate first entries from onboarding answers
       const _obToday = todayStr();
