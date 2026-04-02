@@ -2119,7 +2119,7 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
   async function handleCreate() {
     setError("");
     setLoading(true);
-    const result = await createChildSyncCode(cid, newCode);
+    const result = await createChildSyncCode(cid); // auto-generates code
     setLoading(false);
     if(result.ok) { setNewCode(""); setShowCreate(false); }
     else { setError(result.error); }
@@ -2128,9 +2128,9 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
   async function handleRegen() {
     setRegenError("");
     setLoading(true);
-    const result = await regenerateChildSyncCode(cid, regenCode);
+    const result = await regenerateChildSyncCode(cid); // auto-generates new code
     setLoading(false);
-    if(result.ok) { setRegenCode(""); setShowRegen(false); }
+    if(result.ok) { setRegenCode(""); setShowRegen(false); haptic("medium"); showToast("New code generated \u2014 old partner link is now broken", 2500, 1); }
     else { setRegenError(result.error); }
   }
 
@@ -2141,32 +2141,21 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
           <div style={{fontWeight:700,fontSize:15,color:C.deep}}>{child.name||"Unnamed child"}</div>
           <div style={{fontSize:12,color:C.lt}}>{isShared?"Sharing enabled":"Not shared yet"}</div>
         </div>
-        {!isShared && !showCreate ? (
-          <button onClick={()=>setShowCreate(true)} style={{padding:"7px 14px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,flexShrink:0}}>
-            Create code
+        {!isShared ? (
+          <button onClick={handleCreate} disabled={loading} style={{padding:"7px 14px",borderRadius:99,border:_bN,background:loading?"#e0f0ea":C.mint,color:"white",fontSize:13,fontWeight:700,cursor:loading?"not-allowed":_cP,fontFamily:_fI,flexShrink:0}}>
+            {loading?"Creating...":"Enable sharing"}
           </button>
-        ) : !isShared ? null : (
-          <span style={{fontSize:18}}>🔗</span>
+        ) : (
+          <span style={{fontSize:18}}>{"\u{1F517}"}</span>
         )}
       </div>
+      {error && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{error}</div>}
 
-      {/* ── Create code form (not shared yet) ── */}
-      {!isShared && showCreate && (
+      {/* ── Create code placeholder (auto-generates) ── */}
+      {!isShared && false && (
         <div style={{marginTop:4}}>
-          <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Choose a 6-character code (letters & numbers)</div>
-          <input value={newCode} onChange={e=>setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6))}
-            placeholder={"e.g. " + (child.name ? child.name.toUpperCase().replace(/[^A-Z]/g,"").slice(0,4) + "24" : "BABY24")} maxLength={6}
-            style={{width:"100%",fontSize:20,fontFamily:_fM,fontWeight:700,letterSpacing:"0.15em",textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${error?C.ter:C.blush}`,background:"var(--bg-solid)",color:C.ter,outline:_oN,marginBottom:6,boxSizing:_bBB}}/>
-          {error && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{error}</div>}
           <div style={{display:"flex",gap:8}}>
-            <button onClick={handleCreate} disabled={newCode.length!==6||loading}
-              style={{flex:1,padding:"10px",borderRadius:99,border:_bN,background:newCode.length===6?C.mint:"#e0f0ea",color:newCode.length===6?"white":"#a0c8b0",fontSize:14,fontWeight:700,cursor:newCode.length===6?_cP:"not-allowed",fontFamily:_fI}}>
-              {loading?"Creating…":"Create"}
-            </button>
-            <button onClick={()=>{setShowCreate(false);setNewCode("");setError("");}}
-              style={{padding:"10px 16px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",fontSize:13,fontWeight:600,color:C.lt,cursor:_cP,fontFamily:_fI}}>
-              Cancel
-            </button>
+            <button></button>
           </div>
         </div>
       )}
@@ -2202,35 +2191,16 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
           </div>
           <div style={{fontSize:12,color:C.lt,marginBottom:8}}>Share this code with a co-parent — they enter it under "Link a child" below. Change it anytime to stop sharing.</div>
 
-          {/* ── Change code form ── */}
-          {showRegen ? (
-            <div style={{marginBottom:8}}>
-              <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Enter a new code to replace <strong>{code}</strong>. Partner will need the new code.</div>
-              <input value={regenCode} onChange={e=>setRegenCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6))}
-                placeholder="New code" maxLength={6}
-                style={{width:"100%",fontSize:18,fontFamily:_fM,fontWeight:700,letterSpacing:"0.15em",textAlign:"center",padding:"9px",borderRadius:10,border:`1.5px solid ${regenError?C.ter:C.blush}`,background:"var(--bg-solid)",color:C.ter,outline:_oN,marginBottom:6,boxSizing:_bBB}}/>
-              {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
-              <div style={{display:"flex",gap:8}}>
-                <button onClick={handleRegen} disabled={regenCode.length!==6||loading}
-                  style={{flex:1,padding:"8px",borderRadius:99,border:_bN,background:regenCode.length===6?C.ter:"#f0d0d0",color:regenCode.length===6?"white":"#c0a0a0",fontSize:13,fontWeight:700,cursor:regenCode.length===6?_cP:"not-allowed",fontFamily:_fI}}>
-                  {loading?"Saving…":"Change code"}
-                </button>
-                <button onClick={()=>{setShowRegen(false);setRegenCode("");setRegenError("");}}
-                  style={{padding:"8px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",fontSize:12,fontWeight:600,color:C.lt,cursor:_cP,fontFamily:_fI}}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <button onClick={()=>setShowRegen(true)} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
-                Change code
-              </button>
-              <button onClick={()=>unlinkChild(cid)} style={{fontSize:12,color:"#e8574a",background:_bN,border:_bN,cursor:_cP,padding:0,fontFamily:_fI,textDecoration:"underline"}}>
-                Remove from my app
-              </button>
-            </div>
-          )}
+          {/* ── Regenerate code (one tap) ── */}
+          {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <button onClick={()=>{showConfirm("Generate a new code? This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
+              {loading?"Generating...":"Regenerate code"}
+            </button>
+            <button onClick={()=>unlinkChild(cid)} style={{fontSize:12,color:"#e8574a",background:_bN,border:_bN,cursor:_cP,padding:0,fontFamily:_fI,textDecoration:"underline"}}>
+              Remove from my app
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -5385,10 +5355,16 @@ function App(){
     });
     return merged;
   }
+  function _generateSyncCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no I/O/0/1 to avoid confusion
+    let code = "";
+    for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    return code;
+  }
   async function createChildSyncCode(childId, userCode) {
-    if(!window._fb || !userCode) return {ok:false, error:"Enter a code"};
+    if(!window._fb) return {ok:false, error:"No connection"};
     const {serverTimestamp} = window._fb;
-    const code = userCode.trim().toUpperCase();
+    const code = userCode ? userCode.trim().toUpperCase() : _generateSyncCode();
     if(code.length !== 6) return {ok:false, error:"Code must be exactly 6 characters"};
     if(!/^[A-Z0-9]+$/.test(code)) return {ok:false, error:"Letters and numbers only"};
 
@@ -5435,11 +5411,11 @@ function App(){
     return {ok:true, code};
   }
   async function regenerateChildSyncCode(childId, newUserCode) {
-    if(!window._fb || !newUserCode) return {ok:false, error:"Enter a new code"};
+    if(!window._fb) return {ok:false, error:"No connection"};
     const {serverTimestamp} = window._fb;
     const currentCode = childSyncCodes[childId];
     if(!currentCode) return {ok:false, error:"No existing code"};
-    const newCode = newUserCode.trim().toUpperCase();
+    const newCode = newUserCode ? newUserCode.trim().toUpperCase() : _generateSyncCode();
     if(newCode.length !== 6) return {ok:false, error:"Code must be exactly 6 characters"};
     if(!/^[A-Z0-9]+$/.test(newCode)) return {ok:false, error:"Letters and numbers only"};
     if(newCode === currentCode) return {ok:false, error:"Same as current code"};
@@ -16836,7 +16812,7 @@ function App(){
             `}</style>
             <div style={{position:"absolute",inset:0,background:"radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 30% 70%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.8) 0%, transparent 100%), radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.4) 0%, transparent 100%), radial-gradient(1px 1px at 80% 80%, rgba(255,255,255,0.6) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 90% 15%, rgba(255,200,150,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 15% 55%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1px 1px at 45% 45%, rgba(255,200,180,0.6) 0%, transparent 100%)",animation:"obTwinkle 4s ease-in-out infinite alternate",pointerEvents:"none",opacity:_dk?1:0.15}}/>
             <div style={{position:"absolute",top:"10%",left:"50%",transform:"translateX(-50%)",width:300,height:300,background:"radial-gradient(circle, rgba(201,112,90,0.15) 0%, rgba(160,80,180,0.08) 50%, transparent 70%)",pointerEvents:"none"}}/>
-            <div style={{position:"relative",zIndex:1,marginTop:48,marginBottom:20,animation:"obWelcFloat 4s ease-in-out infinite"}}>
+            <div style={{position:"relative",zIndex:1,marginTop:32,marginBottom:14,animation:"obWelcFloat 4s ease-in-out infinite"}}>
               {/* Glow halo — rotating gradient behind the frame */}
               <div style={{position:"absolute",top:"50%",left:"50%",width:210,height:210,transform:"translate(-50%,-50%)",borderRadius:"50%",background:`conic-gradient(from 0deg, rgba(212,168,85,0.35), rgba(201,112,90,0.25), rgba(144,96,176,0.3), rgba(80,200,120,0.15), rgba(212,168,85,0.35))`,animation:"obHaloSpin 8s ease-in-out infinite",filter:"blur(24px)",pointerEvents:"none"}}/>
               {/* Secondary soft glow */}
@@ -16859,23 +16835,24 @@ function App(){
               </div>
             </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:42,fontWeight:800,letterSpacing:"-0.5px",zIndex:1,background:_wBrand,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>OBubba</div>
-            <div style={{fontSize:15,color:_wTag,letterSpacing:"0.5px",zIndex:1,marginBottom:32}}>Parenthood in your pocket</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,textAlign:"center",lineHeight:1.3,zIndex:1,marginBottom:12,maxWidth:300,color:_wTxt,letterSpacing:"-0.3px"}}>Take the guesswork out of <span style={{background:"linear-gradient(135deg, #c9705a, #d4a855)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>parenting.</span></div>
-            <div style={{fontSize:15,lineHeight:1.6,color:_wSub,textAlign:"center",maxWidth:340,zIndex:1,marginBottom:28}}>Personalised sleep, feeding, and growth guidance — combining your baby's real patterns with medical recommendations.</div>
-            <div style={{display:"flex",flexDirection:"column",gap:8,width:"100%",maxWidth:360,zIndex:1,marginBottom:28}}>
-              {[[["🔮","Sleep predictions","Naps, bedtime & wake"],["🧩","Schedule maker","Build days around events"]],[["📊","Rhythm learning","Gets smarter every day"],["🛡️","Regression alerts","4mo, 8mo, 12mo, 18mo"]],[["🍼","One-tap tracking","Feed, nappy & sleep"],["👨‍👩‍👧","Partner sync","Real-time cloud sharing"]]].map((row,ri)=>(
-                <div key={ri} style={{display:"flex",gap:8}}>
+            <div style={{fontSize:14,color:_wTag,letterSpacing:"0.5px",zIndex:1,marginBottom:20}}>Parenthood in your pocket</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,textAlign:"center",lineHeight:1.3,zIndex:1,marginBottom:8,maxWidth:300,color:_wTxt,letterSpacing:"-0.3px"}}>Take the guesswork out of <span style={{background:"linear-gradient(135deg, #c9705a, #d4a855)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>parenting.</span></div>
+            <div style={{fontSize:14,lineHeight:1.5,color:_wSub,textAlign:"center",maxWidth:320,zIndex:1,marginBottom:16}}>Personalised sleep, feeding, and growth guidance that learns your baby's unique rhythm.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,width:"100%",maxWidth:340,zIndex:1,marginBottom:16}}>
+              {[[["🔮","Sleep predictions"],["🧩","Schedule maker"]],[["📊","Rhythm learning"],["🛡️","Regression alerts"]],[["🍼","One-tap tracking"],["👨‍👩‍👧","Partner sync"]]].map((row,ri)=>(
+                <div key={ri} style={{display:"flex",gap:6}}>
                   {row.map((item,ci)=>(
-                    <div key={ci} style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:14,background:_wPillBg,border:_wPillBd,backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)"}}>
-                      <span style={{fontSize:18,flexShrink:0}}>{item[0]}</span>
-                      <div><div style={{fontSize:12,fontWeight:600,color:_wPillTxt,lineHeight:1.3}}>{item[1]}</div><div style={{fontSize:10,fontWeight:400,color:_wPillSub,marginTop:1}}>{item[2]}</div></div>
+                    <div key={ci} style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"8px 10px",borderRadius:12,background:_wPillBg,border:_wPillBd}}>
+                      <span style={{fontSize:16,flexShrink:0}}>{item[0]}</span>
+                      <div style={{fontSize:12,fontWeight:600,color:_wPillTxt,lineHeight:1.3}}>{item[1]}</div>
                     </div>
                   ))}
                 </div>
               ))}
             </div>
-            <div style={{fontSize:12,color:_wMute,textAlign:"center",zIndex:1,marginBottom:24,lineHeight:1.5,maxWidth:300}}>Sleep timing: <strong style={{color:_wTrustHi,fontWeight:600}}>NHS Start4Life</strong> & <strong style={{color:_wTrustHi,fontWeight:600}}>AASM</strong>. Growth: <strong style={{color:_wTrustHi,fontWeight:600}}>WHO Child Growth Standards</strong>. Development: <strong style={{color:_wTrustHi,fontWeight:600}}>NHS Start4Life</strong> milestones.</div>
-            <button onClick={()=>setObStep(1)} style={{width:"100%",maxWidth:320,padding:16,border:_bN,borderRadius:99,fontSize:17,fontWeight:700,color:"white",cursor:_cP,zIndex:1,background:"linear-gradient(135deg, #c9705a, #a85a44)",boxShadow:_wCtaShadow,marginBottom:12,fontFamily:_fI}}>Start Tracking →</button>
+            <div style={{fontSize:11,color:_wMute,textAlign:"center",zIndex:1,marginBottom:16,lineHeight:1.4,maxWidth:280}}>Guided by <strong style={{color:_wTrustHi,fontWeight:600}}>NHS</strong>, <strong style={{color:_wTrustHi,fontWeight:600}}>WHO</strong> & <strong style={{color:_wTrustHi,fontWeight:600}}>AASM</strong> standards</div>
+            <button onClick={()=>setObStep(1)} style={{width:"100%",maxWidth:320,padding:15,border:_bN,borderRadius:99,fontSize:17,fontWeight:700,color:"white",cursor:_cP,zIndex:1,background:"linear-gradient(135deg, #c9705a, #a85a44)",boxShadow:_wCtaShadow,marginBottom:10,fontFamily:_fI}}>Start Tracking {"\u2192"}</button>
+            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",maxWidth:320,padding:12,border:_bN,borderRadius:99,background:"transparent",fontSize:14,fontWeight:600,color:_wMute,cursor:_cP,zIndex:1,fontFamily:_fI}}>I already have an account</button>
 
           </div>
           
