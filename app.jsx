@@ -16694,10 +16694,10 @@ function App(){
               style={{width:"100%",fontSize:22,padding:"16px 18px",borderRadius:16,border:`2px solid ${obName.trim()?C.mint:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB,transition:"border-color 0.2s"}}/>
             <button onClick={()=>obName.trim()&&setObStep(2)} disabled={!obName.trim()}
               style={{width:"100%",marginTop:20,background:obName.trim()?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",border:_bN,borderRadius:99,padding:"14px",color:obName.trim()?"white":"#b89890",fontSize:16,fontWeight:700,cursor:obName.trim()?_cP:"not-allowed",boxShadow:obName.trim()?"0 4px 20px rgba(201,112,90,0.4)":"none"}}>
-              Continue \u2192
+              Continue {"\u2192"}
             </button>
             <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",marginTop:12,background:_bN,border:_bN,color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>
-              I already have an account \u2192
+              I already have an account {"\u2192"}
             </button>
           </div>
         )
@@ -16721,7 +16721,7 @@ function App(){
             </div>
             <button onClick={()=>obDob&&setObStep(3)} disabled={!obDob}
               style={{width:"100%",marginTop:20,background:obDob?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",border:_bN,borderRadius:99,padding:"14px",color:obDob?"white":"#b89890",fontSize:16,fontWeight:700,cursor:obDob?_cP:"not-allowed",boxShadow:obDob?"0 4px 20px rgba(201,112,90,0.4)":"none"}}>
-              Continue \u2192
+              Continue {"\u2192"}
             </button>
           </div>
         )
@@ -16747,7 +16747,7 @@ function App(){
                   <div style={{fontSize:15,fontWeight:700,color:C.deep}}>{label}</div>
                   <div style={{fontSize:12,color:C.lt,marginTop:2}}>{sub2}</div>
                 </div>
-                <span style={{fontSize:16,color:C.lt}}>\u2192</span>
+                <span style={{fontSize:16,color:C.lt}}>{"\u2192"}</span>
               </button>
             ))}
           </div>
@@ -16784,7 +16784,7 @@ function App(){
             )}
             <button onClick={()=>completeOnboarding()}
               style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:_bN,borderRadius:99,padding:"16px",color:"white",fontSize:17,fontWeight:700,cursor:_cP,boxShadow:"0 4px 20px rgba(201,112,90,0.4)",fontFamily:_fI}}>
-              Let's go! \u2192
+              Let's go! {"\u2192"}
             </button>
           </div>
         )
@@ -16875,7 +16875,7 @@ function App(){
           
         ) : (
 
-          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)"}}>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)",boxSizing:"border-box",overflow:"hidden"}}>
             <div style={{padding:"48px 28px 20px",display:"flex",alignItems:"center",gap:12}}>
               <button onClick={()=>setObStep(s=>s-1)} style={{width:38,height:38,borderRadius:11,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,color:C.mid,fontSize:17,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:_fI}}>←</button>
               <div style={{flex:1,height:3,background:C.blush,borderRadius:99,overflow:"hidden"}}>
@@ -16887,7 +16887,7 @@ function App(){
               <div style={{fontSize:46,marginBottom:14,lineHeight:1}}>{step.icon}</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:28,fontWeight:700,color:C.deep,lineHeight:1.22,whiteSpace:"pre-line",marginBottom:10}}>{step.title}</div>
               <div style={{fontSize:14,color:C.mid,lineHeight:1.65,marginBottom:22}}>{step.sub}</div>
-              <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:22,padding:"22px 18px",boxShadow:"0 2px 16px rgba(201,112,90,0.08)"}}>
+              <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:22,padding:"22px 18px",boxShadow:"0 2px 16px rgba(201,112,90,0.08)",boxSizing:"border-box",overflow:"hidden"}}>
                 {step.action}
               </div>
             </div>
