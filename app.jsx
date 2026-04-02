@@ -2094,9 +2094,11 @@ function UsernameSetForm({ normaliseUsername, reserveUsername, saveRecoveryEmail
                   await new Promise(r=>{let t=0;const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200);});
                 }
                 if(!window._fb){setSt("idle");return;}
-                const snap=await fsGet("usernames", normaliseUsername(e.target.value));
-                setSt(snap.exists()?"taken":"available");
-              }catch{setSt("idle");}
+                const {db,doc,getDoc}=window._fb;
+                const snap=await getDoc(doc(db,"usernames",normaliseUsername(e.target.value)));
+                var _d=snap.exists()?snap.data():null;
+                setSt(snap.exists()&&!(_d&&_d.deleted)?"taken":"available");
+              }catch(err){console.warn("Username check error",err);setSt("idle");}
             },600);
           }} placeholder="e.g. TeamSmith" autoCapitalize="none" autoCorrect="off"
           style={{width:"100%",padding:"9px 36px 9px 12px",borderRadius:10,border:`1.5px solid ${st==="available"?"#9BB8A8":st==="taken"?C.ter:C.blush}`,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB,background:"var(--card-bg-solid)"}}/>
