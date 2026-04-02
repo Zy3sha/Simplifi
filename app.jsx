@@ -16812,47 +16812,17 @@ function App(){
     const _wTrustHi = _dk ? "rgba(255,255,255,0.65)" : C.deep;
     return (
       <div style={{minHeight:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflowY:"auto",position:"relative",overflow:"hidden"}}>
-        <style>{`
-          @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-          @keyframes obFloat{0%,100%{transform:translateY(0px) rotate(-1deg)}50%{transform:translateY(-10px) rotate(1deg)}}
-          @keyframes obGlow{0%,100%{opacity:0.3}50%{opacity:0.7}}
-          @keyframes obShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
-        `}</style>
-        <div style={{position:"absolute",top:-100,left:"50%",transform:"translateX(-50%)",width:500,height:400,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.12) 0%,transparent 65%)",pointerEvents:"none",animation:"obGlow 5s ease infinite"}}/>
-        <div style={{position:"absolute",bottom:-60,right:-80,width:320,height:320,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(201,112,90,0.09) 0%,transparent 70%)",pointerEvents:"none"}}/>
-        <div style={{position:"absolute",bottom:80,left:-60,width:200,height:200,borderRadius:"50%",background:"radial-gradient(ellipse,rgba(111,168,152,0.08) 0%,transparent 70%)",pointerEvents:"none"}}/>
+        <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"env(safe-area-inset-top,0px) 24px env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg}}>
-            <style>{`
-              @keyframes obWelcFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-              @keyframes obBorderShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-              @keyframes obTwinkle{0%{opacity:0.6}100%{opacity:1}}
-              @keyframes obHaloSpin{0%{transform:translate(-50%,-50%) rotate(0deg);opacity:0.3}25%{opacity:0.8}50%{transform:translate(-50%,-50%) rotate(180deg);opacity:0.35}75%{opacity:0.75}100%{transform:translate(-50%,-50%) rotate(360deg);opacity:0.3}}
-              @keyframes obGlassShine{0%{transform:translateX(-120%) rotate(25deg)}100%{transform:translateX(120%) rotate(25deg)}}
-            `}</style>
-            <div style={{position:"absolute",inset:0,background:"radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 30% 70%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.8) 0%, transparent 100%), radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.4) 0%, transparent 100%), radial-gradient(1px 1px at 80% 80%, rgba(255,255,255,0.6) 0%, transparent 100%), radial-gradient(1.5px 1.5px at 90% 15%, rgba(255,200,150,0.7) 0%, transparent 100%), radial-gradient(1px 1px at 15% 55%, rgba(255,255,255,0.5) 0%, transparent 100%), radial-gradient(1px 1px at 45% 45%, rgba(255,200,180,0.6) 0%, transparent 100%)",animation:"obTwinkle 4s ease-in-out infinite alternate",pointerEvents:"none",opacity:_dk?1:0.15}}/>
-            <div style={{position:"absolute",top:"10%",left:"50%",transform:"translateX(-50%)",width:300,height:300,background:"radial-gradient(circle, rgba(201,112,90,0.15) 0%, rgba(160,80,180,0.08) 50%, transparent 70%)",pointerEvents:"none"}}/>
-            <div style={{position:"relative",zIndex:1,marginTop:32,marginBottom:14,animation:"obWelcFloat 4s ease-in-out infinite"}}>
-              {/* Glow halo — rotating gradient behind the frame */}
-              <div style={{position:"absolute",top:"50%",left:"50%",width:210,height:210,transform:"translate(-50%,-50%)",borderRadius:"50%",background:`conic-gradient(from 0deg, rgba(212,168,85,0.35), rgba(201,112,90,0.25), rgba(144,96,176,0.3), rgba(80,200,120,0.15), rgba(212,168,85,0.35))`,animation:"obHaloSpin 8s ease-in-out infinite",filter:"blur(24px)",pointerEvents:"none"}}/>
-              {/* Secondary soft glow */}
-              <div style={{position:"absolute",top:"50%",left:"50%",width:180,height:180,transform:"translate(-50%,-50%)",borderRadius:"50%",background:_dk?"radial-gradient(circle, rgba(201,112,90,0.2) 0%, transparent 70%)":"radial-gradient(circle, rgba(201,112,90,0.12) 0%, transparent 70%)",pointerEvents:"none"}}/>
-              {/* Glass frame */}
-              <div style={{position:"relative",width:160,height:160,borderRadius:32,padding:4,background:"linear-gradient(135deg, #d4a855, #c9705a, #9060b0, #c9705a, #d4a855)",backgroundSize:"300% 300%",animation:"obBorderShift 6s ease infinite",boxShadow:_wMascotShadow}}>
-                <div style={{position:"relative",width:"100%",height:"100%",borderRadius:28,overflow:"hidden",background:_wMascotBg}}>
-                  <img src="obubba-happy.png" alt="OBubba" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
-                  {/* Glass reflection — white highlight sweeping across */}
-                  <div style={{position:"absolute",inset:0,borderRadius:28,background:"linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 30%, transparent 50%, transparent 100%)",pointerEvents:"none"}}/>
-                  {/* Bottom glass edge highlight */}
-                  <div style={{position:"absolute",bottom:0,left:0,right:0,height:"40%",borderRadius:"0 0 28px 28px",background:"linear-gradient(to top, rgba(255,255,255,0.12) 0%, transparent 100%)",pointerEvents:"none"}}/>
-                  {/* Animated light sweep */}
-                  <div style={{position:"absolute",inset:0,borderRadius:28,overflow:"hidden",pointerEvents:"none"}}>
-                    <div style={{position:"absolute",top:"-20%",width:"40%",height:"140%",background:"linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",animation:"obGlassShine 4s ease-in-out infinite",animationDelay:"2s"}}/>
-                  </div>
-                </div>
-                {/* Inner border glow for glass depth */}
-                <div style={{position:"absolute",inset:4,borderRadius:28,border:_dk?"1px solid rgba(255,255,255,0.15)":"1px solid rgba(255,255,255,0.35)",pointerEvents:"none"}}/>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",padding:"env(safe-area-inset-top,0px) 24px env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:"var(--bg-grad)"}}>
+            {/* Soft accent glow — matches app's glass style */}
+            <div style={{position:"absolute",top:"-5%",left:"50%",transform:"translateX(-50%)",width:400,height:400,borderRadius:"50%",background:_dk?"radial-gradient(ellipse, rgba(201,112,90,0.1) 0%, transparent 65%)":"radial-gradient(ellipse, rgba(201,112,90,0.08) 0%, transparent 65%)",pointerEvents:"none"}}/>
+            <div style={{position:"absolute",bottom:"-5%",right:"-10%",width:280,height:280,borderRadius:"50%",background:_dk?"radial-gradient(ellipse, rgba(111,168,152,0.06) 0%, transparent 70%)":"radial-gradient(ellipse, rgba(111,168,152,0.06) 0%, transparent 70%)",pointerEvents:"none"}}/>
+            {/* Mascot — glass card style matching app cards */}
+            <div style={{position:"relative",zIndex:1,marginTop:36,marginBottom:16}}>
+              <div style={{width:140,height:140,borderRadius:30,overflow:"hidden",background:_dk?"rgba(30,25,45,0.8)":"rgba(255,248,244,0.9)",backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)",boxShadow:_dk?"0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06)":"0 8px 32px rgba(0,0,0,0.06), 0 0 0 1px rgba(201,112,90,0.1)"}}>
+                <img src="obubba-happy.png" alt="OBubba" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
               </div>
             </div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:42,fontWeight:800,letterSpacing:"-0.5px",zIndex:1,background:_wBrand,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",marginBottom:4}}>OBubba</div>
