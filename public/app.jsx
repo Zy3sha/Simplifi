@@ -6736,10 +6736,19 @@ function App(){
       _dot = "#7BA68C"; _label = "All good right now";
       _timing = "Awake " + hm(_awakeMin) + " · " + (_napsComplete ? "Enjoying the day" : "Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" + _longNapNote);
     }
-    // ── PRIORITY 8: Day not started (after 10am) ──
+    // ── PRIORITY 8: Day not started ──
     else {
       _dot = "#A89898"; _label = "Ready to start";
-      _timing = "Log a wake to start tracking " + _name + "'s day";
+      const _prevDay = prevCalDay(selDay);
+      const _prevBed = (days[_prevDay]||[]).find(e => e.type === "sleep" && !e.night);
+      const _prevNightWakes = (days[_prevDay]||[]).filter(e => e.night).length;
+      if (_prevBed && _prevNightWakes > 0) {
+        _timing = "Log a wake to start " + _name + "'s day · " + _prevNightWakes + " night wake" + (_prevNightWakes!==1?"s":"") + " on " + new Date(_prevDay+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+      } else if (_prevBed) {
+        _timing = "Log a wake to start " + _name + "'s day · Check yesterday for night wakes";
+      } else {
+        _timing = "Log a wake to start tracking " + _name + "'s day";
+      }
     }
 
     // ══════════════════════════════════════════════════════
