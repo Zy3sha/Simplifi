@@ -11837,7 +11837,8 @@ function App(){
     // Quick reason from crying analysis — search selDay AND today's actual date
     const _prevDk = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
     const _calNow = todayStr();
-    const _searchDays = [..._today, ...(days[_prevDk]||[]), ...(_calNow !== selDay ? (days[_calNow]||[]) : [])];
+    const _tagDk = (arr, dk) => arr.map(e => e._dk ? e : {...e, _dk: dk});
+    const _searchDays = [..._tagDk(_today, selDay), ..._tagDk(days[_prevDk]||[], _prevDk), ...(_calNow !== selDay ? _tagDk(days[_calNow]||[], _calNow) : [])];
     const _lastFeed = _searchDays.filter(e => e.time && (e.type==="feed" || (e.amount||0)>0 || e.assistedType==="milk" || e.feedType==="milk")).sort((a,b)=>{let ta=timeVal(a),tb=timeVal(b);if(a.night&&ta<720)ta+=1440;if(b.night&&tb<720)tb+=1440;return ta-tb;}).pop();
     const _nowMs = Date.now();
     const _nowM = new Date().getHours() * 60 + new Date().getMinutes();
@@ -11847,6 +11848,8 @@ function App(){
       const ft = (_lastFeed.time||"00:00").split(":").map(Number);
       const feedDate = new Date(fdk + "T00:00:00");
       feedDate.setHours(ft[0], ft[1], 0, 0);
+      // Night feeds after midnight (e.g. 3:47am) stored on bedtime's day — add a day
+      if (_lastFeed.night && ft[0] < 12) feedDate.setDate(feedDate.getDate() + 1);
       _feedGap = Math.max(0, Math.round((_nowMs - feedDate.getTime()) / 60000));
     }
     const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : age.totalWeeks < 26 ? 210 : 270;
@@ -19125,7 +19128,7 @@ function App(){
               {/* Weekly Summary + Wins removed — covered by hero card */}
 
               {/* ═══ Bubba Rhythm Profile (PREMIUM placeholder) ═══ */}
-              {STORE_READY && Object.keys(days).length >= 3 && (
+              {STORE_READY && !isPremium && !trialActive && Object.keys(days).length >= 3 && (
                 <div className="glass-card" style={{padding:"16px",marginBottom:12,position:"relative",overflow:"hidden"}}>
                   <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4}}>Bubba Rhythm</div>
                   <div style={{fontSize:12,color:C.lt,marginBottom:12,fontStyle:"italic"}}>We're learning {babyName||"baby"}'s rhythm…</div>
