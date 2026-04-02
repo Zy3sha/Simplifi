@@ -19104,7 +19104,7 @@ function App(){
                 <button onClick={async()=>{
                   haptic();
                   if(!isPremium && !trialActive && STORE_READY) {
-                    showToast("Has your mum asked for the 100th time if "+(babyName||"baby")+" has been fed? Well\u2026 for just \u00A34.99/month, let\u2019s put grandma\u2019s mind at ease. Or not \u2014 I don\u2019t want to tell you how to live \uD83D\uDE12", 6000, 2);
+                    showToast("Has your mum asked for the 100th time if "+(babyName||"baby")+" has been fed? Well\u2026 for just \u00A34.99/month, let\u2019s put grandma\u2019s mind at ease. Or not \u2014 I don\u2019t want to tell you how to live \uD83D\uDC40", 6000, 2);
                     setTimeout(()=>triggerPaywall("family_share"), 1500);
                     return;
                   }
