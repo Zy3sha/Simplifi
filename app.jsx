@@ -639,10 +639,10 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     .filter(e => {
       // Include wakes that are after bedtime (cross-midnight on same day) or very early morning (00:00-07:00)
       const t = timeVal(e);
-      return t >= bedMins || t <= morningMins;
+      return t >= bedMins || t < morningMins;
     });
   const nightWakesNextDay = [...next]
-    .filter(e => e.night && timeVal(e) <= morningMins);
+    .filter(e => e.night && timeVal(e) < morningMins);
 
   // Merge, sort by absolute time (thisDay wakes after midnight wrap around)
   const allNightWakes = [...nightWakesThisDay, ...nightWakesNextDay];
@@ -1327,8 +1327,6 @@ window.toggleTheme=function(){
   if(window._themeCallback) window._themeCallback();
 };
 const _fM="monospace",_fI="inherit",_cP="pointer",_bBB="border-box",_ls1="0.1em",_ls08="0.08em",_bN="none",_oN="none";
-const _isTablet = typeof window!=="undefined" && window.innerWidth >= 768;
-const _maxW = _isTablet ? 720 : 520;
 function Sheet({onClose,title,children}){
   const[kbH,setKbH]=React.useState(()=>typeof _kbHeight!=="undefined"?_kbHeight:0);
   const sheetRef=React.useRef(null);
@@ -1375,7 +1373,7 @@ function Sheet({onClose,title,children}){
   },[]);
   return(
     <div ref={overlayRef} onClick={onClose} style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",transition:"bottom 0.25s ease"}}>
-      <div ref={sheetRef} onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 24px",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease"}}>
+      <div ref={sheetRef} onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 24px",width:"100%",maxWidth:520,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease"}}>
         <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
         {title&&<div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:16}}>{title}</div>}
         {children}
@@ -2667,14 +2665,8 @@ function App(){
             var _wdTimer = null;
             if (_wdRaw) { try { _wdTimer = JSON.parse(_wdRaw).activeTimer; } catch{} }
             if(!_wdTimer){
-              // Only stop timer LAs — don't kill prediction LAs (they're intentional)
-              var _timerModeNow = localStorage.getItem("timer_mode_v1");
-              if (_timerModeNow === "prediction" || _timerModeNow === "idle") {
-                console.log("[OBubba] No active timer, prediction mode — keeping prediction LA");
-              } else {
-                console.log("[OBubba] Cleaning up orphaned Live Activities");
-                window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
-              }
+              console.log("[OBubba] Cleaning up orphaned Live Activities");
+              window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
             } else {
               console.log("[OBubba] Active timer (" + _wdTimer + ") detected — keeping existing Live Activity");
             }
@@ -3374,18 +3366,9 @@ function App(){
     (async()=>{
       try{
         if(_isNative&&window.Capacitor&&window.Capacitor.Plugins.LocalNotifications){
-          const LN = window.Capacitor.Plugins.LocalNotifications;
-          const r=await LN.checkPermissions();
+          const r=await window.Capacitor.Plugins.LocalNotifications.checkPermissions();
           console.log("[OBubba] Notification permission check:", JSON.stringify(r));
           setNotifPermission(r.display==="granted"?"granted":"default");
-          // Create notification channels for Android (required for Android 8+)
-          if(window.Capacitor.getPlatform?.() === "android" && LN.createChannel){
-            try{
-              await LN.createChannel({id:"obubba_reminders",name:"OBubba Reminders",description:"Nap predictions, bedtime alerts, and appointment reminders",importance:4,sound:"notification.wav",vibration:true});
-              await LN.createChannel({id:"med_reminders",name:"Medicine Reminders",description:"Medicine and temperature logging reminders",importance:4,sound:"notification.wav",vibration:true});
-              console.log("[OBubba] Android notification channels created");
-            }catch(e){console.warn("[OBubba] Channel creation error:",e);}
-          }
         }else if("Notification" in window){
           setNotifPermission(Notification.permission);
         }
@@ -4119,18 +4102,14 @@ function App(){
             const _lastWake = _nightWakesT.length?_nightWakesT[_nightWakesT.length-1]:null;
             let _startMins;
             if(_lastWake) {
-              _startMins = timeVal(_lastWake)-(parseInt(_lastWake.assistedDuration)||0); // MINUS soothing
-              if(_startMins<0) _startMins+=1440;
+              const _wMins = timeVal(_lastWake)+(parseInt(_lastWake.assistedDuration)||0);
+              _startMins = _wMins;
             } else {
               _startMins = _bedMinsX;
             }
-            // Build startDate — handle cross-midnight correctly
             const _startDate = new Date();
-            const _nowMins = _startDate.getHours()*60+_startDate.getMinutes();
-            const _displayMins = _startMins % 1440; // wrap to 24h
-            _startDate.setHours(Math.floor(_displayMins/60)%24,_displayMins%60,0,0);
-            // If start time appears to be in the future (e.g. bedtime 23:55 but it's now 00:05), it was yesterday
-            if(_startDate.getTime() > Date.now()+60000) _startDate.setDate(_startDate.getDate()-1);
+            _startDate.setHours(Math.floor(_startMins/60)%24,_startMins%60,0,0);
+            if(_startDate > new Date()) _startDate.setDate(_startDate.getDate()-1);
             _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime()}).catch(()=>{});
           }
         }
@@ -4984,11 +4963,7 @@ function App(){
     try {
       if(!_isReclaim) {
         const snap = await fsGet("usernames", key);
-        if(snap.exists()) {
-          const existingData = snap.data();
-          // Allow overwriting deleted accounts — username is available again
-          if(!existingData.deleted) return false;
-        }
+        if(snap.exists()) return false;
       }
       // Generate a fresh backup code for this new account — NEVER reuse existing codes
       const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -5648,20 +5623,6 @@ function App(){
         }
       }
 
-      // 1b. Refresh Live Activity prediction label on resume
-      if(napOn && napStartT && _isNative) {
-        try {
-          const [_rh,_rm]=napStartT.split(":").map(Number);
-          if(!isNaN(_rh)&&!isNaN(_rm)){
-            const _rd=new Date();_rd.setHours(_rh,_rm,0,0);
-            if(_rd>new Date()) _rd.setDate(_rd.getDate()-1);
-            const _rElapsed=Math.floor((Date.now()-_rd.getTime())/1000);
-            const _rNapNum=((tickDataRef.current||{}).napsDone||0)+1;
-            _updateLA({elapsed:_rElapsed,side:null,nextNap:"Nap "+_rNapNum});
-          }
-        } catch{}
-      }
-
       // 2. Night/bedtime timer — recalculate from wall clock
       const { hasBedtime, lastNightEvent, nextDayHasWake } = tickDataRef.current || {};
       if(hasBedtime && lastNightEvent && !nextDayHasWake) {
@@ -5854,12 +5815,10 @@ function App(){
             return true;
           }).sort(function(a,b){ var ta=timeVal(a),tb=timeVal(b); var ka=ta>=_bedM2?ta:(ta<12*60?ta+1440:ta); var kb=tb>=_bedM2?tb:(tb<12*60?tb+1440:tb); return ka-kb; });
           if (_nightWakesWidget.length) {
-            // Timer shows since wake time MINUS soothing (as if soothing was still sleep)
             var _lw2=_nightWakesWidget[_nightWakesWidget.length-1];
             var _sm2=_lw2.assistedDuration?parseInt(_lw2.assistedDuration)||0:0;
             var _lwP=_lw2.time.split(":").map(Number);
-            var _lwM=_lwP[0]*60+_lwP[1]-_sm2; // MINUS soothing
-            if(_lwM<0) _lwM+=1440; // wrap past midnight
+            var _lwM=_lwP[0]*60+_lwP[1]+_sm2;
             timerStartTime=String(Math.floor(_lwM/60)%24).padStart(2,"0")+":"+String(_lwM%60).padStart(2,"0");
             timerStartMs = _hhmToMs(timerStartTime);
           } else {
@@ -5891,16 +5850,9 @@ function App(){
       try {
         var td = tickDataRef.current || {};
         // If next predicted nap is within 30 min of bedtime, it IS bedtime — show "Bed"
-        // Call predictNextNap() directly so widget always matches hero card & Today's Plan
-        var _freshPred = (isPremium || trialActive) ? (function(){ try { return predictNextNap(); } catch(e) { return null; } })() : null;
-        var _napMinsForWidget = td.nextNapMins;
-        if (_freshPred && _freshPred.napStart_min) {
-          var _pp = _freshPred.napStart_min.split(":").map(Number);
-          _napMinsForWidget = _pp[0]*60+_pp[1];
-        }
-        var _napIsActuallyBed = _napMinsForWidget && td.bedMins && (_napMinsForWidget >= td.bedMins - 30);
-        if (_napMinsForWidget && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
-          var npH = Math.floor(_napMinsForWidget/60)%24, npM = Math.round(_napMinsForWidget%60);
+        var _napIsActuallyBed = td.nextNapMins && td.bedMins && (td.nextNapMins >= td.bedMins - 30);
+        if (td.nextNapMins && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
+          var npH = Math.floor(td.nextNapMins/60)%24, npM = Math.round(td.nextNapMins%60);
           var _napNum = (td.napsDone || 0) + 1;
           nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2,"0") + ":" + String(npM).padStart(2,"0"));
           nextPredictionLabel = "Nap " + _napNum;
@@ -5987,7 +5939,7 @@ function App(){
         window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(widgetData) }).catch(function(){});
       }
     } catch(e) { console.warn("Widget data update failed:", e); }
-  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
+  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay]);
 
   // ── Simple tick: baby's day is wake → WW → nap → WW → nap → bedtime ──
   const tickDataRef = React.useRef({});
@@ -6096,19 +6048,10 @@ function App(){
         const bH = Math.floor(td.bedMins / 60), bM = td.bedMins % 60;
         return "Bed " + fmt12(`${String(bH).padStart(2,"0")}:${String(bM).padStart(2,"0")}`);
       }
-      if (!td.napsComplete) {
-        // Call predictNextNap() directly so DI/LA always matches hero card & Today's Plan
-        let _napM = td.nextNapMins;
-        const _freshPredLA = (isPremium || trialActive) ? (function(){ try { return predictNextNap(); } catch(e) { return null; } })() : null;
-        if (_freshPredLA && _freshPredLA.napStart_min) {
-          const _pp = _freshPredLA.napStart_min.split(":").map(Number);
-          _napM = _pp[0]*60+_pp[1];
-        }
-        if (_napM) {
-          const nH = Math.floor(_napM / 60), nM = _napM % 60;
-          const napNum = (td.napsDone || 0) + 1;
-          return "Nap " + napNum + " " + fmt12(`${String(nH).padStart(2,"0")}:${String(nM).padStart(2,"0")}`);
-        }
+      if (td.nextNapMins && !td.napsComplete) {
+        const nH = Math.floor(td.nextNapMins / 60), nM = td.nextNapMins % 60;
+        const napNum = (td.napsDone || 0) + 1;
+        return "Nap " + napNum + " " + fmt12(`${String(nH).padStart(2,"0")}:${String(nM).padStart(2,"0")}`);
       }
     } catch {}
     return null;
@@ -6279,17 +6222,8 @@ function App(){
         const td = tickDataRef.current || {};
         const now = new Date();
         const nowMins = now.getHours() * 60 + now.getMinutes();
-        // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
-        let _predNapMins = td.nextNapMins;
-        try {
-          const _predFresh = (isPremium || trialActive) ? predictNextNap() : null;
-          if (_predFresh && _predFresh.napStart_min) {
-            const _pf = _predFresh.napStart_min.split(":").map(Number);
-            _predNapMins = _pf[0]*60+_pf[1];
-          }
-        } catch {}
-        if (!td.napsComplete && _predNapMins !== null && _predNapMins > nowMins) {
-          const nH = Math.floor(_predNapMins / 60), nM = _predNapMins % 60;
+        if (!td.napsComplete && td.nextNapMins !== null && td.nextNapMins > nowMins) {
+          const nH = Math.floor(td.nextNapMins / 60), nM = td.nextNapMins % 60;
           const napNum = (td.napsDone || 0) + 1;
           const key = "nap" + napNum + "_" + nH + ":" + nM;
           if (_predLAState !== key) {
@@ -6381,25 +6315,12 @@ function App(){
     const _napsDone = _completedNaps.length;
     const _totalNapMin = _completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     const _ageExpected = _profile.expectedNaps;
-    let _structExpected = napStructure ? napStructure.effectiveNapCount : _ageExpected;
-    // Match predictNextNap() logic: long first nap (≥75min) → one fewer nap today
-    if (_completedNaps.length >= 1) {
-      const _firstDur = minDiff(_completedNaps[0].start, _completedNaps[0].end);
-      if (_firstDur >= 75 && _structExpected > 1) _structExpected = _structExpected - 1;
-      else if (_firstDur < 40) _structExpected = Math.max(_structExpected, _ageExpected);
-    }
-    // Nap budget exhausted → no more naps
-    if (_totalNapMin >= _profile.idealTotalMax) _structExpected = Math.min(_structExpected, _napsDone);
-    // Consult predictNextNap() — if it returns null, no more naps fit today
-    // This ensures hero card matches Today's Plan exactly
-    try {
-      if (_napsDone > 0 && !napOn) {
-        const _heroP = predictNextNap();
-        if (!_heroP) _structExpected = Math.min(_structExpected, _napsDone);
-      }
-    } catch {}
-    const _adjustedExpected = _structExpected;
-    const _longNapNote = (_structExpected < _ageExpected) ? " (adjusted today)" : "";
+    const _structExpected = napStructure ? napStructure.effectiveNapCount : _ageExpected;
+    // Check if a long nap today reduced sleep debt enough to drop a nap
+    const _avgNapDurHero = _napsDone > 0 ? Math.round(_totalNapMin / _napsDone) : Math.round((_profile.idealNapDurMin + _profile.idealNapDurMax) / 2);
+    const _longNapDropped = _napsDone > 0 && _totalNapMin > _structExpected * _avgNapDurHero * 0.85 && _structExpected > 1 && _totalNapMin >= _profile.idealTotalMax * 0.75;
+    const _adjustedExpected = _longNapDropped ? Math.max(_napsDone, _structExpected - 1) : _structExpected;
+    const _longNapNote = _longNapDropped ? " (long nap today)" : "";
     let _napsComplete = _napsDone >= _adjustedExpected;
     const _dailySleepMax = _profile.idealNapDurMax * _adjustedExpected;
 
@@ -6510,19 +6431,7 @@ function App(){
     } catch {}
 
     // ── Nap & bedtime predictions ──
-    // For free users: use simple guideline midpoint so it matches widget/DI everywhere
-    // For premium: use full personal prediction from predictNextNap()
-    let _pred = null;
-    const _td2 = tickDataRef.current || {};
-    if (isPremium || trialActive) {
-      try { _pred = predictNextNap(); } catch {}
-    } else if (_td2.nextNapMins) {
-      // Build a fake _pred object from the simple midpoint so the hero card displays it
-      const _simH = Math.floor(_td2.nextNapMins/60)%24, _simM = _td2.nextNapMins%60;
-      const _simStr = `${String(_simH).padStart(2,"0")}:${String(_simM).padStart(2,"0")}`;
-      const _nowMins2 = new Date().getHours()*60+new Date().getMinutes();
-      _pred = { napStart_min: _simStr, napStart_max: _simStr, sourceLabel: "age-appropriate guidelines", isOverdue: _nowMins2 > _td2.nextNapMins };
-    }
+    let _pred = null; try { _pred = predictNextNap(); } catch {}
     let _bed = null; try { _bed = bedtimePrediction(); } catch {}
 
     // ── Night feed hint (newborns need scheduled feeds) ──
@@ -6686,7 +6595,7 @@ function App(){
         _dot = "#D4A855"; _label = "Nap " + (_napsDone + 1) + " — long";
         _timing = "Sleeping " + hm(_napMins) + " · Past the typical " + _napMax + " min max";
       } else {
-        _dot = "#7BA68C"; _label = "Nap " + (_napsDone + 1);
+        _dot = "#7BA68C"; _label = "Nap " + (_napsDone + 1) + " of " + _adjustedExpected;
         _timing = "Sleeping " + hm(_napMins) + " · " + _name + " is resting well";
       }
     }
@@ -6726,7 +6635,7 @@ function App(){
       } else {
         _dot = _bridgeNapNeeded ? "#D4A855" : "#7BA68C";
         _label = _bridgeNapNeeded ? "Catnap needed" : "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Catnap" : "Nap " + (_napsDone+1)) + " around " + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : _longNapNote) + _rhythmTag;
+        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Catnap" : "Nap " + (_napsDone+1) + " of " + _adjustedExpected) + " around " + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : _longNapNote) + _rhythmTag;
       }
     }
     // ── PRIORITY 5a-bridge: Bridge nap needed but no prediction available (fallback) ──
@@ -6763,11 +6672,11 @@ function App(){
       } catch {}
       if (_shouldSkip) {
         _dot = "#6B5B95"; _label = "Skip nap " + (_napsDone+1) + " — early bedtime";
-        _timing = _napsDone + " naps done · Aim for bedtime ~" + (_earlyBedStr || "6:30pm");
+        _timing = _napsDone + " of " + _adjustedExpected + " naps done · Aim for bedtime ~" + (_earlyBedStr || "6:30pm");
         _rightNow = "An early bedtime protects overnight sleep better than a late nap. Sleep consultants recommend: when in doubt, protect bedtime.";
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · Nap " + (_napsDone+1) + " still to come" + _longNapNote;
+        _timing = "Awake " + hm(_awakeMin) + " · Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" + _longNapNote;
       }
     }
     // ── PRIORITY 5c: All naps done — bedtime context ──
@@ -6820,13 +6729,13 @@ function App(){
         _timing = "Last feed " + hm(_feedGapM) + " ago · " + (_w < 3 ? "little ones this age often need feeding every 2–3h" : _name + " might be getting peckish");
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + (!_napsComplete ? " · Nap " + (_napsDone+1) + " still to come" + _longNapNote : " · Enjoying the day");
+        _timing = "Awake " + hm(_awakeMin) + (!_napsComplete ? " · Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" + _longNapNote : " · Enjoying the day");
       }
     }
     // ── PRIORITY 7: Day started but nothing specific ──
     else if (_dayStarted) {
       _dot = "#7BA68C"; _label = "All good right now";
-      _timing = "Awake " + hm(_awakeMin) + " · " + (_napsComplete ? "Enjoying the day" : "Nap " + (_napsDone+1) + " still to come" + _longNapNote);
+      _timing = "Awake " + hm(_awakeMin) + " · " + (_napsComplete ? "Enjoying the day" : "Nap " + (_napsDone+1) + " of " + _adjustedExpected + " still to come" + _longNapNote);
     }
     // ── PRIORITY 8: Day not started ──
     else {
@@ -10929,18 +10838,9 @@ function App(){
 
     // ── 3. Nap Prediction ──
     const td=tickDataRef.current||{};
-    // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
-    let _notifNapMins = td.nextNapMins;
-    try {
-      const _notifPred = (isPremium || trialActive) ? predictNextNap() : null;
-      if (_notifPred && _notifPred.napStart_min) {
-        const _np = _notifPred.napStart_min.split(":").map(Number);
-        _notifNapMins = _np[0]*60+_np[1];
-      }
-    } catch {}
-    if(_notifNapMins&&!td.napsComplete&&!td.hasBedtime&&!napOn){
-      const napH=Math.floor(_notifNapMins/60);
-      const napM=_notifNapMins%60;
+    if(td.nextNapMins&&!td.napsComplete&&!td.hasBedtime&&!napOn){
+      const napH=Math.floor(td.nextNapMins/60);
+      const napM=td.nextNapMins%60;
       const napTime=new Date();napTime.setHours(napH,napM,0,0);
       // Notify 10 min before predicted nap
       const napAlert=new Date(napTime.getTime()-10*60*1000);
@@ -10953,7 +10853,7 @@ function App(){
       try {
         const _ww = age ? getWakeWindow(age.totalWeeks) : null;
         if (_ww && _ww.min) {
-          const napWindowMins = _notifNapMins - Math.round((_ww.max - _ww.min) / 2); // approx when min WW is hit
+          const napWindowMins = td.nextNapMins - Math.round((_ww.max - _ww.min) / 2); // approx when min WW is hit
           const nwH = Math.floor(napWindowMins / 60), nwM = napWindowMins % 60;
           const windowOpen = new Date(); windowOpen.setHours(nwH, nwM, 0, 0);
           if (windowOpen.getTime() > now && windowOpen.getTime() < now + 12*3600000) {
@@ -12368,15 +12268,7 @@ function App(){
     const _h = new Date().getHours();
     const _nowM = _h * 60 + new Date().getMinutes();
     const _aw = age.totalWeeks;
-    let _pred;
-    const _td3 = tickDataRef.current || {};
-    if (isPremium || trialActive) {
-      _pred = predictNextNap();
-    } else if (_td3.nextNapMins) {
-      const _sH = Math.floor(_td3.nextNapMins/60)%24, _sM = _td3.nextNapMins%60;
-      const _sStr = `${String(_sH).padStart(2,"0")}:${String(_sM).padStart(2,"0")}`;
-      _pred = { napStart_min: _sStr, napStart_max: _sStr, sourceLabel: "age-appropriate guidelines", isOverdue: _nowM > _td3.nextNapMins };
-    }
+    const _pred = predictNextNap();
     const _profile = getAgeNapProfile(_aw);
 
     if (napOn || _bedE) return null;
@@ -12787,7 +12679,6 @@ function App(){
         babyName: babyName || "Baby",
         updatedAt: new Date().toISOString(),
         photoCount: memories.length,
-        active: true,
         memories: memories
       };
       await fsSet("shared_albums", code, albumData, false);
@@ -13120,36 +13011,18 @@ function App(){
   }
 
   function addApptToCalendar(a){
-    var isAndroid = _isNative && window.Capacitor?.getPlatform?.() === "android";
-    if(isAndroid){
-      // Android: use Google Calendar intent URL
-      var startDate = a.date.replace(/-/g,"") + (a.time ? "T"+a.time.replace(/:/g,"")+"00" : "");
-      var endDate = startDate; // same day
-      var url = "https://www.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(a.title)+"&dates="+startDate+"/"+endDate;
-      if(a.location) url+="&location="+encodeURIComponent(a.location);
-      if(a.note) url+="&details="+encodeURIComponent(a.note);
-      window.open(url,"_system");
-    } else {
-      // iOS: use ICS file
-      var ev={title:a.title,date:a.date,time:a.time||"",location:a.location||"",note:a.note||"",uid:"appt-"+a.id};
-      if(a.travelMins>0) ev.alarm=a.travelMins;
-      else if(a.time) ev.alarm=30;
-      shareICS(generateICS([ev]),"obubba-appointment.ics",ev);
-    }
+    var ev={title:a.title,date:a.date,time:a.time||"",location:a.location||"",note:a.note||"",uid:"appt-"+a.id};
+    if(a.travelMins>0) ev.alarm=a.travelMins;
+    else if(a.time) ev.alarm=30; // Default 30 min reminder
+    shareICS(generateICS([ev]),"obubba-appointment.ics",ev);
     haptic("light");
   }
 
   function openInMaps(address){
     if(!address) return;
     var encoded=encodeURIComponent(address);
-    var isAndroid = _isNative && window.Capacitor?.getPlatform?.() === "android";
-    if(isAndroid){
-      // Google Maps intent — opens Google Maps app on Android
-      window.open("https://www.google.com/maps/dir/?api=1&destination="+encoded,"_system");
-    } else {
-      // Apple Maps URL — works in WKWebView, opens Maps app on iOS
-      window.open("https://maps.apple.com/?daddr="+encoded,"_system");
-    }
+    // Apple Maps URL — works in WKWebView, opens Maps app
+    window.open("https://maps.apple.com/?daddr="+encoded,"_system");
   }
 
   function addPhasesToCalendar(){
@@ -15048,76 +14921,135 @@ function App(){
 
   // ═══ DAILY RECAP SHARE CARD — Instagram-story-sized canvas for viral sharing ═══
   async function generateDailyRecapCard(extraPhotoUrl) {
-    const W=1080;let H=1920; // H will be recalculated dynamically
+    const W=1080;let H=1920;
     const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
     const ctx=canvas.getContext("2d");
     const name=babyName||"Baby";
     const today=days[selDay]||[];
     const dayE=today.filter(e=>!e.night);
-
-    // Background gradient
     const isDk=isDark;
-    const grad=ctx.createLinearGradient(0,0,W*0.3,H);
-    if(isDk){grad.addColorStop(0,"#1a1520");grad.addColorStop(0.5,"#221e28");grad.addColorStop(1,"#2a2232");}
-    else{grad.addColorStop(0,"#F5EDE8");grad.addColorStop(0.3,"#FFFCF9");grad.addColorStop(0.7,"#FFF0E8");grad.addColorStop(1,"#F0E4DD");}
+
+    // ── Lavender/purple gradient background (matches mockup) ──
+    const grad=ctx.createLinearGradient(0,0,W*0.4,H);
+    if(isDk){grad.addColorStop(0,"#1a1530");grad.addColorStop(0.4,"#252040");grad.addColorStop(0.7,"#2a2248");grad.addColorStop(1,"#1e1835");}
+    else{grad.addColorStop(0,"#d8cfe8");grad.addColorStop(0.3,"#e0d6f0");grad.addColorStop(0.5,"#e8dff5");grad.addColorStop(0.7,"#ddd4ee");grad.addColorStop(1,"#d5cceb");}
     ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
 
-    // Warm glow orbs
-    [[W*0.2,H*0.08,300,isDk?"rgba(201,112,90,0.12)":"rgba(255,200,180,0.35)"],
-     [W*0.8,H*0.15,250,isDk?"rgba(212,168,85,0.08)":"rgba(255,220,160,0.25)"],
-     [W*0.5,H*0.85,400,isDk?"rgba(123,104,238,0.06)":"rgba(210,190,240,0.18)"]
+    // Soft glow orbs
+    [[W*0.15,H*0.06,350,isDk?"rgba(160,140,220,0.15)":"rgba(200,180,240,0.3)"],
+     [W*0.85,H*0.12,280,isDk?"rgba(180,160,230,0.1)":"rgba(220,200,250,0.25)"],
+     [W*0.5,H*0.5,500,isDk?"rgba(140,120,200,0.08)":"rgba(240,230,255,0.2)"],
+     [W*0.3,H*0.85,350,isDk?"rgba(170,150,220,0.1)":"rgba(210,195,245,0.25)"]
     ].forEach(([gx,gy,gr,gc])=>{
       const g=ctx.createRadialGradient(gx,gy,0,gx,gy,gr);
       g.addColorStop(0,gc);g.addColorStop(1,"transparent");
       ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
     });
 
-    // Sparkles
-    for(let i=0;i<50;i++){
-      const x=Math.random()*W,y=Math.random()*H,r=Math.random()*2.5+0.5;
-      ctx.fillStyle=isDk?`rgba(255,215,140,${Math.random()*0.3+0.1})`:`rgba(255,255,255,${Math.random()*0.4+0.2})`;
+    // Sparkles (white dots like the mockup)
+    for(let i=0;i<120;i++){
+      const x=Math.random()*W,y=Math.random()*H;
+      const r=Math.random()*2.5+0.3;
+      const alpha=Math.random()*0.5+0.15;
+      ctx.fillStyle=isDk?`rgba(220,210,255,${alpha})`:`rgba(255,255,255,${alpha})`;
       ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      // Some sparkles get a glow
+      if(Math.random()>0.85){
+        const glw=ctx.createRadialGradient(x,y,0,x,y,r*4);
+        glw.addColorStop(0,isDk?`rgba(220,210,255,${alpha*0.4})`:`rgba(255,255,255,${alpha*0.5})`);
+        glw.addColorStop(1,"transparent");
+        ctx.fillStyle=glw;ctx.fillRect(x-r*4,y-r*4,r*8,r*8);
+      }
     }
 
-    const textMain=isDk?"#e8ddd5":"#4A3F3F";
-    const textSub=isDk?"#a898ac":"#8A7878";
-    const textAccent=isDk?"#c9705a":"#c9705a";
-    const cardBg=isDk?"rgba(40,35,48,0.7)":"rgba(255,255,255,0.65)";
-    const cardBorder=isDk?"rgba(255,255,255,0.08)":"rgba(201,112,90,0.15)";
+    // Color palette
+    const textMain=isDk?"#e8e0f0":"#3a3050";
+    const textSub=isDk?"#b0a0c0":"#6a5a80";
+    const textAccent=isDk?"#c9a060":"#b08a40";
+    const textTitle=isDk?"#e0d8f0":"#4a3f5f";
+    const cardBg=isDk?"rgba(40,35,55,0.65)":"rgba(255,255,255,0.55)";
+    const cardBorder=isDk?"rgba(180,160,220,0.15)":"rgba(180,160,220,0.25)";
+    const logoBlue=isDk?"#a8c0e0":"#8aabe0";
     ctx.textAlign="center";
 
-    // OBubba header
-    ctx.font="italic 44px Georgia,serif";ctx.fillStyle=textAccent;
-    ctx.fillText("OBubba",W/2,90);
+    // ── Load mascot image ──
+    let mascotImg=null;
+    try{
+      mascotImg=new Image();mascotImg.crossOrigin="anonymous";
+      await new Promise((res,rej)=>{mascotImg.onload=res;mascotImg.onerror=rej;mascotImg.src="obubba-happy.png";setTimeout(rej,2000);});
+    }catch{mascotImg=null;}
 
-    // Date
-    ctx.font="bold 36px 'DM Sans',sans-serif";ctx.fillStyle=textMain;
-    ctx.fillText(fmtLong(selDay),W/2,150);
+    // ── Mascot + "OBubba" logo header (top-left like mockup) ──
+    const mascotSz=280;
+    if(mascotImg){
+      ctx.drawImage(mascotImg,20,20,mascotSz,mascotSz);
+    }
+    // "OBubba" text — gold "O" + lavender-blue "Bubba"
+    ctx.textAlign="left";
+    ctx.font="bold 100px Georgia,serif";
+    // Gold "O"
+    ctx.fillStyle=textAccent;
+    ctx.fillText("O",mascotSz-30,200);
+    const oW=ctx.measureText("O").width;
+    // "Bubba" in soft blue
+    ctx.fillStyle=logoBlue;
+    ctx.fillText("Bubba",mascotSz-30+oW,200);
+    ctx.textAlign="center";
 
-    // Baby name + age
+    // ── "CELEBRATING" banner ──
+    const celY=330;
+    // Decorative dots before and after
+    ctx.fillStyle=textAccent;
+    const celText="C E L E B R A T I N G";
+    ctx.font="bold 28px 'DM Sans',sans-serif";
+    const celW=ctx.measureText(celText).width;
+    // Dots
+    for(let d=0;d<3;d++){
+      ctx.beginPath();ctx.arc(W/2-celW/2-30-d*18,celY,3,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(W/2+celW/2+30+d*18,celY,3,0,Math.PI*2);ctx.fill();
+    }
+    ctx.fillStyle=textAccent;
+    ctx.fillText(celText,W/2,celY+8);
+
+    // ── Main title: "A beautiful little win" ──
+    ctx.font="italic 56px Georgia,serif";ctx.fillStyle=textTitle;
+    ctx.fillText("A beautiful little win",W/2,celY+80);
+
+    // ── Baby name + date + age ──
     const ageStr=age?fmtAge(age):"";
-    ctx.font="22px 'DM Sans',sans-serif";ctx.fillStyle=textSub;
-    ctx.fillText(name+(ageStr?" · "+ageStr:""),W/2,190);
+    ctx.font="bold 36px 'DM Sans',sans-serif";ctx.fillStyle=textMain;
+    ctx.fillText(name+(ageStr?" \u00B7 "+ageStr:""),W/2,celY+140);
+    ctx.font="24px 'DM Sans',sans-serif";ctx.fillStyle=textSub;
+    ctx.fillText(fmtLong(selDay),W/2,celY+180);
+
+    // ── Frosted glass content card ──
+    let cardY=celY+220;
+    const cardPad=48;
+    const cardX=cardPad;
+    const cardW=W-cardPad*2;
+    const cardTop=cardY;
+
+    // We'll draw the card background after measuring content height
+    let innerY=cardY+40;
 
     // Photo circle if available
-    let cardY=240;
     const photoSrc=activeChild?.photo||null;
     if(photoSrc){
       try{
         const img=new Image();img.crossOrigin="anonymous";
         await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=photoSrc;setTimeout(rej,2000);});
-        const sz=200;ctx.save();
-        ctx.beginPath();ctx.arc(W/2,cardY+sz/2,sz/2,0,Math.PI*2);ctx.clip();
+        const sz=160;ctx.save();
+        ctx.beginPath();ctx.arc(W/2,innerY+sz/2,sz/2,0,Math.PI*2);ctx.clip();
         const aspect=img.width/img.height;let dw=sz,dh=sz;
         if(aspect>1)dw=sz*aspect;else dh=sz/aspect;
-        ctx.drawImage(img,W/2-dw/2,cardY+sz/2-dh/2,dw,dh);ctx.restore();
-        ctx.strokeStyle=textAccent+"60";ctx.lineWidth=4;
-        ctx.beginPath();ctx.arc(W/2,cardY+sz/2,sz/2+2,0,Math.PI*2);ctx.stroke();
-        cardY+=sz+30;
-      }catch{cardY+=10;}
+        ctx.drawImage(img,W/2-dw/2,innerY+sz/2-dh/2,dw,dh);ctx.restore();
+        ctx.strokeStyle=isDk?"rgba(180,160,220,0.4)":"rgba(180,160,220,0.35)";ctx.lineWidth=4;
+        ctx.beginPath();ctx.arc(W/2,innerY+sz/2,sz/2+2,0,Math.PI*2);ctx.stroke();
+        innerY+=sz+24;
+      }catch{innerY+=10;}
     }
 
-    // Stat cards
+    // Stat data
     const feeds=dayE.filter(e=>e.type==="feed");
     const naps=dayE.filter(e=>e.type==="nap");
     const totalMl=feeds.reduce((s,f)=>s+(f.amount||0),0);
@@ -15126,68 +15058,90 @@ function App(){
     const bedEntry=dayE.find(e=>e.type==="sleep");
     const nightWakes=today.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;
 
-    function drawStatCard(x,y,w,h,emoji,label,value){
-      ctx.fillStyle=cardBg;
-      const r=24;ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-      ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
-      ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.fill();
-      ctx.strokeStyle=cardBorder;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
-      ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-      ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.stroke();
-      ctx.font="36px sans-serif";ctx.fillStyle=textMain;ctx.fillText(emoji,x+w/2,y+48);
-      ctx.font="bold 32px 'DM Sans',sans-serif";ctx.fillStyle=textMain;ctx.fillText(value,x+w/2,y+95);
-      ctx.font="16px 'DM Sans',sans-serif";ctx.fillStyle=textSub;ctx.fillText(label,x+w/2,y+122);
+    function drawStatRow(y,emoji1,label1,value1,emoji2,label2,value2){
+      const hw=(cardW-60)/2;
+      // Left stat
+      ctx.fillStyle=isDk?"rgba(50,45,65,0.5)":"rgba(255,255,255,0.5)";
+      ctx.beginPath();ctx.roundRect(cardX+16,y,hw,110,16);ctx.fill();
+      ctx.font="30px sans-serif";ctx.fillStyle=textMain;ctx.textAlign="center";
+      ctx.fillText(emoji1,cardX+16+hw/2,y+38);
+      ctx.font="bold 28px 'DM Sans',sans-serif";ctx.fillText(value1,cardX+16+hw/2,y+72);
+      ctx.font="15px 'DM Sans',sans-serif";ctx.fillStyle=textSub;ctx.fillText(label1,cardX+16+hw/2,y+96);
+      // Right stat
+      if(emoji2){
+        ctx.fillStyle=isDk?"rgba(50,45,65,0.5)":"rgba(255,255,255,0.5)";
+        ctx.beginPath();ctx.roundRect(cardX+16+hw+28,y,hw,110,16);ctx.fill();
+        ctx.font="30px sans-serif";ctx.fillStyle=textMain;ctx.textAlign="center";
+        ctx.fillText(emoji2,cardX+16+hw+28+hw/2,y+38);
+        ctx.font="bold 28px 'DM Sans',sans-serif";ctx.fillText(value2,cardX+16+hw+28+hw/2,y+72);
+        ctx.font="15px 'DM Sans',sans-serif";ctx.fillStyle=textSub;ctx.fillText(label2,cardX+16+hw+28+hw/2,y+96);
+      }
     }
 
-    const gap=24,cw=(W-gap*3)/2,ch=140;
-    drawStatCard(gap,cardY,cw,ch,"🍼","Feeds",feeds.length+(totalMl>0?" ("+fmtVol(totalMl,FU)+")":""));
-    drawStatCard(gap*2+cw,cardY,cw,ch,"😴","Naps",naps.length+" ("+hm(totalNapMins)+")");
-    cardY+=ch+gap;
-    drawStatCard(gap,cardY,cw,ch,"☀️","Woke",wakeEntry?fmt12(wakeEntry.time):"--");
-    drawStatCard(gap*2+cw,cardY,cw,ch,"🌙","Bedtime",bedEntry?fmt12(bedEntry.time):"--");
-    cardY+=ch+gap;
+    drawStatRow(innerY,"\uD83C\uDF7C","Feeds",feeds.length+(totalMl>0?" ("+fmtVol(totalMl,FU)+")":""),"\uD83D\uDE34","Naps",naps.length+" ("+hm(totalNapMins)+")");
+    innerY+=130;
+    drawStatRow(innerY,"\u2600\uFE0F","Woke",wakeEntry?fmt12(wakeEntry.time):"--","\uD83C\uDF19","Bedtime",bedEntry?fmt12(bedEntry.time):"--");
+    innerY+=130;
 
     if(nightWakes>0){
-      drawStatCard(gap,cardY,(W-gap*2),ch,"🔔","Night Wakes",nightWakes+"");
-      cardY+=ch+gap;
+      const fullW=cardW-32;
+      ctx.fillStyle=isDk?"rgba(50,45,65,0.5)":"rgba(255,255,255,0.5)";
+      ctx.beginPath();ctx.roundRect(cardX+16,innerY,fullW,110,16);ctx.fill();
+      ctx.font="30px sans-serif";ctx.fillStyle=textMain;ctx.textAlign="center";
+      ctx.fillText("\uD83D\uDD14",cardX+16+fullW/2,innerY+38);
+      ctx.font="bold 28px 'DM Sans',sans-serif";ctx.fillText(nightWakes+"",cardX+16+fullW/2,innerY+72);
+      ctx.font="15px 'DM Sans',sans-serif";ctx.fillStyle=textSub;ctx.fillText("Night Wakes",cardX+16+fullW/2,innerY+96);
+      innerY+=130;
     }
 
     // Sleep score bar
     const sc=sleepScore();
     if(sc>0){
-      const barW=W-gap*4,barH=20,barX=gap*2,barY2=cardY+10;
+      innerY+=10;
+      const barW=cardW-80,barH=18,barX=cardX+40;
       const scColor=sc>=80?"#50c878":sc>=50?"#d4a855":"#e8574a";
-      ctx.fillStyle=isDk?"rgba(255,255,255,0.08)":"rgba(0,0,0,0.06)";
-      ctx.beginPath();ctx.roundRect(barX,barY2,barW,barH,99);ctx.fill();
+      ctx.fillStyle=isDk?"rgba(255,255,255,0.08)":"rgba(0,0,0,0.05)";
+      ctx.beginPath();ctx.roundRect(barX,innerY,barW,barH,99);ctx.fill();
       ctx.fillStyle=scColor;
-      ctx.beginPath();ctx.roundRect(barX,barY2,barW*(sc/100),barH,99);ctx.fill();
+      ctx.beginPath();ctx.roundRect(barX,innerY,barW*(sc/100),barH,99);ctx.fill();
       ctx.font="bold 18px 'DM Sans',sans-serif";ctx.fillStyle=scColor;ctx.textAlign="center";
-      ctx.fillText("Sleep Score: "+sc+"/100",W/2,barY2+barH+30);
-      cardY=barY2+barH+55;
+      ctx.fillText("Sleep Score: "+sc+"/100",W/2,innerY+barH+28);
+      innerY+=barH+50;
     }
 
-    // Milestones achieved today
+    // Milestones
     const todayMs=Object.entries(milestones).filter(([id,d])=>d.date===selDay);
     if(todayMs.length){
-      ctx.font="bold 24px 'DM Sans',sans-serif";ctx.fillStyle=textAccent;
-      ctx.fillText("🎉 Milestones Today",W/2,cardY+10);
-      cardY+=40;
+      ctx.font="bold 22px 'DM Sans',sans-serif";ctx.fillStyle=textAccent;ctx.textAlign="center";
+      ctx.fillText("\uD83C\uDF89 Milestones Today",W/2,innerY+10);
+      innerY+=40;
       todayMs.forEach(([id])=>{
         const m=MILESTONES.find(ms=>ms.id===id);
-        if(m){
-          ctx.font="20px 'DM Sans',sans-serif";ctx.fillStyle=textMain;
-          ctx.fillText("✓ "+m.label,W/2,cardY+5);
-          cardY+=32;
-        }
+        if(m){ctx.font="20px 'DM Sans',sans-serif";ctx.fillStyle=textMain;ctx.fillText("\u2713 "+m.label,W/2,innerY+5);innerY+=32;}
       });
-      cardY+=10;
+      innerY+=10;
     }
 
-    // Encouraging parent message
-    ctx.font="italic 22px Georgia,serif";ctx.fillStyle=textSub;
+    // Extra photo
+    if(extraPhotoUrl){
+      try{
+        const eImg=new Image();eImg.crossOrigin="anonymous";
+        await new Promise((res,rej)=>{eImg.onload=res;eImg.onerror=rej;eImg.src=extraPhotoUrl;setTimeout(rej,3000);});
+        const maxPW=cardW-64;const aspect=eImg.width/eImg.height;
+        let pW=maxPW,pH=maxPW/aspect;if(pH>500){pH=500;pW=pH*aspect;}
+        const pX=(W-pW)/2;const pR=20;
+        ctx.save();ctx.beginPath();ctx.roundRect(pX,innerY,pW,pH,pR);ctx.clip();
+        ctx.drawImage(eImg,pX,innerY,pW,pH);ctx.restore();
+        ctx.strokeStyle=cardBorder;ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(pX,innerY,pW,pH,pR);ctx.stroke();
+        innerY+=pH+24;
+      }catch{}
+    }
+
+    // Encouraging message
+    ctx.font="italic 22px Georgia,serif";ctx.fillStyle=textSub;ctx.textAlign="center";
     const encouragements=[
-      "Every feed, every nap, every cuddle — it all counts.",
-      "You're doing an amazing job. Your baby is lucky to have you.",
+      "Every feed, every nap, every cuddle \u2014 it all counts.",
+      "You're doing an amazing job. "+name+" is lucky to have you.",
       "One day at a time. You've got this.",
       "No perfect parents, just present ones. And here you are.",
       "Today was another day of love. Well done.",
@@ -15195,67 +15149,79 @@ function App(){
       "Tiny steps, big love. Keep going.",
     ];
     const dayIdx=selDay?selDay.split("-").reduce((s,n)=>s+parseInt(n),0):0;
-    const msg=encouragements[dayIdx%encouragements.length];
-    // Word wrap
-    const words=msg.split(" ");let lines2=[];let line="";
-    words.forEach(w2=>{const test=line?line+" "+w2:w2;if(ctx.measureText(test).width>W-120){lines2.push(line);line=w2;}else{line=test;}});
+    const msg2=encouragements[dayIdx%encouragements.length];
+    const words=msg2.split(" ");let lines2=[];let line="";
+    words.forEach(w2=>{const test=line?line+" "+w2:w2;if(ctx.measureText(test).width>cardW-60){lines2.push(line);line=w2;}else{line=test;}});
     if(line)lines2.push(line);
-    lines2.forEach((l,i)=>{ctx.fillText(l,W/2,cardY+20+i*30);});
-    cardY+=20+lines2.length*30+30;
+    innerY+=10;
+    lines2.forEach((l,i)=>{ctx.fillText(l,W/2,innerY+i*30);});
+    innerY+=lines2.length*30+20;
 
-    // Extra photo if provided
-    if (extraPhotoUrl) {
-      try {
-        const eImg = new Image(); eImg.crossOrigin = "anonymous";
-        await new Promise((res,rej)=>{eImg.onload=res;eImg.onerror=rej;eImg.src=extraPhotoUrl;setTimeout(rej,3000);});
-        const maxPhotoW = W - gap*4;
-        const aspect = eImg.width / eImg.height;
-        let pW = maxPhotoW, pH = maxPhotoW / aspect;
-        if (pH > 600) { pH = 600; pW = pH * aspect; }
-        const pX = (W - pW) / 2;
-        // Rounded corners
-        const pR = 28;
-        ctx.save(); ctx.beginPath();
-        ctx.moveTo(pX+pR, cardY); ctx.lineTo(pX+pW-pR, cardY); ctx.quadraticCurveTo(pX+pW, cardY, pX+pW, cardY+pR);
-        ctx.lineTo(pX+pW, cardY+pH-pR); ctx.quadraticCurveTo(pX+pW, cardY+pH, pX+pW-pR, cardY+pH);
-        ctx.lineTo(pX+pR, cardY+pH); ctx.quadraticCurveTo(pX, cardY+pH, pX, cardY+pH-pR);
-        ctx.lineTo(pX, cardY+pR); ctx.quadraticCurveTo(pX, cardY, pX+pR, cardY);
-        ctx.clip();
-        ctx.drawImage(eImg, pX, cardY, pW, pH);
-        ctx.restore();
-        // Soft border
-        ctx.strokeStyle = cardBorder; ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(pX+pR, cardY); ctx.lineTo(pX+pW-pR, cardY); ctx.quadraticCurveTo(pX+pW, cardY, pX+pW, cardY+pR);
-        ctx.lineTo(pX+pW, cardY+pH-pR); ctx.quadraticCurveTo(pX+pW, cardY+pH, pX+pW-pR, cardY+pH);
-        ctx.lineTo(pX+pR, cardY+pH); ctx.quadraticCurveTo(pX, cardY+pH, pX, cardY+pH-pR);
-        ctx.lineTo(pX, cardY+pR); ctx.quadraticCurveTo(pX, cardY, pX+pR, cardY);
-        ctx.stroke();
-        cardY += pH + 30;
-      } catch { /* photo failed, skip */ }
+    const cardBottom=innerY;
+
+    // ── Draw frosted glass card background BEHIND content ──
+    // Re-render: we'll use a final composite canvas
+    const finalH=Math.max(Math.min(cardBottom+140,2400),800);
+    const finalCanvas=document.createElement("canvas");finalCanvas.width=W;finalCanvas.height=finalH;
+    const fCtx=finalCanvas.getContext("2d");
+
+    // Redraw background on final canvas
+    const fGrad=fCtx.createLinearGradient(0,0,W*0.4,finalH);
+    if(isDk){fGrad.addColorStop(0,"#1a1530");fGrad.addColorStop(0.4,"#252040");fGrad.addColorStop(1,"#1e1835");}
+    else{fGrad.addColorStop(0,"#d8cfe8");fGrad.addColorStop(0.3,"#e0d6f0");fGrad.addColorStop(0.5,"#e8dff5");fGrad.addColorStop(1,"#d5cceb");}
+    fCtx.fillStyle=fGrad;fCtx.fillRect(0,0,W,finalH);
+
+    // Glow orbs on final
+    [[W*0.15,finalH*0.06,350,isDk?"rgba(160,140,220,0.15)":"rgba(200,180,240,0.3)"],
+     [W*0.85,finalH*0.12,280,isDk?"rgba(180,160,230,0.1)":"rgba(220,200,250,0.25)"],
+     [W*0.5,finalH*0.5,500,isDk?"rgba(140,120,200,0.08)":"rgba(240,230,255,0.2)"],
+     [W*0.3,finalH*0.85,350,isDk?"rgba(170,150,220,0.1)":"rgba(210,195,245,0.25)"]
+    ].forEach(([gx,gy,gr,gc])=>{
+      const g=fCtx.createRadialGradient(gx,gy,0,gx,gy,gr);
+      g.addColorStop(0,gc);g.addColorStop(1,"transparent");
+      fCtx.fillStyle=g;fCtx.fillRect(0,0,W,finalH);
+    });
+
+    // Sparkles on final
+    for(let i=0;i<120;i++){
+      const x=Math.random()*W,y=Math.random()*finalH;
+      const r=Math.random()*2.5+0.3;const alpha=Math.random()*0.5+0.15;
+      fCtx.fillStyle=isDk?`rgba(220,210,255,${alpha})`:`rgba(255,255,255,${alpha})`;
+      fCtx.beginPath();fCtx.arc(x,y,r,0,Math.PI*2);fCtx.fill();
+      if(Math.random()>0.85){
+        const glw=fCtx.createRadialGradient(x,y,0,x,y,r*4);
+        glw.addColorStop(0,isDk?`rgba(220,210,255,${alpha*0.4})`:`rgba(255,255,255,${alpha*0.5})`);
+        glw.addColorStop(1,"transparent");
+        fCtx.fillStyle=glw;fCtx.fillRect(x-r*4,y-r*4,r*8,r*8);
+      }
     }
 
-    // Dynamic height: resize canvas to fit content
-    const finalH = Math.max(Math.min(cardY + 120, 2400), 600); // clamp between 600-2400
-    const finalCanvas = document.createElement("canvas"); finalCanvas.width = W; finalCanvas.height = finalH;
-    const fCtx = finalCanvas.getContext("2d");
-    // Fill background for the watermark area
-    const fGrad = fCtx.createLinearGradient(0,0,W*0.3,finalH);
-    if(isDk){fGrad.addColorStop(0,"#1a1520");fGrad.addColorStop(1,"#2a2232");}
-    else{fGrad.addColorStop(0,"#F5EDE8");fGrad.addColorStop(0.7,"#FFF0E8");fGrad.addColorStop(1,"#F0E4DD");}
-    fCtx.fillStyle=fGrad;fCtx.fillRect(0,0,W,finalH);
-    fCtx.drawImage(canvas, 0, 0, W, Math.min(H, finalH), 0, 0, W, Math.min(H, finalH));
+    // Frosted glass card background
+    const cR=32;
+    fCtx.fillStyle=cardBg;
+    fCtx.beginPath();fCtx.roundRect(cardX,cardTop,cardW,cardBottom-cardTop,cR);fCtx.fill();
+    fCtx.strokeStyle=cardBorder;fCtx.lineWidth=2;
+    fCtx.beginPath();fCtx.roundRect(cardX,cardTop,cardW,cardBottom-cardTop,cR);fCtx.stroke();
+    // Light shine at top of card
+    const shine=fCtx.createLinearGradient(W/2,cardTop,W/2,cardTop+60);
+    shine.addColorStop(0,isDk?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.35)");
+    shine.addColorStop(1,"transparent");
+    fCtx.fillStyle=shine;
+    fCtx.beginPath();fCtx.roundRect(cardX,cardTop,cardW,60,{upperLeft:cR,upperRight:cR,lowerLeft:0,lowerRight:0});fCtx.fill();
 
-    // Watermark at bottom of fitted canvas
-    fCtx.textAlign = "center";
-    fCtx.font="bold 18px 'DM Sans',sans-serif";fCtx.fillStyle=textAccent;
-    fCtx.fillText("Tracked with OBubba",W/2,finalH-70);
+    // Draw original content on top of final canvas
+    fCtx.drawImage(canvas,0,0,W,Math.min(H,finalH),0,0,W,Math.min(H,finalH));
+
+    // Watermark at bottom
+    fCtx.textAlign="center";
+    fCtx.font="bold 20px 'DM Sans',sans-serif";fCtx.fillStyle=textAccent;
+    fCtx.fillText("Tracked with OBubba \u2764\uFE0F",W/2,finalH-70);
     fCtx.font="16px 'DM Sans',sans-serif";fCtx.fillStyle=textSub;
-    fCtx.fillText("obubba.com — free for iPhone & Android",W/2,finalH-42);
+    fCtx.fillText("obubba.com \u2014 free for iPhone & Android",W/2,finalH-42);
 
     let dataUrl;
     try{dataUrl=finalCanvas.toDataURL("image/png");}catch{showToast("Couldn't generate recap card",2500,2);return;}
-    setSharePreview({title:name+"'s Day · "+fmtLong(selDay),milestone:null,dataUrl});
+    setSharePreview({title:name+"'s Day \u00B7 "+fmtLong(selDay),milestone:null,dataUrl});
   }
 
     // ═══ SCHEDULE MAKER — builds optimal day around a fixed event ═══
@@ -17148,7 +17114,7 @@ function App(){
         )}
       </div>
       {showWakeInline && (
-        <div style={{background:"var(--card-bg-solid)",borderTop:`2px solid ${C.ter}`,padding:"12px 16px",maxWidth:_maxW,margin:"0 auto",boxShadow:"0 4px 16px rgba(201,112,90,0.12)",animation:"fadeUp 0.2s ease"}}>
+        <div style={{background:"var(--card-bg-solid)",borderTop:`2px solid ${C.ter}`,padding:"12px 16px",maxWidth:520,margin:"0 auto",boxShadow:"0 4px 16px rgba(201,112,90,0.12)",animation:"fadeUp 0.2s ease"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span style={{fontSize:18}}>☀️</span>
             <div style={{flex:1}}>
@@ -17168,7 +17134,7 @@ function App(){
         </div>
       )}
 
-      <div style={{padding:tab==="settings"?"0 14px 90px":"16px 14px 90px",maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
+      <div style={{padding:tab==="settings"?"0 14px 90px":"16px 14px 90px",maxWidth:520,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
           !selDay||!days[selDay]?(
             <div style={{textAlign:"center",padding:"40px 20px",color:C.lt}}>
@@ -17463,17 +17429,25 @@ function App(){
 
               {/* ═══ Planner ═══ */}
               {/* Dashed add buttons — only show for empty sections */}
-              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-                <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:"",repeat:"none",travelMins:0,location:""});setShowAddAppt(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
-                  📅 Appointment
-                </button>
-                <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:"",trigger:"",repeat:"none"});setShowAddReminder(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
-                  🔔 Reminder
-                </button>
-                <button onClick={()=>setShowAddPin(true)} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
-                  📌 Pin Note
-                </button>
-              </div>
+              {(appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length===0||reminders.filter(r=>!r.done).length===0||pinnedNotes.length===0)&&(
+                <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                  {appointments.filter(a=>new Date(a.date+"T23:59:59")>=new Date()).length===0&&(
+                    <button onClick={()=>{setApptForm({date:todayStr(),time:"",title:"",note:"",repeat:"none",travelMins:0,location:""});setShowAddAppt(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                      📅 Appointment
+                    </button>
+                  )}
+                  {reminders.filter(r=>!r.done).length===0&&(
+                    <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:"",trigger:"",repeat:"none"});setShowAddReminder(true);}} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                      🔔 Reminder
+                    </button>
+                  )}
+                  {pinnedNotes.length===0&&(
+                    <button onClick={()=>setShowAddPin(true)} style={{flex:1,minWidth:85,padding:"9px 8px",borderRadius:16,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:11,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                      📌 Pin Note
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Next Appointment — shows only the closest upcoming one */}
               {(()=>{
@@ -22748,7 +22722,7 @@ function App(){
       </div>
       
             {tab==="settings"&&(
-        <div style={{padding:"0 16px 100px",maxWidth:_maxW,margin:"0 auto",marginTop:-16}}>
+        <div style={{padding:"0 16px 100px",maxWidth:520,margin:"0 auto",marginTop:-16}}>  
 
           {/* ═══ 1. PROFILE ═══ */}
           <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16,marginTop:4}}>
@@ -22759,7 +22733,18 @@ function App(){
             </div>
             <div style={{flex:1}}>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep}}>{babyName ? possessive(babyName) + " Family" : "Account"}</div>
-              {familyUsername && <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginTop:2}}>Logged in as <strong style={{color:C.ter}}>{familyUsername.replace(/\s+/g,"").toLowerCase()}</strong></div>}
+              {familyUsername && <div onClick={()=>{
+                if(!window._ownerTaps) window._ownerTaps={count:0,last:0};
+                const now=Date.now();
+                if(now-window._ownerTaps.last>2000) window._ownerTaps.count=0;
+                window._ownerTaps.count++;
+                window._ownerTaps.last=now;
+                if(window._ownerTaps.count>=7){
+                  window._ownerTaps.count=0;
+                  try{localStorage.setItem("ob_owner_unlock","1");}catch{}
+                  location.reload();
+                }
+              }} style={{fontSize:12,fontFamily:_fM,color:C.lt,marginTop:2,cursor:"default",WebkitUserSelect:"none",userSelect:"none"}}>Logged in as <strong style={{color:C.ter}}>{familyUsername.replace(/\s+/g,"").toLowerCase()}</strong></div>}
               {familyUsername && <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:1}}>{syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync error":"☁️ Cloud connected"}</div>}
             </div>
           </div>
@@ -23015,18 +23000,7 @@ function App(){
               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>📋 Legal & About</div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>About OBubba</div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7}}>
-                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or <span onClick={()=>{
-                  const now=Date.now();
-                  if(!window._ownerTaps2) window._ownerTaps2={count:0,last:0};
-                  if(now-window._ownerTaps2.last>2000) window._ownerTaps2.count=0;
-                  window._ownerTaps2.count++;
-                  window._ownerTaps2.last=now;
-                  if(window._ownerTaps2.count>=7){
-                    window._ownerTaps2.count=0;
-                    try{localStorage.setItem("ob_owner_unlock","1");}catch{}
-                    location.reload();
-                  }
-                }} style={{cursor:"default",WebkitUserSelect:"none",userSelect:"none"}}>treatment</span>.
+                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or treatment.
               </div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:6}}>
                 Sleep predictions, feeding guidance, and developmental information are based on publicly available guidelines from the NHS, WHO, AAP (American Academy of Pediatrics), NHMRC (Australia), and paediatric sleep research. OBubba is not affiliated with or endorsed by any of these organisations or any healthcare provider.
@@ -23227,7 +23201,7 @@ function App(){
         </div>
       )}
 
-      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:_maxW,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:520,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
         {["day","insights","develop","settings"].map(t=>(
           <button key={t} onClick={()=>{haptic();setTab(t);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);}} style={tabSt(t)}>
             <span style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
@@ -24058,7 +24032,7 @@ function App(){
             <div style={{display:"flex",gap:8,marginBottom:14}}>
               {[
                 {key:"monthly",label:"Monthly",price:"£4.99",sub:"/month",badge:null},
-                {key:"annual",label:"Annual",price:"£44.99",sub:"/year",badge:"Save 25%"},
+                {key:"annual",label:"Annual",price:"£39.99",sub:"/year",badge:"Save 33%"},
                 {key:"lifetime",label:"Lifetime",price:"£79.99",sub:"once",badge:"Best value"},
               ].map(plan=>{
                 const _sel = (paywallPlan||"annual") === plan.key;
@@ -24104,7 +24078,7 @@ function App(){
             {trialActive && <div style={{fontSize:11,color:C.lt,marginTop:6}}>{trialDaysLeft} days free, then cancel anytime</div>}
             {!trialActive && (paywallPlan||"annual")!=="lifetime" && <div style={{fontSize:11,color:C.lt,marginTop:6}}>Cancel anytime — no lock-in</div>}
 
-            <div style={{fontSize:10.5,color:C.mid,marginTop:8,fontStyle:"italic",lineHeight:1.5,maxWidth:280,marginLeft:"auto",marginRight:"auto"}}>Built by a mum who's been there. For less than a coffee a month — give yourself the gift of restful nights.</div>
+            <div style={{fontSize:10.5,color:C.mid,marginTop:8,fontStyle:"italic",lineHeight:1.5,maxWidth:280,marginLeft:"auto",marginRight:"auto"}}>Built by a mum who's been there. For less than a coffee a month — no more guessing, no more juggling 5 apps.</div>
 
             {/* Restore */}
             <button onClick={()=>{
@@ -24344,7 +24318,7 @@ function App(){
       {/* ═══ Breastfeeding Hub Modal ═══ */}
       {showBfHub&&(
         <div onClick={()=>setShowBfHub(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(5px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 48px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:"88vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 48px",width:"100%",maxWidth:520,margin:"0 auto",maxHeight:"88vh",overflowY:"auto"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep}}>🤱 Breastfeeding Guide</div>
@@ -24441,7 +24415,7 @@ function App(){
         const _highRisk = _eczema === "severe" || _knownAllergy === "yes";
         return (
           <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.6)",backdropFilter:"blur(6px)",zIndex:300,display:"flex",alignItems:"flex-end"}}>
-            <div style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 44px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 44px",width:"100%",maxWidth:520,margin:"0 auto",maxHeight:"90vh",overflowY:"auto"}}>
               <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
               <div style={{fontSize:24,textAlign:"center",marginBottom:8}}>🛡️</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,textAlign:"center",marginBottom:6}}>Before we suggest allergens</div>
@@ -24520,7 +24494,7 @@ function App(){
       {/* ═══ Allergen Emergency Card ═══ */}
       {showAllergenEmergency && (
         <div onClick={()=>setShowAllergenEmergency(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.6)",backdropFilter:"blur(6px)",zIndex:300,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 44px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:"90vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 44px",width:"100%",maxWidth:520,margin:"0 auto",maxHeight:"90vh",overflowY:"auto"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
             <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:16,textAlign:"center"}}>Allergic Reaction Guide</div>
 
@@ -24575,7 +24549,7 @@ function App(){
       {/* ═══ Meal Picker Sheet (6+ months) ═══ */}
       {showMealPicker && (
         <div onClick={()=>setShowMealPicker(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 16px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 16px 40px",width:"100%",maxWidth:520,margin:"0 auto"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
             <div style={{fontSize:16,fontWeight:700,color:C.deep,marginBottom:4,textAlign:"center"}}>🥕 Log a Meal</div>
             <div style={{fontSize:12,color:C.lt,textAlign:"center",marginBottom:16}}>What time of day is it?</div>
@@ -24643,7 +24617,7 @@ function App(){
       {/* ═══ Wellbeing Support Popup ═══ */}
       {showWellbeing&&(
         <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.65)",backdropFilter:"blur(8px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 22px 48px",maxWidth:_maxW,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 22px 48px",maxWidth:520,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 20px"}}/>
 
             <div style={{textAlign:"center",marginBottom:20}}>
@@ -25093,7 +25067,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       {/* ═══ Carer Card Modal ═══ */}
       {showCarerCard&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowCarerCard(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:_maxW,maxHeight:"92vh",position:"relative",display:"flex",flexDirection:"column"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:520,maxHeight:"92vh",position:"relative",display:"flex",flexDirection:"column"}}>
             <div style={{display:"flex",justifyContent:"flex-end",padding:"16px 16px 0",flexShrink:0}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowCarerCard(false)} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
@@ -25206,7 +25180,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       {/* ═══ Carer Review Modal ═══ */}
       {showCarerReview&&(
         <div onClick={()=>setShowCarerReview(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:_maxW,maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:520,maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 0",flexShrink:0}}>
               <div>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep}}>📋 Carer Activity</div>
@@ -25527,13 +25501,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               setShowNightWake(false);
               setNightEditId(null);
               showToast(nightEditId?"🌟 Night Wake Updated ✓":"🌟 Night Wake Logged ✓",1200,1);
-              // Restart bedtime Live Activity from wake time MINUS soothing (matches widget)
+              // Restart bedtime Live Activity from settle time so Dynamic Island counts from last settle
               if(_isNative && !nightEditId) {
                 try {
                   const [_wh,_wm] = saveTime.split(":").map(Number);
                   const _smins = parseInt(nwForm.assistedDuration)||parseInt(nwForm.settleDuration)||0;
-                  let _totM = _wh*60+_wm-_smins; // MINUS soothing to match widget
-                  if(_totM<0) _totM+=1440;
+                  const _totM = _wh*60+_wm+_smins;
                   const _settleDate = new Date();
                   _settleDate.setHours(Math.floor(_totM/60)%24, _totM%60, 0, 0);
                   if(_settleDate > new Date()) _settleDate.setDate(_settleDate.getDate()-1);
@@ -25867,25 +25840,18 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Location (optional)</label>
               <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
                 <div style={{flex:1}}><input type="text" placeholder="e.g. GP surgery, 12 High St, London" value={apptForm.location||""} onChange={e=>setApptForm(f=>({...f,location:e.target.value}))} style={{width:"100%",boxSizing:_bBB,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_bN}} /></div>
-                {apptForm.location&&apptForm.location.trim().length>3&&(
+                {_isNative&&apptForm.location&&apptForm.location.trim().length>3&&(
                   <button onClick={()=>{
-                    // Try native plugin first (iOS), fallback to manual
-                    if(window.Capacitor?.Plugins?.OBTravelTime){
-                      showToast("Calculating travel time...",2000);
-                      window.Capacitor.Plugins.OBTravelTime.calculate({address:apptForm.location.trim()}).then(function(r){
-                        var mins=r.travelMins||0;
-                        setApptForm(function(f){return Object.assign({},f,{travelMins:mins});});
-                        var label=mins>=60?(Math.floor(mins/60)+"h "+mins%60+"m"):(mins+" min");
-                        var driveLabel=r.drivingMins?(" ("+r.drivingMins+" driving + "+r.bufferMins+" buffer)"):"";
-                        var distLabel=r.distanceKm?(" · "+(r.distanceKm<1?(Math.round(r.distanceKm*1000)+"m"):(r.distanceKm+"km"))):"";
-                        showToast("🚗 "+label+driveLabel+distLabel+(r.approximate?" (approx)":""),4000);
-                      }).catch(function(err){showToast("Could not calculate: "+(err.message||err),3000);});
-                    } else {
-                      // No native plugin (Android/PWA) — open Google Maps for directions so user can see travel time
-                      var encoded=encodeURIComponent(apptForm.location.trim());
-                      window.open("https://www.google.com/maps/dir/?api=1&destination="+encoded,"_system");
-                      showToast("Check Google Maps for travel time, then set it below",3000);
-                    }
+                    if(!window.Capacitor||!window.Capacitor.Plugins||!window.Capacitor.Plugins.OBTravelTime){showToast("Travel time requires the latest app update",2000);return;}
+                    showToast("Calculating travel time...",2000);
+                    window.Capacitor.Plugins.OBTravelTime.calculate({address:apptForm.location.trim()}).then(function(r){
+                      var mins=r.travelMins||0;
+                      setApptForm(function(f){return Object.assign({},f,{travelMins:mins});});
+                      var label=mins>=60?(Math.floor(mins/60)+"h "+mins%60+"m"):(mins+" min");
+                      var driveLabel=r.drivingMins?(" ("+r.drivingMins+" driving + "+r.bufferMins+" buffer)"):"";
+                      var distLabel=r.distanceKm?(" · "+(r.distanceKm<1?(Math.round(r.distanceKm*1000)+"m"):(r.distanceKm+"km"))):"";
+                      showToast("🚗 "+label+driveLabel+distLabel+(r.approximate?" (approx)":""),4000);
+                    }).catch(function(err){showToast("Could not calculate: "+(err.message||err),3000);});
                   }} style={{padding:"10px 14px",borderRadius:12,border:`1.5px solid ${C.sky}`,background:"rgba(122,171,196,0.12)",color:C.sky,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI,whiteSpace:"nowrap",flexShrink:0}}>
                     🚗 Calc
                   </button>
@@ -26275,7 +26241,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                         {/* ═══ Schedule Maker Modal ═══ */}
       {showScheduleMaker && (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:"90vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
             <button onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",zIndex:10,touchAction:"manipulation"}}>✕</button>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
@@ -26540,7 +26506,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       {/* ═══ Adjust Schedule Modal ═══ */}
       {showAdjustSchedule && (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowAdjustSchedule(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:_maxW}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:520}}>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>⚙️ Adjust Schedule</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
@@ -26647,7 +26613,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 </button>
               ) : (
                 <button onClick={async()=>{
-                  if(!isPremium && !trialActive && STORE_READY){setPaywallContext("partner");setShowPaywall(true);setShowMemoryBook(false);return;}
+                  if(!isPremium && STORE_READY){setPaywallContext("partner");setShowPaywall(true);setShowMemoryBook(false);return;}
                   haptic();
                   showToast("Creating shareable album...",2000,1);
                   try{
@@ -26840,7 +26806,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       {/* ═══ Medicine/Temperature Form ═══ */}
       {showMedForm&&(
         <div onClick={()=>setShowMedForm(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:_maxW,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:12,textAlign:"center"}}>💊 Health</div>
             {/* Medicines | Vaccines tabs */}
@@ -27233,9 +27199,4 @@ function AppRouter(){
 if (!window.__obReactMounted) {
   window.__obReactMounted = true;
   ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(AppRouter)));
-  // Hide splash screens ASAP — both web and native
-  setTimeout(function(){
-    var s=document.getElementById('ob-splash');if(s)s.style.display='none';
-    try{if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SplashScreen)window.Capacitor.Plugins.SplashScreen.hide();}catch{}
-  },300);
 }
