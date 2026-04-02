@@ -13425,21 +13425,32 @@ function App(){
 
   async function doShareCard(){
     if(!sharePreview) return;
+    const _title = sharePreview.title || "OBubba";
+    const _text = _title + " \u2014 Tracked with OBubba";
     try{
+      // Try Capacitor Share first (text-only, reliable on native)
+      const _sp = window.Capacitor?.Plugins?.Share;
+      if(_sp){
+        await _sp.share({title:_title, text:_text, dialogTitle:"Share"});
+        return;
+      }
+      // PWA: try file share, then text fallback
       const res=await fetch(sharePreview.dataUrl);
       const blob=await res.blob();
-      const file=new File([blob],"obubba-milestone.png",{type:"image/png"});
+      const file=new File([blob],"obubba-card.png",{type:"image/png"});
       if(navigator.canShare&&navigator.canShare({files:[file]})){
-        await navigator.share({files:[file],title:sharePreview.title,text:sharePreview.title+" \u2014 Tracked with OBubba"});
+        await navigator.share({files:[file],title:_title,text:_text});
+      } else if(navigator.share){
+        await navigator.share({title:_title,text:_text});
       } else {
-        const a=document.createElement("a");a.href=sharePreview.dataUrl;a.download="obubba-milestone.png";a.click();
+        downloadShareCard();
       }
     }catch(e){if(e.name!=="AbortError")console.warn("Share error",e);}
   }
 
   function downloadShareCard(){
     if(!sharePreview) return;
-    const a=document.createElement("a");a.href=sharePreview.dataUrl;a.download="obubba-milestone.png";a.click();
+    const a=document.createElement("a");a.href=sharePreview.dataUrl;a.download="obubba-card.png";a.click();
   }
 
     function addAppointment(){
@@ -19161,32 +19172,11 @@ function App(){
                     // Branding
                     _cx.textAlign="center";_cx.font="bold 22px sans-serif";_cx.fillStyle="#c9705a";
                     _cx.fillText("Tracked with OBubba",W/2,H-40);
-                    // Share as image
+                    // Show preview card — user can review before sharing
                     let _dataUrl;
                     try{_dataUrl=_cv.toDataURL("image/png");}catch{_dataUrl=null;}
-                    // Build text summary for sharing
-                    let _sfMsg=_sfName+"'s Day \u2014 "+new Date(selDay+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})+"\n\n";
-                    if(_sfWake)_sfMsg+="\u2600\uFE0F Wake: "+fmt12(_sfWake.time)+"\n";
-                    _sfMsg+="\u{1F37C} Feeds: "+_sfFeeds.length+(_sfTotalMl?" ("+_sfTotalMl+"ml)":"")+"\n";
-                    _sfMsg+="\u{1F4A4} Naps: "+_sfNaps.length+(_sfTotalNapMin?" ("+hm(_sfTotalNapMin)+")":"")+"\n";
-                    _sfMsg+="\u{1F6BC} Nappies: "+_sfNappies.length+"\n";
-                    if(_sfNext)_sfMsg+="\u{1F52E} Next: "+_sfNext+"\n";
-                    _sfMsg+="\nTracked with OBubba";
-                    // Try Capacitor Share first (works on native), then navigator.share (PWA)
-                    const _sp=window.Capacitor?.Plugins?.Share;
-                    if(_sp){
-                      await _sp.share({title:_sfName+"'s Day",text:_sfMsg,dialogTitle:"Send to Family"});
-                    } else if(navigator.share){
-                      // On PWA, try sharing the image file
-                      if(_dataUrl){
-                        try{
-                          const _res=await fetch(_dataUrl);const _blob=await _res.blob();
-                          const _file=new File([_blob],"obubba-day-"+selDay+".png",{type:"image/png"});
-                          if(navigator.canShare&&navigator.canShare({files:[_file]})){
-                            await navigator.share({files:[_file],title:_sfName+"'s Day"});
-                          } else { await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
-                        }catch(e2){ if(e2.name!=="AbortError") await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
-                      } else { await navigator.share({title:_sfName+"'s Day",text:_sfMsg}); }
+                    if(_dataUrl){
+                      setSharePreview({title:_sfName+"'s Day",dataUrl:_dataUrl,cardType:"family"});
                     }
                   } catch {}
                 }} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12,border:"none"}}>
