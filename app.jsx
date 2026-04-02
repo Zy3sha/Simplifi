@@ -16459,7 +16459,7 @@ function App(){
           const ok = await verifyLogin(bioUser, bioPin);
           if(ok){
             try{localStorage.setItem("onboarded_v2","1");}catch{}
-            setOnboarded(true); setAuthScreen(null); setTab("day");
+            setOnboarded(true); setAuthScreen(null); setTab("day"); setSelDay(todayStr());
           } else {
             setAuthError("Face ID passed but PIN changed — please sign in manually");
             setAuthLoading(false);
@@ -16498,7 +16498,7 @@ function App(){
               localStorage.setItem("bio_enabled","1");
             }catch{}
           }
-          setOnboarded(true); setAuthScreen(null); setTab("day");
+          setOnboarded(true); setAuthScreen(null); setTab("day"); setSelDay(todayStr());
         } else {
           setAuthError("Wrong PIN — try again");
           setAuthPin(""); setAuthLoading(false);
@@ -16512,7 +16512,7 @@ function App(){
             try{await saveRecoveryEmail(authRecoveryEmail.trim());}catch{}
           }
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
-          setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); setTab("day");
+          setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); setTab("day"); setSelDay(todayStr());
         } else { setAuthError("That username is taken — try another"); setAuthLoading(false); }
       }
     }
@@ -21053,7 +21053,7 @@ function App(){
                     const totalFeedMl = rEntries.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
                     const nightFeedMl = rNightE.filter(e=>e.type==="feed").reduce((s,f)=>s+(f.amount||0),0);
                     const totalNapM = dayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-                    if(rEntries.length === 0) return <div style={{textAlign:"center",padding:"20px",color:C.lt,fontSize:13}}>No data for {fmtLong(selDay)}. Log entries on the Day tab first.</div>;
+                    if(rEntries.length === 0) return <div style={{textAlign:"center",padding:"20px"}}><div style={{color:C.lt,fontSize:13,marginBottom:10}}>No data for {fmtLong(selDay)} yet.</div><button onClick={()=>{haptic();setTab("day");}} style={{padding:"10px 20px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>Go to Day tab</button></div>;
                     return (
                       <div>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
