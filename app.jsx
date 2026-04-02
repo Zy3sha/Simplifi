@@ -18487,15 +18487,57 @@ function App(){
               </button>
               <div style={{display:todayPlanOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 12px 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
 
-              {/* Premium gate for Today's Plan */}
-              {STORE_READY && !isPremium && !trialActive && todayPlanOpen && (
-                <div style={{padding:"16px 12px",textAlign:"center"}}>
-                  <div style={{fontSize:28,marginBottom:8}}>📋</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:6}}>Today's Full Plan</div>
-                  <div style={{fontSize:12,color:C.lt,marginBottom:12,lineHeight:1.5}}>See predicted nap times, bridge naps, and bedtime based on {babyName||"your baby"}'s rhythm</div>
-                  <button onClick={()=>triggerPaywall("today_plan")} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:99,padding:"10px 24px",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>Unlock Today's Plan</button>
-                </div>
-              )}
+              {/* Free users: NHS guideline wake windows + premium upsell */}
+              {STORE_READY && !isPremium && !trialActive && todayPlanOpen && (()=>{
+                const _freeWW = age ? getWakeWindow(age.totalWeeks) : null;
+                const _freeProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
+                const _freeWake = findMorningWake(entries);
+                const _freeWakeMin = _freeWake ? timeVal(_freeWake) : null;
+                const _fmtMin = (m) => { const h=Math.floor(m/60)%24; return fmt12(String(h).padStart(2,"0")+":"+String(Math.round(m%60)).padStart(2,"0")); };
+                return (
+                  <div style={{padding:"8px 0"}}>
+                    {_freeWW && _freeProfile && (
+                      <div style={{marginBottom:12}}>
+                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>NHS Wake Window Guide for {age?fmtAge(age):""}</div>
+                        <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                          <div style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
+                            <div style={{fontSize:10,color:C.lt,marginBottom:2}}>Wake window</div>
+                            <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{Math.round(_freeWW.min/60*10)/10}–{Math.round(_freeWW.max/60*10)/10}h</div>
+                          </div>
+                          <div style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
+                            <div style={{fontSize:10,color:C.lt,marginBottom:2}}>Expected naps</div>
+                            <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{_freeProfile.expectedNaps}</div>
+                          </div>
+                          <div style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
+                            <div style={{fontSize:10,color:C.lt,marginBottom:2}}>Day sleep goal</div>
+                            <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{hm(_freeProfile.idealTotalMin)}–{hm(_freeProfile.idealTotalMax)}</div>
+                          </div>
+                        </div>
+                        {_freeWakeMin !== null && (
+                          <div style={{marginBottom:8}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:4}}>Based on wake at {_fmtMin(_freeWakeMin)}, NHS guidelines suggest:</div>
+                            {Array.from({length:_freeProfile.expectedNaps}).map((_,i) => {
+                              const napStart = _freeWakeMin + (_freeWW.min + _freeWW.max) / 2 * (i + 1);
+                              return (
+                                <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
+                                  <span style={{fontSize:12}}>{"\u{1F634}"}</span>
+                                  <span style={{fontSize:12,color:C.mid}}>Nap {i+1} around <strong style={{color:C.deep}}>{_fmtMin(napStart)}</strong></span>
+                                  <span style={{fontSize:10,color:C.lt}}>(guideline)</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div style={{background:"linear-gradient(135deg,rgba(155,139,184,0.06),rgba(200,180,220,0.04))",border:"1px solid rgba(155,139,184,0.15)",borderRadius:14,padding:"14px 16px",textAlign:"center"}}>
+                      <div style={{fontSize:13,fontWeight:700,color:"#5B4F5F",marginBottom:6}}>Want a personalised sleep-consultant-style schedule?</div>
+                      <div style={{fontSize:12,color:"#8A7F87",lineHeight:1.6,marginBottom:12}}>No more guessing. No more under or overtired babies. No more googling sleep debt, sleep pressure, why baby wakes after 10 minutes or at 3am. OBubba learns {babyName||"your baby"}'s unique rhythm and builds a plan that actually works.</div>
+                      <button onClick={()=>{haptic();setPremiumGateInfo({icon:"\u{1F4CB}",label:"Personalised Today's Plan",description:"A schedule built around "+(babyName||"your baby")+"'s actual sleep patterns \u2014 not just age charts. Includes nap predictions, bridge naps, bedtime, and live countdowns.",context:"today_plan"});}} style={{padding:"10px 24px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:13,fontWeight:700,cursor:_cP,boxShadow:"0 4px 16px rgba(155,139,184,0.3)"}}>Subscribe to Premium</button>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Tomorrow's schedule — premium teaser */}
               {STORE_READY && !isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (isPremium || trialActive) && (
