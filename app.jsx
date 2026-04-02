@@ -4337,6 +4337,7 @@ function App(){
         _sharedData.appointments = JSON.parse(localStorage.getItem("appointments_v1")||"[]");
         _sharedData.reminders = JSON.parse(localStorage.getItem("reminders_v1")||"[]");
         _sharedData.pinnedNotes = JSON.parse(localStorage.getItem("pinned_notes_v1")||"[]");
+        _sharedData.letters = JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
       } catch(_) {}
       await fsSet("families", code, {
         children: JSON.stringify(cleanForCloud),
@@ -4422,6 +4423,16 @@ function App(){
                 sd.pinnedNotes.forEach(n => { if(!ids.has(n.id)) merged.push(n); });
                 return merged;
               });
+            }
+            // Restore letters from cloud
+            if(Array.isArray(sd.letters) && sd.letters.length > 0) {
+              try {
+                const _localLetters = JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
+                const _localIds = new Set(_localLetters.map(l=>l.id||l.date));
+                let _merged = [..._localLetters];
+                sd.letters.forEach(l => { if(!_localIds.has(l.id||l.date)) _merged.push(l); });
+                localStorage.setItem("ob_letters_v1", JSON.stringify(_merged));
+              } catch(_) {}
             }
           } catch(_) {}
         }
@@ -23775,9 +23786,55 @@ function App(){
               );
             })()}
 
+            {/* Time Capsule — Letters to Future Self */}
+            {(()=>{
+              try {
+                const _letters = JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
+                if (!_letters.length) return null;
+                const _isBirthday = age && age.totalWeeks >= 52;
+                return (
+                  <div style={{background:_isBirthday?"linear-gradient(135deg,rgba(155,139,184,0.08),rgba(200,180,220,0.06))":"var(--card-bg)",border:`1px solid ${_isBirthday?"rgba(155,139,184,0.3)":C.blush}`,borderRadius:16,padding:"14px 16px",marginTop:14}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:_isBirthday?"#9B8BB8":C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>{"\u{1F48C}"} Time Capsule</div>
+                      <span style={{fontSize:11,color:C.lt}}>{_letters.length} letter{_letters.length!==1?"s":""} sealed</span>
+                    </div>
+                    {_isBirthday ? (
+                      <div>
+                        <div style={{textAlign:"center",marginBottom:12}}>
+                          <div style={{fontSize:32,marginBottom:6}}>{"\u{1F381}"}</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"#5B4F5F",marginBottom:4}}>Your letters are ready</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>You wrote {_letters.length===1?"this":"these"} during {babyName||"baby"}'s first year. Read {_letters.length===1?"it":"them"} now {"\u2014"} you might want tissues.</div>
+                        </div>
+                        {_letters.map((l,i) => (
+                          <div key={i} style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.blush}`}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:6}}>{new Date(l.date).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})} {"\u2014"} {l.babyAge || ""}</div>
+                            <div style={{fontSize:13,color:C.mid,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{l.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div>
+                        {_letters.map((l,i) => (
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
+                            <span style={{fontSize:20}}>{"\u{1F512}"}</span>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:13,fontWeight:600,color:C.mid}}>Letter from {new Date(l.date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                              <div style={{fontSize:11,color:C.lt}}>Written when {babyName||"baby"} was {l.babyAge || "newborn"}</div>
+                            </div>
+                            <span style={{fontSize:10,color:C.lt,fontStyle:"italic"}}>Opens on 1st birthday</span>
+                          </div>
+                        ))}
+                        <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",fontStyle:"italic"}}>These letters are sealed until {babyName||"baby"}'s first birthday {"\u{1F48C}"}</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              } catch { return null; }
+            })()}
+
             {/* App Disclaimer */}
             <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginTop:14}}>
-              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>📋 Legal & About</div>
+              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>{"\u{1F4CB}"} Legal & About</div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>About OBubba</div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7}}>
                 OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or <span onTouchEnd={(e)=>{
@@ -25855,18 +25912,23 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             </div>
             <textarea value={letterText} onChange={e=>setLetterText(e.target.value)} placeholder={"Dear future me,\n\nRight now " + (babyName||"baby") + " is..."} style={{width:"100%",minHeight:120,padding:"12px",borderRadius:14,border:"1.5px solid #f0e8e0",background:"var(--card-bg)",color:"#5B4F5F",fontSize:14,lineHeight:1.6,fontFamily:"'DM Sans',sans-serif",resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
             <div style={{display:"flex",gap:8,marginTop:12}}>
-              <button onClick={()=>{
+              <button onClick={async()=>{
                 if(letterText.trim()){
                   try{
+                    const _newLetter = {text:letterText.trim(),date:new Date().toISOString(),babyAge:age?fmtAge(age):"",babyName:babyName||"",id:uid()};
                     const letters=JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
-                    letters.push({text:letterText.trim(),date:new Date().toISOString(),babyAge:age?age.totalWeeks+"w":""});
+                    letters.push(_newLetter);
                     localStorage.setItem("ob_letters_v1",JSON.stringify(letters));
                     localStorage.setItem("ob_last_letter_date",new Date().toISOString());
+                    // Sync to cloud so letters survive device changes
+                    if(window._fb && backupCode) {
+                      try{ await fsSet("families", backupCode, {letters:JSON.stringify(letters)}, true); }catch{}
+                    }
                   }catch{}
                   setLetterText("");setShowLetterPrompt(false);
-                  showToast("💌 Letter saved — we'll remind you in a year",3000,1);
+                  showToast("\u{1F48C} Letter sealed \u2014 it'll be waiting on "+((babyName||"baby")+"'s")+" first birthday",4000,1);
                 }
-              }} style={{flex:1,padding:"14px",borderRadius:99,border:"none",background:"#C07088",color:"white",fontSize:14,fontWeight:700,cursor:"pointer"}}>Save letter</button>
+              }} style={{flex:1,padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(155,139,184,0.3)"}}>Seal this letter {"\u{1F48C}"}</button>
               <button onClick={()=>{setShowLetterPrompt(false);try{localStorage.setItem("ob_last_letter_date",new Date().toISOString());}catch{};}} style={{padding:"14px 20px",borderRadius:99,border:"1px solid #f0e8e0",background:"var(--card-bg)",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
             </div>
           </div>
