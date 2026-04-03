@@ -6165,15 +6165,26 @@ function App(){
           nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2,"0") + ":" + String(npM).padStart(2,"0"));
           nextPredictionLabel = "Nap " + _napNum;
           var _npDate = new Date(); _npDate.setHours(npH, npM, 0, 0);
-          if (_npDate.getTime() < Date.now()) _npDate.setDate(_npDate.getDate() + 1);
-          nextPredictionMs = _npDate.getTime();
+          // Don't wrap to tomorrow — if prediction time is past, don't show countdown
+          if (_npDate.getTime() > Date.now()) {
+            nextPredictionMs = _npDate.getTime();
+          } else {
+            // Prediction time has passed — clear it so widget shows "All good" or nudge
+            nextPrediction = null; nextPredictionLabel = null; nextPredictionMs = null;
+          }
         } else if (td.bedMins && (td.napsComplete || _napIsActuallyBed) && !td.hasBedtime) {
           var bpH = Math.floor(td.bedMins/60)%24, bpM = Math.round(td.bedMins%60);
           nextPrediction = "Bed ~" + fmt12(String(bpH).padStart(2,"0") + ":" + String(bpM).padStart(2,"0"));
           nextPredictionLabel = "Bedtime";
           var _bpDate = new Date(); _bpDate.setHours(bpH, bpM, 0, 0);
-          if (_bpDate.getTime() < Date.now()) _bpDate.setDate(_bpDate.getDate() + 1);
-          nextPredictionMs = _bpDate.getTime();
+          if (_bpDate.getTime() > Date.now()) {
+            nextPredictionMs = _bpDate.getTime();
+          } else {
+            // Bedtime has passed — show nudge text, no countdown
+            nextPrediction = "Time for bed";
+            nextPredictionLabel = "Bedtime";
+            nextPredictionMs = null;
+          }
         }
         // Fallback: show bedtime if no nap/bed prediction but bedtime IS predicted
         if (!nextPrediction && td.bedMins && !td.hasBedtime) {
@@ -14814,11 +14825,16 @@ function App(){
         const longestToday = Math.max(...realNaps.map(n=>minDiff(n.start,n.end)));
         const allRecentNaps = dk.flatMap(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&minDiff(e.start,e.end)<480).map(n=>minDiff(n.start,n.end)));
         const avgNap = allRecentNaps.length ? Math.round(allRecentNaps.reduce((a,b)=>a+b,0)/allRecentNaps.length) : 0;
-        if (longestToday > avgNap + 10 && naps.length > 1) {
+        const weekMax = allRecentNaps.length ? Math.max(...allRecentNaps) : 0;
+        if (longestToday >= weekMax && longestToday > avgNap + 10 && naps.length > 1) {
+          // Only celebrate if it's genuinely the longest nap of the whole week
           const bestNap = naps.reduce((best,n)=>minDiff(n.start,n.end)>minDiff(best.start,best.end)?n:best,naps[0]);
           const napIdx = naps.indexOf(bestNap)+1;
           const prevE = today.filter(e=>!e.night&&timeVal(e)<timeVal(bestNap)).sort((a,b)=>timeVal(b)-timeVal(a))[0];
-          if (prevE) { const ww = timeVal(bestNap)-timeVal(prevE); insights.push(`Nap ${napIdx} was the longest this week (${hm(longestToday)}) — the ${hm(ww)} wake window before it seems to work well.`); }
+          if (prevE) { const ww = timeVal(bestNap)-timeVal(prevE); insights.push(`Nap ${napIdx} was the longest this week (${hm(longestToday)}) \u2014 the ${hm(ww)} wake window before it seems to work well.`); }
+        } else if (longestToday > avgNap + 10 && naps.length > 1) {
+          // Above average but not the week's best — still note it without "longest" claim
+          insights.push(`A solid nap today (${hm(longestToday)}) \u2014 above the recent average of ${hm(avgNap)}.`);
         }
         const totalNapMins = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
         const range = napNormalRange();
