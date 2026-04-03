@@ -720,7 +720,7 @@ const months=ageWeeks/4.33;let min,max,label;// Stages: [maxMonths, minWW, maxWW
 const stages=[[1.39,30,75],// 0-6wk:   TCB 30-60, Cleveland 45-60, we use wider for flexibility
 [3,45,90],// 6wk-3mo: TCB 60-90, consensus 45-90
 [5,75,120],// 3-5mo:   TCB 75-120, tightened from [90,150] — overtiredness risk
-[7,120,150],// 5-7mo:   TCB 2-3h, tightened from [120,180] — 3h max prevents overtired
+[7,120,180],// 5-7mo:   TCB 2-3h, restored to match TCB range exactly
 [9,150,210],// 7-9mo:   TCB 2.5-3.5h, consensus
 [12,180,240],// 9-12mo:  TCB 3-4h, consensus
 [15,210,270],// 12-15mo: TCB 3-4h transition period
@@ -836,9 +836,9 @@ const _bedRecentDays=getResolvedRecentDays(days,selDay,14);const loggedBedtimeDa
 const recentNapDurs=_bedRecentDays.flatMap(rd=>rd.entries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).map(e=>minDiff(e.start,e.end))).filter(d=>d>=5&&d<480);const avgNapDur=recentNapDurs.length>=3?Math.round(recentNapDurs.reduce((a,b)=>a+b,0)/recentNapDurs.length):Math.round((napProfile.idealNapDurMin+napProfile.idealNapDurMax)/2);// ═══ PHASE 1: All naps done — exact calculation ═══
 if(napsAreDone&&todayNaps.length){const lastNap=todayNaps[todayNaps.length-1];if(!lastNap.end)return null;const lastNapMins=minDiff(lastNap.start,lastNap.end);let adjustMins=0,adjustReason=null;// Last nap quality adjustment
 if(lastNapMins>0&&lastNapMins<20){adjustMins=-30;adjustReason=`Last nap only ${lastNapMins}min — moved earlier to avoid overtiredness`;}else if(lastNapMins>=20&&lastNapMins<40){adjustMins=-15;adjustReason=`Short last nap (${lastNapMins}min) — slightly earlier bedtime`;}else if(lastNapMins>90){adjustMins=+15;adjustReason=`Long last nap (${lastNapMins}min) — bedtime shifted slightly later`;}// Total day sleep deficit adjustment (stacks with last-nap adjustment)
-const totalDayNapMins=todayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);const napProfile2=getAgeNapProfile(age.totalWeeks);const dayTarget=Math.round((napProfile2.idealTotalMin+napProfile2.idealTotalMax)/2);const dayDeficit=dayTarget-totalDayNapMins;if(dayDeficit>30){// Research consensus: poor nap day → earlier bedtime to prevent overtiredness
-// Strengthened: 0.5 multiplier (was 0.3), cap -45min (was -30)
-const deficitAdj=Math.max(-45,Math.round(-dayDeficit*0.5));adjustMins+=deficitAdj;adjustReason=(adjustReason?adjustReason+". ":"")+`Day sleep ${hm(totalDayNapMins)} vs ~${hm(dayTarget)} target — earlier bedtime`;}const[lh,lm]=lastNap.end.split(":").map(Number);const lastNapEndMins=lh*60+lm;const absoluteLatestBed=lastNapEndMins+ww.max;const bedtimeFloor=clampBedtime(0,age.totalWeeks);// Bridge nap check
+const totalDayNapMins=todayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);const napProfile2=getAgeNapProfile(age.totalWeeks);const dayTarget=Math.round((napProfile2.idealTotalMin+napProfile2.idealTotalMax)/2);const dayDeficit=dayTarget-totalDayNapMins;if(dayDeficit>30){// Research: poor nap day → earlier bedtime, but not dramatically
+// 0.4 multiplier, capped at -30min (was 0.5/-45 which was too aggressive)
+const deficitAdj=Math.max(-30,Math.round(-dayDeficit*0.4));adjustMins+=deficitAdj;adjustReason=(adjustReason?adjustReason+". ":"")+`Day sleep ${hm(totalDayNapMins)} vs ~${hm(dayTarget)} target — earlier bedtime`;}const[lh,lm]=lastNap.end.split(":").map(Number);const lastNapEndMins=lh*60+lm;const absoluteLatestBed=lastNapEndMins+ww.max;const bedtimeFloor=clampBedtime(0,age.totalWeeks);// Bridge nap check
 const needsBridgeNap=bedtimeFloor>absoluteLatestBed;if(needsBridgeNap&&!bridgeNapScheduled){const bridgeStart=lastNapEndMins+ww.min;// Bridge nap duration: age-adaptive (younger babies tolerate longer)
 const _bridgeDur=age.totalWeeks<22?25:age.totalWeeks<39?20:15;const bridgeEnd=bridgeStart+_bridgeDur;// Post-bridge: 60-90 min to bed (bridge doesn't reset full WW)
 const postBridgeWindow=Math.min(ww.min,90);const postBridgeBed=bridgeEnd+postBridgeWindow;const clampedPostBridge=clampBedtime(postBridgeBed,age.totalWeeks);const hh=Math.floor(clampedPostBridge/60)%24,mm=clampedPostBridge%60;return{time:`${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,adjustReason:"Bridge nap needed — bedtime would exceed safe wake window without one",bedSource:hasAvg?"avg":"age",baseBedMins:avgBedMins,adjustMins,needsBridge:true,forceBridge:true,bridgeSuggestion:{start:`${String(Math.floor(bridgeStart/60)%24).padStart(2,"0")}:${String(bridgeStart%60).padStart(2,"0")}`,duration:_bridgeDur},lastNapEndMins,lastWW:clampedPostBridge-bridgeEnd};}// Normal exact bedtime — wake window based, with light historical influence
@@ -1028,7 +1028,8 @@ const combined=Math.round((method1+method2)/2);return{time:clampBedtime(combined
 // Absolute hard ceiling: 10:30pm — no baby should ever get a predicted bedtime after that.
 function clampBedtime(mins,ageWeeks){const aw=ageWeeks!==undefined?ageWeeks:age?age.totalWeeks:null;// Floor: under 6 months allow 5:30pm (overtired young babies often need earlier bed)
 // 6+ months: standard 6:00pm floor
-const lo=aw&&aw<26?17*60+30:18*60;// Ceiling: age-adjusted — raised ~1hr from original NHS-strict values to support
+// Floor: 6:00pm for all ages (5:30pm was too early — parents find it alarming)
+const lo=18*60;// Ceiling: age-adjusted — raised ~1hr from original NHS-strict values to support
 // late-schedule families without producing absurd predictions.
 // Absolute hard ceiling of 10:30pm applied on top of age-based ceiling.
 let hi;if(!aw||aw<13)hi=21*60;// 0-3 months: max 9:00pm (was 8:00pm)

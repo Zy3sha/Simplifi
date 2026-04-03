@@ -7473,7 +7473,7 @@ function App(){
       [1.39, 30, 75],   // 0-6wk:   TCB 30-60, Cleveland 45-60, we use wider for flexibility
       [3,    45, 90],    // 6wk-3mo: TCB 60-90, consensus 45-90
       [5,    75, 120],   // 3-5mo:   TCB 75-120, tightened from [90,150] — overtiredness risk
-      [7,    120, 150],  // 5-7mo:   TCB 2-3h, tightened from [120,180] — 3h max prevents overtired
+      [7,    120, 180],  // 5-7mo:   TCB 2-3h, restored to match TCB range exactly
       [9,    150, 210],  // 7-9mo:   TCB 2.5-3.5h, consensus
       [12,   180, 240],  // 9-12mo:  TCB 3-4h, consensus
       [15,   210, 270],  // 12-15mo: TCB 3-4h transition period
@@ -8093,9 +8093,9 @@ function App(){
       const dayTarget = Math.round((napProfile2.idealTotalMin + napProfile2.idealTotalMax) / 2);
       const dayDeficit = dayTarget - totalDayNapMins;
       if (dayDeficit > 30) {
-        // Research consensus: poor nap day → earlier bedtime to prevent overtiredness
-        // Strengthened: 0.5 multiplier (was 0.3), cap -45min (was -30)
-        const deficitAdj = Math.max(-45, Math.round(-dayDeficit * 0.5));
+        // Research: poor nap day → earlier bedtime, but not dramatically
+        // 0.4 multiplier, capped at -30min (was 0.5/-45 which was too aggressive)
+        const deficitAdj = Math.max(-30, Math.round(-dayDeficit * 0.4));
         adjustMins += deficitAdj;
         adjustReason = (adjustReason ? adjustReason + ". " : "") + `Day sleep ${hm(totalDayNapMins)} vs ~${hm(dayTarget)} target — earlier bedtime`;
       }
@@ -9790,7 +9790,8 @@ function App(){
     const aw = ageWeeks !== undefined ? ageWeeks : (age ? age.totalWeeks : null);
     // Floor: under 6 months allow 5:30pm (overtired young babies often need earlier bed)
     // 6+ months: standard 6:00pm floor
-    const lo = (aw && aw < 26) ? 17*60+30 : 18*60;
+    // Floor: 6:00pm for all ages (5:30pm was too early — parents find it alarming)
+    const lo = 18*60;
     // Ceiling: age-adjusted — raised ~1hr from original NHS-strict values to support
     // late-schedule families without producing absurd predictions.
     // Absolute hard ceiling of 10:30pm applied on top of age-based ceiling.
