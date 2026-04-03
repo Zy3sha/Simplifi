@@ -6536,10 +6536,15 @@ function App(){
       setNightElapsed(null);
 
       // ── PHASE 2: Naps still to go → show countdown to next nap ──
-      // Call predictNextNap() directly so countdown matches Today's Plan exactly
+      // Use cached prediction target (set once per state change, not per tick)
       if (!td.napsComplete) {
-        const _countdownPred = (isPremium || trialActive) ? predictNextNap() : null;
-        const _countdownNapMins = _countdownPred && typeof _countdownPred.napStart_min === "number" && !isNaN(_countdownPred.napStart_min) ? _countdownPred.napStart_min : td.nextNapMins;
+        // Only recalculate prediction when data changes, not every second
+        if (!window._obNapTarget || window._obNapTargetKey !== (selDay + ":" + JSON.stringify(td.napsDone))) {
+          const _cp = (isPremium || trialActive) ? predictNextNap() : null;
+          window._obNapTarget = _cp && typeof _cp.napStart_min === "number" && !isNaN(_cp.napStart_min) ? _cp.napStart_min : td.nextNapMins;
+          window._obNapTargetKey = selDay + ":" + JSON.stringify(td.napsDone);
+        }
+        const _countdownNapMins = window._obNapTarget;
         if (_countdownNapMins !== null && typeof _countdownNapMins === "number" && !isNaN(_countdownNapMins)) {
           setBedCountdown(null);
           const diffSec = Math.round((_countdownNapMins - nowMins) * 60);
