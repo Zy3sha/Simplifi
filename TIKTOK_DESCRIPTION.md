@@ -2,11 +2,11 @@
 
 🍼 Switching to OBubba was the easiest thing I've done as a parent — and the smartest.
 
-If you're using Huckleberry, Glow Baby, or any other baby tracking app… you can bring ALL your data with you. Literally just import your CSV and OBubba picks up right where you left off. Feeds, naps, nappy changes — everything transfers in seconds.
+If you're using another baby tracking app… you can bring ALL your data with you. Literally just export your CSV, import it into OBubba, and it picks up right where you left off. Feeds, naps, nappy changes — everything transfers in seconds.
 
 But here's where it gets different 👇
 
-Those other apps? They give you data. Charts. Numbers. And then YOU have to figure out what it all means at 3am while running on zero sleep.
+Most baby apps? They give you data. Charts. Numbers. And then YOU have to figure out what it all means at 3am while running on zero sleep.
 
 OBubba actually TRANSLATES your data into insights you can understand. It tells you WHAT is happening, WHY it's happening, and exactly WHAT TO DO about it. It's like having a sleep consultant in your pocket who actually knows YOUR baby.
 
@@ -24,7 +24,7 @@ It detects REAL sleep issues that parents deal with every single day — catnapp
 
 After 7 days it starts learning your baby's unique rhythm. It knows your baby naps differently in the morning vs afternoon. It knows which feeds lead to longer stretches. It literally gets smarter every single day.
 
-Other apps track. OBubba understands.
+Most apps track. OBubba understands.
 
 The free version is genuinely helpful — not a stripped down demo. But Premium? It's like upgrading from a notebook to a personal sleep consultant who never sleeps 😴
 
@@ -34,4 +34,4 @@ Switch to OBubba. Your data comes with you. Your sanity stays with you.
 
 Built by a tired mum at 3am who was done with apps that gave her numbers but no answers 💛
 
-#OBubba #BabySleep #BabyTracker #SleepTraining #NewMum #NewMom #MumTok #ParentingHacks #BabySleepTips #SleepConsultant #BabyApp #SwitchToOBubba #MumLife #TiredMum #BabyNaps #SleepScience #ParentingTikTok #NewParent #BabyLife #FirstTimeMum
+#OBubba #BabySleep #BabyTracker #SleepTraining #NewMum #NewMom #MumTok #ParentingHacks #BabySleepTips #SleepConsultant #BabyApp #SwitchToOBubba #MumLife #TiredMum #BabyNaps #SleepScience #ParentingTikTok #NewParent #BabyLife #FirstTimeMum #BabyTrackerApp #SleepHelp
