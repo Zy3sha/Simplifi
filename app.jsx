@@ -18736,15 +18736,20 @@ function App(){
                     }
                   }
 
-                  // Predicted bedtime — must be after last nap ends + min wake window
+                  // Predicted bedtime — must be after last nap ends + min WW, but not beyond max WW
                   if (bedPred && bedPred.time) {
                     let bedTime = bedPred.time;
-                    const bedM = timeVal(bedPred);
-                    const minBedAfterNap = cursor + (w < 30 ? 60 : 90);
+                    let bedM = timeVal(bedPred);
+                    const minBedAfterNap = cursor + ww.min;
+                    const maxBedAfterNap = cursor + ww.max;
                     if (bedM < minBedAfterNap) {
                       // Bedtime too early — push to after last nap + min WW
-                      const clamped = clampBedtime(minBedAfterNap, w);
-                      bedTime = mtp(clamped);
+                      bedM = clampBedtime(minBedAfterNap, w);
+                      bedTime = mtp(bedM);
+                    } else if (bedM > maxBedAfterNap) {
+                      // Bedtime too late — would overtire baby. Cap at max WW from last nap
+                      bedM = clampBedtime(maxBedAfterNap, w);
+                      bedTime = mtp(bedM);
                     }
                     // Add note if fewer naps than expected due to long nap/late wake
                     let napNote = "";
