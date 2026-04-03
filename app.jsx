@@ -4186,6 +4186,18 @@ function App(){
     return ()=>clearTimeout(lsRef.current);
   },[children, childSyncCodes, resolvedActiveId, onboarded]);
 
+  // ── Cloud push when appointments/reminders/notes/letters change ──
+  const _sharedDataPushRef = useRef(null);
+  useEffect(()=>{
+    clearTimeout(_sharedDataPushRef.current);
+    _sharedDataPushRef.current = setTimeout(()=>{
+      if(backupCodeRef.current && window._fbUid && cloudSyncedRef.current) {
+        pushToCloud(backupCodeRef.current, childrenRef.current);
+      }
+    }, 2000);
+    return ()=>clearTimeout(_sharedDataPushRef.current);
+  },[appointments, reminders, pinnedNotes]);
+
   // Native preferences backup disabled — will re-enable after testing
 
   // Native preferences restore disabled — was causing reload loop
