@@ -516,6 +516,120 @@ struct OBubbaSmallWidgetView: View {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// MARK: - Adaptive Widget View (switches layout by family size)
+// ══════════════════════════════════════════════════════════════════
+
+struct OBubbaAdaptiveWidgetView: View {
+    @Environment(\.widgetFamily) var family
+    let entry: OBubbaEntry
+
+    var body: some View {
+        if family == .systemSmall {
+            OBubbaSmallWidgetView(entry: entry)
+        } else {
+            OBubbaMediumWidgetView(entry: entry)
+        }
+    }
+}
+
+// MARK: - Small Widget (2×2) — Next Event + Countdown
+// ══════════════════════════════════════════════════════════════════
+
+struct OBubbaSmallWidgetView: View {
+    let entry: OBubbaEntry
+    private var d: WidgetData { entry.data }
+
+    private let brandDeep = Color(red: 0.36, green: 0.31, blue: 0.37)
+    private let brandMint = Color(red: 0.48, green: 0.65, blue: 0.55)
+    private let brandRose = Color(red: 0.79, green: 0.44, blue: 0.36)
+    private let brandPurple = Color(red: 0.55, green: 0.48, blue: 0.66)
+    private let bgGrad = LinearGradient(
+        colors: [Color(red: 0.98, green: 0.96, blue: 0.94), Color(red: 0.95, green: 0.91, blue: 0.88)],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    )
+
+    private var hasTimer: Bool {
+        guard let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate else { return false }
+        return Date().timeIntervalSince(startDate) < 14 * 3600
+    }
+
+    var body: some View {
+        ZStack {
+            bgGrad
+
+            VStack(spacing: 6) {
+                // Baby name — small, top
+                Text(d.babyName)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundColor(brandDeep.opacity(0.5))
+
+                if hasTimer, let startDate = d.timerStartDate {
+                    // ── Active timer mode ──
+                    let icon = (d.activeTimer ?? "") == "feed" ? "🍼" : "💤"
+                    let label = d.timerLabel ?? ((d.activeTimer ?? "").capitalized)
+
+                    Text(icon)
+                        .font(.system(size: 28))
+
+                    Text(label)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(brandRose)
+
+                    Text(startDate, style: .timer)
+                        .font(.system(size: 24, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep)
+                        .monospacedDigit()
+
+                } else if let targetDate = d.predictionTargetDate,
+                          let label = d.nextPredictionLabel, !label.isEmpty {
+                    // ── Prediction countdown mode ──
+                    Text(label.hasPrefix("Nap") ? "😴" : "🌙")
+                        .font(.system(size: 28))
+
+                    Text(label)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(brandPurple)
+
+                    Text(targetDate, style: .relative)
+                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep)
+                        .monospacedDigit()
+
+                    if let pred = d.nextPrediction, !pred.isEmpty {
+                        let timeOnly = pred.replacingOccurrences(of: "Nap \\d+ ~", with: "", options: .regularExpression)
+                            .replacingOccurrences(of: "Bed ~", with: "")
+                            .trimmingCharacters(in: .whitespaces)
+                        if !timeOnly.isEmpty {
+                            Text("~\(timeOnly)")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(brandPurple.opacity(0.5))
+                        }
+                    }
+
+                } else {
+                    // ── No timer, no prediction ──
+                    Text("☀️")
+                        .font(.system(size: 28))
+
+                    Text("All good")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(brandMint)
+
+                    HStack(spacing: 8) {
+                        Label("\(d.feedCount)", systemImage: "drop.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(brandDeep.opacity(0.5))
+                        Label("\(d.nappyCount)", systemImage: "leaf.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(brandDeep.opacity(0.5))
+                    }
+                }
+            }
+            .padding(12)
+        }
+    }
+}
+
 // MARK: - Medium Widget (4×2) — Interactive
 // ══════════════════════════════════════════════════════════════════
 
@@ -1068,11 +1182,7 @@ struct OBubbaSummaryWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: OBubbaTimelineProvider()) { entry in
-            if #available(iOS 17.0, *) {
-                OBubbaMediumWidgetView(entry: entry)
-            } else {
-                OBubbaMediumWidgetView(entry: entry)
-            }
+            OBubbaAdaptiveWidgetView(entry: entry)
         }
         .configurationDisplayName("Baby Summary")
         .description("Feeds, sleeps, nappies and quick actions at a glance.")
