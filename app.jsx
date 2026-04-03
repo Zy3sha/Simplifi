@@ -16468,17 +16468,36 @@ function App(){
 
   const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
   const tabLabels={day:"Today",insights:"Insights",develop:"Development",settings:"Account"};
-  // FCM push notifications — DISABLED
-  // Partner sync push notifications were firing excessively.
-  // All sync is handled by real-time Firestore listeners instead.
-  // Clean up: delete existing FCM token so server stops sending
+  // Register FCM token for push notifications
   React.useEffect(()=>{
-    if(!window._isNative || !window._fb || !window._fbUid) return;
-    try {
-      const {db, doc, deleteDoc} = window._fb;
-      deleteDoc(doc(db,"fcm_tokens",window._fbUid)).catch(()=>{});
-    } catch(_) {}
-  },[]);
+    if(!window._isNative || !window._fb || !window._fbUid || window._fbUid==="anon") return;
+    (async()=>{
+      try{
+        const PushNotifications = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+        if(!PushNotifications) return;
+        const perm = await PushNotifications.requestPermissions();
+        if(perm.receive!=="granted") return;
+        await PushNotifications.register();
+        await PushNotifications.addListener("registration",(token)=>{
+          if(!token.value || !window._fb) return;
+          const {db, doc, setDoc, serverTimestamp} = window._fb;
+          setDoc(doc(db,"fcm_tokens",window._fbUid),{
+            token: token.value,
+            updatedAt: serverTimestamp(),
+            disabledTopics: ["partner_entry"]
+          },{merge:true}).catch(()=>{});
+        });
+        // Suppress partner entry notifications — dismiss silently
+        await PushNotifications.addListener("pushNotificationReceived",(notification)=>{
+          const d = notification.data || {};
+          if(d.type === "partner_entry" || d.type === "partner_update" || (notification.title||"").includes("Partner")) {
+            // Silently ignore — don't show to user
+            return;
+          }
+        });
+      }catch(e){ console.warn("FCM registration error:",e); }
+    })();
+  },[familyCode]);
 
   // Auto-trigger Face ID on login screen
   React.useEffect(()=>{
