@@ -5981,24 +5981,17 @@ function App(){
       }
 
       // 2. Night/bedtime timer — recalculate from wall clock
+      // Skip tick entirely when bed timer is paused (same approach as nap timer)
       const { hasBedtime, lastNightEvent, nextDayHasWake } = tickDataRef.current || {};
-      if(hasBedtime && lastNightEvent && !nextDayHasWake) {
+      if(hasBedtime && lastNightEvent && !nextDayHasWake && !bedPausedRef.current) {
         const now = new Date();
         const [eh,em] = lastNightEvent.split(":").map(Number);
         const eventDate = new Date();
         eventDate.setHours(eh,em,0,0);
         let elapsed = Math.floor((now - eventDate) / 1000);
         if(elapsed < 0) elapsed += 24*3600;
-        if(elapsed >= 0 && elapsed < 14*3600) {
-          // If bed timer is paused, freeze the display at the pause moment
-          if (bedPausedRef.current && bedPauseStartRef.current) {
-            const pausedAt = Math.floor((bedPauseStartRef.current - eventDate.getTime()) / 1000);
-            setNightElapsed(Math.max(0, pausedAt));
-          } else {
-            setNightElapsed(elapsed);
-          }
-        }
-        else { setNightElapsed(null); }
+        if(elapsed >= 0 && elapsed < 14*3600) setNightElapsed(elapsed);
+        else setNightElapsed(null);
       }
 
       // 3. Breast timer — recalculate from wall clock
