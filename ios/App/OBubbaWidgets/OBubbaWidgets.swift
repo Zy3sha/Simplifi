@@ -426,14 +426,11 @@ struct OBubbaSmallWidgetView: View {
     }
 
     var body: some View {
-        ZStack {
-            bgGrad
-
-            VStack(spacing: 6) {
-                // Baby name — small, top
-                Text(d.babyName)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundColor(brandDeep.opacity(0.5))
+        VStack(spacing: 6) {
+            // Baby name — small, top
+            Text(d.babyName)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundColor(brandDeep.opacity(0.5))
 
                 if hasTimer, let startDate = d.timerStartDate {
                     // ── Active timer mode ──
@@ -493,7 +490,10 @@ struct OBubbaSmallWidgetView: View {
                         .multilineTextAlignment(.center)
                 }
             }
-            .padding(12)
+        }
+        .padding(12)
+        .containerBackground(for: .widget) {
+            bgGrad
         }
     }
 }
