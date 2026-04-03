@@ -7305,7 +7305,7 @@ function App(){
       </div>
     );
    } catch(err) {
-    console.error("HeroCard error:", err, err?.message, err?.stack, JSON.stringify(err));
+    console.error("HeroCard error:", err?.message || err);
     return (
       <div className="glass-card" style={{padding:"18px 16px",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -7451,15 +7451,24 @@ function App(){
 
   // ── SECTION 5: NHS DATA & SLEEP SCIENCE ──────────────────────────
   function getWakeWindow(ageWeeks) {
-    // Age-adaptive wake windows aligned with paediatric sleep research consensus
-    // Returns {min, max, label} in minutes
+    // Age-adaptive wake windows — consensus from 18 sources:
+    // Taking Cara Babies, Huckleberry, Little Ones, Cleveland Clinic,
+    // NHS Start4Life, AASM, Baby Sleep Science, Baby Sleep Site
+    // Returns {min, max, label, midpoint} in minutes
     const months = ageWeeks / 4.33;
     let min, max, label;
-    // Stages: [maxMonths, min, max]
+    // Stages: [maxMonths, minWW, maxWW]
     const stages = [
-      [1.39, 30, 75], [3, 45, 90], [5, 90, 150], [7, 120, 180],
-      [9, 150, 210], [12, 180, 240], [15, 210, 270], [19, 270, 330],
-      [36, 300, 360], [Infinity, 360, 720]
+      [1.39, 30, 75],   // 0-6wk:   TCB 30-60, Cleveland 45-60, we use wider for flexibility
+      [3,    45, 90],    // 6wk-3mo: TCB 60-90, consensus 45-90
+      [5,    75, 120],   // 3-5mo:   TCB 75-120, tightened from [90,150] — overtiredness risk
+      [7,    120, 150],  // 5-7mo:   TCB 2-3h, tightened from [120,180] — 3h max prevents overtired
+      [9,    150, 210],  // 7-9mo:   TCB 2.5-3.5h, consensus
+      [12,   180, 240],  // 9-12mo:  TCB 3-4h, consensus
+      [15,   210, 270],  // 12-15mo: TCB 3-4h transition period
+      [19,   270, 330],  // 15-19mo: TCB 4-6h single nap settling
+      [36,   300, 360],  // 19-36mo: single nap established
+      [Infinity, 360, 720] // 36mo+
     ];
     let idx = stages.findIndex(s => months < s[0]);
     if (idx < 0) idx = stages.length - 1;
@@ -7479,22 +7488,20 @@ function App(){
     return { min, max, label, midpoint: Math.round((min+max)/2) };
   }
 
-  // Progressive wake windows: WW increases through the day
-  // Research: for 5+ months, shortest WW is morning, longest is before bedtime
-  // Exception: under 4 months, the last WW before bed is often SHORT (baby exhausted after 12+ hours)
+  // Progressive wake windows: ALWAYS shortest in morning, longest before bed
+  // Consensus from TCB, Huckleberry, Little Ones, Baby Sleep Science:
+  // "Wake windows tend to increase as the day goes on"
+  // "The longest wake window is between the last nap and bedtime"
   function progressiveWW(ageWeeks, napIndex, totalNaps) {
     const ww = getWakeWindow(ageWeeks);
     const range = ww.max - ww.min;
     if (totalNaps <= 1) return ww.midpoint;
-    const months = ageWeeks / 4.33;
-    // Under 4 months: last WW before bed should be short (similar to first WW)
-    // Baby Sleep Site + Kelly Martin: "keep the last wake window short — 1 to 1.5 hours"
-    if (months < 4 && napIndex >= totalNaps) {
-      // This is the bedtime WW — keep it at the shorter end
-      return Math.round(ww.min + range * 0.3);
-    }
+    // Progressive: first WW ~15% of range, last WW ~85% of range
+    // napIndex 0 = first nap, napIndex = totalNaps means bedtime WW
     const ratio = Math.min(napIndex / totalNaps, 1);
-    return Math.round(ww.min + range * ratio);
+    // Scale: 0.15 at start → 0.85 at end (never full min or max, always in comfortable range)
+    const scaled = 0.15 + ratio * 0.7;
+    return Math.round(ww.min + range * scaled);
   }
   function getAgeNapProfile(ageWeeks) {
     if ((!ageWeeks && ageWeeks !== 0)) return { expectedNaps:3, idealNapDurMin:30, idealNapDurMax:90, idealTotalMin:120, idealTotalMax:240 };
@@ -8073,7 +8080,9 @@ function App(){
       const dayTarget = Math.round((napProfile2.idealTotalMin + napProfile2.idealTotalMax) / 2);
       const dayDeficit = dayTarget - totalDayNapMins;
       if (dayDeficit > 30) {
-        const deficitAdj = Math.max(-30, Math.round(-dayDeficit * 0.3));
+        // Research consensus: poor nap day → earlier bedtime to prevent overtiredness
+        // Strengthened: 0.5 multiplier (was 0.3), cap -45min (was -30)
+        const deficitAdj = Math.max(-45, Math.round(-dayDeficit * 0.5));
         adjustMins += deficitAdj;
         adjustReason = (adjustReason ? adjustReason + ". " : "") + `Day sleep ${hm(totalDayNapMins)} vs ~${hm(dayTarget)} target — earlier bedtime`;
       }
@@ -8107,9 +8116,10 @@ function App(){
 
       // Normal exact bedtime — wake window based, with light historical influence
       const wwBasedBed = lastNapEndMins + Math.round((ww.min + ww.max) / 2);
-      let baseBed = hasAvg ? Math.round(wwBasedBed * 0.75 + avgBedMins * 0.25) : wwBasedBed;
-      // Guard: historical average can't push bedtime more than 30 min past wake-window calc
-      if (hasAvg && baseBed > wwBasedBed + 30) baseBed = wwBasedBed + 30;
+      // 90% WW-based + 10% historical (research: wake-window science should dominate)
+      let baseBed = hasAvg ? Math.round(wwBasedBed * 0.90 + avgBedMins * 0.10) : wwBasedBed;
+      // Guard: historical can't push bedtime more than 20 min past wake-window calc
+      if (hasAvg && baseBed > wwBasedBed + 20) baseBed = wwBasedBed + 20;
       const earliestBed = lastNapEndMins + ww.min;
       const latestBed = absoluteLatestBed;
       let finalMins = Math.min(latestBed, Math.max(earliestBed, baseBed + adjustMins));
@@ -8283,13 +8293,12 @@ function App(){
     const lastWW = clampWakeWindow(ww.max, age.totalWeeks);
     let projBed = projectedLastNapEnd + lastWW;
 
-    // Blend with historical average if available (85% projection, 15% history)
-    // Heavier projection weight ensures wake-window science drives the prediction
-    // rather than letting outlier late nights drag the average later
+    // Blend: 95% projection + 5% historical (research: WW science must dominate)
+    // Historical is only a light stabiliser to prevent wild day-to-day swings
     if (avgBedMins) {
-      const blended = Math.round(projBed * 0.85 + avgBedMins * 0.15);
-      // Guard: blended prediction must not exceed 45 min beyond the pure wake-window prediction
-      projBed = Math.min(blended, projBed + 45);
+      const blended = Math.round(projBed * 0.95 + avgBedMins * 0.05);
+      // Guard: historical can't push more than 15min past WW projection
+      projBed = Math.min(blended, projBed + 15);
     }
 
     projBed = clampBedtime(projBed, age.totalWeeks);
@@ -9644,26 +9653,68 @@ function App(){
     const consec = consecutiveEarlyBedDays();
     const ebr = earlyBedtimeRisk();
 
-    // Base expected naps
+    // Base expected naps by age (consensus: TCB, Huckleberry, Little Ones)
     let baseNaps;
-    if (w < 13) baseNaps = 4;
-    else if (w < 26) baseNaps = 3;
-    else if (w < 39) baseNaps = 2;
-    else if (w < 65) baseNaps = 2;
-    else baseNaps = 1;
+    if (w < 6) baseNaps = 5;       // 0-6wk: 4-5 naps
+    else if (w < 13) baseNaps = 4;  // 6wk-3mo: 3-4 naps
+    else if (w < 22) baseNaps = 3;  // 3-5mo: 3 naps
+    else if (w < 35) baseNaps = 3;  // 5-8mo: 3 (transitioning to 2)
+    else if (w < 56) baseNaps = 2;  // 8-13mo: 2 naps
+    else if (w < 78) baseNaps = 2;  // 13-18mo: 2 (transitioning to 1)
+    else baseNaps = 1;              // 18mo+: 1 nap
 
     let recommendation = null;
     let bridgeNap = false;
+    let effectiveNapCount = baseNaps;
+    let isTransitioning = false;
 
-    if (consec >= 3 && baseNaps === 3) {
-      recommendation = { type: "add_nap", message: `Your baby may temporarily benefit from 4 naps instead of 3 until naps lengthen.`, naps: 4 };
+    // Nap transition detection (consensus: transitions take 2-6 weeks)
+    try {
+      const recent14 = Object.keys(days).sort().slice(-14);
+      if (recent14.length >= 7) {
+        // 3→2 transition: age 26-39wk, last nap short/refused
+        if (w >= 26 && w <= 39 && baseNaps >= 3) {
+          const lastNapShortDays = recent14.filter(d => {
+            const naps = (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end);
+            if (naps.length < 3) return true; // nap 3 didn't happen = "refused"
+            const lastDur = minDiff(naps[naps.length-1].start, naps[naps.length-1].end);
+            return lastDur < 20; // very short = becoming bridge
+          }).length;
+          if (lastNapShortDays >= Math.ceil(recent14.length * 0.5)) {
+            isTransitioning = true;
+            effectiveNapCount = 2;
+            recommendation = { type: "transition", from: 3, to: 2,
+              message: (babyName||"Baby") + " may be transitioning from 3 naps to 2. Some days need 3, some days 2 \u2014 that\u2019s normal during the transition." };
+          }
+        }
+        // 2→1 transition: age 56-78wk (13-18mo), nap 2 short/refused
+        // Critical: NOT before 13 months (10-month resistance is regression)
+        if (w >= 56 && w <= 78 && baseNaps === 2) {
+          const nap2RefusedDays = recent14.filter(d => {
+            const naps = (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end);
+            if (naps.length < 2) return true;
+            const secondDur = minDiff(naps[1].start, naps[1].end);
+            return secondDur < 15;
+          }).length;
+          if (nap2RefusedDays >= Math.ceil(recent14.length * 0.5)) {
+            isTransitioning = true;
+            effectiveNapCount = 1;
+            recommendation = { type: "transition", from: 2, to: 1,
+              message: (babyName||"Baby") + " may be ready for 1 nap. This transition takes 2-6 weeks \u2014 expect some tricky days." };
+          }
+        }
+      }
+    } catch(_) {}
+
+    if (consec >= 3 && baseNaps >= 3 && !isTransitioning) {
+      recommendation = { type: "add_nap", message: (babyName||"Baby") + " may temporarily benefit from an extra nap until naps lengthen.", naps: baseNaps + 1 };
     }
 
     if (ebr && ebr.suggestBridge) {
       bridgeNap = true;
     }
 
-    return { baseNaps, recommendation, bridgeNap };
+    return { baseNaps, effectiveNapCount, recommendation, bridgeNap, isTransitioning };
   }
 
   // 8 & 9. Dual-method bedtime prediction — uses tick engine as primary source for consistency
@@ -12664,8 +12715,51 @@ function App(){
         });
       }
     } catch {}
-    if (!_tips.length) _tips.push({ tip: "Keep logging — " + _n + "'s rhythm gets clearer with each day", why: "OBubba blends " + _n + "'s actual patterns with age-appropriate guidance. More data = better predictions." });
-    sections.push({ type: "tips", title: "Try This Week", icon: "💡", tips: _tips.slice(0, 3) });
+    // ── Sleep hygiene detectors (research: TCB, Hookway, Baby Sleep Science) ──
+    try {
+      const _hygieneDays = Object.keys(days).sort().slice(-7);
+      if (_hygieneDays.length >= 5) {
+        // 1. Feed-to-sleep association
+        const _feedSleepDays = _hygieneDays.filter(d => {
+          const de = (days[d]||[]).filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+          const bed = de.find(e=>e.type==="sleep");
+          if (!bed) return false;
+          const lastFeed = [...de].reverse().find(e=>e.type==="feed");
+          if (!lastFeed) return false;
+          return Math.abs(timeVal(bed) - timeVal(lastFeed)) < 15;
+        }).length;
+        if (_feedSleepDays >= Math.ceil(_hygieneDays.length * 0.7)) {
+          _tips.unshift({ tip: "Move the last feed earlier in the bedtime routine", why: _n + " often feeds within 15 minutes of sleep. This can create a feed-sleep association \u2014 consider feeding before bath or story instead." });
+        }
+        // 2. Inconsistent bedtime
+        const _bedTimes = _hygieneDays.map(d => {
+          const bed = (days[d]||[]).find(e=>e.type==="sleep"&&!e.night);
+          return bed && bed.time ? timeVal(bed) : null;
+        }).filter(Boolean);
+        if (_bedTimes.length >= 4) {
+          const _bedRange = Math.max(..._bedTimes) - Math.min(..._bedTimes);
+          if (_bedRange > 45) {
+            _tips.unshift({ tip: "Aim for a consistent bedtime (\u00b115 minutes)", why: "Bedtime has varied by " + Math.round(_bedRange) + " minutes this week. Consistent bedtime helps set the circadian clock \u2014 even 15 minutes matters." });
+          }
+        }
+        // 3. Short nap pattern (>5 months only)
+        if (age && age.totalWeeks >= 22) {
+          const _allNapDurs = [];
+          _hygieneDays.forEach(d => {
+            (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n => {
+              const dur = minDiff(n.start, n.end);
+              if (dur > 0 && dur < 480) _allNapDurs.push(dur);
+            });
+          });
+          const _shortCount = _allNapDurs.filter(d => d < 40).length;
+          if (_allNapDurs.length >= 5 && _shortCount >= _allNapDurs.length * 0.6) {
+            _tips.unshift({ tip: "Try extending the wake window by 10-15 minutes", why: "Most naps are under 40 minutes. After 5 months, slightly longer wake windows can help naps consolidate to full sleep cycles." });
+          }
+        }
+      }
+    } catch(_) {}
+    if (!_tips.length) _tips.push({ tip: "Keep logging \u2014 " + _n + "'s rhythm gets clearer with each day", why: "OBubba blends " + _n + "'s actual patterns with age-appropriate guidance. More data = better predictions." });
+    sections.push({ type: "tips", title: "Try This Week", icon: "\u{1F4A1}", tips: _tips.slice(0, 4) });
 
     // ══════════════════════════════════════════════════════
     // SECTION 6: HOW WE CALCULATE THIS — one merged section
@@ -18648,139 +18742,115 @@ function App(){
                     cursor = timeVal(wake);
                   }
 
-                  // Predict remaining naps — use predictNextNap() for next nap to match prediction card
+                  // ═══ PROJECT REMAINING NAPS + BEDTIME ═══
+                  // Simple, clean approach:
+                  // 1. Place naps using progressive WW (first nap uses cached prediction)
+                  // 2. After all naps placed, calculate bedtime from last nap end + final WW
+                  // 3. If gap to bedtime too long, add bridge/extra nap
                   let napIdx = napsDone;
                   let projectedNapMins = totalCompletedNapMins;
-                  const maxBed = clampBedtime(24*60, w); // age-adjusted bedtime cap
                   let isFirstPredicted = true;
 
+                  // Step 1: Place expected naps
                   while (napIdx < expectedTotal) {
-                    let napStart, napEnd;
+                    let napStart;
+                    // First predicted nap: use cached prediction (matches nap pill)
                     if (isFirstPredicted && !napOn) {
-                      // Use cached prediction from tickDataRef (same source as nap pill)
                       const pred2 = tickDataRef.current.pred;
-                      if (pred2 && typeof pred2.napStart_min === "number" && !isNaN(pred2.napStart_min)) {
-                        napStart = pred2.napStart_min;
-                        napEnd = napStart + avgNapDur;
-                      } else {
-                        const napWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
-                        napStart = cursor + napWW;
-                        napEnd = napStart + avgNapDur;
-                      }
+                      napStart = (pred2 && typeof pred2.napStart_min === "number" && !isNaN(pred2.napStart_min))
+                        ? pred2.napStart_min
+                        : cursor + clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
                       isFirstPredicted = false;
                     } else {
-                      const napWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
-                      napStart = cursor + napWW;
-                      napEnd = napStart + avgNapDur;
+                      napStart = cursor + clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
                     }
-                    // Last nap position: allow shorter bridge/cat nap with reduced WW
-                    // Young babies (< 7mo) benefit from a cat nap to avoid overtiredness
-                    const isLastNapSlot = napIdx === expectedTotal - 1;
-                    const minBedWW = w < 30 ? 60 : 90; // min wake window before bedtime
-                    if (isLastNapSlot && napStart + minBedWW > maxBed) {
-                      // Try shorter WW (80% of normal) + shorter nap (30min bridge)
-                      const shorterWW = Math.round((napStart - cursor) * 0.75);
-                      const bridgeStart = cursor + Math.max(ww.min * 0.7, shorterWW);
-                      const bridgeDur = Math.min(30, avgNapDur);
-                      const bridgeEnd = bridgeStart + bridgeDur;
-                      if (bridgeEnd + minBedWW <= maxBed) {
-                        napStart = bridgeStart;
-                        napEnd = bridgeEnd;
-                        items.push({
-                          icon: "⏱️", label: `Nap ${napIdx+1}`,
-                          time: `${fmt12(mtp(napStart))} – ${fmt12(mtp(napEnd))}`,
-                          sub: `~${hm(bridgeDur)} cat nap (late wake today)`,
-                          predicted: true, mins: napStart, isBridge: true
-                        });
-                        hasPredictions = true;
-                        cursor = napEnd;
-                        projectedNapMins += bridgeDur;
-                        napIdx++;
-                        continue;
+
+                    // Determine nap duration — try full, then shorter, then bridge
+                    const isLast = napIdx === expectedTotal - 1;
+                    const maxBed = clampBedtime(24*60, w);
+                    const minBedWW = w < 30 ? 60 : 90;
+                    let napDur = avgNapDur;
+                    let napLabel = `~${hm(avgNapDur)} based on recent avg`;
+                    let isBridge = false;
+
+                    // For last nap: try progressively shorter durations until it fits
+                    if (isLast) {
+                      const durations = [avgNapDur, 45, 30, 20];
+                      let fits = false;
+                      for (const tryDur of durations) {
+                        if (napStart + tryDur + minBedWW <= maxBed) {
+                          napDur = tryDur;
+                          fits = true;
+                          if (tryDur < avgNapDur) {
+                            isBridge = true;
+                            napLabel = tryDur <= 20
+                              ? `~${tryDur}m catnap to reach bedtime`
+                              : `~${hm(tryDur)} shorter nap (late wake today)`;
+                          }
+                          break;
+                        }
                       }
+                      if (!fits) break; // truly no room — skip this nap
+                    } else {
+                      // Non-last nap: break if nap start is past reasonable time
+                      if (napStart > clampBedtime(24*60, w) - ww.min) break;
                     }
-                    if (!isLastNapSlot && napStart + ww.min > maxBed) break; // no room for non-last naps
-                    if (isLastNapSlot && napEnd + minBedWW > maxBed) break; // even bridge won't fit
-                    napEnd = napStart + avgNapDur;
+
+                    const napEnd = napStart + napDur;
                     items.push({
-                      icon: "⏱️", label: `Nap ${napIdx+1}`,
-                      time: `${fmt12(mtp(napStart))} – ${fmt12(mtp(napEnd))}`,
-                      sub: `~${hm(avgNapDur)} based on recent avg`,
-                      predicted: true, mins: napStart
+                      icon: isBridge ? "\u{1F309}" : "\u23F1\uFE0F",
+                      label: isBridge ? "Bridge nap" : `Nap ${napIdx+1}`,
+                      time: `${fmt12(mtp(napStart))} \u2013 ${fmt12(mtp(napEnd))}`,
+                      sub: napLabel,
+                      predicted: true, mins: napStart, bridge: isBridge
                     });
                     hasPredictions = true;
                     cursor = napEnd;
-                    projectedNapMins += avgNapDur;
+                    projectedNapMins += napDur;
                     napIdx++;
                   }
 
-                  // Check if gap to bedtime is too long — add nap 3 or bridge
-                  const bedPred = bedtimePrediction();
-                  let bedM = bedPred ? timeVal(bedPred) : 19*60;
-                  let bedTime = bedPred && bedPred.time ? bedPred.time : mtp(bedM);
+                  // Step 2: Calculate bedtime from last nap end
+                  const bedWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
+                  let bedM = clampBedtime(cursor + bedWW, w);
+                  let bedTime = mtp(bedM);
+
+                  // Step 3: If gap to bedtime still too long, add bridge nap
                   const gapToBed = bedM - cursor;
-                  console.log("[TodayPlan] cursor="+cursor+" bedM="+bedM+" gap="+gapToBed+" wwMax="+ww.max+" napIdx="+napIdx+" expected="+expectedTotal);
-
-                  // If gap to bedtime > max WW, baby needs another nap to bridge
-                  if (gapToBed > ww.max && napIdx >= expectedTotal) {
-                    // Can we fit a proper nap 3?
-                    const nap3Start = cursor + ww.min;
-                    const nap3End = nap3Start + Math.min(avgNapDur, 45); // shorter nap 3
-                    const gapAfterNap3 = bedM - nap3End;
-
-                    if (gapAfterNap3 >= ww.min && nap3End < bedM - 30) {
-                      // Proper nap 3 fits — add it
-                      items.push({
-                        icon: "\u23F1\uFE0F", label: `Nap ${napIdx+1}`,
-                        time: `${fmt12(mtp(nap3Start))} – ${fmt12(mtp(nap3End))}`,
-                        sub: `~${hm(nap3End - nap3Start)} \u2014 shorter nap to reach bedtime`,
-                        predicted: true, mins: nap3Start
-                      });
-                      hasPredictions = true;
-                      cursor = nap3End;
-                      napIdx++;
-                    } else {
-                      // Not enough room for nap 3 — add bridge nap (20min catnap)
-                      const bridgeStart = cursor + Math.round(ww.min * 0.8);
-                      const bridgeDur = 20;
-                      if (bridgeStart + bridgeDur < bedM - 30) {
-                        items.push({
-                          icon: "\u{1F309}", label: "Bridge nap",
-                          time: `${fmt12(mtp(bridgeStart))} – ${fmt12(mtp(bridgeStart + bridgeDur))}`,
-                          sub: "~20m \u2014 catnap to reach bedtime comfortably",
-                          predicted: true, bridge: true, mins: bridgeStart
-                        });
-                        hasPredictions = true;
-                        cursor = bridgeStart + bridgeDur;
-                      }
-                    }
-                    // Recalculate bedtime from new cursor position
-                    const newBedM = cursor + Math.round((ww.min + ww.max) / 2);
-                    bedM = clampBedtime(newBedM, w);
-                    bedTime = mtp(bedM);
-                  }
-
-                  // Also check dynamicNapStructure bridge recommendation
-                  const dns = dynamicNapStructure();
-                  if (dns && dns.bridgeNap && !items.some(it => it.bridge)) {
+                  if (gapToBed > ww.max + 15 && napIdx >= expectedTotal) {
                     const bridgeStart = cursor + Math.round(ww.min * 0.8);
                     const bridgeDur = 20;
-                    if (bridgeStart + bridgeDur < bedM - 30) {
+                    const bridgeEnd = bridgeStart + bridgeDur;
+                    if (bridgeEnd + 60 < bedM) {
                       items.push({
                         icon: "\u{1F309}", label: "Bridge nap",
-                        time: `${fmt12(mtp(bridgeStart))} – ${fmt12(mtp(bridgeStart + bridgeDur))}`,
+                        time: `${fmt12(mtp(bridgeStart))} \u2013 ${fmt12(mtp(bridgeEnd))}`,
                         sub: "~20m \u2014 catnap to reach bedtime comfortably",
                         predicted: true, bridge: true, mins: bridgeStart
                       });
                       hasPredictions = true;
-                      cursor = bridgeStart + bridgeDur;
+                      cursor = bridgeEnd;
+                      // Recalculate bedtime from bridge end
                       bedM = clampBedtime(cursor + Math.round((ww.min + ww.max) / 2), w);
                       bedTime = mtp(bedM);
                     }
                   }
 
+                  // Blend bedtime lightly with historical average (90% WW, 10% historical)
+                  const bedPred = bedtimePrediction();
+                  if (bedPred && bedPred.time) {
+                    const histBedM = timeVal(bedPred);
+                    if (typeof histBedM === "number" && !isNaN(histBedM)) {
+                      const blended = Math.round(bedM * 0.9 + histBedM * 0.1);
+                      // Guard: historical can't push more than 20min past WW calc
+                      bedM = Math.min(blended, bedM + 20);
+                      bedM = clampBedtime(bedM, w);
+                      bedTime = mtp(bedM);
+                    }
+                  }
+
                   // Bedtime display
-                  if (bedPred || bedM) {
+                  if (bedM) {
                     // Add note if fewer naps than expected due to long nap/late wake
                     let napNote = "";
                     if (napIdx < expectedTotal) {
