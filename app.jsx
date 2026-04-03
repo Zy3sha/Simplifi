@@ -3726,6 +3726,8 @@ function App(){
   const[napEntryId,setNapEntryId]=useState(()=>{try{return localStorage.getItem("nap_entry_id")||null;}catch{return null;}});
   // Track which calendar day the bedtime was logged on — used to route night wakes to the correct day
   const[bedTimerDay,setBedTimerDay]=useState(()=>{try{return localStorage.getItem("bed_timer_day")||null;}catch{return null;}});
+  const[bedPaused,setBedPaused]=useState(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}});
+  const[bedPauseStart,setBedPauseStart]=useState(()=>{try{return parseInt(localStorage.getItem("bed_pause_start"))||null;}catch{return null;}});
   const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
   const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
@@ -6005,6 +6007,7 @@ function App(){
   },[ napStartT]);
   useEffect(()=>{try{if(napEntryId)localStorage.setItem("nap_entry_id",napEntryId);else localStorage.removeItem("nap_entry_id");}catch{}},[ napEntryId]);
   useEffect(()=>{try{if(bedTimerDay)localStorage.setItem("bed_timer_day",bedTimerDay);else localStorage.removeItem("bed_timer_day");}catch{}},[bedTimerDay]);
+  useEffect(()=>{try{localStorage.setItem("bed_paused",bedPaused?"1":"0");if(bedPauseStart)localStorage.setItem("bed_pause_start",String(bedPauseStart));else localStorage.removeItem("bed_pause_start");}catch{}},[bedPaused,bedPauseStart]);
   useEffect(()=>{try{localStorage.setItem("nap_sec",String(napSec));}catch{}},[napSec]);
   useEffect(()=>{try{if(breastStartTime)localStorage.setItem("breast_startTime",breastStartTime);else localStorage.removeItem("breast_startTime");}catch{}},[breastStartTime]);
   useEffect(()=>{try{if(breastSide)localStorage.setItem("breast_side",breastSide);else localStorage.removeItem("breast_side");}catch{}},[breastSide]);
@@ -6979,9 +6982,26 @@ function App(){
           {_nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.topReason && <div style={{fontSize:13,color:C.ter,fontWeight:600,marginBottom:8,paddingLeft:2}}>{_nwCtx.topReason}</div>}
           {_nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.helpLine && <div style={{fontSize:12,color:C.mint,fontStyle:"italic",marginBottom:8,paddingLeft:2}}>{_nwCtx.helpLine}</div>}
           {_feedGapM < 9000 && <div style={{fontSize:12,color:C.lt,marginBottom:8,paddingLeft:2}}>🍼 Last feed {hm(_feedGapM)} ago</div>}
-          <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:14,fontWeight:600,cursor:_cP}}>
-            Log night wake
-          </button>
+          {bedPaused ? (
+            <div>
+              <div style={{textAlign:"center",padding:"10px 0",marginBottom:8}}>
+                <div style={{fontSize:13,color:"#D4A855",fontWeight:700,marginBottom:4}}>{"\u{1F319}"} Baby is awake</div>
+                {bedPauseStart && <div style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{hm(Math.round((Date.now()-bedPauseStart)/60000))}</div>}
+              </div>
+              <button onClick={resumeBedTimer} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
+                {"\u{1F319}"} Back to sleep — resume timer
+              </button>
+            </div>
+          ) : (
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={pauseBedTimer} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
+                {"\u23F8\uFE0F"} Baby awake
+              </button>
+              <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
+                {"\u{1F4DD}"} Log night wake
+              </button>
+            </div>
+          )}
           <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>
           <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6,textAlign:"center"}}>{_h >= 0 && _h < 4 ? "You're not alone — this part is hard. Try to rest." : "You're doing wonderfully. Try to rest."}</div>
         </div>
@@ -14444,6 +14464,42 @@ function App(){
     quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
   }
 
+  function pauseBedTimer(){
+    haptic();
+    setBedPaused(true);
+    setBedPauseStart(Date.now());
+    showToast("\u{1F319} Baby awake \u2014 timer paused. Tap resume when settled.",3000,1);
+  }
+  function resumeBedTimer(){
+    haptic();
+    const pauseStart = bedPauseStart || Date.now();
+    const pauseEnd = Date.now();
+    const pauseDurMin = Math.round((pauseEnd - pauseStart) / 60000);
+    setBedPaused(false);
+    setBedPauseStart(null);
+    // Auto-log night wake from pause start to resume
+    if (pauseDurMin >= 1) {
+      const wakeTime = new Date(pauseStart);
+      const wakeH = String(wakeTime.getHours()).padStart(2,"0");
+      const wakeM = String(wakeTime.getMinutes()).padStart(2,"0");
+      const settleTime = new Date(pauseEnd);
+      const settleH = String(settleTime.getHours()).padStart(2,"0");
+      const settleM = String(settleTime.getMinutes()).padStart(2,"0");
+      const targetDay = bedTimerDay || selDay;
+      quickAddLog("wake", {
+        type: "wake",
+        time: wakeH+":"+wakeM,
+        night: true,
+        nightLocked: true,
+        note: "Night wake ("+pauseDurMin+"min) \u2014 logged via bed timer",
+        settleDuration: String(pauseDurMin),
+        settleTime: settleH+":"+settleM
+      });
+      showToast("\u{1F319} Night wake logged ("+hm(pauseDurMin)+") \u2014 back to sleep",3000,1);
+    } else {
+      showToast("\u{1F319} Timer resumed",1500,1);
+    }
+  }
   function logMorningWakeNextDay(){
     // Stop any running nap/bedtime timer — the night is over
     if(napOn) {
@@ -14451,6 +14507,8 @@ function App(){
       try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
     }
     setBedTimerDay(null);
+    setBedPaused(false);
+    setBedPauseStart(null);
     // Always stop Live Activity on morning wake — bedtime Live Activity runs without napOn
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     // Reset timer mode
