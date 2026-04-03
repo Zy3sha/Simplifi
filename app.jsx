@@ -147,6 +147,31 @@ var findBedtime = function(entries) {
   return null;
 };
 
+// ═══ Night Wake / Sleep Stretch Helpers ═════════════════════════════
+// CORE RULE: sleep_resume_time = wake_time + awake_duration
+// The timer always restarts from the moment baby fell back asleep.
+// Never: paused_time - awake_duration (that's wrong).
+
+/** Get the unified awake duration (minutes) from a night wake entry.
+ *  Checks awakeDuration first, then falls back to assistedDuration / settleDuration. */
+var getAwakeDuration = function(entry) {
+  if (entry.awakeDuration && parseInt(entry.awakeDuration) > 0) return parseInt(entry.awakeDuration);
+  if (entry.assistedDuration && parseInt(entry.assistedDuration) > 0) return parseInt(entry.assistedDuration);
+  if (entry.settleDuration && parseInt(entry.settleDuration) > 0) return parseInt(entry.settleDuration);
+  if (entry.wakeDuration && parseInt(entry.wakeDuration) > 0) return parseInt(entry.wakeDuration);
+  return 0;
+};
+
+/** Calculate the time baby fell back asleep after a night wake.
+ *  Returns "HH:MM" string. sleep_resume_time = wake_time + awake_duration */
+var calcSleepResumeTime = function(wakeTimeStr, awakeDurationMins) {
+  if (!wakeTimeStr || !awakeDurationMins) return wakeTimeStr;
+  var parts = wakeTimeStr.split(":").map(Number);
+  var totalMins = parts[0] * 60 + parts[1] + awakeDurationMins;
+  totalMins = ((totalMins % 1440) + 1440) % 1440; // wrap around midnight
+  return String(Math.floor(totalMins / 60) % 24).padStart(2, "0") + ":" + String(totalMins % 60).padStart(2, "0");
+};
+
 // ═══ Day Model ══════════════════════════════════════════════════════
 // Entries stored directly on calendar day key. Night flag set at write time.
 // Night wakes past midnight route to bedTimerDay (the day bedtime was logged on).
@@ -726,11 +751,11 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     if(mins>0 && mins<840) wins.push({from:bedEntry.time, to:nightWakes[0].time, mins, night:true}); // cap at 14h
   }
 
-  // between night wakes — account for soothing duration
+  // between night wakes — account for awake duration (sleep resumes after baby falls back asleep)
   for(let i=1;i<nightWakes.length;i++){
     const prevWake = nightWakes[i-1];
-    const dur = parseInt(prevWake.assistedDuration) || 0;
-    let fromSk = prevWake._sk + dur; // sleep resumes after soothing
+    const dur = getAwakeDuration(prevWake);
+    let fromSk = prevWake._sk + dur; // sleep_resume_time = wake_time + awake_duration
     let mins = nightWakes[i]._sk - fromSk;
     // If gap is zero or negative (overlapping entries / soothing covers next wake), skip
     if(mins>0 && mins<840) wins.push({from:prevWake.time, to:nightWakes[i].time, mins, night:true});
@@ -746,10 +771,10 @@ function getNightWindows(thisDayEntries, nextDayEntries) {
     return m;
   }
 
-  // last night wake → morning wake — account for soothing duration
+  // last night wake → morning wake — account for awake duration
   if(nightWakes.length>0 && morningWake){
     const last = nightWakes[nightWakes.length-1];
-    const dur = parseInt(last.assistedDuration) || 0;
+    const dur = getAwakeDuration(last);
     const fromSk = last._sk + dur;
     const mins = overnightMins(fromSk, morningMins);
     if(mins>0 && mins<840) wins.push({from:last.time, to:morningWake.time, mins, night:true});
@@ -4336,8 +4361,9 @@ function App(){
             const _lastWake = _nightWakesT.length?_nightWakesT[_nightWakesT.length-1]:null;
             let _startMins;
             if(_lastWake) {
-              _startMins = timeVal(_lastWake)-(parseInt(_lastWake.assistedDuration)||0); // MINUS soothing
-              if(_startMins<0) _startMins+=1440;
+              // sleep_resume_time = wake_time + awake_duration
+              _startMins = timeVal(_lastWake)+getAwakeDuration(_lastWake);
+              if(_startMins>=1440) _startMins-=1440;
             } else {
               _startMins = _bedMinsX;
             }
@@ -6175,13 +6201,10 @@ function App(){
             return true;
           }).sort(function(a,b){ var ta=timeVal(a),tb=timeVal(b); var ka=ta>=_bedM2?ta:(ta<12*60?ta+1440:ta); var kb=tb>=_bedM2?tb:(tb<12*60?tb+1440:tb); return ka-kb; });
           if (_nightWakesWidget.length) {
-            // Timer shows since wake time MINUS soothing (as if soothing was still sleep)
+            // Timer shows since sleep_resume_time = wake_time + awake_duration
             var _lw2=_nightWakesWidget[_nightWakesWidget.length-1];
-            var _sm2=_lw2.assistedDuration?parseInt(_lw2.assistedDuration)||0:0;
-            var _lwP=_lw2.time.split(":").map(Number);
-            var _lwM=_lwP[0]*60+_lwP[1]-_sm2; // MINUS soothing
-            if(_lwM<0) _lwM+=1440; // wrap past midnight
-            timerStartTime=String(Math.floor(_lwM/60)%24).padStart(2,"0")+":"+String(_lwM%60).padStart(2,"0");
+            var _sm2=getAwakeDuration(_lw2);
+            timerStartTime = calcSleepResumeTime(_lw2.time, _sm2);
             timerStartMs = _hhmToMs(timerStartTime);
           } else {
             timerStartTime = _bedEntry.time;
@@ -6409,8 +6432,9 @@ function App(){
       });
       if (nightWakes.length) {
         const lw = nightWakes[nightWakes.length-1];
-        const sm = lw.assistedDuration ? parseInt(lw.assistedDuration) : 0;
-        if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
+        // Use unified getAwakeDuration: sleep_resume_time = wake_time + awake_duration
+        const sm = getAwakeDuration(lw);
+        if (sm > 0) { lastNightEvent = calcSleepResumeTime(lw.time, sm); }
         else lastNightEvent = lw.time;
       }
       tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins };
@@ -6571,11 +6595,11 @@ function App(){
       let _lastNightEvent = _bedEntry ? _bedEntry.time : null;
       if(_nightWakes.length) {
         const _lw = _nightWakes[_nightWakes.length-1];
-        const _sm = _lw.assistedDuration ? parseInt(_lw.assistedDuration) : 0;
+        // Use unified getAwakeDuration: checks awakeDuration, then assistedDuration, then settleDuration
+        const _sm = getAwakeDuration(_lw);
         if(_sm > 0) {
-          const [_wh,_wm] = _lw.time.split(":").map(Number);
-          const _tm = _wh*60+_wm+_sm;
-          _lastNightEvent = `${String(Math.floor(_tm/60)%24).padStart(2,"0")}:${String(_tm%60).padStart(2,"0")}`;
+          // sleep_resume_time = wake_time + awake_duration
+          _lastNightEvent = calcSleepResumeTime(_lw.time, _sm);
         } else {
           _lastNightEvent = _lw.time;
         }
@@ -14539,13 +14563,12 @@ function App(){
     const pauseStart = bedPauseStart || Date.now();
     const pauseEnd = Date.now();
     const pauseDurMin = Math.round((pauseEnd - pauseStart) / 60000);
-    // Recalculate lastNightEvent backward from frozen seconds (same as nap: newStartT)
-    // This makes the timer continue from where it froze, not from wall clock
+    // CORE RULE: new sleep stretch starts from NOW (the actual moment baby fell back asleep)
+    // Never: paused_time - awake_duration (that subtracts backwards and is wrong)
     const now = new Date();
-    const newEventDate = new Date(now.getTime() - bedPausedAtSec * 1000);
-    const newEventTime = String(newEventDate.getHours()).padStart(2,"0")+":"+String(newEventDate.getMinutes()).padStart(2,"0");
-    // Update tickDataRef so the tick recalculates from the adjusted time
-    if (tickDataRef.current) tickDataRef.current.lastNightEvent = newEventTime;
+    const resumeTime = String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+    // Update tickDataRef so the tick recalculates from the actual sleep resume time
+    if (tickDataRef.current) tickDataRef.current.lastNightEvent = resumeTime;
     setBedPaused(false);
     setBedPauseStart(null);
     setBedPausedAtSec(0);
@@ -14555,22 +14578,27 @@ function App(){
       const wakeTime = new Date(pauseStart);
       const wakeH = String(wakeTime.getHours()).padStart(2,"0");
       const wakeM = String(wakeTime.getMinutes()).padStart(2,"0");
-      const settleTime = new Date(pauseEnd);
-      const settleH = String(settleTime.getHours()).padStart(2,"0");
-      const settleM = String(settleTime.getMinutes()).padStart(2,"0");
       quickAddLog("wake", {
         type: "wake",
         time: wakeH+":"+wakeM,
         night: true,
         nightLocked: true,
         note: "Night wake ("+pauseDurMin+"min) \u2014 logged via bed timer",
+        awakeDuration: pauseDurMin,
         wakeDuration: pauseDurMin,
+        assistedDuration: String(pauseDurMin),
         settleDuration: String(pauseDurMin),
-        settleTime: settleH+":"+settleM
+        settleTime: resumeTime
       });
       showToast("\u{1F319} Night wake logged ("+hm(pauseDurMin)+") \u2014 back to sleep",3000,1);
     } else {
       showToast("\u{1F319} Timer resumed",1500,1);
+    }
+    // Restart Live Activity from actual sleep resume time (now)
+    if(_isNative) {
+      try {
+        window.Capacitor?.Plugins?.OBLiveActivity?.start({type:'sleep',babyName:babyName||'Baby',startTime:now.getTime()}).catch(()=>{});
+      } catch(_e){}
     }
   }
   function logMorningWakeNextDay(){
@@ -14586,9 +14614,9 @@ function App(){
           // Total time from bed to wake (cross-midnight aware)
           let _totalMins = _wakeVal - _bedTimeVal;
           if (_totalMins < 0) _totalMins += 24 * 60;
-          // Sum all night wake durations logged via bed timer
-          const _nightWakes = _bedEntries.filter(e => e.night && e.type === "wake" && e.wakeDuration);
-          const _totalWakeMins = _nightWakes.reduce((s, w) => s + (w.wakeDuration || 0), 0);
+          // Sum all night wake durations (uses unified getAwakeDuration for consistency)
+          const _nightWakes = _bedEntries.filter(e => e.night && (e.type === "wake" || e.type === "feed"));
+          const _totalWakeMins = _nightWakes.reduce((s, w) => s + getAwakeDuration(w), 0);
           const _actualSleepMins = Math.max(0, _totalMins - _totalWakeMins);
           // Store night summary for sleep engine to learn from
           try {
@@ -26922,7 +26950,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               {/* Self-settle duration — how long baby took to resettle alone */}
               {nwForm.selfSettled && (
                 <div style={{background:"rgba(80,200,120,0.06)",borderRadius:14,padding:"12px 14px",marginTop:-4,marginBottom:4,border:"1px solid rgba(80,200,120,0.15)"}}>
-                  <div style={{fontSize:12,fontFamily:_fM,color:"#50c878",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Time to settle</div>
+                  <div style={{fontSize:12,fontFamily:_fM,color:"#50c878",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Duration awake</div>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
                     <input type="number" inputMode="numeric" placeholder="0" value={nwForm.settleDuration ? Math.floor(parseInt(nwForm.settleDuration)/60)||"" : ""}
                       onChange={e=>{
@@ -26952,7 +26980,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                       </button>
                     ))}
                   </div>
-                  <div style={{fontSize:10,color:C.lt,marginTop:6,fontFamily:_fI}}>Fussed or grizzled briefly, then fell back to sleep without help</div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:6,fontFamily:_fI}}>How long was baby awake before falling back to sleep?</div>
                 </div>
               )}
               {/* Assisted soothing */}
@@ -27031,10 +27059,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               </div>
             )}
 
-            {/* Duration soothed — always available unless self-settled */}
+            {/* Duration awake — always available unless self-settled */}
             {!nwForm.selfSettled&&(
               <div style={{marginBottom:16}}>
-                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Duration soothed</div>
+                <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Duration awake</div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <input type="number" inputMode="numeric" placeholder="0" value={nwForm.assistedDuration ? Math.floor(parseInt(nwForm.assistedDuration)/60)||"" : ""}
                     onChange={e=>{
@@ -27092,6 +27120,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               };
               if(nwForm.assistedDuration) entry.assistedDuration = parseInt(nwForm.assistedDuration);
               if(nwForm.settleDuration) entry.settleDuration = parseInt(nwForm.settleDuration);
+              // Unified awakeDuration: how long baby was awake before falling back asleep
+              const _awakeDur = parseInt(nwForm.assistedDuration) || parseInt(nwForm.settleDuration) || 0;
+              if(_awakeDur > 0) entry.awakeDuration = _awakeDur;
               if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
                 // Night wakes from the manual form save to selDay —
@@ -27105,18 +27136,22 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               setShowNightWake(false);
               setNightEditId(null);
               showToast(nightEditId?"🌟 Night Wake Updated ✓":"🌟 Night Wake Logged ✓",1200,1);
-              // Restart bedtime Live Activity from wake time MINUS soothing (matches widget)
-              if(_isNative && !nightEditId) {
-                try {
-                  const [_wh,_wm] = saveTime.split(":").map(Number);
-                  const _smins = parseInt(nwForm.assistedDuration)||parseInt(nwForm.settleDuration)||0;
-                  let _totM = _wh*60+_wm-_smins; // MINUS soothing to match widget
-                  if(_totM<0) _totM+=1440;
-                  const _settleDate = new Date();
-                  _settleDate.setHours(Math.floor(_totM/60)%24, _totM%60, 0, 0);
-                  if(_settleDate > new Date()) _settleDate.setDate(_settleDate.getDate()-1);
-                  window.Capacitor?.Plugins?.OBLiveActivity?.start({type:'sleep',babyName:babyName||'Baby',startTime:_settleDate.getTime()}).catch(()=>{});
-                } catch(_e){}
+              // Restart bedtime Live Activity from sleep_resume_time = wake_time + awake_duration
+              // CORE RULE: timer restarts from when baby actually fell back asleep
+              if(!nightEditId) {
+                const _awakeDurSave = parseInt(nwForm.assistedDuration)||parseInt(nwForm.settleDuration)||0;
+                const _sleepResumeTime = calcSleepResumeTime(saveTime, _awakeDurSave);
+                // Update tickDataRef so the night timer counts from sleep resume time
+                if (tickDataRef.current) tickDataRef.current.lastNightEvent = _sleepResumeTime;
+                if(_isNative) {
+                  try {
+                    const [_rh,_rm] = _sleepResumeTime.split(":").map(Number);
+                    const _resumeDate = new Date();
+                    _resumeDate.setHours(_rh, _rm, 0, 0);
+                    if(_resumeDate > new Date()) _resumeDate.setDate(_resumeDate.getDate()-1);
+                    window.Capacitor?.Plugins?.OBLiveActivity?.start({type:'sleep',babyName:babyName||'Baby',startTime:_resumeDate.getTime()}).catch(()=>{});
+                  } catch(_e){}
+                }
               }
             }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,WebkitTapHighlightColor:"transparent",touchAction:"manipulation"}}>
               {nightEditId ? "Update Wake ✦" : "Save Wake ✦"}
