@@ -3505,6 +3505,8 @@ function App(){
           const LN = window.Capacitor.Plugins.LocalNotifications;
           const r=await LN.checkPermissions();
           console.log("[OBubba] Notification permission check:", JSON.stringify(r));
+          // Clear delivered notifications on app open (clean notification center)
+          try { await LN.removeAllDeliveredNotifications(); } catch(_) {}
           setNotifPermission(r.display==="granted"?"granted":"default");
           // Create notification channels for Android (required for Android 8+)
           if(window.Capacitor.getPlatform?.() === "android" && LN.createChannel){

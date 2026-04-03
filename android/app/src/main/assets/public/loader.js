@@ -52,51 +52,8 @@ window.__obAppLoaded = true;
       + '</div>';
   };
 
-  function loadScript(src) {
-    try {
-      if (typeof React === 'undefined') throw new Error('React not loaded');
-      // Pre-compiled JS — load directly as script (no Babel transform needed)
-      var blob = new Blob([src], { type: 'application/javascript' });
-      var url = URL.createObjectURL(blob);
-      var s = document.createElement('script');
-      s.src = url;
-      s.onload = function() { URL.revokeObjectURL(url); };
-      s.onerror = function(e) { errorPage('Script load', 'Failed to execute compiled code'); };
-      document.body.appendChild(s);
-    } catch(e) {
-      errorPage('Load', e.message);
-    }
-  }
-
-  // Load pre-compiled app.js (falls back to app.jsx + Babel if needed)
-  fetch('app.js?v=' + Date.now())
-    .then(function(r) {
-      if (!r.ok) throw new Error('app.js not found: ' + r.status);
-      return r.text();
-    })
-    .then(loadScript)
-    .catch(function() {
-      // Fallback: try app.jsx with Babel compile (development / PWA update delay)
-      fetch('app.jsx?v=' + Date.now())
-        .then(function(r) {
-          if (!r.ok) throw new Error('Failed to load app.jsx: ' + r.status);
-          return r.text();
-        })
-        .then(function(src) {
-          if (typeof Babel === 'undefined') throw new Error('Babel not loaded');
-          var result = Babel.transform(src, { presets: ['react'] });
-          var blob = new Blob([result.code], { type: 'application/javascript' });
-          var url = URL.createObjectURL(blob);
-          var s = document.createElement('script');
-          s.src = url;
-          s.onload = function() { URL.revokeObjectURL(url); };
-          s.onerror = function(e) { errorPage('Script load', 'Failed to execute compiled code'); };
-          document.body.appendChild(s);
-        })
-        .catch(function(err) {
-          errorPage('Fetch', err.message);
-        });
-    });
+  // app.js is loaded via <script defer> in index.html — no fetch needed
+  // This loader now just provides error handling, glass effects, and service worker
 })();
 } // end guard: window.__obAppLoaded
 
