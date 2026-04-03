@@ -294,6 +294,58 @@ const _toothLabels = {"UR-E":"Upper right 2nd molar","UR-D":"Upper right 1st mol
 const toothLabel = (id) => _toothLabels[id] || id;
 const _isUS = _locale.startsWith("en-us");
 const _isAU = _locale.startsWith("en-au");
+const _isIE = _locale.startsWith("en-ie") || _locale === "ga";
+const _isCA = _locale.startsWith("en-ca") || _locale.startsWith("fr-ca");
+const _isNZ = _locale.startsWith("en-nz");
+// Country-specific health check schedules (days from birth)
+// UK: NHS, US: AAP, AU: RACP, IE: HSE, CA: CPS, NZ: WCTO
+const _healthChecks = _isUS ? [
+  {day:3,  label:"First pediatrician visit",    detail:"Weight check, jaundice screening, feeding assessment. Bring your hospital discharge papers."},
+  {day:14, label:"2-week well-baby visit",       detail:"Weight, length, head circumference. Discuss feeding, sleep, and any concerns."},
+  {day:30, label:"1-month check-up",             detail:"Growth, reflexes, hearing screen if not done. First round of immunisations may start at 2 months."},
+  {day:60, label:"2-month check-up + vaccines",  detail:"DTaP, IPV, Hib, HepB, PCV13, Rotavirus vaccines. Growth and developmental screening."},
+  {day:120,label:"4-month check-up + vaccines",  detail:"Second round of immunisations. Discuss sleep, tummy time, introducing solids readiness."},
+  {day:180,label:"6-month check-up + vaccines",  detail:"Third round of immunisations. Flu vaccine if in season. Discuss starting solids."},
+  {day:270,label:"9-month check-up",             detail:"Developmental screening. Discuss finger foods, sippy cup, sleep patterns."},
+  {day:365,label:"12-month check-up + vaccines", detail:"MMR, Varicella, HepA vaccines. Full developmental review. Transition to whole milk discussion."},
+] : _isAU ? [
+  {day:14, label:"1-4 week child health nurse",  detail:"Weight, feeding assessment, maternal wellbeing check. Bring your blue book."},
+  {day:28, label:"4-week nurse visit",            detail:"Growth, development, safe sleeping check. Discuss feeding patterns and settling."},
+  {day:56, label:"8-week check + immunisations",  detail:"6-in-1 vaccine, Rotavirus. Growth and development review."},
+  {day:120,label:"4-month check + immunisations", detail:"Second round vaccines. Discuss tummy time, play, sleep."},
+  {day:180,label:"6-month check + immunisations", detail:"Third round vaccines. Discuss starting solids and allergy introduction."},
+  {day:365,label:"12-month check + immunisations",detail:"MMR, meningococcal vaccines. Full developmental assessment."},
+] : _isNZ ? [
+  {day:5,  label:"Well Child visit (day 5-7)",   detail:"Newborn metabolic screening (heel prick), weight check, feeding support."},
+  {day:21, label:"2-4 week Well Child visit",     detail:"Growth, feeding, maternal wellbeing. B4 School Check enrolment."},
+  {day:56, label:"8-week immunisations",          detail:"6-in-1 vaccine, Rotavirus. Plunket nurse developmental check."},
+  {day:105,label:"3-4 month check",               detail:"Growth, development, immunisations due at 4 months."},
+  {day:165,label:"5-7 month check",               detail:"Discuss starting solids, sleep, development milestones."},
+  {day:300,label:"9-12 month check",              detail:"Full developmental review. MMR and other immunisations at 12 months."},
+] : _isIE ? [
+  {day:3,  label:"Day 3-5 PHN visit",            detail:"Public health nurse home visit. Heel prick test, weight check, feeding support."},
+  {day:14, label:"2-week PHN visit",              detail:"Weight, feeding, jaundice check. Maternal mental health screening."},
+  {day:42, label:"6-week GP check",               detail:"Full physical examination. Discuss immunisations starting at 2 months."},
+  {day:90, label:"3-month developmental check",   detail:"Growth, immunisations, developmental milestones review."},
+  {day:240,label:"7-9 month developmental check", detail:"Hearing, vision, motor skills assessment. Discuss diet and sleep."},
+] : _isCA ? [
+  {day:7,  label:"1-2 week well-baby visit",      detail:"Weight, jaundice screening, feeding assessment. Bring your health card."},
+  {day:30, label:"1-month check-up",              detail:"Growth, reflexes, parental concerns. Discuss immunisation schedule."},
+  {day:60, label:"2-month check-up + vaccines",   detail:"DTaP-IPV-Hib, Pneumococcal, Rotavirus vaccines. Growth review."},
+  {day:120,label:"4-month check-up + vaccines",   detail:"Second round immunisations. Developmental screening."},
+  {day:180,label:"6-month check-up + vaccines",   detail:"Third round immunisations. Discuss starting solids."},
+  {day:270,label:"9-month check-up",              detail:"Developmental milestones, nutrition, sleep assessment."},
+  {day:365,label:"12-month check-up + vaccines",  detail:"MMR, Varicella, Meningococcal vaccines. Full review."},
+] : [
+  // UK (default) — NHS schedule
+  {day:5,  label:"Newborn blood spot test",       detail:"Heel prick test for 9 rare conditions. Usually done by midwife at home, day 5."},
+  {day:12, label:"Health visitor first visit",     detail:"New birth visit. Weight, feeding support, safe sleeping, maternal mental health. Usually day 10-14."},
+  {day:42, label:"6-8 week GP check",             detail:"Full physical exam for baby + postnatal check for mum. First immunisations (8 weeks): 6-in-1, Rotavirus, MenB."},
+  {day:56, label:"8-week immunisations",           detail:"6-in-1, Rotavirus, MenB vaccines. Usually at your GP surgery. Bring red book."},
+  {day:84, label:"12-week immunisations",          detail:"6-in-1 (second dose), Rotavirus (second dose). PCV at 12 weeks."},
+  {day:112,label:"16-week immunisations",          detail:"6-in-1 (third dose), MenB (second dose). Last of the early jabs."},
+  {day:365,label:"1-year health visitor review",   detail:"Developmental review, immunisations (Hib/MenC, MMR, PCV, MenB). Discuss walking, talking, diet."},
+];
 // ── Country detection from device locale — covers 50+ countries ──
 const _localeData = (function(){
   const l = _locale;
@@ -22117,6 +22169,47 @@ function App(){
               })()}
 
               {/* THIS WEEK — label is inside Let's Play card */}
+
+              {/* ── Health check reminders (Activities tab, all ages under 12 months) ── */}
+              {devFilter==="activities" && age && babyDob && (()=>{
+                const _daysSinceBirth = Math.floor((Date.now() - new Date(babyDob+"T00:00:00").getTime()) / 86400000);
+                const _upcoming = _healthChecks.filter(c => c.day >= _daysSinceBirth - 7 && c.day <= _daysSinceBirth + 30);
+                const _past = _healthChecks.filter(c => c.day < _daysSinceBirth - 7);
+                const _countryName = _isUS?"US (AAP)":_isAU?"Australia (RACP)":_isNZ?"New Zealand (WCTO)":_isIE?"Ireland (HSE)":_isCA?"Canada (CPS)":"UK (NHS)";
+                if (!_upcoming.length && _past.length >= _healthChecks.length) return null;
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:18}}>{"\u{1F3E5}"}</span>
+                        <span style={{fontSize:14,fontWeight:700,color:C.deep}}>Health Checks</span>
+                      </div>
+                      <span style={{fontSize:9,color:C.lt,background:"var(--card-bg-alt)",padding:"2px 8px",borderRadius:99}}>{_countryName}</span>
+                    </div>
+                    {_upcoming.map((c,i) => {
+                      const _daysUntil = c.day - _daysSinceBirth;
+                      const _isDue = _daysUntil <= 0;
+                      const _isThisWeek = _daysUntil > 0 && _daysUntil <= 7;
+                      const _dateEst = new Date(new Date(babyDob+"T00:00:00").getTime() + c.day * 86400000);
+                      return (
+                        <div key={i} style={{padding:"8px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:8,height:8,borderRadius:4,background:_isDue?C.ter:_isThisWeek?"#D4A855":C.mint,flexShrink:0}}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:13,fontWeight:600,color:_isDue?C.ter:C.deep}}>{c.label}</div>
+                              <div style={{fontSize:11,color:C.lt}}>
+                                {_isDue ? "Due now \u2014 book if not done" : _isThisWeek ? "This week \u2014 around "+_dateEst.toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "In "+_daysUntil+" days \u2014 around "+_dateEst.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}
+                              </div>
+                            </div>
+                          </div>
+                          {(_isDue || _isThisWeek) && <div style={{fontSize:11,color:C.mid,lineHeight:1.4,paddingLeft:16,marginTop:4}}>{c.detail}</div>}
+                        </div>
+                      );
+                    })}
+                    {_upcoming.length === 0 && <div style={{fontSize:12,color:C.lt,textAlign:"center",padding:"8px 0"}}>All checks up to date {"\u2705"}</div>}
+                  </div>
+                );
+              })()}
 
               {/* ── Newborn awareness cards (Activities tab, < 13 weeks) ── */}
               {devFilter==="activities" && ageWeeks !== null && ageWeeks < 13 && (
