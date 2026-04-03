@@ -18780,19 +18780,21 @@ function App(){
                     let napLabel = `~${hm(avgNapDur)} based on recent avg`;
                     let isBridge = false;
 
-                    // For last nap: try progressively shorter durations until it fits
+                    // For last nap: try full duration, then shorter, then bridge (15-25min max)
+                    // Research: bridge naps should be 15-20min — any longer and baby enters
+                    // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones)
                     if (isLast) {
-                      const durations = [avgNapDur, 45, 30, 20];
+                      const durations = [avgNapDur, Math.round(avgNapDur * 0.7), 25, 20, 15];
                       let fits = false;
                       for (const tryDur of durations) {
                         if (napStart + tryDur + minBedWW <= maxBed) {
                           napDur = tryDur;
                           fits = true;
-                          if (tryDur < avgNapDur) {
+                          if (tryDur <= 25) {
                             isBridge = true;
-                            napLabel = tryDur <= 20
-                              ? `~${tryDur}m catnap to reach bedtime`
-                              : `~${hm(tryDur)} shorter nap (late wake today)`;
+                            napLabel = `~${tryDur}m catnap to reach bedtime`;
+                          } else if (tryDur < avgNapDur) {
+                            napLabel = `~${hm(tryDur)} shorter nap (late wake today)`;
                           }
                           break;
                         }
