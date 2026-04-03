@@ -553,7 +553,7 @@ let expectedNaps=napProfile.expectedNaps;const idealTotalMax=napProfile.idealNap
 // No hour restriction — user may re-log in the morning to fix previous night's timer
 const bedEntry=todayEntries.find(e=>e.type==="sleep"&&!e.night);const hasBedtime=!!bedEntry;const bedEntryTime=bedEntry?bedEntry.time:null;// Find last awake start: latest of (wake time, last nap end)
 const wakeEntry=findMorningWake(todayEntries);let lastAwakeMins=wakeEntry?timeVal(wakeEntry):null;completedNaps.forEach(n=>{const[eh,em]=n.end.split(":").map(Number);const endMins=eh*60+em;if(lastAwakeMins===null||endMins>lastAwakeMins)lastAwakeMins=endMins;});// Next nap prediction: simply lastAwakeStart + middle of WW range
-const wwMid=Math.round((ww.min+ww.max)/2);const nextNapMins=lastAwakeMins!==null?lastAwakeMins+wwMid:null;// Treat naps as complete if all done, OR if next nap would start too late
+const wwMid=Math.round(progressiveWW(ageWeeks,napsDone,expectedNaps));const nextNapMins=lastAwakeMins!==null?lastAwakeMins+wwMid:null;// Treat naps as complete if all done, OR if next nap would start too late
 // skipLateNap cutoff is RELATIVE to morning wake: 10 hours after wake
 const morningWakeMins=wakeEntry?timeVal(wakeEntry):null;const bedtimeFloor=clampBedtime(0,ageWeeks);// earliest reasonable bedtime for age
 const skipLateCutoff=morningWakeMins!==null?morningWakeMins+10*60// 10 hours after wake (e.g. wake 7am → cutoff 5pm)
@@ -1035,7 +1035,7 @@ let hi;if(!aw||aw<13)hi=20*60+30;// 0-3 months: max 8:30pm (variable, often late
 else if(aw<26)hi=20*60;// 3-6 months: max 8:00pm (TCB says 6-7:30pm ideal)
 else if(aw<39)hi=20*60;// 6-9 months: max 8:00pm (TCB says 6-7:30pm ideal)
 else if(aw<52)hi=20*60+30;// 9-12 months: max 8:30pm (slightly later as WW extends)
-else hi=21*60+30;// 12+ months: max 9:30pm (was 8:30pm)
+else hi=20*60+30;// 12+ months: max 8:30pm (TCB consensus) (was 8:30pm)
 // Absolute hard ceiling: 10:30pm regardless of age
 hi=Math.min(hi,22*60+30);return Math.max(lo,Math.min(hi,mins));}// ═══ MASTER SAFETY LAYER — prevents all ridiculous predictions ═══
 function clampWake(mins){// Wake must be 5:00am–9:30am
@@ -1047,7 +1047,7 @@ function sanitizeSchedule(schedule,ageWeeks){if(!schedule||!schedule.length)retu
 const[h,m]=item.time.split(":").map(Number);const clamped=clampWake(h*60+m);item.time=`${String(Math.floor(clamped/60)).padStart(2,"0")}:${String(clamped%60).padStart(2,"0")}`;lastEndMins=clamped;sanitized.push(item);}else if(item.type==="nap"||item.type==="bridge"){if(!isRange){sanitized.push(item);continue;}const[startStr,endStr]=item.time.split("–").map(s=>s.trim());let[sh,sm]=startStr.split(":").map(Number);let[eh,em]=endStr.split(":").map(Number);let startMins=sh*60+sm;let endMins=eh*60+em;// Ensure nap starts after previous event
 if(lastEndMins!==null&&startMins<=lastEndMins){startMins=lastEndMins+ww.min;}// Clamp nap start (not after 6pm)
 if(startMins>18*60)startMins=18*60;// Clamp duration
-let dur=endMins-startMins;if(dur<=0)dur=item.type==="bridge"?20:45;dur=item.type==="bridge"?Math.min(30,dur):clampNapDuration(dur,ageWeeks);endMins=startMins+dur;const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;item.time=`${fmt(startMins)} – ${fmt(endMins)}`;lastEndMins=endMins;sanitized.push(item);}else if(item.type==="bed"){// Validate bedtime
+let dur=endMins-startMins;if(dur<=0)dur=item.type==="bridge"?20:45;dur=item.type==="bridge"?Math.min(25,dur):clampNapDuration(dur,ageWeeks);endMins=startMins+dur;const fmt=m=>`${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;item.time=`${fmt(startMins)} – ${fmt(endMins)}`;lastEndMins=endMins;sanitized.push(item);}else if(item.type==="bed"){// Validate bedtime
 const[h,m]=item.time.split(":").map(Number);let bedMins=h*60+m;// Must be after last nap + min WW
 if(lastEndMins!==null&&bedMins<lastEndMins+ww.min){bedMins=lastEndMins+ww.min;}bedMins=clampBedtime(bedMins);// Also check wake window isn't absurdly long
 if(lastEndMins!==null&&bedMins-lastEndMins>ww.max+30){bedMins=Math.min(bedMins,lastEndMins+ww.max);bedMins=clampBedtime(bedMins);}item.time=`${String(Math.floor(bedMins/60)%24).padStart(2,"0")}:${String(bedMins%60).padStart(2,"0")}`;sanitized.push(item);}else{sanitized.push(item);}}return sanitized;}// 10. Enhanced sleep stability score

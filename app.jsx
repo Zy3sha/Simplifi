@@ -6284,7 +6284,7 @@ function App(){
       if (lastAwakeMins === null || endMins > lastAwakeMins) lastAwakeMins = endMins;
     });
     // Next nap prediction: simply lastAwakeStart + middle of WW range
-    const wwMid = Math.round((ww.min + ww.max) / 2);
+    const wwMid = Math.round(progressiveWW(ageWeeks, napsDone, expectedNaps));
     const nextNapMins = lastAwakeMins !== null ? lastAwakeMins + wwMid : null;
     // Treat naps as complete if all done, OR if next nap would start too late
     // skipLateNap cutoff is RELATIVE to morning wake: 10 hours after wake
@@ -9799,7 +9799,7 @@ function App(){
     else if (aw < 26)    hi = 20*60;       // 3-6 months: max 8:00pm (TCB says 6-7:30pm ideal)
     else if (aw < 39)    hi = 20*60;       // 6-9 months: max 8:00pm (TCB says 6-7:30pm ideal)
     else if (aw < 52)    hi = 20*60+30;    // 9-12 months: max 8:30pm (slightly later as WW extends)
-    else                 hi = 21*60+30;   // 12+ months: max 9:30pm (was 8:30pm)
+    else                 hi = 20*60+30;   // 12+ months: max 8:30pm (TCB consensus) (was 8:30pm)
     // Absolute hard ceiling: 10:30pm regardless of age
     hi = Math.min(hi, 22*60+30);
     return Math.max(lo, Math.min(hi, mins));
@@ -9859,7 +9859,7 @@ function App(){
         // Clamp duration
         let dur = endMins - startMins;
         if (dur <= 0) dur = item.type === "bridge" ? 20 : 45;
-        dur = item.type === "bridge" ? Math.min(30, dur) : clampNapDuration(dur, ageWeeks);
+        dur = item.type === "bridge" ? Math.min(25, dur) : clampNapDuration(dur, ageWeeks);
         endMins = startMins + dur;
 
         const fmt = m => `${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
