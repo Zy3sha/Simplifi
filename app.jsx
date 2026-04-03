@@ -6536,15 +6536,10 @@ function App(){
       setNightElapsed(null);
 
       // ── PHASE 2: Naps still to go → show countdown to next nap ──
-      // Use cached prediction target (set once per state change, not per tick)
+      // Read from tickDataRef.current.pred (computed once in useMemo, not per tick)
       if (!td.napsComplete) {
-        // Only recalculate prediction when data changes, not every second
-        if (!window._obNapTarget || window._obNapTargetKey !== (selDay + ":" + JSON.stringify(td.napsDone))) {
-          const _cp = (isPremium || trialActive) ? predictNextNap() : null;
-          window._obNapTarget = _cp && typeof _cp.napStart_min === "number" && !isNaN(_cp.napStart_min) ? _cp.napStart_min : td.nextNapMins;
-          window._obNapTargetKey = selDay + ":" + JSON.stringify(td.napsDone);
-        }
-        const _countdownNapMins = window._obNapTarget;
+        const _cachedPred = td.pred;
+        const _countdownNapMins = _cachedPred && typeof _cachedPred.napStart_min === "number" && !isNaN(_cachedPred.napStart_min) ? _cachedPred.napStart_min : td.nextNapMins;
         if (_countdownNapMins !== null && typeof _countdownNapMins === "number" && !isNaN(_countdownNapMins)) {
           setBedCountdown(null);
           const diffSec = Math.round((_countdownNapMins - nowMins) * 60);
@@ -18662,8 +18657,8 @@ function App(){
                   while (napIdx < expectedTotal) {
                     let napStart, napEnd;
                     if (isFirstPredicted && !napOn) {
-                      // Use predictNextNap() for consistency with prediction card
-                      const pred2 = predictNextNap();
+                      // Use cached prediction from tickDataRef (same source as nap pill)
+                      const pred2 = tickDataRef.current.pred;
                       if (pred2 && typeof pred2.napStart_min === "number" && !isNaN(pred2.napStart_min)) {
                         napStart = pred2.napStart_min;
                         napEnd = napStart + avgNapDur;
@@ -18724,6 +18719,7 @@ function App(){
                   let bedM = bedPred ? timeVal(bedPred) : 19*60;
                   let bedTime = bedPred && bedPred.time ? bedPred.time : mtp(bedM);
                   const gapToBed = bedM - cursor;
+                  console.log("[TodayPlan] cursor="+cursor+" bedM="+bedM+" gap="+gapToBed+" wwMax="+ww.max+" napIdx="+napIdx+" expected="+expectedTotal);
 
                   // If gap to bedtime > max WW, baby needs another nap to bridge
                   if (gapToBed > ww.max && napIdx >= expectedTotal) {
