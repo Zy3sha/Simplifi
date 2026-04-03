@@ -609,20 +609,16 @@ struct OBubbaSmallWidgetView: View {
                 } else {
                     // ── No timer, no prediction ──
                     Text("☀️")
-                        .font(.system(size: 28))
+                        .font(.system(size: 32))
 
                     Text("All good")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(brandMint)
 
-                    HStack(spacing: 8) {
-                        Label("\(d.feedCount)", systemImage: "drop.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(brandDeep.opacity(0.5))
-                        Label("\(d.nappyCount)", systemImage: "leaf.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(brandDeep.opacity(0.5))
-                    }
+                    Text("Take some time for yourself")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(brandDeep.opacity(0.4))
+                        .multilineTextAlignment(.center)
                 }
             }
             .padding(12)
