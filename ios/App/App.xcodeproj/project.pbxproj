@@ -79,7 +79,6 @@
 		OB000007000000000000001F /* OBubbaTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBubbaTimerAttributes.swift; sourceTree = "<group>"; };
 		OB000008000000000000001F /* TravelTimePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TravelTimePlugin.swift; sourceTree = "<group>"; };
 		OB000009000000000000001F /* StorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorePlugin.swift; sourceTree = "<group>"; };
-		OB000010000000000000001F /* OBubbaWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBubbaWidgets.swift; sourceTree = "<group>"; };
 		OB000011000000000000001F /* OBubba.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OBubba.entitlements; sourceTree = "<group>"; };
 		OB000012000000000000001F /* IntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentHandler.swift; sourceTree = "<group>"; };
 		OB000013000000000000001F /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
@@ -169,7 +168,6 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				OB00000A000000000000001G /* Plugins */,
 				OB00000B000000000000001G /* LiveActivity */,
-				OB00000C000000000000001G /* Widgets */,
 				OB00000D000000000000001G /* SiriIntents */,
 				OB00000E000000000000001G /* ShareExtension */,
 			);
@@ -207,10 +205,8 @@
 			path = LiveActivity;
 			sourceTree = "<group>";
 		};
-		OB00000C000000000000001G /* Widgets */ = {
 			isa = PBXGroup;
 			children = (
-				OB000010000000000000001F /* OBubbaWidgets.swift */,
 			);
 			path = Widgets;
 			sourceTree = "<group>";
