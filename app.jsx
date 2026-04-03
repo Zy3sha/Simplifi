@@ -6817,7 +6817,7 @@ function App(){
       // Quiet day: by this hour, fewer feeds than usual average for this time
       // Only flag after noon AND at least 3 hours into the day to avoid false positives
       if (_avgFeedCount > 0 && _h >= 12) {
-        const _wakeEntry = rd.find(e=>e.type==="wake"&&!e.night);
+        const _wakeEntry = _todayEntries.find(e=>e.type==="wake"&&!e.night);
         const _wakeH = _wakeEntry ? parseInt(_wakeEntry.time.split(":")[0]) : 7;
         const _awakeHrs = _h - _wakeH;
         if (_awakeHrs >= 3) {
@@ -7305,7 +7305,7 @@ function App(){
       </div>
     );
    } catch(err) {
-    console.error("HeroCard error:", err);
+    console.error("HeroCard error:", err, err?.message, err?.stack, JSON.stringify(err));
     return (
       <div className="glass-card" style={{padding:"18px 16px",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
