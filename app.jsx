@@ -14485,7 +14485,7 @@ function App(){
     const pauseDurMin = Math.round((pauseEnd - pauseStart) / 60000);
     setBedPaused(false);
     setBedPauseStart(null);
-    // Auto-log night wake from pause start to resume
+    // Log night wake with duration AND the sleep segment that follows
     if (pauseDurMin >= 1) {
       const wakeTime = new Date(pauseStart);
       const wakeH = String(wakeTime.getHours()).padStart(2,"0");
@@ -14493,13 +14493,14 @@ function App(){
       const settleTime = new Date(pauseEnd);
       const settleH = String(settleTime.getHours()).padStart(2,"0");
       const settleM = String(settleTime.getMinutes()).padStart(2,"0");
-      const targetDay = bedTimerDay || selDay;
+      // 1. Log the night wake entry (wake start → settle time)
       quickAddLog("wake", {
         type: "wake",
         time: wakeH+":"+wakeM,
         night: true,
         nightLocked: true,
         note: "Night wake ("+pauseDurMin+"min) \u2014 logged via bed timer",
+        wakeDuration: pauseDurMin,
         settleDuration: String(pauseDurMin),
         settleTime: settleH+":"+settleM
       });
@@ -14509,6 +14510,45 @@ function App(){
     }
   }
   function logMorningWakeNextDay(){
+    // Calculate night sleep summary before clearing state
+    if (bedTimerDay) {
+      try {
+        const _bedEntries = days[bedTimerDay] || [];
+        const _bedEntry = _bedEntries.find(e => e.type === "sleep" && !e.night);
+        if (_bedEntry) {
+          const _bedTimeVal = timeVal(_bedEntry);
+          const _nowH = new Date().getHours(), _nowM = new Date().getMinutes();
+          const _wakeVal = _nowH * 60 + _nowM;
+          // Total time from bed to wake (cross-midnight aware)
+          let _totalMins = _wakeVal - _bedTimeVal;
+          if (_totalMins < 0) _totalMins += 24 * 60;
+          // Sum all night wake durations logged via bed timer
+          const _nightWakes = _bedEntries.filter(e => e.night && e.type === "wake" && e.wakeDuration);
+          const _totalWakeMins = _nightWakes.reduce((s, w) => s + (w.wakeDuration || 0), 0);
+          const _actualSleepMins = Math.max(0, _totalMins - _totalWakeMins);
+          // Store night summary for sleep engine to learn from
+          try {
+            const _nightSummary = JSON.parse(localStorage.getItem("ob_night_summaries") || "[]");
+            _nightSummary.push({
+              date: bedTimerDay,
+              bedTime: _bedEntry.time,
+              wakeTime: nowTime(),
+              totalMins: _totalMins,
+              wakeMins: _totalWakeMins,
+              sleepMins: _actualSleepMins,
+              wakeCount: _nightWakes.length,
+              timestamp: Date.now()
+            });
+            // Keep last 30 nights
+            if (_nightSummary.length > 30) _nightSummary.splice(0, _nightSummary.length - 30);
+            localStorage.setItem("ob_night_summaries", JSON.stringify(_nightSummary));
+          } catch {}
+          if (_actualSleepMins > 0) {
+            showToast("\u2600\uFE0F Good morning! " + (babyName || "Baby") + " slept " + hm(_actualSleepMins) + " (" + _nightWakes.length + " wake" + (_nightWakes.length !== 1 ? "s" : "") + ")", 4000, 1);
+          }
+        }
+      } catch {}
+    }
     // Stop any running nap/bedtime timer — the night is over
     if(napOn) {
       setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
