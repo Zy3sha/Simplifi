@@ -97,7 +97,8 @@ const quickAction = params.get("action");
 
 const uid = () => { const _id = Date.now().toString(36)+Math.random().toString(36).slice(2,5); if(window._localEntryIds) window._localEntryIds.add(_id); return _id; };
 window._localEntryIds = new Set();
-const fmt12 = t => { if(!t)return""; const[h,m]=t.split(":").map(Number); return`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`; };
+const minsToTime = m => { if(typeof m !== "number" || isNaN(m)) return ""; const h=Math.floor(m/60)%24; return String(h).padStart(2,"0")+":"+String(Math.round(m%60)).padStart(2,"0"); };
+const fmt12 = t => { if(!t)return""; if(typeof t==="number") t=minsToTime(t); const[h,m]=(t||"").split(":").map(Number); if(isNaN(h)||isNaN(m))return""; return`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`; };
 const minDiff = (s,e) => { if(!s||!e)return 0; const[sh,sm]=s.split(":").map(Number),[eh,em]=e.split(":").map(Number); let d=eh*60+em-sh*60-sm; if(d<0)d+=1440; return d; };
 const timeVal = e => { const t=e.time||e.start||"00:00"; const[h,m]=t.split(":").map(Number); return h*60+m; };
 const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
@@ -7029,9 +7030,9 @@ function App(){
     }
     // ── PRIORITY 5: Nap approaching / overdue ──
     else if (_dayStarted && _pred && !_hasBed && !_napsComplete) {
-      const _napTimeStr = fmt12(_pred.napStart_min);
-      const _pParts = _pred.napStart_min.split(":").map(Number);
-      const _minsUntilNap = Math.max(0, _pParts[0]*60+_pParts[1] - _nowM);
+      const _napMins = typeof _pred.napStart_min === "number" ? _pred.napStart_min : 0;
+      const _napTimeStr = fmt12(String(Math.floor(_napMins/60)%24).padStart(2,"0")+":"+String(Math.round(_napMins%60)).padStart(2,"0"));
+      const _minsUntilNap = Math.max(0, _napMins - _nowM);
       const _isPersonal = _pred.sourceLabel && _pred.sourceLabel.includes("pattern");
       const _rhythmTag = _isPersonal ? " · OBubba Rhythm" : "";
 
@@ -11830,12 +11831,13 @@ function App(){
 
     // ── Looking ahead ──
     const _pred = tickDataRef.current.pred;
-    if (_pred && !_pred.isOverdue && !_bedE && !napOn) {
-      const _pParts = _pred.napStart_min.split(":").map(Number);
-      const _mUntil = Math.max(0, _pParts[0] * 60 + _pParts[1] - _nowM);
+    if (_pred && !_pred.isOverdue && !_bedE && !napOn && typeof _pred.napStart_min === "number") {
+      const _pNapMins = _pred.napStart_min;
+      const _mUntil = Math.max(0, _pNapMins - _nowM);
       if (_mUntil > 15 && _mUntil < 90) {
+        const _pNapStr = fmt12(String(Math.floor(_pNapMins/60)%24).padStart(2,"0")+":"+String(Math.round(_pNapMins%60)).padStart(2,"0"));
         const src = _pred.sourceLabel && _pred.sourceLabel.includes("pattern") ? "Based on " + _n + "'s own rhythm" : "Based on age guidance for " + ageStr;
-        lines.push(src + ", the next nap window opens around " + fmt12(_pred.napStart_min) + ". Watch for sleepy cues a few minutes before.");
+        lines.push(src + ", the next nap window opens around " + _pNapStr + ". Watch for sleepy cues a few minutes before.");
       }
     } else if (!_pred && !_bedE && _naps.length >= _profile.expectedNaps) {
       const _bed = tickDataRef.current.bed;
@@ -12867,11 +12869,10 @@ function App(){
     if (napOn || _bedE) return null;
 
     // Nap approaching
-    if (_pred && !_pred.isOverdue) {
-      const _pM = _pred.napStart_min.split(":").map(Number);
-      const _mUntil = Math.max(0, _pM[0] * 60 + _pM[1] - _nowM);
-      if (_mUntil <= 10) return { text: "Look for sleepy cues — nap window is open", priority: "high" };
-      if (_mUntil <= 25) return { text: "Nap in ~" + _mUntil + " min — wind down play, dim lights", priority: "med" };
+    if (_pred && !_pred.isOverdue && typeof _pred.napStart_min === "number") {
+      const _mUntil = Math.max(0, _pred.napStart_min - _nowM);
+      if (_mUntil <= 10) return { text: "Look for sleepy cues \u2014 nap window is open", priority: "high" };
+      if (_mUntil <= 25) return { text: "Nap in ~" + _mUntil + " min \u2014 wind down play, dim lights", priority: "med" };
     }
 
     // Overdue
@@ -12911,9 +12912,8 @@ function App(){
     if (_feeds.length >= 3 && _poops.length === 0 && _awakeMin > 120) return { text: "No nappies logged — might be time for a check", priority: "low" };
 
     // Good window for activity
-    if (_awakeMin >= 20 && _awakeMin <= 60 && _pred && !_pred.isOverdue) {
-      const _pM2 = _pred.napStart_min.split(":").map(Number);
-      const _mUntil2 = Math.max(0, _pM2[0] * 60 + _pM2[1] - _nowM);
+    if (_awakeMin >= 20 && _awakeMin <= 60 && _pred && !_pred.isOverdue && typeof _pred.napStart_min === "number") {
+      const _mUntil2 = Math.max(0, _pred.napStart_min - _nowM);
       if (_mUntil2 > 30) return { text: "Good time for play or tummy time", priority: "low" };
     }
 
@@ -18906,7 +18906,7 @@ function App(){
                         napNote = `${expectedTotal - napIdx} fewer nap${expectedTotal-napIdx>1?"s":""} today — long nap reduced sleep debt`;
                       }
                     } else {
-                      napNote = bedPred.estimated ? "estimated" : "";
+                      napNote = bedPred && bedPred.estimated ? "estimated" : "";
                     }
                     items.push({ icon: "🌙", label: "Bedtime", time: fmt12(bedTime), sub: napNote, predicted: true, mins: timeVal({time:bedTime}) });
                     hasPredictions = true;
