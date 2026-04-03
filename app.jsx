@@ -3780,7 +3780,7 @@ function App(){
   const[bedTimerDay,setBedTimerDay]=useState(()=>{try{return localStorage.getItem("bed_timer_day")||null;}catch{return null;}});
   const[bedPaused,setBedPaused]=useState(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}});
   const[bedPauseStart,setBedPauseStart]=useState(()=>{try{return parseInt(localStorage.getItem("bed_pause_start"))||null;}catch{return null;}});
-  // Refs for tick callback to avoid stale closure (tick runs in setInterval)
+  const[bedPausedAtSec,setBedPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("bed_paused_sec"))||0;}catch{return 0;}});
   const bedPausedRef = useRef(false);
   const bedPauseStartRef = useRef(null);
   useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;},[bedPaused,bedPauseStart]);
@@ -5981,7 +5981,8 @@ function App(){
       }
 
       // 2. Night/bedtime timer — recalculate from wall clock
-      // Skip tick entirely when bed timer is paused (same approach as nap timer)
+      // When paused: skip tick entirely (same as nap: if(!napOn || napPaused) return)
+      // nightElapsed stays frozen at bedPausedAtSec
       const { hasBedtime, lastNightEvent, nextDayHasWake } = tickDataRef.current || {};
       if(hasBedtime && lastNightEvent && !nextDayHasWake && !bedPausedRef.current) {
         const now = new Date();
@@ -14522,20 +14523,34 @@ function App(){
   }
 
   function pauseBedTimer(){
-    console.log("[BED] pauseBedTimer called, setting bedPaused=true");
+    if (!bedTimerDay || bedPaused) return;
     haptic();
+    // Freeze at current elapsed seconds (same as nap: napPausedAtSec = napSec)
+    const frozenSec = nightElapsed || 0;
     setBedPaused(true);
+    setBedPausedAtSec(frozenSec);
     setBedPauseStart(Date.now());
-    showToast("\u{1F319} Baby awake \u2014 timer paused. Tap resume when settled.",3000,1);
+    try{localStorage.setItem("bed_paused","1");localStorage.setItem("bed_paused_sec",String(frozenSec));localStorage.setItem("bed_pause_start",String(Date.now()));}catch{}
+    showToast("\u{1F319} Baby awake \u2014 tap the timer to resume when settled.",3000,1);
   }
   function resumeBedTimer(){
+    if (!bedTimerDay || !bedPaused) return;
     haptic();
     const pauseStart = bedPauseStart || Date.now();
     const pauseEnd = Date.now();
     const pauseDurMin = Math.round((pauseEnd - pauseStart) / 60000);
+    // Recalculate lastNightEvent backward from frozen seconds (same as nap: newStartT)
+    // This makes the timer continue from where it froze, not from wall clock
+    const now = new Date();
+    const newEventDate = new Date(now.getTime() - bedPausedAtSec * 1000);
+    const newEventTime = String(newEventDate.getHours()).padStart(2,"0")+":"+String(newEventDate.getMinutes()).padStart(2,"0");
+    // Update tickDataRef so the tick recalculates from the adjusted time
+    if (tickDataRef.current) tickDataRef.current.lastNightEvent = newEventTime;
     setBedPaused(false);
     setBedPauseStart(null);
-    // Log night wake with duration AND the sleep segment that follows
+    setBedPausedAtSec(0);
+    try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
+    // Log night wake with duration
     if (pauseDurMin >= 1) {
       const wakeTime = new Date(pauseStart);
       const wakeH = String(wakeTime.getHours()).padStart(2,"0");
@@ -14543,7 +14558,6 @@ function App(){
       const settleTime = new Date(pauseEnd);
       const settleH = String(settleTime.getHours()).padStart(2,"0");
       const settleM = String(settleTime.getMinutes()).padStart(2,"0");
-      // 1. Log the night wake entry (wake start → settle time)
       quickAddLog("wake", {
         type: "wake",
         time: wakeH+":"+wakeM,
@@ -17905,15 +17919,19 @@ function App(){
                 // Use 20h cap (allows for long nights + viewing yesterday after waking)
                 if(elapsedSec < 0 || elapsedSec > 20*3600) return null;
                 let displayLabel = nightEndWake
-                  ? `Night · ${nightWakes.length} wake${nightWakes.length!==1?"s":""}`
-                  : (nightWakes.length>0 ? `Bed · ${nightWakes.length} wake${nightWakes.length>1?"s":""}` : "Bed");
+                  ? `Night \u00b7 ${nightWakes.length} wake${nightWakes.length!==1?"s":""}`
+                  : bedPaused ? "Baby awake"
+                  : (nightWakes.length>0 ? `Bed \u00b7 ${nightWakes.length} wake${nightWakes.length>1?"s":""}` : "Bed");
+                // When paused: show frozen time, tap to resume
+                const _pillElapsed = bedPaused ? bedPausedAtSec : elapsedSec;
+                const _pillBg = bedPaused ? "#D4A855" : C.sky;
                 return (
                   <div style={{display:"flex",alignItems:"center",gap:3}}>
-                    <div onClick={()=>{haptic();setShowNightTimerMenu(true);}} style={{display:"flex",alignItems:"center",gap:5,background:C.sky,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
-                      <span style={{fontSize:13}}>🌙</span>
+                    <div onClick={()=>{haptic();if(bedPaused){resumeBedTimer();}else{setShowNightTimerMenu(true);}}} style={{display:"flex",alignItems:"center",gap:5,background:_pillBg,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
+                      <span style={{fontSize:13}}>{bedPaused?"\u{23F8}\uFE0F":"\u{1F319}"}</span>
                       <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
                         <span style={{fontSize:9,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {fmt12(bedEntry.time)}</span>
-                        <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(elapsedSec)}</span>
+                        <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(_pillElapsed)}</span>
                       </div>
                       <button onClick={(e)=>{e.stopPropagation();haptic();if(bedEntry)openEdit(bedEntry);}} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:99,padding:"3px 6px",fontSize:10,color:"white",cursor:_cP,fontWeight:600}}>
                         ✎
