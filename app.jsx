@@ -7009,7 +7009,7 @@ function App(){
       }
     }
     // ── PRIORITY 4: Feed overdue ──
-    else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedOn) {
+    else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedTimerDay) {
       _dot = "#7aabc4"; _label = "Feed window opening";
       _timing = "Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr ? " · was due ~" + _nextFeedStr : "");
       if (_lastFeed && _lastFeed.amount > 0 && _lastFeed.amount < _perFeedTarget * 0.75) {
