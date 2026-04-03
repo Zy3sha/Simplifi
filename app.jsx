@@ -5933,7 +5933,15 @@ function App(){
         eventDate.setHours(eh,em,0,0);
         let elapsed = Math.floor((now - eventDate) / 1000);
         if(elapsed < 0) elapsed += 24*3600;
-        if(elapsed >= 0 && elapsed < 14*3600) { setNightElapsed(elapsed); }
+        if(elapsed >= 0 && elapsed < 14*3600) {
+          // If bed timer is paused, freeze the display at the pause moment
+          if (bedPaused && bedPauseStart) {
+            const pausedAt = Math.floor((bedPauseStart - eventDate.getTime()) / 1000);
+            setNightElapsed(Math.max(0, pausedAt));
+          } else {
+            setNightElapsed(elapsed);
+          }
+        }
         else { setNightElapsed(null); }
       }
 
@@ -6217,7 +6225,7 @@ function App(){
       // Timer label for widget display
       var timerLabel = null;
       if (activeTimer === "nap") timerLabel = "Nap";
-      else if (activeTimer === "bed") timerLabel = "Sleeping";
+      else if (activeTimer === "bed") timerLabel = bedPaused ? "Baby awake" : "Sleeping";
       else if (activeTimer === "feed") timerLabel = "Nursing " + (activeSide === "left" ? "L" : activeSide === "right" ? "R" : "");
 
       // Shape matches Swift WidgetData struct
@@ -6986,7 +6994,7 @@ function App(){
             <div>
               <div style={{textAlign:"center",padding:"10px 0",marginBottom:8}}>
                 <div style={{fontSize:13,color:"#D4A855",fontWeight:700,marginBottom:4}}>{"\u{1F319}"} Baby is awake</div>
-                {bedPauseStart && <div style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{hm(Math.round((Date.now()-bedPauseStart)/60000))}</div>}
+                {bedPauseStart && (()=>{const _wakeMins=Math.max(0,Math.round((Date.now()-bedPauseStart)/60000));return <div style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{_wakeMins<1?"just now":hm(_wakeMins)+" awake"}</div>;})()}
               </div>
               <button onClick={resumeBedTimer} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
                 {"\u{1F319}"} Back to sleep — resume timer
@@ -17726,10 +17734,17 @@ function App(){
               // Only show countdown/timer pill on today or yesterday (active OBubba day)
               const _isPillDay = selDay === todayStr() || selDay === prevCalDay(todayStr());
               if (!_isPillDay) return null;
-              // Newborns (<6 weeks): no countdown pressure — only show active timer
-              // Mums can still start/stop nap and bed timers, just no "Nap in 45m" countdown
+              // Newborns (<6 weeks): no countdown pressure — show "Sleep" button instead
               const _isNewborn = age && age.totalWeeks < 6;
-              if (_isNewborn && !napOn && !bedTimerDay) return null;
+              if (_isNewborn && !napOn && !bedTimerDay) {
+                return (
+                  <button onClick={()=>{haptic(20);startNap();}}
+                    style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:_fM}}>
+                    <span style={{fontSize:13}}>{"\u{1F4A4}"}</span>
+                    <span style={{fontSize:13,fontWeight:700,color:C.mint}}>Sleep</span>
+                  </button>
+                );
+              }
               // Entries for selDay, previous day, and next day (for cross-midnight night end)
               const _pillPrevKey = prevCalDay(selDay);
               const _pillNextKey = nextCalDay(selDay);
