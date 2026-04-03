@@ -7641,8 +7641,10 @@ function App(){
       if (posAvg === null) { /* fall through to NHS fallback below */ }
       // Personal mode (true): blend personal + NHS — PREMIUM FEATURE
       // NHS mode (false): pure NHS only — FREE
-      // null (never chosen): default to personal blending when data exists (or NHS if free user)
-      // Free users always get NHS-only — still genuinely helpful, just not personalised
+      // Free users: full research-based engine (progressive WW, sleep pressure, bridge naps)
+      //   but NO personal data blending — uses NHS/research consensus only
+      // Premium users: same research base + personal tracked data blended in,
+      //   gently nudging toward healthier sleep schedules
       const _isFreeUser = STORE_READY && !isPremium && !trialActive;
       const _usePersonal = _isFreeUser ? false : (usePersonalRecs === null ? true : usePersonalRecs);
       // Gentle-nudge blending: respect baby's rhythm, gently guide toward NHS range
@@ -7674,8 +7676,8 @@ function App(){
         ? ` (gently ${posAvg < ww.min ? "stretching" : "shortening"} toward NHS range)`
         : "";
       sourceLabel = _usePersonal && posAvg !== null
-        ? `${possessive(babyName||"Baby")} nap ${napsDoneToday2+1} pattern (${posAvg}min avg)${nudgeNote}`
-        : `NHS wake windows for ${fmtAge(age)}`;
+        ? `${possessive(babyName||"Baby")} personal rhythm (${posAvg}min avg)${nudgeNote}`
+        : `Research-based guidelines for ${fmtAge(age)}`;
     } else {
       // Fall back to progressive NHS
       const clamped = Math.max(ww.min, Math.min(ww.max, nhsProgressive));
@@ -18605,62 +18607,67 @@ function App(){
               </button>
               <div style={{display:todayPlanOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 12px 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
 
-              {/* Free users: NHS guideline wake windows + premium upsell */}
+              {/* Free users: full research-based schedule + personalisation upsell */}
               {STORE_READY && !isPremium && !trialActive && todayPlanOpen && (()=>{
                 const _freeWW = age ? getWakeWindow(age.totalWeeks) : null;
                 const _freeProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
                 const _freeWake = findMorningWake(entries);
                 const _freeWakeMin = _freeWake ? timeVal(_freeWake) : null;
                 const _fmtMin = (m) => { const h=Math.floor(m/60)%24; return fmt12(String(h).padStart(2,"0")+":"+String(Math.round(m%60)).padStart(2,"0")); };
+                if (!_freeWW || !_freeProfile) return null;
+                // Build full research-based schedule using progressive WW
+                const _freeExpected = _freeProfile.expectedNaps;
+                const _freeAvgDur = Math.round((_freeProfile.idealNapDurMin + _freeProfile.idealNapDurMax) / 2);
+                const _freeItems = [];
+                let _freeCursor = _freeWakeMin || 7*60; // default 7am if no wake logged
+                for (let i = 0; i < _freeExpected; i++) {
+                  const _ww = clampWakeWindow(progressiveWW(age.totalWeeks, i, _freeExpected), age.totalWeeks);
+                  const napStart = _freeCursor + _ww;
+                  const napEnd = napStart + _freeAvgDur;
+                  _freeItems.push({start: napStart, end: napEnd, idx: i, ww: _ww});
+                  _freeCursor = napEnd;
+                }
+                // Bedtime from progressive WW after last nap
+                const _freeBedWW = clampWakeWindow(progressiveWW(age.totalWeeks, _freeExpected, _freeExpected), age.totalWeeks);
+                const _freeBedM = clampBedtime(_freeCursor + _freeBedWW, age.totalWeeks);
                 return (
                   <div style={{padding:"8px 0"}}>
-                    {_freeWW && _freeProfile && (
-                      <div style={{marginBottom:12}}>
-                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>NHS Wake Window Guide for {age?fmtAge(age):""}</div>
-                        <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
-                          <div style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:10,color:C.lt,marginBottom:2}}>Wake window</div>
-                            <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{Math.round(_freeWW.min/60*10)/10}–{Math.round(_freeWW.max/60*10)/10}h</div>
-                          </div>
-                          <div style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:10,color:C.lt,marginBottom:2}}>Expected naps</div>
-                            <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{_freeProfile.expectedNaps}</div>
-                          </div>
-                          <div style={{flex:1,minWidth:100,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:10,color:C.lt,marginBottom:2}}>Day sleep goal</div>
-                            <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{hm(_freeProfile.idealTotalMin)}–{hm(_freeProfile.idealTotalMax)}</div>
-                          </div>
-                        </div>
-                        {_freeWakeMin !== null && (
-                          <div style={{marginBottom:8}}>
-                            <div style={{fontSize:11,color:C.lt,marginBottom:4}}>Based on wake at {_fmtMin(_freeWakeMin)}, NHS guidelines suggest:</div>
-                            {(()=>{
-                              const wwMid = (_freeWW.min + _freeWW.max) / 2;
-                              const avgNapDur = (_freeProfile.idealNapDurMin + _freeProfile.idealNapDurMax) / 2;
-                              const napItems = [];
-                              let cursor = _freeWakeMin;
-                              for (let i = 0; i < _freeProfile.expectedNaps; i++) {
-                                const napStart = cursor + wwMid;
-                                const napEnd = napStart + avgNapDur;
-                                napItems.push({start: napStart, end: napEnd, idx: i});
-                                cursor = napEnd; // next nap starts after this one ends + WW
-                              }
-                              return napItems.map(n => (
-                                <div key={n.idx} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
-                                  <span style={{fontSize:12}}>{"\u{1F634}"}</span>
-                                  <span style={{fontSize:12,color:C.mid}}>Nap {n.idx+1} around <strong style={{color:C.deep}}>{_fmtMin(n.start)}</strong></span>
-                                  <span style={{fontSize:10,color:C.lt}}>(guideline)</span>
-                                </div>
-                              ));
-                            })()}
-                          </div>
-                        )}
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Research-Based Schedule for {age?fmtAge(age):""}</div>
+                    <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Based on NHS, WHO & AASM guidelines for {babyName||"baby"}'s age. Every baby is different {"\u2014"} always follow sleepy cues.</div>
+                    <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                      <div style={{flex:1,minWidth:90,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
+                        <div style={{fontSize:9,color:C.lt}}>Wake windows</div>
+                        <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{Math.round(_freeWW.min/60*10)/10}{"\u2013"}{Math.round(_freeWW.max/60*10)/10}h</div>
                       </div>
-                    )}
-                    <div style={{background:"linear-gradient(135deg,rgba(155,139,184,0.06),rgba(200,180,220,0.04))",border:"1px solid rgba(155,139,184,0.15)",borderRadius:14,padding:"14px 16px",textAlign:"center"}}>
-                      <div style={{fontSize:13,fontWeight:700,color:"#5B4F5F",marginBottom:6}}>Want a personalised sleep-consultant-style schedule?</div>
-                      <div style={{fontSize:12,color:"#8A7F87",lineHeight:1.6,marginBottom:12}}>No more guessing. No more under or overtired babies. No more googling sleep debt, sleep pressure, why baby wakes after 10 minutes or at 3am. OBubba learns {babyName||"your baby"}'s unique rhythm and builds a plan that actually works.</div>
-                      <button onClick={()=>{haptic();setPremiumGateInfo({icon:"\u{1F4CB}",label:"Personalised Today's Plan",description:"A schedule built around "+(babyName||"your baby")+"'s actual sleep patterns \u2014 not just age charts. Includes nap predictions, bridge naps, bedtime, and live countdowns.",context:"today_plan"});}} style={{padding:"10px 24px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:13,fontWeight:700,cursor:_cP,boxShadow:"0 4px 16px rgba(155,139,184,0.3)"}}>Subscribe to Premium</button>
+                      <div style={{flex:1,minWidth:70,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
+                        <div style={{fontSize:9,color:C.lt}}>Naps</div>
+                        <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{_freeExpected}</div>
+                      </div>
+                      <div style={{flex:1,minWidth:90,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
+                        <div style={{fontSize:9,color:C.lt}}>Day sleep</div>
+                        <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{hm(_freeProfile.idealTotalMin)}{"\u2013"}{hm(_freeProfile.idealTotalMax)}</div>
+                      </div>
+                    </div>
+                    {_freeWakeMin !== null && <>
+                      {_freeItems.map(n => (
+                        <div key={n.idx} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:n.idx<_freeItems.length-1?`1px solid ${C.blush}`:"none"}}>
+                          <span style={{fontSize:13}}>{"\u{1F634}"}</span>
+                          <span style={{fontSize:13,fontWeight:600,color:C.deep}}>Nap {n.idx+1}</span>
+                          <span style={{fontSize:12,color:C.mid}}>around {_fmtMin(n.start)}</span>
+                          <span style={{fontSize:10,color:C.lt,marginLeft:"auto"}}>{hm(n.ww)} WW</span>
+                        </div>
+                      ))}
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",marginTop:2}}>
+                        <span style={{fontSize:13}}>{"\u{1F319}"}</span>
+                        <span style={{fontSize:13,fontWeight:600,color:C.deep}}>Bedtime</span>
+                        <span style={{fontSize:12,color:C.mid}}>around {_fmtMin(_freeBedM)}</span>
+                        <span style={{fontSize:10,color:C.lt,marginLeft:"auto"}}>{hm(_freeBedWW)} WW</span>
+                      </div>
+                    </>}
+                    <div style={{background:"linear-gradient(135deg,rgba(155,139,184,0.06),rgba(200,180,220,0.04))",border:"1px solid rgba(155,139,184,0.15)",borderRadius:12,padding:"12px 14px",marginTop:12,textAlign:"center"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:"#5B4F5F",marginBottom:4}}>Every baby is different</div>
+                      <div style={{fontSize:11,color:"#8A7F87",lineHeight:1.5,marginBottom:10}}>These are research-based guidelines. With Premium, OBubba learns {babyName||"your baby"}'s personal rhythm and builds a schedule that adapts to their unique patterns {"\u2014"} while gently guiding toward healthier sleep.</div>
+                      <button onClick={()=>{haptic();setPremiumGateInfo({icon:"\u{1F4CB}",label:"Personalised Schedule",description:(babyName||"Your baby")+"'s own rhythm blended with sleep science. Adapts daily based on actual naps, sleep pressure, and circadian alignment.",context:"today_plan"});}} style={{padding:"8px 20px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:12,fontWeight:700,cursor:_cP,boxShadow:"0 4px 12px rgba(155,139,184,0.25)"}}>Personalise for {babyName||"baby"}</button>
                     </div>
                   </div>
                 );
