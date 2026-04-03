@@ -6298,10 +6298,11 @@ function App(){
         nextPredictionLabel: nextPredictionLabel ? String(nextPredictionLabel) : null,
         theme: "light",
         updatedAt: Date.now(),
-        activeTimer: activeTimer ? String(activeTimer) : null,
-        timerStartTime: timerStartTime ? String(timerStartTime) : null,
-        timerStartMs: timerStartMs ? parseFloat(timerStartMs) : null,
-        timerLabel: timerLabel ? String(timerLabel) : null,
+        // When bed timer is paused, don't show elapsed timer on widget (it would be wrong)
+        activeTimer: (activeTimer && !(activeTimer === "bed" && bedPaused)) ? String(activeTimer) : null,
+        timerStartTime: (timerStartTime && !(activeTimer === "bed" && bedPaused)) ? String(timerStartTime) : null,
+        timerStartMs: (timerStartMs && !(activeTimer === "bed" && bedPaused)) ? parseFloat(timerStartMs) : null,
+        timerLabel: bedPaused ? "Baby awake" : (timerLabel ? String(timerLabel) : null),
         breastSide: activeSide ? String(activeSide) : null,
         showNursing: !!showNursing,
         lastBreastSide: (function(){ try{ return localStorage.getItem("last_breast_side")||null; }catch{ return null; } })()
@@ -7024,8 +7025,8 @@ function App(){
     if (_quietDay && !_growthSpurt) _secParts.push("Fewer feeds than usual today — keep offering");
     _secondary = _secParts.length > 0 ? _secParts.join(" · ") : null;
 
-    // ── PRIORITY 1: Night mode (9pm–5am with bedtime) ──
-    if ((_h >= 21 || _h < 5) && _hasBed) {
+    // ── PRIORITY 1: Night mode (bedtime active OR 9pm-5am with bedtime logged) ──
+    if ((_hasBed && bedTimerDay) || ((_h >= 21 || _h < 5) && _hasBed)) {
       const _bedEntry = findBedtime(_todayEntries);
       const _timeStr = nightElapsed !== null && nightElapsed > 0
         ? "Sleeping since " + (_bedEntry ? fmt12(_bedEntry.time) : "") + " · " + Math.floor(nightElapsed/3600) + "h " + Math.floor((nightElapsed%3600)/60) + "m"
