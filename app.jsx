@@ -6847,10 +6847,8 @@ function App(){
       _pred = tickDataRef.current.pred;
     } else if (_td2.nextNapMins) {
       // Build a fake _pred object from the simple midpoint so the hero card displays it
-      const _simH = Math.floor(_td2.nextNapMins/60)%24, _simM = _td2.nextNapMins%60;
-      const _simStr = `${String(_simH).padStart(2,"0")}:${String(_simM).padStart(2,"0")}`;
       const _nowMins2 = new Date().getHours()*60+new Date().getMinutes();
-      _pred = { napStart_min: _simStr, napStart_max: _simStr, sourceLabel: "age-appropriate guidelines", isOverdue: _nowMins2 > _td2.nextNapMins };
+      _pred = { napStart_min: _td2.nextNapMins, napStart_max: _td2.nextNapMins, sourceLabel: "Research-based guidelines", isOverdue: _nowMins2 > _td2.nextNapMins };
     }
     let _bed = null; _bed = tickDataRef.current.bed;
 
@@ -7870,8 +7868,7 @@ function App(){
     if (finalMinMins - effectiveAwakeMins > ww.max) {
       const safeMid = effectiveAwakeMins + ww.midpoint;
       const safeMax = effectiveAwakeMins + ww.max;
-      const capStart = (()=>{ const h=Math.floor(safeMid/60)%24; const m=safeMid%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
-      return { napStart_min: capStart, napStart_max: (()=>{ const h=Math.floor(safeMax/60)%24; const m=safeMax%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })(), wakeWindowMin:ww.min, wakeWindowMax:ww.max, sourceLabel: `age-appropriate wake windows for ${fmtAge(age)} (capped)`, lastAwakeStart, isOverdue: true };
+      return { napStart_min: safeMid, napStart_max: safeMax, wakeWindowMin:ww.min, wakeWindowMax:ww.max, sourceLabel: `age-appropriate wake windows for ${fmtAge(age)} (capped)`, lastAwakeStart, isOverdue: true };
     }
 
     // ── Sleep pressure adjustment: less total nap today → earlier next nap ──
@@ -7887,9 +7884,7 @@ function App(){
           sourceLabel += ` (${pressureReduction}min earlier — sleep pressure)`;
           const adjMinMins = Math.max(lastAwakeMins + wakeWindowMin, earliestNapMins);
           const adjMaxMins = Math.max(lastAwakeMins + wakeWindowMax, adjMinMins + 15);
-          const adjStart_min = (()=>{ const h=Math.floor(adjMinMins/60)%24; const m=adjMinMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
-          const adjStart_max = (()=>{ const h=Math.floor(adjMaxMins/60)%24; const m=adjMaxMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
-          return { napStart_min: adjStart_min, napStart_max: adjStart_max, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart, isOverdue: nowMins > adjMaxMins };
+          return { napStart_min: adjMinMins, napStart_max: adjMaxMins, wakeWindowMin, wakeWindowMax, sourceLabel, lastAwakeStart, isOverdue: nowMins > adjMaxMins };
         }
       }
     }
@@ -12863,9 +12858,7 @@ function App(){
     if (isPremium || trialActive) {
       _pred = tickDataRef.current.pred;
     } else if (_td3.nextNapMins) {
-      const _sH = Math.floor(_td3.nextNapMins/60)%24, _sM = _td3.nextNapMins%60;
-      const _sStr = `${String(_sH).padStart(2,"0")}:${String(_sM).padStart(2,"0")}`;
-      _pred = { napStart_min: _sStr, napStart_max: _sStr, sourceLabel: "age-appropriate guidelines", isOverdue: _nowM > _td3.nextNapMins };
+      _pred = { napStart_min: _td3.nextNapMins, napStart_max: _td3.nextNapMins, sourceLabel: "Research-based guidelines", isOverdue: _nowM > _td3.nextNapMins };
     }
     const _profile = getAgeNapProfile(_aw);
 
