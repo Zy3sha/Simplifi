@@ -18650,9 +18650,8 @@ function App(){
                     if (isFirstPredicted && !napOn) {
                       // Use predictNextNap() for consistency with prediction card
                       const pred2 = predictNextNap();
-                      if (pred2 && pred2.napStart_min) {
-                        const [ph,pm] = pred2.napStart_min.split(":").map(Number);
-                        napStart = ph*60 + pm;
+                      if (pred2 && typeof pred2.napStart_min === "number" && !isNaN(pred2.napStart_min)) {
+                        napStart = pred2.napStart_min;
                         napEnd = napStart + avgNapDur;
                       } else {
                         const napWW = clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
