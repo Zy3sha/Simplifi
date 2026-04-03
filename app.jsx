@@ -6563,7 +6563,12 @@ function App(){
       // Call bedtimePrediction() directly so countdown matches Today's Plan exactly
       if (td.napsComplete) {
         const _countdownBed = tickDataRef.current.bed;
-        const _countdownBedMins = _countdownBed && typeof _countdownBed.bedMins === "number" && !isNaN(_countdownBed.bedMins) ? _countdownBed.bedMins : td.bedMins;
+        let _countdownBedMins = td.bedMins;
+        if (_countdownBed && _countdownBed.time) {
+          try { const [_bh,_bm] = _countdownBed.time.split(":").map(Number); _countdownBedMins = _bh*60+_bm; } catch {}
+        }
+        // Use Today's Plan bedtime if available (single source of truth)
+        if (tickDataRef.current.planBedMins) _countdownBedMins = tickDataRef.current.planBedMins;
         if (_countdownBedMins !== null && typeof _countdownBedMins === "number" && !isNaN(_countdownBedMins)) {
           setNapCountdown(null);
           const diffSec = Math.round((_countdownBedMins - nowMins) * 60);
@@ -17641,6 +17646,10 @@ function App(){
               // Only show countdown/timer pill on today or yesterday (active OBubba day)
               const _isPillDay = selDay === todayStr() || selDay === prevCalDay(todayStr());
               if (!_isPillDay) return null;
+              // Newborns (<6 weeks): no countdown pressure — only show active timer
+              // Mums can still start/stop nap and bed timers, just no "Nap in 45m" countdown
+              const _isNewborn = age && age.totalWeeks < 6;
+              if (_isNewborn && !napOn && !bedTimerDay) return null;
               // Entries for selDay, previous day, and next day (for cross-midnight night end)
               const _pillPrevKey = prevCalDay(selDay);
               const _pillNextKey = nextCalDay(selDay);
@@ -26093,7 +26102,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                     localStorage.setItem("ob_last_letter_date",new Date().toISOString());
                     // Sync to cloud so letters survive device changes
                     if(window._fb && backupCode) {
-                      try{ await fsSet("families", backupCode, {letters:JSON.stringify(letters)}, true); }catch{}
+                      // Sync via pushToCloud (letters are in sharedData, not top-level)
+                      try{ if(backupCodeRef.current) pushToCloud(backupCodeRef.current, childrenRef.current); }catch{}
                     }
                   }catch{}
                   setLetterText("");setShowLetterPrompt(false);
