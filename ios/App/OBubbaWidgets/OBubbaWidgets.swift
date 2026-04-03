@@ -489,7 +489,6 @@ struct OBubbaSmallWidgetView: View {
                         .foregroundColor(brandDeep.opacity(0.4))
                         .multilineTextAlignment(.center)
                 }
-            }
         }
         .padding(12)
         .containerBackground(for: .widget) {
