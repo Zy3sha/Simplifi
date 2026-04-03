@@ -9828,18 +9828,17 @@ function App(){
   // Absolute hard ceiling: 10:30pm — no baby should ever get a predicted bedtime after that.
   function clampBedtime(mins, ageWeeks) {
     const aw = ageWeeks !== undefined ? ageWeeks : (age ? age.totalWeeks : null);
-    // Floor: under 6 months allow 5:30pm (overtired young babies often need earlier bed)
-    // 6+ months: standard 6:00pm floor
-    // Floor: 6:00pm for all ages (5:30pm was too early — parents find it alarming)
-    const lo = 18*60;
-    // Ceiling: aligned with sleep consultant consensus (TCB, Huckleberry, Little Ones)
-    // These are MAXIMUMS — the engine aims for earlier based on wake windows
+    // Floor: 6:00pm for babies 3mo+, no floor for newborns (they sleep when they sleep)
+    const lo = (aw && aw < 13) ? 17*60 : 18*60; // newborns: 5pm floor (rare but possible), 3mo+: 6pm
+    // Ceiling: aligned with sleep consultant consensus
+    // Newborns have late bedtimes — that's NORMAL, don't force 7pm on a 2-week-old
     let hi;
-    if (!aw || aw < 13)  hi = 20*60+30;   // 0-3 months: max 8:30pm (variable, often later for newborns)
-    else if (aw < 26)    hi = 20*60;       // 3-6 months: max 8:00pm (TCB says 6-7:30pm ideal)
-    else if (aw < 39)    hi = 20*60;       // 6-9 months: max 8:00pm (TCB says 6-7:30pm ideal)
-    else if (aw < 52)    hi = 20*60+30;    // 9-12 months: max 8:30pm (slightly later as WW extends)
-    else                 hi = 20*60+30;   // 12+ months: max 8:30pm (TCB consensus) (was 8:30pm)
+    if (!aw || aw < 6)   hi = 22*60;       // 0-6 weeks: max 10pm (newborns are chaotic, this is fine)
+    else if (aw < 13)    hi = 21*60;       // 6wk-3mo: max 9pm (circadian forming, bedtime moving earlier)
+    else if (aw < 26)    hi = 20*60;       // 3-6 months: max 8pm (TCB says 6-7:30pm ideal)
+    else if (aw < 39)    hi = 20*60;       // 6-9 months: max 8pm
+    else if (aw < 52)    hi = 20*60+30;    // 9-12 months: max 8:30pm
+    else                 hi = 20*60+30;    // 12+ months: max 8:30pm
     // Absolute hard ceiling: 10:30pm regardless of age
     hi = Math.min(hi, 22*60+30);
     return Math.max(lo, Math.min(hi, mins));
@@ -18757,6 +18756,42 @@ function App(){
               </button>
               <div style={{display:todayPlanOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 12px 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
 
+              {/* Newborns (0-4 weeks): gentle guidance, no rigid schedule */}
+              {age && age.totalWeeks < 4 && todayPlanOpen && (
+                <div style={{padding:"14px 8px",textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>{"\u{1F476}"}</div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:8}}>No schedule needed yet</div>
+                  <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>
+                    {babyName||"Baby"} is in the fourth trimester {"\u2014"} sleep is unpredictable and that's completely normal. Feed on demand, sleep when {babyName||"baby"} sleeps, and follow their cues.
+                  </div>
+                  <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px",textAlign:"left",marginBottom:10}}>
+                    <div style={{fontSize:12,fontWeight:600,color:C.deep,marginBottom:6}}>What to expect right now:</div>
+                    {[
+                      ["30\u201375 min awake","then back to sleep \u2014 follow sleepy cues"],
+                      ["4\u20135 naps a day","no set pattern yet, and that's OK"],
+                      ["Feeds every 2\u20133 hours","including at night \u2014 this is essential"],
+                      ["Late bedtime (8\u201311pm)","completely normal for newborns"],
+                    ].map(([title,sub],i) => (
+                      <div key={i} style={{display:"flex",gap:8,padding:"4px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
+                        <span style={{fontSize:11,fontWeight:700,color:C.mint,minWidth:100}}>{title}</span>
+                        <span style={{fontSize:11,color:C.lt}}>{sub}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,fontStyle:"italic",lineHeight:1.5}}>Patterns start to emerge around 6\u20138 weeks. OBubba will start building a personalised schedule when the time is right.</div>
+                </div>
+              )}
+
+              {/* 4-6 weeks: soft schedule with wide windows */}
+              {age && age.totalWeeks >= 4 && age.totalWeeks < 6 && todayPlanOpen && !findMorningWake(entries) && (
+                <div style={{padding:"10px 8px",textAlign:"center"}}>
+                  <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>Log a morning wake to see today's gentle guide. At this age, times are approximate {"\u2014"} always follow {babyName||"baby"}'s sleepy cues.</div>
+                </div>
+              )}
+
+              {/* Skip rigid schedules for 0-4 week newborns */}
+              {age && age.totalWeeks < 4 ? null : <>
+
               {/* Free users: full research-based schedule + personalisation upsell */}
               {STORE_READY && !isPremium && !trialActive && todayPlanOpen && (()=>{
                 const _freeWW = age ? getWakeWindow(age.totalWeeks) : null;
@@ -19429,6 +19464,7 @@ function App(){
                 );
               })()}
 
+              </>}{/* end newborn gate */}
               </div>{/* end Today's Plan collapsible */}
 
               {/* ═══ ACTIVITY OF THE DAY — Let's Play ═══ */}
@@ -20267,6 +20303,34 @@ function App(){
               {collHead("sleep","😴","Sleep Analysis")}
               {insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
+
+                  {/* Newborn Sleep Analysis — gentle education, not analysis */}
+                  {age && age.totalWeeks < 6 && (
+                    <div style={{marginBottom:14}}>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:8}}>{"\u{1F319}"} {possessive(babyName||"Baby")} Sleep Right Now</div>
+                      <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>
+                        At {age?fmtAge(age):"this age"}, sleep is survival mode {"\u2014"} and you're doing it. Here's what's normal:
+                      </div>
+                      {[
+                        ["\u{1F4A4}","Sleep is chaotic","Newborns don't know day from night yet. Their circadian rhythm starts forming around 6-8 weeks. Until then, sleep comes in random bursts."],
+                        ["\u{1F37C}","Night feeds are essential","Tiny stomachs empty fast. Feeding every 2-3 hours at night is biologically necessary, not a sleep problem."],
+                        ["\u{1F319}","Late bedtimes are normal","8-11pm bedtime is typical for newborns. It will naturally move earlier as the circadian clock develops."],
+                        ["\u{23F0}","Wake windows are tiny","30-75 minutes is all a newborn can handle awake. Watch for yawning, eye rubbing, staring \u2014 those are sleepy cues."],
+                        ["\u{1F64F}","You can't spoil a newborn","Holding, rocking, feeding to sleep \u2014 all fine. Sleep associations matter later (4+ months), not now."],
+                      ].map(([emoji,title,body],i) => (
+                        <div key={i} style={{padding:"10px 12px",background:"var(--card-bg-alt)",borderRadius:12,marginBottom:6}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                            <span style={{fontSize:16}}>{emoji}</span>
+                            <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{title}</span>
+                          </div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.5,paddingLeft:24}}>{body}</div>
+                        </div>
+                      ))}
+                      <div style={{fontSize:11,color:C.lt,fontStyle:"italic",lineHeight:1.5,textAlign:"center",marginTop:8}}>
+                        Sleep analysis and predictions will begin around 6-8 weeks when patterns start to emerge. For now, just keep logging {"\u2014"} OBubba is learning.
+                      </div>
+                    </div>
+                  )}
 
                   {/* Predictions + Bridge nap live on Day tab hero — not duplicated here */}
 
@@ -27816,7 +27880,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                   </div>
                 )}
                 <div style={{fontSize:11,color:C.lt,textAlign:"center",marginTop:8,lineHeight:1.4}}>
-                  Built using {babyName||"baby"}'s personal rhythm · {smResult.napCount} nap{smResult.napCount!==1?"s":""}
+                  {age && age.totalWeeks < 8 ? "Based on research guidelines for "+fmtAge(age) : "Built using "+(babyName||"baby")+"'s personal rhythm"} · {smResult.napCount} nap{smResult.napCount!==1?"s":""}
                 </div>
               </div>
             )}
