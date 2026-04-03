@@ -526,6 +526,7 @@ const _wellbeingShort = _wellbeingResources[0]; // for inline cards
 const _wellbeingFull = _wellbeingResources[1];  // for "Need support" expanded view
 
 const fmtCountdown = s => {
+  if(s === null || s === undefined || isNaN(s)) return "\u2013";
   if(s <= 0) return "Now!";
   if(s < 60) return `${Math.floor(s)}s`;
   const h = Math.floor(s/3600);
@@ -6538,8 +6539,8 @@ function App(){
       // Call predictNextNap() directly so countdown matches Today's Plan exactly
       if (!td.napsComplete) {
         const _countdownPred = (isPremium || trialActive) ? predictNextNap() : null;
-        const _countdownNapMins = _countdownPred ? _countdownPred.napStart_min : td.nextNapMins;
-        if (_countdownNapMins !== null) {
+        const _countdownNapMins = _countdownPred && typeof _countdownPred.napStart_min === "number" && !isNaN(_countdownPred.napStart_min) ? _countdownPred.napStart_min : td.nextNapMins;
+        if (_countdownNapMins !== null && typeof _countdownNapMins === "number" && !isNaN(_countdownNapMins)) {
           setBedCountdown(null);
           const diffSec = Math.round((_countdownNapMins - nowMins) * 60);
           setNapCountdown(Math.max(0, diffSec));
@@ -6551,8 +6552,8 @@ function App(){
       // Call bedtimePrediction() directly so countdown matches Today's Plan exactly
       if (td.napsComplete) {
         const _countdownBed = bedtimePrediction ? bedtimePrediction() : null;
-        const _countdownBedMins = _countdownBed ? _countdownBed.bedMins : td.bedMins;
-        if (_countdownBedMins !== null) {
+        const _countdownBedMins = _countdownBed && typeof _countdownBed.bedMins === "number" && !isNaN(_countdownBed.bedMins) ? _countdownBed.bedMins : td.bedMins;
+        if (_countdownBedMins !== null && typeof _countdownBedMins === "number" && !isNaN(_countdownBedMins)) {
           setNapCountdown(null);
           const diffSec = Math.round((_countdownBedMins - nowMins) * 60);
           setBedCountdown(Math.max(0, diffSec));
@@ -7008,7 +7009,7 @@ function App(){
       }
     }
     // ── PRIORITY 4: Feed overdue ──
-    else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed) {
+    else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedOn) {
       _dot = "#7aabc4"; _label = "Feed window opening";
       _timing = "Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr ? " · was due ~" + _nextFeedStr : "");
       if (_lastFeed && _lastFeed.amount > 0 && _lastFeed.amount < _perFeedTarget * 0.75) {
