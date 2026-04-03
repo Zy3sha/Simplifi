@@ -9792,14 +9792,13 @@ function App(){
     // 6+ months: standard 6:00pm floor
     // Floor: 6:00pm for all ages (5:30pm was too early — parents find it alarming)
     const lo = 18*60;
-    // Ceiling: age-adjusted — raised ~1hr from original NHS-strict values to support
-    // late-schedule families without producing absurd predictions.
-    // Absolute hard ceiling of 10:30pm applied on top of age-based ceiling.
+    // Ceiling: aligned with sleep consultant consensus (TCB, Huckleberry, Little Ones)
+    // These are MAXIMUMS — the engine aims for earlier based on wake windows
     let hi;
-    if (!aw || aw < 13)  hi = 21*60;     // 0-3 months: max 9:00pm (was 8:00pm)
-    else if (aw < 26)    hi = 20*60+30;   // 3-6 months: max 8:30pm (was 7:30pm)
-    else if (aw < 39)    hi = 21*60;      // 6-9 months: max 9:00pm (was 7:30pm)
-    else if (aw < 52)    hi = 21*60;      // 9-12 months: max 9:00pm (was 8:00pm)
+    if (!aw || aw < 13)  hi = 20*60+30;   // 0-3 months: max 8:30pm (variable, often later for newborns)
+    else if (aw < 26)    hi = 20*60;       // 3-6 months: max 8:00pm (TCB says 6-7:30pm ideal)
+    else if (aw < 39)    hi = 20*60;       // 6-9 months: max 8:00pm (TCB says 6-7:30pm ideal)
+    else if (aw < 52)    hi = 20*60+30;    // 9-12 months: max 8:30pm (slightly later as WW extends)
     else                 hi = 21*60+30;   // 12+ months: max 9:30pm (was 8:30pm)
     // Absolute hard ceiling: 10:30pm regardless of age
     hi = Math.min(hi, 22*60+30);
@@ -12372,15 +12371,18 @@ function App(){
 
       // Suggested bedtime — use tick engine prediction (same as Today's Plan) for consistency
       const _td = tickDataRef.current || {};
-      // Call bedtimePrediction() directly so it matches Today's Plan exactly
-      let _freshBedMins = _td.bedMins;
-      try {
-        const _freshBed = tickDataRef.current.bed;
-        if (_freshBed && _freshBed.time) {
-          const _bp = _freshBed.time.split(":").map(Number);
-          _freshBedMins = _bp[0] * 60 + _bp[1];
-        }
-      } catch {}
+      // Use Today's Plan bedtime (stored in tickDataRef.planBedMins) for consistency
+      // Falls back to bedtimePrediction() if Today's Plan hasn't rendered yet
+      let _freshBedMins = tickDataRef.current.planBedMins || _td.bedMins;
+      if (!_freshBedMins) {
+        try {
+          const _freshBed = tickDataRef.current.bed;
+          if (_freshBed && _freshBed.time) {
+            const _bp = _freshBed.time.split(":").map(Number);
+            _freshBedMins = _bp[0] * 60 + _bp[1];
+          }
+        } catch {}
+      }
       if (_freshBedMins) {
         let suggestedBed = _freshBedMins;
         let bedReason = "";
@@ -18909,8 +18911,10 @@ function App(){
                     } else {
                       napNote = bedPred && bedPred.estimated ? "estimated" : "";
                     }
-                    items.push({ icon: "🌙", label: "Bedtime", time: fmt12(bedTime), sub: napNote, predicted: true, mins: timeVal({time:bedTime}) });
+                    items.push({ icon: "\u{1F319}", label: "Bedtime", time: fmt12(bedTime), sub: napNote, predicted: true, mins: bedM });
                     hasPredictions = true;
+                    // Store Today's Plan bedtime so Sleep Story matches exactly
+                    try { tickDataRef.current.planBedtime = bedTime; tickDataRef.current.planBedMins = bedM; } catch {}
                   }
                 }
 
