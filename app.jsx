@@ -18714,43 +18714,46 @@ function App(){
                     napIdx++;
                   }
 
-                  // Bridge nap check
+                  // Calculate bedtime first, then check if bridge nap is needed
                   const dns = dynamicNapStructure();
                   const needsBridge = dns && dns.bridgeNap;
                   const bedPred = bedtimePrediction();
-                  const bedMins = bedPred ? timeVal(bedPred) : 19*60;
-                  const lastWW = bedMins - cursor;
+                  let bedM = bedPred ? timeVal(bedPred) : 19*60;
+                  let bedTime = bedPred && bedPred.time ? bedPred.time : mtp(bedM);
 
-                  if (needsBridge || (lastWW > ww.max && napIdx >= expectedTotal)) {
+                  // Clamp bedtime to wake window limits from last nap
+                  const minBedFromCursor = cursor + ww.min;
+                  const maxBedFromCursor = cursor + ww.max;
+                  if (bedM < minBedFromCursor) {
+                    bedM = clampBedtime(minBedFromCursor, w);
+                    bedTime = mtp(bedM);
+                  } else if (bedM > maxBedFromCursor) {
+                    bedM = clampBedtime(maxBedFromCursor, w);
+                    bedTime = mtp(bedM);
+                  }
+
+                  // Bridge nap: if gap to bedtime exceeds max WW even after clamping
+                  const lastWW = bedM - cursor;
+                  if (needsBridge || (lastWW > ww.max * 1.1 && napIdx >= expectedTotal)) {
                     const bridgeStart = cursor + Math.round(ww.min * 0.8);
                     const bridgeDur = 20;
-                    if (bridgeStart + bridgeDur < bedMins) {
+                    if (bridgeStart + bridgeDur < bedM) {
                       items.push({
-                        icon: "🌉", label: "Bridge nap",
+                        icon: "\u{1F309}", label: "Bridge nap",
                         time: `${fmt12(mtp(bridgeStart))} – ${fmt12(mtp(bridgeStart + bridgeDur))}`,
-                        sub: "~20m — helps baby reach bedtime comfortably",
+                        sub: "~20m \u2014 helps baby reach bedtime comfortably",
                         predicted: true, bridge: true, mins: bridgeStart
                       });
                       hasPredictions = true;
                       cursor = bridgeStart + bridgeDur;
+                      // Recalculate bedtime after bridge nap
+                      bedM = clampBedtime(cursor + Math.round((ww.min + ww.max) / 2), w);
+                      bedTime = mtp(bedM);
                     }
                   }
 
-                  // Predicted bedtime — must be after last nap ends + min WW, but not beyond max WW
-                  if (bedPred && bedPred.time) {
-                    let bedTime = bedPred.time;
-                    let bedM = timeVal(bedPred);
-                    const minBedAfterNap = cursor + ww.min;
-                    const maxBedAfterNap = cursor + ww.max;
-                    if (bedM < minBedAfterNap) {
-                      // Bedtime too early — push to after last nap + min WW
-                      bedM = clampBedtime(minBedAfterNap, w);
-                      bedTime = mtp(bedM);
-                    } else if (bedM > maxBedAfterNap) {
-                      // Bedtime too late — would overtire baby. Cap at max WW from last nap
-                      bedM = clampBedtime(maxBedAfterNap, w);
-                      bedTime = mtp(bedM);
-                    }
+                  // Final bedtime display
+                  if (bedPred || bedM) {
                     // Add note if fewer naps than expected due to long nap/late wake
                     let napNote = "";
                     if (napIdx < expectedTotal) {
