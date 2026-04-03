@@ -6165,12 +6165,14 @@ function App(){
           nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2,"0") + ":" + String(npM).padStart(2,"0"));
           nextPredictionLabel = "Nap " + _napNum;
           var _npDate = new Date(); _npDate.setHours(npH, npM, 0, 0);
-          // Don't wrap to tomorrow — if prediction time is past, don't show countdown
           if (_npDate.getTime() > Date.now()) {
+            // Future — show countdown
             nextPredictionMs = _npDate.getTime();
           } else {
-            // Prediction time has passed — clear it so widget shows "All good" or nudge
-            nextPrediction = null; nextPredictionLabel = null; nextPredictionMs = null;
+            // Nap prediction has passed — baby is overdue for a nap
+            nextPrediction = "Nap " + _napNum + " \u2014 time for a nap";
+            nextPredictionLabel = "Nap " + _napNum;
+            nextPredictionMs = null; // no countdown, just the nudge text
           }
         } else if (td.bedMins && (td.napsComplete || _napIsActuallyBed) && !td.hasBedtime) {
           var bpH = Math.floor(td.bedMins/60)%24, bpM = Math.round(td.bedMins%60);
