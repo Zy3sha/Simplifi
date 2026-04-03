@@ -7233,7 +7233,7 @@ function App(){
         </div>
         <div style={{fontSize:13,color:C.mid,marginBottom:_secondary||_rightNow?4:8,paddingLeft:20}}>{_timing}</div>
         {(()=>{const _rs=sleepScore();if(!_rs||_rs.score===null)return null;return(<div style={{display:"inline-flex",alignItems:"center",gap:4,background:sleepScoreColor(_rs.score)+"18",borderRadius:99,padding:"2px 10px",marginTop:6,marginLeft:20,marginBottom:4}}><span style={{fontSize:11,fontWeight:700,color:sleepScoreColor(_rs.score)}}>{_rs.score}</span><span style={{fontSize:10,color:sleepScoreColor(_rs.score)}}>rhythm</span></div>);})()}
-        {(()=>{const _td=tickDataRef.current||{};if(!_td.rhythmScore)return null;const _rc=_td.rhythmScore>=80?"#7BA68C":_td.rhythmScore>=60?"#D4A855":"#A89898";return(<div style={{display:"inline-flex",alignItems:"center",gap:4,background:_rc+"18",borderRadius:99,padding:"2px 10px",marginTop:2,marginLeft:20,marginBottom:4}}><span style={{fontSize:11,fontWeight:700,color:_rc}}>{_td.rhythmScore}</span><span style={{fontSize:10,color:_rc}}>{_td.rhythmVibe}</span></div>);})()}
+        {(()=>{const _td=tickDataRef.current||{};if(!_td.rhythmVibe)return null;const _rc=_td.rhythmScore>=80?"#7BA68C":_td.rhythmScore>=60?"#D4A855":"#A89898";return(<div style={{display:"inline-flex",alignItems:"center",gap:4,background:_rc+"18",borderRadius:99,padding:"2px 10px",marginTop:2,marginLeft:20,marginBottom:4}}><span style={{fontSize:10,color:_rc}}>{_td.rhythmVibe}</span></div>);})()}
         {/* Source label — shows where the prediction comes from */}
         {_pred && _pred.sourceLabel && <div style={{fontSize:10,color:C.lt,paddingLeft:20,marginBottom:4,fontStyle:"italic"}}>{_pred.sourceLabel.includes("pattern") ? "✨ Based on " + (babyName||"baby") + "'s personal rhythm" : "📋 " + _pred.sourceLabel}</div>}
         {_wakeMissing && (
@@ -13934,7 +13934,12 @@ function App(){
 
     // Fire event-triggered reminders
     if (type === "feed") fireEventReminders("after_feed");
-    else if (type === "wake" && !data.night) { fireEventReminders("after_wake"); if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{}); }
+    else if (type === "wake" && !data.night) {
+      fireEventReminders("after_wake");
+      // Stop bed timer + Live Activity when morning wake is logged
+      if (bedTimerDay) { setBedTimerDay(null); try{localStorage.removeItem("bed_timer_day");}catch{} }
+      if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+    }
     else if (type === "poop") fireEventReminders("after_nappy");
 
     // Write activity timestamp for Cloud Function push reminders
