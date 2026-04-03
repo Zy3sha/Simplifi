@@ -6155,7 +6155,7 @@ function App(){
         var _freshPred = tickDataRef.current.pred;
         var _napMinsForWidget = td.nextNapMins;
         if (_freshPred && _freshPred.napStart_min) {
-          var _pp = _freshPred.napStart_min.split(":").map(Number);
+          var _pp = [Math.floor(_freshPred.napStart_min/60), Math.round(_freshPred.napStart_min%60)];
           _napMinsForWidget = _pp[0]*60+_pp[1];
         }
         var _napIsActuallyBed = _napMinsForWidget && td.bedMins && (_napMinsForWidget >= td.bedMins - 30);
@@ -6407,7 +6407,7 @@ function App(){
         let _napM = td.nextNapMins;
         const _freshPredLA = tickDataRef.current.pred;
         if (_freshPredLA && _freshPredLA.napStart_min) {
-          const _pp = _freshPredLA.napStart_min.split(":").map(Number);
+          const _pp = [Math.floor(_freshPredLA.napStart_min/60), Math.round(_freshPredLA.napStart_min%60)];
           _napM = _pp[0]*60+_pp[1];
         }
         if (_napM) {
@@ -6610,7 +6610,7 @@ function App(){
         try {
           const _predFresh = tickDataRef.current.pred;
           if (_predFresh && _predFresh.napStart_min) {
-            const _pf = _predFresh.napStart_min.split(":").map(Number);
+            const _pf = [Math.floor(_predFresh.napStart_min/60), Math.round(_predFresh.napStart_min%60)];
             _predNapMins = _pf[0]*60+_pf[1];
           }
         } catch {}
@@ -9424,7 +9424,7 @@ function App(){
     // Check nap prediction
     const pred = tickDataRef.current.pred;
     if (pred && !pred.isOverdue) {
-      const [ph, pm] = pred.napStart_min.split(":").map(Number);
+      const ph = Math.floor(pred.napStart_min/60), pm = Math.round(pred.napStart_min%60);
       const minsUntil = ph * 60 + pm - nowMins;
       if (minsUntil > 0 && minsUntil <= 10) return { emoji: "😴", text: `Nap window is open — look for sleepy cues.`, priority: "high", why: `Sleep pressure (adenosine) has been building since the last sleep. At ${fmtAge(age)}, the wake window is ${pred.wakeWindowMin||""}–${pred.wakeWindowMax||""} min. Putting ${name} down in this window means they'll settle faster and sleep longer.` };
       if (minsUntil > 10 && minsUntil <= 20) return { emoji: "😴", text: `Nap window opening in ~${minsUntil} minutes. Watch for early tired cues.`, priority: "high", why: `Sleep pressure (adenosine) has been building since the last sleep. At ${fmtAge(age)}, the wake window is ${pred.wakeWindowMin||""}–${pred.wakeWindowMax||""} min. Putting ${name} down in this window means they'll settle faster and sleep longer.` };
@@ -11344,7 +11344,7 @@ function App(){
     try {
       const _notifPred = tickDataRef.current.pred;
       if (_notifPred && _notifPred.napStart_min) {
-        const _np = _notifPred.napStart_min.split(":").map(Number);
+        const _np = [Math.floor(_notifPred.napStart_min/60), Math.round(_notifPred.napStart_min%60)];
         _notifNapMins = _np[0]*60+_np[1];
       }
     } catch {}
