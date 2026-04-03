@@ -18714,45 +18714,71 @@ function App(){
                     napIdx++;
                   }
 
-                  // Calculate bedtime first, then check if bridge nap is needed
-                  const dns = dynamicNapStructure();
-                  const needsBridge = dns && dns.bridgeNap;
+                  // Check if gap to bedtime is too long — add nap 3 or bridge
                   const bedPred = bedtimePrediction();
                   let bedM = bedPred ? timeVal(bedPred) : 19*60;
                   let bedTime = bedPred && bedPred.time ? bedPred.time : mtp(bedM);
+                  const gapToBed = bedM - cursor;
 
-                  // Clamp bedtime to wake window limits from last nap
-                  const minBedFromCursor = cursor + ww.min;
-                  const maxBedFromCursor = cursor + ww.max;
-                  if (bedM < minBedFromCursor) {
-                    bedM = clampBedtime(minBedFromCursor, w);
-                    bedTime = mtp(bedM);
-                  } else if (bedM > maxBedFromCursor) {
-                    bedM = clampBedtime(maxBedFromCursor, w);
+                  // If gap to bedtime > max WW, baby needs another nap to bridge
+                  if (gapToBed > ww.max && napIdx >= expectedTotal) {
+                    // Can we fit a proper nap 3?
+                    const nap3Start = cursor + ww.min;
+                    const nap3End = nap3Start + Math.min(avgNapDur, 45); // shorter nap 3
+                    const gapAfterNap3 = bedM - nap3End;
+
+                    if (gapAfterNap3 >= ww.min && nap3End < bedM - 30) {
+                      // Proper nap 3 fits — add it
+                      items.push({
+                        icon: "\u23F1\uFE0F", label: `Nap ${napIdx+1}`,
+                        time: `${fmt12(mtp(nap3Start))} – ${fmt12(mtp(nap3End))}`,
+                        sub: `~${hm(nap3End - nap3Start)} \u2014 shorter nap to reach bedtime`,
+                        predicted: true, mins: nap3Start
+                      });
+                      hasPredictions = true;
+                      cursor = nap3End;
+                      napIdx++;
+                    } else {
+                      // Not enough room for nap 3 — add bridge nap (20min catnap)
+                      const bridgeStart = cursor + Math.round(ww.min * 0.8);
+                      const bridgeDur = 20;
+                      if (bridgeStart + bridgeDur < bedM - 30) {
+                        items.push({
+                          icon: "\u{1F309}", label: "Bridge nap",
+                          time: `${fmt12(mtp(bridgeStart))} – ${fmt12(mtp(bridgeStart + bridgeDur))}`,
+                          sub: "~20m \u2014 catnap to reach bedtime comfortably",
+                          predicted: true, bridge: true, mins: bridgeStart
+                        });
+                        hasPredictions = true;
+                        cursor = bridgeStart + bridgeDur;
+                      }
+                    }
+                    // Recalculate bedtime from new cursor position
+                    const newBedM = cursor + Math.round((ww.min + ww.max) / 2);
+                    bedM = clampBedtime(newBedM, w);
                     bedTime = mtp(bedM);
                   }
 
-                  // Bridge nap: if gap to bedtime exceeds max WW even after clamping
-                  const lastWW = bedM - cursor;
-                  if (needsBridge || (lastWW > ww.max * 1.1 && napIdx >= expectedTotal)) {
+                  // Also check dynamicNapStructure bridge recommendation
+                  const dns = dynamicNapStructure();
+                  if (dns && dns.bridgeNap && !items.some(it => it.bridge)) {
                     const bridgeStart = cursor + Math.round(ww.min * 0.8);
                     const bridgeDur = 20;
-                    if (bridgeStart + bridgeDur < bedM) {
+                    if (bridgeStart + bridgeDur < bedM - 30) {
                       items.push({
                         icon: "\u{1F309}", label: "Bridge nap",
                         time: `${fmt12(mtp(bridgeStart))} – ${fmt12(mtp(bridgeStart + bridgeDur))}`,
-                        sub: "~20m \u2014 helps baby reach bedtime comfortably",
+                        sub: "~20m \u2014 catnap to reach bedtime comfortably",
                         predicted: true, bridge: true, mins: bridgeStart
                       });
                       hasPredictions = true;
                       cursor = bridgeStart + bridgeDur;
-                      // Recalculate bedtime after bridge nap
                       bedM = clampBedtime(cursor + Math.round((ww.min + ww.max) / 2), w);
                       bedTime = mtp(bedM);
                     }
                   }
 
-                  // Final bedtime display
+                  // Bedtime display
                   if (bedPred || bedM) {
                     // Add note if fewer naps than expected due to long nap/late wake
                     let napNote = "";
