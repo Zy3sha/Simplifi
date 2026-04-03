@@ -3780,6 +3780,10 @@ function App(){
   const[bedTimerDay,setBedTimerDay]=useState(()=>{try{return localStorage.getItem("bed_timer_day")||null;}catch{return null;}});
   const[bedPaused,setBedPaused]=useState(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}});
   const[bedPauseStart,setBedPauseStart]=useState(()=>{try{return parseInt(localStorage.getItem("bed_pause_start"))||null;}catch{return null;}});
+  // Refs for tick callback to avoid stale closure (tick runs in setInterval)
+  const bedPausedRef = useRef(false);
+  const bedPauseStartRef = useRef(null);
+  useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;},[bedPaused,bedPauseStart]);
   const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
   const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
@@ -5987,8 +5991,8 @@ function App(){
         if(elapsed < 0) elapsed += 24*3600;
         if(elapsed >= 0 && elapsed < 14*3600) {
           // If bed timer is paused, freeze the display at the pause moment
-          if (bedPaused && bedPauseStart) {
-            const pausedAt = Math.floor((bedPauseStart - eventDate.getTime()) / 1000);
+          if (bedPausedRef.current && bedPauseStartRef.current) {
+            const pausedAt = Math.floor((bedPauseStartRef.current - eventDate.getTime()) / 1000);
             setNightElapsed(Math.max(0, pausedAt));
           } else {
             setNightElapsed(elapsed);
@@ -6299,10 +6303,10 @@ function App(){
         theme: "light",
         updatedAt: Date.now(),
         // When bed timer is paused, don't show elapsed timer on widget (it would be wrong)
-        activeTimer: (activeTimer && !(activeTimer === "bed" && bedPaused)) ? String(activeTimer) : null,
-        timerStartTime: (timerStartTime && !(activeTimer === "bed" && bedPaused)) ? String(timerStartTime) : null,
-        timerStartMs: (timerStartMs && !(activeTimer === "bed" && bedPaused)) ? parseFloat(timerStartMs) : null,
-        timerLabel: bedPaused ? "Baby awake" : (timerLabel ? String(timerLabel) : null),
+        activeTimer: (activeTimer && !(activeTimer === "bed" && bedPausedRef.current)) ? String(activeTimer) : null,
+        timerStartTime: (timerStartTime && !(activeTimer === "bed" && bedPausedRef.current)) ? String(timerStartTime) : null,
+        timerStartMs: (timerStartMs && !(activeTimer === "bed" && bedPausedRef.current)) ? parseFloat(timerStartMs) : null,
+        timerLabel: bedPausedRef.current ? "Baby awake" : (timerLabel ? String(timerLabel) : null),
         breastSide: activeSide ? String(activeSide) : null,
         showNursing: !!showNursing,
         lastBreastSide: (function(){ try{ return localStorage.getItem("last_breast_side")||null; }catch{ return null; } })()
@@ -14525,6 +14529,7 @@ function App(){
   }
 
   function pauseBedTimer(){
+    console.log("[BED] pauseBedTimer called, setting bedPaused=true");
     haptic();
     setBedPaused(true);
     setBedPauseStart(Date.now());
