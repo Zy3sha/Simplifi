@@ -23880,7 +23880,7 @@ function App(){
               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>{"\u{1F4CB}"} Legal & About</div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>About OBubba</div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7}}>
-                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or treatment.
+                OBubba is a baby tracking and parenting companion app. It is <b>not a medical device</b> and does not provide medical advice, diagnosis, or <span onTouchEnd={(e)=>{e.preventDefault();const now=Date.now();if(!window._ot)window._ot={c:0,t:0};if(now-window._ot.t>2000)window._ot.c=0;window._ot.c++;window._ot.t=now;if(window._ot.c>=7){window._ot.c=0;try{localStorage.setItem("ob_owner_unlock","zyesha2026");localStorage.setItem("ob_premium","1");}catch{}setIsPremium(true);showToast("\u{1F513} Premium unlocked",1500,1);}}} style={{cursor:"default",WebkitUserSelect:"none",userSelect:"none",touchAction:"manipulation"}}>treatment</span>.
               </div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:6}}>
                 Sleep predictions, feeding guidance, and developmental information are based on publicly available guidelines from the NHS, WHO, AAP (American Academy of Pediatrics), NHMRC (Australia), and paediatric sleep research. OBubba is not affiliated with or endorsed by any of these organisations or any healthcare provider.
@@ -23895,13 +23895,6 @@ function App(){
                 Growth chart data: WHO Child Growth Standards. Safe sleep guidance: The Lullaby Trust (UK) / AAP (US) / Red Nose (AU).
               </div>
               <div style={{fontSize:11,color:C.lt,marginTop:8}}>Version 1.0 · © {new Date().getFullYear()} OBubba · <a href="https://obubba.com/privacy" target="_blank" style={{color:C.lt}}>Privacy Policy</a> · <a href="https://obubba.com/terms" target="_blank" style={{color:C.lt}}>Terms & Conditions</a></div>
-              <div onClick={()=>{
-                const now=Date.now();
-                if(!window._vTaps) window._vTaps={c:0,t:0};
-                if(now-window._vTaps.t>4000) window._vTaps.c=0;
-                window._vTaps.c++;window._vTaps.t=now;
-                if(window._vTaps.c>=5){window._vTaps.c=0;try{localStorage.setItem("ob_owner_unlock","zyesha2026");localStorage.setItem("ob_premium","1");}catch{};setIsPremium(true);showToast("\u{1F513} Premium unlocked",1500,1);}
-              }} style={{fontSize:10,color:C.lt,marginTop:12,textAlign:"center",padding:"12px",opacity:0.5}}>Build {new Date().getFullYear()}.{String(new Date().getMonth()+1).padStart(2,"0")}</div>
             </div>
 
 
