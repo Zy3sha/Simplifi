@@ -6151,7 +6151,7 @@ function App(){
         var td = tickDataRef.current || {};
         // If next predicted nap is within 30 min of bedtime, it IS bedtime — show "Bed"
         // Call predictNextNap() directly so widget always matches hero card & Today's Plan
-        var _freshPred = (isPremium || trialActive) ? (function(){ try { return predictNextNap(); } catch(e) { return null; } })() : null;
+        var _freshPred = tickDataRef.current.pred;
         var _napMinsForWidget = td.nextNapMins;
         if (_freshPred && _freshPred.napStart_min) {
           var _pp = _freshPred.napStart_min.split(":").map(Number);
@@ -6313,7 +6313,7 @@ function App(){
 
     // Bedtime prediction: after last nap end + last WW, clamped to age max
     let bedMins = null;
-    try { const bp = bedtimePrediction(); if (bp && bp.time) { const [bh,bm]=bp.time.split(":").map(Number); bedMins = bh*60+bm; } } catch {}
+    try { const bp = tickDataRef.current.bed; if (bp && bp.time) { const [bh,bm]=bp.time.split(":").map(Number); bedMins = bh*60+bm; } } catch {}
     if (!bedMins && lastAwakeMins !== null && (napsComplete || bridgeNapNeeded)) {
       bedMins = lastAwakeMins + wwMid;
       const maxBed = clampBedtime(24*60, ageWeeks);
@@ -6337,7 +6337,7 @@ function App(){
         if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
         else lastNightEvent = lw.time;
       }
-      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded };
+      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins };
       // Bad Night Badge — solidarity after rough nights
       try {
         const _bnKey = "ob_bad_night_" + selDay;
@@ -6348,7 +6348,7 @@ function App(){
         }
       } catch {}
     } else {
-      tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded };
+      tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins };
     }
     // Keep pred/bed for other consumers (premium/trial only for personal predictions)
     try { tickDataRef.current.pred = (isPremium || trialActive) ? predictNextNap() : null; } catch {}
@@ -6404,7 +6404,7 @@ function App(){
       if (!td.napsComplete) {
         // Call predictNextNap() directly so DI/LA always matches hero card & Today's Plan
         let _napM = td.nextNapMins;
-        const _freshPredLA = (isPremium || trialActive) ? (function(){ try { return predictNextNap(); } catch(e) { return null; } })() : null;
+        const _freshPredLA = tickDataRef.current.pred;
         if (_freshPredLA && _freshPredLA.napStart_min) {
           const _pp = _freshPredLA.napStart_min.split(":").map(Number);
           _napM = _pp[0]*60+_pp[1];
@@ -6536,10 +6536,20 @@ function App(){
       setNightElapsed(null);
 
       // ── PHASE 2: Naps still to go → show countdown to next nap ──
-      // Read from tickDataRef.current.pred (computed once in useMemo, not per tick)
+      // ALL surfaces read from tickDataRef — single source of truth
       if (!td.napsComplete) {
         const _cachedPred = td.pred;
-        const _countdownNapMins = _cachedPred && typeof _cachedPred.napStart_min === "number" && !isNaN(_cachedPred.napStart_min) ? _cachedPred.napStart_min : td.nextNapMins;
+        // Premium: use personal prediction. Free: use progressive WW (not just midpoint)
+        let _countdownNapMins;
+        if (_cachedPred && typeof _cachedPred.napStart_min === "number" && !isNaN(_cachedPred.napStart_min)) {
+          _countdownNapMins = _cachedPred.napStart_min;
+        } else if (td.lastAwakeMins !== null && age) {
+          // Free users: progressive WW from research
+          const _freeWW = clampWakeWindow(progressiveWW(age.totalWeeks, td.napsDone || 0, td.expectedNaps || 3), age.totalWeeks);
+          _countdownNapMins = td.lastAwakeMins + _freeWW;
+        } else {
+          _countdownNapMins = td.nextNapMins;
+        }
         if (_countdownNapMins !== null && typeof _countdownNapMins === "number" && !isNaN(_countdownNapMins)) {
           setBedCountdown(null);
           const diffSec = Math.round((_countdownNapMins - nowMins) * 60);
@@ -6551,7 +6561,7 @@ function App(){
       // ── PHASE 3: All naps done → bedtime countdown ──
       // Call bedtimePrediction() directly so countdown matches Today's Plan exactly
       if (td.napsComplete) {
-        const _countdownBed = bedtimePrediction ? bedtimePrediction() : null;
+        const _countdownBed = tickDataRef.current.bed;
         const _countdownBedMins = _countdownBed && typeof _countdownBed.bedMins === "number" && !isNaN(_countdownBed.bedMins) ? _countdownBed.bedMins : td.bedMins;
         if (_countdownBedMins !== null && typeof _countdownBedMins === "number" && !isNaN(_countdownBedMins)) {
           setNapCountdown(null);
@@ -6597,7 +6607,7 @@ function App(){
         // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
         let _predNapMins = td.nextNapMins;
         try {
-          const _predFresh = (isPremium || trialActive) ? predictNextNap() : null;
+          const _predFresh = tickDataRef.current.pred;
           if (_predFresh && _predFresh.napStart_min) {
             const _pf = _predFresh.napStart_min.split(":").map(Number);
             _predNapMins = _pf[0]*60+_pf[1];
@@ -6709,7 +6719,7 @@ function App(){
     // This ensures hero card matches Today's Plan exactly
     try {
       if (_napsDone > 0 && !napOn) {
-        const _heroP = predictNextNap();
+        const _heroP = tickDataRef.current.pred;
         if (!_heroP) _structExpected = Math.min(_structExpected, _napsDone);
       }
     } catch {}
@@ -6833,7 +6843,7 @@ function App(){
     let _pred = null;
     const _td2 = tickDataRef.current || {};
     if (isPremium || trialActive) {
-      try { _pred = predictNextNap(); } catch {}
+      _pred = tickDataRef.current.pred;
     } else if (_td2.nextNapMins) {
       // Build a fake _pred object from the simple midpoint so the hero card displays it
       const _simH = Math.floor(_td2.nextNapMins/60)%24, _simM = _td2.nextNapMins%60;
@@ -6841,7 +6851,7 @@ function App(){
       const _nowMins2 = new Date().getHours()*60+new Date().getMinutes();
       _pred = { napStart_min: _simStr, napStart_max: _simStr, sourceLabel: "age-appropriate guidelines", isOverdue: _nowMins2 > _td2.nextNapMins };
     }
-    let _bed = null; try { _bed = bedtimePrediction(); } catch {}
+    let _bed = null; _bed = tickDataRef.current.bed;
 
     // ── Night feed hint (newborns need scheduled feeds) ──
     const _needsScheduledNightFeeds = _w < 6 || (weights && weights.length >= 2 && weights[weights.length-1].kg < weights[0].kg);
@@ -8431,7 +8441,7 @@ function App(){
       if (beforeNoon) return "suppressed";
       if (isToday && !afterAfternoon) return "suppressed";
       // Bug 2 Fix: only trigger alert when it's impossible to reach target before bedtime
-      const bed2 = bedtimePrediction();
+      const bed2 = tickDataRef.current.bed;
       const bed2Mins = bed2
         ? (()=>{ const [bh,bm]=bed2.time.split(":").map(Number); return bh*60+bm; })()
         : 19*60;
@@ -9411,7 +9421,7 @@ function App(){
     const w = age.totalWeeks;
 
     // Check nap prediction
-    const pred = predictNextNap();
+    const pred = tickDataRef.current.pred;
     if (pred && !pred.isOverdue) {
       const [ph, pm] = pred.napStart_min.split(":").map(Number);
       const minsUntil = ph * 60 + pm - nowMins;
@@ -9428,7 +9438,7 @@ function App(){
     if (h >= 14 && wetCount < 4) return { emoji: "💧", text: `${wetCount} wet nappies today — aim for 6+ in 24 hours for adequate hydration.`, priority: "med", why: "NHS guidance recommends 6+ wet nappies in 24 hours as a sign of adequate hydration. Fewer wet nappies, especially in the afternoon, may mean baby needs more milk." };
 
     // Check bedtime approaching — two-stage alert
-    const bed = bedtimePrediction();
+    const bed = tickDataRef.current.bed;
     if (bed && !bed.estimated) {
       const [bh, bm] = bed.time.split(":").map(Number);
       const minsUntilBed = bh * 60 + bm - nowMins;
@@ -10810,7 +10820,7 @@ function App(){
     const nowMins = new Date().getHours()*60 + new Date().getMinutes();
     const wakeEntry = findMorningWake(today);
     const bedEntry  = today.find(e=>e.type==="sleep"&&!e.night);
-    const sugBed    = bedtimePrediction();
+    const sugBed    = tickDataRef.current.bed;
     const wakeMin   = wakeEntry ? timeVal(wakeEntry) : 7*60;
 
     const bedMinLogged = bedEntry ? timeVal(bedEntry) : null;
@@ -11330,7 +11340,7 @@ function App(){
     // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
     let _notifNapMins = td.nextNapMins;
     try {
-      const _notifPred = (isPremium || trialActive) ? predictNextNap() : null;
+      const _notifPred = tickDataRef.current.pred;
       if (_notifPred && _notifPred.napStart_min) {
         const _np = _notifPred.napStart_min.split(":").map(Number);
         _notifNapMins = _np[0]*60+_np[1];
@@ -11819,7 +11829,7 @@ function App(){
     }
 
     // ── Looking ahead ──
-    const _pred = predictNextNap();
+    const _pred = tickDataRef.current.pred;
     if (_pred && !_pred.isOverdue && !_bedE && !napOn) {
       const _pParts = _pred.napStart_min.split(":").map(Number);
       const _mUntil = Math.max(0, _pParts[0] * 60 + _pParts[1] - _nowM);
@@ -11828,7 +11838,7 @@ function App(){
         lines.push(src + ", the next nap window opens around " + fmt12(_pred.napStart_min) + ". Watch for sleepy cues a few minutes before.");
       }
     } else if (!_pred && !_bedE && _naps.length >= _profile.expectedNaps) {
-      const _bed = bedtimePrediction();
+      const _bed = tickDataRef.current.bed;
       if (_bed && !_bed.estimated) lines.push("All naps done for the day. Bedtime is looking like " + fmt12(_bed.time) + " — start the wind-down about 20 minutes before.");
     }
 
@@ -12362,7 +12372,7 @@ function App(){
       // Call bedtimePrediction() directly so it matches Today's Plan exactly
       let _freshBedMins = _td.bedMins;
       try {
-        const _freshBed = bedtimePrediction();
+        const _freshBed = tickDataRef.current.bed;
         if (_freshBed && _freshBed.time) {
           const _bp = _freshBed.time.split(":").map(Number);
           _freshBedMins = _bp[0] * 60 + _bp[1];
@@ -12846,7 +12856,7 @@ function App(){
     let _pred;
     const _td3 = tickDataRef.current || {};
     if (isPremium || trialActive) {
-      _pred = predictNextNap();
+      _pred = tickDataRef.current.pred;
     } else if (_td3.nextNapMins) {
       const _sH = Math.floor(_td3.nextNapMins/60)%24, _sM = _td3.nextNapMins%60;
       const _sStr = `${String(_sH).padStart(2,"0")}:${String(_sM).padStart(2,"0")}`;
@@ -12869,7 +12879,7 @@ function App(){
 
     // Bedtime approaching — ONLY if all expected naps are done
     if (_naps.length >= _profile.expectedNaps) {
-      const _bed = bedtimePrediction();
+      const _bed = tickDataRef.current.bed;
       if (_bed && !_bed.estimated) {
         const _bP = _bed.time.split(":").map(Number);
         const _mBed = Math.max(0, _bP[0] * 60 + _bP[1] - _nowM);
@@ -14561,7 +14571,7 @@ function App(){
   function startNap(){
     if (napOn) return;
     // Save current prediction for accuracy tracking
-    try { lastPredRef.current = predictNextNap(); } catch { lastPredRef.current = null; }
+    try { lastPredRef.current = tickDataRef.current.pred; } catch { lastPredRef.current = null; }
     const t=nowTime();
     const entryId=uid();
     // Log nap entry immediately with start time (end will be filled when timer stops)
@@ -15051,10 +15061,10 @@ function App(){
     const lastNap = naps.length ? naps[naps.length - 1] : null;
 
     // Bedtime prediction
-    const bed = bedtimePrediction();
+    const bed = tickDataRef.current.bed;
 
     // Next nap prediction
-    const pred = predictNextNap();
+    const pred = tickDataRef.current.pred;
 
     // Wake window info
     const ww = age ? getWakeWindow(age.totalWeeks) : null;
@@ -17760,7 +17770,7 @@ function App(){
                 );
               }
               // Check if bridge nap is forced (wake window would be unsafe)
-              const _bedPred = bedtimePrediction();
+              const _bedPred = tickDataRef.current.bed;
               if (isBed && _bedPred?.forceBridge && !bridgeNapScheduled) {
                 return (
                   <button onClick={()=>{haptic(20);startNap();setBridgeNap(true);showToast("🌉 Bridge nap started",2000,1);}}
@@ -18307,8 +18317,8 @@ function App(){
               {/* 5. Today's summary stats — nap/bed card hidden (Hero Card handles this) */}
               {false && (()=>{
                 const hasBed = dayE.some(e=>e.type==="sleep");
-                const pred = predictNextNap();
-                const suggestedBed = bedtimePrediction();
+                const pred = tickDataRef.current.pred;
+                const suggestedBed = tickDataRef.current.bed;
                 const bridgeRisk = earlyBedtimeRisk();
                 if(hasBed) return null;
                 if(!pred && !suggestedBed && !bridgeRisk?.suggestBridge) return null;
@@ -18846,7 +18856,7 @@ function App(){
                   }
 
                   // Blend bedtime lightly with historical average (90% WW, 10% historical)
-                  const bedPred = bedtimePrediction();
+                  const bedPred = tickDataRef.current.bed;
                   if (bedPred && bedPred.time) {
                     const histBedM = timeVal(bedPred);
                     if (typeof histBedM === "number" && !isNaN(histBedM)) {
@@ -20299,10 +20309,10 @@ function App(){
                   {false && (()=>{
                     const score = sleepScore();
                     const advice = sleepAdvice();
-                    const suggestedBed = bedtimePrediction();
+                    const suggestedBed = tickDataRef.current.bed;
                     const hasNap = (days[selDay]||[]).some(e=>e.type==="nap");
                     const actualBedEntry = dayE.find(e=>e.type==="sleep");
-                    const pred = predictNextNap();
+                    const pred = tickDataRef.current.pred;
                     const minsAway = pred ? minutesUntil(pred.napStart_min) : null;
                     const stability = sleepStabilityScore();
                     const outlook = sleepPressureOutlook();
