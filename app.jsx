@@ -18540,16 +18540,25 @@ function App(){
                         {_freeWakeMin !== null && (
                           <div style={{marginBottom:8}}>
                             <div style={{fontSize:11,color:C.lt,marginBottom:4}}>Based on wake at {_fmtMin(_freeWakeMin)}, NHS guidelines suggest:</div>
-                            {Array.from({length:_freeProfile.expectedNaps}).map((_,i) => {
-                              const napStart = _freeWakeMin + (_freeWW.min + _freeWW.max) / 2 * (i + 1);
-                              return (
-                                <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
+                            {(()=>{
+                              const wwMid = (_freeWW.min + _freeWW.max) / 2;
+                              const avgNapDur = (_freeProfile.idealNapDurMin + _freeProfile.idealNapDurMax) / 2;
+                              const napItems = [];
+                              let cursor = _freeWakeMin;
+                              for (let i = 0; i < _freeProfile.expectedNaps; i++) {
+                                const napStart = cursor + wwMid;
+                                const napEnd = napStart + avgNapDur;
+                                napItems.push({start: napStart, end: napEnd, idx: i});
+                                cursor = napEnd; // next nap starts after this one ends + WW
+                              }
+                              return napItems.map(n => (
+                                <div key={n.idx} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
                                   <span style={{fontSize:12}}>{"\u{1F634}"}</span>
-                                  <span style={{fontSize:12,color:C.mid}}>Nap {i+1} around <strong style={{color:C.deep}}>{_fmtMin(napStart)}</strong></span>
+                                  <span style={{fontSize:12,color:C.mid}}>Nap {n.idx+1} around <strong style={{color:C.deep}}>{_fmtMin(n.start)}</strong></span>
                                   <span style={{fontSize:10,color:C.lt}}>(guideline)</span>
                                 </div>
-                              );
-                            })}
+                              ));
+                            })()}
                           </div>
                         )}
                       </div>
