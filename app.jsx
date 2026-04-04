@@ -6597,6 +6597,8 @@ function App(){
       if (td.hasBedtime) {
         setNapCountdown(null);
         setBedCountdown(null);
+        // When bed timer is paused, DON'T recalculate — keep frozen value
+        if (bedPausedRef.current) { return; }
         const timerFrom = td.lastNightEvent || td.bedEntryTime;
         if (timerFrom && !td.nextDayHasWake) {
           const [eh,em] = timerFrom.split(":").map(Number);
