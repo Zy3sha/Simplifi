@@ -2065,54 +2065,84 @@ const DEV_PHASES = [
 ];
 
 const DEV_ACTIVITIES = [
-
+  // ── 0-8 weeks (newborn) ──
   { id:"a1",  weeks:[0,8],  cat:"visual",   title:"Object Tracking",        how:"Hold a high-contrast card or toy about 25cm from their face and slowly move it side to side. Follow their eyes.", why:"Trains eye muscles and builds early focus and visual tracking skills." },
   { id:"a2",  weeks:[0,8],  cat:"social",   title:"Face Time",              how:"Hold your face 20-30cm away and make slow, exaggerated expressions. Pause and wait for a reaction.", why:"Encourages early social smiling and teaches babies about emotional cues." },
   { id:"a3",  weeks:[0,8],  cat:"motor",    title:"Tummy Time",             how:"Place baby on their tummy on a firm surface for 1-2 minutes, 2-3 times a day. Be right next to them.", why:"Builds neck, shoulder and core strength needed for rolling and crawling." },
   { id:"a4",  weeks:[0,8],  cat:"language", title:"Sound Mapping",          how:"Call their name softly from slightly to the left, then right. Watch for head turning toward your voice.", why:"Builds sound localisation — an early foundation of language development." },
+  { id:"a41", weeks:[0,8],  cat:"sensory",  title:"Skin-to-Skin Cuddles",   how:"Strip baby down to nappy, place them on your bare chest. Cover with a blanket. Just breathe together.", why:"Regulates heartbeat, temperature and stress. The most powerful thing you can do in the first weeks." },
+  { id:"a42", weeks:[0,8],  cat:"sensory",  title:"Gentle Touch Massage",   how:"With clean hands, gently stroke baby's legs, arms and tummy in slow downward strokes. Use coconut oil if you like.", why:"Touch builds the body map in baby's brain. Massage reduces colic and helps them sleep." },
+  { id:"a43", weeks:[0,8],  cat:"language", title:"Narrate Your Day",       how:"Talk through everything you're doing: 'Now we're making a cup of tea. Can you hear the kettle? It's very loud!' Use a warm, sing-song voice.", why:"Babies absorb language from birth. By 8 weeks they can distinguish your language from others." },
 
+  // ── 8-16 weeks (2-4 months) ──
   { id:"a5",  weeks:[8,16], cat:"motor",    title:"Supported Sitting",      how:"Sit baby on your lap facing outward with your hands loosely supporting their torso. Let them find their balance.", why:"Builds core stability and balance in preparation for independent sitting." },
   { id:"a6",  weeks:[8,16], cat:"visual",   title:"Colour Contrast Play",   how:"Show bright, single-colour objects one at a time — red, then yellow. Hold still and let them look for 30 seconds.", why:"Stimulates colour perception and sustained attention." },
   { id:"a7",  weeks:[8,16], cat:"social",   title:"Serve & Return",         how:"When baby coos or makes a sound, respond with the same sound back. Wait for them to respond, then reply again.", why:"Models turn-taking and lays the groundwork for conversation." },
   { id:"a8",  weeks:[8,16], cat:"motor",    title:"Grasp & Reach",          how:"Hold a light rattle near their open hand. Let them feel it, then move it just out of reach. Encourage reaching.", why:"Develops intentional reaching and hand-eye coordination." },
+  { id:"a44", weeks:[8,16], cat:"sensory",  title:"Crinkle & Texture Play", how:"Let baby hold crinkly paper, a soft muslin, a silicone teether. Swap textures every minute. Watch their face as they explore.", why:"Different textures light up different parts of the brain. This is how babies learn about the physical world." },
+  { id:"a45", weeks:[8,16], cat:"sensory",  title:"Water Play in the Bath",  how:"During bath time, gently pour water over their hands and feet. Let them kick and splash. Talk about warm, wet, splashy.", why:"Water play is multi-sensory — temperature, touch, sound and movement all at once." },
+  { id:"a46", weeks:[8,16], cat:"motor",    title:"Baby Bicycle Legs",       how:"Lay baby on their back and gently cycle their legs like they're riding a bicycle. Sing a song while you do it.", why:"Relieves trapped wind, strengthens leg muscles, and builds body awareness." },
 
+  // ── 16-26 weeks (4-6 months) ──
   { id:"a9",  weeks:[16,26], cat:"motor",   title:"Roll Support",           how:"Place baby on their back on a mat. Gently bend one knee across their body to prompt a roll. Go slowly.", why:"Teaches the rotation pattern needed for rolling front-to-back." },
-  { id:"a10", weeks:[16,26], cat:"language","title":"Name Everything",      how:"As you move through the day, name objects clearly: spoon, cup, dog. Pause after each word.", why:"Builds vocabulary and links words to objects before they can speak." },
-  { id:"a11", weeks:[16,26], cat:"cognitive","title":"Peek-a-Boo",          how:"Hold a cloth in front of your face, pause, then drop it and say boo. Start slow, then speed up.", why:"Introduces object permanence — the idea that things exist when hidden." },
+  { id:"a10", weeks:[16,26], cat:"language", title:"Name Everything",       how:"As you move through the day, name objects clearly: spoon, cup, dog. Pause after each word.", why:"Builds vocabulary and links words to objects before they can speak." },
+  { id:"a11", weeks:[16,26], cat:"cognitive", title:"Peek-a-Boo",           how:"Hold a cloth in front of your face, pause, then drop it and say boo. Start slow, then speed up.", why:"Introduces object permanence — the idea that things exist when hidden." },
   { id:"a12", weeks:[16,26], cat:"social",  title:"Mirror Play",            how:"Hold baby in front of a baby-safe mirror. Point to their reflection and say their name. Make faces together.", why:"Builds self-recognition and identity awareness." },
+  { id:"a47", weeks:[16,26], cat:"sensory",  title:"Sensory Bag",           how:"Fill a ziplock bag with hair gel and glitter or small toys. Seal it tight with tape. Let baby squish and press it on a flat surface.", why:"Safe mess-free sensory play. Builds cause-and-effect understanding and fine motor pressure control." },
+  { id:"a48", weeks:[16,26], cat:"sensory",  title:"Feet on Grass",         how:"Take off baby's socks and let their bare feet touch grass, sand, or a textured mat outside. Hold them upright or lay them down.", why:"New textures under their feet activate thousands of nerve endings. Nature is the best sensory classroom." },
+  { id:"a49", weeks:[16,26], cat:"motor",    title:"Sitting Practice",      how:"Sit baby on the floor with cushions around them. Place toys just in front so they have to balance to reach. Stay close.", why:"At this age babies are building the core strength to sit alone. Short practice sessions build confidence fast." },
+  { id:"a50", weeks:[16,26], cat:"language", title:"Singing with Actions",  how:"Sing 'Row Row Row Your Boat' holding hands and rocking, or 'Wind the Bobbin Up' with hand movements. Repeat the same songs daily.", why:"Repetition + rhythm + movement = language gold. Babies learn words faster when they're paired with actions." },
 
+  // ── 26-40 weeks (6-9 months) ──
   { id:"a13", weeks:[26,40], cat:"motor",   title:"Supported Standing",     how:"Hold baby upright with feet flat on your lap or a firm surface. Let them push down and bear their own weight.", why:"Strengthens leg muscles and reinforces the motor pattern for standing." },
-  { id:"a14", weeks:[26,40], cat:"cognitive","title":"Object Hide & Seek",  how:"Show baby a toy, then hide it under a cup while they watch. Encourage them to lift the cup to find it.", why:"Directly develops object permanence — a key cognitive milestone." },
-  { id:"a15", weeks:[26,40], cat:"language","title":"Simple Signs",         how:"Use consistent hand signs for more, milk and all done every time you say the word. Be patient.", why:"Gives babies a way to communicate before speech develops, reducing frustration." },
+  { id:"a14", weeks:[26,40], cat:"cognitive", title:"Object Hide & Seek",   how:"Show baby a toy, then hide it under a cup while they watch. Encourage them to lift the cup to find it.", why:"Directly develops object permanence — a key cognitive milestone." },
+  { id:"a15", weeks:[26,40], cat:"language", title:"Simple Signs",          how:"Use consistent hand signs for more, milk and all done every time you say the word. Be patient.", why:"Gives babies a way to communicate before speech develops, reducing frustration." },
   { id:"a16", weeks:[26,40], cat:"motor",   title:"Pincer Practice",        how:"Scatter small puffs or cereal on a highchair tray. Encourage picking them up one at a time.", why:"Develops the pincer grip needed for fine motor skills and self-feeding." },
+  { id:"a51", weeks:[26,40], cat:"sensory",  title:"Messy Play with Food",  how:"Put yoghurt, mashed banana or porridge on the highchair tray. Let baby smear, squish, pat and taste. Resist cleaning up — this IS learning.", why:"Messy food play builds comfort with textures which helps with weaning. Babies who play with food become less fussy eaters." },
+  { id:"a52", weeks:[26,40], cat:"sensory",  title:"Water Pouring",         how:"In the bath or outside, give baby cups and containers. Show them how to pour water from one to another. They'll love the splashing.", why:"Pouring develops hand-eye coordination, cause-and-effect understanding, and early maths concepts like full and empty." },
+  { id:"a53", weeks:[26,40], cat:"motor",    title:"Crawling Obstacle Course",how:"Lay out cushions, rolled towels, and soft toys on the floor. Encourage baby to crawl over, under, and around them to reach a favourite toy.", why:"Crawling over obstacles builds strength, spatial awareness, and problem-solving. Every baby finds their own route." },
+  { id:"a54", weeks:[26,40], cat:"social",   title:"Clapping Games",        how:"Clap your hands and sing 'Pat-a-Cake' or 'If You're Happy and You Know It'. Gently clap baby's hands together if they can't yet.", why:"Clapping songs combine rhythm, language, social interaction, and motor coordination all at once." },
+  { id:"a55", weeks:[26,40], cat:"cognitive", title:"In & Out Box",         how:"Give baby a box or container with interesting objects inside (wooden spoon, ball, fabric). Let them take things out and put them back.", why:"Taking things in and out is how babies learn about containers, objects, and early problem-solving." },
 
+  // ── 40-54 weeks (9-12 months) ──
   { id:"a17", weeks:[40,54], cat:"motor",   title:"Cruising Practice",      how:"Position yourself a step away along the sofa and hold out a favourite toy, encouraging them to side-step toward it.", why:"Builds confidence in weight-shifting — a key step before independent walking." },
-  { id:"a18", weeks:[40,54], cat:"cognitive","title":"Stacking Rings",      how:"Stack the rings together, then take them off one by one naming each. Let baby take them off and attempt to replace.", why:"Develops size discrimination, sequencing, and problem-solving." },
-  { id:"a19", weeks:[40,54], cat:"language","title":"Book Pointing",        how:"Open a simple picture book and say where is the dog? Wait, then point and label. Do this with 3-4 pictures.", why:"Builds receptive language, pointing, and joint attention skills." },
+  { id:"a18", weeks:[40,54], cat:"cognitive", title:"Stacking Rings",       how:"Stack the rings together, then take them off one by one naming each. Let baby take them off and attempt to replace.", why:"Develops size discrimination, sequencing, and problem-solving." },
+  { id:"a19", weeks:[40,54], cat:"language", title:"Book Pointing",         how:"Open a simple picture book and say where is the dog? Wait, then point and label. Do this with 3-4 pictures.", why:"Builds receptive language, pointing, and joint attention skills." },
   { id:"a20", weeks:[40,54], cat:"social",  title:"Cause & Effect Toys",    how:"Offer a pop-up toy or anything with a button that makes something happen. Let them experiment freely.", why:"Reinforces goal-directed thinking and the satisfaction of cause-and-effect." },
+  { id:"a56", weeks:[40,54], cat:"sensory",  title:"Painting with Hands",   how:"Tape paper to the highchair tray. Squirt baby-safe paint (or yoghurt with food colouring). Let them smear, pat, and explore. Their first masterpiece.", why:"Sensory art builds creativity, fine motor skills, and self-expression. Frame it — you'll treasure it." },
+  { id:"a57", weeks:[40,54], cat:"motor",    title:"Ball Rolling",          how:"Sit facing baby with legs apart. Roll a soft ball toward them and encourage them to roll or push it back. Cheer every attempt.", why:"Rolling a ball back and forth teaches turn-taking, hand-eye coordination, and early social play." },
+  { id:"a58", weeks:[40,54], cat:"sensory",  title:"Nature Walk Sensory",   how:"Go outside. Let baby touch leaves, feel tree bark, listen to birds, watch shadows move. Name everything. There's no need to go far.", why:"Nature is the richest sensory environment. Fresh air, natural light, and new textures are unbeatable for development." },
 
-  { id:"a21", weeks:[54,78], cat:"motor",    title:"Walking Practice",       how:"Hold both hands and walk together on different surfaces — grass, carpet, pavement. Gradually move to one hand.", why:"Builds balance and confidence across terrains. NHS expects independent walking by 18 months." },
+  // ── 54-78 weeks (12-18 months) ──
+  { id:"a21", weeks:[54,78], cat:"motor",    title:"Walking on Different Surfaces", how:"Hold both hands and walk together on grass, carpet, sand, pavement. Gradually move to one hand. Try barefoot on safe surfaces.", why:"Walking on different textures builds balance and confidence. Barefoot walking strengthens foot muscles." },
   { id:"a22", weeks:[54,78], cat:"language",  title:"Name & Point",          how:"Throughout the day, point to objects and name them clearly. Ask where is the ball? and pause for them to point.", why:"NHS recommends this to build the 10+ word vocabulary expected by 18 months." },
   { id:"a23", weeks:[54,78], cat:"cognitive", title:"Shape Sorter",          how:"Offer a simple shape sorter with 3–4 shapes. Show how one fits, then hand them a piece and let them try.", why:"Develops spatial reasoning and problem-solving — key skills assessed at NHS 1-year review." },
   { id:"a24", weeks:[54,78], cat:"social",    title:"Doll & Teddy Care",     how:"Give them a doll or teddy and show feeding, cuddling, putting to bed. Let them copy in their own time.", why:"Early pretend play is a key WHO cognitive milestone. It develops empathy and imitation." },
+  { id:"a59", weeks:[54,78], cat:"sensory",   title:"Sand & Mud Play",       how:"Fill a tray with sand or go to a sandpit. Bury toys, make hand prints, pour sand between containers. Mud works too — embrace the mess.", why:"Sand and mud engage every sense. Digging and pouring build hand strength needed for holding cutlery and later writing." },
+  { id:"a60", weeks:[54,78], cat:"motor",     title:"Climbing Safely",       how:"Let them climb onto low furniture, up stairs with you behind, or onto outdoor play equipment. Spot them but let them try.", why:"Climbing builds confidence, spatial awareness, and full-body strength. Supervised risk-taking is healthy." },
+  { id:"a61", weeks:[54,78], cat:"cognitive",  title:"Simple Pretend Play",  how:"Pretend to drink from an empty cup. Pretend to feed teddy. Give baby a toy phone and say hello! Watch them copy.", why:"Pretend play shows baby understands that objects can represent other things — a huge cognitive leap." },
 
+  // ── 78-104 weeks (18-24 months) ──
   { id:"a25", weeks:[78,104], cat:"motor",    title:"Climbing & Jumping",    how:"Visit a soft play area or use sofa cushions on the floor. Encourage climbing up and jumping off low surfaces.", why:"WHO physical activity guidelines recommend 180 min of activity daily for 1–2 year olds, including energetic play." },
   { id:"a26", weeks:[78,104], cat:"language",  title:"Two-Word Phrases",     how:"Model two-word phrases: more milk, big dog, bye daddy. Expand what they say — if they say ball, say yes, red ball.", why:"NHS expects two-word combinations by age 2. Expanding their words is the best way to build sentences." },
   { id:"a27", weeks:[78,104], cat:"cognitive", title:"Simple Puzzles",       how:"Offer 2–4 piece inset puzzles with knobs. Show where one piece goes, then let them complete the rest.", why:"Puzzle-solving builds problem-solving, fine motor control and spatial awareness." },
   { id:"a28", weeks:[78,104], cat:"social",    title:"Turn-Taking Games",    how:"Roll a ball back and forth saying my turn, your turn. Build to simple board games with taking turns.", why:"Turn-taking is a foundation of social skills. NHS 2-year check looks for interactive play." },
+  { id:"a62", weeks:[78,104], cat:"sensory",   title:"Playdough Squishing",  how:"Make playdough together (flour, salt, water, oil). Let them poke, squish, roll, and stamp shapes into it. Hide small toys inside for them to find.", why:"Playdough builds hand strength for writing, sensory processing, and creativity. Making it together is half the fun." },
+  { id:"a63", weeks:[78,104], cat:"motor",     title:"Kicking a Ball",       how:"Place a soft ball in front of them and show how to kick it. Chase after it together. Set up 'goals' with cushions.", why:"Kicking a ball develops balance (standing on one foot briefly), coordination, and spatial awareness." },
 
+  // ── 104-156 weeks (2-3 years) ──
   { id:"a29", weeks:[104,156], cat:"motor",    title:"Obstacle Course",      how:"Set up cushions, boxes and tunnels to climb over, through and around. Time them for added fun.", why:"WHO recommends at least 60 min of energetic physical activity daily for 2–3 year olds." },
   { id:"a30", weeks:[104,156], cat:"language",  title:"Storytelling Together", how:"Tell simple stories using toys or puppets. Pause and ask what happens next or where did teddy go.", why:"NHS guidelines for 2–3 years emphasise narrative skills and asking questions to build 3–5 word sentences." },
   { id:"a31", weeks:[104,156], cat:"cognitive", title:"Counting Games",      how:"Count stairs as you climb, count grapes on the plate, count toes. Use fingers to show numbers.", why:"WHO early learning goals include counting to 3–5 with objects by age 3. Daily counting makes it natural." },
   { id:"a32", weeks:[104,156], cat:"social",    title:"Feelings & Emotions",  how:"Name emotions as they happen: you look frustrated, that made you happy. Use picture books about feelings.", why:"Emotional literacy is a key NHS developmental focus for 2–3 year olds. Naming feelings helps self-regulation." },
 
-  // 3–4 years (weeks 156–208)
+  // ── 3-4 years (weeks 156-208) ──
   { id:"a33", weeks:[156,208], cat:"motor",    title:"Hopscotch & Balance",   how:"Draw a simple hopscotch grid with chalk. Show how to hop on one foot and jump with two. Take turns.", why:"Builds single-leg balance, coordination and gross motor confidence — key milestones for this age." },
-  { id:"a34", weeks:[156,208], cat:"language", title:"Story Sequencing",      how:"After reading a favourite book, ask what happened first and what came next Use 3 simple picture cards to re-order.", why:"Narrative sequencing builds language, memory and early literacy — an NHS focus for 3–4 year olds." },
+  { id:"a34", weeks:[156,208], cat:"language", title:"Story Sequencing",      how:"After reading a favourite book, ask what happened first and what came next. Use 3 simple picture cards to re-order.", why:"Narrative sequencing builds language, memory and early literacy — an NHS focus for 3–4 year olds." },
   { id:"a35", weeks:[156,208], cat:"cognitive",title:"Colour Sorting Games",  how:"Mix buttons, pompoms or blocks of 4–5 colours. Ask them to sort into groups, then count each pile together.", why:"Sorting and counting consolidates early maths concepts aligned with EYFS numeracy goals." },
   { id:"a36", weeks:[156,208], cat:"social",   title:"Role Play Corner",      how:"Set up a simple shop or kitchen with props. Take a role yourself — be the customer. Let them lead.", why:"Imaginative role play develops empathy, language and social understanding — a WHO early learning goal." },
 
-  // 4–5 years (weeks 208–260)
+  // ── 4-5 years (weeks 208-260) ──
   { id:"a37", weeks:[208,260], cat:"motor",    title:"Cutting Practice",      how:"Provide child-safe scissors and strips of paper. Start with single snips, progress to cutting along a line.", why:"Scissor use develops fine motor control, bilateral coordination and school-readiness skills." },
   { id:"a38", weeks:[208,260], cat:"language", title:"Rhyming & Word Play",   how:"Read rhyming books together and pause before the last word. Make up silly rhymes: cat, bat, hat, splat.", why:"Phonological awareness — recognising rhyme and sound patterns — is a key foundation for learning to read." },
   { id:"a39", weeks:[208,260], cat:"cognitive",title:"Counting Stories",      how:"Weave counting into stories — e.g. three bears and three bowls: if one bear finishes, how many bowls are left? Use fingers to count together.", why:"Simple number problems build early maths reasoning aligned with EYFS and school-readiness expectations." },
@@ -2122,6 +2152,7 @@ const DEV_ACTIVITIES = [
 const ACT_CATS = [
   { key:"visual",    label:"Visual",    icon:"👁" },
   { key:"motor",     label:"Movement",  icon:"🌿" },
+  { key:"sensory",   label:"Sensory",   icon:"🖐️" },
   { key:"social",    label:"Social",    icon:"💛" },
   { key:"language",  label:"Language",  icon:"💬" },
   { key:"cognitive", label:"Thinking",  icon:"🔆" },
@@ -18829,7 +18860,35 @@ function App(){
 
 
               {/* ═══ SUB-SCREEN: Wellbeing ═══ */}
-              {daySubScreen==="wellbeing" && (
+              {daySubScreen==="wellbeing" && (()=>{
+                // Self-care checklist state from localStorage
+                const _scKey = "ob_selfcare_" + todayStr();
+                const _scWeekKey = "ob_selfcare_week_" + todayStr().slice(0,7);
+                const _scData = (()=>{try{return JSON.parse(localStorage.getItem(_scKey)||"{}}");}catch{return{};}})();
+                const _scWeek = (()=>{try{return JSON.parse(localStorage.getItem(_scWeekKey)||"{}}");}catch{return{};}})();
+                const _toggleSc = (id) => {haptic();const d={..._scData,[id]:!_scData[id]};try{localStorage.setItem(_scKey,JSON.stringify(d));}catch{}setPartnerTick(t=>t+1);};
+                const _toggleScW = (id) => {haptic();const d={..._scWeek,[id]:!_scWeek[id]};try{localStorage.setItem(_scWeekKey,JSON.stringify(d));}catch{}setPartnerTick(t=>t+1);};
+                const _waterCount = _scData.water||0;
+                const _addWater = ()=>{haptic();const d={..._scData,water:(_scData.water||0)+1};try{localStorage.setItem(_scKey,JSON.stringify(d));}catch{}setPartnerTick(t=>t+1);showToast("💧 "+d.water+"/8 glasses",1000,1);};
+
+                const _dailyItems = [
+                  {id:"eaten",emoji:"🍽",label:"Eaten a proper meal"},
+                  {id:"outside",emoji:"🌿",label:"Been outside (even 2 minutes)"},
+                  {id:"shower",emoji:"🚿",label:"Showered or washed face"},
+                  {id:"rest",emoji:"😴",label:"Rested when baby rested"},
+                  {id:"phone_down",emoji:"📱",label:"Put the phone down for 10 min"},
+                ];
+                const _weeklyItems = [
+                  {id:"friend",emoji:"📞",label:"Called or texted a friend"},
+                  {id:"me_time",emoji:"💛",label:"Did something just for me"},
+                  {id:"help",emoji:"🤝",label:"Asked for or accepted help"},
+                  {id:"partner",emoji:"💕",label:"Checked in with my partner"},
+                  {id:"moved",emoji:"🚶",label:"Went for a walk or moved my body"},
+                ];
+                const _dailyDone = _dailyItems.filter(i=>_scData[i.id]).length;
+                const _weeklyDone = _weeklyItems.filter(i=>_scWeek[i.id]).length;
+
+                return (
                 <div>
                   <button onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={{fontSize:16}}>‹</span> Back
@@ -18838,50 +18897,99 @@ function App(){
 
                   {/* Daily check-in */}
                   <div className="glass-card" style={{padding:"16px 18px",marginBottom:12,background:"rgba(123,104,238,0.03)"}}>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10}}>How are you doing today?</div>
-                    <div style={{display:"flex",gap:8,marginBottom:10}}>
+                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10}}>How are you feeling?</div>
+                    <div style={{display:"flex",gap:8}}>
                       {[["great","😊","Great"],["ok","😐","OK"],["tired","😴","Tired"],["struggling","😢","Struggling"]].map(([key,emoji,label])=>(
                         <button key={key} onClick={()=>{haptic();setWellbeingResponse(key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key,date:todayStr()}));}catch{}showToast(key==="struggling"?"💜 It's OK to not be OK. Scroll down for support.":key==="tired"?"You're running on empty — rest is not a reward, it's a necessity.":"💜 Logged. You matter.",2000,1);}}
-                          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 6px",borderRadius:14,border:`1.5px solid ${wellbeingResponse===key?"#7b68ee":"var(--card-border)"}`,background:wellbeingResponse===key?"rgba(123,104,238,0.08)":"var(--card-bg)",cursor:_cP}}>
-                          <span style={{fontSize:22}}>{emoji}</span>
-                          <span style={{fontSize:11,fontWeight:600,color:wellbeingResponse===key?"#7b68ee":C.mid}}>{label}</span>
+                          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:"1.5px solid "+(wellbeingResponse===key?"#7b68ee":"var(--card-border)"),background:wellbeingResponse===key?"rgba(123,104,238,0.08)":"var(--card-bg)",cursor:_cP}}>
+                          <span style={{fontSize:20}}>{emoji}</span>
+                          <span style={{fontSize:10,fontWeight:600,color:wellbeingResponse===key?"#7b68ee":C.mid}}>{label}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Self-care suggestions */}
+                  {/* Water tracker */}
                   <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10}}>💛 Small things that help</div>
-                    {[
-                      "Drink a full glass of water right now",
-                      "Step outside for 60 seconds — fresh air changes everything",
-                      "If someone offers help today, say yes",
-                      "Eat something warm — you deserve more than cold toast",
-                      "Put the phone down after this — be present for a moment",
-                      "Text someone who makes you feel seen",
-                    ].slice(0,3).map((tip,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:i<2?8:0}}>
-                        <span style={{fontSize:12,flexShrink:0,marginTop:1}}>→</span>
-                        <div style={{fontSize:13,color:C.mid,lineHeight:1.6}}>{tip}</div>
-                      </div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>💧 Water</div>
+                      <span style={{fontSize:12,color:_waterCount>=8?C.mint:C.mid,fontWeight:600,fontFamily:_fM}}>{_waterCount}/8 glasses</span>
+                    </div>
+                    <div style={{display:"flex",gap:6,marginBottom:8}}>
+                      {[1,2,3,4,5,6,7,8].map(n=>(
+                        <div key={n} style={{flex:1,height:28,borderRadius:8,background:n<=_waterCount?"linear-gradient(135deg,#7BA68C,#5A8A6C)":"var(--card-bg-alt)",border:"1px solid "+(n<=_waterCount?C.mint+"40":C.blush),transition:"all 0.2s"}}/>
+                      ))}
+                    </div>
+                    <button onClick={_addWater} style={{width:"100%",padding:"10px",borderRadius:12,border:"1.5px solid "+C.mint+"40",background:C.mint+"08",color:C.mint,fontSize:13,fontWeight:700,cursor:_cP}}>
+                      + Add a glass
+                    </button>
+                    {_waterCount < 4 && <div style={{fontSize:11,color:C.lt,marginTop:6,fontStyle:"italic",textAlign:"center"}}>Dehydration makes everything harder — tiredness, headaches, milk supply. You matter too.</div>}
+                  </div>
+
+                  {/* Daily self-care checklist */}
+                  <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Self-Care</div>
+                      <span style={{fontSize:11,color:_dailyDone>=3?C.mint:C.lt,fontFamily:_fM}}>{_dailyDone}/{_dailyItems.length} done</span>
+                    </div>
+                    {_dailyItems.map(item=>(
+                      <button key={item.id} onClick={()=>_toggleSc(item.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid "+C.blush,background:"none",border:"none",borderBottom:"1px solid "+C.blush,cursor:_cP,textAlign:"left"}}>
+                        <div style={{width:24,height:24,borderRadius:8,border:"2px solid "+(_scData[item.id]?C.mint:C.blush),background:_scData[item.id]?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                          {_scData[item.id] && <span style={{color:"white",fontSize:12,fontWeight:700}}>✓</span>}
+                        </div>
+                        <span style={{fontSize:13}}>{item.emoji}</span>
+                        <span style={{fontSize:13,color:_scData[item.id]?C.mint:C.mid,textDecoration:_scData[item.id]?"line-through":"none"}}>{item.label}</span>
+                      </button>
+                    ))}
+                    {_dailyDone === _dailyItems.length && <div style={{textAlign:"center",padding:"10px 0",fontSize:13,color:C.mint,fontWeight:600}}>✨ All done — you're looking after yourself today</div>}
+                  </div>
+
+                  {/* Weekly goals */}
+                  <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>This Week's Goals</div>
+                      <span style={{fontSize:11,color:_weeklyDone>=3?C.mint:C.lt,fontFamily:_fM}}>{_weeklyDone}/{_weeklyItems.length}</span>
+                    </div>
+                    {_weeklyItems.map(item=>(
+                      <button key={item.id} onClick={()=>_toggleScW(item.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 0",background:"none",border:"none",borderBottom:"1px solid "+C.blush,cursor:_cP,textAlign:"left"}}>
+                        <div style={{width:24,height:24,borderRadius:8,border:"2px solid "+(_scWeek[item.id]?C.mint:C.blush),background:_scWeek[item.id]?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                          {_scWeek[item.id] && <span style={{color:"white",fontSize:12,fontWeight:700}}>✓</span>}
+                        </div>
+                        <span style={{fontSize:13}}>{item.emoji}</span>
+                        <span style={{fontSize:13,color:_scWeek[item.id]?C.mint:C.mid,textDecoration:_scWeek[item.id]?"line-through":"none"}}>{item.label}</span>
+                      </button>
                     ))}
                   </div>
+
+                  {/* Reassurance */}
+                  {(()=>{
+                    const _msgs = [
+                      "You're doing harder work than most people will ever understand. Be proud of yourself.",
+                      "The mess can wait. The to-do list can wait. Rest is not a reward, it's a necessity.",
+                      "You don't need to enjoy every moment. You just need to get through some of them. And you are.",
+                      "Parenting a baby is one of the most isolating things a person can do. You're not alone, even when it feels that way.",
+                      "There is no such thing as a perfect parent. There is only a present one.",
+                      "If you're reading this at 3am — you're not alone. Thousands of other parents are awake right now too.",
+                      "You've kept a tiny human alive and loved today. That's not nothing. That's everything.",
+                    ];
+                    return (
+                      <div className="glass-card" style={{padding:"16px 18px",marginBottom:12,background:"rgba(123,104,238,0.03)",textAlign:"center"}}>
+                        <div style={{fontSize:14,color:"#7b68ee",fontWeight:600,fontStyle:"italic",lineHeight:1.7}}>{_msgs[Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/86400000)%_msgs.length]}</div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Support resources */}
                   <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
                     <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>Need to talk to someone?</div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:10}}>
-                      If you're feeling overwhelmed, anxious, or not yourself — that's OK and it's common. Up to 1 in 5 new parents experience postnatal depression or anxiety. You deserve support.
+                      Up to 1 in 5 new parents experience postnatal depression or anxiety. If you're feeling overwhelmed, anxious, or not yourself — that's OK and help is available.
                     </div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.8,whiteSpace:"pre-line"}}>{_wellbeingShort}</div>
                   </div>
-
-                  <div style={{fontSize:12,color:C.lt,textAlign:"center",fontStyle:"italic",padding:"8px 0"}}>
-                    You're doing harder work than most people will ever understand.
-                  </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* ═══ SEND TO FAMILY SHEET ═══ */}
               {showShareFamily && (
@@ -22297,6 +22405,8 @@ function App(){
           );
         })()}
         {(tab==="develop"||(tab==="day"&&daySubScreen&&daySubScreen.startsWith("weaning")))&&(()=>{
+          // Reset devFilter if stuck on "weaning" when on Development tab (weaning moved to Day tab)
+          if(tab==="develop"&&(devFilter==="weaning"||devFilter==="weaning_hub")){setDevFilter("activities");return null;}
           const ageWeeks = age ? age.totalWeeks : null;
           const name = babyName || "Baby";
           function getDevAdvice(ageWeeks) {
@@ -22662,6 +22772,7 @@ function App(){
               <div style={{display:tab==="day"?"none":"flex",gap:6,marginBottom:14,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
                 {[
                   {id:"activities",label:"Activities",icon:"🎯"},
+                  {id:"phases",label:"Phases",icon:"🧠"},
                   {id:"milestones",label:"Milestones",icon:"🏆"},
                   {id:"teething",label:"Teeth",icon:"🦷"},
                 ].map(f=>(
@@ -22814,7 +22925,7 @@ function App(){
               {/* THIS WEEK — label is inside Let's Play card */}
 
               {/* ── Health check reminders (Activities tab, all ages under 12 months) ── */}
-              {devFilter==="activities" && tab==="develop" && age && babyDob && (()=>{
+              {false && devFilter==="activities" && tab==="develop" && age && babyDob && (()=>{
                 const _daysSinceBirth = Math.floor((Date.now() - new Date(babyDob+"T00:00:00").getTime()) / 86400000);
                 const _upcoming = _healthChecks.filter(c => c.day >= _daysSinceBirth - 7 && c.day <= _daysSinceBirth + 30);
                 const _past = _healthChecks.filter(c => c.day < _daysSinceBirth - 7);
@@ -22855,7 +22966,7 @@ function App(){
               })()}
 
               {/* ── Vitamin D reminder card (Activities tab, 0-12 months) ── */}
-              {devFilter==="activities" && tab==="develop" && age && ageWeeks !== null && ageWeeks < 52 && (()=>{
+              {false && devFilter==="activities" && tab==="develop" && age && ageWeeks !== null && ageWeeks < 52 && (()=>{
                 const _vitDDismissKey = "ob_vitd_dismissed_" + (babyDob||"");
                 const _vitDDismissed = (()=>{try{return localStorage.getItem(_vitDDismissKey)==="1";}catch{return false;}})();
                 if(_vitDDismissed) return null;
@@ -22891,7 +23002,7 @@ function App(){
               })()}
 
               {/* ── Newborn awareness cards (Activities tab, < 13 weeks) ── */}
-              {devFilter==="activities" && tab==="develop" && ageWeeks !== null && ageWeeks < 13 && (
+              {(daySubScreen==="news" || (devFilter==="activities" && tab==="develop")) && ageWeeks !== null && ageWeeks < 13 && (
                 <div>
                   {/* Witching Hour */}
                   <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
@@ -22947,14 +23058,14 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🎮 Let's Play — Little moments that build big milestones</div>
                 {(()=>{
                   const _lpActs = DEV_ACTIVITIES.filter(a=>ageWeeks>=a.weeks[0]&&ageWeeks<=a.weeks[1]);
-                  const _lpShow = (isPremium || trialActive || !STORE_READY) ? _lpActs.slice(0,3) : _lpActs.slice(0,1);
+                  const _lpShow = _lpActs;
                   if (!_lpShow.length) return <div style={{fontSize:12,color:C.lt}}>Activities will appear as {babyName||"baby"} grows</div>;
                   return _lpShow.map((a,i)=>(
                     <div key={a.id} style={{display:"flex",gap:10,padding:"8px 0",borderTop:i>0?"1px solid var(--card-border)":"none"}}>
-                      <span style={{fontSize:16,flexShrink:0}}>{a.cat==="motor"?"🏃":a.cat==="visual"?"👀":a.cat==="social"?"🤝":a.cat==="language"?"💬":"🧩"}</span>
+                      <span style={{fontSize:16,flexShrink:0}}>{a.cat==="motor"?"🏃":a.cat==="visual"?"👀":a.cat==="social"?"🤝":a.cat==="language"?"💬":a.cat==="sensory"?"🖐️":"🧩"}</span>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:2}}>{a.title}</div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{a.how.length>120?a.how.slice(0,120)+"…":a.how}</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{a.how}</div>
                       </div>
                     </div>
                   ));
@@ -22962,7 +23073,7 @@ function App(){
               </div>}
 
               {/* ── Current Phase — Development ── */}
-              {(devFilter==="activities") && tab==="develop" && <div>
+              {(devFilter==="phases") && tab==="develop" && <div>
               {(()=>{
                 if (!ageWeeks || !babyDob) return null;
                 const dobDate = new Date(babyDob+"T00:00:00");
@@ -23466,7 +23577,7 @@ function App(){
               <div style={{display:"flex",flexDirection:"column"}}>
 
               {/* ═══ First Tastes + Try Tomorrow suggestion ═══ */}
-              {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="activities"||devFilter==="weaning"||daySubScreen==="weaning_journey") && (()=>{
+              {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning"||daySubScreen==="weaning_journey") && (()=>{
                 const _wksSinceWean = Math.max(0, age.totalWeeks - 26);
                 const _allFoods = [
                   // Phase 1 — first 2 weeks: veg only (NHS recommends starting with vegetables)
@@ -24534,8 +24645,8 @@ function App(){
                 </div>
                 </>
               )}
-              {/* NHS & WHO Guidance */}
-              <div className="glass-card" style={{...card, marginBottom:14}}>
+              {/* NHS & WHO Guidance — moved to Activities tab */}
+              {devFilter==="activities" && <div className="glass-card" style={{...card, marginBottom:14}}>
                 <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🏥 NHS & WHO Guidance for this age</div>
                 {(!ageWeeks && ageWeeks !== 0) ? (
                   <div style={{textAlign:"center",padding:"16px",color:C.lt,fontSize:13}}>Set a date of birth to see age-appropriate guidance.</div>
@@ -24552,7 +24663,7 @@ function App(){
                     </div>
                   ))
                 )}
-              </div>
+              </div>}
               <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:12,padding:"12px 14px",marginBottom:4}}>
                 <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
                   <span style={{fontWeight:700,color:C.deep}}>ℹ️ About this guidance</span><br/>
@@ -24563,8 +24674,8 @@ function App(){
               </div>}
               </div>{/* end milestones scroll target */}
 
-              {/* ═══ Memory Book — below development phase ═══ */}
-              {(devFilter==="activities") && tab==="develop" && (()=>{
+              {/* ═══ Memory Book — removed ═══ */}
+              {false && (devFilter==="activities") && tab==="develop" && (()=>{
                 const allPhotos = (photos||[]).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
                 return (
                   <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
