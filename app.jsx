@@ -7150,7 +7150,7 @@ function App(){
               </button>
             </div>
           )}
-          {bedPaused && <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>}
+          <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>
           <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6,textAlign:"center"}}>{_h >= 0 && _h < 4 ? "You're not alone — this part is hard. Try to rest." : "You're doing wonderfully. Try to rest."}</div>
         </div>
       );
