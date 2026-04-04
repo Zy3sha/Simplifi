@@ -17732,23 +17732,9 @@ function App(){
         onTouchEnd={handleSwipeEnd}
       >
         {!nameEdit ? (
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:4}}>
-            {/* Child switcher dots + add */}
-            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-              {childIds.map(cid=>(
-                <button key={cid} onClick={()=>{haptic();setActiveChildId(cid);}} style={{
-                  width:cid===resolvedActiveId?16:6,height:6,borderRadius:99,border:_bN,cursor:_cP,
-                  background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.15)",transition:"all 0.25s",padding:0
-                }}/>
-              ))}
-              <button onClick={()=>{
-                const childCount = Object.keys(childrenRef.current || {}).length;
-                if (STORE_READY && !isPremium && !trialActive && childCount >= 1) { triggerPaywall("multi_baby"); return; }
-                setShowAddChild(true);
-              }} style={{width:18,height:18,borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.15)",background:"transparent",color:C.lt,cursor:_cP,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-            </div>
-            {/* Photo */}
-            <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} style={{width:44,height:44,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.85)",boxShadow:"0 2px 6px rgba(0,0,0,0.1)",cursor:_cP,position:"relative",marginBottom:4}}>
+          <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:8}}>
+            {/* Large photo — left side */}
+            <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} style={{width:72,height:72,borderRadius:18,overflow:"hidden",flexShrink:0,border:"2.5px solid rgba(255,255,255,0.9)",boxShadow:"0 4px 16px rgba(0,0,0,0.1)",cursor:_cP}}>
               <img src={activeChild.photo||"obubba-happy.png"} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
                 onError={e=>{e.target.src="obubba-happy.png";}}/>
             </div>
@@ -17762,20 +17748,35 @@ function App(){
               };reader.readAsDataURL(file);
               e.target.value="";
             }}/>
-            {/* Name + age */}
-            <div onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{cursor:_cP,textAlign:"center"}}>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:C.deep,fontWeight:700,lineHeight:1.2}}>
+            {/* Name + age — visually centred (offset left to account for photo) */}
+            <div style={{flex:1,textAlign:"center",paddingRight:86}} onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:C.deep,fontWeight:700,lineHeight:1.2}}>
                 {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
               </div>
               {(()=>{
-                if (!age && !babyUnborn) return <div style={{fontSize:10,color:C.mid,fontFamily:_fM,marginTop:1}}>Tap to add date of birth</div>;
+                if (!age && !babyUnborn) return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:3}}>Tap to add date of birth</div>;
                 if (babyUnborn && babyDob) {
                   const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-                  return <div style={{fontSize:10,color:C.ter,fontWeight:600,fontFamily:_fM,marginTop:1}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
+                  return <div style={{fontSize:12,color:C.ter,fontWeight:600,fontFamily:_fM,marginTop:3}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
                 }
                 if (!age) return null;
-                return <div style={{fontSize:10,color:C.mid,fontWeight:600,fontFamily:_fM,marginTop:1}}>🎂 {fmtAge(age)}{age.months >= 1 ? ` · ${age.totalWeeks}wk` : ""}</div>;
+                return <div style={{fontSize:12,color:C.mid,fontWeight:600,fontFamily:_fM,marginTop:3}}>🎂 {fmtAge(age)}{age.months >= 1 ? ` · ${age.totalWeeks}wk` : ""}</div>;
               })()}
+              {/* Child switcher dots — below name, centred */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,marginTop:6}}>
+                {childIds.map(cid=>(
+                  <button key={cid} onClick={e=>{e.stopPropagation();haptic();setActiveChildId(cid);}} style={{
+                    width:cid===resolvedActiveId?18:7,height:7,borderRadius:99,border:_bN,cursor:_cP,
+                    background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.12)",transition:"all 0.25s",padding:0
+                  }}/>
+                ))}
+                <button onClick={e=>{
+                  e.stopPropagation();
+                  const childCount = Object.keys(childrenRef.current || {}).length;
+                  if (STORE_READY && !isPremium && !trialActive && childCount >= 1) { triggerPaywall("multi_baby"); return; }
+                  setShowAddChild(true);
+                }} style={{width:18,height:18,borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.12)",background:"transparent",color:C.lt,cursor:_cP,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
             </div>
           </div>
         ) : (
@@ -18470,6 +18471,15 @@ function App(){
                     <div style={{flex:1}}>
                       <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Send to Family</div>
                       <div style={{fontSize:12,color:C.mid,marginTop:2}}>Share {babyName||"baby"}'s day</div>
+                    </div>
+                    <span style={{fontSize:14,color:C.lt}}>›</span>
+                  </button>
+                  {/* Schedule Builder card */}
+                  <button onClick={()=>{haptic();if(isPremium||trialActive||!STORE_READY){setShowScheduleMaker(true);}else{triggerPaywall("schedule_builder");}}} className="glass-card" style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)"}}>
+                    <span style={{fontSize:26}}>🧩</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Schedule Builder</div>
+                      <div style={{fontSize:12,color:C.mid,marginTop:2}}>Plan naps around appointments or events</div>
                     </div>
                     <span style={{fontSize:14,color:C.lt}}>›</span>
                   </button>
@@ -20594,8 +20604,8 @@ function App(){
 
           return (
             <div>
-              {/* ── Data-driven stress signal ── */}
-              {wellbeingDataSignal && !dataSignalShownToday && (()=>{
+              {/* ── Wellbeing checks moved to Wellbeing sub-screen on Today tab ── */}
+              {false && wellbeingDataSignal && !dataSignalShownToday && (()=>{
                 const _aw = age ? age.totalWeeks : 0;
                 return (
                   <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.1),rgba(192,112,136,0.08))",border:"1.5px solid rgba(123,104,238,0.25)",borderRadius:18,padding:"16px",marginBottom:14}}>
@@ -20630,8 +20640,8 @@ function App(){
                 );
               })()}
 
-              {/* ── Stress pattern card — 2+ hard check-ins in 7 days ── */}
-              {wellbeingStressPattern && wellbeingDue && (
+              {/* ── Stress pattern card — moved to Wellbeing sub-screen ── */}
+              {false && wellbeingStressPattern && wellbeingDue && (
                 <div style={{background:"linear-gradient(135deg,rgba(192,112,136,0.1),rgba(212,168,85,0.06))",border:"1.5px solid rgba(192,112,136,0.3)",borderRadius:18,padding:"16px",marginBottom:14}}>
                   <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:8}}>💜 Checking in on you</div>
                   <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:12}}>
@@ -20649,8 +20659,8 @@ function App(){
                 </div>
               )}
 
-              {/* ── Proactive hard moment cards by age ── */}
-              {age && (()=>{
+              {/* ── Proactive hard moment cards — moved to Wellbeing sub-screen ── */}
+              {false && age && (()=>{
                 const _aw = age.totalWeeks;
                 const _shownKey = `hard_moment_${Math.floor(_aw/2)}`;
                 const _shown = (()=>{try{return localStorage.getItem(_shownKey)==="1";}catch{return true;}})();
@@ -20697,8 +20707,8 @@ function App(){
                 );
               })()}
 
-              {/* ── Partner check-in (monthly) ── */}
-              {partnerCheckDue && !wellbeingDue && ageWeeks && ageWeeks < 52 && (
+              {/* ── Partner check-in — moved to Wellbeing sub-screen ── */}
+              {false && partnerCheckDue && !wellbeingDue && ageWeeks && ageWeeks < 52 && (
                 <div style={{background:"linear-gradient(135deg,rgba(122,171,196,0.08),rgba(111,168,152,0.08))",border:`1.5px solid rgba(122,171,196,0.25)`,borderRadius:18,padding:"16px",marginBottom:14}}>
                   <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:8}}>🫂 How's your partner doing?</div>
                   <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:12}}>
@@ -20725,7 +20735,7 @@ function App(){
               )}
 
               {/* Parent wellbeing check-in (weekly) */}
-              {wellbeingCard}
+              {/* wellbeingCard moved to Wellbeing sub-screen */}
               {/* Empty state for new users */}
               {(()=>{
                 const daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
@@ -21205,8 +21215,8 @@ function App(){
                 <PremiumTeaser icon="📅" label="Tomorrow's Predicted Rhythm" description="See a personalised nap & bedtime schedule based on NHS guidance and your baby's sleep patterns" context="predicted_rhythm"/>
               )}
 
-              {/* ═══ SCHEDULE BUILDER — top of insights ═══ */}
-              {age && ((isPremium || trialActive || !STORE_READY) ? (
+              {/* ═══ SCHEDULE BUILDER — moved to Today tab dashboard ═══ */}
+              {false && age && ((isPremium || trialActive || !STORE_READY) ? (
                 <button onClick={()=>{haptic();setShowScheduleMaker(true);}} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"16px",marginBottom:12,borderRadius:16,border:`1.5px solid ${C.ter}30`,background:"var(--card-bg-solid)",boxShadow:"var(--card-shadow)",cursor:_cP,textAlign:"left"}}>
                   <div style={{width:44,height:44,borderRadius:14,background:`linear-gradient(135deg,${C.ter}15,${C.mint}15)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🧩</div>
                   <div style={{flex:1}}>
@@ -21219,8 +21229,92 @@ function App(){
                 <PremiumTeaser icon="🧩" label="Schedule Builder" description="Plan naps around appointments or events with a personalised schedule" context="schedule_builder"/>
               ))}
 
-              {collHead("sleep","😴","Sleep Analysis")}
-              {insightSection.sleep && (
+              {/* ═══ SLEEP INSIGHTS — clean, flat, no collapsible ═══ */}
+
+              {/* #1 Pattern Detection — show only the most important one */}
+              {(()=>{
+                try {
+                  const _pats = advancedSleepPatterns();
+                  if (!_pats || !_pats.length) return null;
+                  const _top = _pats[0]; // most important pattern
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                        <span style={{fontSize:18}}>{_top.emoji}</span>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{_top.title}</div>
+                      </div>
+                      <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:8}}>{_top.detail}</div>
+                      {_top.suggestion && <div style={{fontSize:12,color:C.mint,lineHeight:1.5,padding:"10px 12px",borderRadius:12,background:C.mint+"08",border:"1px solid "+C.mint+"20"}}>💡 {_top.suggestion}</div>}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* 14-Day Averages */}
+              {(()=>{
+                try {
+                  const _dk = Object.keys(days).sort().slice(-14).filter(d=>(days[d]||[]).length>0);
+                  if (_dk.length < 3) return null;
+                  const _bedTimes = _dk.map(d=>{const b=(days[d]||[]).find(e=>e.type==="sleep"&&!e.night);return b?timeVal(b):null;}).filter(Boolean);
+                  const _wakeTimes = _dk.map(d=>{const w=findMorningWake(days[d]||[]);return w?timeVal(w):null;}).filter(Boolean);
+                  const _nightWakes = _dk.map(d=>(days[d]||[]).filter(e=>e.night).length);
+                  const _napMins = _dk.map(d=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0)).filter(v=>v>0);
+                  const _avgBed = _bedTimes.length >= 3 ? Math.round(_bedTimes.reduce((a,b)=>a+b,0)/_bedTimes.length) : null;
+                  const _avgWake = _wakeTimes.length >= 3 ? Math.round(_wakeTimes.reduce((a,b)=>a+b,0)/_wakeTimes.length) : null;
+                  const _avgWakes = _nightWakes.length >= 3 ? Math.round(_nightWakes.reduce((a,b)=>a+b,0)/_nightWakes.length*10)/10 : null;
+                  const _avgNap = _napMins.length >= 3 ? Math.round(_napMins.reduce((a,b)=>a+b,0)/_napMins.length) : null;
+                  const _fmtMins = (m) => {if(!m&&m!==0)return"—";const h=Math.floor(m/60)%24;const mn=m%60;return fmt12(String(h).padStart(2,"0")+":"+String(mn).padStart(2,"0"));};
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                      <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10}}>14-Day Averages</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                        <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                          <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Bedtime</div>
+                          <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_avgBed!==null?_fmtMins(_avgBed):"—"}</div>
+                        </div>
+                        <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                          <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Wake up</div>
+                          <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_avgWake!==null?_fmtMins(_avgWake):"—"}</div>
+                        </div>
+                        <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                          <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Night wakes</div>
+                          <div style={{fontSize:16,fontWeight:700,color:_avgWakes<=1?C.mint:_avgWakes<=3?C.gold:C.ter}}>{_avgWakes!==null?_avgWakes:"—"}</div>
+                        </div>
+                        <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                          <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Daily naps</div>
+                          <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_avgNap!==null?hm(_avgNap):"—"}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* Bedtime Consistency */}
+              {(()=>{
+                try {
+                  const _dk = Object.keys(days).sort().slice(-7).filter(d=>(days[d]||[]).length>0);
+                  const _bedTimes = _dk.map(d=>{const b=(days[d]||[]).find(e=>e.type==="sleep"&&!e.night);return b?timeVal(b):null;}).filter(Boolean);
+                  if (_bedTimes.length < 3) return null;
+                  const _avg = Math.round(_bedTimes.reduce((a,b)=>a+b,0)/_bedTimes.length);
+                  const _variance = Math.round(Math.sqrt(_bedTimes.reduce((s,t)=>s+Math.pow(t-_avg,2),0)/_bedTimes.length));
+                  const _score = _variance <= 10 ? "Excellent" : _variance <= 20 ? "Good" : _variance <= 35 ? "Needs work" : "Inconsistent";
+                  const _color = _variance <= 10 ? C.mint : _variance <= 20 ? C.mint : _variance <= 35 ? C.gold : C.ter;
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Bedtime Consistency</div>
+                        <span style={{fontSize:12,fontWeight:700,color:_color}}>{_score}</span>
+                      </div>
+                      <div style={{fontSize:13,color:C.mid}}>Average bedtime: {fmt12(String(Math.floor(_avg/60)%24).padStart(2,"0")+":"+String(_avg%60).padStart(2,"0"))} (±{_variance}min)</div>
+                      {_variance > 20 && <div style={{fontSize:12,color:C.lt,marginTop:6,fontStyle:"italic"}}>Consistent bedtime (±15min) helps set the body clock and makes settling easier.</div>}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* Hide all old collapsible content */}
+              {false && insightSection.sleep && (
                 <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 14px 16px",marginBottom:12}}>
 
                   {/* Newborn Sleep Analysis — gentle education, not analysis */}
