@@ -17701,8 +17701,23 @@ function App(){
         onTouchEnd={handleSwipeEnd}
       >
         {!nameEdit ? (
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
-            <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} style={{width:38,height:38,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.85)",boxShadow:"0 2px 6px rgba(0,0,0,0.1)",cursor:_cP,position:"relative"}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:4}}>
+            {/* Child switcher dots + add */}
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+              {childIds.map(cid=>(
+                <button key={cid} onClick={()=>{haptic();setActiveChildId(cid);}} style={{
+                  width:cid===resolvedActiveId?16:6,height:6,borderRadius:99,border:_bN,cursor:_cP,
+                  background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.15)",transition:"all 0.25s",padding:0
+                }}/>
+              ))}
+              <button onClick={()=>{
+                const childCount = Object.keys(childrenRef.current || {}).length;
+                if (STORE_READY && !isPremium && !trialActive && childCount >= 1) { triggerPaywall("multi_baby"); return; }
+                setShowAddChild(true);
+              }} style={{width:18,height:18,borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.15)",background:"transparent",color:C.lt,cursor:_cP,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            </div>
+            {/* Photo */}
+            <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} style={{width:44,height:44,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.85)",boxShadow:"0 2px 6px rgba(0,0,0,0.1)",cursor:_cP,position:"relative",marginBottom:4}}>
               <img src={activeChild.photo||"obubba-happy.png"} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
                 onError={e=>{e.target.src="obubba-happy.png";}}/>
             </div>
@@ -17716,7 +17731,8 @@ function App(){
               };reader.readAsDataURL(file);
               e.target.value="";
             }}/>
-            <div onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{cursor:_cP,flex:1}}>
+            {/* Name + age */}
+            <div onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}} style={{cursor:_cP,textAlign:"center"}}>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,color:C.deep,fontWeight:700,lineHeight:1.2}}>
                 {babyName ? `${possessive(babyName)} Tracker` : "Baby Tracker"}
               </div>
@@ -17730,20 +17746,6 @@ function App(){
                 return <div style={{fontSize:10,color:C.mid,fontWeight:600,fontFamily:_fM,marginTop:1}}>🎂 {fmtAge(age)}{age.months >= 1 ? ` · ${age.totalWeeks}wk` : ""}</div>;
               })()}
             </div>
-            {/* Child switcher — compact dots inline */}
-            {childIds.length > 1 && <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
-              {childIds.map(cid=>(
-                <button key={cid} onClick={()=>{haptic();setActiveChildId(cid);}} style={{
-                  width:cid===resolvedActiveId?16:6,height:6,borderRadius:99,border:_bN,cursor:_cP,
-                  background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.15)",transition:"all 0.25s",padding:0
-                }}/>
-              ))}
-            </div>}
-            <button onClick={()=>{
-              const childCount = Object.keys(childrenRef.current || {}).length;
-              if (STORE_READY && !isPremium && !trialActive && childCount >= 1) { triggerPaywall("multi_baby"); return; }
-              setShowAddChild(true);
-            }} style={{width:20,height:20,borderRadius:99,border:"1.5px dashed rgba(0,0,0,0.15)",background:"transparent",color:C.lt,cursor:_cP,fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
           </div>
         ) : (
           <form onSubmit={e=>{e.preventDefault();setBabyName(nameIn.trim());setNameEdit(false);}} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
@@ -18805,7 +18807,7 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ SUB-SCREEN: Before Weaning ═══ */}
+              {/* ═══ SUB-SCREEN: Before Weaning — collapsible cards ═══ */}
               {daySubScreen==="weaning_before" && (
                 <div>
                   <button onClick={()=>{haptic();setDaySubScreen("weaning");}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
@@ -18813,190 +18815,68 @@ function App(){
                   </button>
                   <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:16}}>📖 Before Weaning</div>
 
-                  {/* Section tabs */}
-                  {(()=>{
-                    const [_eduSec, _setEduSec] = [_expandedQ, _setExpandedQ]; // reuse existing state for section toggle
-                    const _eduSection = typeof _eduSec === "string" && ["overview","signs","myths","equipment","timeline"].includes(_eduSec) ? _eduSec : "overview";
-                    const _name = babyName || "Baby";
-                    return (
-                      <div>
-                        <div style={{display:"flex",gap:6,marginBottom:12,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:2}}>
-                          {[{id:"overview",label:"Overview",icon:"📋"},{id:"signs",label:"Readiness",icon:"✅"},{id:"myths",label:"Not Ready Signs",icon:"🚫"},{id:"equipment",label:"Equipment",icon:"🛒"}].map(s=>(
-                            <button key={s.id} onClick={()=>{haptic(8);_setExpandedQ(s.id);}}
-                              style={{display:"flex",alignItems:"center",gap:4,padding:"7px 12px",borderRadius:99,border:"1.5px solid "+(_eduSection===s.id?C.ter:C.blush),background:_eduSection===s.id?C.ter+"12":"var(--card-bg)",color:_eduSection===s.id?C.ter:C.mid,fontSize:11,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0,fontFamily:_fI}}>
-                              <span style={{fontSize:12}}>{s.icon}</span>{s.label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Overview */}
-                        {_eduSection==="overview" && (
-                          <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:10}}>What is weaning?</div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:12}}>
-                              Weaning is the gradual introduction of solid foods alongside breast milk or formula. It's one of the most exciting milestones — but it can also feel overwhelming. The good news? There's no pressure to get it perfect. Every baby learns at their own pace.
-                            </div>
-                            <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:12}}>
-                              The NHS recommends waiting until <strong>around 6 months</strong> (26 weeks) before starting. Before this, baby's digestive system and kidneys aren't mature enough to handle food safely. Milk provides everything they need until then.
-                            </div>
-                            <div style={{background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.2)",borderRadius:14,padding:"12px 14px"}}>
-                              <div style={{fontSize:13,fontWeight:700,color:C.gold,marginBottom:4}}>💛 Why not before 4 months?</div>
-                              <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>Before 17 weeks, baby's gut is too immature. Between 17-26 weeks, there's a small window where some babies with specific medical needs may start earlier — but <strong>only on medical advice</strong>. For most babies, around 6 months is right.</div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* What to expect */}
-                        {_eduSection==="overview" && (
-                          <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:10}}>What to expect in the first weeks</div>
-                            {[
-                              {emoji:"🤹",title:"Mess is learning",desc:"Food on the floor, face, walls — all normal. Exploring texture is how babies learn to eat safely."},
-                              {emoji:"🥄",title:"Tiny amounts",desc:"A teaspoon or two is a great start. Milk is still the main nutrition source for months."},
-                              {emoji:"😝",title:"Funny faces",desc:"Pulling faces doesn't mean they hate it. New tastes and textures take time — offer the same food 10+ times."},
-                              {emoji:"🙈",title:"Some days they won't eat",desc:"Appetite varies hugely. Some meals will go untouched. That's completely normal and not a reflection of your cooking."},
-                            ].map((item,i)=>(
-                              <div key={i} style={{display:"flex",gap:10,marginBottom:i<3?10:0}}>
-                                <span style={{fontSize:18,flexShrink:0}}>{item.emoji}</span>
-                                <div>
-                                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{item.title}</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{item.desc}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Readiness signs */}
-                        {_eduSection==="signs" && (
-                          <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:10}}>Signs {_name} is ready</div>
-                            {WEANING_READINESS_SIGNS.map((s,i)=>(
-                              <div key={i} style={{display:"flex",gap:10,marginBottom:i<WEANING_READINESS_SIGNS.length-1?8:0}}>
-                                <span style={{fontSize:16,flexShrink:0}}>✅</span>
-                                <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{s}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Not ready signs */}
-                        {_eduSection==="myths" && (
-                          <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:10}}>Not signs of readiness</div>
-                            {WEANING_MYTHS.map((m,i)=>(
-                              <div key={i} style={{display:"flex",gap:10,marginBottom:i<WEANING_MYTHS.length-1?8:0}}>
-                                <span style={{fontSize:16,flexShrink:0}}>🚫</span>
-                                <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{m}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Equipment */}
-                        {_eduSection==="equipment" && (
-                          <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:10}}>What you'll need</div>
-                            {WEANING_EQUIPMENT.map((e,i)=>(
-                              <div key={i} style={{display:"flex",gap:10,marginBottom:i<WEANING_EQUIPMENT.length-1?8:0,padding:"8px 0",borderBottom:i<WEANING_EQUIPMENT.length-1?"1px solid "+C.blush:"none"}}>
-                                <span style={{fontSize:18,flexShrink:0}}>{e.icon}</span>
-                                <div style={{flex:1}}>
-                                  <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{e.item}{e.essential?" ✦":""}</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{e.desc}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Allergen introduction guide */}
-                  {age && age.totalWeeks >= 17 && (
-                    <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:10}}>Before you introduce allergens</div>
-                      <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:10}}>
-                        Most babies can start allergens from 6 months. But if any of the following apply to {babyName||"baby"}, speak to your GP or health visitor first:
-                      </div>
-                      {["Has severe or persistent eczema","Has already reacted to a food","Has a close family member with a diagnosed food allergy","Was born prematurely or has a known immune condition"].map((r,i)=>(
-                        <div key={i} style={{fontSize:13,color:C.mid,paddingLeft:12,marginBottom:4}}>• {r}</div>
-                      ))}
-                      <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:10,lineHeight:1.5}}>
-                        High-risk babies can still benefit from early allergen introduction — but your GP or health visitor can advise on timing and supervision.{(!_isUS&&!_isAU&&!_isNZ&&!_isCA)?" Dial 111 for NHS urgent advice.":""} (NHS/BSACI guidance)
-                      </div>
-                    </div>
-                  )}
-
-                  {/* How to introduce allergens safely */}
-                  {age && age.totalWeeks >= 17 && (
-                    <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
-                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:10}}>How to introduce allergens safely</div>
-                      {[
-                        "Introduce one new allergen at a time",
-                        "Give in the morning — stay home for 2 hours after",
-                        "Start with a tiny amount (¼ teaspoon mixed into food)",
-                        "Wait at least 2-3 days before trying the next allergen",
-                        "Never introduce a new allergen before nap or bedtime",
-                        "Watch for: hives, swelling, vomiting, breathing changes",
-                      ].map((tip,i)=>(
-                        <div key={i} style={{display:"flex",gap:8,marginBottom:6}}>
-                          <span style={{fontSize:12,color:C.mint,flexShrink:0,marginTop:1}}>{i+1}.</span>
-                          <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{tip}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Foods to Avoid */}
-                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,borderLeft:"3px solid #E8574A"}}>
-                    <div style={{fontSize:13,fontWeight:700,color:"#c04040",marginBottom:8}}>🚫 Foods to Avoid Under 12 Months</div>
-                    {[
-                      {food:"Honey",why:"Risk of botulism — never before 12 months"},
-                      {food:"Whole nuts",why:"Choking hazard — use smooth nut butters instead"},
-                      {food:"Added salt",why:"Kidneys can't process it — don't add to baby's food"},
-                      {food:"Added sugar",why:"Encourages sweet tooth, no nutritional benefit"},
-                      {food:"Raw shellfish",why:"High food poisoning risk"},
-                      {food:"Cow's milk as a drink",why:"Not enough iron — fine in cooking from 6mo"},
-                    ].map((f,i)=>(
-                      <div key={i} style={{display:"flex",gap:8,marginBottom:4}}>
-                        <span style={{fontSize:11,color:"#c04040",flexShrink:0}}>✕</span>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}><strong>{f.food}</strong> — {f.why}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Safety guides - collapsible */}
+                  {/* All sections as collapsible cards */}
                   {[
-                    {title:"Gagging vs Choking",icon:"🫣",content:[
-                      "Gagging is NORMAL — loud, dramatic, face goes red. Baby's gag reflex is much further forward than adults. It's protective.",
-                      "Choking is SILENT — no sound, lips turn blue, can't breathe. Call 999/911 immediately.",
-                      "Always sit baby upright in a highchair. Never leave alone with food. Cut round foods lengthways (grapes, cherry tomatoes).",
-                      "Consider a baby first aid course — St John Ambulance and Red Cross both offer them."
-                    ]},
-                    {title:"Water & Drinks",icon:"💧",content:[
-                      "Offer sips of water from a free-flow cup from 6 months with meals.",
-                      "Breast milk or formula is still the main drink until 12 months.",
-                      "Avoid juice, squash, rice drinks, and cow's milk as a main drink before 12 months.",
-                      "Around 6-12 months: just a few sips with meals. They'll drink more as solids increase."
-                    ]},
-                    {title:"Why Iron Matters",icon:"🥩",content:[
-                      "Baby's iron stores from pregnancy run low around 6 months.",
-                      "Iron is critical for brain development — deficiency can cause lasting delays.",
-                      "Best sources: red meat, lentils, eggs, fortified cereals, dark green veg.",
-                      "Pair with vitamin C (peppers, tomatoes, citrus) to boost absorption up to 6x."
-                    ]},
-                  ].map((guide,gi)=>(
-                    <details key={gi} style={{marginBottom:8}}>
-                      <summary className="glass-card" style={{padding:"12px 16px",cursor:_cP,display:"flex",alignItems:"center",gap:10,listStyle:"none",WebkitAppearance:"none"}}>
-                        <span style={{fontSize:16}}>{guide.icon}</span>
-                        <span style={{fontSize:13,fontWeight:700,color:C.deep,flex:1}}>{guide.title}</span>
+                    {title:"What is weaning?",icon:"📋",content:(
+                      <div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:12}}>Weaning is the gradual introduction of solid foods alongside breast milk or formula. It's one of the most exciting milestones — but it can also feel overwhelming. The good news? There's no pressure to get it perfect. Every baby learns at their own pace.</div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:12}}>The NHS recommends waiting until <strong>around 6 months</strong> (26 weeks) before starting. Before this, baby's digestive system and kidneys aren't mature enough to handle food safely. Milk provides everything they need until then.</div>
+                        <div style={{background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.2)",borderRadius:14,padding:"12px 14px"}}>
+                          <div style={{fontSize:13,fontWeight:700,color:C.gold,marginBottom:4}}>💛 Why not before 4 months?</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>Before 17 weeks, baby's gut is too immature. Between 17-26 weeks, there's a small window where some babies with specific medical needs may start earlier — but <strong>only on medical advice</strong>. For most babies, around 6 months is right.</div>
+                        </div>
+                      </div>
+                    )},
+                    {title:"What to expect in the first weeks",icon:"🤹",content:(
+                      <div>
+                        {[{emoji:"🤹",t:"Mess is learning",d:"Food on the floor, face, walls — all normal. Exploring texture is how babies learn to eat safely."},{emoji:"🥄",t:"Tiny amounts",d:"A teaspoon or two is a great start. Milk is still the main nutrition source for months."},{emoji:"😝",t:"Funny faces",d:"Pulling faces doesn't mean they hate it. New tastes and textures take time — offer the same food 10+ times."},{emoji:"🙈",t:"Some days they won't eat",d:"Appetite varies hugely. Some meals will go untouched. That's completely normal."}].map((item,i)=>(
+                          <div key={i} style={{display:"flex",gap:10,marginBottom:i<3?10:0}}>
+                            <span style={{fontSize:18,flexShrink:0}}>{item.emoji}</span>
+                            <div><div style={{fontSize:13,fontWeight:700,color:C.deep}}>{item.t}</div><div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{item.d}</div></div>
+                          </div>
+                        ))}
+                      </div>
+                    )},
+                    {title:"Signs "+( babyName||"baby")+" is ready",icon:"✅",content:(
+                      <div>{WEANING_READINESS_SIGNS.map((s,i)=>(<div key={i} style={{display:"flex",gap:10,marginBottom:i<WEANING_READINESS_SIGNS.length-1?8:0}}><span style={{fontSize:16,flexShrink:0}}>✅</span><div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{s}</div></div>))}</div>
+                    )},
+                    {title:"Not signs of readiness",icon:"🚫",content:(
+                      <div>{WEANING_MYTHS.map((m,i)=>(<div key={i} style={{display:"flex",gap:10,marginBottom:i<WEANING_MYTHS.length-1?8:0}}><span style={{fontSize:16,flexShrink:0}}>🚫</span><div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{m}</div></div>))}</div>
+                    )},
+                    {title:"What you'll need",icon:"🛒",content:(
+                      <div>{WEANING_EQUIPMENT.map((e2,i)=>(<div key={i} style={{display:"flex",gap:10,marginBottom:i<WEANING_EQUIPMENT.length-1?8:0,padding:"8px 0",borderBottom:i<WEANING_EQUIPMENT.length-1?"1px solid "+C.blush:"none"}}><span style={{fontSize:18,flexShrink:0}}>{e2.icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:C.deep}}>{e2.item}{e2.essential?" ✦":""}</div><div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:2}}>{e2.desc}</div></div></div>))}</div>
+                    )},
+                    {title:"Before you introduce allergens",icon:"⚠️",content:(
+                      <div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:10}}>Most babies can start allergens from 6 months. But if any of the following apply to {babyName||"baby"}, speak to your GP or health visitor first:</div>
+                        {["Has severe or persistent eczema","Has already reacted to a food","Has a close family member with a diagnosed food allergy","Was born prematurely or has a known immune condition"].map((r,i)=>(<div key={i} style={{fontSize:13,color:C.mid,paddingLeft:12,marginBottom:4}}>• {r}</div>))}
+                        <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:10,lineHeight:1.5}}>High-risk babies can still benefit from early allergen introduction — but your GP or health visitor can advise on timing and supervision.{(!_isUS&&!_isAU&&!_isNZ&&!_isCA)?" Dial 111 for NHS urgent advice.":""} (NHS/BSACI guidance)</div>
+                      </div>
+                    )},
+                    {title:"How to introduce allergens safely",icon:"📋",content:(
+                      <div>{["Introduce one new allergen at a time","Give in the morning — stay home for 2 hours after","Start with a tiny amount (¼ teaspoon mixed into food)","Wait at least 2-3 days before trying the next allergen","Never introduce a new allergen before nap or bedtime","Watch for: hives, swelling, vomiting, breathing changes"].map((tip,i)=>(<div key={i} style={{display:"flex",gap:8,marginBottom:6}}><span style={{fontSize:12,color:C.mint,flexShrink:0,marginTop:1}}>{i+1}.</span><div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{tip}</div></div>))}</div>
+                    )},
+                    {title:"Foods to Avoid Under 12 Months",icon:"🚫",content:(
+                      <div>{[{food:"Honey",why:"Risk of botulism — never before 12 months"},{food:"Whole nuts",why:"Choking hazard — use smooth nut butters instead"},{food:"Added salt",why:"Kidneys can't process it — don't add to baby's food"},{food:"Added sugar",why:"Encourages sweet tooth, no nutritional benefit"},{food:"Raw shellfish",why:"High food poisoning risk"},{food:"Cow's milk as a drink",why:"Not enough iron — fine in cooking from 6mo"}].map((f,i)=>(<div key={i} style={{display:"flex",gap:8,marginBottom:4}}><span style={{fontSize:11,color:"#c04040",flexShrink:0}}>✕</span><div style={{fontSize:12,color:C.mid,lineHeight:1.5}}><strong>{f.food}</strong> — {f.why}</div></div>))}</div>
+                    )},
+                    {title:"Gagging vs Choking",icon:"🫣",content:(
+                      <div>{["Gagging is NORMAL — loud, dramatic, face goes red. Baby's gag reflex is much further forward than adults. It's protective.","Choking is SILENT — no sound, lips turn blue, can't breathe. Call 999/911 immediately.","Always sit baby upright in a highchair. Never leave alone with food. Cut round foods lengthways (grapes, cherry tomatoes).","Consider a baby first aid course — St John Ambulance and Red Cross both offer them."].map((line,li)=>(<div key={li} style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:li<3?6:0}}>• {line}</div>))}</div>
+                    )},
+                    {title:"Water & Drinks",icon:"💧",content:(
+                      <div>{["Offer sips of water from a free-flow cup from 6 months with meals.","Breast milk or formula is still the main drink until 12 months.","Avoid juice, squash, rice drinks, and cow's milk as a main drink before 12 months.","Around 6-12 months: just a few sips with meals. They'll drink more as solids increase."].map((line,li)=>(<div key={li} style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:li<3?6:0}}>• {line}</div>))}</div>
+                    )},
+                    {title:"Why Iron Matters",icon:"🥩",content:(
+                      <div>{["Baby's iron stores from pregnancy run low around 6 months.","Iron is critical for brain development — deficiency can cause lasting delays.","Best sources: red meat, lentils, eggs, fortified cereals, dark green veg.","Pair with vitamin C (peppers, tomatoes, citrus) to boost absorption up to 6x."].map((line,li)=>(<div key={li} style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:li<3?6:0}}>• {line}</div>))}</div>
+                    )},
+                  ].map((section,si)=>(
+                    <details key={si} style={{marginBottom:8}}>
+                      <summary className="glass-card" style={{padding:"14px 16px",cursor:_cP,display:"flex",alignItems:"center",gap:10,listStyle:"none",WebkitAppearance:"none"}}>
+                        <span style={{fontSize:18}}>{section.icon}</span>
+                        <span style={{fontSize:14,fontWeight:700,color:C.deep,flex:1}}>{section.title}</span>
                         <span style={{fontSize:10,color:C.lt}}>▼</span>
                       </summary>
-                      <div style={{padding:"10px 16px 14px",background:"var(--card-bg-alt)",borderRadius:"0 0 14px 14px",marginTop:-4}}>
-                        {guide.content.map((line,li)=>(
-                          <div key={li} style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:li<guide.content.length-1?6:0}}>• {line}</div>
-                        ))}
+                      <div style={{padding:"12px 16px 16px",background:"var(--card-bg-alt)",borderRadius:"0 0 16px 16px",marginTop:-4,border:"1px solid var(--card-border)",borderTop:"none"}}>
+                        {section.content}
                       </div>
                     </details>
                   ))}
@@ -19072,38 +18952,15 @@ function App(){
                     );
                   })()}
 
-                  {/* First Taste / Try Today */}
-                  {age && (()=>{
-                    const _wksSinceWean = Math.max(0, age.totalWeeks - 26);
-                    const _allFoods = [
-                      {food:"Steamed carrot",emoji:"🥕",cat:"veg",phase:1},
-                      {food:"Steamed broccoli",emoji:"🥦",cat:"veg",phase:1},
-                      {food:"Mashed avocado",emoji:"🥑",cat:"veg",phase:1},
-                      {food:"Sweet potato puree",emoji:"🍠",cat:"veg",phase:1},
-                      {food:"Banana",emoji:"🍌",cat:"fruit",phase:2},
-                      {food:"Porridge fingers",emoji:"🥣",cat:"grain",phase:2},
-                      {food:"Pear puree",emoji:"🍐",cat:"fruit",phase:2},
-                    ];
-                    const _tried = (weaning||[]).map(w=>w.food.toLowerCase().trim());
-                    const _pool = _allFoods.filter(f=>!_tried.includes(f.food.toLowerCase()));
-                    if (!_pool.length) return null;
-                    const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
-                    const _ft = _pool[_doy % _pool.length];
-                    return (
-                      <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
-                        <div style={{fontSize:11,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>
-                          🍽 {_wksSinceWean < 1 ? "First Taste" : "Try Today"}
-                        </div>
-                        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:8}}>
-                          <span style={{fontSize:36}}>{_ft.emoji}</span>
-                          <div>
-                            <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_ft.food}</div>
-                            <div style={{fontSize:11,color:C.lt,marginTop:2}}>{_ft.cat === "veg" ? "Vegetable" : _ft.cat === "fruit" ? "Fruit" : "Grain"} · Phase {_ft.phase}</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  {/* First Taste / Try Today — opens Development tab with full original design */}
+                  <button onClick={()=>{haptic();setDaySubScreen(null);setTab("develop");setDevFilter("weaning");}} className="glass-card" style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",marginBottom:12}}>
+                    <span style={{fontSize:26}}>🍽</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:15,fontWeight:700,color:C.deep}}>First Taste / Try Today</div>
+                      <div style={{fontSize:12,color:C.mid,marginTop:2}}>BLW & puree options, tomorrow's suggestion</div>
+                    </div>
+                    <span style={{fontSize:14,color:C.lt}}>›</span>
+                  </button>
 
                   {/* Navigation buttons */}
                   <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8}}>
@@ -25530,7 +25387,7 @@ function App(){
 
       <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:_maxW,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
         {["day","insights","develop","settings"].map(t=>(
-          <button key={t} onClick={()=>{haptic();setTab(t);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);}} style={tabSt(t)}>
+          <button key={t} onClick={()=>{haptic();setTab(t);setDaySubScreen(null);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);}} style={tabSt(t)}>
             <span style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
             <span>{tabLabels[t]}</span>
             {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
