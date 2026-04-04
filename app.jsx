@@ -3522,6 +3522,70 @@ function App(){
     else clearInterval(tummyRef.current);
     return()=>clearInterval(tummyRef.current);
   },[tummyOn]);
+  // ── Vitamin D daily tracker ──
+  // NHS: breastfed babies need 8.5-10mcg vitamin D from birth.
+  // Formula-fed babies only need it once taking <500ml formula/day.
+  // All children 1-4 years: 10mcg daily regardless of feeding method.
+  const vitDGivenToday = React.useMemo(()=>{
+    try{ const v=JSON.parse(localStorage.getItem("vitd_log_v1")||"{}"); return v[selDay]===true; }catch{ return false; }
+  },[selDay, days]);
+  const vitDStreak = React.useMemo(()=>{
+    try{
+      const log=JSON.parse(localStorage.getItem("vitd_log_v1")||"{}");
+      let streak=0; const d=new Date(selDay+"T12:00:00");
+      for(let i=0;i<30;i++){
+        const k=d.toISOString().split("T")[0];
+        if(log[k]===true) streak++; else break;
+        d.setDate(d.getDate()-1);
+      }
+      return streak;
+    }catch{ return 0; }
+  },[selDay, days]);
+  function toggleVitD(){
+    haptic();
+    try{
+      const log=JSON.parse(localStorage.getItem("vitd_log_v1")||"{}");
+      if(log[selDay]){ delete log[selDay]; }
+      else{ log[selDay]=true; }
+      // Keep last 90 days
+      const keys=Object.keys(log).sort();
+      if(keys.length>90){ keys.slice(0,keys.length-90).forEach(k=>delete log[k]); }
+      localStorage.setItem("vitd_log_v1",JSON.stringify(log));
+      // Force re-render via a harmless state touch
+      setDays(d=>({...d}));
+      if(!vitDGivenToday) showToast("☀️ Vitamin D logged",1200,1);
+    }catch{}
+  }
+  // Determine if vitamin D reminder is relevant for this baby
+  const vitDRelevant = React.useMemo(()=>{
+    if(!age) return false;
+    const w = age.totalWeeks;
+    // All children 1yr+ need vitamin D (NHS)
+    if(w >= 52) return true;
+    // Under 1: check feeding method from recent logs
+    const recent = Object.keys(days).sort().slice(-7);
+    let breastCount=0, bottleCount=0, totalMl=0, bottleDays=0;
+    recent.forEach(dk=>{
+      const feeds=(days[dk]||[]).filter(e=>e.type==="feed");
+      feeds.forEach(f=>{
+        if(f.feedType==="breast") breastCount++;
+        else if(f.amount>0){ bottleCount++; totalMl+=f.amount||0; }
+      });
+      if(feeds.some(f=>f.feedType!=="breast"&&f.amount>0)) bottleDays++;
+    });
+    // Breastfed (any breast feeds logged): always relevant from birth
+    if(breastCount>0) return true;
+    // Formula-fed: relevant once daily intake drops below 500ml
+    if(bottleDays>0){
+      const avgDailyMl = totalMl/Math.max(1,bottleDays);
+      if(avgDailyMl < 500) return true;
+    }
+    // No feeds logged yet (brand new): show by default as most parents should know
+    if(breastCount===0 && bottleCount===0) return true;
+    // Formula-fed 500ml+: formula is already fortified, not needed
+    return false;
+  },[age, days]);
+
   // Parent wellbeing
   const[lastWellbeingDate,setLastWellbeingDate]=useState(()=>{try{return localStorage.getItem("wellbeing_date_v1")||"";}catch{return "";}});
   const[showWellbeing,setShowWellbeing]=useState(false);
@@ -15838,13 +15902,13 @@ function App(){
       }
       // Stretches between wakes
       for(let i=0;i<allNight.length-1;i++){
-        const fromM=timeVal(allNight[i])+(parseInt(allNight[i].assistedDuration)||0);
+        const fromM=timeVal(allNight[i])+getAwakeDuration(allNight[i]);
         const toM=timeVal(allNight[i+1]);
         let s=toM>=fromM?toM-fromM:toM+1440-fromM; if(s>0&&s<720) stretchMins.push(s);
       }
       // Last stretch: last wake to morning wake
       if(allNight.length && morningWake){
-        const lastM=timeVal(allNight[allNight.length-1])+(parseInt(allNight[allNight.length-1].assistedDuration)||0);
+        const lastM=timeVal(allNight[allNight.length-1])+getAwakeDuration(allNight[allNight.length-1]);
         const mwM=timeVal(morningWake); let s=mwM>=lastM?mwM-lastM:mwM+1440-lastM; if(s>0&&s<720) stretchMins.push(s);
       }
     });
@@ -15885,6 +15949,18 @@ function App(){
         });
       });
       lines.push("");
+    }
+
+    // Vitamin D compliance
+    if(vitDRelevant) {
+      try{
+        const vitdLog=JSON.parse(localStorage.getItem("vitd_log_v1")||"{}");
+        const vitdDays=dk.filter(d=>vitdLog[d]===true).length;
+        lines.push("═══ VITAMIN D ═══");
+        lines.push(`Given ${vitdDays} of ${dk.length} days (${Math.round(vitdDays/dk.length*100)}% compliance)`);
+        if(vitdDays < dk.length * 0.5) lines.push("⚠ Below recommended daily intake — NHS recommends daily vitamin D drops");
+        lines.push("");
+      }catch{}
     }
 
     // Milestones achieved
@@ -28489,6 +28565,28 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
 
             {/* ═══ MEDICINES TAB ═══ */}
             {(medTab||"meds")==="meds"&&(<div>
+              {/* ── Vitamin D daily tracker ── */}
+              {vitDRelevant && (
+                <div style={{marginBottom:14}}>
+                  <button onClick={()=>{
+                    // First-time popup: explain who needs vitamin D (NHS guidance)
+                    if(!localStorage.getItem("vitd_intro_v1")){
+                      localStorage.setItem("vitd_intro_v1","1");
+                      setHelpTip({title:"\u2600\uFE0F Vitamin D Drops",body:"The NHS recommends daily vitamin D supplements for babies and young children:\n\n\uD83E\uDD31 Breastfed babies \u2014 from birth (8.5\u201310mcg/day). Breast milk doesn\u2019t contain enough vitamin D, even if mum is taking supplements.\n\n\uD83C\uDF7C Formula-fed babies \u2014 only once having less than 500ml of formula per day. Infant formula is already fortified.\n\n\uD83D\uDC76 All children aged 1\u20134 \u2014 10mcg daily, regardless of feeding method.\n\nYou can get free vitamin D drops from your health visitor or through the Healthy Start scheme.\n\nThis tracker helps you remember \u2014 just tap once a day when you\u2019ve given the drops."});
+                    }
+                    toggleVitD();
+                  }} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${vitDGivenToday?"rgba(80,200,120,0.3)":"rgba(212,168,85,0.3)"}`,background:vitDGivenToday?"rgba(80,200,120,0.06)":"rgba(212,168,85,0.06)",cursor:_cP,transition:"all 0.2s"}}>
+                    <span style={{fontSize:22}}>{vitDGivenToday?"\u2705":"\u2600\uFE0F"}</span>
+                    <div style={{flex:1,textAlign:"left"}}>
+                      <div style={{fontSize:14,fontWeight:700,color:vitDGivenToday?"#50c878":C.deep}}>Vitamin D{vitDGivenToday?" — given today":""}</div>
+                      <div style={{fontSize:11,color:C.lt,marginTop:2}}>{vitDGivenToday?(vitDStreak>1?vitDStreak+" day streak \u{1F525}":"Logged for today"):"Tap to log — NHS recommends daily drops"}</div>
+                    </div>
+                    {!vitDGivenToday && <div style={{background:"#D4A855",borderRadius:99,padding:"4px 10px",fontSize:11,fontWeight:700,color:"white"}}>give</div>}
+                    {vitDGivenToday && <button onClick={e=>{e.stopPropagation();toggleVitD();}} style={{background:"none",border:"none",color:C.lt,fontSize:11,cursor:_cP,padding:"4px 8px",fontFamily:_fI}}>undo</button>}
+                  </button>
+                  {!localStorage.getItem("vitd_intro_v1") && <div style={{fontSize:10,color:C.lt,marginTop:4,paddingLeft:4,fontFamily:_fI}}>First tap will show who needs vitamin D and why</div>}
+                </div>
+              )}
               {/* ── Saved Medications (quick-tap logging) ── */}
               {savedMeds.length > 0 && (
                 <div style={{marginBottom:14}}>
