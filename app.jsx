@@ -7125,10 +7125,11 @@ function App(){
             <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Sleeping peacefully 🌙</span>
           </div>
           <div style={{fontSize:14,color:C.mid,marginBottom:10}}>{_timeStr}</div>
-          {_nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.contextLine && <div style={{fontSize:12,color:C.lt,marginBottom:6,paddingLeft:2}}>{_nwCtx.contextLine}</div>}
-          {_nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.topReason && <div style={{fontSize:13,color:C.ter,fontWeight:600,marginBottom:8,paddingLeft:2}}>{_nwCtx.topReason}</div>}
-          {_nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.helpLine && <div style={{fontSize:12,color:C.mint,fontStyle:"italic",marginBottom:8,paddingLeft:2}}>{_nwCtx.helpLine}</div>}
-          {_feedGapM < 9000 && <div style={{fontSize:12,color:C.lt,marginBottom:8,paddingLeft:2}}>🍼 Last feed {hm(_feedGapM)} ago</div>}
+          {/* Night wake context & feed info — only show when baby is awake, not during peaceful sleep */}
+          {bedPaused && _nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.contextLine && <div style={{fontSize:12,color:C.lt,marginBottom:6,paddingLeft:2}}>{_nwCtx.contextLine}</div>}
+          {bedPaused && _nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.topReason && <div style={{fontSize:13,color:C.ter,fontWeight:600,marginBottom:8,paddingLeft:2}}>{_nwCtx.topReason}</div>}
+          {bedPaused && _nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.helpLine && <div style={{fontSize:12,color:C.mint,fontStyle:"italic",marginBottom:8,paddingLeft:2}}>{_nwCtx.helpLine}</div>}
+          {bedPaused && _feedGapM < 9000 && <div style={{fontSize:12,color:C.lt,marginBottom:8,paddingLeft:2}}>🍼 Last feed {hm(_feedGapM)} ago</div>}
           {bedPaused ? (
             <div>
               <div style={{textAlign:"center",padding:"10px 0",marginBottom:8}}>
@@ -7149,7 +7150,7 @@ function App(){
               </button>
             </div>
           )}
-          <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>
+          {bedPaused && <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>}
           <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6,textAlign:"center"}}>{_h >= 0 && _h < 4 ? "You're not alone — this part is hard. Try to rest." : "You're doing wonderfully. Try to rest."}</div>
         </div>
       );
