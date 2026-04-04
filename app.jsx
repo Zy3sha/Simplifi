@@ -21023,7 +21023,122 @@ function App(){
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
               {(insightFilter==="sleep") && <div>
 
-              {/* ═══ Tomorrow's Predicted Rhythm — top of insights ═══ */}
+              {/* ═══ SLEEP SCORE + LAST NIGHT SUMMARY ═══ */}
+              {(()=>{
+                // Last night data
+                const _prevDk = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                const _prevEntries = days[_prevDk]||[];
+                const _todayEntries = days[selDay]||[];
+                const _bedEntry = _prevEntries.find(e=>e.type==="sleep"&&!e.night);
+                const _morningWake = findMorningWake(_todayEntries);
+                const _nightWakes = [..._prevEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")), ..._todayEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&timeVal(e)<12*60)];
+                const _bedMins = _bedEntry ? timeVal(_bedEntry) : null;
+                const _wakeMins = _morningWake ? timeVal(_morningWake) : null;
+                let _totalNightMins = 0;
+                if(_bedMins!==null && _wakeMins!==null) { _totalNightMins = _wakeMins - _bedMins; if(_totalNightMins<0) _totalNightMins+=1440; }
+                const _wakeCount = _nightWakes.length;
+                const _selfSettled = _nightWakes.filter(e=>e.selfSettled).length;
+
+                // Sleep score (0-100)
+                const _ss = sleepScore();
+                const _score = _ss && _ss.score !== null ? _ss.score : null;
+                const _scoreColor = _score >= 80 ? C.mint : _score >= 60 ? C.gold : _score >= 40 ? "#E8937A" : C.ter;
+
+                // Weekly comparison
+                const _dk7 = Object.keys(days).sort().slice(-14);
+                const _thisWeek = _dk7.slice(-7);
+                const _lastWeek = _dk7.slice(0,7);
+                const _avgWakesThis = _thisWeek.length >= 3 ? Math.round(_thisWeek.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0)/_thisWeek.length*10)/10 : null;
+                const _avgWakesLast = _lastWeek.length >= 3 ? Math.round(_lastWeek.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0)/_lastWeek.length*10)/10 : null;
+                const _trending = _avgWakesThis!==null && _avgWakesLast!==null ? (_avgWakesThis < _avgWakesLast - 0.3 ? "improving" : _avgWakesThis > _avgWakesLast + 0.3 ? "more_wakes" : "stable") : null;
+
+                // Longest stretch
+                const _nightSummaries = (()=>{try{return JSON.parse(localStorage.getItem("ob_night_summaries")||"[]");}catch{return[];}})();
+                const _lastNight = _nightSummaries.length ? _nightSummaries[_nightSummaries.length-1] : null;
+
+                return (
+                  <div>
+                    {/* Sleep Score Ring */}
+                    {_score !== null && (
+                      <div className="glass-card" style={{padding:"20px 18px",marginBottom:12,textAlign:"center"}}>
+                        <div style={{position:"relative",width:100,height:100,margin:"0 auto 12px"}}>
+                          <svg width="100" height="100" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke={C.blush} strokeWidth="8"/>
+                            <circle cx="50" cy="50" r="42" fill="none" stroke={_scoreColor} strokeWidth="8"
+                              strokeDasharray={`${_score*2.64} 264`} strokeDashoffset="0"
+                              strokeLinecap="round" transform="rotate(-90 50 50)" style={{transition:"stroke-dasharray 0.8s ease"}}/>
+                          </svg>
+                          <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                            <div style={{fontSize:28,fontWeight:700,color:_scoreColor,lineHeight:1}}>{_score}</div>
+                            <div style={{fontSize:9,color:C.lt,fontFamily:_fM}}>SLEEP</div>
+                          </div>
+                        </div>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>
+                          {_score >= 80 ? "Great night" : _score >= 60 ? "Decent night" : _score >= 40 ? "Tough night" : "Rough night"}
+                        </div>
+                        {_trending && (
+                          <div style={{fontSize:12,color:_trending==="improving"?C.mint:_trending==="more_wakes"?C.gold:C.lt}}>
+                            {_trending==="improving" ? "📈 Sleep is improving this week" : _trending==="more_wakes" ? "📉 More wakes than last week" : "➡️ Consistent with last week"}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Last Night Summary */}
+                    {_bedEntry && (
+                      <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10}}>Last Night</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                          <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Bedtime</div>
+                            <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{fmt12(_bedEntry.time)}</div>
+                          </div>
+                          <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Wake up</div>
+                            <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_morningWake ? fmt12(_morningWake.time) : "—"}</div>
+                          </div>
+                          <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Night wakes</div>
+                            <div style={{fontSize:16,fontWeight:700,color:_wakeCount===0?C.mint:_wakeCount<=2?C.gold:C.ter}}>{_wakeCount}</div>
+                          </div>
+                          <div style={{padding:"10px",borderRadius:12,background:"var(--card-bg-alt)",textAlign:"center"}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Total sleep</div>
+                            <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_totalNightMins > 0 ? hm(_totalNightMins) : "—"}</div>
+                          </div>
+                        </div>
+                        {_selfSettled > 0 && <div style={{fontSize:12,color:C.mint,fontWeight:600}}>✨ Self-settled {_selfSettled} time{_selfSettled!==1?"s":""}</div>}
+                        {_lastNight && _lastNight.sleepMins > 0 && (
+                          <div style={{fontSize:11,color:C.lt,marginTop:4}}>Actual sleep: {hm(_lastNight.sleepMins)} (excluding {hm(_lastNight.wakeMins||0)} awake)</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* This Week vs Last Week */}
+                    {_avgWakesThis !== null && _avgWakesLast !== null && (
+                      <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10}}>This Week vs Last Week</div>
+                        <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                          <div style={{flex:1,textAlign:"center"}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Last week</div>
+                            <div style={{fontSize:20,fontWeight:700,color:C.mid}}>{_avgWakesLast}</div>
+                            <div style={{fontSize:10,color:C.lt}}>avg wakes</div>
+                          </div>
+                          <div style={{fontSize:20,color:_trending==="improving"?C.mint:_trending==="more_wakes"?C.ter:C.lt}}>
+                            {_trending==="improving"?"→":_trending==="more_wakes"?"→":"="}
+                          </div>
+                          <div style={{flex:1,textAlign:"center"}}>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:2}}>This week</div>
+                            <div style={{fontSize:20,fontWeight:700,color:_trending==="improving"?C.mint:_trending==="more_wakes"?C.ter:C.deep}}>{_avgWakesThis}</div>
+                            <div style={{fontSize:10,color:C.lt}}>avg wakes</div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ═══ Tomorrow's Predicted Rhythm ═══ */}
               {(isPremium || trialActive || !STORE_READY) ? (
               (()=>{
                 const flex = tomorrowFlexSchedule();
