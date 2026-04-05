@@ -699,7 +699,10 @@ if(_completedNaps.length>=1){const _firstDur=minDiff(_completedNaps[0].start,_co
 if(_totalNapMin>=_profile.idealTotalMax)_structExpected=Math.min(_structExpected,_napsDone);// Consult predictNextNap() — if it returns null, no more naps fit today
 // This ensures hero card matches Today's Plan exactly
 try{if(_napsDone>0&&!napOn){const _heroP=tickDataRef.current.pred;if(!_heroP)_structExpected=Math.min(_structExpected,_napsDone);}}catch{}const _adjustedExpected=_structExpected;const _longNapNote=_structExpected<_ageExpected?" (adjusted today)":"";let _napsComplete=_napsDone>=_adjustedExpected;const _dailySleepMax=_profile.idealNapDurMax*_adjustedExpected;// ── Awake time ──
-const _lastNapEnd=_naps.length>0?Math.max(..._naps.map(n=>timeVal({time:n.end||n.start}))):null;const _wakeTime=_morningWake?timeVal(_morningWake):null;let _lastSleep=_lastNapEnd||_wakeTime;if(_lastSleep===null&&_dayStarted){const _dayE=_todayEntries.filter(e=>!e.night);if(_dayE.length>0)_lastSleep=Math.min(..._dayE.filter(e=>e.time).map(e=>timeVal(e)));}let _awakeMin=_lastSleep!==null?Math.max(0,_nowM-_lastSleep):0;// Cap unreasonable awake times — if no proper wake was logged, don't show misleading numbers
+// Only use COMPLETED naps for last-sleep-end — an active nap (end===start) would otherwise
+// be read as the wake moment, making _awakeMin = time since nap started (wrong: baby is sleeping)
+const _lastNapEnd=_completedNaps.length>0?Math.max(..._completedNaps.map(n=>timeVal({time:n.end}))):null;const _wakeTime=_morningWake?timeVal(_morningWake):null;let _lastSleep=_lastNapEnd||_wakeTime;if(_lastSleep===null&&_dayStarted){const _dayE=_todayEntries.filter(e=>!e.night);if(_dayE.length>0)_lastSleep=Math.min(..._dayE.filter(e=>e.time).map(e=>timeVal(e)));}let _awakeMin=_lastSleep!==null?Math.max(0,_nowM-_lastSleep):0;// If an active nap is running, baby is sleeping — awake time is 0, not "time since nap started"
+if(napOn)_awakeMin=0;// Cap unreasonable awake times — if no proper wake was logged, don't show misleading numbers
 // Newborns max wake window is ~2h, older babies ~5h. If awake > 6h and no morning wake, something is off
 if(_awakeMin>360&&!_hasMorningWake)_awakeMin=0;// ── Bridge nap detection: naps "complete" by count but too early for bedtime ──
 // FIX: use personal bedtime WW if known — some babies comfortably handle 3h+ before bed.
