@@ -591,40 +591,12 @@ var OBLiveActivity = {
   }
 };
 
+// ── 15. (removed) ───────────────────────────────────────────────
 var OBHealth = {
-  isAvailable: function() {
-    if (!isNative()) return Promise.resolve(false);
-    if (getPlatform() === 'ios') {
-      if (!HK) return Promise.resolve(false);
-      try { return HK.isAvailable().catch(function() { return false; }); }
-      catch(e) { return Promise.resolve(false); }
-    }
-    return Promise.resolve(false);
-  },
-
-  requestPermission: function() {
-    if (!isNative()) return Promise.resolve(false);
-    if (!HK) return Promise.resolve(false);
-    try {
-      return HK.requestAuthorization({ read: ['weight', 'height'], write: ['weight', 'height'] })
-        .then(function() { return true; })
-        .catch(function() { return false; });
-    } catch(e) { return Promise.resolve(false); }
-  },
-
-  saveWeight: function(opts) {
-    if (!isNative()) return Promise.resolve();
-    if (!HK) return Promise.resolve();
-    try { return HK.saveWeight({ kg: opts.kg, date: opts.date }).catch(function(){}); }
-    catch(e) { return Promise.resolve(); }
-  },
-
-  saveHeight: function(opts) {
-    if (!isNative()) return Promise.resolve();
-    if (!HK) return Promise.resolve();
-    try { return HK.saveHeight({ cm: opts.cm, date: opts.date }).catch(function(){}); }
-    catch(e) { return Promise.resolve(); }
-  }
+  isAvailable: function() { return Promise.resolve(false); },
+  requestPermission: function() { return Promise.resolve(false); },
+  saveWeight: function() { return Promise.resolve(); },
+  saveHeight: function() { return Promise.resolve(); }
 };
 
 // ── 16. SPEECH RECOGNITION (Voice Logging) ──────────────────────

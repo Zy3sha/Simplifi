@@ -88,7 +88,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		736D42312F73FBE00069239C /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		736D42312F73FBE00069239C /* Exceptions for "OBubbaWidgets" folder in "OBubbaWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -98,7 +98,18 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		736D42222F73FBDE0069239C /* OBubbaWidgets */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (736D42312F73FBE00069239C /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = OBubbaWidgets; sourceTree = "<group>"; };
+		736D42222F73FBDE0069239C /* OBubbaWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				736D42312F73FBE00069239C /* Exceptions for "OBubbaWidgets" folder in "OBubbaWidgetsExtension" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = OBubbaWidgets;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -271,8 +282,6 @@
 				736D42222F73FBDE0069239C /* OBubbaWidgets */,
 			);
 			name = OBubbaWidgetsExtension;
-			packageProductDependencies = (
-			);
 			productName = OBubbaWidgetsExtension;
 			productReference = 736D421F2F73FBDE0069239C /* OBubbaWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -323,8 +332,6 @@
 				Base,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
-			packageReferences = (
-			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
 			projectRoot = "";

@@ -328,11 +328,25 @@ function renderApp() {
   const _ageStr = _weeks==null ? "" : _weeks<13 ? `${_weeks}w` : _weeks<52 ? `${Math.floor(_weeks/4.3)}mo` : `${Math.floor(_weeks/52)}y`;
   const _t = familyContext.today || {};
   const _ww = _weeks!=null ? getWakeWindow(_weeks) : null;
-  // Compute predictions
+  // Compute predictions — current wall-clock for "past" filtering
+  const _nowD = new Date();
+  const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
+  const _bedtimeMins = 19*60; // 7pm — typical bedtime for babies; nap windows past this are suppressed
   const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
   const _lastFeedTimeMins = _t.lastFeed ? (parseInt(_t.lastFeed.time.split(":")[0])*60 + parseInt(_t.lastFeed.time.split(":")[1])) : null;
-  const _nextFeedMins = _lastFeedTimeMins!=null ? (_lastFeedTimeMins + (_weeks<13?180:210)) : null;
-  const _nextFeedStr = _nextFeedMins!=null && _nextFeedMins<1440 ? fmt12(String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")+":"+String(_nextFeedMins%60).padStart(2,"0")) : null;
+  // Feed interval: 3h for young babies, 3.5h for 3mo+, 4h for 6mo+ (matches app guidance)
+  const _feedInterval = _weeks==null ? 210 : (_weeks<13 ? 180 : _weeks<26 ? 180 : 210);
+  let _nextFeedMins = _lastFeedTimeMins!=null ? (_lastFeedTimeMins + _feedInterval) : null;
+  // Roll forward if in the past: keep adding interval until it's in the future (but cap at bedtime)
+  if (_nextFeedMins!=null) {
+    while (_nextFeedMins < _nowMins - 5 && _nextFeedMins < _bedtimeMins + 60) {
+      _nextFeedMins += _feedInterval;
+    }
+  }
+  // Hide the prediction entirely if it landed past a reasonable window (bedtime+1h)
+  const _nextFeedStr = _nextFeedMins!=null && _nextFeedMins<1440 && _nextFeedMins <= _bedtimeMins + 60
+    ? fmt12(String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")+":"+String(_nextFeedMins%60).padStart(2,"0"))
+    : null;
   // Last nap end → next nap window
   let _napWindowStr = null;
   if (_t.lastNap && _ww) {
@@ -341,7 +355,10 @@ function renderApp() {
       const endMins = eh*60+em;
       const minStart = endMins + _ww.min;
       const maxStart = endMins + _ww.max;
-      if(minStart<1440) {
+      // Hide if window has passed OR if it would start at/after typical bedtime (not a nap then — it's bedtime)
+      const _alreadyPast = maxStart <= _nowMins;
+      const _afterBedtime = minStart >= _bedtimeMins;
+      if (minStart < 1440 && !_alreadyPast && !_afterBedtime) {
         const _fmt = (m)=>fmt12(String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0"));
         _napWindowStr = `${_fmt(minStart)} – ${_fmt(maxStart)}`;
       }
@@ -383,7 +400,7 @@ function renderApp() {
   const _notesHtml = familyContext.carerNotes ? `<div class="parent-note"><div class="pn-label">📋 Notes from parents</div>${escapeHtml(familyContext.carerNotes)}</div>` : "";
   const _comfortHtml = familyContext.carerComfort ? `<div class="parent-note"><div class="pn-label">🧸 Comfort & routine</div>${escapeHtml(familyContext.carerComfort)}</div>` : "";
   // Contacts → tel: buttons
-  const _contactsHtml = (familyContext.emergencyContacts||[]).filter(c=>c.phone).map(c => `
+  const _contactsHtml = (familyContext.emergencyContacts||[]).filter(c=>c && c.phone && String(c.phone).trim()).map(c => `
     <a class="call-btn" href="tel:${encodeURIComponent(c.phone)}">
       <span class="emoji">📞</span>
       <span class="name">${escapeHtml(c.name || "Call")}${c.relation?" <span style='font-size:11px;color:#A89A90;font-weight:500'>· "+escapeHtml(c.relation)+"</span>":""}</span>

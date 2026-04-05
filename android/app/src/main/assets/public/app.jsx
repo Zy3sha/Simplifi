@@ -14513,10 +14513,29 @@ function App(){
     return lines;
   }
 
+  function buildShareCaption(sharePrev) {
+    if (!sharePrev) return "OBubba \u2014 Tracked with OBubba";
+    const _title = sharePrev.title || "OBubba";
+    const _name = babyName || "Baby";
+    const _ct = sharePrev.cardType || "milestone";
+    // Card-type-specific captions with hashtags for reach
+    const _captions = {
+      sleepwin: `${_title} \u{1F319} Turning the corner one nap at a time. Tracked with OBubba.\n\n#OBubba #parentlife #babysleep #parentingwins #newmum #newdad`,
+      badnight: `Survived the night \u{1F49B} Showing up anyway \u2014 that counts. Tracked with OBubba.\n\n#OBubba #tiredparents #parentlife #honestparenting #newparent`,
+      daywin: `${_title} \u2728 Small wins add up. Tracked with OBubba.\n\n#OBubba #parentlife #babyday #raisinghumans #parentingwins`,
+      dayscore: `${_title} \u2728 Small wins add up. Tracked with OBubba.\n\n#OBubba #parentlife #babyday #parentingwins`,
+      milestone: `${_title} \u{1F389} Another first for ${_name}. Tracked with OBubba.\n\n#OBubba #babymilestones #parentlife #newparent #proudparent`,
+      weekly: `${_name}'s week in review \u{1F4CA} Tracked with OBubba.\n\n#OBubba #weeklywrapped #parentlife #babysleep #newparent`
+    };
+    return _captions[_ct] || (_title + " \u2014 Tracked with OBubba\n\n#OBubba #parentlife");
+  }
+
   async function doShareCard(){
     if(!sharePreview) return;
     const _title = sharePreview.title || "OBubba";
-    const _text = _title + " \u2014 Tracked with OBubba";
+    const _text = buildShareCaption(sharePreview);
+    // Copy caption to clipboard so user can paste into IG/WhatsApp/etc if the share sheet doesn't carry text
+    try { if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(_text); } catch {}
     try{
       // 1. Try Web Share API with file (works on iOS WKWebView, Android Chrome, Safari)
       try {
@@ -14525,6 +14544,7 @@ function App(){
         const file = new File([blob], "obubba-card.png", {type:"image/png"});
         if (navigator.canShare && navigator.canShare({files:[file]})) {
           await navigator.share({files:[file], title:_title, text:_text});
+          showToast("\u{1F4CB} Caption copied \u2014 paste it into your post!", 3200, 1);
           return;
         }
       } catch(_){ /* fall through */ }
@@ -14538,16 +14558,19 @@ function App(){
           const _writeRes = await _fs.writeFile({path:fname, data:b64, directory:"CACHE"});
           const _uri = _writeRes.uri;
           await _sp.share({title:_title, text:_text, url:_uri, dialogTitle:"Share"});
+          showToast("\u{1F4CB} Caption copied \u2014 paste it into your post!", 3200, 1);
           return;
         } catch(_e){ /* fall through to text share */ }
         try {
           await _sp.share({title:_title, text:_text, dialogTitle:"Share"});
+          showToast("\u{1F4CB} Caption copied \u2014 paste it into your post!", 3200, 1);
           return;
         } catch(_e2){}
       }
       // 3. navigator.share text fallback
       if(navigator.share){
         await navigator.share({title:_title,text:_text});
+        showToast("\u{1F4CB} Caption copied \u2014 paste it into your post!", 3200, 1);
         return;
       }
       // 4. Last resort: download
@@ -14829,6 +14852,146 @@ function App(){
     return canvas;
   }
 
+  // ── Weekly Wrapped — Spotify-wrapped style recap card ──
+  async function renderWeeklyWrapCard(digest) {
+    const W = 1080, H = 1920; // portrait 9:16, plays well on IG stories
+    const canvas = document.createElement("canvas"); canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    if (!ctx.roundRect) {
+      ctx.roundRect = function(x,y,w,h,r){ if(typeof r==="number") r=[r,r,r,r]; this.moveTo(x+r[0],y); this.arcTo(x+w,y,x+w,y+h,r[1]); this.arcTo(x+w,y+h,x,y+h,r[2]); this.arcTo(x,y+h,x,y,r[3]); this.arcTo(x,y,x+w,y,r[0]); this.closePath(); return this; };
+    }
+    const name = digest.name || babyName || "Baby";
+
+    // ── Background: warm sunset gradient ──
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, "#F9E1D4"); bgGrad.addColorStop(0.35, "#F3C9B3"); bgGrad.addColorStop(0.7, "#E8A68C"); bgGrad.addColorStop(1, "#C97A5E");
+    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+
+    // ── Glows for depth ──
+    [[W*0.15, H*0.05, 620, "rgba(255,230,210,0.55)"], [W*0.95, H*0.35, 520, "rgba(255,190,140,0.4)"], [W*0.1, H*0.98, 600, "rgba(180,95,70,0.3)"]].forEach(([gx,gy,gr,gc]) => {
+      const g = ctx.createRadialGradient(gx,gy,0,gx,gy,gr); g.addColorStop(0,gc); g.addColorStop(0.7,"transparent");
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    });
+
+    const primary = "#3A2418", secondary = "#6B3E28", accent = "#FFF8F0";
+
+    // ── Spaced text helper ──
+    const drawSpaced = (text, x, y, letterSpacing) => {
+      const chars = text.split(""); const spacing = letterSpacing||0;
+      let totalW = 0; chars.forEach(c => totalW += ctx.measureText(c).width + spacing); totalW -= spacing;
+      let cx = x - totalW/2; ctx.textAlign = "left";
+      chars.forEach(c => { ctx.fillText(c, cx, y); cx += ctx.measureText(c).width + spacing; });
+    };
+
+    // ── OBUBBA logo ──
+    ctx.font = "700 56px Georgia, 'Playfair Display', serif";
+    ctx.fillStyle = primary; ctx.shadowColor = "rgba(255,255,255,0.4)"; ctx.shadowBlur = 30;
+    drawSpaced("OBUBBA", W/2, 110, 5);
+    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
+
+    // ── Subtitle: WEEK RECAP ──
+    ctx.font = "600 26px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.75;
+    drawSpaced("WEEK RECAP", W/2, 160, 6);
+    ctx.globalAlpha = 1;
+
+    // ── Baby name hero ──
+    ctx.font = "italic 700 96px Georgia, 'Playfair Display', serif"; ctx.fillStyle = primary; ctx.textAlign = "center";
+    ctx.fillText(name + "'s Week", W/2, 290);
+
+    // ── Period ──
+    ctx.font = "500 28px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.75;
+    ctx.fillText(digest.period || "", W/2, 340);
+    if (digest.ageStr) { ctx.font = "500 22px -apple-system, sans-serif"; ctx.fillText(digest.ageStr, W/2, 375); }
+    ctx.globalAlpha = 1;
+
+    // ── Sleep Quality Score — big ring-style hero ──
+    const sq = digest.sleepQuality || 70;
+    const ringCx = W/2, ringCy = 585, ringR = 140;
+    // Outer glass ring
+    ctx.beginPath(); ctx.arc(ringCx, ringCy, ringR+8, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(255,248,240,0.25)"; ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2; ctx.stroke();
+    // Progress arc
+    ctx.beginPath(); ctx.arc(ringCx, ringCy, ringR, -Math.PI/2, -Math.PI/2 + (sq/100)*Math.PI*2);
+    ctx.strokeStyle = sq>=80 ? "#6fa898" : sq>=60 ? "#d4a855" : "#c97a5e"; ctx.lineWidth = 16; ctx.lineCap = "round"; ctx.stroke();
+    // Big score number
+    ctx.font = "700 110px Georgia, 'Playfair Display', serif"; ctx.fillStyle = primary; ctx.textAlign = "center";
+    ctx.fillText(String(sq), ringCx, ringCy+18);
+    // "/100" suffix
+    ctx.font = "400 34px Georgia, serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.7;
+    ctx.fillText("/100", ringCx, ringCy+55);
+    ctx.globalAlpha = 1;
+    // Label under ring
+    ctx.font = "600 24px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.8;
+    drawSpaced("SLEEP QUALITY SCORE", ringCx, ringCy+ringR+45, 3);
+    ctx.globalAlpha = 1;
+
+    // ── 2×2 stats grid ──
+    const gridY = 820, tileW = 420, tileH = 170, gapX = 40, gapY = 30;
+    const col0 = W/2 - tileW - gapX/2, col1 = W/2 + gapX/2;
+    const row0 = gridY, row1 = gridY + tileH + gapY;
+    const fmtStretch = digest.longestStretch ? (digest.longestStretch>=60 ? Math.floor(digest.longestStretch/60)+"h "+(digest.longestStretch%60)+"m" : digest.longestStretch+"m") : "—";
+    const tiles = [
+      { x: col0, y: row0, icon: "🌙", val: fmtStretch, label: "LONGEST STRETCH" },
+      { x: col1, y: row0, icon: "🍼", val: String(digest.avgFeeds||0), label: "FEEDS PER DAY" },
+      { x: col0, y: row1, icon: "💤", val: String(digest.avgNaps||0), label: "NAPS PER DAY" },
+      { x: col1, y: row1, icon: "🔔", val: String(digest.avgNightWakes||0), label: "NIGHT WAKES" }
+    ];
+    tiles.forEach(t => {
+      // Tile background
+      ctx.fillStyle = "rgba(255,248,240,0.35)"; ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(t.x, t.y, tileW, tileH, 22); ctx.fill(); ctx.stroke();
+      // Icon
+      ctx.font = "52px serif"; ctx.textAlign = "left"; ctx.fillStyle = primary;
+      ctx.fillText(t.icon, t.x+24, t.y+62);
+      // Value
+      ctx.font = "700 58px Georgia, 'Playfair Display', serif"; ctx.fillStyle = primary;
+      ctx.textAlign = "right"; ctx.fillText(t.val, t.x+tileW-24, t.y+75);
+      // Label
+      ctx.font = "600 19px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.75;
+      ctx.textAlign = "left"; const labelChars = t.label.split(""); let lx = t.x+24;
+      labelChars.forEach(c => { ctx.fillText(c, lx, t.y+tileH-28); lx += ctx.measureText(c).width + 2; });
+      ctx.globalAlpha = 1;
+    });
+
+    // ── Wins quote block ──
+    if (digest.wins && digest.wins.length) {
+      const _wrapWin = (text, maxW) => {
+        const words = text.split(" "); const lines = []; let line = "";
+        words.forEach(w => { const t = line?line+" "+w:w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; });
+        if (line) lines.push(line); return lines;
+      };
+      const winsBoxY = 1240, winsBoxH = 260;
+      ctx.fillStyle = "rgba(58,36,24,0.88)"; ctx.beginPath(); ctx.roundRect(60, winsBoxY, W-120, winsBoxH, 26); ctx.fill();
+      ctx.font = "600 22px -apple-system, sans-serif"; ctx.fillStyle = "#F9D4B8"; ctx.textAlign = "left";
+      drawSpaced("THIS WEEK'S WINS", 120, winsBoxY+52, 3);
+      ctx.font = "italic 500 32px Georgia, serif"; ctx.fillStyle = accent;
+      let wy = winsBoxY+105;
+      digest.wins.slice(0,2).forEach(w => {
+        const lines = _wrapWin("\u201C" + w + "\u201D", W-200);
+        lines.forEach(l => { ctx.fillText(l, 120, wy); wy += 42; });
+        wy += 8;
+      });
+    }
+
+    // ── Mascot + branding footer ──
+    const mascotSize = 160;
+    try {
+      const mascotImg = new Image();
+      await new Promise((res,rej)=>{ mascotImg.onload=res; mascotImg.onerror=rej; mascotImg.src="obubba-celebration.png"; setTimeout(()=>{ try{mascotImg.src="obubba-happy.png";}catch{} },1500); setTimeout(rej, 3000); });
+      ctx.drawImage(mascotImg, W/2-mascotSize/2, H-300, mascotSize, mascotSize);
+    } catch(e) { ctx.font = "120px serif"; ctx.textAlign = "center"; ctx.fillText("\u{1F389}", W/2, H-190); }
+
+    // ── Tagline + URL ──
+    ctx.font = "italic 500 28px Georgia, serif"; ctx.fillStyle = primary; ctx.textAlign = "center"; ctx.globalAlpha = 0.85;
+    ctx.fillText("Track the small moments.", W/2, H-110);
+    ctx.globalAlpha = 1;
+    ctx.font = "700 30px -apple-system, sans-serif"; ctx.fillStyle = primary;
+    drawSpaced("OBUBBA.COM", W/2, H-55, 4);
+
+    return canvas;
+  }
+
   // Share a canvas as PNG via native share sheet (iOS/Android) or download (web).
   async function shareCanvas(canvas, filename) {
     try {
@@ -14874,19 +15037,37 @@ function App(){
     }
 
     if (isIOS) {
-      // iOS: share .ics file via native share sheet — iOS shows "Add to Calendar" option
-      try {
-        var blob = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
-        var file = new File([blob], filename || "obubba-event.ics", {type:"text/calendar"});
-        if (navigator.canShare && navigator.canShare({files:[file]})) {
-          navigator.share({files:[file], title:"Add to Calendar"}).catch(function(){});
-        } else {
-          // Fallback: download the .ics — iOS will offer to open in Calendar
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement("a"); a.href = url; a.download = filename || "obubba-event.ics"; a.click();
-          setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
-        }
-      } catch(e) { console.warn("Calendar add failed", e); }
+      // iOS: write .ics to CACHE and open directly — iOS recognizes text/calendar MIME
+      // and opens the Calendar.app "Add Event" preview (big Add button, 1 tap).
+      // Skips the share sheet entirely.
+      (async function(){
+        try {
+          var _fs = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+          var _sp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+          if (_fs) {
+            // Base64 encode the ICS string safely for any utf-8 content
+            var b64 = btoa(unescape(encodeURIComponent(icsString)));
+            var fname = (filename || "obubba-event.ics").replace(/[^a-zA-Z0-9._-]/g, "_");
+            var writeRes = await _fs.writeFile({ path: fname, data: b64, directory: "CACHE" });
+            var _uri = writeRes && writeRes.uri;
+            if (_uri && _sp && _sp.share) {
+              // Share sheet with ONLY the file — iOS puts "Add to Calendar" front-and-centre
+              try { await _sp.share({ url: _uri, title: "Add to Calendar", dialogTitle: "Add to Calendar" }); return; }
+              catch(_e){ /* fall through */ }
+            }
+          }
+          // Last resort: Blob URL (iOS Safari will open Calendar preview)
+          var blob = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
+          var file = new File([blob], filename || "obubba-event.ics", {type:"text/calendar"});
+          if (navigator.canShare && navigator.canShare({files:[file]})) {
+            navigator.share({files:[file], title:"Add to Calendar"}).catch(function(){});
+          } else {
+            var url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+            setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+          }
+        } catch(e) { console.warn("Calendar add failed", e); }
+      })();
       return;
     }
 
@@ -16970,7 +17151,15 @@ function App(){
     const feedSpacing = getFeedSpacing();
     const nextFeedEst = lastFeed && feedSpacing ? (() => {
       const [fh,fm] = lastFeed.time.split(":").map(Number);
-      const nextMins = fh*60+fm + feedSpacing.threshold;
+      const _nowD = new Date();
+      const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
+      const _bedtimeMins = 19*60; // 7pm — don't recommend feeds past bedtime+1h
+      let nextMins = fh*60+fm + feedSpacing.threshold;
+      // Roll forward if the computed next feed is in the past
+      while (nextMins < _nowMins - 5 && nextMins < _bedtimeMins + 60) {
+        nextMins += feedSpacing.threshold;
+      }
+      if (nextMins >= 1440 || nextMins > _bedtimeMins + 60) return null;
       return `${String(Math.floor(nextMins/60)%24).padStart(2,"0")}:${String(nextMins%60).padStart(2,"0")}`;
     })() : null;
 
@@ -17074,6 +17263,23 @@ function App(){
       </div>
     </div>`);
 
+    // IF YOU'RE OVERWHELMED — safe coping reminder for carers
+    sections.push(`<div style="background:#F5F0F8;border:1px solid #D4C4E0;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#8868A0;font-size:16px;margin:0 0 10px">💜 If you're feeling overwhelmed</h2>
+      <div style="font-size:14px;color:#5B4F5F;line-height:1.7">
+        Crying is hard to sit with. If you feel yourself getting tense, frustrated, or tearful — that's a signal, not a failure.
+        <br><br>
+        <b>It's always OK to:</b><br>
+        • Place ${name} down safely in their cot on their back<br>
+        • Walk away for a minute or two — make a cup of tea, take a few breaths<br>
+        • Come back when you feel steadier. ${name} is safe in the cot.
+        <br><br>
+        <b style="color:#8868A0">Never shake a baby.</b> Shaking can cause serious, lasting harm. Putting baby down and stepping away is always the right choice if you need a moment.
+        <br><br>
+        <span style="font-size:12px;color:#8868A0">You're not alone in this. Call the parent, ring a trusted friend, or reach a helpline if you need support.</span>
+      </div>
+    </div>`);
+
     // COMFORT & ROUTINE
     if (carerComfort) {
       sections.push(`<div style="background:#F8F0FF;border:1px solid #e0d4f0;border-radius:16px;padding:16px;margin-bottom:12px">
@@ -17107,8 +17313,9 @@ function App(){
     const hvTitle = isUS ? "pediatrician" : isAU ? "child health nurse or GP" : "health visitor or GP";
 
     let contactsHtml = "";
-    if (emergencyContacts.length) {
-      contactsHtml = emergencyContacts.map(c => `<div style="padding:4px 0;font-size:14px;color:#5B4F5F"><b>${c.name}:</b> <span style="color:#7aabc4">${c.phone}</span>${c.relation?" ("+c.relation+")":""}</div>`).join("");
+    const _validContacts = (emergencyContacts||[]).filter(c => c && (c.name||"").trim() && (c.phone||"").trim());
+    if (_validContacts.length) {
+      contactsHtml = _validContacts.map(c => `<div style="padding:4px 0;font-size:14px;color:#5B4F5F"><b>${c.name}:</b> <span style="color:#7aabc4">${c.phone}</span>${c.relation?" ("+c.relation+")":""}</div>`).join("");
     }
 
     sections.push(`<div style="background:#f8f0f0;border:2px solid #E8B4C0;border-radius:16px;padding:16px;margin-bottom:12px">
@@ -17172,13 +17379,36 @@ function App(){
       }
     } catch {}};
 
-    // GUARANTEE PARITY: always open the preview. Share + Print buttons inside it
-    // use the SAME finalHtml, so what the parent sees is exactly what the carer gets.
-    // (Previous attempts to bypass via native OBCareCard PDF had silent failures in
-    // WKWebView, so we avoid that path entirely.)
-    openCareCardPreview(finalHtml, name);
-    _villageUnlock();
-    try { trackEvent("carer_portal_shared", { method: "preview_first" }); } catch {}
+    // Direct share: uses the SAME finalHtml as the Preview modal, so parity is guaranteed.
+    // Preview button still exists for parents who want to review first.
+    let _method = "unknown";
+    try {
+      const blob = new Blob([finalHtml], { type: "text/html" });
+      const file = new File([blob], name + "-Care-Guide.html", { type: "text/html" });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        _method = "native_share_file";
+        await navigator.share({ title: name + "'s Care Guide", files: [file] });
+      } else if (navigator.share) {
+        _method = "native_share_text";
+        await navigator.share({ title: name + "'s Care Guide", text: name + "'s care guide from OBubba" });
+      } else {
+        // Web fallback: download the file
+        _method = "download";
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = name + "-Care-Guide.html"; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+      }
+      _villageUnlock();
+      try { trackEvent("carer_portal_shared", { method: _method }); } catch {}
+    } catch (err) {
+      // User cancelled or share failed — fall back to opening the preview modal
+      if (err && err.name !== "AbortError") {
+        console.warn("[OBubba] shareCarerCard share failed, opening preview:", err);
+        openCareCardPreview(finalHtml, name);
+        _villageUnlock();
+        try { trackEvent("carer_portal_shared", { method: "preview_fallback" }); } catch {}
+      }
+    }
   }
 
   async function printCareCard() {
@@ -29982,9 +30212,19 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
                 </div>
               )}
 
+              <button onClick={async ()=>{
+                haptic();
+                try {
+                  const canvas = await renderWeeklyWrapCard(digest);
+                  const dataUrl = canvas.toDataURL("image/png");
+                  setShowWeeklyDigest(false);
+                  setSharePreview({title:(babyName||"Baby")+"'s Week", milestone:null, dataUrl, cardType:"weekly"});
+                  try { trackEvent("share_card_created", { cardType: "weekly" }); } catch {}
+                } catch(e) { console.warn("Weekly wrap card failed:", e); showToast("Couldn't build the card — try again", 2200, 0); }
+              }} style={{width:"100%",marginBottom:8,padding:"13px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,boxShadow:"0 4px 16px rgba(192,112,136,0.25)"}}>📸 Share as Card</button>
               <div style={_S.flexRowGap8}>
-                <button onClick={()=>{navigator.share?navigator.share({title:digest.name+"'s Week",text:digest.text}):navigator.clipboard.writeText(digest.text);}} style={{flex:1,padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>📤 Share</button>
-                <button onClick={()=>{navigator.clipboard.writeText(digest.text);}} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>📋 Copy</button>
+                <button onClick={()=>{navigator.share?navigator.share({title:digest.name+"'s Week",text:digest.text}):navigator.clipboard.writeText(digest.text);}} style={{flex:1,padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>📤 Share text</button>
+                <button onClick={()=>{navigator.clipboard.writeText(digest.text);}} style={{flex:1,padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>📋 Copy</button>
               </div>
               <button onClick={()=>setShowWeeklyDigest(false)} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:_bN,background:"transparent",color:C.lt,fontSize:13,cursor:_cP}}>Close</button>
             </div>
