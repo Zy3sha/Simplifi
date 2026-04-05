@@ -6503,7 +6503,7 @@ function App(){
       else if (activeTimer === "feed") timerLabel = "Nursing " + (activeSide === "left" ? "L" : activeSide === "right" ? "R" : "");
 
       // Shape matches Swift WidgetData struct
-      var _wetNappyCount = (nappies||[]).filter(function(n){return ((n.poopType||"")+"").toLowerCase().includes("wet");}).length;
+      var _wetNappyCount = (nappies||[]).filter(function(n){var _pt=((n.poopType||"")+"").toLowerCase();return _pt.includes("wet")||_pt==="both";}).length;
       var widgetData = {
         babyName: String(babyName || "Baby"),
         feedCount: parseInt(feeds.length) || 0,
@@ -9963,7 +9963,7 @@ function App(){
     // Feed alerts handled by the Last Feed card — no duplicate banner needed
 
     // Check hydration
-    const wetCount = today.filter(e => e.type === "poop" && (e.poopType === "wet" || (e.poopType || "").includes("wet"))).length;
+    const wetCount = today.filter(e => { if(e.type!=="poop") return false; const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
     const h = new Date().getHours();
     if (h >= 14 && wetCount < 4) return { emoji: "💧", text: `${wetCount} wet nappies today — aim for 6+ in 24 hours for adequate hydration.`, priority: "med", why: "NHS guidance recommends 6+ wet nappies in 24 hours as a sign of adequate hydration. Fewer wet nappies, especially in the afternoon, may mean baby needs more milk." };
 
@@ -9982,7 +9982,7 @@ function App(){
   // ── Wet Nappy Hydration Counter ──
   function getHydrationStatus() {
     const today = entries;
-    const wetCount = today.filter(e => e.type === "poop" && (e.poopType === "wet" || (e.poopType || "").includes("wet"))).length;
+    const wetCount = today.filter(e => { if(e.type!=="poop") return false; const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
     const poopCount = today.filter(e => e.type === "poop" && e.poopType && e.poopType !== "wet").length;
     const target = 6;
     return { wetCount, poopCount, target, met: wetCount >= target };
@@ -16741,7 +16741,7 @@ function App(){
     const entryMins = entryTime ? (()=>{const[h,m]=entryTime.split(":").map(Number);return h*60+m;})() : nowH*60+new Date().getMinutes();
     const recent3h = breastFeeds.filter(e => { const t = timeVal(e); const diff = entryMins - t; return diff >= 0 && diff <= 180; });
     const nearbyBottle = bottleFeeds.some(e => Math.abs(entryMins - timeVal(e)) <= 60);
-    const wetCount = today.filter(e => e.type === "poop" && (e.poopType === "wet" || (e.poopType || "").includes("wet"))).length;
+    const wetCount = today.filter(e => { if(e.type!=="poop") return false; const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
     const _bfName = babyName || "Baby";
     if (isCombi && nearbyBottle) return { icon: "\uD83C\uDF7C\uD83E\uDD31", title: "Today looks like a mixed feeding day", body: "Focus on the full day\u2019s pattern, not one feed. You\u2019re doing a great job combining." };
     if (recent3h.length >= 3 && !nearbyBottle) return { icon: "\uD83E\uDD0D", title: "This looks like cluster feeding", body: "Very normal, especially in the evening or during growth spurts. Your body is responding exactly as it should." };
@@ -16978,7 +16978,7 @@ function App(){
     const allNappies = today.filter(e => e.type === "poop").sort((a,b) => timeVal(a) - timeVal(b));
     const lastNappy = allNappies.length ? allNappies[allNappies.length - 1] : null;
     const nappyCount = allNappies.length;
-    const wetCount = allNappies.filter(e => (e.poopType||"").includes("wet")).length;
+    const wetCount = allNappies.filter(e => { const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
     const poopEntries = allNappies.filter(e => e.poopType && e.poopType !== "wet");
     const lastPoop = poopEntries.length ? poopEntries[poopEntries.length-1] : null;
 
@@ -24212,7 +24212,7 @@ function App(){
                     {/* Feed confidence for under 12 weeks */}
                     {(()=>{
                       const _todayFeeds = (days[selDay]||[]).filter(e=>e.type==="feed"&&!e.night);
-                      const _wetNappies = (days[selDay]||[]).filter(e=>e.type==="poop"&&(e.poopType||"wet").includes("wet")).length;
+                      const _wetNappies = (days[selDay]||[]).filter(e=>{if(e.type!=="poop")return false;const _pt=(e.poopType||"wet").toLowerCase();return _pt.includes("wet")||_pt==="both";}).length;
                       const _h = new Date().getHours();
                       if(_h < 15 || !_todayFeeds.length) return null;
                       const _feedCount = _todayFeeds.length;
@@ -29833,7 +29833,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>💩 Log a Nappy</div>
             <div style={{fontSize:15,color:C.mid,textAlign:"center",marginBottom:24}}>What's in it?</div>
-            {[{k:"wet",lbl:"Wet",icon:"💧"},{k:"dirty",lbl:"Dirty",icon:"💩"},{k:"both",lbl:"Wet + Dirty",icon:"💧💩"}].map(opt=>(
+            {[{k:"wet",lbl:"Wet",icon:"💧"},{k:"dirty",lbl:"Dirty",icon:"💩"},{k:"wet + dirty",lbl:"Wet + Dirty",icon:"💧💩"}].map(opt=>(
               <button key={opt.k} onClick={()=>{
                 haptic();
                 quickAddLog("poop",{type:"poop",time:nowTime(),poopType:opt.k,loggedBy:"grandparent",note:"Logged by caregiver"});

@@ -176,7 +176,7 @@ function computeTodayStats(children, childId) {
   const lastFeed = feeds.length ? feeds[feeds.length-1] : null;
   const lastNap = naps.length ? naps[naps.length-1] : null;
   const lastPoop = poops.length ? poops[poops.length-1] : null;
-  const wetCount = poops.filter(p => (p.poopType||"wet").includes("wet")).length;
+  const wetCount = poops.filter(p => { const _pt=(p.poopType||"wet").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
   const dirtyCount = poops.filter(p => (p.poopType||"").includes("dirty")||(p.poopType||"").includes("mixed")||(p.poopType||"").includes("yellow")||(p.poopType||"").includes("green")||(p.poopType||"").includes("brown")).length;
   const totalMl = feeds.reduce((s,f)=>s+(f.amount||0),0);
   // Avg per feed (from today + recent)
@@ -297,7 +297,7 @@ function openSheet(type) {
         <div class="sheet-title">💩 Log a Nappy</div>
         <button class="opt-btn" data-kind="wet"><span class="emoji">💧</span>Wet</button>
         <button class="opt-btn" data-kind="dirty"><span class="emoji">💩</span>Dirty</button>
-        <button class="opt-btn" data-kind="both"><span class="emoji">💧💩</span>Wet + Dirty</button>
+        <button class="opt-btn" data-kind="wet + dirty"><span class="emoji">💧💩</span>Wet + Dirty</button>
         <button class="cancel-btn" id="cancel">Cancel</button>
       </div>`;
     sheet.innerHTML = inner;
