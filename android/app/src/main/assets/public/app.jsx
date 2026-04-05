@@ -29856,8 +29856,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
 
       {sharePreview&&(
         <div style={{position:"fixed",inset:0,zIndex:9995,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={()=>{setSharePreview(null);setRecapExtraPhoto(null);}}>
-          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
-            <img src={sharePreview.dataUrl} alt="Recap card" style={{width:"100%",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}/>
+          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:"min(360px, calc(100vw - 32px))",display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
+            <img src={sharePreview.dataUrl} alt="Recap card" style={{width:"100%",height:"auto",maxHeight:"65vh",objectFit:"contain",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)",display:"block"}}/>
             <div style={{display:"flex",gap:10,width:"100%"}}>
               <button onClick={()=>{haptic();if(recapPhotoRef.current)recapPhotoRef.current.click();}} style={{flex:1,padding:"14px",borderRadius:99,border:"2px solid rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.1)",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                 {recapExtraPhoto ? "🔄 Change Photo" : "📷 Add Photo"}
