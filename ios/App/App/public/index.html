@@ -87,6 +87,22 @@
 <!-- Theme system (must run immediately for no flash) -->
 <script src="theme.js"></script>
 
+<!-- Native splash failsafe: hide iOS/Android launch splash progressively, even if JS errors -->
+<script>
+(function(){
+  var _force = function(){
+    try { if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide(); } catch(_){}
+  };
+  setTimeout(_force, 600);
+  setTimeout(_force, 1500);
+  setTimeout(_force, 3000);
+  setTimeout(_force, 5000);
+  // Also hide on first user interaction (tap through to unstick)
+  document.addEventListener('click', _force, { once: true });
+  document.addEventListener('touchstart', _force, { once: true });
+})();
+</script>
+
 <!-- iOS pinch-zoom lock (belt-and-braces: prevents the WKWebView from getting stuck in a zoomed state after modals close) -->
 <script>
 (function(){

@@ -28,8 +28,8 @@ const config: CapacitorConfig = {
 
     // ── Splash Screen ──
     SplashScreen: {
-      launchShowDuration: 5000,
-      launchAutoHide: false,
+      launchShowDuration: 4000,
+      launchAutoHide: true, // Native failsafe: auto-hide after launchShowDuration even if JS errors
       backgroundColor: '#F0DDD6',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
@@ -39,7 +39,7 @@ const config: CapacitorConfig = {
       splashFullScreen: true,
       splashImmersive: true,
       layoutName: 'launch_screen',
-      useDialog: true,
+      useDialog: false,
     },
 
     // ── Keyboard ──

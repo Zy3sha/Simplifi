@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-<title>OBubba — Carer Portal</title>
+<title>Bubba Care</title>
 <meta name="theme-color" content="#FFFCF9"/>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -146,7 +146,7 @@ function fmtAgo(mins) {
 
 let sheet = null;
 let recentEntries = [];
-let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [] };
+let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, babyPhoto: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [] };
 let _childrenCache = null; // used to recompute stats when carer entries arrive
 
 function todayStrLocal() {
@@ -217,6 +217,7 @@ async function loadFamilyContext() {
           if (_resolvedCh) {
             familyContext.babyName = _resolvedCh.name || "baby";
             familyContext.babyDob = _resolvedCh.dob || null;
+            familyContext.babyPhoto = _resolvedCh.photo || null;
             if (_resolvedCh.dob) {
               const _dobDate = new Date(_resolvedCh.dob + "T00:00:00");
               familyContext.ageWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
@@ -458,11 +459,24 @@ function _renderHtml() {
       <span class="arrow">›</span>
     </a>`).join("");
 
+  // ── Build care guide sections (matches the preview content) ──
+  const _wakeEntry = (_t.entries||[]).find(e=>e.type==="wake"&&!e.night);
+  const _lastNapStr = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? `${fmt12(_t.lastNap.start)} – ${fmt12(_t.lastNap.end)}` : null;
+  const _lastNapDur = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? (()=>{const [sh,sm]=_t.lastNap.start.split(":").map(Number);const [eh2,em2]=_t.lastNap.end.split(":").map(Number);let d2=(eh2*60+em2)-(sh*60+sm);if(d2<0)d2+=1440;return d2;})() : null;
+  const _locale = (navigator.language||"en-GB").toLowerCase();
+  const _isUS = _locale.includes("en-us");
+  const _isAU = _locale.includes("en-au");
+  const _emergNum = _isUS ? "911" : _isAU ? "000" : "999";
+  const _nonEmerg = _isUS ? "Poison Control: 1-800-222-1222" : _isAU ? "13 HEALTH (13 43 25 84)" : "NHS 111";
+  const _hvTitle = _isUS ? "pediatrician" : _isAU ? "child health nurse or GP" : "health visitor or GP";
+  const _photoHtml = familyContext.babyPhoto ? `<div style="text-align:center;margin-bottom:12px"><img src="${familyContext.babyPhoto}" alt="${escapeHtml(_name)}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #E8DED3;box-shadow:0 4px 12px rgba(0,0,0,0.1)"/></div>` : "";
+
   $app.innerHTML = `
     <div class="header">
       <div class="logo">OBUBBA</div>
-      <div class="sub">Carer Portal</div>
+      <div class="sub">Care</div>
     </div>
+    ${_photoHtml}
     <div class="caring-banner">
       <div class="title">Caring for ${escapeHtml(_name)} 💛</div>
       <div class="text">Tap a button to log. Parents see everything in real time.</div>
@@ -492,6 +506,95 @@ function _renderHtml() {
         </button>
       </div>
     </div>
+    <!-- ═══ FEEDING SECTION ═══ -->
+    <div class="card" style="background:#FFF8F2;border:1px solid #F0D0C8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">🍼 Feeding</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
+        ${_t.avgMl ? `<div style="color:#A898AC">Typical amount</div><div style="font-weight:600">~${_t.avgMl}ml per feed</div>` : ""}
+        ${_t.avgFeedsPerDay ? `<div style="color:#A898AC">Typical frequency</div><div style="font-weight:600">~${_t.avgFeedsPerDay} feeds/day</div>` : ""}
+        ${_t.lastFeed ? `<div style="color:#A898AC">Last feed</div><div style="font-weight:600">${fmt12(_t.lastFeed.time)}${_t.lastFeed.amount?" — "+_t.lastFeed.amount+"ml":""}</div>` : ""}
+        ${_nextFeedStr ? `<div style="color:#A898AC">Next feed around</div><div style="font-weight:600">~${_nextFeedStr}</div>` : ""}
+      </div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">💡 <strong>Feed every ${_weeks&&_weeks<8?"2–3":"3–4"} hours</strong> — or sooner if ${escapeHtml(_name)} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Follow ${escapeHtml(_name)}'s lead.</div>
+    </div>
+
+    <!-- ═══ NAPPIES SECTION ═══ -->
+    <div class="card" style="background:#FFF8F2;border:1px solid #F0D0C8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">👶 Nappies</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
+        <div style="color:#A898AC">Today's nappies</div><div style="font-weight:600">${_t.nappyCount||0} (${_t.wetCount||0} wet)</div>
+        ${_t.lastPoop ? `<div style="color:#A898AC">Last nappy</div><div style="font-weight:600">${fmt12(_t.lastPoop.time)} — ${_t.lastPoop.poopType||"wet"}</div>` : ""}
+        <div style="color:#A898AC">Hydration target</div><div style="font-weight:600">${_t.wetCount||0}/6 wet nappies</div>
+      </div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.5">NHS guidance: 6+ wet nappies in 24h indicates adequate hydration. Check nappy every 2-3 hours.</div>
+    </div>
+
+    <!-- ═══ SLEEP & ROUTINE ═══ -->
+    <div class="card" style="background:#F0FFF4;border:1px solid #D0E8D8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">😴 Sleep & Routine</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
+        ${_wakeEntry ? `<div style="color:#A898AC">Woke up today</div><div style="font-weight:600">${fmt12(_wakeEntry.time)}</div>` : ""}
+        ${_ww ? `<div style="color:#A898AC">Wake window</div><div style="font-weight:600">${_ww.label} between sleeps</div>` : ""}
+        ${_lastNapStr ? `<div style="color:#A898AC">Last nap</div><div style="font-weight:600">${_lastNapStr}${_lastNapDur?" ("+_lastNapDur+"m)":""}</div>` : ""}
+      </div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${escapeHtml(_name)} down when you see these signs — don't wait until they're overtired.</div>
+    </div>
+
+    <!-- ═══ SAFE SLEEP ESSENTIALS ═══ -->
+    <div class="card" style="background:#F0FFF4;border:1px solid #D0E8D8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:6px">🛏️ Safe Sleep Essentials</div>
+      <div style="font-size:11px;font-style:italic;color:#6fa898;margin-bottom:10px">Based on The Lullaby Trust safer sleep guidance</div>
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
+        ✅ Always on their <strong>back</strong> — for every sleep, day and night<br>
+        ✅ <strong>Clear cot</strong> — firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
+        ✅ <strong>Same room as you</strong> — stay in the room while ${escapeHtml(_name)} sleeps<br>
+        ✅ <strong>Room temperature 16–20°C</strong> — feel chest or back of neck to check<br>
+        ✅ <strong>Don't cover their head</strong> — no hats indoors<br>
+        ✅ <strong>Feet to foot</strong> — feet at the bottom of the cot<br>
+        ❌ <strong>Never</strong> on a sofa or armchair — even if you're holding them<br>
+        ❌ <strong>Never</strong> in a car seat for prolonged sleep — only for travel
+      </div>
+    </div>
+
+    <!-- ═══ IF BABY CRIES ═══ -->
+    <div class="card" style="background:#FFF8F2;border:1px solid #F0D0C8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">💝 If ${escapeHtml(_name)} Cries</div>
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
+        1. <strong>Check basics</strong> — hungry? nappy? too hot/cold?<br>
+        2. <strong>Tired?</strong> — check wake window above. Dim lights, quiet voice<br>
+        3. <strong>Wind</strong> — try burping over shoulder or gentle bicycle legs<br>
+        4. <strong>Comfort</strong> — gentle rocking, skin-to-skin, white noise<br>
+        5. <strong>Still unsettled?</strong> — contact parent. It's OK to put ${escapeHtml(_name)} down safely and take a breath
+      </div>
+    </div>
+
+    <!-- ═══ IF YOU'RE OVERWHELMED ═══ -->
+    <div class="card" style="background:#F5F0F8;border:1px solid #D4C4E0">
+      <div style="font-size:15px;font-weight:700;color:#8868A0;margin-bottom:10px">💜 If you're feeling overwhelmed</div>
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.7">
+        Crying is hard to sit with. If you feel yourself getting tense, frustrated, or tearful — that's a signal, not a failure.
+        <br><br>
+        <strong>It's always OK to:</strong><br>
+        • Place ${escapeHtml(_name)} down safely in their cot on their back<br>
+        • Walk away for a minute or two — make a cup of tea, take a few breaths<br>
+        • Come back when you feel steadier. ${escapeHtml(_name)} is safe in the cot.
+        <br><br>
+        <strong style="color:#8868A0">Never shake a baby.</strong> Putting baby down and stepping away is always the right choice if you need a moment.
+      </div>
+    </div>
+
+    <!-- ═══ EMERGENCY & CONTACTS ═══ -->
+    <div class="card" style="background:#f8f0f0;border:2px solid #E8B4C0">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">📞 Emergency & Contacts</div>
+      ${_contactsHtml ? `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f0d0d0">${_contactsHtml}</div>` : ""}
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
+        <strong>Emergency:</strong> <span style="color:#e8574a;font-weight:700">${_emergNum}</span><br>
+        <strong>Non-emergency:</strong> ${_nonEmerg}<br>
+        <strong>If concerned:</strong> Contact ${_hvTitle}
+      </div>
+      <div style="font-size:11px;color:#A898AC;margin-top:8px;line-height:1.5">If ${escapeHtml(_name)} is unresponsive, has difficulty breathing, has a high temperature (38°C+ in under 3 months), a rash that doesn't fade under pressure, or you're worried — please call ${_emergNum}.</div>
+    </div>
+
     <div class="card">
       <div class="section-label">If you're worried — read first, call if you need to</div>
 

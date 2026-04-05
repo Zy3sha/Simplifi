@@ -211,9 +211,9 @@ window._isNative = _isNative;
 const _getPlatform = () => window.OBNative ? window.OBNative.getPlatform() : 'web';
 // Native keyboard: adjust viewport when keyboard appears
 // Global share function for print overlay — generates PDF on native, HTML fallback on web
-window._obShare=function(){try{var el=document.getElementById("print-overlay");if(!el)return;var html=el.innerHTML;var fullHtml="<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:20px;font-size:14px;line-height:1.5}.no-print{display:none!important}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:1cm;size:A4 portrait}}</style></head><body>"+html+"</body></html>";if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.OBCareCard){window.Capacitor.Plugins.OBCareCard.generatePDF({html:fullHtml,fileName:"OBubba-Care-Guide.pdf"}).then(function(r){if(r&&r.filePath&&navigator.share){var shareUrl="file://"+r.filePath;navigator.share({title:"Care Guide",url:shareUrl}).catch(function(){});}}).catch(function(){});}else if(navigator.share){var blob=new Blob([fullHtml],{type:"text/html"});var file=new File([blob],"OBubba-Care-Guide.html",{type:"text/html"});navigator.share({title:"Care Guide",files:[file]}).catch(function(){});}else{var a=document.createElement("a");var b=new Blob([fullHtml],{type:"text/html"});a.href=URL.createObjectURL(b);a.download="OBubba-Care-Guide.html";a.click();}}catch(e){console.warn("_obShare error",e)}};
+window._obShare=function(){try{var el=document.getElementById("print-overlay");if(!el)return;var html=el.innerHTML;var fullHtml="<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:20px;font-size:14px;line-height:1.5}.no-print{display:none!important}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:1cm;size:A4 portrait}}</style></head><body>"+html+"</body></html>";if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.OBCareCard){window.Capacitor.Plugins.OBCareCard.generatePDF({html:fullHtml,fileName:"OBubba-Care-Guide.pdf"}).then(function(r){if(r&&r.filePath&&navigator.share){var shareUrl="file://"+r.filePath;navigator.share({title:"Bubba Care",url:shareUrl}).catch(function(){});}}).catch(function(){});}else if(navigator.share){var blob=new Blob([fullHtml],{type:"text/html"});var file=new File([blob],"OBubba-Care-Guide.html",{type:"text/html"});navigator.share({title:"Bubba Care",files:[file]}).catch(function(){});}else{var a=document.createElement("a");var b=new Blob([fullHtml],{type:"text/html"});a.href=URL.createObjectURL(b);a.download="OBubba-Care-Guide.html";a.click();}}catch(e){console.warn("_obShare error",e)}};
 // Global print function — native iOS print dialog or browser window.print()
-window._obPrint=function(){try{var el=document.getElementById("print-overlay");if(!el)return;var html=el.innerHTML;var fullHtml="<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:20px;font-size:14px;line-height:1.5}.no-print{display:none!important}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:1cm;size:A4 portrait}}</style></head><body>"+html+"</body></html>";if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.OBCareCard){window.Capacitor.Plugins.OBCareCard.printHTML({html:fullHtml,jobName:"OBubba Care Guide"}).catch(function(){});}else{window.print();}}catch(e){console.warn("_obPrint error",e)}};
+window._obPrint=function(){try{var el=document.getElementById("print-overlay");if(!el)return;var html=el.innerHTML;var fullHtml="<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:20px;font-size:14px;line-height:1.5}.no-print{display:none!important}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:1cm;size:A4 portrait}}</style></head><body>"+html+"</body></html>";if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.OBCareCard){window.Capacitor.Plugins.OBCareCard.printHTML({html:fullHtml,jobName:"OBubba Bubba Care"}).catch(function(){});}else{window.print();}}catch(e){console.warn("_obPrint error",e)}};
 // ── Keyboard handling: scroll focused input into view when keyboard appears ──
 // Note: Capacitor Keyboard resize:"body" handles shrinking the viewport.
 // We only need to scroll the focused input into view — no --keyboard-height needed.
@@ -4809,7 +4809,7 @@ function App(){
         endedAt: serverTimestamp(),
         endedBy: window._fbUid || "parent"
       }).then(() => {
-        showToast("🔒 Carer session ended", 2000, 1);
+        showToast("🔒 Bubba Care session ended", 2000, 1);
       }).catch(e => {
         console.error("End session error:", e);
         showToast("Couldn't end session — check connection", 2000, 2);
@@ -17190,7 +17190,7 @@ function App(){
     }
   }
   // ── Weekly Digest Generator ──
-  // ── Carer Card Generator ──
+  // ── Bubba Care Generator ──
   function generateCarerCardHTML() {
     const name = babyName || "Baby";
     const ageStr = age ? fmtAge(age) : "";
@@ -17272,7 +17272,7 @@ function App(){
     // Header
     sections.push(`<div style="text-align:center;margin-bottom:24px">
       <div style="font-size:40px;margin-bottom:8px">👶</div>
-      <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${name}'s Care Guide</h1>
+      <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${name}'s Bubba Care</h1>
       ${ageStr ? `<p style="color:#A898AC;margin:4px 0">${ageStr} old</p>` : ""}
       <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
     </div>`);
@@ -17426,18 +17426,18 @@ function App(){
       Safe sleep advice: lullabytrust.org.uk
     </div>`);
 
-    // QR code points to carer portal — backup code is the access token
+    // QR code points to Bubba Care — backup code is the access token
     const carerPortalUrl = `https://obubba.com/care.html?code=${encodeURIComponent(backupCode||"")}&child=${encodeURIComponent(resolvedActiveId||"")}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
 
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
-      <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:8px">📱 Carer Portal</div>
+      <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:8px">📱 Bubba Care</div>
       <img src="${qrUrl}" alt="QR Code" style="width:150px;height:150px;border-radius:8px;border:2px solid #e8ddd5" onerror="this.style.display='none'"/>
-      <div style="font-size:11px;color:#A898AC;margin-top:8px">Scan to open ${name}'s care guide & log page</div>
+      <div style="font-size:11px;color:#A898AC;margin-top:8px">Scan to open ${name}'s Bubba Care</div>
       <div style="font-size:10px;color:#C0A8B0;margin-top:4px">Carers can log feeds, naps & nappies — you'll review them in the app</div>
     </div>`);
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name}'s Care Guide</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:60px 12px 40px;padding-top:max(60px,env(safe-area-inset-top,60px));background:#FFFCF9;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;overflow-x:hidden}h2{font-family:Georgia,serif;font-size:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:3px 6px;font-size:12px;word-break:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}@media(max-width:430px){body{font-size:13px;padding:60px 10px 32px;padding-top:max(60px,env(safe-area-inset-top,60px))}h2{font-size:15px}td,th{padding:2px 4px;font-size:11px}}</style></head><body>${sections.join("")}</body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name}'s Bubba Care</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:60px 12px 40px;padding-top:max(60px,env(safe-area-inset-top,60px));background:#FFFCF9;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;overflow-x:hidden}h2{font-family:Georgia,serif;font-size:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:3px 6px;font-size:12px;word-break:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}@media(max-width:430px){body{font-size:13px;padding:60px 10px 32px;padding-top:max(60px,env(safe-area-inset-top,60px))}h2{font-size:15px}td,th{padding:2px 4px;font-size:11px}}</style></head><body>${sections.join("")}</body></html>`;
   }
 
   // Prepare care card HTML with embedded QR (shared by share + print + preview)
@@ -17460,7 +17460,7 @@ function App(){
     const name = babyName || "Baby";
     const finalHtml = await prepareCareCardHTML();
 
-    // Village unlock: first Carer Portal share = 7 days premium
+    // Village unlock: first Bubba Care share = 7 days premium
     const _villageUnlock = ()=>{try {
       if (!localStorage.getItem("ob_village_unlocked")) {
         localStorage.setItem("ob_village_unlocked", "1");
@@ -17478,10 +17478,10 @@ function App(){
       const file = new File([blob], name + "-Care-Guide.html", { type: "text/html" });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         _method = "native_share_file";
-        await navigator.share({ title: name + "'s Care Guide", files: [file] });
+        await navigator.share({ title: name + "'s Bubba Care", files: [file] });
       } else if (navigator.share) {
         _method = "native_share_text";
-        await navigator.share({ title: name + "'s Care Guide", text: name + "'s care guide from OBubba" });
+        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba" });
       } else {
         // Web fallback: download the file
         _method = "download";
@@ -17513,7 +17513,7 @@ function App(){
     if(careCard && careCard.printHTML) {
       try {
         console.log("[OBubba] Calling printHTML...");
-        await careCard.printHTML({ html: finalHtml, jobName: `${name}'s Care Guide` });
+        await careCard.printHTML({ html: finalHtml, jobName: `${name}'s Bubba Care` });
         console.log("[OBubba] printHTML success");
         return;
       } catch(e) {
@@ -17559,9 +17559,9 @@ function App(){
         const blob = new Blob([finalHtml], { type: "text/html" });
         const file = new File([blob], name + "-Care-Guide.html", { type: "text/html" });
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ title: name + "'s Care Guide", files: [file] });
+          await navigator.share({ title: name + "'s Bubba Care", files: [file] });
         } else if (navigator.share) {
-          await navigator.share({ title: name + "'s Care Guide", text: name + "'s care guide from OBubba" });
+          await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba" });
         } else {
           // Download fallback
           const url = URL.createObjectURL(blob);
@@ -17581,7 +17581,7 @@ function App(){
       try {
         const cc = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OBCareCard;
         if (cc && cc.printHTML) {
-          cc.printHTML({ html: finalHtml, jobName: name + " Care Guide" }).catch(function(){ window.print(); });
+          cc.printHTML({ html: finalHtml, jobName: name + " Bubba Care" }).catch(function(){ window.print(); });
         } else {
           window.print();
         }
@@ -20385,7 +20385,7 @@ function App(){
                       )}
                       <span style={_S.f26}>📋</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Log</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{carerEntries && carerEntries.length > 0 ? `${carerEntries.length} new from carer` : _logSub}</div>
+                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{carerEntries && carerEntries.length > 0 ? `${carerEntries.length} new from Bubba Care` : _logSub}</div>
                     </button>
                     {(()=>{
                       // Show badge when there's something live/active on the plan
@@ -21413,7 +21413,7 @@ function App(){
               {pinnedNotes.length>0&&(
                 <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:10}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📌 {babyName?possessive(babyName)+" ":""}Important Notes <HelpBtn title="Pinned Notes" body="Pin important info here — allergies, medical conditions, GP details. These stay visible on the Day tab and are included in the Carer Card when shared."/></div>
+                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📌 {babyName?possessive(babyName)+" ":""}Important Notes <HelpBtn title="Pinned Notes" body="Pin important info here — allergies, medical conditions, GP details. These stay visible on the Day tab and are included in the Bubba Care when shared."/></div>
                     <button onClick={()=>setShowAddPin(true)} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                   </div>
                   {pinnedNotes.map(n=>(
@@ -26485,7 +26485,7 @@ function App(){
               </button>
               <button onClick={()=>{setShowCarerCard(true);restartCarerSession();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
                 <span style={_S.f24}>👩‍🍼</span>
-                <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Carer Card</div>
+                <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Bubba Care</div>
                 <div style={{fontSize:10,color:C.lt}}>Share routine</div>
               </button>
               {backupCode ? (
@@ -26526,11 +26526,11 @@ function App(){
           )}
           {/* End Carer Session (only if active) */}
           {backupCode&&(
-            <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the carer portal — your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} className="glass-card" style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",marginBottom:12,cursor:_cP,textAlign:"left",width:"100%",border:"1.5px solid rgba(224,96,112,0.15)",background:"rgba(224,96,112,0.03)"}}>
+            <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care — your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} className="glass-card" style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",marginBottom:12,cursor:_cP,textAlign:"left",width:"100%",border:"1.5px solid rgba(224,96,112,0.15)",background:"rgba(224,96,112,0.03)"}}>
               <span style={_S.f18}>🔒</span>
               <div style={_S.flex1}>
                 <div style={{fontSize:13,fontWeight:700,color:C.deep}}>End Carer Session</div>
-                <div style={{fontSize:10,color:C.lt}}>Lock the carer portal</div>
+                <div style={{fontSize:10,color:C.lt}}>Lock the Bubba Care</div>
               </div>
             </button>
           )}
@@ -29082,7 +29082,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
         </div>
       )}
 
-      {/* ═══ Carer Card Modal ═══ */}
+      {/* ═══ Bubba Care Modal ═══ */}
       {showCarerCard&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowCarerCard(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:_maxW,maxHeight:"92vh",position:"relative",display:"flex",flexDirection:"column"}}>
@@ -29093,7 +29093,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:40,marginBottom:8}}>👩‍🍼</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep}}>Carer Card</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep}}>Bubba Care</div>
               <div style={{fontSize:13,color:C.lt,marginTop:4,lineHeight:1.5}}>
                 Share {babyName||"baby"}'s routine, feeding info, and safe sleep essentials with anyone caring for them today.
               </div>
@@ -30016,23 +30016,23 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📅 {editApptId?"Edit":"Add"} Appointment</div>
             <Inp label="Title" type="text" placeholder="e.g. Health visitor, GP, vaccination" value={apptForm.title} onChange={e=>setApptForm(f=>({...f,title:e.target.value}))}/>
             {/* All-day toggle */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",marginBottom:10,borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",marginBottom:14,borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)"}}>
               <span style={{fontSize:14,fontWeight:600,color:C.deep}}>All-day</span>
               <button onClick={()=>setApptForm(f=>({...f,allDay:!f.allDay}))} style={{width:46,height:26,borderRadius:99,border:"none",background:apptForm.allDay?C.ter:C.blush,position:"relative",cursor:_cP,transition:"background 0.15s"}} aria-label="Toggle all-day">
                 <span style={{position:"absolute",top:2,left:apptForm.allDay?22:2,width:22,height:22,borderRadius:"50%",background:"white",transition:"left 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
               </button>
             </div>
             {/* Starts */}
-            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Starts</div>
-            <div style={{display:"flex",gap:10,alignItems:"flex-end",marginBottom:10}}>
-              <div style={{flex:"1 1 50%",minWidth:0}}><input type="date" value={apptForm.date} onChange={e=>{const v=e.target.value;setApptForm(f=>({...f,date:v,endDate:f.endDate&&f.endDate>=v?f.endDate:v}));}} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>
-              {!apptForm.allDay&&<div style={{flex:"1 1 50%",minWidth:0}}><input type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>}
+            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Starts</div>
+            <div style={{marginBottom:14}}>
+              <input type="date" value={apptForm.date} onChange={e=>{const v=e.target.value;setApptForm(f=>({...f,date:v,endDate:f.endDate&&f.endDate>=v?f.endDate:v}));}} style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:16,fontFamily:_fI,outline:_oN,boxSizing:_bBB,marginBottom:apptForm.allDay?0:8}}/>
+              {!apptForm.allDay&&<input type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))} style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:16,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>}
             </div>
             {/* Ends */}
-            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Ends</div>
-            <div style={{display:"flex",gap:10,alignItems:"flex-end",marginBottom:12}}>
-              <div style={{flex:"1 1 50%",minWidth:0}}><input type="date" min={apptForm.date||undefined} value={apptForm.endDate||apptForm.date||""} onChange={e=>setApptForm(f=>({...f,endDate:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>
-              {!apptForm.allDay&&<div style={{flex:"1 1 50%",minWidth:0}}><input type="time" value={apptForm.endTime||""} onChange={e=>setApptForm(f=>({...f,endTime:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>}
+            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Ends</div>
+            <div style={{marginBottom:14}}>
+              <input type="date" min={apptForm.date||undefined} value={apptForm.endDate||apptForm.date||""} onChange={e=>setApptForm(f=>({...f,endDate:e.target.value}))} style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:16,fontFamily:_fI,outline:_oN,boxSizing:_bBB,marginBottom:apptForm.allDay?0:8}}/>
+              {!apptForm.allDay&&<input type="time" value={apptForm.endTime||""} onChange={e=>setApptForm(f=>({...f,endTime:e.target.value}))} style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:16,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>}
             </div>
             <div style={_S.mb12}>
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Location (optional)</label>
@@ -31578,7 +31578,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
           log: {
             title: "Logging · 20 points",
             what: "Measures how complete today's log is: morning wake time, feeds, naps, nappies, and bedtime. This isn't about quality — it's about whether OBubba has enough data to help you.",
-            low: "If this is low, you've just not logged much yet today. Logs drive every prediction in the app. Quick entry via widget, quick-actions, or the carer portal all count.",
+            low: "If this is low, you've just not logged much yet today. Logs drive every prediction in the app. Quick entry via widget, quick-actions, or the Bubba Care all count.",
             high: "Nicely logged — OBubba has what it needs to give you personalised insights."
           }
         };
