@@ -145,17 +145,72 @@ function fmtAgo(mins) {
 
 let sheet = null;
 let recentEntries = [];
-let familyContext = { babyName: "baby", carerNotes: "", carerComfort: "", emergencyContacts: [] };
+let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [] };
+
+function todayStrLocal() {
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+
+function getWakeWindow(weeks) {
+  // Age-based wake window (NHS/AASM guidance)
+  if (weeks < 4) return { min:45, max:60, label:"45–60 min" };
+  if (weeks < 8) return { min:60, max:90, label:"1–1.5h" };
+  if (weeks < 13) return { min:60, max:105, label:"1–1h 45m" };
+  if (weeks < 17) return { min:90, max:120, label:"1.5–2h" };
+  if (weeks < 26) return { min:120, max:150, label:"2–2.5h" };
+  if (weeks < 39) return { min:150, max:180, label:"2.5–3h" };
+  if (weeks < 52) return { min:180, max:210, label:"3–3.5h" };
+  return { min:210, max:240, label:"3.5–4h" };
+}
+
+function computeTodayStats(children, childId) {
+  // Pick first child by default; use childId if provided
+  const ch = childId ? (children.find(c=>c.id===childId) || children[0]) : children[0];
+  if (!ch) return null;
+  const today = todayStrLocal();
+  const entries = (ch.days && ch.days[today]) || [];
+  const feeds = entries.filter(e => e.type === "feed" && !e.night);
+  const naps = entries.filter(e => e.type === "nap" && !e.night);
+  const poops = entries.filter(e => e.type === "poop");
+  const lastFeed = feeds.length ? feeds[feeds.length-1] : null;
+  const lastNap = naps.length ? naps[naps.length-1] : null;
+  const lastPoop = poops.length ? poops[poops.length-1] : null;
+  const wetCount = poops.filter(p => (p.poopType||"wet").includes("wet")).length;
+  const dirtyCount = poops.filter(p => (p.poopType||"").includes("dirty")||(p.poopType||"").includes("mixed")||(p.poopType||"").includes("yellow")||(p.poopType||"").includes("green")||(p.poopType||"").includes("brown")).length;
+  const totalMl = feeds.reduce((s,f)=>s+(f.amount||0),0);
+  // Avg per feed (from today + recent)
+  const recentFeeds = Object.values(ch.days||{}).flat().filter(e=>e&&e.type==="feed"&&!e.night&&e.amount>0).slice(-20);
+  const avgMl = recentFeeds.length ? Math.round(recentFeeds.reduce((s,f)=>s+f.amount,0)/recentFeeds.length) : 0;
+  const avgFeedsPerDay = (()=>{const days=ch.days||{};const counts=Object.values(days).slice(-7).map(d=>(d||[]).filter(e=>e.type==="feed").length).filter(n=>n>0);return counts.length?Math.round(counts.reduce((a,b)=>a+b,0)/counts.length):0;})();
+  return { today, entries, lastFeed, lastNap, lastPoop, wetCount, dirtyCount, nappyCount: poops.length, totalMl, avgMl, avgFeedsPerDay, naps };
+}
 
 async function loadFamilyContext() {
   try {
     const famDoc = await getDoc(doc(db, "families", code));
     if (famDoc.exists()) {
       const data = famDoc.data();
-      // Extract baby name from children JSON
+      // Extract baby name + DOB
       try {
         const children = JSON.parse(data.children || "[]");
-        if (children.length > 0 && children[0].name) familyContext.babyName = children[0].name;
+        const arr = Array.isArray(children) ? children : Object.values(children);
+        if (arr.length > 0) {
+          const ch = arr[0];
+          familyContext.babyName = ch.name || "baby";
+          familyContext.babyDob = ch.dob || null;
+          if (ch.dob) {
+            const dobDate = new Date(ch.dob + "T00:00:00");
+            const weeks = Math.floor((Date.now() - dobDate.getTime()) / (7*24*3600*1000));
+            familyContext.ageWeeks = weeks;
+          }
+          familyContext.today = computeTodayStats(arr) || {};
+        }
+      } catch (e) { console.warn("Children parse", e); }
+      // Parse shared data for pinned notes
+      try {
+        const sd = JSON.parse(data.sharedData || "{}");
+        familyContext.pinnedNotes = Array.isArray(sd.pinnedNotes) ? sd.pinnedNotes.filter(n=>n&&n.pinned) : [];
       } catch {}
       // Parse carer info
       try {
@@ -269,7 +324,62 @@ function renderApp() {
   });
 
   const _name = familyContext.babyName;
+  const _weeks = familyContext.ageWeeks;
+  const _ageStr = _weeks==null ? "" : _weeks<13 ? `${_weeks}w` : _weeks<52 ? `${Math.floor(_weeks/4.3)}mo` : `${Math.floor(_weeks/52)}y`;
+  const _t = familyContext.today || {};
+  const _ww = _weeks!=null ? getWakeWindow(_weeks) : null;
+  // Compute predictions
+  const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
+  const _lastFeedTimeMins = _t.lastFeed ? (parseInt(_t.lastFeed.time.split(":")[0])*60 + parseInt(_t.lastFeed.time.split(":")[1])) : null;
+  const _nextFeedMins = _lastFeedTimeMins!=null ? (_lastFeedTimeMins + (_weeks<13?180:210)) : null;
+  const _nextFeedStr = _nextFeedMins!=null && _nextFeedMins<1440 ? fmt12(String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")+":"+String(_nextFeedMins%60).padStart(2,"0")) : null;
+  // Last nap end → next nap window
+  let _napWindowStr = null;
+  if (_t.lastNap && _ww) {
+    const [eh,em] = (_t.lastNap.end||"").split(":").map(Number);
+    if(!isNaN(eh)) {
+      const endMins = eh*60+em;
+      const minStart = endMins + _ww.min;
+      const maxStart = endMins + _ww.max;
+      if(minStart<1440) {
+        const _fmt = (m)=>fmt12(String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0"));
+        _napWindowStr = `${_fmt(minStart)} – ${_fmt(maxStart)}`;
+      }
+    }
+  }
+  const _lastNapAgo = _t.lastNap && _t.lastNap.end ? agoMin(_t.lastNap.end) : null;
+  const _lastNappyAgo = _t.lastPoop ? agoMin(_t.lastPoop.time) : null;
+  // Build rich context cards
+  const _babyStatsHtml = `<div class="card" style="background:linear-gradient(135deg,rgba(212,168,133,0.06),rgba(155,184,168,0.04))">
+    <div class="section-label" style="margin-bottom:10px">👶 ${escapeHtml(_name)}${_ageStr?" · "+_ageStr:""}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:${_napWindowStr||_nextFeedStr?10:0}px">
+      <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
+        <div style="font-size:20px;margin-bottom:2px">🍼</div>
+        <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Last feed</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastFeed ? fmtAgo(_lastFeedAgo) : "—"}</div>
+        ${_t.lastFeed&&_t.lastFeed.amount ? `<div style="font-size:11px;color:#6A584E;margin-top:1px">${_t.lastFeed.amount}ml</div>` : ""}
+      </div>
+      <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
+        <div style="font-size:20px;margin-bottom:2px">💤</div>
+        <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Last nap</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastNap ? fmtAgo(_lastNapAgo) : "—"}</div>
+      </div>
+      <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
+        <div style="font-size:20px;margin-bottom:2px">💩</div>
+        <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Nappies</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.nappyCount||0} today</div>
+        ${_t.wetCount ? `<div style="font-size:11px;color:#6A584E;margin-top:1px">${_t.wetCount} wet</div>` : ""}
+      </div>
+    </div>
+    ${(_nextFeedStr || _napWindowStr) ? `<div style="padding:10px 12px;background:rgba(192,112,136,0.06);border:1px solid rgba(192,112,136,0.15);border-radius:12px;font-size:12px;color:#6A584E;line-height:1.7">
+      <div style="font-size:10px;color:#A88848;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:6px">Coming up</div>
+      ${_nextFeedStr ? `<div>🍼 Next feed around <strong style="color:#4A3B35">${_nextFeedStr}</strong>${_t.avgMl?` (~${_t.avgMl}ml typical)`:""}</div>` : ""}
+      ${_napWindowStr ? `<div>💤 Next nap window <strong style="color:#4A3B35">${_napWindowStr}</strong>${_ww?` · wake window ${_ww.label}`:""}</div>` : ""}
+    </div>` : ""}
+    ${_t.avgFeedsPerDay ? `<div style="font-size:11px;color:#A89A90;margin-top:8px;text-align:center">${escapeHtml(_name)} usually has ~${_t.avgFeedsPerDay} feeds/day${_t.avgMl?", ~"+_t.avgMl+"ml each":""}</div>` : ""}
+  </div>`;
   // Build parent context (only show cards that have content)
+  const _pinnedHtml = (familyContext.pinnedNotes||[]).length ? `<div class="parent-note" style="background:rgba(232,87,74,0.06);border-color:rgba(232,87,74,0.25)"><div class="pn-label" style="color:#c04040">⚠️ Important</div>${familyContext.pinnedNotes.map(n=>`<div style="margin-bottom:4px">${escapeHtml(n.text||"")}</div>`).join("")}</div>` : "";
   const _notesHtml = familyContext.carerNotes ? `<div class="parent-note"><div class="pn-label">📋 Notes from parents</div>${escapeHtml(familyContext.carerNotes)}</div>` : "";
   const _comfortHtml = familyContext.carerComfort ? `<div class="parent-note"><div class="pn-label">🧸 Comfort & routine</div>${escapeHtml(familyContext.carerComfort)}</div>` : "";
   // Contacts → tel: buttons
@@ -289,9 +399,12 @@ function renderApp() {
       <div class="title">Caring for ${escapeHtml(_name)} 💛</div>
       <div class="text">Tap a button to log. Parents see everything in real time.</div>
     </div>
+    ${_pinnedHtml}
+    ${_babyStatsHtml}
     ${_notesHtml}
     ${_comfortHtml}
     <div class="card">
+      <div style="font-size:11px;color:#A89A90;text-align:center;margin-bottom:10px">Log entries go to parents for review — tap Accept in their app</div>
       <div class="btn-grid">
         <button class="action-btn" data-action="feed">
           <span class="icon">🍼</span>
