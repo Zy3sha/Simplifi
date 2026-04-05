@@ -90,6 +90,7 @@ const db = getFirestore(app);
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
 const code = (params.get("code") || "").toUpperCase().trim();
+const childId = (params.get("child") || "").trim();
 
 const $app = document.getElementById("app");
 
@@ -146,6 +147,7 @@ function fmtAgo(mins) {
 let sheet = null;
 let recentEntries = [];
 let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [] };
+let _childrenCache = null; // used to recompute stats when carer entries arrive
 
 function todayStrLocal() {
   const d = new Date();
@@ -164,12 +166,15 @@ function getWakeWindow(weeks) {
   return { min:210, max:240, label:"3.5–4h" };
 }
 
-function computeTodayStats(children, childId) {
+function computeTodayStats(children, childId, extraEntries) {
   // Pick first child by default; use childId if provided
   const ch = childId ? (children.find(c=>c.id===childId) || children[0]) : children[0];
   if (!ch) return null;
   const today = todayStrLocal();
-  const entries = (ch.days && ch.days[today]) || [];
+  const baseEntries = (ch.days && ch.days[today]) || [];
+  // Merge in any extra entries (pending carer_logs entries from Firestore) that haven't been
+  // accepted by the parent yet, so the carer portal reflects real-time state.
+  const entries = Array.isArray(extraEntries) ? baseEntries.concat(extraEntries) : baseEntries;
   const feeds = entries.filter(e => e.type === "feed" && !e.night);
   const naps = entries.filter(e => e.type === "nap" && !e.night);
   const poops = entries.filter(e => e.type === "poop");
@@ -204,7 +209,19 @@ async function loadFamilyContext() {
             const weeks = Math.floor((Date.now() - dobDate.getTime()) / (7*24*3600*1000));
             familyContext.ageWeeks = weeks;
           }
-          familyContext.today = computeTodayStats(arr) || {};
+          _childrenCache = arr;
+          // Use URL childId if present; otherwise pick the baby matching the stored profile
+          familyContext.today = computeTodayStats(arr, childId) || {};
+          // Also update name/age from the resolved child (in case URL specified a specific one)
+          const _resolvedCh = childId ? (arr.find(c=>c.id===childId) || arr[0]) : arr[0];
+          if (_resolvedCh) {
+            familyContext.babyName = _resolvedCh.name || "baby";
+            familyContext.babyDob = _resolvedCh.dob || null;
+            if (_resolvedCh.dob) {
+              const _dobDate = new Date(_resolvedCh.dob + "T00:00:00");
+              familyContext.ageWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
+            }
+          }
         }
       } catch (e) { console.warn("Children parse", e); }
       // Parse shared data for pinned notes
@@ -313,16 +330,46 @@ function openSheet(type) {
   }
 }
 
+function _mergeCarerEntries() {
+  // Merges today's pending carer_logs entries into familyContext.today so predictions reflect
+  // freshly-logged events immediately (before parent has accepted them).
+  try {
+    if (!_childrenCache) return;
+    const _todayStr = todayStrLocal();
+    const _todayPending = recentEntries.filter(e => {
+      const t = e.loggedAt || e.time || "";
+      if (typeof t === "string" && t.length >= 10) return t.slice(0,10) === _todayStr;
+      return true;
+    }).map(e => ({
+      type: e.type,
+      time: e.time || (e.loggedAt ? e.loggedAt.slice(11,16) : nowTime()),
+      amount: e.amount || 0,
+      feedType: e.feedType || "",
+      poopType: e.poopType || "",
+      start: e.start || "",
+      end: e.end || "",
+      night: !!e.night
+    }));
+    familyContext.today = computeTodayStats(_childrenCache, childId, _todayPending) || {};
+  } catch(e) { console.warn("merge carer entries failed", e); }
+}
+
 function renderApp() {
-  // Listen to recent entries
+  // Listen to recent entries — real-time so carer sees their own logs reflected immediately
   const colRef = collection(db, "carer_logs", code, "entries");
-  const q = query(colRef, orderBy("loggedAt", "desc"), limit(5));
+  const q = query(colRef, orderBy("loggedAt", "desc"), limit(25));
   onSnapshot(q, (snap) => {
     recentEntries = [];
     snap.forEach(d => recentEntries.push({id:d.id, ...d.data()}));
+    // Recompute today stats with pending entries merged, then re-render everything
+    _mergeCarerEntries();
+    _renderHtml();
     updateRecentList();
   });
+  _renderHtml();
+}
 
+function _renderHtml() {
   const _name = familyContext.babyName;
   const _weeks = familyContext.ageWeeks;
   const _ageStr = _weeks==null ? "" : _weeks<13 ? `${_weeks}w` : _weeks<52 ? `${Math.floor(_weeks/4.3)}mo` : `${Math.floor(_weeks/52)}y`;
@@ -331,31 +378,35 @@ function renderApp() {
   // Compute predictions — current wall-clock for "past" filtering
   const _nowD = new Date();
   const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
-  const _bedtimeMins = 19*60; // 7pm — typical bedtime for babies; nap windows past this are suppressed
+  const _bedtimeMins = 19*60; // 7pm — typical bedtime cutoff
+  const _nightCutoff = 20*60; // 8pm — after this, baby is winding down; no more feed/nap suggestions
   const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
   const _lastFeedTimeMins = _t.lastFeed ? (parseInt(_t.lastFeed.time.split(":")[0])*60 + parseInt(_t.lastFeed.time.split(":")[1])) : null;
-  // Feed interval: 3h for young babies, 3.5h for 3mo+, 4h for 6mo+ (matches app guidance)
-  const _feedInterval = _weeks==null ? 210 : (_weeks<13 ? 180 : _weeks<26 ? 180 : 210);
+  // Feed interval: 3h for babies under 6mo, 3.5h from 6mo
+  const _feedInterval = _weeks==null ? 180 : (_weeks<26 ? 180 : 210);
   let _nextFeedMins = _lastFeedTimeMins!=null ? (_lastFeedTimeMins + _feedInterval) : null;
-  // Roll forward if in the past: keep adding interval until it's in the future (but cap at bedtime)
-  if (_nextFeedMins!=null) {
-    while (_nextFeedMins < _nowMins - 5 && _nextFeedMins < _bedtimeMins + 60) {
+  let _nextFeedStr = null;
+  // Only show if we're still in the active day (before night cutoff)
+  if (_nextFeedMins != null && _nowMins <= _nightCutoff) {
+    // Roll forward past-time predictions until they're in the future
+    let _guard = 0;
+    while (_nextFeedMins < _nowMins - 10 && _guard++ < 12) {
       _nextFeedMins += _feedInterval;
     }
+    // Only show if the rolled-forward time is still before night cutoff
+    if (_nextFeedMins <= _nightCutoff && _nextFeedMins < 1440) {
+      _nextFeedStr = fmt12(String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")+":"+String(_nextFeedMins%60).padStart(2,"0"));
+    }
   }
-  // Hide the prediction entirely if it landed past a reasonable window (bedtime+1h)
-  const _nextFeedStr = _nextFeedMins!=null && _nextFeedMins<1440 && _nextFeedMins <= _bedtimeMins + 60
-    ? fmt12(String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")+":"+String(_nextFeedMins%60).padStart(2,"0"))
-    : null;
   // Last nap end → next nap window
   let _napWindowStr = null;
-  if (_t.lastNap && _ww) {
+  if (_t.lastNap && _ww && _nowMins <= _nightCutoff) {
     const [eh,em] = (_t.lastNap.end||"").split(":").map(Number);
     if(!isNaN(eh)) {
       const endMins = eh*60+em;
       const minStart = endMins + _ww.min;
       const maxStart = endMins + _ww.max;
-      // Hide if window has passed OR if it would start at/after typical bedtime (not a nap then — it's bedtime)
+      // Hide if already past OR if it would start at/after typical bedtime
       const _alreadyPast = maxStart <= _nowMins;
       const _afterBedtime = minStart >= _bedtimeMins;
       if (minStart < 1440 && !_alreadyPast && !_afterBedtime) {

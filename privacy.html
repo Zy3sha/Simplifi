@@ -22,7 +22,7 @@
 <p><strong>Baby tracking data:</strong> Feeds, naps, nappies, weight, milestones, activities, and notes you log. This data is stored on your device and optionally synced to our cloud backup (Firebase/Firestore) if you create an account.</p>
 <p><strong>Account information:</strong> If you sign up, we store your display name, email (if provided), and a family backup code. We use Firebase Authentication.</p>
 <p><strong>Location data (optional):</strong> If you grant permission, we use your location solely to calculate travel time to appointments you've added (e.g. GP visits, health visitor appointments). We use Apple MapKit for route calculation. Your location is used in real-time only and is never stored, shared, or transmitted to any third party. You can deny location access and manually set travel times instead.</p>
-<p><strong>Photos (optional):</strong> Photos you add to the Memory Book are stored on your device. If you create a shareable album, photos are uploaded to Firebase for sharing via a private link.</p>
+<p><strong>Photos (optional):</strong> Photos you add (e.g. milestone photos, care guide profile picture) are stored on your device. If you generate a share card with a photo, the card image is created locally and only shared if you explicitly tap Share.</p>
 <p><strong>Usage analytics:</strong> We use Firebase Analytics to understand how the app is used (e.g. which features are popular). This data is anonymous and aggregated. No personal baby data is included in analytics.</p>
 
 <h2>2. How We Use Your Data</h2>
@@ -39,7 +39,6 @@
 <p>Your data may be shared only in these cases:</p>
 <ul>
   <li><strong>Partner sync:</strong> If you share a family code with your partner, they can access the same tracking data.</li>
-  <li><strong>Shared albums:</strong> If you create a shareable Memory Book link, anyone with that link can view the photos and captions you included.</li>
   <li><strong>Cloud infrastructure:</strong> Data is stored on Google Firebase (Firestore, Authentication, Storage) which is governed by Google's data processing terms.</li>
 </ul>
 

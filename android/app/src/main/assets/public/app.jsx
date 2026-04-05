@@ -3592,6 +3592,8 @@ function App(){
     try{const v=localStorage.getItem("pinned_notes_v1");return v?JSON.parse(v):[];}catch{return [];}
   }); // [{id, text, createdDate, pinned}]
   const[showAddAppt,setShowAddAppt]=useState(false);
+  const[showApptCalendar,setShowApptCalendar]=useState(false);
+  const[apptCalMonth,setApptCalMonth]=useState(()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");});
   const[weeklyDigestEnabled,setWeeklyDigestEnabled]=useState(()=>{
     try{return localStorage.getItem("weekly_digest_v1")==="1";}catch{return false;}
   });
@@ -3619,7 +3621,8 @@ function App(){
   const microReassureRef=useRef(false); // once-per-session micro-reassurance
   const[recapExtraPhoto,setRecapExtraPhoto]=useState(null); // base64 data URL
   const[msSharePrompt,setMsSharePrompt]=useState(null); // {milestoneId, label}
-  const[apptForm,setApptForm]=useState({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0,location:""});
+  const[scoreDetail,setScoreDetail]=useState(null); // {key, val, max, components}
+  const[apptForm,setApptForm]=useState({date:"",time:"",endDate:"",endTime:"",allDay:false,title:"",note:"",repeat:"none",repeatUntil:"",travelMins:0,location:"",reminders:["1d","1h","travel"]});
   const[editApptId,setEditApptId]=useState(null);
   const[reminderForm,setReminderForm]=useState({text:"",date:"",time:"",trigger:"",repeat:"none"});
   const[editRemId,setEditRemId]=useState(null);
@@ -3850,7 +3853,7 @@ function App(){
   const soundKeeperRef=useRef(null); // silent <audio> element to keep iOS audio session alive
   const[cryingResult,setCryingResult]=useState(null);
   const[showTeethingForm,setShowTeethingForm]=useState(false);
-  const[teethingForm,setTeethingForm]=useState({tooth:"",date:"",symptoms:[],note:""});
+  const[teethingForm,setTeethingForm]=useState({teeth:[],date:"",symptoms:[],note:""});
   const[showWeaningForm,setShowWeaningForm]=useState(false);
   const[weaningForm,setWeaningForm]=useState({food:"",date:"",reaction:"neutral",note:"",liked:null});
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
@@ -12249,7 +12252,7 @@ function App(){
       }
     });
 
-    // ── 2. Appointments (1-day + 1-hour + 30min before + morning-of + travel time) ──
+    // ── 2. Appointments (user-configurable reminder times) ──
     appointments.forEach(a=>{
       if(!a.date) return;
       const _apptTimeStr = a.time || "09:00";
@@ -12263,19 +12266,21 @@ function App(){
       const remindTravel=travelMs>0?apptTime-travelMs:0;
       const _apptBody = `${a.title}${a.time?" at "+fmt12(a.time):""}${a.location?" — "+a.location:""}`;
       const _schedWindow = 48*3600000;
-      if(remind1d>now&&remind1d<now+_schedWindow){
+      // User-configurable reminders — default to all for legacy appointments without the field
+      const _rems = Array.isArray(a.reminders) ? a.reminders : ["1d","1h","30m","morning","travel"];
+      if(_rems.includes("1d") && remind1d>now && remind1d<now+_schedWindow){
         notifications.push({title:"📅 Appointment tomorrow",body:_apptBody,id:stableId("appt1d",a.id),schedule:{at:new Date(remind1d)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
-      if(remind1h>now&&remind1h<now+_schedWindow){
+      if(_rems.includes("1h") && remind1h>now && remind1h<now+_schedWindow){
         notifications.push({title:"📅 Appointment in 1 hour",body:_apptBody,id:stableId("appt1h",a.id),schedule:{at:new Date(remind1h)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
-      if(remind30>now&&remind30<now+_schedWindow){
+      if(_rems.includes("30m") && remind30>now && remind30<now+_schedWindow){
         notifications.push({title:"📅 Appointment in 30 minutes",body:_apptBody,id:stableId("appt30",a.id),schedule:{at:new Date(remind30)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
-      if(remindMorning>now&&remindMorning<now+_schedWindow&&Math.abs(remindMorning-remind30)>1800000){
+      if(_rems.includes("morning") && remindMorning>now && remindMorning<now+_schedWindow && Math.abs(remindMorning-remind30)>1800000){
         notifications.push({title:"📅 Appointment Today",body:_apptBody,id:stableId("apptam",a.id),schedule:{at:new Date(remindMorning)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
-      if(remindTravel>0&&remindTravel>now&&remindTravel<now+_schedWindow&&Math.abs(remindTravel-remind30)>300000){
+      if(_rems.includes("travel") && remindTravel>0 && remindTravel>now && remindTravel<now+_schedWindow && Math.abs(remindTravel-remind30)>300000){
         notifications.push({title:"🚗 Time to Leave",body:`Leave now for ${a.title}${a.location?" at "+a.location:""}. Travel time: ~${a.travelMins}min.`,id:stableId("appttv",a.id),schedule:{at:new Date(remindTravel)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
     });
@@ -14585,26 +14590,51 @@ function App(){
 
     function addAppointment(){
     if(!apptForm.title.trim()||!apptForm.date) return;
-    const base={title:apptForm.title.trim(),time:apptForm.time,note:apptForm.note.trim(),repeat:apptForm.repeat||"none",travelMins:parseInt(apptForm.travelMins)||0,location:(apptForm.location||"").trim(),reminded:false};
+    const _allDay = !!apptForm.allDay;
+    const base={
+      title:apptForm.title.trim(),
+      time: _allDay ? "" : (apptForm.time||""),
+      endTime: _allDay ? "" : (apptForm.endTime||""),
+      allDay: _allDay,
+      note:apptForm.note.trim(),
+      repeat:apptForm.repeat||"none",
+      repeatUntil: apptForm.repeat!=="none" ? (apptForm.repeatUntil||"") : "",
+      travelMins:parseInt(apptForm.travelMins)||0,
+      location:(apptForm.location||"").trim(),
+      reminders:Array.isArray(apptForm.reminders)?apptForm.reminders:["1d","1h","travel"],
+      reminded:false
+    };
     if(editApptId){
-      setAppointments(prev=>prev.map(a=>a.id===editApptId?{...a,...base,date:apptForm.date}:a));
-      setEditApptId(null);setShowAddAppt(false);setApptForm({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0,location:""});
+      setAppointments(prev=>prev.map(a=>a.id===editApptId?{...a,...base,date:apptForm.date, endDate: apptForm.endDate||apptForm.date}:a));
+      setEditApptId(null);setShowAddAppt(false);setApptForm({date:"",time:"",endDate:"",endTime:"",allDay:false,title:"",note:"",repeat:"none",repeatUntil:"",travelMins:0,location:"",reminders:["1d","1h","travel"]});
       showToast("✓ Appointment updated",1500,1);return;
     }
-    const newAppts=[{...base,id:uid(),date:apptForm.date}];
-    // Generate recurring instances
+    const _endDate = apptForm.endDate || apptForm.date;
+    const newAppts=[{...base,id:uid(),date:apptForm.date, endDate:_endDate}];
+    // Generate recurring instances — stops at repeatUntil or defaults to 12 months out
     if(apptForm.repeat&&apptForm.repeat!=="none"){
-      const d=new Date(apptForm.date+"T12:00:00");
-      for(let i=1;i<=12;i++){
-        const next=new Date(d);
-        if(apptForm.repeat==="weekly") next.setDate(next.getDate()+7*i);
+      const startD = new Date(apptForm.date+"T12:00:00");
+      const stopD = apptForm.repeatUntil
+        ? new Date(apptForm.repeatUntil+"T23:59:59")
+        : new Date(startD.getTime() + 365*86400000); // default 12 months
+      const _durationMs = (new Date(_endDate+"T12:00:00").getTime() - startD.getTime());
+      let i = 1, cap = 500; // safety cap
+      while(i < cap){
+        const next=new Date(startD);
+        if(apptForm.repeat==="daily") next.setDate(next.getDate()+i);
+        else if(apptForm.repeat==="weekly") next.setDate(next.getDate()+7*i);
         else if(apptForm.repeat==="fortnightly") next.setDate(next.getDate()+14*i);
         else if(apptForm.repeat==="monthly") next.setMonth(next.getMonth()+i);
-        newAppts.push({...base,id:uid(),date:next.toISOString().slice(0,10)});
+        else if(apptForm.repeat==="yearly") next.setFullYear(next.getFullYear()+i);
+        if(next > stopD) break;
+        const _nextDate = next.toISOString().slice(0,10);
+        const _nextEnd = new Date(next.getTime()+_durationMs).toISOString().slice(0,10);
+        newAppts.push({...base,id:uid(),date:_nextDate, endDate:_nextEnd});
+        i++;
       }
     }
     setAppointments(prev=>[...prev,...newAppts]);
-    setApptForm({date:"",time:"",title:"",note:"",repeat:"none",travelMins:0,location:""});
+    setApptForm({date:"",time:"",endDate:"",endTime:"",allDay:false,title:"",note:"",repeat:"none",repeatUntil:"",travelMins:0,location:"",reminders:["1d","1h","travel"]});
     setShowAddAppt(false);
     setNotesOpen(true); // auto-expand Notes section so user can see the new appointment
     haptic("light");
@@ -14728,11 +14758,32 @@ function App(){
       });
     };
 
+    // ── Profile photo on the LEFT of the OBUBBA logo ──
+    let _logoOffsetX = 0;
+    const _profilePhotoSrc = (activeChild && activeChild.photo) ? activeChild.photo : null;
+    if (_profilePhotoSrc) {
+      try {
+        const _pImg = new Image();
+        await new Promise((res,rej)=>{_pImg.onload=res; _pImg.onerror=rej; _pImg.src=_profilePhotoSrc; setTimeout(rej, 1500);});
+        const _pR = 46, _pCy = 108;
+        // Position photo to the LEFT of centred logo — we'll draw logo offset right
+        const _pCx = W/2 - 180;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(_pCx, _pCy, _pR, 0, Math.PI*2); ctx.clip();
+        const _piw = _pImg.width, _pih = _pImg.height;
+        const _pscale = Math.max((_pR*2)/_piw, (_pR*2)/_pih);
+        ctx.drawImage(_pImg, _pCx - (_piw*_pscale)/2, _pCy - (_pih*_pscale)/2, _piw*_pscale, _pih*_pscale);
+        ctx.restore();
+        ctx.strokeStyle = P.primary; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(_pCx, _pCy, _pR, 0, Math.PI*2); ctx.stroke();
+        _logoOffsetX = 52; // shift logo right so combined row is balanced
+      } catch(e) {}
+    }
     // ── OBUBBA logo at top (Playfair-style, bold, letter-spaced) ──
     ctx.font = "700 76px Georgia, 'Playfair Display', serif";
     ctx.fillStyle = P.primary;
     ctx.shadowColor = "rgba(255,255,255,0.35)"; ctx.shadowBlur = 40;
-    drawSpacedText("OBUBBA", W/2, 120, 6);
+    drawSpacedText("OBUBBA", W/2 + _logoOffsetX, 120, 6);
     ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
 
     // ── Hero content area ──
@@ -14780,27 +14831,52 @@ function App(){
       msgLines.forEach(l => { ctx.fillText(l, W/2, my); my += 40; });
     }
 
-    // ── Mascot row: [AppStore] [Mascot] [GooglePlay] ──
+    // ── Mascot row: [AppStore] [Mascot / optional user photo] [GooglePlay] ──
     const rowY = H - 200;
     const mascotSize = 220;
     const isCeleb = cardType !== "badnight";
     const mascotImgSrc = isCeleb ? "obubba-celebration.png" : "obubba-happy.png";
-    const mascotScale = isCeleb ? 1.25 : 1;
+    const _extraPhoto = details.extraPhoto || null;
 
-    // Soft glow behind mascot
+    // Soft glow behind mascot/photo
     const mgGlow = ctx.createRadialGradient(W/2, rowY+mascotSize/2, 0, W/2, rowY+mascotSize/2, mascotSize*0.8);
     mgGlow.addColorStop(0, P.secondary+"60"); mgGlow.addColorStop(0.7, "transparent");
     ctx.fillStyle = mgGlow; ctx.fillRect(W/2-mascotSize, rowY-40, mascotSize*2, mascotSize+80);
 
-    // Mascot image
-    try {
-      const mascotImg = new Image();
-      await new Promise((res,rej)=>{ mascotImg.onload=res; mascotImg.onerror=rej; mascotImg.src=mascotImgSrc; setTimeout(()=>{ try{mascotImg.src="obubba-happy.png";}catch{} },1500); setTimeout(rej, 3000); });
-      const drawSize = mascotSize * mascotScale;
-      ctx.drawImage(mascotImg, W/2-drawSize/2, rowY+mascotSize/2-drawSize/2, drawSize, drawSize);
-    } catch(e) {
-      ctx.font = "160px serif"; ctx.textAlign = "center";
-      ctx.fillText(isCeleb ? "\u{1F389}" : "\u{1F476}", W/2, rowY+mascotSize*0.75);
+    if (_extraPhoto) {
+      // Split: user photo (circular, 160px) above, small mascot (100px) below
+      try {
+        const ePImg = new Image();
+        await new Promise((res,rej)=>{ ePImg.onload=res; ePImg.onerror=rej; ePImg.src=_extraPhoto; setTimeout(rej, 2500); });
+        const _ephR = 80, _ephCx = W/2, _ephCy = rowY + 20;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(_ephCx, _ephCy, _ephR, 0, Math.PI*2); ctx.clip();
+        const _eiw = ePImg.width, _eih = ePImg.height;
+        const _escale = Math.max((_ephR*2)/_eiw, (_ephR*2)/_eih);
+        ctx.drawImage(ePImg, _ephCx - (_eiw*_escale)/2, _ephCy - (_eih*_escale)/2, _eiw*_escale, _eih*_escale);
+        ctx.restore();
+        ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(_ephCx, _ephCy, _ephR, 0, Math.PI*2); ctx.stroke();
+      } catch(e) {}
+      // Small mascot below
+      try {
+        const mascotImg = new Image();
+        await new Promise((res,rej)=>{ mascotImg.onload=res; mascotImg.onerror=rej; mascotImg.src=mascotImgSrc; setTimeout(()=>{ try{mascotImg.src="obubba-happy.png";}catch{} },1500); setTimeout(rej, 3000); });
+        const _smSize = 105;
+        ctx.drawImage(mascotImg, W/2-_smSize/2, rowY+mascotSize-_smSize+25, _smSize, _smSize);
+      } catch(e) {}
+    } else {
+      // No extra photo → big mascot fills the space
+      try {
+        const mascotImg = new Image();
+        await new Promise((res,rej)=>{ mascotImg.onload=res; mascotImg.onerror=rej; mascotImg.src=mascotImgSrc; setTimeout(()=>{ try{mascotImg.src="obubba-happy.png";}catch{} },1500); setTimeout(rej, 3000); });
+        const mascotScale = isCeleb ? 1.25 : 1;
+        const drawSize = mascotSize * mascotScale;
+        ctx.drawImage(mascotImg, W/2-drawSize/2, rowY+mascotSize/2-drawSize/2, drawSize, drawSize);
+      } catch(e) {
+        ctx.font = "160px serif"; ctx.textAlign = "center";
+        ctx.fillText(isCeleb ? "\u{1F389}" : "\u{1F476}", W/2, rowY+mascotSize*0.75);
+      }
     }
 
     // App Store + Google Play badges (flanking mascot)
@@ -14963,24 +15039,25 @@ function App(){
       };
       const winsBoxY = 1240, winsBoxH = 260;
       ctx.fillStyle = "rgba(58,36,24,0.88)"; ctx.beginPath(); ctx.roundRect(60, winsBoxY, W-120, winsBoxH, 26); ctx.fill();
+      // Left-aligned label (draw char-by-char with letter spacing)
       ctx.font = "600 22px -apple-system, sans-serif"; ctx.fillStyle = "#F9D4B8"; ctx.textAlign = "left";
-      drawSpaced("THIS WEEK'S WINS", 120, winsBoxY+52, 3);
-      ctx.font = "italic 500 32px Georgia, serif"; ctx.fillStyle = accent;
+      { const _c = "THIS WEEK'S WINS".split(""); let _tx = 100; _c.forEach(ch => { ctx.fillText(ch, _tx, winsBoxY+52); _tx += ctx.measureText(ch).width + 3; }); }
+      ctx.font = "italic 500 32px Georgia, serif"; ctx.fillStyle = accent; ctx.textAlign = "left";
       let wy = winsBoxY+105;
       digest.wins.slice(0,2).forEach(w => {
         const lines = _wrapWin("\u201C" + w + "\u201D", W-200);
-        lines.forEach(l => { ctx.fillText(l, 120, wy); wy += 42; });
+        lines.forEach(l => { ctx.fillText(l, 100, wy); wy += 42; });
         wy += 8;
       });
     }
 
     // ── Mascot + branding footer ──
-    const mascotSize = 160;
+    const mascotSize = 220;
     try {
       const mascotImg = new Image();
       await new Promise((res,rej)=>{ mascotImg.onload=res; mascotImg.onerror=rej; mascotImg.src="obubba-celebration.png"; setTimeout(()=>{ try{mascotImg.src="obubba-happy.png";}catch{} },1500); setTimeout(rej, 3000); });
-      ctx.drawImage(mascotImg, W/2-mascotSize/2, H-300, mascotSize, mascotSize);
-    } catch(e) { ctx.font = "120px serif"; ctx.textAlign = "center"; ctx.fillText("\u{1F389}", W/2, H-190); }
+      ctx.drawImage(mascotImg, W/2-mascotSize/2, H-360, mascotSize, mascotSize);
+    } catch(e) { ctx.font = "140px serif"; ctx.textAlign = "center"; ctx.fillText("\u{1F389}", W/2, H-200); }
 
     // ── Tagline + URL ──
     ctx.font = "italic 500 28px Georgia, serif"; ctx.fillStyle = primary; ctx.textAlign = "center"; ctx.globalAlpha = 0.85;
@@ -15037,35 +15114,46 @@ function App(){
     }
 
     if (isIOS) {
-      // iOS: write .ics to CACHE and open directly — iOS recognizes text/calendar MIME
-      // and opens the Calendar.app "Add Event" preview (big Add button, 1 tap).
-      // Skips the share sheet entirely.
+      // iOS: open the .ics inline so Calendar.app preview appears directly
+      // (big blue "Add" button, 1 tap — no share sheet carousel).
       (async function(){
         try {
-          var _fs = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
-          var _sp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
-          if (_fs) {
-            // Base64 encode the ICS string safely for any utf-8 content
-            var b64 = btoa(unescape(encodeURIComponent(icsString)));
-            var fname = (filename || "obubba-event.ics").replace(/[^a-zA-Z0-9._-]/g, "_");
-            var writeRes = await _fs.writeFile({ path: fname, data: b64, directory: "CACHE" });
-            var _uri = writeRes && writeRes.uri;
-            if (_uri && _sp && _sp.share) {
-              // Share sheet with ONLY the file — iOS puts "Add to Calendar" front-and-centre
-              try { await _sp.share({ url: _uri, title: "Add to Calendar", dialogTitle: "Add to Calendar" }); return; }
-              catch(_e){ /* fall through */ }
-            }
+          var _b64 = btoa(unescape(encodeURIComponent(icsString)));
+          var _dataUri = "data:text/calendar;charset=utf-8;base64," + _b64;
+          // Strategy 1: Capacitor Browser (SFSafariViewController handles text/calendar → Calendar.app)
+          var _br = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+          if (_br && _br.open) {
+            try {
+              // Use Filesystem URI so Safari VC can read the file
+              var _fs = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+              if (_fs) {
+                var fname = "obubba-event-"+Date.now()+".ics";
+                var _wr = await _fs.writeFile({ path: fname, data: _b64, directory: "CACHE" });
+                if (_wr && _wr.uri) {
+                  var _webUri = window.Capacitor.convertFileSrc ? window.Capacitor.convertFileSrc(_wr.uri) : _wr.uri;
+                  try { await _br.open({ url: _webUri }); return; } catch(_){}
+                }
+              }
+              // Fallback: open data URI in Safari VC
+              try { await _br.open({ url: _dataUri }); return; } catch(_){}
+            } catch(_){}
           }
-          // Last resort: Blob URL (iOS Safari will open Calendar preview)
+          // Strategy 2: anchor-click the data URI (WKWebView navigates → Calendar preview)
+          try {
+            var a = document.createElement("a");
+            a.href = _dataUri;
+            a.download = filename || "obubba-event.ics";
+            a.target = "_blank";
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function(){ a.remove(); }, 100);
+            return;
+          } catch(_){}
+          // Strategy 3: Blob URL
           var blob = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
-          var file = new File([blob], filename || "obubba-event.ics", {type:"text/calendar"});
-          if (navigator.canShare && navigator.canShare({files:[file]})) {
-            navigator.share({files:[file], title:"Add to Calendar"}).catch(function(){});
-          } else {
-            var url = URL.createObjectURL(blob);
-            window.open(url, "_blank");
-            setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
-          }
+          var url = URL.createObjectURL(blob);
+          window.location.href = url;
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
         } catch(e) { console.warn("Calendar add failed", e); }
       })();
       return;
@@ -17106,7 +17194,10 @@ function App(){
   function generateCarerCardHTML() {
     const name = babyName || "Baby";
     const ageStr = age ? fmtAge(age) : "";
-    const today = entries;
+    // ALWAYS use TODAY's entries regardless of which day user has selected in the UI.
+    // The care guide is a live snapshot — carers need fresh data, not historical.
+    const _todayKey = todayStr();
+    const today = days[_todayKey] || [];
     const dayEntries = today.filter(e => !e.night).sort((a, b) => timeVal(a) - timeVal(b));
 
     // Last feed info
@@ -17115,8 +17206,8 @@ function App(){
     const feedTypes = [...new Set(allFeeds.map(e => e.feedType).filter(Boolean))];
     const feedTypeLabel = feedTypes.length ? feedTypes.map(ft => ft === "breast" ? "Breastfed" : ft === "solids" ? "Solids" : "Bottle/formula").join(" + ") : "Not logged yet";
 
-    // Typical feed frequency from last 5 completed OBubba days
-    const _ccRecent = getResolvedRecentDays(days, selDay, 5);
+    // Typical feed frequency from last 5 completed OBubba days (relative to TODAY)
+    const _ccRecent = getResolvedRecentDays(days, _todayKey, 5);
     const feedCounts = _ccRecent.map(rd => rd.entries.filter(e => e.type === "feed").length);
     const avgFeeds = feedCounts.length ? Math.round(feedCounts.reduce((a, b) => a + b, 0) / feedCounts.length) : 0;
 
@@ -17153,13 +17244,13 @@ function App(){
       const [fh,fm] = lastFeed.time.split(":").map(Number);
       const _nowD = new Date();
       const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
-      const _bedtimeMins = 19*60; // 7pm — don't recommend feeds past bedtime+1h
+      const _nightCutoff = 20*60; // 8pm — past this, baby winding down; don't suggest a next feed
+      if (_nowMins > _nightCutoff) return null;
       let nextMins = fh*60+fm + feedSpacing.threshold;
-      // Roll forward if the computed next feed is in the past
-      while (nextMins < _nowMins - 5 && nextMins < _bedtimeMins + 60) {
-        nextMins += feedSpacing.threshold;
-      }
-      if (nextMins >= 1440 || nextMins > _bedtimeMins + 60) return null;
+      // Roll forward past-time predictions
+      let _g = 0;
+      while (nextMins < _nowMins - 10 && _g++ < 12) { nextMins += feedSpacing.threshold; }
+      if (nextMins > _nightCutoff || nextMins >= 1440) return null;
       return `${String(Math.floor(nextMins/60)%24).padStart(2,"0")}:${String(nextMins%60).padStart(2,"0")}`;
     })() : null;
 
@@ -20288,16 +20379,43 @@ function App(){
                 const _weanSub = !_weanReady ? "From 17 weeks" : age.totalWeeks < 26 ? "Getting ready" : weaningStarted ? "Food & allergens" : "Start journey";
                 return (
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                    <button onClick={()=>{haptic();setDaySubScreen("log");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                    <button onClick={()=>{haptic();setDaySubScreen("log");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative"}}>
+                      {carerEntries && carerEntries.length > 0 && (
+                        <span style={{position:"absolute",top:8,right:8,minWidth:20,height:20,borderRadius:99,background:"#7B68EE",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px",boxShadow:"0 2px 6px rgba(123,104,238,0.4)"}}>{carerEntries.length}</span>
+                      )}
                       <span style={_S.f26}>📋</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Log</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_logSub}</div>
+                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{carerEntries && carerEntries.length > 0 ? `${carerEntries.length} new from carer` : _logSub}</div>
                     </button>
-                    <button onClick={()=>{haptic();setDaySubScreen("plan");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                    {(()=>{
+                      // Show badge when there's something live/active on the plan
+                      let _planAlert = 0;
+                      let _planSubtitle = "Naps & bedtime predicted";
+                      try {
+                        const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
+                        const _entries = (days[todayStr()]||[]).filter(e=>!e.night);
+                        const _hasBedtime = _entries.some(e=>e.type==="sleep");
+                        const _hasMorningWake = _entries.some(e=>e.type==="wake");
+                        const _activeNap = _entries.some(e=>e.type==="nap" && e.start && !e.end);
+                        // 1. Active nap right now
+                        if (_activeNap) { _planAlert++; _planSubtitle = "Nap in progress · tap to see"; }
+                        // 2. Baby currently asleep for the night (bedtime logged, no wake yet for tomorrow)
+                        else if (_hasBedtime && _nowMins >= 18*60) { _planAlert++; _planSubtitle = "Sleeping · rest of the plan inside"; }
+                        // 3. Evening routine pending — morning wake logged, no bedtime yet, after 5pm
+                        else if (_hasMorningWake && !_hasBedtime && _nowMins >= 17*60 && _nowMins < 22*60) { _planAlert++; _planSubtitle = "Bedtime coming up · tap to see"; }
+                        // 4. Day hasn't started yet but it's morning — nudge to log wake
+                        else if (!_hasMorningWake && _nowMins >= 6*60 && _nowMins < 10*60) { _planAlert++; _planSubtitle = "Morning plan ready · tap to see"; }
+                      } catch {}
+                      return (
+                    <button onClick={()=>{haptic();setDaySubScreen("plan");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative"}}>
+                      {_planAlert > 0 && (
+                        <span style={{position:"absolute",top:10,right:10,width:8,height:8,borderRadius:99,background:C.gold,boxShadow:`0 0 0 4px ${C.gold}25, 0 2px 6px ${C.gold}60`,animation:"pulse 2s infinite"}}/>
+                      )}
                       <span style={_S.f26}>🗓️</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Plan</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Naps & bedtime predicted</div>
+                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_planSubtitle}</div>
                     </button>
+                    ); })()}
                     <button onClick={()=>{haptic();setDaySubScreen("notes");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
                       <span style={_S.f26}>📝</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Notes & Reminders</div>
@@ -20373,33 +20491,36 @@ function App(){
                     </button>
                   </div>
 
-                  {/* Upcoming appointments */}
+                  {/* Upcoming appointments — next only + calendar view for all others */}
                   {(()=>{
                     const upcoming=appointments.filter(a=>{
                       const d=new Date(a.date+"T"+(a.time||"23:59")+":59");
                       return d>=new Date();
                     }).sort((a,b)=>(a.date+(a.time||"00:00")).localeCompare(b.date+(b.time||"00:00")));
                     if(!upcoming.length) return null;
+                    const a = upcoming[0];
+                    const isToday2=a.date===todayStr();
+                    const isTmrw=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
+                    const dayLabel2=isToday2?"Today":isTmrw?"Tomorrow":fmtLong(a.date);
+                    const moreCount = upcoming.length - 1;
                     return (
                       <div style={{marginBottom:20}}>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10}}>Appointments</div>
-                        {upcoming.map(a=>{
-                          const isToday2=a.date===todayStr();
-                          const isTmrw=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
-                          const dayLabel2=isToday2?"Today":isTmrw?"Tomorrow":fmtLong(a.date);
-                          return (
-                            <div key={a.id} className="glass-card" style={{padding:"14px 16px",marginBottom:8}}>
-                              <div style={_S.flexCenter10}>
-                                <div style={{width:32,height:32,borderRadius:9,background:isToday2?C.ter+"18":"var(--chip-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:14}}>{isToday2?"🔔":"📅"}</div>
-                                <div onClick={()=>{haptic();setApptForm({date:a.date,time:a.time||"",title:a.title,note:a.note||"",repeat:a.repeat||"none",travelMins:a.travelMins||0,location:a.location||""});setEditApptId(a.id);setShowAddAppt(true);}} style={{flex:1,minWidth:0,cursor:_cP}}>
-                                  <div style={{fontSize:14,fontWeight:700,color:isToday2?C.ter:C.deep}}>{a.title}</div>
-                                  <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>{dayLabel2}{a.time?" · "+fmt12(a.time):""}{a.travelMins>0?" · 🚗 "+a.travelMins+"min":""}</div>
-                                  {a.location && <div style={{fontSize:12,color:C.sky,fontFamily:_fM,marginTop:1}}>📍 {a.location}</div>}
-                                </div>
-                              </div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                          <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Next appointment</div>
+                          {moreCount>0&&<button onClick={()=>{haptic();setShowApptCalendar(true);}} style={{background:"none",border:"none",fontSize:12,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM,display:"flex",alignItems:"center",gap:4}}>📅 View all ({upcoming.length})</button>}
+                        </div>
+                        <div className="glass-card" style={{padding:"14px 16px",marginBottom:8}}>
+                          <div style={_S.flexCenter10}>
+                            <div style={{width:32,height:32,borderRadius:9,background:isToday2?C.ter+"18":"var(--chip-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:14}}>{isToday2?"🔔":"📅"}</div>
+                            <div onClick={()=>{haptic();setApptForm({date:a.date,time:a.time||"",endDate:a.endDate||a.date,endTime:a.endTime||"",allDay:!!a.allDay,title:a.title,note:a.note||"",repeat:a.repeat||"none",repeatUntil:a.repeatUntil||"",travelMins:a.travelMins||0,location:a.location||"",reminders:Array.isArray(a.reminders)?a.reminders:["1d","1h","travel"]});setEditApptId(a.id);setShowAddAppt(true);}} style={{flex:1,minWidth:0,cursor:_cP}}>
+                              <div style={{fontSize:14,fontWeight:700,color:isToday2?C.ter:C.deep}}>{a.title}</div>
+                              <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>{dayLabel2}{a.time?" · "+fmt12(a.time):""}{a.travelMins>0?" · 🚗 "+a.travelMins+"min":""}</div>
+                              {a.location && <div style={{fontSize:12,color:C.sky,fontFamily:_fM,marginTop:1}}>📍 {a.location}</div>}
                             </div>
-                          );
-                        })}
+                            <button onClick={e=>{e.stopPropagation();haptic();showConfirm("Delete appointment","Remove \""+a.title+"\"?",()=>{deleteAppointment(a.id);setConfirmDialog(null);showToast("✓ Deleted",1400,1);},"Delete",true);}} aria-label="Delete" style={{background:"none",border:"none",color:C.lt,fontSize:16,cursor:_cP,padding:"4px 6px",flexShrink:0}}>✕</button>
+                          </div>
+                        </div>
+                        {moreCount===0&&<div style={{fontSize:11,color:C.lt,marginTop:2,marginLeft:2}}>No other appointments scheduled</div>}
                       </div>
                     );
                   })()}
@@ -20969,13 +21090,24 @@ function App(){
                       <span style={{fontSize:12,color:_waterCount>=8?C.mint:C.mid,fontWeight:600,fontFamily:_fM}}>{_waterCount}/8 glasses</span>
                     </div>
                     <div style={{display:"flex",gap:6,marginBottom:8}}>
-                      {[1,2,3,4,5,6,7,8].map(n=>(
-                        <div key={n} style={{flex:1,height:28,borderRadius:8,background:n<=_waterCount?"linear-gradient(135deg,#7BA68C,#5A8A6C)":"var(--card-bg-alt)",border:"1px solid "+(n<=_waterCount?C.mint+"40":C.blush),transition:"all 0.2s"}}/>
-                      ))}
+                      {[1,2,3,4,5,6,7,8].map(n=>{
+                        const _filled = n <= _waterCount;
+                        return (
+                          <button key={n} onClick={()=>{
+                            haptic();
+                            // Tap a filled box → reduce to n-1 (uncheck). Tap empty → fill to n.
+                            const _newCount = _filled && n === _waterCount ? n - 1 : n;
+                            const _d = {..._scData, water: _newCount};
+                            try { localStorage.setItem(_scKey, JSON.stringify(_d)); } catch {}
+                            setPartnerTick(t=>t+1);
+                            if (_newCount > _waterCount) showToast("💧 "+_newCount+"/8 glasses",1000,1);
+                          }} aria-label={_filled?"Remove glass "+n:"Add glass "+n} style={{flex:1,height:36,borderRadius:8,background:_filled?"linear-gradient(135deg,#7BA68C,#5A8A6C)":"var(--card-bg-alt)",border:"1px solid "+(_filled?C.mint+"40":C.blush),transition:"all 0.2s",cursor:_cP,padding:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+                            {_filled && <span style={{opacity:0.9}}>💧</span>}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <button onClick={_addWater} style={{width:"100%",padding:"10px",borderRadius:12,border:"1.5px solid "+C.mint+"40",background:C.mint+"08",color:C.mint,fontSize:13,fontWeight:700,cursor:_cP}}>
-                      + Add a glass
-                    </button>
+                    <div style={{fontSize:10,color:C.lt,textAlign:"center",fontFamily:_fM,fontStyle:"italic"}}>Tap a glass to log it · tap the last filled glass to undo</div>
                     {_waterCount < 4 && <div style={{fontSize:11,color:C.lt,marginTop:6,fontStyle:"italic",textAlign:"center"}}>Dehydration makes everything harder — tiredness, headaches, milk supply. You matter too.</div>}
                   </div>
 
@@ -21050,22 +21182,35 @@ function App(){
                   <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB}}>
                     <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>{"\u{1F46A}"} Send to Family</div>
-                    <button onClick={()=>{
+                    <button onClick={async ()=>{
                       haptic();
-                      const _de = (days[selDay]||[]).filter(e=>!e.night);
-                      const _feeds = _de.filter(e=>e.type==="feed").length;
-                      const _naps = _de.filter(e=>e.type==="nap").length;
-                      const _nappies = _de.filter(e=>e.type==="poop").length;
-                      const _name = babyName||"Baby";
-                      const _text = "🌟 "+_name+"'s Day — "+fmtLong(selDay)+"\n\n🍼 "+_feeds+" feed"+(_feeds!==1?"s":"")+"\n😴 "+_naps+" nap"+(_naps!==1?"s":"")+"\n🧷 "+_nappies+" napp"+(_nappies!==1?"ies":"y")+"\n\nSent with love from OBubba 💜";
-                      if(navigator.share){navigator.share({title:_name+"'s Day",text:_text}).catch(()=>{});}
-                      else{try{navigator.clipboard.writeText(_text);showToast("Copied to clipboard!",1500,1);}catch{}}
                       setShowShareFamily(false);
+                      showToast("Creating card…",1200);
+                      try {
+                        const _de = (days[selDay]||[]).filter(e=>!e.night);
+                        const _feeds = _de.filter(e=>e.type==="feed").length;
+                        const _naps = _de.filter(e=>e.type==="nap").length;
+                        const _nappies = _de.filter(e=>e.type==="poop").length;
+                        const _napMins = _de.filter(e=>e.type==="nap"&&e.start&&e.end).reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                        const _name = babyName||"Baby";
+                        const _isToday = selDay===todayStr();
+                        const _dayLabel = _isToday ? "TODAY" : fmtLong(selDay).toUpperCase();
+                        const _cardTitle = _name+"'s Day";
+                        const _cardData = {
+                          statLabel: _dayLabel,
+                          stat: _feeds+" feeds · "+_naps+" naps",
+                          message: _napMins?hm(_napMins)+" nap time · "+_nappies+" napp"+(_nappies!==1?"ies":"y"):_nappies+" napp"+(_nappies!==1?"ies":"y")
+                        };
+                        const canvas = await renderShareCard("daywin", _cardTitle, _cardData);
+                        const dataUrl = canvas.toDataURL("image/png");
+                        setSharePreview({title:_name+"'s Day · "+fmtLong(selDay), milestone:null, dataUrl, cardType:"daywin", cardTitle:_cardTitle, cardData:_cardData});
+                        try { trackEvent("share_card_created", { cardType: "family_summary" }); } catch {}
+                      } catch(e) { console.warn("Family share card failed:", e); showToast("Couldn't build card — try again",2000,0); }
                     }} className="glass-card" style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:_cP,textAlign:"left",marginBottom:10,border:"1.5px solid rgba(123,104,238,0.2)"}}>
                       <span style={_S.f26}>💌</span>
                       <div style={_S.flex1}>
                         <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Quick Summary</div>
-                        <div style={{fontSize:12,color:C.mid,marginTop:2}}>Pretty card with today's highlights</div>
+                        <div style={{fontSize:12,color:C.mid,marginTop:2}}>Preview the card before sharing</div>
                       </div>
                     </button>
                     <button onClick={()=>{
@@ -21208,7 +21353,7 @@ function App(){
                   <div style={{padding:"8px 12px",marginBottom:8}}>
                     <div style={_S.flexCenter10}>
                       <div style={{width:32,height:32,borderRadius:9,background:isToday?`${C.ter}18`:"var(--chip-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:14}}>{isToday?"🔔":"📅"}</div>
-                      <div onClick={()=>{setApptForm({date:a.date,time:a.time||"",title:a.title,note:a.note||"",repeat:a.repeat||"none",travelMins:a.travelMins||0,location:a.location||""});setEditApptId(a.id);setShowAddAppt(true);}} style={{flex:1,minWidth:0,cursor:_cP}}>
+                      <div onClick={()=>{setApptForm({date:a.date,time:a.time||"",endDate:a.endDate||a.date,endTime:a.endTime||"",allDay:!!a.allDay,title:a.title,note:a.note||"",repeat:a.repeat||"none",repeatUntil:a.repeatUntil||"",travelMins:a.travelMins||0,location:a.location||"",reminders:Array.isArray(a.reminders)?a.reminders:["1d","1h","travel"]});setEditApptId(a.id);setShowAddAppt(true);}} style={{flex:1,minWidth:0,cursor:_cP}}>
                         <div style={{fontSize:13,fontWeight:700,color:isToday?C.ter:C.deep}}>{a.title}</div>
                         <div style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{dayLabel}{a.time?" · "+fmt12(a.time):""}{a.travelMins>0?" · 🚗 "+a.travelMins+"min":""}</div>
                         {a.location && <div style={{fontSize:11,color:C.sky,fontFamily:_fM,marginTop:1}}>📍 {a.location}</div>}
@@ -21354,8 +21499,8 @@ function App(){
 
               <button onClick={()=>{haptic();setTodayPlanOpen(!todayPlanOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:todayPlanOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:todayPlanOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📋 Today's Plan</span>
-                  <span style={{fontSize:11,color:C.lt}}>{(days[selDay]||[]).filter(e=>!e.night).length} events</span>
+                  <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📋 Timeline</span>
+                  <span style={{fontSize:11,color:C.lt}}>{(days[selDay]||[]).filter(e=>!e.night).length} events today</span>
                 </div>
                 <span style={{fontSize:10,color:C.lt,transform:todayPlanOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
               </button>
@@ -21704,9 +21849,6 @@ function App(){
 
                 return (
                   <div style={_S.mb14}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                      <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📋 Today's Plan</div>
-                    </div>
                     <div style={{background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"12px 14px",boxShadow:"var(--card-shadow)"}}>
                       {items.map((item, i) => {
                         const isLast = i === items.length - 1;
@@ -22599,13 +22741,14 @@ function App(){
                             try {
                               const stretchHrs = _totalNightMins > 0 ? Math.floor(_totalNightMins/60)+"h "+(_totalNightMins%60)+"m" : null;
                               const _title = _score >= SCORE_GREAT ? "A beautiful sleep win" : "A sleep win";
-                              const canvas = await renderShareCard("sleepwin", _title, {
+                              const _cardData = {
                                 message: (babyName||"Baby")+" scored "+_score+"/100 on sleep last night",
                                 stat: stretchHrs || (_wakeCount+" wake"+(_wakeCount!==1?"s":"")),
                                 statLabel: stretchHrs ? "total night sleep" : "overnight"
-                              });
+                              };
+                              const canvas = await renderShareCard("sleepwin", _title, _cardData);
                               const dataUrl = canvas.toDataURL("image/png");
-                              setSharePreview({title:(babyName||"Baby")+"'s Sleep Win", milestone:null, dataUrl, cardType:"sleepwin"});
+                              setSharePreview({title:(babyName||"Baby")+"'s Sleep Win", milestone:null, dataUrl, cardType:"sleepwin", cardTitle:_title, cardData:_cardData});
                               try { trackEvent("share_card_created", { cardType: "sleepwin" }); } catch {}
                             } catch(e) { console.warn(e); showToast("Couldn't create card",2000,1); }
                           }} style={{padding:"7px 16px",borderRadius:99,border:`1.5px solid ${C.mint}40`,background:"rgba(155,184,168,0.1)",color:C.mint,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
@@ -22617,13 +22760,14 @@ function App(){
                             haptic();
                             showToast("Creating card…",1200);
                             try {
-                              const canvas = await renderShareCard("badnight", "Survived the night", {
+                              const _cardData = {
                                 message: "You showed up anyway — that counts.",
                                 stat: _wakeCount+" wake"+(_wakeCount!==1?"s":""),
                                 statLabel: "and you handled every one"
-                              });
+                              };
+                              const canvas = await renderShareCard("badnight", "Survived the night", _cardData);
                               const dataUrl = canvas.toDataURL("image/png");
-                              setSharePreview({title:"Survived the night", milestone:null, dataUrl, cardType:"badnight"});
+                              setSharePreview({title:"Survived the night", milestone:null, dataUrl, cardType:"badnight", cardTitle:"Survived the night", cardData:_cardData});
                               try { trackEvent("share_card_created", { cardType: "badnight" }); } catch {}
                             } catch(e) { console.warn(e); showToast("Couldn't create card",2000,1); }
                           }} style={{padding:"7px 16px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"rgba(192,112,136,0.08)",color:C.ter,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
@@ -23790,19 +23934,19 @@ function App(){
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>
                           {[
-                            {emoji:"😴",label:"Night sleep",val:_ds.components.sleep,max:30,good:20},
-                            {emoji:"🍼",label:"Feeding",val:_ds.components.feed,max:30,good:20},
-                            {emoji:"💤",label:"Naps",val:_ds.components.nap,max:20,good:14},
-                            {emoji:"📝",label:"Logging",val:_ds.components.completeness,max:20,good:15}
+                            {key:"sleep",emoji:"😴",label:"Night sleep",val:_ds.components.sleep,max:30,good:20},
+                            {key:"feed",emoji:"🍼",label:"Feeding",val:_ds.components.feed,max:30,good:20},
+                            {key:"nap",emoji:"💤",label:"Naps",val:_ds.components.nap,max:20,good:14},
+                            {key:"log",emoji:"📝",label:"Logging",val:_ds.components.completeness,max:20,good:15}
                           ].map((c,i)=>{
                             const _isGood = c.val >= c.good;
                             const _col = _isGood ? C.mint : c.val >= c.good*0.5 ? C.gold : C.lt;
                             return (
-                              <div key={i} style={{padding:"8px 6px",borderRadius:12,background:_col+"10",border:`1px solid ${_col}25`,textAlign:"center"}}>
+                              <button key={i} onClick={()=>{haptic();setScoreDetail(c);}} style={{padding:"8px 6px",borderRadius:12,background:_col+"10",border:`1px solid ${_col}25`,textAlign:"center",cursor:_cP,fontFamily:_fI}}>
                                 <div style={{fontSize:16,marginBottom:2}}>{c.emoji}</div>
                                 <div style={{fontSize:14,fontWeight:700,color:_col,fontFamily:_fM,lineHeight:1}}>{c.val}<span style={{fontSize:10,color:C.lt,fontWeight:400}}>/{c.max}</span></div>
                                 <div style={{fontSize:9,color:C.lt,fontFamily:_fM,marginTop:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{c.label}</div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -23813,13 +23957,14 @@ function App(){
                           showToast("Creating card…",1200);
                           try {
                             const _title = _sc>=SCORE_GREAT ? "A great day" : "A good day";
-                            const canvas = await renderShareCard("daywin", _title, {
+                            const _cardData = {
                               message: (babyName||"Baby")+" scored "+_sc+"/100",
                               stat: _ds.feedCount+" feeds · "+_ds.napCount+" naps",
                               statLabel: hm(_ds.napMins)+" total · "+_ds.nightWakes+" wake"+(_ds.nightWakes!==1?"s":"")
-                            });
+                            };
+                            const canvas = await renderShareCard("daywin", _title, _cardData);
                             const dataUrl = canvas.toDataURL("image/png");
-                            setSharePreview({title:(babyName||"Baby")+"'s Day · "+_title, milestone:null, dataUrl, cardType:"dayscore"});
+                            setSharePreview({title:(babyName||"Baby")+"'s Day · "+_title, milestone:null, dataUrl, cardType:"dayscore", cardTitle:_title, cardData:_cardData});
                             try { trackEvent("share_card_created", { cardType: "dayscore" }); } catch {}
                           } catch(e) { console.warn(e); showToast("Couldn't create card",2000,1); }
                         }} style={{marginTop:12,padding:"7px 16px",borderRadius:99,border:`1.5px solid ${C.mint}40`,background:"rgba(155,184,168,0.1)",color:C.mint,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
@@ -24173,15 +24318,18 @@ function App(){
                   <div
                     onPointerDown={e=>{touchStartRef.current={x:e.clientX,y:e.clientY};}}
                     onPointerUp={e=>{
-                      if(!touchStartRef.current || (isFuture && !done)) return;
+                      // Only allow tapping to MARK as done. Done milestones are never
+                      // accidentally un-marked via tap — use the ✕ button instead.
+                      if(!touchStartRef.current || isFuture || done) return;
                       const dx=Math.abs(e.clientX-touchStartRef.current.x);
                       const dy=Math.abs(e.clientY-touchStartRef.current.y);
                       touchStartRef.current=null;
                       if(dx>8||dy>8) return;
-                      if(done){ showConfirm("Remove milestone", `Remove "${m.label}"?`, ()=>{setMilestones(ms=>({...ms,[m.id]:{}}));setConfirmDialog(null);}, "Remove", true); }
-                      else { setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}})); showMascot("celebration", `🎉 ${m.label} — milestone reached!`, 2500); setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2800); }
+                      setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
+                      showMascot("celebration", `🎉 ${m.label} — milestone reached!`, 2500);
+                      setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2800);
                     }}
-                    style={{display:"flex",alignItems:"flex-start",gap:11,cursor:isFuture?"default":"pointer",touchAction:"pan-y"}}>
+                    style={{display:"flex",alignItems:"flex-start",gap:11,cursor:(isFuture||done)?"default":"pointer",touchAction:"pan-y"}}>
                     {/* Category icon */}
                     <div style={{width:36,height:36,borderRadius:10,background:done?"rgba(80,200,120,0.1)":`${borderColor}12`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:18}}>
                       {done ? "✅" : catIcon}
@@ -24194,8 +24342,21 @@ function App(){
                       </div>
                       {done && (
                         <div style={{display:"flex",gap:6,marginTop:6}}>
-                          <button onClick={e=>{e.stopPropagation();capturePhoto(m.id);}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"3px 10px",fontSize:11,color:C.mid,cursor:_cP}}>📷 Photo</button>
-                          <button onClick={e=>{e.stopPropagation();shareCard(m.label,m);}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"3px 10px",fontSize:11,color:C.mid,cursor:_cP}}>📤 Share</button>
+                          <button onClick={async e=>{
+                            e.stopPropagation(); haptic(); showToast("Creating card…",1200);
+                            try {
+                              const _cardData = {
+                                message: `${babyName||"Baby"} just did it!`,
+                                stat: m.label,
+                                statLabel: "MILESTONE"
+                              };
+                              const canvas = await renderShareCard("milestone", m.label, _cardData);
+                              const dataUrl = canvas.toDataURL("image/png");
+                              setSharePreview({title:`${babyName||"Baby"} · ${m.label}`, milestone:m.id, dataUrl, cardType:"milestone", cardTitle:m.label, cardData:_cardData});
+                              try { trackEvent("share_card_created", { cardType: "milestone" }); } catch {}
+                            } catch(err) { console.warn(err); showToast("Couldn't create card",2000,0); }
+                          }} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"3px 10px",fontSize:11,color:C.mid,cursor:_cP}}>📤 Share</button>
+                          <button onClick={e=>{e.stopPropagation();haptic();showConfirm("Remove milestone", `Remove "${m.label}" from ${babyName||"baby"}'s achieved milestones?`, ()=>{setMilestones(ms=>({...ms,[m.id]:{}}));setConfirmDialog(null);showToast("Removed",1400,1);}, "Remove", true);}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"3px 10px",fontSize:11,color:C.lt,cursor:_cP}}>✕ Remove</button>
                         </div>
                       )}
                     </div>
@@ -24663,6 +24824,7 @@ function App(){
                         {id:"overview",label:"Overview",icon:"📋"},
                         {id:"signs",label:"Readiness",icon:"✅"},
                         {id:"myths",label:"Not Ready Signs",icon:"🚫"},
+                        {id:"allergens",label:"Allergens",icon:"🛡️"},
                         {id:"equipment",label:"Equipment",icon:"🛒"},
                         {id:"timeline",label:"Timeline",icon:"📅"},
                       ].map(s=>(
@@ -25285,7 +25447,7 @@ function App(){
 
 
               {/* ═══ Foods to Avoid — NHS safety guidance ═══ */}
-              {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_journey" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_before") && (
+              {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_journey" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="overview") && (
                 <div style={{border:"1.5px solid rgba(232,87,74,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:12,background:"rgba(232,87,74,0.03)"}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                     <span style={_S.f14}>🚫</span>
@@ -25311,7 +25473,7 @@ function App(){
               )}
 
               {/* ═══ Allergen Checklist ═══ */}
-              {age && age.totalWeeks >= 17 && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (()=>{
+              {age && age.totalWeeks >= 17 && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="allergens") && (()=>{
                 const _introduced = ALLERGEN_GUIDE.filter(a => allergenIntroduced(weaning, a.id));
                 const _notDone = ALLERGEN_GUIDE.filter(a => !allergenIntroduced(weaning, a.id));
                 const _needsMaintaining = _introduced.filter(a => !allergenRecent(weaning, a.id));
@@ -25572,7 +25734,7 @@ function App(){
               })()}
 
               {/* ═══ Reaction Symptom Guide ═══ */}
-              {age && weaningStarted && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
+              {age && (weaningStarted || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="allergens") && (()=>{
                 return (
                   <div style={{marginBottom:12,border:"1.5px solid rgba(232,87,74,0.15)",borderRadius:14,overflow:"hidden"}}>
                     <button onClick={()=>_setShowReaction(v=>!v)}
@@ -25615,7 +25777,7 @@ function App(){
               })()}
 
               {/* ═══ Iron Importance Guide ═══ */}
-              {age && age.totalWeeks >= 22 && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
+              {age && age.totalWeeks >= 22 && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="overview") && (()=>{
                 return (
                   <div style={{marginBottom:12,border:`1.5px solid ${C.mint}25`,borderRadius:16,overflow:"hidden"}}>
                     <button onClick={()=>_setIronOpen(v=>!v)}
@@ -25682,7 +25844,7 @@ function App(){
               })()}
 
               {/* ═══ Gagging vs Choking Guide ═══ */}
-              {age && age.totalWeeks >= 22 && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
+              {age && age.totalWeeks >= 22 && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="overview") && (()=>{
                 return (
                   <div style={{marginBottom:12,border:`1.5px solid ${C.gold}25`,borderRadius:16,overflow:"hidden"}}>
                     <button onClick={()=>_setGagOpen(v=>!v)}
@@ -25746,7 +25908,7 @@ function App(){
               })()}
 
               {/* ═══ Water Introduction Guide ═══ */}
-              {age && age.totalWeeks >= 24 && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
+              {age && age.totalWeeks >= 24 && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="overview") && (()=>{
                 return (
                   <div style={{marginBottom:12,border:`1.5px solid ${C.blush}`,borderRadius:16,overflow:"hidden"}}>
                     <button onClick={()=>_setWaterOpen(v=>!v)}
@@ -26141,7 +26303,7 @@ function App(){
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🦷 Teething Tracker <HelpBtn title="Teething Tracker" body="Log each tooth as it appears with date and symptoms. OBubba tracks teething patterns and factors teething into the crying helper. Most babies get their first tooth around 6 months."/></div>
-                    <button onClick={()=>{setTeethingForm({tooth:"",date:todayStr(),symptoms:[],note:""});setShowTeethingForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log tooth</button>
+                    <button onClick={()=>{setTeethingForm({teeth:[],date:todayStr(),symptoms:[],note:""});setShowTeethingForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log tooth</button>
                   </div>
                   {teething.length === 0 ? (
                     <div style={{background:"var(--card-bg-alt)",border:`1px dashed ${C.blush}`,borderRadius:14,padding:"16px",textAlign:"center"}}>
@@ -28285,18 +28447,18 @@ function App(){
                 {id:"LL-E",label:"Lower left 2nd molar",short:"E",x:248},
               ];
               const loggedIds = teething.map(t=>t.tooth);
-              const sel = teethingForm.tooth;
+              const selArr = Array.isArray(teethingForm.teeth) ? teethingForm.teeth : [];
               const toothW = 22, toothH = 28;
               const renderTooth = (t, y, isUpper) => {
                 const isLogged = loggedIds.includes(t.id);
-                const isSel = sel === t.id;
+                const isSel = selArr.includes(t.id);
                 const fill = isSel ? C.ter : isLogged ? C.mint : "var(--card-bg-alt)";
                 const stroke = isSel ? C.ter : isLogged ? C.mint : C.blush;
                 const textColor = (isSel || isLogged) ? "white" : C.mid;
                 // Tooth shape: rounded rect, narrower at root
                 const rootY = isUpper ? y - 6 : y + toothH;
                 return (
-                  <g key={t.id} onClick={()=>{haptic(10);setTeethingForm(f=>({...f,tooth:t.id}));}} style={{cursor:"pointer"}}>
+                  <g key={t.id} onClick={()=>{haptic(10);setTeethingForm(f=>({...f,teeth:selArr.includes(t.id)?selArr.filter(x=>x!==t.id):[...selArr,t.id]}));}} style={{cursor:"pointer"}}>
                     <rect x={t.x} y={y} width={toothW} height={toothH} rx={isUpper?6:4} ry={isUpper?6:4} fill={fill} stroke={stroke} strokeWidth={isSel?2:1.5}/>
                     {isUpper && <rect x={t.x+5} y={rootY} width={toothW-10} height={8} rx={3} fill={fill} stroke={stroke} strokeWidth={1}/>}
                     {!isUpper && <rect x={t.x+5} y={rootY} width={toothW-10} height={8} rx={3} fill={fill} stroke={stroke} strokeWidth={1}/>}
@@ -28314,8 +28476,8 @@ function App(){
                     {lowerTeeth.map(t=>renderTooth(t, 72, false))}
                     <text x="140" y="114" textAnchor="middle" fontSize="9" fill={C.lt} fontFamily="system-ui">LOWER</text>
                   </svg>
-                  {sel && <div style={{textAlign:"center",marginTop:6,fontSize:13,fontWeight:600,color:C.ter}}>{toothLabel(sel)}</div>}
-                  {!sel && <div style={{textAlign:"center",marginTop:4,fontSize:11,color:C.lt}}>Tap a tooth to select it{teething.length>0?" · ✓ = already logged":""}</div>}
+                  {selArr.length>0 && <div style={{textAlign:"center",marginTop:6,fontSize:13,fontWeight:600,color:C.ter}}>{selArr.length===1 ? toothLabel(selArr[0]) : `${selArr.length} teeth selected`}</div>}
+                  {selArr.length===0 && <div style={{textAlign:"center",marginTop:4,fontSize:11,color:C.lt}}>Tap teeth to select them{teething.length>0?" · ✓ = already logged":""}</div>}
                 </div>
               );
             })()}
@@ -28329,14 +28491,47 @@ function App(){
             </div>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Notes</div>
             <input placeholder="e.g. spotted by doctor" value={teethingForm.note} onChange={e=>setTeethingForm(f=>({...f,note:e.target.value}))} style={{width:"100%",fontSize:14,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,marginBottom:18,boxSizing:_bBB,fontFamily:_fI}}/>
-            <button onClick={()=>{
+            <button onClick={async ()=>{
               haptic();
-              if(!teethingForm.tooth&&!teethingForm.note) return;
-              setTeething(prev=>[...prev,{id:uid(),tooth:teethingForm.tooth,date:teethingForm.date||todayStr(),symptoms:teethingForm.symptoms,note:teethingForm.note}]);
+              const _teeth = Array.isArray(teethingForm.teeth) ? teethingForm.teeth : [];
+              if(_teeth.length===0 && !teethingForm.note) return;
+              const _d = teethingForm.date||todayStr();
+              const _previouslyLogged = new Set((teething||[]).map(t=>t.tooth));
+              const _newTeeth = _teeth.filter(t => !_previouslyLogged.has(t));
+              if(_teeth.length===0 && teethingForm.note){
+                // Note-only entry (no teeth selected)
+                setTeething(prev=>[...prev,{id:uid(),tooth:"",date:_d,symptoms:teethingForm.symptoms,note:teethingForm.note}]);
+              } else {
+                setTeething(prev=>[...prev, ..._teeth.map(id=>({id:uid(),tooth:id,date:_d,symptoms:teethingForm.symptoms,note:teethingForm.note}))]);
+              }
               setShowTeethingForm(false);
-              showToast("🦷 Tooth Logged!",1500,1);
+              const _totalAfter = (teething||[]).length + _newTeeth.length;
+              const _msg = _newTeeth.length>1 ? `🦷 ${_newTeeth.length} teeth logged!` : _newTeeth.length===1 ? "🦷 Tooth logged!" : "🦷 Saved";
+              showToast(_msg,1500,1);
+              // Celebration share card for newly-erupted teeth
+              if(_newTeeth.length>0){
+                try {
+                  showToast("Creating celebration card…",1200);
+                  const _ordinal = (n)=>{const s=["th","st","nd","rd"],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);};
+                  const _title = _newTeeth.length>1
+                    ? `${_newTeeth.length} new teeth!`
+                    : _totalAfter===1 ? "First tooth!" : `${_ordinal(_totalAfter)} tooth!`;
+                  const _body = _newTeeth.length>1
+                    ? `${babyName||"Baby"} is sprouting ${_newTeeth.length} new teeth \u{1F60A}`
+                    : `${babyName||"Baby"}'s ${_totalAfter===1?"first":_ordinal(_totalAfter)} tooth has emerged \u{1F60A}`;
+                  const _cardData = {
+                    message: _body,
+                    stat: "\u{1F9B7} " + _title,
+                    statLabel: "MILESTONE"
+                  };
+                  const canvas = await renderShareCard("milestone", _title, _cardData);
+                  const dataUrl = canvas.toDataURL("image/png");
+                  setSharePreview({title:`${babyName||"Baby"} \u00B7 ${_title}`, milestone:null, dataUrl, cardType:"milestone", cardTitle:_title, cardData:_cardData});
+                  try { trackEvent("share_card_created", { cardType: "tooth" }); } catch {}
+                } catch(e){ console.warn("Tooth card failed:", e); }
+              }
             }} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-              Save Tooth 🦷
+              {(teethingForm.teeth||[]).length>1 ? `Save ${(teethingForm.teeth||[]).length} teeth 🦷` : "Save Tooth 🦷"}
             </button>
           </div>
         </div>
@@ -29818,11 +30013,26 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       {showAddAppt&&(
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowAddAppt(false);setEditApptId(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📅 Add Appointment</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📅 {editApptId?"Edit":"Add"} Appointment</div>
             <Inp label="Title" type="text" placeholder="e.g. Health visitor, GP, vaccination" value={apptForm.title} onChange={e=>setApptForm(f=>({...f,title:e.target.value}))}/>
-            <div style={{display:"flex",gap:10,alignItems:"flex-end"}}>
-              <div style={{flex:"1 1 50%",minWidth:0}}><Inp label="Date" type="date" value={apptForm.date} onChange={e=>setApptForm(f=>({...f,date:e.target.value}))}/></div>
-              <div style={{flex:"1 1 50%",minWidth:0}}><Inp label="Time" type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))}/></div>
+            {/* All-day toggle */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",marginBottom:10,borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)"}}>
+              <span style={{fontSize:14,fontWeight:600,color:C.deep}}>All-day</span>
+              <button onClick={()=>setApptForm(f=>({...f,allDay:!f.allDay}))} style={{width:46,height:26,borderRadius:99,border:"none",background:apptForm.allDay?C.ter:C.blush,position:"relative",cursor:_cP,transition:"background 0.15s"}} aria-label="Toggle all-day">
+                <span style={{position:"absolute",top:2,left:apptForm.allDay?22:2,width:22,height:22,borderRadius:"50%",background:"white",transition:"left 0.15s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
+              </button>
+            </div>
+            {/* Starts */}
+            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Starts</div>
+            <div style={{display:"flex",gap:10,alignItems:"flex-end",marginBottom:10}}>
+              <div style={{flex:"1 1 50%",minWidth:0}}><input type="date" value={apptForm.date} onChange={e=>{const v=e.target.value;setApptForm(f=>({...f,date:v,endDate:f.endDate&&f.endDate>=v?f.endDate:v}));}} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>
+              {!apptForm.allDay&&<div style={{flex:"1 1 50%",minWidth:0}}><input type="time" value={apptForm.time} onChange={e=>setApptForm(f=>({...f,time:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>}
+            </div>
+            {/* Ends */}
+            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Ends</div>
+            <div style={{display:"flex",gap:10,alignItems:"flex-end",marginBottom:12}}>
+              <div style={{flex:"1 1 50%",minWidth:0}}><input type="date" min={apptForm.date||undefined} value={apptForm.endDate||apptForm.date||""} onChange={e=>setApptForm(f=>({...f,endDate:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>
+              {!apptForm.allDay&&<div style={{flex:"1 1 50%",minWidth:0}}><input type="time" value={apptForm.endTime||""} onChange={e=>setApptForm(f=>({...f,endTime:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/></div>}
             </div>
             <div style={_S.mb12}>
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Location (optional)</label>
@@ -29862,13 +30072,22 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <div style={_S.mb12}>
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Repeat</label>
               <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                {[["none","One-off"],["weekly","Weekly"],["fortnightly","Fortnightly"],["monthly","Monthly"]].map(([v,l])=>(
+                {[["none","Never"],["daily","Daily"],["weekly","Weekly"],["fortnightly","Every 2 weeks"],["monthly","Monthly"],["yearly","Yearly"]].map(([v,l])=>(
                   <button key={v} onClick={()=>setApptForm(f=>({...f,repeat:v}))} style={{padding:"6px 12px",borderRadius:99,border:`1.5px solid ${apptForm.repeat===v?C.ter:C.blush}`,background:apptForm.repeat===v?"var(--chip-bg-active)":"var(--card-bg)",color:apptForm.repeat===v?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
                     {l}
                   </button>
                 ))}
               </div>
-              {apptForm.repeat!=="none"&&<div style={{fontSize:11,color:C.lt,marginTop:4}}>Creates 12 {apptForm.repeat} appointments from the date above</div>}
+              {apptForm.repeat!=="none"&&(
+                <div style={{marginTop:10}}>
+                  <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>End repeat</label>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <button onClick={()=>setApptForm(f=>({...f,repeatUntil:""}))} style={{padding:"8px 14px",borderRadius:99,border:`1.5px solid ${!apptForm.repeatUntil?C.ter:C.blush}`,background:!apptForm.repeatUntil?"var(--chip-bg-active)":"var(--card-bg)",color:!apptForm.repeatUntil?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI,whiteSpace:"nowrap"}}>Never</button>
+                    <input type="date" min={apptForm.date||undefined} value={apptForm.repeatUntil||""} onChange={e=>setApptForm(f=>({...f,repeatUntil:e.target.value}))} placeholder="On date" style={{flex:1,padding:"8px 12px",borderRadius:12,border:`1.5px solid ${apptForm.repeatUntil?C.ter:C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,marginTop:4}}>{apptForm.repeatUntil?`Repeats until ${apptForm.repeatUntil}`:"Repeats for 12 months (default)"}</div>
+                </div>
+              )}
             </div>
             <div style={_S.mb12}>
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Travel time {apptForm.travelMins>0?"("+apptForm.travelMins+" min auto-calculated)":"— add location to auto-calculate"}</label>
@@ -29881,6 +30100,24 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               </div>
               {apptForm.travelMins>0&&<div style={{fontSize:11,color:C.sky,marginTop:4}}>🔔 "Time to leave" notification {apptForm.travelMins} min before the appointment</div>}
             </div>
+            <div style={_S.mb12}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Reminders</label>
+              <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                {[["travel","🚗 Travel time"],["1d","1 day before"],["morning","Morning of"],["1h","1 hour"],["30m","30 min"]].map(([v,l])=>{
+                  const _on=(apptForm.reminders||[]).includes(v);
+                  const _disabled = v==="travel" && (!apptForm.travelMins || apptForm.travelMins<=0);
+                  return (
+                    <button key={v} disabled={_disabled} onClick={()=>setApptForm(f=>{
+                      const cur=Array.isArray(f.reminders)?f.reminders:[];
+                      return {...f,reminders: cur.includes(v) ? cur.filter(x=>x!==v) : [...cur,v]};
+                    })} style={{padding:"6px 12px",borderRadius:99,border:`1.5px solid ${_on?C.ter:C.blush}`,background:_on?"var(--chip-bg-active)":"var(--card-bg)",color:_on?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_disabled?"not-allowed":_cP,fontFamily:_fI,opacity:_disabled?0.4:1}}>
+                      {l}
+                    </button>
+                  );
+                })}
+              </div>
+              {(apptForm.reminders||[]).length===0&&<div style={{fontSize:11,color:C.gold,marginTop:4}}>⚠️ No reminders selected — you won't be notified</div>}
+            </div>
             {notifPermission!=="granted"&&(
               <button onClick={requestNotifications} style={{width:"100%",padding:"10px",borderRadius:12,border:`1.5px solid ${C.gold}40`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.gold,fontFamily:_fI,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                 🔔 Enable reminders for appointments
@@ -29891,6 +30128,66 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
           </div>
         </div>
       )}
+
+      {/* ═══ Appointments Calendar Modal ═══ */}
+      {showApptCalendar&&(()=>{
+        const[cYr,cMo]=apptCalMonth.split("-").map(Number);
+        const firstDay=new Date(cYr,cMo-1,1).getDay();
+        const daysInMonth=new Date(cYr,cMo,0).getDate();
+        const monthLabel=new Date(cYr,cMo-1,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+        const apptByDay={};
+        appointments.forEach(a=>{ if(a.date&&a.date.startsWith(apptCalMonth)) { const d=parseInt(a.date.slice(-2)); if(!apptByDay[d])apptByDay[d]=[]; apptByDay[d].push(a); } });
+        const cells=[]; for(let i=0;i<(firstDay===0?6:firstDay-1);i++)cells.push(null);
+        for(let d=1;d<=daysInMonth;d++)cells.push(d);
+        const prevMo=()=>{const d=new Date(cYr,cMo-2,1);setApptCalMonth(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));};
+        const nextMo=()=>{const d=new Date(cYr,cMo,1);setApptCalMonth(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));};
+        const todayDOM = (()=>{const t=new Date();return t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")===apptCalMonth?t.getDate():0;})();
+        const upcomingAll=appointments.filter(a=>{const d=new Date(a.date+"T"+(a.time||"23:59")+":59");return d>=new Date();}).sort((a,b)=>(a.date+(a.time||"00:00")).localeCompare(b.date+(b.time||"00:00")));
+        return (
+        <div role="dialog" aria-modal="true" onClick={()=>setShowApptCalendar(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:9990,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"20px 18px",maxWidth:400,width:"100%",maxHeight:"88vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.2)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <button onClick={prevMo} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:34,height:34,cursor:_cP,fontSize:16,color:C.mid,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:C.deep}}>{monthLabel}</div>
+              <button onClick={nextMo} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:34,height:34,cursor:_cP,fontSize:16,color:C.mid,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:14}}>
+              {["M","T","W","T","F","S","S"].map((d,i)=>(<div key={i} style={{fontSize:10,fontFamily:_fM,color:C.lt,textAlign:"center",padding:"4px 0"}}>{d}</div>))}
+              {cells.map((d,i)=>{
+                if(d===null)return <div key={i}/>;
+                const dayAppts=apptByDay[d]||[];
+                const isToday=d===todayDOM;
+                const hasAppts=dayAppts.length>0;
+                return (
+                  <div key={i} style={{aspectRatio:"1/1",borderRadius:8,background:isToday?C.ter+"15":hasAppts?C.blush+"40":"transparent",border:isToday?`1.5px solid ${C.ter}`:"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:11,color:isToday?C.ter:C.deep,fontWeight:hasAppts?700:400,position:"relative"}}>
+                    <span>{d}</span>
+                    {hasAppts&&<span style={{position:"absolute",bottom:2,width:4,height:4,borderRadius:99,background:C.ter}}/>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Upcoming ({upcomingAll.length})</div>
+            {upcomingAll.length===0?(
+              <div style={{fontSize:13,color:C.lt,fontStyle:"italic",padding:"12px 4px"}}>No upcoming appointments</div>
+            ):upcomingAll.map(a=>{
+              const isToday2=a.date===todayStr();
+              const isTmrw=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
+              const dayLabel2=isToday2?"Today":isTmrw?"Tomorrow":fmtLong(a.date);
+              return (
+                <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:6,background:"var(--card-bg-alt)",borderRadius:12,border:"1px solid var(--card-border)"}}>
+                  <div onClick={()=>{haptic();setShowApptCalendar(false);setApptForm({date:a.date,time:a.time||"",endDate:a.endDate||a.date,endTime:a.endTime||"",allDay:!!a.allDay,title:a.title,note:a.note||"",repeat:a.repeat||"none",repeatUntil:a.repeatUntil||"",travelMins:a.travelMins||0,location:a.location||"",reminders:Array.isArray(a.reminders)?a.reminders:["1d","1h","travel"]});setEditApptId(a.id);setShowAddAppt(true);}} style={{flex:1,minWidth:0,cursor:_cP}}>
+                    <div style={{fontSize:13,fontWeight:700,color:isToday2?C.ter:C.deep}}>{a.title}</div>
+                    <div style={{fontSize:11,color:C.lt,fontFamily:_fM,marginTop:1}}>{dayLabel2}{a.time?" · "+fmt12(a.time):""}</div>
+                  </div>
+                  <button onClick={e=>{e.stopPropagation();haptic();showConfirm("Delete appointment","Remove \""+a.title+"\"?",()=>{deleteAppointment(a.id);setConfirmDialog(null);showToast("✓ Deleted",1400,1);},"Delete",true);}} aria-label="Delete" style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"4px 6px",flexShrink:0}}>✕</button>
+                </div>
+              );
+            })}
+            <button onClick={()=>setShowApptCalendar(false)} style={{width:"100%",marginTop:10,padding:"10px",borderRadius:12,border:"none",background:C.blush,color:C.mid,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Close</button>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* ═══ Add Pinned Note Modal ═══ */}
       {showAddPin&&(
@@ -29968,14 +30265,21 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       )}
 
             {/* ═══ Share Card Preview ═══ */}
-      {/* Hidden input for recap photo */}
+      {/* Hidden input for extra photo on share card */}
       <input ref={recapPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={async(e)=>{
         const file=e.target.files?.[0];if(!file)return;
         const reader=new FileReader();
         reader.onload=async(ev)=>{
           const photoData=ev.target.result;
           setRecapExtraPhoto(photoData);
-          await generateDailyRecapCard(photoData);
+          // Regenerate the CURRENT card type with the photo embedded
+          if (sharePreview && sharePreview.cardType && sharePreview.cardData) {
+            try {
+              const canvas = await renderShareCard(sharePreview.cardType, sharePreview.cardTitle||sharePreview.title, {...sharePreview.cardData, extraPhoto: photoData});
+              const dataUrl = canvas.toDataURL("image/png");
+              setSharePreview({...sharePreview, dataUrl});
+            } catch(err) { console.warn("photo regen failed", err); }
+          }
         };
         reader.readAsDataURL(file);
         e.target.value="";
@@ -31251,6 +31555,60 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       )}
 
       {/* ═══ Milestone Share Prompt ═══ */}
+      {scoreDetail&&(()=>{
+        const _details = {
+          sleep: {
+            title: "Night Sleep · 30 points",
+            what: "Measures total night sleep (bedtime → morning wake, minus night wakes) plus how settled the night was. Longer stretches + fewer wakes = higher score.",
+            low: "If this is low, try: an earlier bedtime (even by 15 min), dimming lights 30 min before bed, a longer last feed, or tightening wake windows during the day. Overtired babies wake more, not less.",
+            high: "Great night sleep is working in your favour. Keep the wind-down routine consistent."
+          },
+          feed: {
+            title: "Feeding · 30 points",
+            what: "Measures feed count plus daily intake (for bottle babies) or feed frequency (for breastfed babies) against age-appropriate targets.",
+            low: "If this is low, either you're feeding on demand and it's been a quieter day, or some feeds haven't been logged. Check you've captured every feed — the score rewards completeness.",
+            high: "Intake looks well-matched to your baby's age. Keep watching cues."
+          },
+          nap: {
+            title: "Naps · 20 points",
+            what: "Measures nap count plus total nap minutes against age-expected day sleep. The AASM ranges guide what's typical.",
+            low: "If this is low, try: protecting the first nap (often the 'quality' nap), keeping wake windows age-appropriate, and a dim quiet room. Under-napped babies often sleep worse at night too.",
+            high: "Day sleep is well-distributed. Check it's not eating into night sleep — see the Sleep Budget in Insights."
+          },
+          log: {
+            title: "Logging · 20 points",
+            what: "Measures how complete today's log is: morning wake time, feeds, naps, nappies, and bedtime. This isn't about quality — it's about whether OBubba has enough data to help you.",
+            low: "If this is low, you've just not logged much yet today. Logs drive every prediction in the app. Quick entry via widget, quick-actions, or the carer portal all count.",
+            high: "Nicely logged — OBubba has what it needs to give you personalised insights."
+          }
+        };
+        const _d = _details[scoreDetail.key] || _details.sleep;
+        const _pct = scoreDetail.max > 0 ? Math.round((scoreDetail.val/scoreDetail.max)*100) : 0;
+        const _isHigh = scoreDetail.val >= scoreDetail.good;
+        return (
+          <div role="dialog" aria-modal="true" onClick={()=>setScoreDetail(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"24px 22px",maxWidth:360,width:"100%",maxHeight:"80vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",border:"1px solid var(--card-border)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                <div style={{fontSize:32}}>{scoreDetail.emoji}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,lineHeight:1.2}}>{_d.title}</div>
+                  <div style={{fontSize:13,fontFamily:_fM,color:_isHigh?C.mint:_pct>=50?C.gold:C.lt,marginTop:2}}>Your score: {scoreDetail.val}/{scoreDetail.max} ({_pct}%)</div>
+                </div>
+              </div>
+              <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+                <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>What this measures</div>
+                <div style={{fontSize:13,color:C.mid,lineHeight:1.6}}>{_d.what}</div>
+              </div>
+              <div style={{background:_isHigh?C.mint+"10":C.gold+"10",border:`1px solid ${_isHigh?C.mint:C.gold}30`,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+                <div style={{fontSize:11,fontFamily:_fM,color:_isHigh?C.mint:C.gold,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5,fontWeight:700}}>{_isHigh?"✓ Going well":"💡 What to try"}</div>
+                <div style={{fontSize:13,color:C.deep,lineHeight:1.6}}>{_isHigh?_d.high:_d.low}</div>
+              </div>
+              <button onClick={()=>setScoreDetail(null)} style={{width:"100%",padding:"11px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>Got it</button>
+            </div>
+          </div>
+        );
+      })()}
+
       {msSharePrompt&&(
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setMsSharePrompt(null)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:24,padding:"28px 22px",width:"100%",maxWidth:320,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>

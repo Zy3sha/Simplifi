@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 
   <!-- SEO Essentials -->
   <title>OBubba — Smart Baby Tracker | Feed, Sleep, Nap & Milestone Tracking</title>
@@ -86,6 +86,23 @@
 
 <!-- Theme system (must run immediately for no flash) -->
 <script src="theme.js"></script>
+
+<!-- iOS pinch-zoom lock (belt-and-braces: prevents the WKWebView from getting stuck in a zoomed state after modals close) -->
+<script>
+(function(){
+  // Block multi-touch gestures that trigger pinch-zoom
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, { passive: false });
+  document.addEventListener('gestureend', function(e){ e.preventDefault(); }, { passive: false });
+  // Block double-tap zoom
+  var lastTouch = 0;
+  document.addEventListener('touchend', function(e){
+    var now = Date.now();
+    if (now - lastTouch <= 300) e.preventDefault();
+    lastTouch = now;
+  }, { passive: false });
+})();
+</script>
 
 <!-- App loader (fetches app.jsx, compiles, + utilities) -->
 <script src="loader.js"></script>
