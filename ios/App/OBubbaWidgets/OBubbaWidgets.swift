@@ -121,6 +121,7 @@ struct WidgetData: Codable {
     let feedCount: Int
     let sleepCount: Int
     let nappyCount: Int
+    let wetNappyCount: Int?
     let lastFeedTime: String?
     let lastFeedType: String?
     let lastSleepTime: String?
@@ -142,7 +143,7 @@ struct WidgetData: Codable {
     let lastBreastSide: String?
 
     enum CodingKeys: String, CodingKey {
-        case babyName, feedCount, sleepCount, nappyCount
+        case babyName, feedCount, sleepCount, nappyCount, wetNappyCount
         case lastFeedTime, lastFeedType, lastSleepTime, nextFeedEstimate
         case theme, updatedAt, lastFeedAmount
         case lastNappyTime, lastNappyType, nextPrediction, nextPredictionMs, nextPredictionLabel
@@ -175,6 +176,7 @@ struct WidgetData: Codable {
         feedCount = Self.flexInt(c, .feedCount)
         sleepCount = Self.flexInt(c, .sleepCount)
         nappyCount = Self.flexInt(c, .nappyCount)
+        wetNappyCount = Self.flexInt(c, .wetNappyCount)
         lastFeedTime = Self.flexString(c, .lastFeedTime)
         lastFeedType = Self.flexString(c, .lastFeedType)
         lastSleepTime = Self.flexString(c, .lastSleepTime)
@@ -200,7 +202,7 @@ struct WidgetData: Codable {
          lastFeedTime: String?, lastFeedType: String?, lastSleepTime: String?,
          nextFeedEstimate: String?, theme: String, updatedAt: Double) {
         self.babyName = babyName; self.feedCount = feedCount; self.sleepCount = sleepCount
-        self.nappyCount = nappyCount; self.lastFeedTime = lastFeedTime
+        self.nappyCount = nappyCount; self.wetNappyCount = nil; self.lastFeedTime = lastFeedTime
         self.lastFeedType = lastFeedType; self.lastSleepTime = lastSleepTime
         self.nextFeedEstimate = nextFeedEstimate; self.theme = theme; self.updatedAt = updatedAt
         self.lastFeedAmount = nil; self.lastNappyTime = nil; self.lastNappyType = nil
@@ -476,18 +478,41 @@ struct OBubbaSmallWidgetView: View {
                     }
 
                 } else {
-                    // ── No timer, no prediction ──
+                    // ── No timer, no prediction — show day at a glance ──
                     Text("☀️")
-                        .font(.system(size: 32))
+                        .font(.system(size: 22))
 
-                    Text("All good")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(brandMint)
+                    HStack(spacing: 8) {
+                        VStack(spacing: 1) {
+                            Text("\(d.feedCount)")
+                                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                .foregroundColor(brandRose)
+                            Text("feeds")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundColor(brandDeep.opacity(0.45))
+                        }
+                        VStack(spacing: 1) {
+                            Text("\(d.sleepCount)")
+                                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                .foregroundColor(brandPurple)
+                            Text("naps")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundColor(brandDeep.opacity(0.45))
+                        }
+                        VStack(spacing: 1) {
+                            let wet = d.wetNappyCount ?? 0
+                            Text("\(wet)/6")
+                                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                                .foregroundColor(wet >= 6 ? brandMint : brandDeep.opacity(0.6))
+                            Text("wet")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundColor(brandDeep.opacity(0.45))
+                        }
+                    }
 
-                    Text("Take some time for yourself")
-                        .font(.system(size: 10, weight: .medium))
+                    Text("today so far")
+                        .font(.system(size: 9, weight: .medium))
                         .foregroundColor(brandDeep.opacity(0.4))
-                        .multilineTextAlignment(.center)
                 }
         }
         .padding(12)

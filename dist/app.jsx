@@ -6503,11 +6503,13 @@ function App(){
       else if (activeTimer === "feed") timerLabel = "Nursing " + (activeSide === "left" ? "L" : activeSide === "right" ? "R" : "");
 
       // Shape matches Swift WidgetData struct
+      var _wetNappyCount = (nappies||[]).filter(function(n){return ((n.poopType||"")+"").toLowerCase().includes("wet");}).length;
       var widgetData = {
         babyName: String(babyName || "Baby"),
         feedCount: parseInt(feeds.length) || 0,
         sleepCount: parseInt(naps.length) || 0,
         nappyCount: parseInt(nappies.length) || 0,
+        wetNappyCount: _wetNappyCount,
         lastFeedTime: lastFeed ? String(lastFeed.time) : null,
         lastFeedType: lastFeed ? String(lastFeed.feedType || "bottle") : null,
         lastFeedAmount: lastFeed ? (parseFloat(lastFeed.amount) || 0) : 0,
@@ -7430,7 +7432,25 @@ function App(){
             </div>
           )}
           <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>
-          <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6,textAlign:"center"}}>{_h >= 0 && _h < 4 ? "You're not alone — this part is hard. Try to rest." : "You're doing wonderfully. Try to rest."}</div>
+          {(()=>{
+            const _nwCount = (_nwCtx && _nwCtx.wakeNum) || 0;
+            const _isDeepNight = _h >= 23 || _h < 6;
+            const _isRough = _nwCount >= 2 && _isDeepNight;
+            // Deep-night validation: explicit count + kindness when it's hard
+            if (_isRough) {
+              return (
+                <>
+                  <div style={{fontSize:12,color:C.mid,marginTop:10,padding:"10px 12px",borderRadius:12,background:"rgba(155,184,168,0.08)",border:`1px solid ${C.mint}30`,textAlign:"center",lineHeight:1.5}}>
+                    You've handled {_nwCount} wake{_nwCount!==1?"s":""} tonight. You're doing it. 💛
+                  </div>
+                  <button onClick={()=>{haptic();setTab("day");setDaySubScreen("wellbeing");}} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:`1px solid ${C.ter}30`,background:"rgba(192,112,136,0.04)",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI,textAlign:"center"}}>
+                    💛 Feeling at the edge? Get support
+                  </button>
+                </>
+              );
+            }
+            return <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6,textAlign:"center"}}>{_h >= 0 && _h < 4 ? "You're not alone — this part is hard. Try to rest." : "You're doing wonderfully. Try to rest."}</div>;
+          })()}
         </div>
       );
     }
