@@ -6124,21 +6124,21 @@ function App(){
         if (_isBedTimer && elapsed >= 14*3600) {
           setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
           try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
-          showToast("The morning must have started! You can log " + (babyName||"baby") + "'s wake time to start the new day. 🌅", 8000, 2);
+          showToast("🌅 Looks like morning's here — log " + (babyName||"baby") + "'s wake time when you're ready", 6000, 2);
           return;
         }
-        // Nap guard — warn about long naps
+        // Nap guard — gentle check-in, no command
         if(elapsed >= guardMins*60 && elapsed < guardMins*60+62) {
-          showToast("Still sleeping? " + (babyName||"Baby") + " has been napping " + hm(Math.floor(elapsed/60)) + " — tap nap to end if awake.", 10000, 2);
+          showToast("💛 " + (babyName||"Baby") + " has been napping " + hm(Math.floor(elapsed/60)) + " — tap the nap pill if they've woken", 8000, 2);
         }
-        // 4h+ nap auto-convert to bedtime
+        // 4h+ nap auto-convert to bedtime — app did it, tell parent
         if (!_isBedTimer && elapsed >= 4*3600) {
           // Auto-convert long nap to bedtime
           setDays(d => {
             const entries = d[_sd] || [];
             return {...d, [_sd]: entries.map(e => e.id === napEntryId ? {...e, type: "sleep"} : e)};
           });
-          showToast((babyName||"Baby") + " has been sleeping over 4 hours — logged as bedtime 🌙", 6000, 2);
+          showToast("🌙 Long sleep over 4h — we've converted it to bedtime for you", 5000, 2);
         }
       } catch {}
     }, 60000);
@@ -7133,6 +7133,10 @@ function App(){
     const _lastFeedTime = _lastFeed ? timeVal(_lastFeed) : null;
     const _nextFeedMins = _lastFeedTime !== null ? _lastFeedTime + _feedThreshM : null;
     const _nextFeedStr = _nextFeedMins ? fmt12(`${String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")}:${String(_nextFeedMins%60).padStart(2,"0")}`) : null;
+    // Next-bottle suggestion (time + ml) — returns null for breastfed babies
+    let _nextBottleSuggestion = null;
+    try { _nextBottleSuggestion = getNextBottleFeedSuggestion(feedCard()); } catch {}
+    const _nextFeedMlStr = _nextBottleSuggestion ? "~" + _nextBottleSuggestion.amountMl + "ml" : null;
 
     // ── Growth spurt / quiet day detection ──
     let _growthSpurt = false;
@@ -7253,7 +7257,7 @@ function App(){
 
     // ── Build secondary info line (always: last feed + nappy context) ──
     const _secParts = [];
-    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr : ""));
+    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr + (_nextFeedMlStr ? " · " + _nextFeedMlStr : "") : ""));
     if (_nappyGapM < 9000 && _nappyGapM >= 120) _secParts.push("🧷 Nappy " + hm(_nappyGapM) + " ago");
     else if (_nappyGapM < 120 && _nappyGapM < 9000) _secParts.push("🧷 Nappy changed " + hm(_nappyGapM) + " ago");
     if (_growthSpurt) _secParts.push("📈 Possible growth spurt — extra feeds are normal");
@@ -7311,9 +7315,9 @@ function App(){
       const _patternH = _avgFeedInterval ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
       const _patternStr = _patternH ? "every ~" + _patternH + "h" : "every ~" + (_feedThreshM/60).toFixed(1).replace(/\.0$/,"") + "h";
       if (_feedDelta <= 0 && _feedGapM > _feedThreshM * 0.9) {
-        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · feed now" };
+        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · feed now" + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + ")" : "") };
       } else if (_feedDelta > 0 && _feedDelta <= 30) {
-        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next feed around " + _nextFeedStr };
+        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next feed around " + _nextFeedStr + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + ")" : "") };
       }
     }
     // Priority 3: Nappy overdue
@@ -7338,7 +7342,7 @@ function App(){
         const _lastFeedT = fmt12(_lastFeed.time);
         const _patternH = _avgFeedInterval ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
         const _patternStr = _patternH ? "every ~" + _patternH + "h" : "every ~" + (_feedThreshM/60).toFixed(1).replace(/\.0$/,"") + "h";
-        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next around " + _nextFeedStr };
+        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next around " + _nextFeedStr + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + ")" : "") };
       }
     }
 
@@ -7450,7 +7454,7 @@ function App(){
       _timing = _feedGapM >= 120 ? _name + " might be hungry — let's offer a feed" : "Last feed " + hm(_feedGapM) + " ago — watch for hungry cues";
       if (_lastFeed && _lastFeed.amount > 0 && _lastFeed.amount < _perFeedTarget * 0.75) {
         const _pct = Math.round((_lastFeed.amount / _perFeedTarget) * 100);
-        _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get hungry sooner — watch for hungry cues." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr : "");
+        _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr : "") : "");
       }
     }
     // ── PRIORITY 5: Nap approaching / overdue ──
@@ -16110,6 +16114,59 @@ function App(){
     if (predictedMins <= now || predictedMins > 1440) return null;
     const sinceLast = now - lastFeedMins;
     return { predictedMins, avgGap, sinceLast, lastFeedTime: lastFeed.time };
+  }
+
+  // Suggest next bottle feed time + amount for bottle-fed babies only.
+  // Returns null for breast-fed, too-new, or insufficient data.
+  function getNextBottleFeedSuggestion(feedCardResult) {
+    if (!age || !feedCardResult) return null;
+    // Detect feeding method from recent 3 days
+    const _dk = getRecentDays(3);
+    let _bottleCount = 0, _breastCount = 0, _withAmountCount = 0;
+    _dk.forEach(d => {
+      const _feeds = (days[d]||[]).filter(e=>e.type==="feed"&&!e.night);
+      _feeds.forEach(f => {
+        if (f.feedType === "breast") _breastCount++;
+        else if (f.feedType === "bottle" || f.amount > 0) _bottleCount++;
+        if (f.amount > 0) _withAmountCount++;
+      });
+    });
+    const _totalFeeds = _bottleCount + _breastCount;
+    if (_totalFeeds < 3) return null; // not enough data
+    const _bottlePct = _bottleCount / _totalFeeds;
+    if (_bottlePct < 0.7) return null; // mostly breastfed — feed on demand, no suggestion
+    // Check today's progress
+    const fc = feedCardResult;
+    const _todayFeeds = (days[selDay]||[]).filter(e=>e.type==="feed"&&!e.night);
+    const _todayMl = fc.dayMl || 0;
+    const _targetFeeds = fc.targetFeeds || 5;
+    const _totalTarget = fc.totalTarget || 750;
+    const _feedsRemaining = Math.max(1, _targetFeeds - _todayFeeds.length);
+    const _mlRemaining = Math.max(0, _totalTarget - _todayMl);
+    // Suggest amount — round to nearest 10ml, min 60, max 240 for sanity
+    let _suggestedMl;
+    if (_mlRemaining > 0 && _feedsRemaining > 0) {
+      _suggestedMl = Math.round((_mlRemaining / _feedsRemaining) / 10) * 10;
+    } else {
+      // Already hit target — suggest normal per-feed amount
+      _suggestedMl = Math.round((_totalTarget / _targetFeeds) / 10) * 10;
+    }
+    _suggestedMl = Math.max(60, Math.min(240, _suggestedMl));
+    // Use existing predictor for time
+    const _pred = getPredictedNextFeed();
+    const _timeMins = _pred ? _pred.predictedMins : null;
+    // Confidence/context
+    const _context = _mlRemaining === 0 ? "target met" : _todayMl > _totalTarget ? "above target" : "on track";
+    return {
+      timeMins: _timeMins,
+      amountMl: _suggestedMl,
+      amountRange: { min: Math.max(60, _suggestedMl - 20), max: Math.min(240, _suggestedMl + 20) },
+      context: _context,
+      mlRemainingToday: _mlRemaining,
+      feedsRemainingToday: _feedsRemaining,
+      todayMl: _todayMl,
+      totalTarget: _totalTarget
+    };
   }
 
   function getFeedEfficiencyTrend() {
