@@ -7137,6 +7137,10 @@ function App(){
     let _nextBottleSuggestion = null;
     try { _nextBottleSuggestion = getNextBottleFeedSuggestion(feedCard()); } catch {}
     const _nextFeedMlStr = _nextBottleSuggestion ? "~" + _nextBottleSuggestion.amountMl + "ml" : null;
+    // Catching-up context: only adds a hint if baby is behind target with limited daytime hours left
+    const _feedMlContext = _nextBottleSuggestion && _nextBottleSuggestion.isBehindTarget
+      ? " to hit the day target before bed"
+      : "";
 
     // ── Growth spurt / quiet day detection ──
     let _growthSpurt = false;
@@ -7257,7 +7261,7 @@ function App(){
 
     // ── Build secondary info line (always: last feed + nappy context) ──
     const _secParts = [];
-    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr + (_nextFeedMlStr ? " · " + _nextFeedMlStr : "") : ""));
+    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr + (_nextFeedMlStr ? " · " + _nextFeedMlStr + (_feedMlContext ? " (catching up)" : "") : "") : ""));
     if (_nappyGapM < 9000 && _nappyGapM >= 120) _secParts.push("🧷 Nappy " + hm(_nappyGapM) + " ago");
     else if (_nappyGapM < 120 && _nappyGapM < 9000) _secParts.push("🧷 Nappy changed " + hm(_nappyGapM) + " ago");
     if (_growthSpurt) _secParts.push("📈 Possible growth spurt — extra feeds are normal");
@@ -7315,9 +7319,9 @@ function App(){
       const _patternH = _avgFeedInterval ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
       const _patternStr = _patternH ? "every ~" + _patternH + "h" : "every ~" + (_feedThreshM/60).toFixed(1).replace(/\.0$/,"") + "h";
       if (_feedDelta <= 0 && _feedGapM > _feedThreshM * 0.9) {
-        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · feed now" + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + ")" : "") };
+        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · feed now" + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + _feedMlContext + ")" : "") };
       } else if (_feedDelta > 0 && _feedDelta <= 30) {
-        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next feed around " + _nextFeedStr + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + ")" : "") };
+        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next feed around " + _nextFeedStr + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + _feedMlContext + ")" : "") };
       }
     }
     // Priority 3: Nappy overdue
@@ -7342,7 +7346,7 @@ function App(){
         const _lastFeedT = fmt12(_lastFeed.time);
         const _patternH = _avgFeedInterval ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
         const _patternStr = _patternH ? "every ~" + _patternH + "h" : "every ~" + (_feedThreshM/60).toFixed(1).replace(/\.0$/,"") + "h";
-        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next around " + _nextFeedStr + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + ")" : "") };
+        _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next around " + _nextFeedStr + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + _feedMlContext + ")" : "") };
       }
     }
 
@@ -7454,7 +7458,7 @@ function App(){
       _timing = _feedGapM >= 120 ? _name + " might be hungry — let's offer a feed" : "Last feed " + hm(_feedGapM) + " ago — watch for hungry cues";
       if (_lastFeed && _lastFeed.amount > 0 && _lastFeed.amount < _perFeedTarget * 0.75) {
         const _pct = Math.round((_lastFeed.amount / _perFeedTarget) * 100);
-        _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr : "") : "");
+        _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr + _feedMlContext : "") : "");
       }
     }
     // ── PRIORITY 5: Nap approaching / overdue ──
@@ -16117,53 +16121,69 @@ function App(){
   }
 
   // Suggest next bottle feed time + amount for bottle-fed babies only.
+  // Strategy: BIAS DAYTIME so baby hits daily target before bed — protects night sleep.
+  // Never suggests waking baby at night (only exception: newborn <4w, underweight, or premature).
   // Returns null for breast-fed, too-new, or insufficient data.
   function getNextBottleFeedSuggestion(feedCardResult) {
     if (!age || !feedCardResult) return null;
     // Detect feeding method from recent 3 days
     const _dk = getRecentDays(3);
-    let _bottleCount = 0, _breastCount = 0, _withAmountCount = 0;
+    let _bottleCount = 0, _breastCount = 0;
     _dk.forEach(d => {
       const _feeds = (days[d]||[]).filter(e=>e.type==="feed"&&!e.night);
       _feeds.forEach(f => {
         if (f.feedType === "breast") _breastCount++;
         else if (f.feedType === "bottle" || f.amount > 0) _bottleCount++;
-        if (f.amount > 0) _withAmountCount++;
       });
     });
     const _totalFeeds = _bottleCount + _breastCount;
-    if (_totalFeeds < 3) return null; // not enough data
-    const _bottlePct = _bottleCount / _totalFeeds;
-    if (_bottlePct < 0.7) return null; // mostly breastfed — feed on demand, no suggestion
-    // Check today's progress
+    if (_totalFeeds < 3) return null;
+    if ((_bottleCount / _totalFeeds) < 0.7) return null; // breastfed — feed on demand
+    // Today's progress
     const fc = feedCardResult;
     const _todayFeeds = (days[selDay]||[]).filter(e=>e.type==="feed"&&!e.night);
     const _todayMl = fc.dayMl || 0;
     const _targetFeeds = fc.targetFeeds || 5;
     const _totalTarget = fc.totalTarget || 750;
-    const _feedsRemaining = Math.max(1, _targetFeeds - _todayFeeds.length);
     const _mlRemaining = Math.max(0, _totalTarget - _todayMl);
-    // Suggest amount — round to nearest 10ml, min 60, max 240 for sanity
+    // Age-based safety check: only newborns can be woken for feeds
+    const _w = age.totalWeeks;
+    const _allowNightTopUp = _w < 4; // under 4 weeks — pediatric guidance says wake every 3h until weight gain steady
+    // Estimate remaining DAY feeds (cut off at ~7pm / 19:00 local for most babies)
+    const _nowH = new Date().getHours();
+    const _dayCutoff = _w < 13 ? 20 : 19; // younger babies get one more hour
+    const _hoursLeftInDay = Math.max(0, _dayCutoff - _nowH);
+    // Estimate feeds in remaining day hours based on typical 3-3.5h gap
+    const _gapH = _w < 13 ? 3 : 3.5;
+    const _dayFeedsRemaining = Math.max(1, Math.round(_hoursLeftInDay / _gapH));
+    // Count how many bottle-count-style feeds already logged today (excluding night)
+    const _feedsRemainingByCount = Math.max(1, _targetFeeds - _todayFeeds.length);
+    // USE the LOWER of: remaining by count (planned) OR remaining by time left (realistic)
+    // This biases suggestions upward when there are fewer daytime opportunities left
+    const _feedsRemaining = Math.min(_feedsRemainingByCount, _dayFeedsRemaining);
+    // Suggest amount — distribute remaining ml across remaining daytime feeds
     let _suggestedMl;
     if (_mlRemaining > 0 && _feedsRemaining > 0) {
       _suggestedMl = Math.round((_mlRemaining / _feedsRemaining) / 10) * 10;
     } else {
-      // Already hit target — suggest normal per-feed amount
       _suggestedMl = Math.round((_totalTarget / _targetFeeds) / 10) * 10;
     }
     _suggestedMl = Math.max(60, Math.min(240, _suggestedMl));
-    // Use existing predictor for time
+    // Use existing time predictor
     const _pred = getPredictedNextFeed();
     const _timeMins = _pred ? _pred.predictedMins : null;
-    // Confidence/context
-    const _context = _mlRemaining === 0 ? "target met" : _todayMl > _totalTarget ? "above target" : "on track";
+    // Context flags
+    const _isBehindTarget = _mlRemaining > (_totalTarget * 0.15) && _hoursLeftInDay < 4; // >15% behind + late in day
+    const _context = _mlRemaining === 0 ? "target met" : _todayMl > _totalTarget ? "above target" : _isBehindTarget ? "catching up" : "on track";
     return {
       timeMins: _timeMins,
       amountMl: _suggestedMl,
-      amountRange: { min: Math.max(60, _suggestedMl - 20), max: Math.min(240, _suggestedMl + 20) },
       context: _context,
+      isBehindTarget: _isBehindTarget,
+      allowNightTopUp: _allowNightTopUp, // true only for babies under 4 weeks
       mlRemainingToday: _mlRemaining,
       feedsRemainingToday: _feedsRemaining,
+      hoursLeftInDay: _hoursLeftInDay,
       todayMl: _todayMl,
       totalTarget: _totalTarget
     };
@@ -19080,6 +19100,19 @@ function App(){
   const _feedIntelligenceMemo = React.useMemo(() => { try { return feedIntelligence(); } catch { return null; } }, [days, selDay, age, babyName, FU]);
   const _dayScoreMemo = React.useMemo(() => dayScore(undefined, _feedCardMemo), [days, selDay, age, _feedCardMemo]);
   const _feedScoreMemo = React.useMemo(() => feedScore(_feedCardMemo), [_feedCardMemo, days, selDay]);
+
+  // Fire a daily observation if bottle-fed baby is behind target in the afternoon.
+  // addObservation dedupes by title within 4h, so this runs safely on every dep change.
+  React.useEffect(() => {
+    try {
+      const _s = getNextBottleFeedSuggestion(_feedCardMemo);
+      if (!_s || !_s.isBehindTarget || _s.allowNightTopUp) return;
+      const _name = babyName || "Baby";
+      addObservation("📊", "Loading up daytime feeds",
+        `${_name} is ${_s.mlRemainingToday}ml off today's target with about ${_s.hoursLeftInDay}h of daytime left. Bigger daytime bottles now = fewer night wakes later.`,
+        `We've nudged the next feed suggestion up to ~${_s.amountMl}ml so the target lands before bedtime — no need to wake overnight.`);
+    } catch {}
+  }, [_feedCardMemo, babyName, addObservation]);
 
   return(
     <div style={{background:"transparent",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"var(--text-deep)",paddingBottom:80,maxWidth:"100vw",overflowX:"hidden"}}>
