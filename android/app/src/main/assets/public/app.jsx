@@ -21068,8 +21068,8 @@ function App(){
 
 
                                           {/* Age guidance — integrated as subtle line, not a separate card */}
-              {/* 5. Today's summary stats — nap/bed card hidden (Hero Card handles this) */}
-
+              {/* 5. Today's summary stats — LOG-ONLY (avoid duplication with Today's Log totals) */}
+              {daySubScreen==="log" && (<>
               <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:4}}>
                 <HelpBtn title="Today's Summary" body={(()=>{
                   const _w = age ? age.totalWeeks : 0;
@@ -21107,6 +21107,7 @@ function App(){
                   </div>
                 ))}
               </div>
+              </>)}{/* end LOG-ONLY stats grid */}
 
               {/* ═══ Today's Plan — PLAN-ONLY sub-screen ═══ */}
               {daySubScreen==="plan" && (<>
