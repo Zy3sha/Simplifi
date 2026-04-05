@@ -87,6 +87,11 @@ It's everything you need in one calm, simple place — feeds, naps, nappies, sle
 
 Built with love by parents who've been there. No ads. No selling your data. Just a hug from one tired parent to another.
 
+**Subscription terms:** Auto-renewable subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Payment is charged to your Apple ID at purchase confirmation. Manage or cancel anytime in your App Store account settings. Lifetime is a one-time purchase.
+
+Privacy Policy: https://obubba.com/privacy
+Terms of Use (EULA): https://obubba.com/terms
+
 ---
 
 ## Keywords (100 chars)
