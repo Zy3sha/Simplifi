@@ -20862,8 +20862,8 @@ function App(){
               {(daySubScreen==="log" || daySubScreen==="plan") && (
               <div>
 
-              {/* ═══ Detailed Log — REMOVED (redundant with Today dashboard quick-log row) ═══ */}
-              {false && (<>
+              {/* ═══ Detailed Log — brought back per user request (gives access to Med/Temp, Tummy Time, Activities beyond the dashboard quick-log) ═══ */}
+              {daySubScreen==="log" && (<>
               <button onClick={()=>{haptic();setDetailLogOpen(!detailLogOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:detailLogOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:detailLogOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📝 Detailed Log</span>
@@ -20933,7 +20933,7 @@ function App(){
                 );
               })()}
               </div>{/* ── end Detailed Log collapsible ── */}
-              </>)}{/* end false && (Detailed Log REMOVED) */}
+              </>)}{/* end Detailed Log (log-only) */}
 
               {/* ═══ Notes & Reminders — moved to sub-screen ═══ */}
               <div style={{display:notesOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 0 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
@@ -21043,8 +21043,8 @@ function App(){
 
               </div>{/* ── end Notes & Reminders collapsible ── */}
 
-              {/* ── Priority Action ── */}
-              {(()=>{
+              {/* ── Priority Action (hydration alert etc) — LOG-ONLY to avoid duplication ── */}
+              {daySubScreen==="log" && (()=>{
                 const action = getPriorityAction();
                 if (!action) return null;
                 const bg = action.priority === "high" ? "rgba(201,112,90,0.08)" : "rgba(111,168,152,0.08)";
@@ -23543,12 +23543,30 @@ function App(){
                         </div>
                       )}
 
-                      {/* Component breakdown */}
-                      <div style={{display:"flex",gap:6,justifyContent:"center",marginTop:10,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,fontFamily:_fM,padding:"3px 10px",borderRadius:99,background:_ds.components.sleep>=20?C.mint+"15":C.gold+"15",color:_ds.components.sleep>=20?C.mint:C.gold}}>😴 {_ds.components.sleep}/30</span>
-                        <span style={{fontSize:11,fontFamily:_fM,padding:"3px 10px",borderRadius:99,background:_ds.components.feed>=20?C.mint+"15":C.gold+"15",color:_ds.components.feed>=20?C.mint:C.gold}}>🍼 {_ds.components.feed}/30</span>
-                        <span style={{fontSize:11,fontFamily:_fM,padding:"3px 10px",borderRadius:99,background:_ds.components.nap>=14?C.mint+"15":C.gold+"15",color:_ds.components.nap>=14?C.mint:C.gold}}>💤 {_ds.components.nap}/20</span>
-                        <span style={{fontSize:11,fontFamily:_fM,padding:"3px 10px",borderRadius:99,background:_ds.components.completeness>=15?C.mint+"15":C.gold+"15",color:_ds.components.completeness>=15?C.mint:C.gold}}>📝 {_ds.components.completeness}/20</span>
+                      {/* Component breakdown — with labels so parents understand what they're looking at */}
+                      <div style={{marginTop:14}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginBottom:8}}>
+                          <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.08em"}}>What makes up today's score</div>
+                          <HelpBtn title="How the day score works" body={"The score is the sum of four parts, showing what's working and where today was quieter:\n\n• Night sleep (30 points) — based on total night sleep + how settled the night was\n• Feeding (30 points) — based on feed count + daily intake (bottle babies) or frequency (breastfed)\n• Naps (20 points) — based on nap count + total nap time\n• Logging (20 points) — based on how complete today's log is so far\n\nScores are just a gentle picture of the day — they're not a grade. Low numbers usually mean less data has been logged yet, or today was just harder. Tomorrow starts fresh. 💛"}/>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}}>
+                          {[
+                            {emoji:"😴",label:"Night sleep",val:_ds.components.sleep,max:30,good:20},
+                            {emoji:"🍼",label:"Feeding",val:_ds.components.feed,max:30,good:20},
+                            {emoji:"💤",label:"Naps",val:_ds.components.nap,max:20,good:14},
+                            {emoji:"📝",label:"Logging",val:_ds.components.completeness,max:20,good:15}
+                          ].map((c,i)=>{
+                            const _isGood = c.val >= c.good;
+                            const _col = _isGood ? C.mint : c.val >= c.good*0.5 ? C.gold : C.lt;
+                            return (
+                              <div key={i} style={{padding:"8px 6px",borderRadius:12,background:_col+"10",border:`1px solid ${_col}25`,textAlign:"center"}}>
+                                <div style={{fontSize:16,marginBottom:2}}>{c.emoji}</div>
+                                <div style={{fontSize:14,fontWeight:700,color:_col,fontFamily:_fM,lineHeight:1}}>{c.val}<span style={{fontSize:10,color:C.lt,fontWeight:400}}>/{c.max}</span></div>
+                                <div style={{fontSize:9,color:C.lt,fontFamily:_fM,marginTop:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{c.label}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                       {_sc >= SCORE_SHAREABLE && (
                         <button onClick={async()=>{
