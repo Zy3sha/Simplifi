@@ -19269,7 +19269,7 @@ function App(){
           { icon:"👵", title:"Grandparent Mode", body:"In Account → Caregiver card. Turn it on when someone else watches baby. Simplified interface with big tap buttons for Feed / Nap / Nappy / Notes. Everything they log shows up on your timeline. Progressive predictions update in real-time so they know what's next." },
           { icon:"🗣️", title:"Siri, Widget & Live Activity", body:"'Hey Siri, log a feed in OBubba.' Home Screen widget for quick counts and Feed/Nappy buttons. Lock Screen + Dynamic Island show active timers with stop buttons. Works even when the phone is locked." },
           { icon:"💊", title:"Health & Growth", body:`Medicine + temperature logging in Detailed Log. Growth charts show weight/height percentiles on WHO curves. Fever: 38°C+ under 3 months → call ${_helpLine} straight away. Health checks tracked on the Notes sub-screen.` },
-          { icon:"💎", title:"Free vs Premium", body:"Free forever: all logging, timers, basic hero card, age-based predictions, share cards, wellbeing, Grandparent Mode, memory book. Premium unlocks: personal rhythm predictions, deep insights, Schedule Builder, tomorrow's plan, multi-baby, and the sleep-consultant engine. 14 days free to explore." },
+          { icon:"💎", title:"Free vs Premium", body:"Free forever: all logging, timers, basic hero card, age-based predictions, share cards, wellbeing, Grandparent Mode. Premium unlocks: personal rhythm predictions, deep insights, Schedule Builder, tomorrow's plan, multi-baby, and the sleep-consultant engine. 14 days free to explore." },
           { icon:"🎉", title:"You're all set!", body:"Log a morning wake to start your day. Predictions get smarter with every log. By day 3, OBubba starts learning your baby. Replay this tour anytime from Account. You've got this. 💛" },
         ];
 
@@ -28663,9 +28663,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
 
             {/* Grandparent Mode Toggle */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:grandparentMode?"rgba(123,166,140,0.1)":"var(--card-bg)",border:`1px solid ${grandparentMode?C.mint:C.blush}`,borderRadius:14,padding:"12px 16px",marginBottom:14}}>
-              <div>
-                <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Grandparent Mode</div>
-                <div style={{fontSize:11,color:C.lt,marginTop:2}}>Larger text, simplified view</div>
+              <div style={{flex:1,paddingRight:10}}>
+                <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Handing your phone to grandma?</div>
+                <div style={{fontSize:11,color:C.lt,marginTop:2,lineHeight:1.45}}>Switch to the big-button logging view they can use on YOUR phone. Turn off when they've left.</div>
               </div>
               <button onClick={()=>setGrandparentMode(v=>!v)} style={{width:48,height:28,borderRadius:14,border:"none",background:grandparentMode?"#7BA68C":"#ccc",position:"relative",cursor:_cP,transition:"background 0.2s"}}>
                 <div style={{width:22,height:22,borderRadius:11,background:"white",position:"absolute",top:3,left:grandparentMode?23:3,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
@@ -28805,7 +28805,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <React.Fragment>
             {/* Auto-included (from app data) */}
             <div style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:16,padding:"14px 16px",marginBottom:12}}>
-              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Auto-included from your data</div>
+              <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>What we'll include automatically</div>
               <div style={{fontSize:13,color:C.mid,lineHeight:1.7}}>
                 {pinnedNotes.filter(n=>n.pinned).length > 0 && <div>📋 Allergies & medical notes</div>}
                 <div>🍼 Feeding type, amounts, last feed</div>
@@ -28871,8 +28871,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               haptic();
               const html = await prepareCareCardHTML();
               openCareCardPreview(html, babyName||"Baby");
-            }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
-              📋 Preview
+            }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}50`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
+              📋 Preview what they'll receive
             </button>
             <button onClick={e=>{e.stopPropagation();setShowCarerCard(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,touchAction:"manipulation"}}>
               Close
@@ -30434,8 +30434,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
         </div>
       )}
 
-      {/* ═══ Memory Book — Scrapbook Journal ═══ */}
-      {showMemoryBook && (()=>{
+      {/* ═══ Memory Book — REMOVED (kept behind false && for rollback) ═══ */}
+      {false && showMemoryBook && (()=>{
         const allPhotos = (photos||[]).sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.time||"").localeCompare(b.time||""));
         const page = Math.max(0, Math.min(memoryPage, allPhotos.length - 1));
         const p = allPhotos[page];
