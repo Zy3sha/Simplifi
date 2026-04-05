@@ -7455,7 +7455,7 @@ function App(){
     // ── PRIORITY 4: Feed overdue ──
     else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedTimerDay) {
       _dot = "#7aabc4"; _label = "Feed window opening";
-      _timing = _feedGapM >= 120 ? _name + " might be hungry — let's offer a feed" : "Last feed " + hm(_feedGapM) + " ago — watch for hungry cues";
+      _timing = _feedGapM >= 120 ? _name + " might be hungry soon" : "Last feed " + hm(_feedGapM) + " ago — feed window opening";
       if (_lastFeed && _lastFeed.amount > 0 && _lastFeed.amount < _perFeedTarget * 0.75) {
         const _pct = Math.round((_lastFeed.amount / _perFeedTarget) * 100);
         _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr + _feedMlContext : "") : "");
@@ -7579,7 +7579,7 @@ function App(){
     else if (_dayStarted && _feedGapM < 9000) {
       if (_feedGapM >= 150) {
         _dot = "#7aabc4"; _label = "Feed window opening";
-        _timing = _feedGapM >= 120 ? (_w < 3 ? "Little ones this age often need feeding every 2–3h — let's offer a feed" : _name + " might be hungry — let's offer a feed") : "Fed " + hm(_feedGapM) + " ago — watch for hungry cues";
+        _timing = _feedGapM >= 120 ? (_w < 3 ? "Little ones this age feed every 2–3h — window's open" : _name + " might be hungry soon") : "Fed " + hm(_feedGapM) + " ago — feed window opening";
       } else {
         _dot = "#7BA68C"; _label = "All good right now";
         _timing = "Awake " + hm(_awakeMin) + (!_napsComplete ? " · Nap " + (_napsDone+1) + " still to come" + _longNapNote : " · Enjoying the day");
@@ -19101,16 +19101,26 @@ function App(){
   const _dayScoreMemo = React.useMemo(() => dayScore(undefined, _feedCardMemo), [days, selDay, age, _feedCardMemo]);
   const _feedScoreMemo = React.useMemo(() => feedScore(_feedCardMemo), [_feedCardMemo, days, selDay]);
 
-  // Fire a daily observation if bottle-fed baby is behind target in the afternoon.
-  // addObservation dedupes by title within 4h, so this runs safely on every dep change.
+  // Fire observations for bottle-fed babies: catch-up warnings AND positive wins.
+  // addObservation dedupes by title within 4h.
   React.useEffect(() => {
     try {
       const _s = getNextBottleFeedSuggestion(_feedCardMemo);
-      if (!_s || !_s.isBehindTarget || _s.allowNightTopUp) return;
+      if (!_s) return;
       const _name = babyName || "Baby";
-      addObservation("📊", "Loading up daytime feeds",
-        `${_name} is ${_s.mlRemainingToday}ml off today's target with about ${_s.hoursLeftInDay}h of daytime left. Bigger daytime bottles now = fewer night wakes later.`,
-        `We've nudged the next feed suggestion up to ~${_s.amountMl}ml so the target lands before bedtime — no need to wake overnight.`);
+      const _h = new Date().getHours();
+      // Catching-up: behind target late in day
+      if (_s.isBehindTarget && !_s.allowNightTopUp) {
+        addObservation("📊", "Loading up daytime feeds",
+          `${_name} is ${_s.mlRemainingToday}ml off today's target with about ${_s.hoursLeftInDay}h of daytime left. Bigger daytime bottles now = fewer night wakes later.`,
+          `We've nudged the next feed suggestion up to ~${_s.amountMl}ml so the target lands before bedtime — no need to wake overnight.`);
+      }
+      // Positive reinforcement: hit target comfortably before bedtime
+      if (_s.context === "target met" && _h >= 15 && _h < 20) {
+        addObservation("💚", "Day target reached",
+          `${_name} has already hit today's daily milk target — brilliant pacing.`,
+          `Any evening feed can be a smaller top-up now. Night should be settled — no extra daytime catch-up needed.`);
+      }
     } catch {}
   }, [_feedCardMemo, babyName, addObservation]);
 
