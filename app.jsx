@@ -7136,7 +7136,16 @@ function App(){
     // Next feed prediction time
     const _lastFeedTime = _lastFeed ? timeVal(_lastFeed) : null;
     const _nextFeedMins = _lastFeedTime !== null ? _lastFeedTime + _feedThreshM : null;
-    const _nextFeedStr = _nextFeedMins ? fmt12(`${String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")}:${String(_nextFeedMins%60).padStart(2,"0")}`) : null;
+    // Only show next-feed clock time if it hasn't passed yet. Once overdue, display
+    // states like "feed window opening" handle it — stops "next 3pm" showing at 6pm.
+    const _nowWallMinsForFeed = new Date().getHours()*60 + new Date().getMinutes();
+    const _nextFeedMinsWrapped = _nextFeedMins !== null ? ((_nextFeedMins % 1440) + 1440) % 1440 : null;
+    const _nextFeedIsFuture = _nextFeedMinsWrapped !== null && (
+      // Future today, OR future after midnight wrap
+      _nextFeedMinsWrapped > _nowWallMinsForFeed ||
+      (_lastFeedTime !== null && _lastFeedTime > 20*60 && _nextFeedMinsWrapped < 6*60)
+    );
+    const _nextFeedStr = (_nextFeedMins && _nextFeedIsFuture && _feedGapM <= _feedThreshM) ? fmt12(`${String(Math.floor(_nextFeedMinsWrapped/60)%24).padStart(2,"0")}:${String(Math.round(_nextFeedMinsWrapped%60)).padStart(2,"0")}`) : null;
     // Next-bottle suggestion (time + ml) — returns null for breastfed babies
     let _nextBottleSuggestion = null;
     try { _nextBottleSuggestion = getNextBottleFeedSuggestion(feedCard()); } catch {}
@@ -17220,11 +17229,58 @@ function App(){
 
     const backBtn = document.createElement("button");
     backBtn.textContent = "← Back";
-    backBtn.style.cssText = "padding:8px 20px;border-radius:99px;border:none;background:#C07088;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent";
+    backBtn.style.cssText = "padding:8px 16px;border-radius:99px;border:none;background:transparent;color:#5B4F5F;font-size:14px;font-weight:600;cursor:pointer;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent";
     backBtn.addEventListener("touchend", function(e) { e.preventDefault(); d.remove(); });
     backBtn.addEventListener("click", function() { d.remove(); });
 
+    const btnActions = document.createElement("div");
+    btnActions.style.cssText = "display:flex;gap:8px;align-items:center";
+
+    const shareBtn = document.createElement("button");
+    shareBtn.textContent = "📤 Share";
+    shareBtn.style.cssText = "padding:8px 14px;border-radius:99px;border:none;background:#C07088;color:white;font-size:13px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent";
+    const doShare = async function(e) {
+      if(e) { e.preventDefault(); e.stopPropagation(); }
+      try {
+        const blob = new Blob([finalHtml], { type: "text/html" });
+        const file = new File([blob], name + "-Care-Guide.html", { type: "text/html" });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ title: name + "'s Care Guide", files: [file] });
+        } else if (navigator.share) {
+          await navigator.share({ title: name + "'s Care Guide", text: name + "'s care guide from OBubba" });
+        } else {
+          // Download fallback
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a"); a.href = url; a.download = name + "-Care-Guide.html"; a.click();
+          setTimeout(()=>URL.revokeObjectURL(url), 500);
+        }
+      } catch(err) { if(err.name!=="AbortError") console.warn("Share failed", err); }
+    };
+    shareBtn.addEventListener("touchend", doShare);
+    shareBtn.addEventListener("click", doShare);
+
+    const printBtn = document.createElement("button");
+    printBtn.textContent = "🖨️ Print";
+    printBtn.style.cssText = "padding:8px 14px;border-radius:99px;border:1.5px solid #E8DED3;background:#FFFDFA;color:#5B4F5F;font-size:13px;font-weight:700;cursor:pointer;font-family:-apple-system,sans-serif;-webkit-tap-highlight-color:transparent";
+    const doPrint = function(e) {
+      if(e) { e.preventDefault(); e.stopPropagation(); }
+      try {
+        const cc = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.OBCareCard;
+        if (cc && cc.printHTML) {
+          cc.printHTML({ html: finalHtml, jobName: name + " Care Guide" }).catch(function(){ window.print(); });
+        } else {
+          window.print();
+        }
+      } catch(err) { console.warn("Print failed", err); window.print(); }
+    };
+    printBtn.addEventListener("touchend", doPrint);
+    printBtn.addEventListener("click", doPrint);
+
+    btnActions.appendChild(shareBtn);
+    btnActions.appendChild(printBtn);
+
     bar.appendChild(backBtn);
+    bar.appendChild(btnActions);
 
     // Content
     const content = document.createElement("div");
