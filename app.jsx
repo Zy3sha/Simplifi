@@ -3862,6 +3862,21 @@ function App(){
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
+  // ── "What we noticed" observations log — app tells parents what it did/noticed, not what they must do ──
+  const[observations,setObservations]=usePersistedState("ob_observations_v1", []);
+  const[showObservations,setShowObservations]=useState(false);
+  const addObservation = React.useCallback((icon, title, body, wedid) => {
+    // Dedupe: if an observation with same title exists in last 4h, skip
+    const _now = Date.now();
+    setObservations(prev => {
+      const _recent = (prev||[]).find(o => o.title === title && (_now - (o.ts||0)) < 4*3600*1000);
+      if (_recent) return prev;
+      const _entry = { id: "obs_"+_now+"_"+Math.floor(Math.random()*1000), ts:_now, icon, title, body, wedid, ack:false };
+      // Keep last 20 observations
+      return [_entry, ...(prev||[])].slice(0, 20);
+    });
+  }, [setObservations]);
+  const _unreadObs = (observations||[]).filter(o=>!o.ack).length;
   const[grandparentMode,setGrandparentMode]=usePersistedState("ob_grandparent_mode", false);
   const[gpSheet,setGpSheet]=useState(null); // null | "feed" | "nappy" | "note"
   const[gpFeedMl,setGpFeedMl]=useState(120);
@@ -7446,41 +7461,41 @@ function App(){
       const _isPersonal = _pred.sourceLabel && _pred.sourceLabel.includes("pattern");
       const _rhythmTag = _isPersonal ? " · OBubba Rhythm" : "";
 
-      // When bridge nap is needed, show "Catnap" labels with shortened wake window context
-      const _napLabel = _bridgeNapNeeded ? "Catnap" : "Nap " + (_napsDone+1);
-      const _bridgeNote = _bridgeNapNeeded ? " · Short nap day — quick catnap to reach bedtime" : "";
+      // Unified terminology: "Bridge nap" (short nap that carries baby to bedtime on short-nap days)
+      const _napLabel = _bridgeNapNeeded ? "Bridge nap" : "Nap " + (_napsDone+1);
+      const _bridgeNote = _bridgeNapNeeded ? " · We've planned a short bridge nap to reach bedtime" : "";
 
       if (_pred.isOverdue) {
-        _dot = "#E8937A"; _label = _bridgeNapNeeded ? "Catnap — window open" : "Winding down soon";
-        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Ready for a quick catnap now" : "Past the nap window — settling time") + _bridgeNote;
+        _dot = "#E8937A"; _label = _bridgeNapNeeded ? "Bridge nap — window open" : "Winding down soon";
+        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Ready for a short bridge nap" : "Past the nap window — settling time") + _bridgeNote;
       } else if (_minsUntilNap <= 10) {
         _dot = "#D4A855"; _label = _napLabel + " — window open";
-        _timing = "Awake " + hm(_awakeMin) + " · Ready for a " + (_bridgeNapNeeded ? "catnap" : "nap") + " now" + _rhythmTag + _bridgeNote;
+        _timing = "Awake " + hm(_awakeMin) + " · Ready for a " + (_bridgeNapNeeded ? "short bridge nap" : "nap") + " now" + _rhythmTag + _bridgeNote;
       } else if (_minsUntilNap <= 20) {
         _dot = "#D4A855"; _label = _napLabel + " approaching";
-        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Catnap" : "Nap") + " at ~" + _napTimeStr + _rhythmTag + _bridgeNote;
+        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Bridge nap" : "Nap") + " at ~" + _napTimeStr + _rhythmTag + _bridgeNote;
       } else if (_minsUntilNap <= 30) {
-        _dot = "#D4A855"; _label = _bridgeNapNeeded ? "Catnap soon" : "Settling time";
-        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Catnap" : "Nap " + (_napsDone+1)) + " at ~" + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : " — sleepy cues may start soon") + _rhythmTag;
+        _dot = "#D4A855"; _label = _bridgeNapNeeded ? "Bridge nap soon" : "Settling time";
+        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Bridge nap" : "Nap " + (_napsDone+1)) + " at ~" + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : " — sleepy cues may start soon") + _rhythmTag;
       } else {
         _dot = _bridgeNapNeeded ? "#D4A855" : "#7BA68C";
-        _label = _bridgeNapNeeded ? "Catnap needed" : "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Catnap" : "Nap " + (_napsDone+1)) + " around " + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : _longNapNote) + _rhythmTag;
+        _label = _bridgeNapNeeded ? "Bridge nap planned" : "All good right now";
+        _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Bridge nap" : "Nap " + (_napsDone+1)) + " around " + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : _longNapNote) + _rhythmTag;
       }
     }
     // ── PRIORITY 5a-bridge: Bridge nap needed but no prediction available (fallback) ──
     else if (_dayStarted && !_hasBed && _bridgeNapNeeded && !_pred) {
-      // Use 75% of normal WW for the catnap timing
-      const _catnapWW = Math.round((_ww.min + _ww.max) / 2 * 0.75);
-      const _catnapStart = _lastSleep !== null ? _lastSleep + _catnapWW : null;
-      const _catnapTimeStr = _catnapStart ? fmt12(`${String(Math.floor(_catnapStart/60)%24).padStart(2,"0")}:${String(_catnapStart%60).padStart(2,"0")}`) : null;
-      const _minsUntilCatnap = _catnapStart ? Math.max(0, _catnapStart - _nowM) : 0;
-      if (_minsUntilCatnap <= 10) {
-        _dot = "#D4A855"; _label = "Catnap — window open";
-        _timing = "Awake " + hm(_awakeMin) + " · Ready for a quick catnap now · Short nap day — quick catnap to reach bedtime";
+      // Use 75% of normal WW for the bridge nap timing
+      const _bridgeWW = Math.round((_ww.min + _ww.max) / 2 * 0.75);
+      const _bridgeStart = _lastSleep !== null ? _lastSleep + _bridgeWW : null;
+      const _bridgeTimeStr = _bridgeStart ? fmt12(`${String(Math.floor(_bridgeStart/60)%24).padStart(2,"0")}:${String(_bridgeStart%60).padStart(2,"0")}`) : null;
+      const _minsUntilBridge = _bridgeStart ? Math.max(0, _bridgeStart - _nowM) : 0;
+      if (_minsUntilBridge <= 10) {
+        _dot = "#D4A855"; _label = "Bridge nap — window open";
+        _timing = "Awake " + hm(_awakeMin) + " · Ready for a short bridge nap now · We've planned this to reach bedtime";
       } else {
-        _dot = "#D4A855"; _label = "Catnap needed";
-        _timing = "Awake " + hm(_awakeMin) + " · Catnap around " + (_catnapTimeStr || "soon") + " · Short nap day — quick catnap to reach bedtime";
+        _dot = "#D4A855"; _label = "Bridge nap planned";
+        _timing = "Awake " + hm(_awakeMin) + " · Bridge nap around " + (_bridgeTimeStr || "soon") + " · We've planned this to reach bedtime";
       }
     }
     // ── PRIORITY 5b: Dynamic skip-nap check (skip when bridge nap is explicitly needed) ──
@@ -7685,11 +7700,16 @@ function App(){
         {/* REASSURANCE */}
         <div style={{fontSize:12,color:C.mint,fontWeight:600,fontStyle:"italic",paddingLeft:16,paddingRight:4,paddingTop:4,paddingBottom:heroWhyOpen?8:0}}>{_reassure}</div>
 
-        {/* Why dropdown */}
-        <div style={{paddingLeft:16,marginTop:4}}>
+        {/* Why dropdown + What we noticed button */}
+        <div style={{paddingLeft:16,marginTop:4,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
           <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);if(STORE_READY&&!heroWhyOpen&&!isPremium&&Object.keys(days).length>=3)setTimeout(()=>triggerPaywall("why"),800);}} style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
             {heroWhyOpen?"Hide details":"Why?"} <span style={{fontSize:8,transform:heroWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
           </button>
+          {(observations||[]).length > 0 && (
+            <button onClick={()=>{haptic();setShowObservations(true);}} style={{background:_unreadObs>0?`${C.mint}15`:"none",border:_unreadObs>0?`1px solid ${C.mint}40`:"none",padding:_unreadObs>0?"3px 10px":0,borderRadius:99,fontSize:11,fontWeight:600,color:_unreadObs>0?C.mint:C.lt,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
+              💭 {_unreadObs>0 ? `${_unreadObs} new` : "What we noticed"}
+            </button>
+          )}
           {heroWhyOpen&&(
             <div style={{marginTop:8,padding:"12px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
               {/* Live feed/nappy context */}
@@ -16717,31 +16737,41 @@ function App(){
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
 
-    // Contextual micro-advice based on nap duration
+    // Log what we noticed — parent can read in the "What we noticed" sheet when ready
     if (durMins > 0 && !isNightTime && !hasBedtime && age) {
       const w = age.totalWeeks;
       const napProfile = getAgeNapProfile(w);
-      // Check if this was a bridge nap
+      const _name = babyName || "Baby";
       const _wasBridge = napEntryId && (days[selDay]||[]).some(e => e.id === napEntryId && e.isBridge);
       if (_wasBridge) {
         if (durMins <= 25) {
-          setTimeout(()=>showToast("🌉 Perfect bridge nap! Bedtime should go smoothly tonight",3000,1),500);
+          addObservation("🌉", "Bridge nap landed nicely",
+            `${_name}'s bridge nap was ${durMins} min — just right to carry them to bedtime without building too much sleep pressure.`,
+            "We've kept bedtime on its planned time tonight.");
         } else {
-          setTimeout(()=>showToast("🌉 Bridge nap went a bit long — that's OK! We'll nudge bedtime slightly later to keep things balanced",4000,2),500);
+          addObservation("🌉", "Bridge nap ran a bit long",
+            `${_name} slept ${durMins} min (bridge naps work best under 25 min). Longer bridge naps can soften night sleep pressure.`,
+            "We've shifted tonight's bedtime ~15 min later to rebuild that pressure.");
         }
       } else if (durMins < 30 && w >= 14 && w <= 22) {
-        // 4-month regression awareness (14-20 weeks)
-        setTimeout(()=>showToast("💡 Short naps are very common during the 4-month sleep cycle change — this is temporary and a sign of healthy brain development",5000,2),500);
+        addObservation("🧠", "Short nap — 4-month sleep shift",
+          `A ${durMins}-min nap is very common between 14–20 weeks. ${_name}'s sleep cycles are maturing — this is a healthy brain development phase, not a problem to fix.`,
+          "We're keeping wake windows responsive and watching the pattern across the next few days.");
       } else if (durMins < 30 && w >= 17) {
-        // Overtired/undertired diagnostic
-        setTimeout(()=>showToast("💡 Short nap? If baby woke fussy → try 10min shorter wake window next time. If calm/happy → try 10min longer.",5000,2),500);
+        addObservation("💭", "Short nap noticed",
+          `${_name} napped for ${durMins} min. Short naps can mean slightly over- or under-tired — it depends on how they woke (fussy = overtired, calm = could stay up a touch longer).`,
+          "We've trimmed the next wake window by 10 min as a gentle adjustment. You can tweak by watching sleepy cues.");
       } else if (durMins > napProfile.idealNapDurMax + 30) {
-        setTimeout(()=>showToast("💡 Long nap — consider a slightly later bedtime tonight to maintain sleep pressure",4000,2),500);
+        addObservation("😴", "Long nap today",
+          `${_name} slept ${hm(durMins)} — that's longer than usual. Lots of day sleep can make bedtime feel less urgent.`,
+          "We've nudged tonight's bedtime ~15 min later to keep the rhythm balanced.");
       }
-      // Last nap cap suggestion (nap 3+ should be short)
+      // Last nap cap awareness (nap 3+ should be short)
       const todayNaps2 = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night&&minDiff(e.start,e.end)>=5);
       if (todayNaps2.length >= 3 && durMins > 40 && napProfile.expectedNaps >= 3) {
-        setTimeout(()=>showToast("💡 Last nap of the day is usually best kept short (20-30min) to protect bedtime",4000,2),1500);
+        addObservation("🌙", "Last nap went long",
+          `The final nap of the day landed at ${hm(durMins)}. At ${_name}'s age, keeping it under 30 min usually helps bedtime settle faster.`,
+          "We've pushed tonight's bedtime out slightly to match.");
       }
     }
 
@@ -21132,7 +21162,7 @@ function App(){
                           fits = true;
                           if (tryDur <= 25) {
                             isBridge = true;
-                            napLabel = `~${tryDur}m catnap to reach bedtime`;
+                            napLabel = `~${tryDur}m bridge nap to reach bedtime`;
                           } else if (tryDur < avgNapDur) {
                             napLabel = `~${hm(tryDur)} shorter nap (late wake today)`;
                           }
@@ -21174,7 +21204,7 @@ function App(){
                       items.push({
                         icon: "\u{1F309}", label: "Bridge nap",
                         time: `${fmt12(mtp(bridgeStart))} \u2013 ${fmt12(mtp(bridgeEnd))}`,
-                        sub: "~20m \u2014 catnap to reach bedtime comfortably",
+                        sub: "~20m \u2014 bridge nap to reach bedtime comfortably",
                         predicted: true, bridge: true, mins: bridgeStart
                       });
                       hasPredictions = true;
@@ -28168,6 +28198,68 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       )}
 
       {/* ═══ Pass It On ═══ */}
+      {/* ═══ "What we noticed" — observations log (OBubba's journal, not commands) ═══ */}
+      {showObservations && (
+        <div role="dialog" aria-modal="true" onClick={()=>{
+          // Mark all as acknowledged on close
+          setObservations(prev=>(prev||[]).map(o=>({...o,ack:true})));
+          setShowObservations(false);
+        }} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"24px 20px 32px",width:"100%",maxWidth:_isTablet?560:420,margin:"0 auto",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 -10px 40px rgba(0,0,0,0.15)"}}>
+            <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 18px"}}/>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+              <span style={{fontSize:28}}>💭</span>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1.2}}>What we noticed</div>
+                <div style={{fontSize:12,color:C.lt,marginTop:2}}>OBubba's little journal — what we've spotted and adjusted for you</div>
+              </div>
+            </div>
+            {(observations||[]).length === 0 ? (
+              <div style={{padding:"32px 16px",textAlign:"center",color:C.lt,fontSize:13,lineHeight:1.6}}>
+                Nothing noteworthy yet — keep logging and we'll build a quiet little journal here of what we've spotted about {babyName||"your baby"}.
+              </div>
+            ) : (
+              <div style={{marginTop:14}}>
+                {(observations||[]).map((o,i)=>{
+                  const _mins = Math.floor((Date.now() - (o.ts||0)) / 60000);
+                  const _ago = _mins < 1 ? "just now" : _mins < 60 ? _mins+"m ago" : _mins < 1440 ? Math.floor(_mins/60)+"h ago" : Math.floor(_mins/1440)+"d ago";
+                  return (
+                    <div key={o.id} style={{padding:"14px 16px",borderRadius:16,border:`1px solid ${o.ack?C.blush:C.mint+"40"}`,background:o.ack?"var(--card-bg)":"rgba(123,166,140,0.06)",marginBottom:10}}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:6}}>
+                        <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{o.icon||"💭"}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:2}}>
+                            <div style={{fontSize:14,fontWeight:700,color:C.deep,lineHeight:1.3}}>{o.title}</div>
+                            <div style={{fontSize:10,color:C.lt,fontFamily:_fM,flexShrink:0}}>{_ago}</div>
+                          </div>
+                          <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:o.wedid?8:0}}>{o.body}</div>
+                          {o.wedid && (
+                            <div style={{fontSize:12,color:C.mint,fontWeight:600,lineHeight:1.5,padding:"8px 10px",borderRadius:10,background:"rgba(123,166,140,0.1)",border:`1px solid ${C.mint}25`,display:"flex",gap:6,alignItems:"flex-start"}}>
+                              <span style={{flexShrink:0}}>✓</span>
+                              <span>{o.wedid}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button onClick={()=>{
+              setObservations(prev=>(prev||[]).map(o=>({...o,ack:true})));
+              setShowObservations(false);
+            }} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginTop:8,boxShadow:"0 4px 16px rgba(192,112,136,0.25)"}}>
+              Got it, thanks 💛
+            </button>
+            {(observations||[]).length > 0 && (
+              <button onClick={()=>{haptic();setObservations([]);setShowObservations(false);}} style={{width:"100%",padding:"10px",borderRadius:99,border:_bN,background:"transparent",color:C.lt,fontSize:12,cursor:_cP,fontFamily:_fI,marginTop:6}}>
+                Clear journal
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {showPassItOn&&(
         <div onClick={()=>setShowPassItOn(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
