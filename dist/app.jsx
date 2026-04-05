@@ -18535,6 +18535,38 @@ function App(){
     try { if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide(); } catch {}
   },[]);
 
+  // ═══ MEMOIZED HOT-PATH RESULTS — MUST be called BEFORE any early return ═══
+  // React hooks must run in the SAME order every render. If we early-return below
+  // (auth screen, onboarding) without calling these, React crashes with hook count
+  // mismatch (error #310) on the next render when condition flips.
+  const _feedCardMemo = React.useMemo(() => feedCard(), [days, selDay, age, FU, usePersonalRecs]);
+  const _analyseTrendsMemo = React.useMemo(() => analyseTrends(), [days, selDay, age, FU]);
+  const _sleepBudgetMemo = React.useMemo(() => { try { return sleepBudgetDashboard(); } catch { return null; } }, [days, selDay, age, babyName]);
+  const _advancedPatternsMemo = React.useMemo(() => { try { return advancedSleepPatterns(); } catch { return null; } }, [days, selDay, age, babyName]);
+  const _detectPatternsMemo = React.useMemo(() => { try { return detectWeeklyPatterns(); } catch { return []; } }, [days, selDay, age, babyName, FU]);
+  const _feedIntelligenceMemo = React.useMemo(() => { try { return feedIntelligence(); } catch { return null; } }, [days, selDay, age, babyName, FU]);
+  const _dayScoreMemo = React.useMemo(() => dayScore(undefined, _feedCardMemo), [days, selDay, age, _feedCardMemo]);
+  const _feedScoreMemo = React.useMemo(() => feedScore(_feedCardMemo), [_feedCardMemo, days, selDay]);
+  // Fire observations for bottle-fed babies: catch-up warnings AND positive wins.
+  React.useEffect(() => {
+    try {
+      const _s = getNextBottleFeedSuggestion(_feedCardMemo);
+      if (!_s) return;
+      const _name = babyName || "Baby";
+      const _h = new Date().getHours();
+      if (_s.isBehindTarget && !_s.allowNightTopUp) {
+        addObservation("📊", "Loading up daytime feeds",
+          `${_name} is ${_s.mlRemainingToday}ml off today's target with about ${_s.hoursLeftInDay}h of daytime left. Bigger daytime bottles now = fewer night wakes later.`,
+          `We've nudged the next feed suggestion up to ~${_s.amountMl}ml so the target lands before bedtime — no need to wake overnight.`);
+      }
+      if (_s.context === "target met" && _h >= 15 && _h < 20) {
+        addObservation("💚", "Day target reached",
+          `${_name} has already hit today's daily milk target — brilliant pacing.`,
+          `Any evening feed can be a smaller top-up now. Night should be settled — no extra daytime catch-up needed.`);
+      }
+    } catch {}
+  }, [_feedCardMemo, babyName, addObservation]);
+
   // ── Skip auth on first launch — allow anonymous onboarding ──
   // Auth screen only shows when user explicitly taps "I already have an account" from onboarding,
   // or when deferred account prompt triggers (day 2-3)
@@ -19149,40 +19181,6 @@ function App(){
       </div>
     );
   }
-
-  // ═══ MEMOIZED HOT-PATH RESULTS ═══
-  // These functions are called many times per render across tabs. Memoize on stable inputs.
-  const _feedCardMemo = React.useMemo(() => feedCard(), [days, selDay, age, FU, usePersonalRecs]);
-  const _analyseTrendsMemo = React.useMemo(() => analyseTrends(), [days, selDay, age, FU]);
-  const _sleepBudgetMemo = React.useMemo(() => { try { return sleepBudgetDashboard(); } catch { return null; } }, [days, selDay, age, babyName]);
-  const _advancedPatternsMemo = React.useMemo(() => { try { return advancedSleepPatterns(); } catch { return null; } }, [days, selDay, age, babyName]);
-  const _detectPatternsMemo = React.useMemo(() => { try { return detectWeeklyPatterns(); } catch { return []; } }, [days, selDay, age, babyName, FU]);
-  const _feedIntelligenceMemo = React.useMemo(() => { try { return feedIntelligence(); } catch { return null; } }, [days, selDay, age, babyName, FU]);
-  const _dayScoreMemo = React.useMemo(() => dayScore(undefined, _feedCardMemo), [days, selDay, age, _feedCardMemo]);
-  const _feedScoreMemo = React.useMemo(() => feedScore(_feedCardMemo), [_feedCardMemo, days, selDay]);
-
-  // Fire observations for bottle-fed babies: catch-up warnings AND positive wins.
-  // addObservation dedupes by title within 4h.
-  React.useEffect(() => {
-    try {
-      const _s = getNextBottleFeedSuggestion(_feedCardMemo);
-      if (!_s) return;
-      const _name = babyName || "Baby";
-      const _h = new Date().getHours();
-      // Catching-up: behind target late in day
-      if (_s.isBehindTarget && !_s.allowNightTopUp) {
-        addObservation("📊", "Loading up daytime feeds",
-          `${_name} is ${_s.mlRemainingToday}ml off today's target with about ${_s.hoursLeftInDay}h of daytime left. Bigger daytime bottles now = fewer night wakes later.`,
-          `We've nudged the next feed suggestion up to ~${_s.amountMl}ml so the target lands before bedtime — no need to wake overnight.`);
-      }
-      // Positive reinforcement: hit target comfortably before bedtime
-      if (_s.context === "target met" && _h >= 15 && _h < 20) {
-        addObservation("💚", "Day target reached",
-          `${_name} has already hit today's daily milk target — brilliant pacing.`,
-          `Any evening feed can be a smaller top-up now. Night should be settled — no extra daytime catch-up needed.`);
-      }
-    } catch {}
-  }, [_feedCardMemo, babyName, addObservation]);
 
   return(
     <div style={{background:"transparent",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"var(--text-deep)",paddingBottom:80,maxWidth:"100vw",overflowX:"hidden"}}>
