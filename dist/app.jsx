@@ -3472,6 +3472,7 @@ function App(){
     paywallShownRef.current = true;
     setPaywallContext(context);
     setShowPaywall(true);
+    try { trackEvent("paywall_view", { context: context || "unknown" }); } catch {}
   }
   const[napCustomStart,setNapCustomStart]=useState("");
   const[showCuriosityGap,setShowCuriosityGap]=useState(false);
@@ -5125,8 +5126,17 @@ function App(){
   }
   function trackEvent(name, params={}) {
     try {
-      if(window._fb) window._fb.logEvent(window._fb.analytics, name, params);
-    } catch(e){}
+      // Native: use Capacitor Firebase Analytics plugin (talks to native SDK, attributes properly on iOS/Android)
+      const _fa = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseAnalytics;
+      if (_fa && _fa.logEvent) {
+        _fa.logEvent({ name, params: params || {} }).catch(()=>{});
+        return;
+      }
+      // Web fallback: Firebase web SDK (for PWA)
+      if (window._fb && window._fb.analytics && window._fb.logEvent) {
+        window._fb.logEvent(window._fb.analytics, name, params);
+      }
+    } catch(e) { /* analytics never break the app */ }
   }
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
@@ -18530,10 +18540,27 @@ function App(){
     })();
   },[authScreen, authMode]);
 
-  // Hide Capacitor splash screen once app is ready to render
+  // Hide Capacitor splash screen once app is ready to render + fire analytics app_open
   React.useEffect(()=>{
     try { if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide(); } catch {}
+    // Analytics: app_open (once per mount)
+    try {
+      const _plat = window.Capacitor?.getPlatform?.() || "web";
+      const _isPremium = localStorage.getItem("ob_premium")==="1" ? "premium" : "free";
+      trackEvent("app_open", { platform: _plat, plan: _isPremium });
+    } catch {}
   },[]);
+
+  // Set Firebase Analytics user ID when known (for attribution across sessions)
+  React.useEffect(()=>{
+    try {
+      const _fa = window.Capacitor?.Plugins?.FirebaseAnalytics;
+      const _uid = window._fbUid || (window._fb?.auth?.currentUser?.uid);
+      if (_fa && _fa.setUserId && _uid) {
+        _fa.setUserId({ userId: _uid }).catch(()=>{});
+      }
+    } catch {}
+  },[fbReady, familyUsername]);
 
   // ═══ MEMOIZED HOT-PATH RESULTS — MUST be called BEFORE any early return ═══
   // React hooks must run in the SAME order every render. If we early-return below
@@ -27318,9 +27345,9 @@ function App(){
         };
         const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium gives you a sleep consultant in your pocket — so you can enjoy your baby instead of worrying." };
         return (
-        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowPaywall(false)}>
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"backdrop",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"26px 20px 22px",width:"100%",maxWidth:_isTablet?520:380,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",textAlign:"center",position:"relative",maxHeight:"90vh",overflowY:"auto"}}>
-            <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowPaywall(false)} style={{position:"absolute",top:12,right:12,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP,zIndex:1}}>✕</button>
+            <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"close_button",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}} style={{position:"absolute",top:12,right:12,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP,zIndex:1}}>✕</button>
             <div style={{fontSize:32,marginBottom:8}}>💛</div>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8,lineHeight:1.3}}>{_msg.title}</div>
             <div style={{fontSize:12.5,color:C.mid,lineHeight:1.6,marginBottom:14,maxWidth:300,marginLeft:"auto",marginRight:"auto"}}>{_msg.body}</div>
@@ -27373,11 +27400,13 @@ function App(){
                     if(r && r.isPremium){
                       setShowPaywall(false);
                       try{localStorage.setItem("ob_premium","1");}catch{}
+                      try { trackEvent("subscription_purchased", { plan: _planKey, context: paywallContext||"unknown" }); } catch {}
                       showToast("Welcome to OBubba Premium! You're amazing 💛",3000,1);
                       // Force re-render with premium
                       window.location.reload();
                     } else if(r && r.cancelled){
                       // User cancelled — no toast, just stay on paywall
+                      try { trackEvent("subscription_cancelled", { plan: _planKey, context: paywallContext||"unknown" }); } catch {}
                     } else {
                       showToast("Something went wrong — please try again",2000);
                     }
@@ -27402,6 +27431,7 @@ function App(){
                   if(r && r.isPremium){
                     setShowPaywall(false);
                     try{localStorage.setItem("ob_premium","1");}catch{}
+                    try { trackEvent("subscription_restored", {}); } catch {}
                     showToast("Welcome back! Premium restored 💛",2500,1);
                     window.location.reload();
                   } else {
