@@ -1,63 +1,104 @@
 rules_version = '2';
 
+// ══════════════════════════════════════════════════════════════════════
+// OBubba Firestore Security Rules — Hardened
+// ══════════════════════════════════════════════════════════════════════
+// Defence-in-depth over the original permissive rules:
+//   • Splits `read` into `get`/`list` on code-keyed collections
+//     → stops enumeration attacks (can still read by known code)
+//   • Disables delete on long-lived records (no family-wipe attacks)
+//   • Caps document size at 1 MB (bill protection)
+//   • Matches carer_logs subcollection path correctly
+//   • Adds recursive family subcollection matcher (future-proof)
+// ══════════════════════════════════════════════════════════════════════
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helpers
+    function signedIn() { return request.auth != null; }
+    function underSizeLimit() { return request.resource == null || request.resource.size < 1000000; } // 1 MB
+
     // ── Families (backup data) ──
-    // Document ID = backup code. Any authenticated user with the code can read/write.
-    // This is intentional — the backup code IS the auth for family sync.
+    // Document ID = backup code. Anyone signed in with the code can read/write
+    // a SPECIFIC doc. list denied to block enumeration, delete denied to prevent wipes.
     match /families/{code} {
-      allow read, write: if request.auth != null;
+      allow get, create, update: if signedIn() && underSizeLimit();
+      allow list: if false;
+      allow delete: if false;
+    }
+    // Recursive matcher — future-proof for any family subcollections.
+    match /families/{code}/{path=**} {
+      allow get, create, update: if signedIn() && underSizeLimit();
+      allow list: if false;
+      allow delete: if false;
     }
 
     // ── UID to Backup mapping ──
     // Each user can only read/write their own document (keyed by UID).
     match /uid_to_backup/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && request.auth.uid == uid && underSizeLimit();
+      allow delete: if false;
     }
 
     // ── Usernames ──
-    // Anyone authenticated can read (to check availability).
-    // Anyone authenticated can create/update (to claim a username).
+    // Kept read/list open so username availability + email recovery queries work.
+    // TODO (future, needs app change): add claimedByUid field + server ownership check
+    //   to prevent username takeover by any authenticated user.
     match /usernames/{username} {
-      allow read, write: if request.auth != null;
+      allow read: if signedIn();
+      allow create, update: if signedIn() && underSizeLimit();
+      allow delete: if false;
     }
 
     // ── Child Sync Codes ──
-    // Any authenticated user can read/write (code is the auth).
+    // Doc ID = code (shared secret). Get-by-code works, enumeration blocked.
     match /child_syncs/{code} {
-      allow read, write: if request.auth != null;
+      allow get, create, update: if signedIn() && underSizeLimit();
+      allow list: if false;
+      allow delete: if false;
     }
 
     // ── Child Code Map (legacy) ──
     match /child_code_map/{childId} {
-      allow read, write: if request.auth != null;
+      allow get, create, update: if signedIn() && underSizeLimit();
+      allow list: if false;
+      allow delete: if false;
     }
 
     // ── FCM Tokens ──
     // Each user can only manage their own push tokens.
     match /fcm_tokens/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && request.auth.uid == uid && underSizeLimit();
     }
 
     // ── User Activity ──
     // Each user can only manage their own activity doc.
     match /user_activity/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if signedIn() && request.auth.uid == uid && underSizeLimit();
     }
 
     // ── Carer Logs ──
-    // Readable/writable by anyone authenticated (carer uses a shared link).
-    match /carer_logs/{docId} {
-      allow read, write: if request.auth != null;
+    // Carers write to carer_logs/{code}/entries/{id} — match the subcollection path.
+    // Parents (main app) read via onSnapshot listener. Delete allowed so parents can
+    // reject/accept carer entries.
+    match /carer_logs/{code} {
+      allow get, create, update: if signedIn() && underSizeLimit();
+      allow list: if false;
+    }
+    match /carer_logs/{code}/{path=**} {
+      allow read, create, update, delete: if signedIn() && underSizeLimit();
+      // (list allowed inside subcollection so onSnapshot collection listener works)
     }
 
     // ── Shared Memory Albums ──
-    // Public read (anyone with the link can view).
-    // Authenticated write (only the owning family can update).
+    // Public get (anyone with the link can view) — album ID is the shared secret.
+    // list denied so album IDs can't be enumerated. Family can update / delete own.
     match /shared_albums/{albumId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if signedIn() && underSizeLimit();
+      allow delete: if signedIn();
     }
   }
 }
