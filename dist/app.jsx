@@ -6595,7 +6595,12 @@ function App(){
       const sleepBudgetUnder = totalNapMins < napProfile.idealTotalMin;
       const gapToEarliestBed = bedtimeFloor - lastAwakeMins;
       const gapTooLong = gapToEarliestBed > ww.max * 1.3;
-      if (sleepBudgetUnder || gapTooLong) {
+      // Safety: don't suggest a bridge nap if it would start at or past bedtime window.
+      // Bridge start = lastAwakeMins + ~75% of WW. If that lands inside bedtime window, skip it.
+      const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
+      const _projectedBridgeStart = lastAwakeMins + Math.round(((ww.min+ww.max)/2) * 0.75);
+      const _tooLateForBridge = _projectedBridgeStart >= bedtimeFloor - 15 || _nowMins >= bedtimeFloor - 15;
+      if ((sleepBudgetUnder || gapTooLong) && !_tooLateForBridge) {
         bridgeNapNeeded = true;
         napsComplete = false; // keep in nap mode so predictions continue
       }
@@ -21765,7 +21770,7 @@ function App(){
                   );
                 })()}
               </div>
-              {(()=>{
+              {false && (()=>{
                 const sc = sleepNormalCard();
                 if (!sc) return (
                   <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"16px",marginBottom:10,border:`1px dashed ${C.blush}`,textAlign:"center"}}>
