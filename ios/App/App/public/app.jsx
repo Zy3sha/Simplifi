@@ -21562,11 +21562,7 @@ function App(){
               {/* ═══ Timeline + Night Wakes — LOG-ONLY ═══ */}
               {daySubScreen==="log" && (<>
 
-              {/* 7. Daily timeline header */}
-
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:700}}>Today's Log</div>
-              </div>
+              {/* 7. Daily timeline (heading deduped — sub-screen title already says Today's Log) */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                 <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:14}}>Daytime</span>
               </div>
