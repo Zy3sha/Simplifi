@@ -3655,17 +3655,8 @@ function App(){
     },60000);
     return()=>clearInterval(nappyReminderRef.current);
   },[nappyReminderMins, days]);
-  // Weekly rhythm share prompt (Sunday after 6pm)
-  useEffect(()=>{
-    try {
-      const _now = new Date();
-      if (_now.getDay() !== 0 || _now.getHours() < 18) return;
-      const _wk = todayStr().slice(0,7) + "-W" + Math.ceil(_now.getDate()/7);
-      if (localStorage.getItem("ob_weekly_share_prompt_" + _wk)) return;
-      if (Object.keys(days).length < 5) return;
-      setShowWeeklySharePrompt(true);
-    } catch {}
-  },[days]);
+  // Weekly rhythm share prompt — DISABLED per user request (too intrusive).
+  // Users can share weekly digest manually from Insights → Reports → Weekly Digest.
   // Medicine & temperature tracker
   const[meds,setMeds]=useState(()=>{try{const v=localStorage.getItem("meds_v1");return v?JSON.parse(v):{};}catch{return {};}});
   const[savedMeds,setSavedMeds]=useState(()=>{try{const v=localStorage.getItem("saved_meds_v1");return v?JSON.parse(v):[];}catch{return [];}});
