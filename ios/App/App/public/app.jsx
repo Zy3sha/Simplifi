@@ -17172,56 +17172,13 @@ function App(){
       }
     } catch {}};
 
-    // Native: generate PDF via CareCardPlugin, then share via system sheet (iOS + Android)
-    const careCard = window.Capacitor?.Plugins?.OBCareCard;
-    console.log("[OBubba] shareCareCard — OBCareCard plugin:", careCard ? "FOUND" : "NOT FOUND", "methods:", careCard ? Object.keys(careCard) : "n/a");
-    if(careCard) {
-      try {
-        const result = await careCard.generatePDF({
-          html: finalHtml,
-          fileName: `${name}-Care-Guide.pdf`
-        });
-        if(result?.filePath && navigator.share) {
-          try {
-            await navigator.share({ title: `${name}'s Care Guide`, url: "file://" + result.filePath });
-            _villageUnlock();
-            try { trackEvent("carer_portal_shared", { method: "native_pdf" }); } catch {}
-            return;
-          } catch(shareErr) {
-            if (shareErr.name === "AbortError") return;
-            // fall through to preview
-          }
-        }
-        if(result?.filePath) {
-          _villageUnlock();
-          showToast("PDF saved — check Files app", 2000, 0);
-          try { trackEvent("carer_portal_shared", { method: "native_pdf_saved" }); } catch {}
-          return;
-        }
-        // No filePath returned — fall through to preview
-      } catch(e) {
-        if (e.name === "AbortError") return;
-        console.warn("Native PDF share failed, falling through to preview:", e);
-        // Don't early-return — fall through to web share / preview below
-      }
-    }
-
-    // Web fallback: share HTML file or copy
-    try {
-      const blob = new Blob([finalHtml], { type: "text/html" });
-      const file = new File([blob], `${name}-Care-Guide.html`, { type: "text/html" });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ title: `${name}'s Care Guide`, files: [file] });
-        _villageUnlock();
-        try { trackEvent("carer_portal_shared", { method: "web_file" }); } catch {}
-        return;
-      }
-    } catch(e) { if (e.name === "AbortError") return; }
-
-    // Last resort: open preview with action bar (working Share + Print buttons inside)
+    // GUARANTEE PARITY: always open the preview. Share + Print buttons inside it
+    // use the SAME finalHtml, so what the parent sees is exactly what the carer gets.
+    // (Previous attempts to bypass via native OBCareCard PDF had silent failures in
+    // WKWebView, so we avoid that path entirely.)
     openCareCardPreview(finalHtml, name);
     _villageUnlock();
-    try { trackEvent("carer_portal_shared", { method: "preview" }); } catch {}
+    try { trackEvent("carer_portal_shared", { method: "preview_first" }); } catch {}
   }
 
   async function printCareCard() {
