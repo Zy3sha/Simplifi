@@ -20436,15 +20436,16 @@ function App(){
                       <span style={{fontSize:14,color:C.lt}}>›</span>
                     </button>
 
-                    {/* Start Weaning Journey OR Food Library (if already started) */}
+                    {/* Start Weaning Journey OR Food Library — show Library if flag set OR user has logged any food */}
+                    {(()=>{const _inJourney=weaningStarted||(weaning||[]).length>0;return (
                     <button onClick={()=>{haptic();setDaySubScreen("weaning_journey");setDevFilter("weaning");}} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:_cP,textAlign:"left",borderRadius:16,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",boxShadow:"0 4px 16px rgba(201,112,90,0.3)"}}>
-                      <span style={_S.f26}>{weaningStarted?"📖":"🥄"}</span>
+                      <span style={_S.f26}>{_inJourney?"📖":"🥄"}</span>
                       <div style={_S.flex1}>
-                        <div style={{fontSize:15,fontWeight:700,color:"white"}}>{weaningStarted?"Food Library":"Start Weaning Journey"}</div>
-                        <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:2}}>{weaningStarted?"Track foods, allergens & recipes":"Food tracker, allergens & recipes"}</div>
+                        <div style={{fontSize:15,fontWeight:700,color:"white"}}>{_inJourney?"Food Library":"Start Weaning Journey"}</div>
+                        <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:2}}>{_inJourney?"Track foods, allergens & recipes":"Food tracker, allergens & recipes"}</div>
                       </div>
                       <span style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>›</span>
-                    </button>
+                    </button>);})()}
 
                     {/* Weaning Report — only 6mo+ and once there are entries */}
                     {age && age.totalWeeks >= 26 && (weaning||[]).length > 0 && (
@@ -28187,6 +28188,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               const _wDate = weaningForm.date||todayStr();
               const _wTime = nowTime();
               setWeaning(prev=>[...prev,{id:uid(),food:weaningForm.food.trim(),date:_wDate,reaction:weaningForm.reaction,note:weaningForm.note,liked:weaningForm.liked,allergens:detectAllergens(weaningForm.food)}]);
+              // Flip weaningStarted flag if this is the first food logged
+              if(!weaningStarted){try{localStorage.setItem("weaning_started_"+selectedChild,"1");}catch{}setWeaningStarted(true);}
               // Also add to today's log as a solids feed entry
               quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,note:weaningForm.food.trim(),date:_wDate});
               setShowWeaningForm(false);
