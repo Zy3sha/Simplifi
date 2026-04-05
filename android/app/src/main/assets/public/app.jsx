@@ -28534,7 +28534,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
 
       {/* ═══ Weekly Rhythm Share Prompt ═══ */}
       {showWeeklySharePrompt&&(
-        <div onClick={()=>setShowWeeklySharePrompt(false)} style={{position:"fixed",top:0,left:0,right:0,zIndex:180,padding:"12px 16px",display:"flex",justifyContent:"center"}}>
+        <div onClick={()=>setShowWeeklySharePrompt(false)} style={{position:"fixed",top:0,left:0,right:0,zIndex:180,padding:"calc(env(safe-area-inset-top, 44px) + 8px) 16px 12px",display:"flex",justifyContent:"center",pointerEvents:"auto"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:16,padding:"14px 18px",maxWidth:360,width:"100%",boxShadow:"0 8px 32px rgba(0,0,0,0.2)",display:"flex",alignItems:"center",gap:12}}>
             <span style={_S.f24}>&#128202;</span>
             <div style={_S.flex1}>
