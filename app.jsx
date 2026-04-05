@@ -3865,7 +3865,9 @@ function App(){
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
   // ── "What we noticed" observations log — app tells parents what it did/noticed, not what they must do ──
-  const[observations,setObservations]=usePersistedState("ob_observations_v1", []);
+  const[observations,setObservations]=usePersistedState("ob_observations_v1", [],
+    (raw)=>{try{const p=JSON.parse(raw);return Array.isArray(p)?p:[];}catch{return [];}},
+    (v)=>JSON.stringify(Array.isArray(v)?v:[]));
   const[showObservations,setShowObservations]=useState(false);
   const addObservation = React.useCallback((icon, title, body, wedid) => {
     // Dedupe: if an observation with same title exists in last 4h, skip
