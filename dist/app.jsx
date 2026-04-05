@@ -3864,13 +3864,22 @@ function App(){
   const addObservation = React.useCallback((icon, title, body, wedid) => {
     // Dedupe: if an observation with same title exists in last 4h, skip
     const _now = Date.now();
+    let _didAdd = false;
     setObservations(prev => {
       const _recent = (prev||[]).find(o => o.title === title && (_now - (o.ts||0)) < 4*3600*1000);
       if (_recent) return prev;
+      _didAdd = true;
       const _entry = { id: "obs_"+_now+"_"+Math.floor(Math.random()*1000), ts:_now, icon, title, body, wedid, ack:false };
       // Keep last 20 observations
       return [_entry, ...(prev||[])].slice(0, 20);
     });
+    if (_didAdd) {
+      try {
+        const _fa = window.Capacitor?.Plugins?.FirebaseAnalytics;
+        if (_fa && _fa.logEvent) _fa.logEvent({ name: "observation_added", params: { title } }).catch(()=>{});
+        else if (window._fb?.analytics && window._fb?.logEvent) window._fb.logEvent(window._fb.analytics, "observation_added", { title });
+      } catch {}
+    }
   }, [setObservations]);
   const _unreadObs = (observations||[]).filter(o=>!o.ack).length;
   const[grandparentMode,setGrandparentMode]=usePersistedState("ob_grandparent_mode", false);
@@ -14470,6 +14479,7 @@ function App(){
     let dataUrl;
     try { dataUrl=canvas.toDataURL("image/png"); } catch { showToast("\u{1F4F8} Couldn't generate share card",2500,2); return; }
     setSharePreview({title,milestone,dataUrl,cardType});
+    try { trackEvent("share_card_created", { cardType: cardType||"milestone" }); } catch {}
   }
 
   function _wrapText(ctx,text,maxW){
@@ -17152,33 +17162,27 @@ function App(){
           fileName: `${name}-Care-Guide.pdf`
         });
         if(result?.filePath && navigator.share) {
-          await navigator.share({ title: `${name}'s Care Guide`, url: "file://" + result.filePath });
-          _villageUnlock();
-          return;
+          try {
+            await navigator.share({ title: `${name}'s Care Guide`, url: "file://" + result.filePath });
+            _villageUnlock();
+            try { trackEvent("carer_portal_shared", { method: "native_pdf" }); } catch {}
+            return;
+          } catch(shareErr) {
+            if (shareErr.name === "AbortError") return;
+            // fall through to preview
+          }
         }
         if(result?.filePath) {
           _villageUnlock();
           showToast("PDF saved — check Files app", 2000, 0);
+          try { trackEvent("carer_portal_shared", { method: "native_pdf_saved" }); } catch {}
           return;
         }
+        // No filePath returned — fall through to preview
       } catch(e) {
         if (e.name === "AbortError") return;
-        console.warn("Native PDF share failed:", e);
-        showToast("Could not generate PDF — try again", 2000, 0);
-        return;
-      }
-    }
-
-    // Android: use OBCareCard plugin to generate PDF (opens system print/save dialog)
-    const _ccAndroid = window.Capacitor?.Plugins?.OBCareCard;
-    if (_ccAndroid) {
-      try {
-        await _ccAndroid.generatePDF({ html: finalHtml, fileName: `${name}-Care-Guide.pdf` });
-        _villageUnlock();
-        return;
-      } catch(e) {
-        if (e.name === "AbortError") return;
-        console.warn("Android PDF share failed:", e);
+        console.warn("Native PDF share failed, falling through to preview:", e);
+        // Don't early-return — fall through to web share / preview below
       }
     }
 
@@ -17189,13 +17193,15 @@ function App(){
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ title: `${name}'s Care Guide`, files: [file] });
         _villageUnlock();
+        try { trackEvent("carer_portal_shared", { method: "web_file" }); } catch {}
         return;
       }
     } catch(e) { if (e.name === "AbortError") return; }
 
-    // Last resort: open preview with action bar
+    // Last resort: open preview with action bar (working Share + Print buttons inside)
     openCareCardPreview(finalHtml, name);
     _villageUnlock();
+    try { trackEvent("carer_portal_shared", { method: "preview" }); } catch {}
   }
 
   async function printCareCard() {
@@ -17803,6 +17809,7 @@ function App(){
     let dataUrl;
     try{dataUrl=finalCanvas.toDataURL("image/png");}catch{showToast("Couldn't generate recap card",2500,2);return;}
     setSharePreview({title:name+"'s Day · "+fmtLong(selDay),milestone:null,dataUrl});
+    try { trackEvent("share_card_created", { cardType: "day_recap" }); } catch {}
   }
 
     // ═══ SCHEDULE MAKER — builds optimal day around a fixed event ═══
@@ -22396,6 +22403,7 @@ function App(){
                               });
                               const dataUrl = canvas.toDataURL("image/png");
                               setSharePreview({title:(babyName||"Baby")+"'s Sleep Win", milestone:null, dataUrl, cardType:"sleepwin"});
+                              try { trackEvent("share_card_created", { cardType: "sleepwin" }); } catch {}
                             } catch(e) { console.warn(e); showToast("Couldn't create card",2000,1); }
                           }} style={{padding:"7px 16px",borderRadius:99,border:`1.5px solid ${C.mint}40`,background:"rgba(155,184,168,0.1)",color:C.mint,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                             🎉 Share the win
@@ -22413,6 +22421,7 @@ function App(){
                               });
                               const dataUrl = canvas.toDataURL("image/png");
                               setSharePreview({title:"Survived the night", milestone:null, dataUrl, cardType:"badnight"});
+                              try { trackEvent("share_card_created", { cardType: "badnight" }); } catch {}
                             } catch(e) { console.warn(e); showToast("Couldn't create card",2000,1); }
                           }} style={{padding:"7px 16px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"rgba(192,112,136,0.08)",color:C.ter,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                             💛 Share the survival
@@ -23608,6 +23617,7 @@ function App(){
                             });
                             const dataUrl = canvas.toDataURL("image/png");
                             setSharePreview({title:(babyName||"Baby")+"'s Day · "+_title, milestone:null, dataUrl, cardType:"dayscore"});
+                            try { trackEvent("share_card_created", { cardType: "dayscore" }); } catch {}
                           } catch(e) { console.warn(e); showToast("Couldn't create card",2000,1); }
                         }} style={{marginTop:12,padding:"7px 16px",borderRadius:99,border:`1.5px solid ${C.mint}40`,background:"rgba(155,184,168,0.1)",color:C.mint,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                           🎉 Share this day
