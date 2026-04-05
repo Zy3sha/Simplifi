@@ -28875,14 +28875,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <div style={_S.mb12}>
               <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>📞 Emergency contacts</div>
               {emergencyContacts.map((c,i)=>(
-                <div key={i} style={{display:"flex",gap:6,marginBottom:6,alignItems:"center"}}>
+                <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 30px",gap:6,marginBottom:10,width:"100%"}}>
                   <input placeholder="Name" value={c.name} onChange={e=>{const u=[...emergencyContacts];u[i]={...u[i],name:e.target.value};setEmergencyContacts(u);}}
-                    style={{flex:1,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
+                    style={{minWidth:0,padding:"9px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB,gridColumn:"1 / 2"}}/>
                   <input placeholder="Phone" type="tel" value={c.phone} onChange={e=>{const u=[...emergencyContacts];u[i]={...u[i],phone:e.target.value};setEmergencyContacts(u);}}
-                    style={{flex:1,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
-                  <input placeholder="e.g. Mum" value={c.relation||""} onChange={e=>{const u=[...emergencyContacts];u[i]={...u[i],relation:e.target.value};setEmergencyContacts(u);}}
-                    style={{width:70,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
-                  <button onClick={()=>setEmergencyContacts(prev=>prev.filter((_,j)=>j!==i))} style={{width:28,height:28,borderRadius:"50%",border:_bN,background:"rgba(232,87,74,0.1)",color:"#e8574a",fontSize:14,cursor:_cP,flexShrink:0}}>✕</button>
+                    style={{minWidth:0,padding:"9px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB,gridColumn:"2 / 3",gridRow:"1"}}/>
+                  <button onClick={()=>setEmergencyContacts(prev=>prev.filter((_,j)=>j!==i))} aria-label="Remove contact" style={{gridColumn:"3 / 4",gridRow:"1",width:30,height:30,alignSelf:"center",borderRadius:"50%",border:_bN,background:"rgba(232,87,74,0.1)",color:"#e8574a",fontSize:14,cursor:_cP,padding:0}}>✕</button>
+                  <input placeholder="e.g. Mum, Dad, Gran" value={c.relation||""} onChange={e=>{const u=[...emergencyContacts];u[i]={...u[i],relation:e.target.value};setEmergencyContacts(u);}}
+                    style={{minWidth:0,padding:"9px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB,gridColumn:"1 / 4"}}/>
                 </div>
               ))}
               <button onClick={()=>setEmergencyContacts(prev=>[...prev,{name:"",phone:"",relation:""}])}
