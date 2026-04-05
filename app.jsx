@@ -20369,12 +20369,12 @@ function App(){
                       <span style={{fontSize:14,color:C.lt}}>›</span>
                     </button>
 
-                    {/* Start Weaning Journey */}
+                    {/* Start Weaning Journey OR Food Library (if already started) */}
                     <button onClick={()=>{haptic();setDaySubScreen("weaning_journey");setDevFilter("weaning");}} style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:_cP,textAlign:"left",borderRadius:16,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",boxShadow:"0 4px 16px rgba(201,112,90,0.3)"}}>
-                      <span style={_S.f26}>🥄</span>
+                      <span style={_S.f26}>{weaningStarted?"📖":"🥄"}</span>
                       <div style={_S.flex1}>
-                        <div style={{fontSize:15,fontWeight:700,color:"white"}}>Start Weaning Journey</div>
-                        <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:2}}>Food tracker, allergens & recipes</div>
+                        <div style={{fontSize:15,fontWeight:700,color:"white"}}>{weaningStarted?"Food Library":"Start Weaning Journey"}</div>
+                        <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:2}}>{weaningStarted?"Track foods, allergens & recipes":"Food tracker, allergens & recipes"}</div>
                       </div>
                       <span style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>›</span>
                     </button>
@@ -24777,17 +24777,43 @@ function App(){
                 const _phaseMax = _wksSinceWean < 2 ? 1 : _wksSinceWean < 4 ? 2 : 3;
                 const _available = _allFoods.filter(f => f.phase <= _phaseMax);
 
-                // Smart suggestion: prefer foods not yet tried
-                const _triedFoods = (weaning||[]).map(w => w.food.toLowerCase());
-                const _notTried = _available.filter(f => !_triedFoods.some(t => t.includes(f.food.toLowerCase().split(" ")[0])));
+                // STABLE suggestions: persist today/tomorrow picks to localStorage so they
+                // don't shift when user logs a food. Rolls forward at midnight.
+                const _triedFoods = (weaning||[]).map(w => (w.food||"").toLowerCase());
+                const _isTried = (f) => _triedFoods.some(t => t.includes(f.food.toLowerCase().split(" ")[0]));
+                const _notTried = _available.filter(f => !_isTried(f));
                 const _pool = _notTried.length > 0 ? _notTried : _available;
-
-                // Today's suggestion — cycle through pool by day
-                const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
-                const _ft = _pool[_doy % _pool.length];
-
-                // Tomorrow's suggestion — next in pool
-                const _tmr = _pool[(_doy + 1) % _pool.length];
+                const _findByName = (name) => _available.find(f=>f.food===name) || _pool.find(f=>f.food===name);
+                const _today = todayStr();
+                const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+                // Read stored suggestions
+                let _stored = null;
+                try { _stored = JSON.parse(localStorage.getItem("ob_wean_suggestions_v1")||"null"); } catch {}
+                let _ft, _tmr;
+                if (_stored && _stored.date === _today) {
+                  // Same day — use stored picks (stable across logs)
+                  _ft = _findByName(_stored.today) || _pool[0];
+                  _tmr = _findByName(_stored.tomorrow) || _pool[1] || _pool[0];
+                } else {
+                  // Day rolled over — compute fresh
+                  const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+                  if (_stored && _stored.date === _yday) {
+                    // Yesterday's tomorrow becomes today (if still untried and in pool)
+                    const _rolledToday = _findByName(_stored.tomorrow);
+                    if (_rolledToday && !_isTried(_rolledToday)) {
+                      _ft = _rolledToday;
+                    } else {
+                      _ft = _pool[_doy % _pool.length];
+                    }
+                  } else {
+                    _ft = _pool[_doy % _pool.length];
+                  }
+                  // Pick tomorrow: next item in pool that isn't today's pick
+                  const _ftIdx = _pool.findIndex(f=>f.food===_ft.food);
+                  _tmr = _pool[(_ftIdx + 1) % _pool.length] || _ft;
+                  // Persist
+                  try { localStorage.setItem("ob_wean_suggestions_v1", JSON.stringify({date:_today, today:_ft.food, tomorrow:_tmr.food})); } catch {}
+                }
 
                 const _weanCount = (weaning||[]).length;
                 const _isAllergen = _ft.cat === "allergen";
