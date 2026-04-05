@@ -3424,6 +3424,8 @@ function App(){
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
   const[poopWhyOpen,setPoopWhyOpen]=useState(false);
   const[todayPlanOpen,setTodayPlanOpen]=useState(false);
+  // When user opens Today's Plan sub-screen, auto-expand the collapsible
+  useEffect(()=>{ if(daySubScreen==="plan") setTodayPlanOpen(true); },[daySubScreen]);
   const[notesOpen,setNotesOpen]=useState(()=>{
     // Auto-expand if there are upcoming appointments
     try{const a=JSON.parse(localStorage.getItem("appointments_v1")||"[]");return a.some(apt=>new Date(apt.date+"T23:59:59")>=new Date());}catch{return false;}
@@ -19994,6 +19996,11 @@ function App(){
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Log</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_logSub}</div>
                     </button>
+                    <button onClick={()=>{haptic();setDaySubScreen("plan");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                      <span style={_S.f26}>🗓️</span>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Plan</div>
+                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Naps & bedtime predicted</div>
+                    </button>
                     <button onClick={()=>{haptic();setDaySubScreen("notes");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
                       <span style={_S.f26}>📝</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Notes & Reminders</div>
@@ -20035,6 +20042,16 @@ function App(){
                     <span style={_S.f16}>‹</span> Back
                   </button>
                   <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:16}}>📋 Today's Log</div>
+                </div>
+              )}
+
+              {/* ═══ SUB-SCREEN: Today's Plan — header ═══ */}
+              {daySubScreen==="plan" && (
+                <div>
+                  <button onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
+                    <span style={_S.f16}>‹</span> Back
+                  </button>
+                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:16}}>🗓️ Today's Plan</div>
                 </div>
               )}
 
@@ -20784,10 +20801,11 @@ function App(){
               )}
 
               {/* ═══ Detailed Log + Timeline (only in log sub-screen or no sub-screen for backward compat) ═══ */}
-              {(daySubScreen==="log") && (
+              {(daySubScreen==="log" || daySubScreen==="plan") && (
               <div>
 
-              {/* ═══ Detailed Log — collapsible ═══ */}
+              {/* ═══ Detailed Log — REMOVED (redundant with Today dashboard quick-log row) ═══ */}
+              {false && (<>
               <button onClick={()=>{haptic();setDetailLogOpen(!detailLogOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:detailLogOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:detailLogOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📝 Detailed Log</span>
@@ -20857,6 +20875,7 @@ function App(){
                 );
               })()}
               </div>{/* ── end Detailed Log collapsible ── */}
+              </>)}{/* end false && (Detailed Log REMOVED) */}
 
               {/* ═══ Notes & Reminders — moved to sub-screen ═══ */}
               <div style={{display:notesOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 0 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
@@ -21031,7 +21050,9 @@ function App(){
                 ))}
               </div>
 
-              {/* ═══ Today's Plan — collapsible ═══ */}
+              {/* ═══ Today's Plan — PLAN-ONLY sub-screen ═══ */}
+              {daySubScreen==="plan" && (<>
+
               <button onClick={()=>{haptic();setTodayPlanOpen(!todayPlanOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:todayPlanOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:todayPlanOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📋 Today's Plan</span>
@@ -21422,6 +21443,12 @@ function App(){
                   </div>
                 );
               })()}
+              </>}{/* end newborn gate — moved from later */}
+              </div>{/* end Today's Plan collapsible */}
+              </>)}{/* end plan-only gate */}
+
+              {/* ═══ Timeline + Night Wakes — LOG-ONLY ═══ */}
+              {daySubScreen==="log" && (<>
 
               {/* 7. Daily timeline header */}
 
@@ -21735,8 +21762,7 @@ function App(){
                 );
               })()}
 
-              </>}{/* end newborn gate */}
-              </div>{/* end Today's Plan collapsible */}
+              </>)}{/* end LOG-ONLY timeline + night wakes block */}
 
               {/* ═══ ACTIVITY OF THE DAY — moved to News sub-screen ═══ */}
 
