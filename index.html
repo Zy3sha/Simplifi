@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="background:#FFFEFD">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
@@ -34,28 +34,20 @@
   <meta name="application-name" content="OBubba"/>
   <meta name="theme-color" content="#f0ddd6"/>
   <meta name="mobile-web-app-capable" content="yes"/>
-  <link rel="manifest" href="/assets/manifest-CzZqht1Z.json"/>
+  <link rel="manifest" href="manifest.json"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
 
-  <!-- Structured Data — tells Google this is an app -->
+  <!-- Structured Data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "OBubba — Smart Baby Tracker",
-    "description": "Smart baby tracker that learns your baby's unique rhythm. Track feeds, sleep, naps, growth and milestones with personalised predictions based on NHS and WHO guidance.",
+    "description": "Smart baby tracker that learns your baby's unique rhythm.",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "iOS, Android, Web",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "GBP"
-    },
-    "author": {
-      "@type": "Organization",
-      "name": "OBubba",
-      "url": "https://obubba.com"
-    },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+    "author": { "@type": "Organization", "name": "OBubba", "url": "https://obubba.com" },
     "url": "https://obubba.com",
     "image": "https://obubba.com/obubba-happy.png"
   }
@@ -72,55 +64,50 @@
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
 
   <!-- Firebase -->
+  <script type="module" src="/firebase.js"></script>
 
-  <!-- Native Plugin Bridge (Capacitor + platform features) -->
-  <script src="native-plugins.js" defer></script>
+  <!-- Native Plugin Bridge -->
+  <script src="/native-plugins.js" defer></script>
 
   <!-- Styles -->
-  <script type="module" crossorigin src="/assets/index-VKbY149e.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BdUFHcxp.css">
-<script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
-<body>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body style="background:#FFFEFD;margin:0">
+<div id="ob-splash" style="position:fixed;inset:0;z-index:99999;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#FFFEFD 0%,#FDFAF9 40%,#FBF9F8 100%);padding:40px 24px;text-align:center">
+  <style>
+    #ob-splash .baby{animation:babyBreathe 3.5s ease-in-out infinite;filter:drop-shadow(0 16px 32px rgba(217,207,243,0.35))}
+    @keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}
+    #ob-splash .z1{position:absolute;top:8px;right:-5px;font-size:18px;font-weight:700;color:#D9CFF3;font-family:Georgia,serif;font-style:italic;animation:zzz1 2.8s ease-in-out infinite}
+    #ob-splash .z2{position:absolute;top:-8px;right:12px;font-size:24px;font-weight:700;color:#D9CFF3;font-family:Georgia,serif;font-style:italic;animation:zzz2 2.8s ease-in-out 0.5s infinite}
+    #ob-splash .z3{position:absolute;top:-28px;right:28px;font-size:16px;font-weight:700;color:#D9CFF3;font-family:Georgia,serif;font-style:italic;animation:zzz3 2.8s ease-in-out 1s infinite}
+    @keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}
+    @keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}
+    @keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}
+  </style>
+  <div style="position:relative;margin-bottom:28px">
+    <img class="baby" src="obubba-loading.png" alt="" width="180" height="270" style="object-fit:contain">
+    <span class="z1">z</span><span class="z2">z</span><span class="z3">z</span>
+  </div>
+  <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#5B4F5F;margin-bottom:8px">OBubba</div>
+  <div style="font-size:13px;color:#A89898;line-height:1.6">Getting everything ready...</div>
+</div>
 <div id="root"></div>
 <button id="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">🌙</button>
 
-<!-- Theme system (must run immediately for no flash) -->
-<script src="theme.js"></script>
+<!-- Theme system -->
+<script src="/theme.js"></script>
 
-<!-- Native splash failsafe: hide iOS/Android launch splash progressively, even if JS errors -->
+<!-- Pre-compiled app -->
+<script src="/app.js" defer></script>
+
+<!-- Hide splash + failsafe -->
 <script>
-(function(){
-  var _force = function(){
-    try { if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide(); } catch(_){}
-  };
-  setTimeout(_force, 600);
-  setTimeout(_force, 1500);
-  setTimeout(_force, 3000);
-  setTimeout(_force, 5000);
-  // Also hide on first user interaction (tap through to unstick)
-  document.addEventListener('click', _force, { once: true });
-  document.addEventListener('touchstart', _force, { once: true });
-})();
+  function _hideSplash(){var s=document.getElementById('ob-splash');if(s){s.style.opacity='0';s.style.transition='opacity 0.3s';setTimeout(function(){s.style.display='none';},300);}}
+  window.addEventListener('load', function(){setTimeout(_hideSplash, 200);});
+  setTimeout(_hideSplash, 3000);
 </script>
 
-<!-- iOS pinch-zoom lock (belt-and-braces: prevents the WKWebView from getting stuck in a zoomed state after modals close) -->
-<script>
-(function(){
-  // Block multi-touch gestures that trigger pinch-zoom
-  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, { passive: false });
-  document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, { passive: false });
-  document.addEventListener('gestureend', function(e){ e.preventDefault(); }, { passive: false });
-  // Block double-tap zoom
-  var lastTouch = 0;
-  document.addEventListener('touchend', function(e){
-    var now = Date.now();
-    if (now - lastTouch <= 300) e.preventDefault();
-    lastTouch = now;
-  }, { passive: false });
-})();
-</script>
-
-<!-- App loader (fetches app.jsx, compiles, + utilities) -->
-<script src="loader.js"></script>
+<!-- App loader -->
+<script src="/loader.js"></script>
 </body>
 </html>
