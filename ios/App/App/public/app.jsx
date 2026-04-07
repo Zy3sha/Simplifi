@@ -1527,8 +1527,8 @@ function Sheet({onClose,title,children}){
     };
   },[]);
   return(
-    <div ref={overlayRef} onClick={onClose} style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",transition:"bottom 0.25s ease"}}>
-      <div ref={sheetRef} onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 24px",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease"}}>
+    <div ref={overlayRef} onClick={onClose} style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center",transition:"bottom 0.25s ease"}}>
+      <div ref={sheetRef} onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(24px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease"}}>
         <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
         {title&&<div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:16}}>{title}</div>}
         {children}
@@ -3861,6 +3861,15 @@ function App(){
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
+  // Illness/teething mode: shortens wake windows by ~20%, reverts after 3 days
+  const[disruptionMode,setDisruptionMode]=usePersistedState("ob_disruption_mode", null);
+  // Auto-expire disruption mode after 3 days
+  React.useEffect(()=>{
+    if(disruptionMode && disruptionMode.since) {
+      const _elapsed = Date.now() - new Date(disruptionMode.since).getTime();
+      if(_elapsed > 3*24*60*60*1000) { setDisruptionMode(null); }
+    }
+  },[disruptionMode]);
   // ── "What we noticed" observations log — app tells parents what it did/noticed, not what they must do ──
   const[observations,setObservations]=usePersistedState("ob_observations_v1", [],
     (raw)=>{try{const p=JSON.parse(raw);return Array.isArray(p)?p:[];}catch{return [];}},
@@ -7742,17 +7751,32 @@ function App(){
         <div style={{fontSize:12,color:C.mid,paddingLeft:16,marginBottom:_nextEvent?6:8}}>{_timing}</div>
 
         {/* NEXT */}
-        {_nextEvent && (
+        {_nextEvent && (()=>{
+          // Confidence indicator based on days of usable data
+          const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
+          const _confLevel = _daysLogged < 3 ? {label:"NHS guideline",color:C.lt,icon:"📋"}
+            : _daysLogged < 7 ? {label:"Learning "+_name+"'s rhythm",color:C.gold,icon:"📊"}
+            : _daysLogged < 14 ? {label:"Based on "+_daysLogged+" days",color:C.mint,icon:"✓"}
+            : {label:"High confidence · "+_daysLogged+" days",color:C.mint,icon:"✓"};
+          return (
           <div style={{paddingLeft:16,marginBottom:8}}>
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
               <span style={{fontSize:13,flexShrink:0,marginTop:1}}>{_nextEvent.icon}</span>
-              <span style={{fontSize:12,color:C.mid,lineHeight:1.45}}>{_nextEvent.text}</span>
+              <div>
+                <span style={{fontSize:12,color:C.mid,lineHeight:1.45}}>{_nextEvent.text}</span>
+                <div style={{display:"flex",alignItems:"center",gap:4,marginTop:3}}>
+                  <span style={{fontSize:8}}>{_confLevel.icon}</span>
+                  <span style={{fontSize:9,fontFamily:_fM,color:_confLevel.color,letterSpacing:"0.02em"}}>{_confLevel.label}</span>
+                  {_daysLogged < 7 && <span style={{fontSize:8,color:C.lt}}>· log more days to personalise</span>}
+                </div>
+              </div>
             </div>
             {_adaptiveHint && (_nextEvent.icon === "😴") && (
               <div style={{fontSize:10,color:C.ter,fontStyle:"italic",paddingLeft:21,marginTop:3,lineHeight:1.45}}>✨ {_adaptiveHint}</div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* DO: action button if needed */}
         {_wakeMissing && (
@@ -7768,7 +7792,15 @@ function App(){
         {/* REASSURANCE */}
         <div style={{fontSize:12,color:C.mint,fontWeight:600,fontStyle:"italic",paddingLeft:16,paddingRight:4,paddingTop:4,paddingBottom:heroWhyOpen?8:0}}>{_reassure}</div>
 
-        {/* Why dropdown + What we noticed button */}
+        {/* Disruption mode indicator + toggle */}
+        {disruptionMode && (
+          <div style={{paddingLeft:16,marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:9,background:"rgba(212,168,85,0.15)",color:C.gold,padding:"2px 8px",borderRadius:99,fontWeight:700,fontFamily:_fM}}>🤒 {disruptionMode.reason||"Not a normal day"} mode</span>
+            <button onClick={()=>{haptic();setDisruptionMode(null);showToast("Back to normal predictions ✓",1500,1);}} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textDecoration:"underline",fontFamily:_fM}}>Turn off</button>
+          </div>
+        )}
+
+        {/* Why dropdown + What we noticed + disruption mode */}
         <div style={{paddingLeft:16,marginTop:4,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
           <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);if(STORE_READY&&!heroWhyOpen&&!isPremium&&Object.keys(days).length>=3)setTimeout(()=>triggerPaywall("why"),800);}} style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
             {heroWhyOpen?"Hide details":"Why?"} <span style={{fontSize:8,transform:heroWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
@@ -7776,6 +7808,19 @@ function App(){
           {(observations||[]).length > 0 && (
             <button onClick={()=>{haptic();setShowObservations(true);}} style={{background:_unreadObs>0?`${C.mint}15`:"none",border:_unreadObs>0?`1px solid ${C.mint}40`:"none",padding:_unreadObs>0?"3px 10px":0,borderRadius:99,fontSize:11,fontWeight:600,color:_unreadObs>0?C.mint:C.lt,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
               💭 {_unreadObs>0 ? `${_unreadObs} new` : "What we noticed"}
+            </button>
+          )}
+          {!disruptionMode && (
+            <button onClick={()=>{
+              haptic();
+              showConfirm("Not a normal day?", `If ${babyName||"baby"} is teething, unwell, or having an off day, we'll shorten wake windows by ~20% and expect shorter naps. Auto-reverts after 3 days.`,
+                ()=>{
+                  setDisruptionMode({since:new Date().toISOString(), reason:"Teething/illness"});
+                  setConfirmDialog(null);
+                  showToast("🤒 Disruption mode on — predictions adjusted for 3 days",3000,1);
+                }, "Turn on");
+            }} style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:500,color:C.lt,cursor:_cP}}>
+              🤒 Not a normal day?
             </button>
           )}
           {heroWhyOpen&&(
@@ -7997,13 +8042,18 @@ function App(){
   function progressiveWW(ageWeeks, napIndex, totalNaps) {
     const ww = getWakeWindow(ageWeeks);
     const range = ww.max - ww.min;
-    if (totalNaps <= 1) return ww.midpoint;
-    // Progressive: first WW ~15% of range, last WW ~85% of range
-    // napIndex 0 = first nap, napIndex = totalNaps means bedtime WW
+    if (totalNaps <= 1) {
+      let base = ww.midpoint;
+      // Illness/teething mode: shorten WW by ~20% (baby needs more sleep when unwell)
+      if (disruptionMode) base = Math.round(base * 0.8);
+      return base;
+    }
     const ratio = Math.min(napIndex / totalNaps, 1);
-    // Scale: 0.15 at start → 0.85 at end (never full min or max, always in comfortable range)
     const scaled = 0.15 + ratio * 0.7;
-    return Math.round(ww.min + range * scaled);
+    let result = Math.round(ww.min + range * scaled);
+    // Illness/teething mode: shorten WW by ~20%
+    if (disruptionMode) result = Math.round(result * 0.8);
+    return result;
   }
   function getAgeNapProfile(ageWeeks) {
     if ((!ageWeeks && ageWeeks !== 0)) return { expectedNaps:3, idealNapDurMin:30, idealNapDurMax:90, idealTotalMin:120, idealTotalMax:240 };
