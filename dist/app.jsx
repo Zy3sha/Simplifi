@@ -4174,26 +4174,9 @@ function App(){
       const saved = localStorage.getItem(`timer_${resolvedActiveId}`);
       if(saved) {
         const s = JSON.parse(saved);
-        // Cross-check: if localStorage says timer is active but saved state says off,
-        // prefer localStorage (it's always current — saved state might be stale)
-        const _lsNapActive = localStorage.getItem("nap_on") === "1";
-        const _lsBreastActive2 = localStorage.getItem("breast_active") === "1";
-        const _lsTimerMode = localStorage.getItem("timer_mode_v1");
-        if ((_lsNapActive && !s.napOn) || (_lsBreastActive2 && !s.breastActive)) {
-          // localStorage has an active timer that saved state doesn't — use localStorage
-          setNapOn(_lsNapActive);
-          setNapStartT(localStorage.getItem("nap_startT") || s.napStartT || null);
-          setNapSec(parseInt(localStorage.getItem("nap_sec")) || s.napSec || 0);
-          setNapEntryId(localStorage.getItem("nap_entry_id") || s.napEntryId || null);
-          setNapPaused(localStorage.getItem("nap_paused") === "1");
-          setNapPausedAtSec(parseInt(localStorage.getItem("nap_paused_sec")) || 0);
-          setTimerMode(_lsTimerMode || (_lsNapActive ? "activeSleep" : "prediction"));
-          setBreastSide(localStorage.getItem("breast_side") || s.breastSide || null);
-          try { setBreastSec(JSON.parse(localStorage.getItem("breast_sec") || JSON.stringify(s.breastSec || {L:0,R:0}))); } catch { setBreastSec(s.breastSec || {L:0,R:0}); }
-          setBreastActive(_lsBreastActive2);
-          setBreastStartTime(localStorage.getItem("breast_startTime") || s.breastStartTime || null);
-          setBedTimerDay(localStorage.getItem("bed_timer_day") || s.bedTimerDay || null);
-        } else {
+        // Use saved per-child state — no more reading from global localStorage keys
+        // which could contain another child's timer data
+        {
           // Saved state matches or is newer — use it
           setNapOn(s.napOn || false);
           setNapStartT(s.napStartT || null);
@@ -4740,6 +4723,41 @@ function App(){
       // Include child sync codes so they survive UID changes + new device restores
       let _syncCodesForCloud = {};
       try { _syncCodesForCloud = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}"); } catch {}
+      // Entry-level merge: read cloud state, merge entries by ID, then write
+      // This prevents two parents logging simultaneously from overwriting each other
+      try {
+        const _cloudSnap = await fsGet("families", code);
+        if (_cloudSnap.exists()) {
+          const _cloudData = _cloudSnap.data();
+          if (_cloudData.children) {
+            const _cloudChildren = JSON.parse(_cloudData.children);
+            // Merge: for each child, for each day, merge entries by ID (keep both, dedupe)
+            Object.keys(cleanForCloud).forEach(cid => {
+              const local = cleanForCloud[cid];
+              const cloud = _cloudChildren[cid];
+              if (!cloud || !cloud.days) return;
+              Object.keys(cloud.days || {}).forEach(dk => {
+                const cloudEntries = cloud.days[dk] || [];
+                const localEntries = (local.days || {})[dk] || [];
+                if (!cloudEntries.length) return;
+                // Merge by ID: cloud entries not in local get added
+                const localIds = new Set(localEntries.map(e => e.id));
+                const merged = [...localEntries];
+                cloudEntries.forEach(ce => {
+                  if (ce.id && !localIds.has(ce.id)) {
+                    merged.push(ce); // cloud has an entry local doesn't — keep it
+                  }
+                });
+                if (merged.length > localEntries.length) {
+                  if (!local.days) local.days = {};
+                  local.days[dk] = merged;
+                }
+              });
+            });
+          }
+        }
+      } catch (_mergeErr) { console.warn("Entry merge read failed (writing anyway):", _mergeErr); }
+
       await fsSet("families", code, {
         children: JSON.stringify(cleanForCloud),
         carerInfo: JSON.stringify(_carerInfoCloud),
