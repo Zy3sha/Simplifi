@@ -27529,7 +27529,7 @@ function App(){
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Bubba Care</div>
                 <div style={{fontSize:10,color:C.lt}}>Share routine</div>
               </button>
-              {backupCode ? (<>
+              {backupCode && (
                 <button onClick={()=>{
                   const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
                   const days2=Object.values(children).reduce((s,c)=>s+Object.keys(c.days||{}).length,0);
@@ -27539,24 +27539,12 @@ function App(){
                   <div style={{fontSize:12,fontWeight:700,color:C.mint}}>Save to Cloud</div>
                   <div style={{fontSize:10,color:C.lt}}>Manual backup</div>
                 </button>
-                {Object.keys(childSyncCodes).length > 0 && (
-                  <div style={{gridColumn:"span 2",padding:"8px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,fontSize:11,color:C.lt}}>
-                    <div style={{fontWeight:700,color:C.mid,marginBottom:4}}>Partner sync codes:</div>
-                    {Object.entries(childSyncCodes).map(([cid,sc])=>(
-                      <div key={cid} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2px 0"}}>
-                        <span>{(children[cid]||{}).name||cid}: <strong style={{color:C.deep,fontFamily:"ui-monospace,monospace"}}>{sc}</strong></span>
-                        <button onClick={()=>{haptic();pushChildSync(cid,sc,children[cid]);showToast("🔄 Force synced "+((children[cid]||{}).name||"child"),1500,1);}} style={{padding:"3px 8px",borderRadius:99,border:`1px solid ${C.mint}`,background:"transparent",color:C.mint,fontSize:10,fontWeight:700,cursor:_cP}}>Sync now</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>) : (
-                <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
-                  <span style={_S.f24}>❓</span>
-                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>App Tour</div>
-                  <div style={{fontSize:10,color:C.lt}}>Replay guide</div>
-                </button>
               )}
+              <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
+                <span style={_S.f24}>❓</span>
+                <div style={{fontSize:12,fontWeight:700,color:C.deep}}>App Tour</div>
+                <div style={{fontSize:10,color:C.lt}}>Replay guide</div>
+              </button>
               <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
                 <span style={_S.f24}>{backupCode?"❓":"💬"}</span>
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{backupCode?"App Tour":"Get Help"}</div>
