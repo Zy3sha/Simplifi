@@ -3861,6 +3861,15 @@ function App(){
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
+  // Offline detection — show banner when network drops
+  const[isOffline,setIsOffline]=useState(!navigator.onLine);
+  React.useEffect(()=>{
+    const _on = ()=>setIsOffline(false);
+    const _off = ()=>setIsOffline(true);
+    window.addEventListener("online", _on);
+    window.addEventListener("offline", _off);
+    return ()=>{ window.removeEventListener("online", _on); window.removeEventListener("offline", _off); };
+  },[]);
   // Illness/teething mode: shortens wake windows by ~20%, reverts after 3 days
   const[disruptionMode,setDisruptionMode]=usePersistedState("ob_disruption_mode", null);
   // Auto-expire disruption mode after 3 days
@@ -4792,9 +4801,31 @@ function App(){
       const {db, collection, onSnapshot} = window._fb;
       if(!collection) return;
       const colRef = collection(db, "carer_logs", backupCode, "entries");
+      const _autoMergedIds = new Set();
       carerUnsubRef.current = onSnapshot(colRef, (snap)=>{
         const entries = [];
-        snap.forEach(d => entries.push({id:d.id, ...d.data()}));
+        snap.forEach(d => {
+          const _e = {id:d.id, ...d.data()};
+          entries.push(_e);
+          // Auto-merge: accept entries automatically as they arrive
+          // Parent can still undo via the review banner
+          if (!_autoMergedIds.has(d.id) && _e.type && _e.time) {
+            _autoMergedIds.add(d.id);
+            // Build the entry for the day log
+            const _dayKey = _e.date || new Date().toISOString().split("T")[0];
+            const _newEntry = {id:uid(), type:_e.type, time:_e.time, note:((_e.note||"")+" (from carer)").trim(), loggedBy:"carer", carerEntryId:d.id, modifiedAt:Date.now()};
+            if(_e.type==="feed") { _newEntry.amount=_e.amount||0; _newEntry.feedType=_e.feedType||"bottle"; }
+            if(_e.type==="poop"||_e.type==="nappy") { _newEntry.type="poop"; _newEntry.poopType=_e.poopType||"wet"; }
+            if(_e.type==="nap") { _newEntry.start=_e.start; _newEntry.end=_e.end; _newEntry.duration=_e.duration||0; }
+            if(_e.type==="wake") { _newEntry.night = !!_e.night; }
+            setDays(d2=>({...d2,[_dayKey]:[...(d2[_dayKey]||[]),_newEntry]}));
+            // Delete from carer_logs (already merged)
+            try { const {db:_db, doc:_doc, deleteDoc:_del} = window._fb; _del(_doc(_db,"carer_logs",backupCode,"entries",d.id)).catch(()=>{}); } catch(_){}
+            // Gentle toast
+            const _typeLabel = _e.type==="feed"?"🍼 Feed":_e.type==="nap"?"😴 Nap":_e.type==="poop"||_e.type==="nappy"?"🧷 Nappy":_e.type==="wake"?"☀️ Wake":"📝 Entry";
+            showToast(_typeLabel+" from carer · auto-added",2500,1);
+          }
+        });
         entries.sort((a,b) => (b.loggedAt||"").localeCompare(a.loggedAt||""));
         setCarerEntries(entries);
       }, (err)=>{ console.warn("Carer log listener error:",err); });
@@ -7556,7 +7587,10 @@ function App(){
         _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr + _feedMlContext : "") : "");
       }
     }
-    // ── PRIORITY 4b: Fragmented naps detected ──
+    // ── PRIORITY 4b: Skip nap option when prediction is active for 30+ min ──
+    // (Shows subtly — not intrusive, just available if parent needs it)
+
+    // ── PRIORITY 4c: Fragmented naps detected ──
     else if (_dayStarted && !_hasBed && td.isFragmented && !_napsComplete) {
       _dot = C.gold; _label = "Rescue nap needed";
       _rightNow = _name + " has had " + (td.shortNapCount||0) + " short naps (" + hm(td.totalNapMins||0) + " total, needs " + hm(td.napProfile?td.napProfile.idealTotalMin:120) + "+). Try a contact nap, dark room, or white noise for a longer stretch. A rescue nap will help avoid an overtired bedtime.";
@@ -7822,6 +7856,36 @@ function App(){
 
         {/* REASSURANCE */}
         <div style={{fontSize:12,color:C.mint,fontWeight:600,fontStyle:"italic",paddingLeft:16,paddingRight:4,paddingTop:4,paddingBottom:heroWhyOpen?8:0}}>{_reassure}</div>
+
+        {/* Skip nap — only when nap is overdue and baby won't settle */}
+        {_nextEvent && _nextEvent.icon === "😴" && td && !td.napsComplete && !td.hasBedtime && (()=>{
+          const _napPred = tickDataRef.current?.pred;
+          const _isOverdue = _napPred && _napPred.isOverdue;
+          if (!_isOverdue) return null;
+          return (
+            <button onClick={()=>{
+              haptic();
+              showConfirm(
+                "Skip this nap?",
+                `If ${babyName||"baby"} won't settle, that's OK. We'll adjust — the next nap will come sooner and bedtime may move earlier to prevent overtiredness.`,
+                ()=>{
+                  // Log a skipped nap as an observation
+                  try {
+                    const _obs = JSON.parse(localStorage.getItem("ob_observations_v1")||"[]");
+                    _obs.push({id:uid(),time:new Date().toISOString(),text:"Nap skipped — " + (babyName||"baby") + " wouldn't settle",type:"info"});
+                    localStorage.setItem("ob_observations_v1",JSON.stringify(_obs.slice(-50)));
+                    setObservations(_obs.slice(-50));
+                  } catch{}
+                  setConfirmDialog(null);
+                  showToast("Nap skipped — predictions adjusted",2500,1);
+                },
+                "Skip nap"
+              );
+            }} style={{marginLeft:16,marginBottom:6,background:"none",border:"none",padding:0,fontSize:11,color:C.lt,cursor:_cP,textDecoration:"underline",fontFamily:_fI}}>
+              Baby won't settle? Skip this nap →
+            </button>
+          );
+        })()}
 
         {/* Disruption mode indicator + toggle */}
         {disruptionMode && (
@@ -27044,6 +27108,14 @@ function App(){
               Got it — let me explore!
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Offline indicator */}
+      {isOffline && (
+        <div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",zIndex:999,background:"rgba(74,59,53,0.92)",backdropFilter:"blur(8px)",borderRadius:99,padding:"8px 18px",display:"flex",alignItems:"center",gap:8,boxShadow:"0 4px 16px rgba(0,0,0,0.2)"}}>
+          <span style={{fontSize:12}}>📡</span>
+          <span style={{fontSize:12,fontWeight:600,color:"#FAF6F0",fontFamily:_fM}}>Offline — logs saved locally</span>
         </div>
       )}
 
