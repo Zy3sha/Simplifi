@@ -3399,6 +3399,7 @@ function App(){
   const[tab,setTab]=useState("day");
   // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
   const[daySubScreen,setDaySubScreen]=useState(null);
+  const[todayPanel,setTodayPanel]=useState("log"); // "log" | "plan" — used inside the unified Today sub-screen
   const[showShareFamily,setShowShareFamily]=useState(false);
   // Day notes (free-form per day)
   const[dayNote,setDayNote]=useState("");
@@ -3427,7 +3428,7 @@ function App(){
   const[poopWhyOpen,setPoopWhyOpen]=useState(false);
   const[todayPlanOpen,setTodayPlanOpen]=useState(false);
   // When user opens Today's Plan sub-screen, auto-expand the collapsible
-  useEffect(()=>{ if(daySubScreen==="plan") setTodayPlanOpen(true); },[daySubScreen]);
+  useEffect(()=>{ if(daySubScreen==="plan" || todayPanel==="plan") setTodayPlanOpen(true); },[daySubScreen, todayPanel]);
   const[notesOpen,setNotesOpen]=useState(()=>{
     // Auto-expand if there are upcoming appointments
     try{const a=JSON.parse(localStorage.getItem("appointments_v1")||"[]");return a.some(apt=>new Date(apt.date+"T23:59:59")>=new Date());}catch{return false;}
@@ -20789,41 +20790,24 @@ function App(){
                 const _weanSub = !_weanReady ? "From 17 weeks" : age.totalWeeks < 26 ? "Getting ready" : weaningStarted ? "Food & allergens" : "Start journey";
                 return (
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                    <button onClick={()=>{haptic();setDaySubScreen("log");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative"}}>
-                      {carerEntries && carerEntries.length > 0 && (
-                        <span style={{position:"absolute",top:8,right:8,minWidth:20,height:20,borderRadius:99,background:"#7B68EE",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px",boxShadow:"0 2px 6px rgba(123,104,238,0.4)"}}>{carerEntries.length}</span>
-                      )}
-                      <span style={_S.f26}>📋</span>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Log</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{carerEntries && carerEntries.length > 0 ? `${carerEntries.length} new from Bubba Care` : _logSub}</div>
-                    </button>
                     {(()=>{
-                      // Show badge when there's something live/active on the plan
-                      let _planAlert = 0;
-                      let _planSubtitle = "Naps & bedtime predicted";
+                      let _badge = 0;
+                      let _sub = _logSub;
+                      if (carerEntries && carerEntries.length > 0) { _badge = carerEntries.length; _sub = `${carerEntries.length} new from Bubba Care`; }
                       try {
                         const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
                         const _entries = (days[todayStr()]||[]).filter(e=>!e.night);
-                        const _hasBedtime = _entries.some(e=>e.type==="sleep");
-                        const _hasMorningWake = _entries.some(e=>e.type==="wake");
                         const _activeNap = _entries.some(e=>e.type==="nap" && e.start && !e.end);
-                        // 1. Active nap right now
-                        if (_activeNap) { _planAlert++; _planSubtitle = "Nap in progress · tap to see"; }
-                        // 2. Baby currently asleep for the night (bedtime logged, no wake yet for tomorrow)
-                        else if (_hasBedtime && _nowMins >= 18*60) { _planAlert++; _planSubtitle = "Sleeping · rest of the plan inside"; }
-                        // 3. Evening routine pending — morning wake logged, no bedtime yet, after 5pm
-                        else if (_hasMorningWake && !_hasBedtime && _nowMins >= 17*60 && _nowMins < 22*60) { _planAlert++; _planSubtitle = "Bedtime coming up · tap to see"; }
-                        // 4. Day hasn't started yet but it's morning — nudge to log wake
-                        else if (!_hasMorningWake && _nowMins >= 6*60 && _nowMins < 10*60) { _planAlert++; _planSubtitle = "Morning plan ready · tap to see"; }
+                        if (_activeNap && !_badge) _sub = "Nap in progress";
                       } catch {}
                       return (
-                    <button onClick={()=>{haptic();setDaySubScreen("plan");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative"}}>
-                      {_planAlert > 0 && (
-                        <span style={{position:"absolute",top:10,right:10,width:8,height:8,borderRadius:99,background:C.gold,boxShadow:`0 0 0 4px ${C.gold}25, 0 2px 6px ${C.gold}60`,animation:"pulse 2s infinite"}}/>
+                    <button onClick={()=>{haptic();setDaySubScreen("today");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative",gridColumn:"span 2"}}>
+                      {_badge > 0 && (
+                        <span style={{position:"absolute",top:8,right:8,minWidth:20,height:20,borderRadius:99,background:"#7B68EE",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px",boxShadow:"0 2px 6px rgba(123,104,238,0.4)"}}>{_badge}</span>
                       )}
-                      <span style={_S.f26}>🗓️</span>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Plan</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_planSubtitle}</div>
+                      <span style={_S.f26}>📋</span>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today</div>
+                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_sub}</div>
                     </button>
                     ); })()}
                     <button onClick={()=>{haptic();setDaySubScreen("notes");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
@@ -20860,23 +20844,21 @@ function App(){
                 );
               })()}
 
-              {/* ═══ SUB-SCREEN: Today's Log — header ═══ */}
-              {daySubScreen==="log" && (
+              {/* ═══ SUB-SCREEN: Today (unified Log + Plan with segmented control) ═══ */}
+              {(daySubScreen==="today" || daySubScreen==="log" || daySubScreen==="plan") && (
                 <div>
                   <button onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={_S.f16}>‹</span> Back
                   </button>
-                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:16}}>📋 Today's Log</div>
-                </div>
-              )}
-
-              {/* ═══ SUB-SCREEN: Today's Plan — header ═══ */}
-              {daySubScreen==="plan" && (
-                <div>
-                  <button onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
-                    <span style={_S.f16}>‹</span> Back
-                  </button>
-                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:16}}>🗓️ Today's Plan</div>
+                  {/* Segmented control */}
+                  <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:12,padding:3,marginBottom:16,border:"1px solid var(--card-border)"}}>
+                    {[{id:"log",label:"📋 Log"},{id:"plan",label:"🗓️ Plan"}].map(tab=>(
+                      <button key={tab.id} onClick={()=>{haptic();setTodayPanel(tab.id);if(tab.id==="plan")setTodayPlanOpen(true);}}
+                        style={{flex:1,padding:"9px 0",borderRadius:10,border:"none",background:todayPanel===tab.id?"var(--card-bg)":"transparent",color:todayPanel===tab.id?C.deep:C.lt,fontSize:14,fontWeight:todayPanel===tab.id?700:500,cursor:_cP,fontFamily:_fI,boxShadow:todayPanel===tab.id?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.2s ease"}}>
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -21670,12 +21652,24 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ Detailed Log + Timeline (only in log sub-screen or no sub-screen for backward compat) ═══ */}
-              {(daySubScreen==="log" || daySubScreen==="plan") && (
-              <div>
+              {/* ═══ Detailed Log + Timeline (only in today sub-screen) ═══ */}
+              {(daySubScreen==="today" || daySubScreen==="log" || daySubScreen==="plan") && (
+              <div onTouchStart={e=>{
+                const t=e.touches[0]; window._todaySwipe={x:t.clientX,y:t.clientY};
+              }} onTouchEnd={e=>{
+                if(!window._todaySwipe) return;
+                const t=e.changedTouches[0];
+                const dx=t.clientX-window._todaySwipe.x;
+                const dy=Math.abs(t.clientY-window._todaySwipe.y);
+                window._todaySwipe=null;
+                if(Math.abs(dx)>60 && dy<80) {
+                  if(dx<0 && todayPanel==="log"){haptic();setTodayPanel("plan");setTodayPlanOpen(true);}
+                  else if(dx>0 && todayPanel==="plan"){haptic();setTodayPanel("log");}
+                }
+              }}>
 
               {/* ═══ Detailed Log — brought back per user request (gives access to Med/Temp, Tummy Time, Activities beyond the dashboard quick-log) ═══ */}
-              {daySubScreen==="log" && (<>
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
               <button onClick={()=>{haptic();setDetailLogOpen(!detailLogOpen);if(!detailLogOpen){setTodayPlanOpen(false);setNotesOpen(false);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:detailLogOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:detailLogOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📝 Detailed Log</span>
@@ -21856,7 +21850,7 @@ function App(){
               </div>{/* ── end Notes & Reminders collapsible ── */}
 
               {/* ── Priority Action (hydration alert etc) — LOG-ONLY to avoid duplication ── */}
-              {daySubScreen==="log" && (()=>{
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (()=>{
                 const action = getPriorityAction();
                 if (!action) return null;
                 const bg = action.priority === "high" ? "rgba(201,112,90,0.08)" : "rgba(111,168,152,0.08)";
@@ -21881,7 +21875,7 @@ function App(){
 
                                           {/* Age guidance — integrated as subtle line, not a separate card */}
               {/* 5. Today's summary stats — LOG-ONLY (avoid duplication with Today's Log totals) */}
-              {daySubScreen==="log" && (<>
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
               <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:4}}>
                 <HelpBtn title="Today's Summary" body={(()=>{
                   const _w = age ? age.totalWeeks : 0;
@@ -21922,7 +21916,7 @@ function App(){
               </>)}{/* end LOG-ONLY stats grid */}
 
               {/* ═══ Today's Plan — PLAN-ONLY sub-screen ═══ */}
-              {daySubScreen==="plan" && (<>
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="plan" && (<>
 
               <button onClick={()=>{haptic();setTodayPlanOpen(!todayPlanOpen);if(!todayPlanOpen){setDetailLogOpen(false);setNotesOpen(false);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:todayPlanOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:todayPlanOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -22316,7 +22310,7 @@ function App(){
               </>)}{/* end plan-only gate */}
 
               {/* ═══ Timeline + Night Wakes — LOG-ONLY ═══ */}
-              {daySubScreen==="log" && (<>
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
 
               {/* 7. Daily timeline (heading deduped — sub-screen title already says Today's Log) */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
@@ -22630,7 +22624,7 @@ function App(){
               </>)}{/* end LOG-ONLY timeline + night wakes block */}
 
               {/* ═══ COMPACT "COMING UP" — plan preview inside the log ═══ */}
-              {daySubScreen==="log" && selDay===todayStr() && (()=>{
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime || !_td.lastAwakeMins) return null;
                 const _items = [];
