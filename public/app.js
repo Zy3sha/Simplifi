@@ -4712,6 +4712,15 @@ function App(){
           await fsSet("uid_to_backup", myUid, {backupCode: code, updatedAt: serverTimestamp()}, true);
         }catch(e){ console.warn("uid_to_backup write error",e); }
       }
+      // Belt-and-braces: also push to ALL child sync docs alongside main cloud push
+      try {
+        const _csc = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
+        Object.entries(_csc).forEach(([cid, syncCode]) => {
+          if(syncCode && allChildren[cid]) {
+            pushChildSync(cid, syncCode, allChildren[cid]);
+          }
+        });
+      } catch(_csErr) { console.warn("child sync push alongside cloud:", _csErr); }
       setSyncStatus("synced");
     } catch(e) {
       console.warn("OBubba pushToCloud error",e);
@@ -27512,6 +27521,18 @@ function App(){
                   <div style={{fontSize:12,fontWeight:700,color:C.mint}}>Save to Cloud</div>
                   <div style={{fontSize:10,color:C.lt}}>Manual backup</div>
                 </button>
+                {/* Child sync status */}
+                {Object.keys(childSyncCodes).length > 0 && (
+                  <div style={{gridColumn:"span 2",padding:"8px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,fontSize:11,color:C.lt}}>
+                    <div style={{fontWeight:700,color:C.mid,marginBottom:4}}>Partner sync codes:</div>
+                    {Object.entries(childSyncCodes).map(([cid,sc])=>(
+                      <div key={cid} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2px 0"}}>
+                        <span>{(children[cid]||{}).name||cid}: <strong style={{color:C.deep,fontFamily:"ui-monospace,monospace"}}>{sc}</strong></span>
+                        <button onClick={()=>{haptic();pushChildSync(cid,sc,children[cid]);showToast("🔄 Force synced "+((children[cid]||{}).name||"child"),1500,1);}} style={{padding:"3px 8px",borderRadius:99,border:`1px solid ${C.mint}`,background:"transparent",color:C.mint,fontSize:10,fontWeight:700,cursor:_cP}}>Sync now</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               ) : (
                 <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
                   <span style={_S.f24}>❓</span>
