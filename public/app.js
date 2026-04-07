@@ -16265,11 +16265,28 @@ function App(){
     haptic();
     // Freeze display at current elapsed seconds
     const frozenSec = nightElapsed || 0;
+    const _pauseTs = Date.now();
     setBedPaused(true);
     setBedPausedAtSec(frozenSec);
-    setBedPauseStart(Date.now());
+    setBedPauseStart(_pauseTs);
     setBedWakeSettle("assisted"); // default settle method
-    try{localStorage.setItem("bed_paused","1");localStorage.setItem("bed_paused_sec",String(frozenSec));localStorage.setItem("bed_pause_start",String(Date.now()));}catch{}
+    try{localStorage.setItem("bed_paused","1");localStorage.setItem("bed_paused_sec",String(frozenSec));localStorage.setItem("bed_pause_start",String(_pauseTs));}catch{}
+    // Log the night wake IMMEDIATELY so it's never lost
+    // (will be updated with duration + settle method when "Back to sleep" is tapped)
+    const _wakeNow = new Date(_pauseTs);
+    const _wH = String(_wakeNow.getHours()).padStart(2,"0");
+    const _wM = String(_wakeNow.getMinutes()).padStart(2,"0");
+    const _wakeEntryId = uid();
+    quickAddLog("wake", {
+      type: "wake",
+      time: _wH+":"+_wM,
+      night: true,
+      nightLocked: true,
+      note: "Night wake — settling...",
+      _pendingSettle: true,
+      id: _wakeEntryId
+    });
+    try{localStorage.setItem("bed_wake_entry_id", _wakeEntryId);}catch{}
     // Stop Live Activity during pause so widget+Dynamic Island don't keep counting
     try {
       if (_isNative) {
@@ -16277,7 +16294,7 @@ function App(){
         _la?.stop?.().catch(()=>{});
       }
     } catch {}
-    showToast("\u{1F319} Baby awake \u2014 tap Back to sleep when settled.",3000,1);
+    showToast("🌙 Night wake logged — tap Back to sleep when settled.",3000,1);
   }
   function resumeBedTimer(){
     if (!bedTimerDay || !bedPaused) return;
@@ -16296,37 +16313,37 @@ function App(){
     setBedPauseStart(null);
     setBedPausedAtSec(0);
     try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
-    // Log night wake with duration and settle method
-    if (pauseDurMin >= 1) {
-      const wakeTime = new Date(pauseStart);
-      const wakeH = String(wakeTime.getHours()).padStart(2,"0");
-      const wakeM = String(wakeTime.getMinutes()).padStart(2,"0");
+    // Update the night wake entry (logged on pause) with duration and settle method
+    const settleMethod = bedWakeSettle || "assisted";
+    const noteStr = pauseDurMin < 1 ? "Brief wake"
+      : settleMethod === "self" ? "Self settled ("+pauseDurMin+"min)"
+      : settleMethod === "milk" ? "Night feed ("+pauseDurMin+"min)"
+      : settleMethod === "other" ? "Resettled ("+pauseDurMin+"min)"
+      : "Assisted ("+pauseDurMin+"min)";
+    // Find and update the pending wake entry
+    const _pendingId = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
+    if (_pendingId) {
       const settleTime = new Date(pauseEnd);
       const settleH = String(settleTime.getHours()).padStart(2,"0");
       const settleM = String(settleTime.getMinutes()).padStart(2,"0");
-      const settleMethod = bedWakeSettle || "assisted";
-      const noteStr = settleMethod === "self" ? "Self settled ("+pauseDurMin+"min)"
-        : settleMethod === "milk" ? "Night feed ("+pauseDurMin+"min)"
-        : settleMethod === "other" ? "Resettled ("+pauseDurMin+"min)"
-        : "Assisted ("+pauseDurMin+"min)";
-      quickAddLog("wake", {
-        type: settleMethod === "milk" ? "feed" : "wake",
-        time: wakeH+":"+wakeM,
-        night: true,
-        nightLocked: true,
-        selfSettled: settleMethod === "self",
-        assisted: settleMethod !== "self",
-        assistedType: settleMethod === "milk" ? "milk" : (settleMethod === "other" ? "other" : undefined),
-        note: noteStr + " \u2014 logged via bed timer",
-        wakeDuration: pauseDurMin,
-        assistedDuration: settleMethod !== "self" ? pauseDurMin : undefined,
-        settleDuration: settleMethod === "self" ? String(pauseDurMin) : undefined,
-        settleTime: settleH+":"+settleM
+      setDays(d => {
+        const _targetDay = bedTimerDay || todayStr();
+        const entries = d[_targetDay] || [];
+        return {...d, [_targetDay]: entries.map(e => e.id === _pendingId ? {
+          ...e,
+          type: settleMethod === "milk" ? "feed" : "wake",
+          selfSettled: settleMethod === "self",
+          assisted: settleMethod !== "self",
+          assistedType: settleMethod === "milk" ? "milk" : (settleMethod === "other" ? "other" : undefined),
+          note: noteStr + " — logged via bed timer",
+          wakeDuration: pauseDurMin,
+          settleTime: settleH+":"+settleM,
+          _pendingSettle: false
+        } : e)};
       });
-      showToast("\u{1F319} Night wake logged ("+hm(pauseDurMin)+") \u2014 back to sleep",3000,1);
-    } else {
-      showToast("\u{1F319} Timer resumed",1500,1);
+      try{localStorage.removeItem("bed_wake_entry_id");}catch{}
     }
+    showToast("🌙 Back to sleep" + (pauseDurMin >= 1 ? " — " + hm(pauseDurMin) + " awake" : ""), 2500, 1);
     // CRITICAL: restart Live Activity with CUMULATIVE SLEEP model.
     // Virtual start = original bedtime + total awake seconds. LA counts up from there,
     // so displayed time = cumulative sleep since bedtime (keeps ticking visibly across wakes).
