@@ -338,15 +338,20 @@ struct ActionBtn: View {
     let label: String
     let color: Color
     let filled: Bool
+    let emoji: String?
 
-    init(icon: String, label: String, color: Color, filled: Bool = false) {
-        self.icon = icon; self.label = label; self.color = color; self.filled = filled
+    init(icon: String, label: String, color: Color, filled: Bool = false, emoji: String? = nil) {
+        self.icon = icon; self.label = label; self.color = color; self.filled = filled; self.emoji = emoji
     }
 
     var body: some View {
         VStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+            if let emoji = emoji {
+                Text(emoji).font(.system(size: 16))
+            } else {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+            }
             Text(label)
                 .font(.system(size: 10, weight: .bold))
         }
@@ -655,7 +660,7 @@ struct OBubbaMediumWidgetView: View {
                     }
                 }
                 Link(destination: URL(string: "obubba://?action=quick_nappy")!) {
-                    ActionBtn(icon: "pin.fill", label: "Nappy", color: brandMint)
+                    ActionBtn(icon: "", label: "Nappy", color: brandMint, emoji: "🧷")
                 }
                 if d.activeTimer == "bed" && hasTimer {
                     // Bedtime active — offer morning wake
