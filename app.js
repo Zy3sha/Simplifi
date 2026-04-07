@@ -13549,6 +13549,21 @@ function App(){
         tonightLines.push({ text: "Expect roughly " + expectedWakes + " wakes tonight", why: wakeReason });
       }
 
+      // First wake timing prediction
+      if (_avgLS && _avgLS > 60) {
+        try {
+          const _bedEntry = (days[selDay]||[]).find(e=>e.type==="sleep");
+          if (_bedEntry) {
+            const _bedMins = timeVal(_bedEntry);
+            const _predictedFirstWake = _bedMins + _avgLS;
+            const _h = Math.floor((_predictedFirstWake % 1440) / 60);
+            const _m = Math.floor(_predictedFirstWake % 60);
+            const _wakeTime = fmt12(String(_h).padStart(2,"0")+":"+String(_m).padStart(2,"0"));
+            tonightLines.push({ text: "First wake usually around " + _wakeTime + " (" + hm(_avgLS) + " after bedtime)", why: "Based on " + _n + "'s average first stretch of " + hm(_avgLS) + " this week." });
+          }
+        } catch {}
+      }
+
       // Feed tip for better first stretch — use actual correlation data when available
       if (_avgLS) {
         const feedEntries = (days[selDay] || []).filter(e => e.type === "feed");
@@ -19223,6 +19238,110 @@ function App(){
       }
     } catch {}
   }, [_feedCardMemo, babyName, addObservation]);
+
+  // ── Proactive intelligence: regression forecaster, nap transition, false starts, clock change ──
+  React.useEffect(() => {
+    try {
+      if (!age || !babyName) return;
+      const _name = babyName;
+      const _wks = age.totalWeeks;
+
+      // ── Regression forecaster ──
+      const _regressions = [
+        { start: 15, end: 19, label: "4-month", msg: "Sleep architecture is maturing. Naps may shorten, night wakes may increase for 2-4 weeks. This is PERMANENT brain development — not a setback. Keep routines consistent and it passes faster." },
+        { start: 34, end: 38, label: "8-month", msg: "Separation anxiety + crawling/pulling up. Baby may resist the cot, stand up during naps, or cry when you leave. Stay calm, brief check-ins work. Usually 2-3 weeks." },
+        { start: 50, end: 54, label: "12-month", msg: "Walking, first words, big cognitive leap. May temporarily fight naps or need a later bedtime. Stick with 2 naps — don't drop to 1 yet (most babies aren't ready until 14-18 months)." },
+        { start: 76, end: 80, label: "18-month", msg: "Language explosion + toddler independence. May refuse naps, test boundaries at bedtime, or have new night fears. Stay consistent — this is the last major regression." },
+      ];
+      const _upcoming = _regressions.find(r => _wks >= r.start - 2 && _wks < r.start);
+      const _active = _regressions.find(r => _wks >= r.start && _wks <= r.end);
+      if (_upcoming) {
+        addObservation("📅", _upcoming.label + " regression approaching",
+          `${_name} is ${_wks} weeks — the ${_upcoming.label} regression typically hits between ${_upcoming.start}-${_upcoming.end} weeks. Here's what to expect:`,
+          _upcoming.msg);
+      }
+      if (_active) {
+        addObservation("🌊", "You might be in the " + _active.label + " regression",
+          `${_name} is ${_wks} weeks — right in the typical ${_active.label} regression window. ${_active.msg}`,
+          "This is temporary. Keep bedtime consistent, don't introduce new sleep crutches, and be gentle with yourself. 💛");
+      }
+
+      // ── Nap transition detection ──
+      const _recent14 = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const naps = ent.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.start !== e.end);
+        if (naps.length > 0) _recent14.push({ naps: naps.length, date: ds });
+      }
+      if (_recent14.length >= 7) {
+        const _avgNaps = _recent14.reduce((s, d) => s + d.naps, 0) / _recent14.length;
+        const _lastNapRefused = _recent14.slice(0, 5).filter(d => d.naps < Math.round(_avgNaps)).length;
+        // 3→2 transition (typically 6-9 months)
+        if (_avgNaps >= 2.5 && _avgNaps <= 3.2 && _lastNapRefused >= 3 && _wks >= 24 && _wks <= 40) {
+          addObservation("📉", "Nap transition signal: 3 → 2 naps",
+            `${_name} has been fighting or skipping the 3rd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, this is a classic sign of readiness to drop to 2 naps.`,
+            "Transition gradually: push the first wake window by 15min every 2-3 days. The 2-nap schedule usually settles within 1-2 weeks. Bedtime may need to come earlier during the transition.");
+        }
+        // 2→1 transition (typically 14-18 months)
+        if (_avgNaps >= 1.5 && _avgNaps <= 2.2 && _lastNapRefused >= 3 && _wks >= 56 && _wks <= 80) {
+          addObservation("📉", "Nap transition signal: 2 → 1 nap",
+            `${_name} has been resisting or shortening the 2nd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, they may be ready for one longer midday nap.`,
+            "Don't rush — most babies aren't truly ready until 15-18 months. Try capping the morning nap to 30min first. If they still fight the afternoon nap for 2+ weeks, switch to one nap around 12:30pm.");
+        }
+      }
+
+      // ── False start detection ──
+      try {
+        const _falseStarts = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0, 10);
+          const ent = days[ds] || [];
+          const bed = ent.find(e => e.type === "sleep");
+          if (!bed) continue;
+          const bedMins = timeVal(bed);
+          const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night);
+          const firstWake = nightWakes.sort((a, b) => timeVal(a) - timeVal(b))[0];
+          if (firstWake) {
+            let diff = timeVal(firstWake) - bedMins;
+            if (diff < 0) diff += 1440;
+            if (diff <= 60 && diff > 0) _falseStarts.push(ds);
+          }
+        }
+        if (_falseStarts.length >= 3) {
+          addObservation("⏰", "False start pattern detected",
+            `${_name} has woken within 45-60 minutes of bedtime ${_falseStarts.length} of the last 7 nights. This is a "false start" — baby completes one sleep cycle and can't link to the next.`,
+            "Common causes: overtiredness (try bedtime 15-20min earlier), undertiredness (check total day sleep isn't too high), or environmental (room too warm, light creeping in). Try adjusting bedtime first — it's the easiest lever.");
+        }
+      } catch {}
+
+      // ── Clock change preparation ──
+      try {
+        const _now = new Date();
+        // UK clocks: last Sunday of March (spring forward), last Sunday of October (fall back)
+        const _yr = _now.getFullYear();
+        const _marchLast = new Date(_yr, 2, 31); // March
+        while (_marchLast.getDay() !== 0) _marchLast.setDate(_marchLast.getDate() - 1);
+        const _octLast = new Date(_yr, 9, 31); // October
+        while (_octLast.getDay() !== 0) _octLast.setDate(_octLast.getDate() - 1);
+        const _daysToMarch = Math.ceil((_marchLast - _now) / 86400000);
+        const _daysToOct = Math.ceil((_octLast - _now) / 86400000);
+        if (_daysToMarch > 0 && _daysToMarch <= 7) {
+          addObservation("🕐", "Clocks go forward in " + _daysToMarch + " days",
+            "Clocks spring forward this Sunday. " + _name + " will effectively lose an hour. Start shifting bedtime 10 minutes earlier each night from now.",
+            "By Sunday, bedtime will naturally be 30-40min earlier. On clock-change day, just follow the new clock — " + _name + "'s body will adjust within 2-3 days. Don't stress about it being perfect.");
+        }
+        if (_daysToOct > 0 && _daysToOct <= 7) {
+          addObservation("🕐", "Clocks go back in " + _daysToOct + " days",
+            "Clocks fall back this Sunday. " + _name + " may wake an hour earlier than usual. Start shifting bedtime 10 minutes later each night from now.",
+            "By Sunday, you'll have pushed bedtime 30-40min later. Early wake-ups are normal for the first 3-5 days — stay consistent and " + _name + "'s body clock will adjust.");
+        }
+      } catch {}
+
+    } catch {}
+  }, [age, babyName, days, selDay, addObservation]);
 
   // ── Skip auth on first launch — allow anonymous onboarding ──
   // Auth screen only shows when user explicitly taps "I already have an account" from onboarding,
