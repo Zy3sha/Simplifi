@@ -20848,6 +20848,43 @@ function App(){
       }
     } catch {}
 
+    // ── Milestone grief — it's OK to miss the tiny baby ──
+    try {
+      const _msKeys = Object.entries(activeChild.milestones || {}).filter(([, v]) => v && v.date);
+      // Trigger when a burst of milestones happen close together (3+ in 14 days)
+      const _recentMs = _msKeys.filter(([, v]) => {
+        const daysSince = Math.round((Date.now() - new Date(v.date).getTime()) / 86400000);
+        return daysSince >= 0 && daysSince <= 14;
+      });
+      if (_recentMs.length >= 3 && !localStorage.getItem("ob_grief_" + Math.floor(_wks / 4))) {
+        localStorage.setItem("ob_grief_" + Math.floor(_wks / 4), "1");
+        const _griefMessages = [
+          { title: _name + " is growing so fast", body: "3 milestones in 2 weeks. It's wonderful and it's bittersweet. It's OK to miss the tiny baby who fit in one arm. Growth doesn't erase those memories — it builds on them." },
+          { title: "They won't be this small again", body: _name + " is changing every day — new sounds, new movements, new expressions. If you feel a pang watching them outgrow something, that's not silly. That's love noticing time passing." },
+          { title: "The days are long but the years are short", body: "Every milestone " + _name + " reaches is proof that you've nourished, protected, and loved them well enough to grow. That ache you feel? It means you're paying attention. That matters." },
+        ];
+        const _gm = _griefMessages[_recentMs.length % _griefMessages.length];
+        addObservation("🦋", _gm.title, _gm.body,
+          "Save a photo or a note about this moment. Future you will want to remember how " + _name + " looked right now, at " + fmtAge(age) + ". These days don't come back — but the love in them stays. 💛");
+      }
+      // Also trigger at specific age gates (3mo, 6mo, 9mo, 12mo)
+      const _ageGates = [13, 26, 39, 52];
+      const _gateHit = _ageGates.find(g => _wks >= g && _wks < g + 1);
+      if (_gateHit && !localStorage.getItem("ob_agegate_" + _gateHit)) {
+        localStorage.setItem("ob_agegate_" + _gateHit, "1");
+        const _ageLabel = _gateHit === 13 ? "3 months" : _gateHit === 26 ? "6 months" : _gateHit === 39 ? "9 months" : "1 year";
+        const _ageReflections = {
+          13: "The newborn fog is lifting. " + _name + " is smiling, cooing, becoming a little person. The hardest part is behind you — even though it doesn't always feel that way. You made it through.",
+          26: "Half a year. " + _name + " is probably reaching for things, laughing out loud, maybe sitting up. The tiny bundle you brought home is becoming someone. And every part of who they are started with you.",
+          39: "9 months out, 9 months in. " + _name + " has now been in the world as long as they were growing inside. Look how far you've both come. The crawling, the babbling, the personality emerging — you built the foundation for all of it.",
+          52: "One whole year. 365 days of feeds, naps, nappies, tears, laughter, and love. " + _name + " is walking (or nearly), talking (or nearly), and thriving — because you showed up every single day. Even on the days you didn't think you could. Especially on those days.",
+        };
+        addObservation("🎂", _ageLabel + " — look how far you've come",
+          _ageReflections[_gateHit],
+          "Take a photo today. Write down one thing you want to remember about " + _name + " at " + _ageLabel + ". Time moves fast — but these words will keep the memory sharp. 💛");
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
