@@ -3844,6 +3844,11 @@ function App(){
   const[showSearch,setShowSearch]=useState(false);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[logForAll,setLogForAll]=useState(false);
+  const[showQuickStart,setShowQuickStart]=useState(false);
+  const[qsNaps,setQsNaps]=useState("3");
+  const[qsBedtime,setQsBedtime]=useState("19:00");
+  const[qsWake,setQsWake]=useState("07:00");
+  const[qsFeeds,setQsFeeds]=useState("5");
   const[showSoundMachine,setShowSoundMachine]=useState(false);
   const[showSafeSleepPopup,setShowSafeSleepPopup]=useState(false);
   const[showRecModeChoice,setShowRecModeChoice]=useState(false);
@@ -19658,6 +19663,15 @@ function App(){
       setOnboarded(true);
       setTab("day");
       setSelDay(_obToday);
+      // Show quick-start prompt after a short delay — lets user seed yesterday's data
+      setTimeout(() => {
+        try {
+          if (!localStorage.getItem("ob_quickstart_offered")) {
+            localStorage.setItem("ob_quickstart_offered", "1");
+            setShowQuickStart(true);
+          }
+        } catch {}
+      }, 2000);
       // Show day explainer immediately if bedtime was picked, or after a short delay for others
       if (obTodayStatus === "bedtime") {
         try{ if(!localStorage.getItem("ob_day_explainer_v1")){ localStorage.setItem("ob_day_explainer_v1","1"); setTimeout(()=>setShowDayExplainer(true), 1200); }}catch{}
@@ -29762,6 +29776,88 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       )}
 
       {/* ═══ Day Explainer Popup ═══ */}
+      {/* Quick-start: seed yesterday's data for faster predictions */}
+      {showQuickStart&&(
+        <div onClick={()=>setShowQuickStart(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"24px 20px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)"}}>
+            <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4,textAlign:"center"}}>⚡ Quick Start</div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:16,textAlign:"center"}}>Tell us roughly what yesterday looked like — this helps predictions start smarter from day 1.</div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>How many naps?</label>
+              <div style={{display:"flex",gap:6}}>
+                {["2","3","4","5+"].map(n=>(
+                  <button key={n} onClick={()=>setQsNaps(n)} style={{flex:1,padding:"8px",borderRadius:10,border:`1.5px solid ${qsNaps===n?C.ter:C.blush}`,background:qsNaps===n?C.ter+"15":"transparent",color:qsNaps===n?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Roughly how many feeds?</label>
+              <div style={{display:"flex",gap:6}}>
+                {["3-4","5-6","7-8","9+"].map(n=>(
+                  <button key={n} onClick={()=>setQsFeeds(n)} style={{flex:1,padding:"8px",borderRadius:10,border:`1.5px solid ${qsFeeds===n?C.ter:C.blush}`,background:qsFeeds===n?C.ter+"15":"transparent",color:qsFeeds===n?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:10,marginBottom:16}}>
+              <div style={{flex:1}}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Wake up</label>
+                <input type="time" value={qsWake} onChange={e=>setQsWake(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--input-bg)",fontSize:15,fontFamily:_fI,boxSizing:_bBB,textAlign:"center"}}/>
+              </div>
+              <div style={{flex:1}}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Bedtime</label>
+                <input type="time" value={qsBedtime} onChange={e=>setQsBedtime(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--input-bg)",fontSize:15,fontFamily:_fI,boxSizing:_bBB,textAlign:"center"}}/>
+              </div>
+            </div>
+
+            <button onClick={()=>{
+              haptic();
+              // Generate yesterday's synthetic entries
+              const yday = new Date(); yday.setDate(yday.getDate()-1);
+              const ydayStr = yday.toISOString().slice(0,10);
+              const entries = [];
+              // Wake
+              entries.push({id:uid(),type:"wake",time:qsWake,night:false,src:"quickstart"});
+              // Feeds — spread evenly through the day
+              const wMins = parseInt(qsWake.split(":")[0])*60+parseInt(qsWake.split(":")[1]);
+              const bMins = parseInt(qsBedtime.split(":")[0])*60+parseInt(qsBedtime.split(":")[1]);
+              const dayLen = bMins - wMins;
+              const nFeeds = qsFeeds==="3-4"?4:qsFeeds==="5-6"?6:qsFeeds==="7-8"?8:10;
+              const feedGap = Math.floor(dayLen / nFeeds);
+              for(let i=0;i<nFeeds;i++){
+                const m = wMins + feedGap*i + Math.floor(feedGap/2);
+                const h = Math.floor(m/60); const mm = m%60;
+                entries.push({id:uid(),type:"feed",time:String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0"),feedType:obFeedType||"milk",amount:0,night:false,src:"quickstart"});
+              }
+              // Naps — spread evenly
+              const nNaps = qsNaps==="2"?2:qsNaps==="3"?3:qsNaps==="4"?4:5;
+              const awakeChunks = nNaps + 1;
+              const ww = Math.floor(dayLen / awakeChunks);
+              for(let i=0;i<nNaps;i++){
+                const napStart = wMins + ww*(i+1);
+                const napDur = 30 + Math.floor(Math.random()*30); // 30-60min
+                const napEnd = napStart + napDur;
+                const sH=Math.floor(napStart/60),sM=napStart%60,eH=Math.floor(napEnd/60),eM=napEnd%60;
+                entries.push({id:uid(),type:"nap",start:String(sH).padStart(2,"0")+":"+String(sM).padStart(2,"0"),end:String(eH).padStart(2,"0")+":"+String(eM).padStart(2,"0"),night:false,src:"quickstart"});
+              }
+              // Bedtime
+              entries.push({id:uid(),type:"sleep",time:qsBedtime,night:false,src:"quickstart"});
+              // Save
+              setDays(prev=>({...prev,[ydayStr]:[...(prev[ydayStr]||[]),...entries]}));
+              setShowQuickStart(false);
+              showToast("⚡ Yesterday seeded — predictions are already smarter!",2500,1);
+            }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
+              Seed yesterday's data ⚡
+            </button>
+            <button onClick={()=>setShowQuickStart(false)} style={{width:"100%",padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"transparent",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
+              Skip — I'll log from scratch
+            </button>
+          </div>
+        </div>
+      )}
+
       {showDayExplainer&&(
         <div onClick={()=>setShowDayExplainer(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
