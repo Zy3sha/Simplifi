@@ -7606,7 +7606,26 @@ function App(){
             <div style={{width:10,height:10,borderRadius:"50%",background:"#7B68EE",boxShadow:"0 0 8px rgba(123,104,238,0.4)",animation:"candlePulse 4s ease-in-out infinite"}}/>
             <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Sleeping peacefully 🌙</span>
           </div>
-          <div style={{fontSize:14,color:C.mid,marginBottom:10}}>{_timeStr}</div>
+          <div style={{fontSize:14,color:C.mid,marginBottom:6}}>{_timeStr}</div>
+          {/* Last feed during the night */}
+          {(()=>{
+            const _allFeeds = _todayEntries.filter(e => e.type === "feed").sort((a,b) => timeVal(b) - timeVal(a));
+            const _lastFeed = _allFeeds[0];
+            if (!_lastFeed) return null;
+            const _feedMins = timeVal(_lastFeed);
+            const _nowMins2 = new Date().getHours() * 60 + new Date().getMinutes();
+            let _feedAgo = _nowMins2 - _feedMins;
+            if (_feedAgo < 0) _feedAgo += 1440;
+            const _feedStr = fmt12(_lastFeed.time || "");
+            const _amtStr = _lastFeed.amount ? " · " + _lastFeed.amount + "ml" : _lastFeed.feedType === "breast" ? " · breast" : "";
+            const _agoStr = _feedAgo < 60 ? _feedAgo + "m ago" : Math.floor(_feedAgo / 60) + "h " + (_feedAgo % 60) + "m ago";
+            return (
+              <div style={{fontSize:12,color:C.lt,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                <span>🍼</span>
+                <span>Last feed {_feedStr}{_amtStr} ({_agoStr})</span>
+              </div>
+            );
+          })()}
           {_nwCtx && _nwCtx.wakeNum > 0 && _nwCtx.contextLine && <div style={{fontSize:12,color:C.lt,marginBottom:6,paddingLeft:2}}>{_nwCtx.contextLine}</div>}
           {bedPaused && _nwCtx && _nwCtx.topReason && <div style={{fontSize:13,color:C.ter,fontWeight:600,marginBottom:8,paddingLeft:2}}>{_nwCtx.topReason}</div>}
           {bedPaused && _nwCtx && _nwCtx.helpLine && <div style={{fontSize:12,color:C.mint,fontStyle:"italic",marginBottom:8,paddingLeft:2}}>{_nwCtx.helpLine}</div>}
