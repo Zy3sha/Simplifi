@@ -872,6 +872,31 @@ const ALLERGEN_GUIDE = [
    note:"Found in dried fruit, vinegar, some processed foods. Lower allergy risk than other allergens."},
 ];
 
+// Allergen cross-reactivity map (based on BSACI/medical literature)
+// If baby reacts to X, they have an increased risk of reacting to Y
+const ALLERGEN_CROSS_REACTIVITY = {
+  "peanuts":    { related: ["tree nuts","lupin","soy"], risk: "30-40% of peanut-allergic children also react to tree nuts. Lupin is botanically similar. Soy cross-reactivity is lower (~5%) but worth monitoring." },
+  "tree nuts":  { related: ["peanuts","sesame"], risk: "Cross-reactivity between different tree nuts is common (cashew↔pistachio ~70%, walnut↔pecan ~90%). Also linked to peanut and sesame." },
+  "milk":       { related: ["beef"], risk: "~10-20% of cow's milk allergic babies also react to beef protein. Goat/sheep milk proteins are very similar to cow's milk — NOT a safe substitute." },
+  "eggs":       { related: [], risk: "Egg allergy is usually independent. Most children outgrow it by school age. Well-baked egg (in cakes) is tolerated by ~70% of egg-allergic children." },
+  "fish":       { related: ["shellfish"], risk: "Fish and shellfish allergies are separate (~50% react to both), but introduce shellfish cautiously. Cross-reactivity between different fish species is common." },
+  "shellfish":  { related: ["fish"], risk: "Shrimp, crab, and lobster cross-react strongly. Molluscs (mussels, clams) are a separate group but some overlap exists." },
+  "wheat":      { related: [], risk: "Wheat allergy is usually specific to wheat. Other grains (oats, rice, barley) are generally safe. Coeliac disease is different from wheat allergy." },
+  "soy":        { related: ["peanuts"], risk: "Soy and peanut are both legumes. Cross-reactivity is possible but uncommon clinically (~5%)." },
+  "sesame":     { related: ["tree nuts"], risk: "Sesame allergy is increasingly common. Some cross-reactivity with tree nuts and poppy seeds." },
+  "mustard":    { related: [], risk: "Mustard allergy is usually independent. Cross-reactivity with other brassicas (rapeseed) is possible but rare." },
+  "celery":     { related: [], risk: "Celery allergy can be linked to birch pollen allergy in older children/adults (oral allergy syndrome)." },
+  "lupin":      { related: ["peanuts"], risk: "Strong cross-reactivity with peanut (up to 50%). If peanut-allergic, avoid lupin. Found in some continental breads and pastries." },
+  "sulphites":  { related: [], risk: "Sulphite sensitivity is separate from food allergy. More common in people with asthma." },
+  "molluscs":   { related: ["shellfish"], risk: "Molluscs (mussels, oysters, clams) cross-react with crustaceans in ~75% of shellfish-allergic individuals." },
+};
+
+function getCrossReactivityWarning(reactedAllergenId) {
+  const entry = ALLERGEN_CROSS_REACTIVITY[reactedAllergenId];
+  if (!entry || entry.related.length === 0) return null;
+  return { relatedAllergens: entry.related, explanation: entry.risk };
+}
+
 // Check if an allergen has been introduced in weaning log
 function allergenIntroduced(weaningLog, allergenId) {
   return (weaningLog||[]).some(w => {
@@ -29616,6 +29641,27 @@ function App(){
 Mild reactions: localised rash, slight swelling around mouth — give your {_doctor} a call and hold off this food until they advise.
 
 Severe: breathing changes, swelling of face/throat, very pale or floppy — please call {_emergNum} for help.</div>
+                {/* Cross-reactivity warning */}
+                {(()=>{
+                  const al = detectAllergens(weaningForm.food);
+                  if (!al.length) return null;
+                  const warnings = al.map(a => getCrossReactivityWarning(a)).filter(Boolean);
+                  if (!warnings.length) return null;
+                  const allRelated = [...new Set(warnings.flatMap(w => w.relatedAllergens))].filter(r => !al.includes(r));
+                  if (!allRelated.length) return null;
+                  return (
+                    <div style={{marginTop:8,padding:"8px 10px",borderRadius:10,background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.2)"}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.gold,marginBottom:4}}>⚠️ Cross-reactivity alert</div>
+                      <div style={{fontSize:11,color:C.mid,lineHeight:1.5}}>
+                        {babyName||"Baby"} may also react to: <strong>{allRelated.join(", ")}</strong>
+                      </div>
+                      {warnings.map((w,i) => (
+                        <div key={i} style={{fontSize:10,color:C.lt,lineHeight:1.4,marginTop:4}}>{w.explanation}</div>
+                      ))}
+                      <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:4}}>Speak to your {_doctor} before introducing these foods. Based on BSACI cross-reactivity guidance.</div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
             <button onClick={()=>{

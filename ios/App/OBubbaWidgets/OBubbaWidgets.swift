@@ -549,7 +549,7 @@ struct OBubbaSmallWidgetView: View {
             // Baby name — small, top
             Text(d.babyName)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundColor(brandDeep.opacity(0.5))
+                .foregroundColor(brandDeep.opacity(0.7))
 
                 if hasTimer, let startDate = d.timerStartDate {
                     // ── Active timer mode ──
@@ -590,7 +590,7 @@ struct OBubbaSmallWidgetView: View {
                         if !timeOnly.isEmpty {
                             Text("~\(timeOnly)")
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(brandPurple.opacity(0.5))
+                                .foregroundColor(brandPurple.opacity(0.7))
                         }
                     }
 
@@ -629,7 +629,7 @@ struct OBubbaSmallWidgetView: View {
 
                     Text("today so far")
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(brandDeep.opacity(0.4))
+                        .foregroundColor(brandDeep.opacity(0.65))
                 }
         }
         .padding(12)
@@ -701,7 +701,7 @@ struct OBubbaMediumWidgetView: View {
                         if let s = d.breastSide {
                             Text(s.capitalized + " side")
                                 .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(brandDeep.opacity(0.4))
+                                .foregroundColor(brandDeep.opacity(0.65))
                         }
                     }
                     .padding(.horizontal, 10)
@@ -728,7 +728,7 @@ struct OBubbaMediumWidgetView: View {
                                 if !timeOnly.isEmpty {
                                     Text(timeOnly)
                                         .font(.system(size: 9, weight: .semibold))
-                                        .foregroundColor(brandPurple.opacity(0.5))
+                                        .foregroundColor(brandPurple.opacity(0.7))
                                 }
                             }
                         }
@@ -799,7 +799,7 @@ struct OBubbaMediumWidgetView: View {
             ZStack {
                 brandBg
                 LinearGradient(
-                    colors: [Color.white.opacity(0.6), brandWarm.opacity(0.3)],
+                    colors: [Color.white.opacity(0.35), brandWarm.opacity(0.15)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -955,7 +955,7 @@ struct OBubbaTimerLiveActivity: Widget {
                     }
                     Text(context.attributes.babyName)
                         .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.5))
+                        .foregroundColor(brandDeep.opacity(0.7))
                         .lineLimit(1)
                 }
                 .frame(width: 48)
@@ -1081,7 +1081,7 @@ struct OBubbaPredictionLiveActivity: Widget {
                     }
                     Text(context.attributes.babyName)
                         .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.5))
+                        .foregroundColor(brandDeep.opacity(0.7))
                         .lineLimit(1)
                 }
                 .frame(width: 48)
