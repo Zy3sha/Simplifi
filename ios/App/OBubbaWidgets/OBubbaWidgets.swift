@@ -32,6 +32,11 @@ private func widgetStorePendingEntry(_ dict: [String: Any]) {
         let fileURL = containerURL.appendingPathComponent("pendingWidgetEntry.json")
         try? json.write(to: fileURL, atomically: true, encoding: .utf8)
     }
+
+    // Refresh widget timeline so Siri-logged entries appear on widget immediately
+    if #available(iOS 14.0, *) {
+        WidgetCenter.shared.reloadAllTimelines()
+    }
 }
 
 struct OBWidgetLogFeedIntent: AppIntent {

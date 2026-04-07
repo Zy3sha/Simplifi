@@ -7872,6 +7872,27 @@ function App(){
         {/* REASSURANCE */}
         <div style={{fontSize:12,color:C.mint,fontWeight:600,fontStyle:"italic",paddingLeft:16,paddingRight:4,paddingTop:4,paddingBottom:heroWhyOpen?8:0}}>{_reassure}</div>
 
+        {/* First prediction tooltip — one-time explainer for new users */}
+        {_nextEvent && (()=>{
+          const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
+          const _shown = localStorage.getItem("ob_pred_tooltip_v1");
+          if (_shown || _daysLogged >= 5) return null;
+          return (
+            <div style={{marginLeft:16,marginRight:16,marginBottom:8,padding:"10px 14px",borderRadius:12,background:`linear-gradient(135deg,${C.sky}10,${C.mint}08)`,border:`1px solid ${C.sky}25`}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                <span style={{fontSize:14,flexShrink:0,marginTop:1}}>💡</span>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:3}}>How predictions work</div>
+                  <div style={{fontSize:11,color:C.mid,lineHeight:1.5}}>
+                    Right now this is based on NHS guidelines for {babyName||"baby"}'s age. After 3-5 days of logging, OBubba learns {babyName||"baby"}'s unique rhythm and predictions get much more accurate.
+                  </div>
+                  <button onClick={()=>{try{localStorage.setItem("ob_pred_tooltip_v1","1");}catch{}haptic();setPartnerTick(t=>t+1);}} style={{marginTop:6,background:"none",border:"none",padding:0,fontSize:11,color:C.ter,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Got it ✓</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Skip nap — only when nap is overdue and baby won't settle */}
         {_nextEvent && _nextEvent.icon === "😴" && td && !td.napsComplete && !td.hasBedtime && (()=>{
           const _napPred = tickDataRef.current?.pred;
@@ -20464,6 +20485,41 @@ function App(){
 
               {/* Morning wellbeing popup rendered as fixed overlay below */}
 
+              {/* WHAT'S NEW — shows once after app update */}
+              {!daySubScreen && (()=>{
+                const _currentVersion = "1.1.2";
+                const _lastSeen = localStorage.getItem("ob_whats_new_v");
+                if (_lastSeen === _currentVersion) return null;
+                // Only show for existing users (have data)
+                const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
+                if (_daysLogged < 2) return null;
+                return (
+                  <div className="glass-card" style={{padding:"16px",marginBottom:10,border:`1.5px solid ${C.gold}30`,background:`linear-gradient(135deg,${C.gold}08,${C.ter}04)`}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={_S.f20}>✨</span>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep}}>What's new in OBubba</div>
+                      </div>
+                      <button onClick={()=>{try{localStorage.setItem("ob_whats_new_v",_currentVersion);}catch{}haptic();setPartnerTick(t=>t+1);}} style={{background:"none",border:"none",fontSize:11,color:C.lt,cursor:_cP}}>✕</button>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {[
+                        ["🧷","Bubba Care — share a care guide with carers via QR. They can log feeds, naps, nappies in real-time."],
+                        ["🧠","Smarter predictions — confidence indicator, illness mode, fragmented nap rescue"],
+                        ["📸","Share cards — Weekly Wrapped, milestone celebrations, auto-copy captions with hashtags"],
+                        ["🤒","Not a normal day? — teething/illness mode shortens wake windows automatically"],
+                        ["📡","Offline resilience — logs save locally when you lose signal"],
+                      ].map(([icon,text],i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:12,color:C.mid,lineHeight:1.5}}>
+                          <span style={{flexShrink:0}}>{icon}</span>
+                          <span>{text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* FIRST WEEK GUIDE — age-specific "what's normal" for new users */}
               {!daySubScreen && (()=>{
                 const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
@@ -22280,6 +22336,7 @@ function App(){
                             <div style={{fontSize:14,fontWeight:600,color:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"flex",alignItems:"center",gap:6}}>
                               <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{actLabel}</span>
                               {e.loggedBy==="grandparent" && <span title="Logged by caregiver" style={{fontSize:11,padding:"1px 6px",borderRadius:99,background:"rgba(123,166,140,0.15)",color:C.mint,fontWeight:700,flexShrink:0}}>👵</span>}
+                              {e.loggedBy==="carer" && <span title="Auto-added from Bubba Care" style={{fontSize:9,padding:"2px 6px",borderRadius:99,background:"rgba(123,104,238,0.12)",color:"#7B68EE",fontWeight:700,flexShrink:0,fontFamily:_fM}}>CARER</span>}
                             </div>
                             {subDetail&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subDetail}</div>}
                           </div>
