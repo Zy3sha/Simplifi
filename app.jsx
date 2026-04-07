@@ -19507,8 +19507,6 @@ function App(){
         }
       } catch {}
 
-    } catch {}
-
     // ── Dream feed optimizer ──
     try {
       const _dreamPairs = [];
