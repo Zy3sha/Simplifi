@@ -12408,18 +12408,29 @@ function App(){
     const napDelta = (np3 !== null && np7 !== null) ? np3 - np7 : null;
 
     const signals = [];
+    // Check if a nap transition is likely happening (fewer naps + longer wake windows = transition, not overtiredness)
+    const _transitionLikely = wwDelta > 0 && napDelta < 0; // longer WW + shorter naps = classic transition signal
+
     // Wake window trend
     if (wwDelta !== null && Math.abs(wwDelta) >= 10) {
       if (wwDelta > 0) {
-        signals.push({ type: "ww_lengthening", delta: wwDelta, message: "Wake windows are trending longer (last 3 days avg " + hm(ww3) + ", 7-day " + hm(ww7) + "). Try stretching predictions by ~" + wwDelta + "min." });
+        if (_transitionLikely) {
+          signals.push({ type: "ww_lengthening", delta: wwDelta, message: "Wake windows are naturally stretching (last 3 days avg " + hm(ww3) + ", 7-day " + hm(ww7) + "). This is a normal part of development — " + (babyName||"baby") + " can handle longer awake periods now." });
+        } else {
+          signals.push({ type: "ww_lengthening", delta: wwDelta, message: "Wake windows are trending longer (last 3 days avg " + hm(ww3) + ", 7-day " + hm(ww7) + "). Try stretching predictions by ~" + wwDelta + "min." });
+        }
       } else {
         signals.push({ type: "ww_shortening", delta: wwDelta, message: "Wake windows are trending shorter (last 3 days avg " + hm(ww3) + ", 7-day " + hm(ww7) + "). Try tightening predictions by ~" + Math.abs(wwDelta) + "min." });
       }
     }
-    // Nap duration trend
+    // Nap duration trend — DON'T blame overtiredness if transition is happening
     if (napDelta !== null && Math.abs(napDelta) >= 10) {
       if (napDelta < 0) {
-        signals.push({ type: "naps_shortening", delta: napDelta, message: "Naps are getting shorter (last 3 days avg " + hm(np3) + ", 7-day " + hm(np7) + "). Often a signal of overtiredness — try pulling wake windows in slightly." });
+        if (_transitionLikely) {
+          signals.push({ type: "naps_shortening", delta: napDelta, message: "Naps are shorter (last 3 days avg " + hm(np3) + ", 7-day " + hm(np7) + "). This often happens during a nap transition — " + (babyName||"baby") + " is consolidating sleep into fewer, potentially longer naps. Keep wake windows consistent." });
+        } else {
+          signals.push({ type: "naps_shortening", delta: napDelta, message: "Naps are getting shorter (last 3 days avg " + hm(np3) + ", 7-day " + hm(np7) + "). Often a signal of overtiredness — try pulling wake windows in slightly." });
+        }
       } else {
         signals.push({ type: "naps_lengthening", delta: napDelta, message: "Naps are consolidating (last 3 days avg " + hm(np3) + ", 7-day " + hm(np7) + "). The rhythm is maturing." });
       }
