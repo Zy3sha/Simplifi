@@ -20164,6 +20164,105 @@ function App(){
       }
     } catch {}
 
+    // ── Best day recipe — what makes Oliver's perfect day ──
+    try {
+      const _dayScores = [];
+      const _dk3 = Object.keys(days).sort().slice(-21);
+      _dk3.forEach(dk => {
+        const ent = days[dk] || [];
+        if (ent.length < 4) return;
+        const feeds = ent.filter(e => isBabyFeed(e));
+        const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
+        const napMin = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+        const totalMl = feeds.reduce((s, f) => s + (f.amount || 0), 0);
+        const bed = ent.find(e => e.type === "sleep" && !e.night);
+        const bedMins = bed ? timeVal(bed) : null;
+        const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+        _dayScores.push({ date: dk, napMin, totalMl, feedCount: feeds.length, napCount: naps.length, bedMins, nightWakes });
+      });
+      if (_dayScores.length >= 10) {
+        const _best = [..._dayScores].sort((a, b) => a.nightWakes - b.nightWakes).slice(0, 3);
+        const _worst = [..._dayScores].sort((a, b) => b.nightWakes - a.nightWakes).slice(0, 3);
+        if (_best.length >= 2 && _worst.length >= 2) {
+          const avg = arr => ({ napMin: Math.round(arr.reduce((s, d) => s + d.napMin, 0) / arr.length), ml: Math.round(arr.reduce((s, d) => s + d.totalMl, 0) / arr.length), bed: Math.round(arr.reduce((s, d) => s + (d.bedMins || 0), 0) / arr.filter(d => d.bedMins).length), wakes: Math.round(arr.reduce((s, d) => s + d.nightWakes, 0) / arr.length * 10) / 10 });
+          const _b = avg(_best);
+          const _w = avg(_worst);
+          addObservation("🏆", _name + "'s best day recipe",
+            `${_name}'s 3 best nights (${_b.wakes} avg wakes) all had: ${hm(_b.napMin)} nap time${_b.ml > 0 ? ", " + _b.ml + "ml milk" : ""}${_b.bed ? ", bedtime ~" + fmt12(minsToTime(_b.bed)) : ""}.`,
+            "Compare to rougher nights (" + _w.wakes + " avg wakes): " + hm(_w.napMin) + " nap time" + (_w.ml > 0 ? ", " + _w.ml + "ml" : "") + (_w.bed ? ", bedtime ~" + fmt12(minsToTime(_w.bed)) : "") + ".\n\nThe pattern: " + (_b.napMin > _w.napMin ? "more daytime sleep" : "less daytime sleep") + " + " + (_b.ml > _w.ml ? "bigger intake" : "smaller intake") + " + " + (_b.bed && _w.bed && _b.bed < _w.bed ? "earlier bedtime" : "consistent bedtime") + " = better nights. Use this as your target day.");
+        }
+      }
+    } catch {}
+
+    // ── Weekend vs weekday pattern ──
+    try {
+      const _weekday = [], _weekend = [];
+      for (let i = 0; i < 21; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        if (ent.length < 3) continue;
+        const wake = ent.find(e => e.type === "wake" && !e.night);
+        const bed = ent.find(e => e.type === "sleep" && !e.night);
+        if (!wake || !bed) continue;
+        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+        const data = { wakeMins: timeVal(wake), bedMins: timeVal(bed) };
+        if (isWeekend) _weekend.push(data); else _weekday.push(data);
+      }
+      if (_weekday.length >= 5 && _weekend.length >= 3) {
+        const _wdWake = Math.round(_weekday.reduce((s, d) => s + d.wakeMins, 0) / _weekday.length);
+        const _weWake = Math.round(_weekend.reduce((s, d) => s + d.wakeMins, 0) / _weekend.length);
+        const _diff = _weWake - _wdWake;
+        if (Math.abs(_diff) >= 20) {
+          addObservation("📅", "Weekend vs weekday pattern",
+            `${_name} wakes ${Math.abs(_diff)} min ${_diff > 0 ? "later" : "earlier"} on weekends (${fmt12(minsToTime(_weWake))}) vs weekdays (${fmt12(minsToTime(_wdWake))}).`,
+            Math.abs(_diff) > 30 ? "A difference of " + Math.abs(_diff) + " min disrupts the body clock. Try keeping wake time within ±15 min — even on weekends. The morning wake anchors the whole day." : "Small variation is fine — " + _name + "'s rhythm is fairly consistent across the week.");
+        }
+      }
+    } catch {}
+
+    // ── Feeding efficiency for breast (duration trend) ──
+    try {
+      const _breastFeeds = Object.values(days).flat().filter(e => e && e.type === "feed" && e.feedType === "breast" && (e.breastL || e.breastR));
+      if (_breastFeeds.length >= 10) {
+        const _older = _breastFeeds.slice(0, Math.floor(_breastFeeds.length / 2));
+        const _newer = _breastFeeds.slice(Math.floor(_breastFeeds.length / 2));
+        const avgDur = arr => Math.round(arr.reduce((s, f) => s + (parseInt(f.breastL) || 0) + (parseInt(f.breastR) || 0), 0) / arr.length);
+        const _oldAvg = avgDur(_older);
+        const _newAvg = avgDur(_newer);
+        if (_newAvg < _oldAvg - 3 && _newAvg > 3) {
+          addObservation("🤱", "Breastfeeding getting more efficient",
+            `${_name}'s breast feeds have shortened from ${_oldAvg}min average to ${_newAvg}min. This is a GOOD sign — not less intake.`,
+            "As babies mature, they become more efficient at extracting milk. A 5-minute feed at 4 months can transfer the same volume as a 15-minute feed at 6 weeks. Watch for: satisfied after feeds, good weight gain, plenty of wet nappies. If all three are present, shorter feeds are a milestone, not a concern. 💪");
+        }
+      }
+    } catch {}
+
+    // ── Correlation dashboard summary — top 3 insights ──
+    try {
+      const _correlations = [];
+      // Collect all correlations we've found
+      if (_nightData && _nightData.length >= 5) {
+        // Nap total vs night quality
+        const _sortedByNap = [..._nightData].sort((a, b) => a.napMin - b.napMin);
+        const _lowNap = _sortedByNap.slice(0, Math.ceil(_sortedByNap.length / 3));
+        const _highNap = _sortedByNap.slice(-Math.ceil(_sortedByNap.length / 3));
+        if (_lowNap.length >= 2 && _highNap.length >= 2) {
+          const _lwakes = Math.round(_lowNap.reduce((s, n) => s + n.wakes, 0) / _lowNap.length * 10) / 10;
+          const _hwakes = Math.round(_highNap.reduce((s, n) => s + n.wakes, 0) / _highNap.length * 10) / 10;
+          if (Math.abs(_lwakes - _hwakes) >= 0.5) {
+            _correlations.push(_lwakes > _hwakes ? "More day sleep → fewer night wakes" : "Less day sleep → fewer night wakes (may be undertired)");
+          }
+        }
+      }
+      // We'll surface the top correlation as an observation
+      if (_correlations.length > 0) {
+        addObservation("🔗", _name + "'s strongest pattern",
+          _correlations[0],
+          "This is based on " + _name + "'s actual data — not guidelines. Every baby is different, and " + _name + "'s patterns are unique.");
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
