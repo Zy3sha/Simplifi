@@ -21577,7 +21577,7 @@ function App(){
 
               {/* ═══ Detailed Log — brought back per user request (gives access to Med/Temp, Tummy Time, Activities beyond the dashboard quick-log) ═══ */}
               {daySubScreen==="log" && (<>
-              <button onClick={()=>{haptic();setDetailLogOpen(!detailLogOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:detailLogOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:detailLogOpen?0:10}}>
+              <button onClick={()=>{haptic();setDetailLogOpen(!detailLogOpen);if(!detailLogOpen){setTodayPlanOpen(false);setNotesOpen(false);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:detailLogOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:detailLogOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📝 Detailed Log</span>
                 </div>
@@ -21825,7 +21825,7 @@ function App(){
               {/* ═══ Today's Plan — PLAN-ONLY sub-screen ═══ */}
               {daySubScreen==="plan" && (<>
 
-              <button onClick={()=>{haptic();setTodayPlanOpen(!todayPlanOpen);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:todayPlanOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:todayPlanOpen?0:10}}>
+              <button onClick={()=>{haptic();setTodayPlanOpen(!todayPlanOpen);if(!todayPlanOpen){setDetailLogOpen(false);setNotesOpen(false);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:todayPlanOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:todayPlanOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                   <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📋 Timeline</span>
                   <span style={{fontSize:11,color:C.lt}}>{(days[selDay]||[]).filter(e=>!e.night).length} events today</span>
@@ -22529,6 +22529,39 @@ function App(){
               })()}
 
               </>)}{/* end LOG-ONLY timeline + night wakes block */}
+
+              {/* ═══ COMPACT "COMING UP" — plan preview inside the log ═══ */}
+              {daySubScreen==="log" && selDay===todayStr() && (()=>{
+                const _td = tickDataRef.current || {};
+                if (_td.hasBedtime || !_td.lastAwakeMins) return null;
+                const _items = [];
+                // Next nap
+                if (!_td.napsComplete && _td.nextNapMins && _td.nextNapMins > 0) {
+                  const _napH = Math.floor(_td.nextNapMins/60)%24;
+                  const _napM = Math.round(_td.nextNapMins%60);
+                  _items.push({icon:"😴", label:(_td.bridgeNapNeeded?"Bridge nap":"Nap "+(_td.napsDone+1)), time:fmt12(String(_napH).padStart(2,"0")+":"+String(_napM).padStart(2,"0")), predicted:true});
+                }
+                // Bedtime
+                if (_td.bedMins) {
+                  const _bedH = Math.floor(_td.bedMins/60)%24;
+                  const _bedM = Math.round(_td.bedMins%60);
+                  _items.push({icon:"🌙", label:"Bedtime", time:fmt12(String(_bedH).padStart(2,"0")+":"+String(_bedM).padStart(2,"0")), predicted:true});
+                }
+                if (!_items.length) return null;
+                return (
+                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,border:`1px dashed ${C.blush}`,background:"var(--card-bg-alt)"}}>
+                    <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Coming up</div>
+                    {_items.map((item,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
+                        <span style={{fontSize:13}}>{item.icon}</span>
+                        <span style={{fontSize:12,fontWeight:600,color:C.deep}}>{item.label}</span>
+                        <span style={{fontSize:12,color:C.lt,fontFamily:_fM}}>{item.time}</span>
+                        <span style={{fontSize:8,fontFamily:_fM,color:C.blush,background:"var(--chip-bg)",padding:"1px 5px",borderRadius:99}}>predicted</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* ═══ ACTIVITY OF THE DAY — moved to News sub-screen ═══ */}
 
