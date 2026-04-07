@@ -20422,6 +20422,154 @@ function App(){
       }
     } catch {}
 
+    // ── Milestone-sleep correlation — physical milestones disrupt sleep ──
+    try {
+      const _sleepDisruptingMilestones = {
+        "m32": { label: "Rolling front to back", impact: "Baby may roll in the cot and wake themselves. Practice rolling during the day so it becomes boring. Ensure safe sleep: no blankets, feet-to-foot position." },
+        "m33": { label: "Rolling back to front", impact: "Baby might roll onto tummy and get stuck. Practice tummy-to-back rolling during the day. If baby rolls to tummy and is happy, let them sleep — it's safe once they can roll both ways." },
+        "m36": { label: "Sitting up", impact: "Baby may sit up in the cot and not know how to lie back down. Practice the sit-to-lying transition during play. This phase passes in 1-2 weeks." },
+        "m38": { label: "Crawling", impact: "Crawling is a HUGE brain event. Expect 1-2 weeks of disrupted sleep while the brain processes this new skill. Baby may 'practice' crawling in their sleep. Keep routines consistent." },
+        "m39": { label: "Pulling to stand", impact: "Baby will pull up in the cot and cry because they can't get back down. Practice sitting down from standing during the day. Lower the cot mattress if you haven't already." },
+        "m42": { label: "First steps", impact: "Walking is the biggest motor milestone. Expect sleep disruption for 1-3 weeks. The brain is processing an enormous amount of new information. Extra patience needed — this is temporary." },
+        "m8":  { label: "Stranger anxiety", impact: "Baby may wake more and need extra reassurance at night. Separation anxiety peaks around 8-10 months. Brief, calm check-ins work better than picking up every time." },
+        "m12": { label: "Separation anxiety peaks", impact: "The peak of separation anxiety. Bedtime resistance and extra night wakes are common. A consistent, calm goodbye routine helps. This phase passes by 18 months for most babies." },
+      };
+      const _recentMilestones = Object.entries(activeChild.milestones || {}).filter(([id, data]) => {
+        if (!data || !data.date) return false;
+        const daysSince = Math.round((Date.now() - new Date(data.date).getTime()) / 86400000);
+        return daysSince >= 0 && daysSince <= 10 && _sleepDisruptingMilestones[id];
+      });
+      if (_recentMilestones.length > 0) {
+        const [msId] = _recentMilestones[0];
+        const ms = _sleepDisruptingMilestones[msId];
+        addObservation("🧠", ms.label + " → expect sleep changes",
+          `${_name} recently achieved "${ms.label}". Physical and cognitive milestones commonly disrupt sleep for 1-2 weeks while the brain processes the new skill.`,
+          ms.impact + "\n\nThis is NOT a regression — it's progression. " + _name + "'s brain is doing incredible work. Sleep will resettle.");
+      }
+    } catch {}
+
+    // ── Cluster feeding detection ──
+    try {
+      const _todayFeeds3 = (days[todayStr()] || []).filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+      let _clusterCount = 0;
+      let _clusterStart = null;
+      for (let i = 1; i < _todayFeeds3.length; i++) {
+        const gap = timeVal(_todayFeeds3[i]) - timeVal(_todayFeeds3[i-1]);
+        if (gap > 0 && gap < 90) {
+          _clusterCount++;
+          if (!_clusterStart) _clusterStart = _todayFeeds3[i-1].time;
+        }
+      }
+      if (_clusterCount >= 2) {
+        const _isEvening = new Date().getHours() >= 16;
+        addObservation("🍼", "Cluster feeding detected",
+          `${_name} has had ${_clusterCount + 1} feeds close together${_clusterStart ? " starting around " + fmt12(_clusterStart) : ""}. This is cluster feeding — completely normal.`,
+          _isEvening
+            ? "Evening cluster feeding is one of the most common baby behaviours. " + _name + " is 'tanking up' before the long overnight stretch. This often leads to a better first sleep stretch. Let " + _name + " feed as much as they want."
+            : (_wks < 12
+              ? "In the early weeks, cluster feeding helps build milk supply and meets rapid growth needs. Feed on demand — you cannot overfeed a breastfed baby."
+              : "Cluster feeding can signal a growth spurt, teething discomfort, or just a hungry day. Follow " + _name + "'s cues — they know what they need."));
+      }
+    } catch {}
+
+    // ── Clock change body clock recovery tracker ──
+    try {
+      const _now3 = new Date();
+      const _yr = _now3.getFullYear();
+      // UK clocks: last Sunday of March (forward), last Sunday of October (back)
+      const _marchLast = new Date(_yr, 2, 31); while (_marchLast.getDay() !== 0) _marchLast.setDate(_marchLast.getDate() - 1);
+      const _octLast = new Date(_yr, 9, 31); while (_octLast.getDay() !== 0) _octLast.setDate(_octLast.getDate() - 1);
+      const _daysSinceMarch = Math.round((_now3 - _marchLast) / 86400000);
+      const _daysSinceOct = Math.round((_now3 - _octLast) / 86400000);
+      const _recentClockChange = (_daysSinceMarch >= 1 && _daysSinceMarch <= 10) ? "forward" : (_daysSinceOct >= 1 && _daysSinceOct <= 10) ? "back" : null;
+      if (_recentClockChange) {
+        // Track how wake time is shifting since the clock change
+        const _wakeTrend = [];
+        for (let i = 0; i < Math.min(_daysSinceMarch || _daysSinceOct, 10); i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0, 10);
+          const ent = days[ds] || [];
+          const wake = ent.find(e => e.type === "wake" && !e.night);
+          if (wake) _wakeTrend.push(timeVal(wake));
+        }
+        if (_wakeTrend.length >= 3) {
+          const _latestWake = _wakeTrend[0];
+          const _firstWake = _wakeTrend[_wakeTrend.length - 1];
+          const _shift = _latestWake - _firstWake;
+          const _daysIn = _recentClockChange === "forward" ? _daysSinceMarch : _daysSinceOct;
+          if (Math.abs(_shift) < 15) {
+            addObservation("✅", "Body clock adjusted!",
+              `${_name}'s wake time has settled ${_daysIn} days after the clock change. Body clock is adapted.`,
+              "Well done — the gradual shift worked. Most babies adjust within 3-7 days.");
+          } else {
+            addObservation("🕐", "Clock change: day " + _daysIn + " of adjustment",
+              `${_name}'s wake time is still shifting (${Math.abs(_shift)} min ${_shift > 0 ? "later" : "earlier"} than day 1). Most babies take 3-7 days to adjust.`,
+              _recentClockChange === "forward"
+                ? "Spring forward: keep pushing bedtime towards the new clock. Lots of daylight exposure in the morning helps reset the body clock faster."
+                : "Fall back: " + _name + " may wake early for a few more days. Keep the room dark until the target wake time. Avoid starting the day before 6am (new time).");
+          }
+        }
+      }
+    } catch {}
+
+    // ── "Ask your health visitor about" — proactive HV checklist ──
+    try {
+      const _hvItems = [];
+      // Weight concerns
+      if (weights && weights.length >= 2) {
+        const _sortedW2 = [...weights].sort((a, b) => a.date.localeCompare(b.date));
+        const _latestW = _sortedW2[_sortedW2.length - 1];
+        const _prevW = _sortedW2[_sortedW2.length - 2];
+        const _daysBetween2 = Math.round((new Date(_latestW.date) - new Date(_prevW.date)) / 86400000);
+        if (_daysBetween2 > 0) {
+          const _dailyGain2 = (_latestW.kg - _prevW.kg) / _daysBetween2 * 1000;
+          if (_dailyGain2 < 5 && _wks < 26) _hvItems.push("📊 Weight gain has slowed (" + Math.round(_dailyGain2) + "g/day — expected ~" + (_wks < 13 ? "25" : "15") + "g/day)");
+          if (_latestW.kg < _prevW.kg) _hvItems.push("📉 Weight has dropped since last measurement");
+        }
+      }
+      // Feeding concerns
+      const _feedData2 = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ml = (days[ds] || []).filter(e => isBabyFeed(e)).reduce((s, f) => s + (f.amount || 0), 0);
+        if (ml > 0) _feedData2.push(ml);
+      }
+      if (_feedData2.length >= 3) {
+        const _avgMl3 = Math.round(_feedData2.reduce((a, b) => a + b, 0) / _feedData2.length);
+        const _target = _wks < 13 ? 500 : _wks < 26 ? 600 : 500;
+        if (_avgMl3 < _target * 0.7) _hvItems.push("🍼 Milk intake averaging " + _avgMl3 + "ml/day (below " + _target + "ml target)");
+      }
+      // Nappy concerns
+      const _pooCounts2 = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const wet = (days[ds] || []).filter(e => e.type === "poop" && ((e.poopType || "").includes("wet") || e.poopType === "both")).length;
+        _pooCounts2.push(wet);
+      }
+      const _avgWet = _pooCounts2.length ? Math.round(_pooCounts2.reduce((a, b) => a + b, 0) / _pooCounts2.length * 10) / 10 : 0;
+      if (_avgWet < 4) _hvItems.push("💧 Wet nappies averaging " + _avgWet + "/day (target 6+) — possible dehydration signal");
+      // Weaning reactions
+      const _reactions = (weaning || []).filter(w => w.reaction === "allergic" || w.reaction === "bad");
+      if (_reactions.length > 0) _hvItems.push("🥄 Food reactions logged: " + _reactions.map(r => r.food).join(", ") + " — discuss allergen testing");
+      // Sleep
+      const _nightWakeCounts = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        _nightWakeCounts.push((days[ds] || []).filter(e => (e.type === "wake" || e.type === "feed") && e.night).length);
+      }
+      const _avgNW = _nightWakeCounts.length ? Math.round(_nightWakeCounts.reduce((a, b) => a + b, 0) / _nightWakeCounts.length * 10) / 10 : 0;
+      if (_avgNW >= 5 && _wks >= 26) _hvItems.push("😴 Averaging " + _avgNW + " night wakes at " + Math.round(_wks / 4.3) + " months — discuss sleep support options");
+
+      if (_hvItems.length > 0) {
+        addObservation("🏥", "For your next health visitor check-up",
+          "Based on " + _name + "'s recent data, these might be worth mentioning:",
+          _hvItems.map(item => "• " + item).join("\n") + "\n\nThese are conversation starters, not diagnoses. Your health visitor will have the full picture and can advise. You can share the HV Report (Account → Data section) for a detailed summary.");
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
