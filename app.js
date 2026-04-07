@@ -19480,6 +19480,59 @@ function App(){
     } catch {}
   }, [_feedCardMemo, babyName, addObservation]);
 
+  // ── One-time data repair: fix imported data missing wakes/bedtimes ──
+  React.useEffect(() => {
+    try {
+      if (localStorage.getItem("ob_import_repair_v2")) return;
+      const allDays = days;
+      if (!allDays || Object.keys(allDays).length < 3) return;
+      let repaired = 0;
+      const patched = {...allDays};
+      Object.keys(patched).forEach(dk => {
+        const entries = patched[dk] || [];
+        if (entries.length === 0) return;
+        const hasWake = entries.some(e => e.type === "wake" && !e.night);
+        const hasBedtime = entries.some(e => e.type === "sleep" && !e.night);
+        // Fix missing morning wake
+        if (!hasWake) {
+          const daytime = entries.filter(e => {
+            const t = e.time || e.start || "";
+            if (!t) return false;
+            const h = parseInt(t.split(":")[0]);
+            return h >= 5 && h < 12;
+          }).sort((a, b) => (a.time || a.start || "").localeCompare(b.time || b.start || ""));
+          if (daytime.length > 0) {
+            const ft = daytime[0].time || daytime[0].start;
+            const [fh, fm] = ft.split(":").map(Number);
+            let wm = fh * 60 + fm - 30;
+            if (wm < 300) wm = 300;
+            const wH = String(Math.floor(wm / 60)).padStart(2, "0");
+            const wM = String(wm % 60).padStart(2, "0");
+            patched[dk] = [{id: uid(), type: "wake", time: wH + ":" + wM, night: false, src: "repair"}, ...entries];
+            repaired++;
+          }
+        }
+        // Fix naps that should be bedtimes (sleep starting after 6pm)
+        patched[dk] = (patched[dk] || []).map(e => {
+          if (e.type === "nap" && e.start) {
+            const sh = parseInt(e.start.split(":")[0]);
+            if (sh >= 18 || sh < 4) {
+              repaired++;
+              return {...e, type: "sleep", time: e.start, night: false};
+            }
+          }
+          return e;
+        });
+      });
+      if (repaired > 0) {
+        setDays(patched);
+        console.log("[OBubba] Data repair: fixed " + repaired + " entries (missing wakes/bedtimes)");
+        showToast("✨ Imported data repaired — predictions now active!", 3000, 1);
+      }
+      localStorage.setItem("ob_import_repair_v2", "1");
+    } catch (e) { console.warn("Data repair error:", e); }
+  }, []);
+
   // ── Proactive intelligence: regression forecaster, nap transition, false starts, clock change ──
   React.useEffect(() => {
     try {
