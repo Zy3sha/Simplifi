@@ -17562,6 +17562,106 @@ function App(){
     return lines.join("\n");
   }
 
+  // ── Health Visitor / GP Report ──
+  function generateHVReport() {
+    const name = babyName || "Baby";
+    const ageStr = age ? fmtAge(age) : "";
+    const lines = [];
+    lines.push("═══════════════════════════════════════");
+    lines.push("BABY HEALTH SUMMARY — " + name.toUpperCase());
+    lines.push("Generated: " + new Date().toLocaleDateString("en-GB", {day:"numeric",month:"long",year:"numeric"}));
+    lines.push("Age: " + ageStr + (babyDob ? " (DOB: " + new Date(babyDob).toLocaleDateString("en-GB") + ")" : ""));
+    lines.push("═══════════════════════════════════════");
+    lines.push("");
+
+    // Weight
+    if (weights && weights.length > 0) {
+      const latest = weights[weights.length - 1];
+      lines.push("WEIGHT");
+      lines.push("Latest: " + latest.kg + "kg (" + new Date(latest.date).toLocaleDateString("en-GB") + ")");
+      if (weights.length >= 2) {
+        const prev = weights[weights.length - 2];
+        const gain = (latest.kg - prev.kg).toFixed(2);
+        const days_diff = Math.round((new Date(latest.date) - new Date(prev.date)) / 86400000);
+        lines.push("Previous: " + prev.kg + "kg (" + days_diff + " days ago, +" + gain + "kg)");
+      }
+      lines.push("");
+    }
+
+    // Feeding — last 7 days
+    lines.push("FEEDING (LAST 7 DAYS)");
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      const ent = days[ds] || [];
+      const feeds = ent.filter(e => isBabyFeed(e));
+      const totalMl = feeds.reduce((s, f) => s + (f.amount || 0), 0);
+      const breastCount = feeds.filter(f => f.feedType === "breast").length;
+      const bottleCount = feeds.filter(f => f.feedType === "milk" || f.feedType === "bottle").length;
+      const dateLabel = d.toLocaleDateString("en-GB", {weekday:"short",day:"numeric",month:"short"});
+      lines.push(dateLabel + ": " + feeds.length + " feeds" + (totalMl > 0 ? " (" + totalMl + "ml)" : "") + (breastCount ? " [" + breastCount + " breast]" : "") + (bottleCount ? " [" + bottleCount + " bottle]" : ""));
+    }
+    lines.push("");
+
+    // Nappies — last 7 days
+    lines.push("NAPPIES (LAST 7 DAYS)");
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      const ent = days[ds] || [];
+      const nappies = ent.filter(e => e.type === "poop");
+      const wet = nappies.filter(e => (e.poopType || "").includes("wet") || e.poopType === "both").length;
+      const dirty = nappies.filter(e => (e.poopType || "").includes("dirty") || e.poopType === "both").length;
+      const dateLabel = d.toLocaleDateString("en-GB", {weekday:"short",day:"numeric",month:"short"});
+      lines.push(dateLabel + ": " + nappies.length + " nappies (" + wet + " wet, " + dirty + " dirty)");
+    }
+    lines.push("");
+
+    // Sleep — last 7 days
+    lines.push("SLEEP (LAST 7 DAYS)");
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      const ent = days[ds] || [];
+      const naps = ent.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.start !== e.end);
+      const napMins = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+      const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+      const bed = ent.find(e => e.type === "sleep");
+      const wake = ent.find(e => e.type === "wake" && !e.night);
+      const dateLabel = d.toLocaleDateString("en-GB", {weekday:"short",day:"numeric",month:"short"});
+      lines.push(dateLabel + ": " + naps.length + " naps (" + hm(napMins) + ")" + (bed ? " · bed " + fmt12(bed.time) : "") + (wake ? " · wake " + fmt12(wake.time) : "") + " · " + nightWakes + " night wakes");
+    }
+    lines.push("");
+
+    // Weaning
+    if (weaning && weaning.length > 0) {
+      lines.push("WEANING");
+      lines.push("Foods introduced: " + weaning.length);
+      const allergens = weaning.filter(w => detectAllergens(w.food).length > 0);
+      lines.push("Allergens introduced: " + allergens.length + "/14");
+      const reactions = weaning.filter(w => w.reaction === "bad" || w.reaction === "allergic");
+      if (reactions.length > 0) {
+        lines.push("⚠️ REACTIONS RECORDED:");
+        reactions.forEach(r => lines.push("  - " + r.food + " (" + r.date + "): " + (r.note || r.reaction)));
+      }
+      lines.push("");
+    }
+
+    // Milestones
+    const msKeys = Object.keys(activeChild.milestones || {}).filter(k => activeChild.milestones[k]);
+    if (msKeys.length > 0) {
+      lines.push("MILESTONES ACHIEVED");
+      msKeys.slice(0, 15).forEach(k => lines.push("  ✓ " + k.replace(/_/g, " ")));
+      if (msKeys.length > 15) lines.push("  ...and " + (msKeys.length - 15) + " more");
+      lines.push("");
+    }
+
+    lines.push("═══════════════════════════════════════");
+    lines.push("Generated by OBubba — obubba.com");
+    lines.push("This is a parent-generated summary, not a medical document.");
+    return lines.join("\n");
+  }
+
   // ── Weekly Digest Generator ──
   // ── Bubba Care Generator ──
   function generateCarerCardHTML() {
@@ -19372,6 +19472,146 @@ function App(){
             "By Sunday, you'll have pushed bedtime 30-40min later. Early wake-ups are normal for the first 3-5 days — stay consistent and " + _name + "'s body clock will adjust.");
         }
       } catch {}
+
+    } catch {}
+
+    // ── Dream feed optimizer ──
+    try {
+      const _dreamPairs = [];
+      const _dk = Object.keys(days).sort().slice(-14);
+      _dk.forEach(dk => {
+        const ent = days[dk] || [];
+        const bed = ent.find(e => e.type === "sleep" && !e.night);
+        if (!bed) return;
+        const bedMins = timeVal(bed);
+        // Find feeds within 2h after bedtime (dream feed window: 10pm-midnight typically)
+        const nightFeeds = ent.filter(e => e.type === "feed" && e.night);
+        const dreamFeed = nightFeeds.find(f => {
+          let diff = timeVal(f) - bedMins;
+          if (diff < 0) diff += 1440;
+          return diff > 30 && diff < 180; // 30min-3h after bed = dream feed
+        });
+        // Find first natural wake after dream feed (or after bed if no dream feed)
+        const allNightWakes = [...ent.filter(e => e.type === "wake" && e.night), ...(days[_dk[_dk.indexOf(dk) + 1]] || []).filter(e => e.type === "wake" && e.night)];
+        const firstWake = allNightWakes.sort((a, b) => { let am = timeVal(a) - bedMins; if (am < 0) am += 1440; let bm = timeVal(b) - bedMins; if (bm < 0) bm += 1440; return am - bm; }).find(w => {
+          const ref = dreamFeed ? timeVal(dreamFeed) : bedMins;
+          let diff = timeVal(w) - ref;
+          if (diff < 0) diff += 1440;
+          return diff > 30;
+        });
+        if (firstWake) {
+          const ref = dreamFeed ? timeVal(dreamFeed) : bedMins;
+          let stretch = timeVal(firstWake) - ref;
+          if (stretch < 0) stretch += 1440;
+          if (stretch > 60 && stretch < 720) {
+            _dreamPairs.push({ date: dk, hasDreamFeed: !!dreamFeed, dreamFeedTime: dreamFeed ? timeVal(dreamFeed) : null, stretchMins: stretch });
+          }
+        }
+      });
+      if (_dreamPairs.length >= 5) {
+        const withDF = _dreamPairs.filter(p => p.hasDreamFeed);
+        const withoutDF = _dreamPairs.filter(p => !p.hasDreamFeed);
+        if (withDF.length >= 2 && withoutDF.length >= 2) {
+          const avgWith = Math.round(withDF.reduce((s, p) => s + p.stretchMins, 0) / withDF.length);
+          const avgWithout = Math.round(withoutDF.reduce((s, p) => s + p.stretchMins, 0) / withoutDF.length);
+          if (avgWith > avgWithout + 30) {
+            const avgDFTime = Math.round(withDF.reduce((s, p) => s + p.dreamFeedTime, 0) / withDF.length);
+            addObservation("🌙", "Dream feed is working",
+              `Nights with a dream feed → ${hm(avgWith)} until first wake. Without → ${hm(avgWithout)}. That's ${hm(avgWith - avgWithout)} more unbroken sleep.`,
+              `Best results around ${fmt12(minsToTime(avgDFTime))}. Keep it gentle — don't fully wake ${_name}. Lift, feed, lay back down.`);
+          } else if (avgWithout > avgWith + 20) {
+            addObservation("💡", "Dream feed may not be helping",
+              `Nights WITHOUT a dream feed → ${hm(avgWithout)} first stretch. With → ${hm(avgWith)}. The dream feed might be disrupting a natural long stretch.`,
+              `Consider dropping it for 3-4 nights and see what happens. Some babies naturally consolidate without intervention at this age.`);
+          }
+        }
+      }
+    } catch {}
+
+    // ── Night wake classification ──
+    try {
+      const _classifyNights = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night);
+        nightWakes.forEach(w => {
+          const wMins = timeVal(w);
+          const fedAfter = ent.some(e => e.type === "feed" && e.night && Math.abs(timeVal(e) - wMins) < 15);
+          _classifyNights.push({ time: wMins, fed: fedAfter || w.type === "feed", date: ds });
+        });
+      }
+      if (_classifyNights.length >= 5) {
+        // Habitual: wakes at the same time (±20min) 3+ of 7 nights
+        const _timeSlots = {};
+        _classifyNights.forEach(w => { const slot = Math.round(w.time / 30) * 30; _timeSlots[slot] = (_timeSlots[slot] || 0) + 1; });
+        const _habitual = Object.entries(_timeSlots).filter(([, c]) => c >= 3).map(([t]) => parseInt(t));
+        if (_habitual.length > 0) {
+          const _times = _habitual.map(t => fmt12(minsToTime(t))).join(", ");
+          addObservation("🔁", "Habitual wake pattern",
+            `${_name} wakes around ${_times} on most nights — this looks habitual rather than hunger-driven.`,
+            `Habitual wakes happen at the same time because baby's sleep cycle ends there. Try waiting 2-3 minutes before responding — many babies resettle if given a chance. Gradually, these wakes often disappear.`);
+        }
+        // Hunger vs comfort
+        const hungerWakes = _classifyNights.filter(w => w.fed).length;
+        const comfortWakes = _classifyNights.filter(w => !w.fed).length;
+        if (comfortWakes > hungerWakes && comfortWakes >= 3) {
+          addObservation("🧸", "Most night wakes aren't hunger",
+            `${comfortWakes} of ${_classifyNights.length} recent night wakes settled without a feed — ${_name} likely wakes for comfort, not hunger.`,
+            `This is developmentally normal. Brief, boring responses (no lights, minimal talking) help ${_name} learn to self-settle. You're not ignoring — you're teaching.`);
+        }
+      }
+    } catch {}
+
+    // ── Morning wake prediction ──
+    try {
+      const _morningWakes = [];
+      for (let i = 1; i <= 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const wake = ent.find(e => e.type === "wake" && !e.night);
+        if (wake) _morningWakes.push(timeVal(wake));
+      }
+      if (_morningWakes.length >= 5) {
+        const avgWakeMins = Math.round(_morningWakes.reduce((s, m) => s + m, 0) / _morningWakes.length);
+        const spread = Math.round(Math.sqrt(_morningWakes.reduce((s, m) => s + Math.pow(m - avgWakeMins, 2), 0) / _morningWakes.length));
+        const earlyBound = avgWakeMins - Math.min(spread, 30);
+        const lateBound = avgWakeMins + Math.min(spread, 30);
+        addObservation("🌅", "Morning wake prediction",
+          `${_name} typically wakes between ${fmt12(minsToTime(earlyBound))} and ${fmt12(minsToTime(lateBound))}, averaging ${fmt12(minsToTime(avgWakeMins))}.`,
+          spread < 20 ? `Very consistent — ${_name}'s body clock is well-set. This stability helps the whole day run smoothly.` : `There's some variation (±${spread}min). A consistent morning wake time anchors the entire day's rhythm.`);
+      }
+    } catch {}
+
+    // ── Nap location intelligence ──
+    try {
+      const _napLocs = {};
+      Object.values(days).forEach(dayEntries => {
+        (dayEntries || []).filter(e => e.type === "nap" && e.napLocation && e.start && e.end && e.start !== e.end).forEach(n => {
+          const dur = minDiff(n.start, n.end);
+          if (dur > 0 && dur < 300) {
+            if (!_napLocs[n.napLocation]) _napLocs[n.napLocation] = [];
+            _napLocs[n.napLocation].push(dur);
+          }
+        });
+      });
+      const _locEntries = Object.entries(_napLocs).filter(([, durs]) => durs.length >= 3);
+      if (_locEntries.length >= 2) {
+        const _locStats = _locEntries.map(([loc, durs]) => ({
+          loc, avg: Math.round(durs.reduce((s, d) => s + d, 0) / durs.length), count: durs.length
+        })).sort((a, b) => b.avg - a.avg);
+        const best = _locStats[0];
+        const worst = _locStats[_locStats.length - 1];
+        const _locLabels = { cot: "the cot", car: "the car", pram: "the pram", carrier: "the carrier", arms: "your arms", other: "elsewhere" };
+        if (best.avg > worst.avg + 10) {
+          addObservation("🛏️", "Best nap location: " + (_locLabels[best.loc] || best.loc),
+            `${_name} sleeps ${hm(best.avg)} avg in ${_locLabels[best.loc] || best.loc} vs ${hm(worst.avg)} in ${_locLabels[worst.loc] || worst.loc}. That's ${hm(best.avg - worst.avg)} more per nap.`,
+            `${_locLabels[best.loc] ? _locLabels[best.loc].charAt(0).toUpperCase() + _locLabels[best.loc].slice(1) : best.loc} naps reset sleep pressure more effectively. When you need a good nap, that's where to aim.`);
+        }
+      }
+    } catch {}
 
     } catch {}
   }, [age, babyName, days, selDay, addObservation]);
@@ -24545,6 +24785,15 @@ function App(){
                     <span style={{fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>Export CSV</span>
                   </button>
                   <button onClick={()=>{
+                    haptic();
+                    const report = generateHVReport();
+                    if(navigator.share){navigator.share({title:(babyName||"Baby")+" — Health Summary",text:report}).catch(()=>{});}
+                    else{try{navigator.clipboard.writeText(report);showToast("📋 Report copied!",1500,1);}catch{}}
+                  }} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"10px",borderRadius:12,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP}}>
+                    <span style={_S.f14}>🏥</span>
+                    <span style={{fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>HV Report</span>
+                  </button>
+                  <button onClick={()=>{
                     const w=(()=>{if(window._isNative){const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;max-width:100vw;box-sizing:border-box;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;";document.body.appendChild(d);return{document:{open:()=>{},write:(h)=>{d.innerHTML=h;},close:()=>{}}};} try{return window.open("","_blank");}catch{return null;}})();
                     if(!w)return;
                     const rEntries2=(days[selDay]||[]).filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -25968,6 +26217,30 @@ function App(){
 
                 const _weanCount = (weaning||[]).length;
                 const _isAllergen = _ft.cat === "allergen";
+
+                // ── Time-of-day awareness: after 4pm, weaning meals are done ──
+                const _weanHour = new Date().getHours();
+                if (_weanHour >= 17) {
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,order:weaningStarted?2:1}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>🍽 Weaning meals done for today</div>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>It's evening — solid food meals are best before 4pm so baby has time to digest before bed. Tomorrow's suggestion: <strong>{_tmr.emoji} {_tmr.food}</strong></div>
+                      {_weanCount > 0 && <div style={{fontSize:11,color:C.lt,marginTop:6}}>{_weanCount} foods tried 🌈</div>}
+                    </div>
+                  );
+                }
+
+                // ── Illness pause: if teething/illness mode active, pause new foods ──
+                const _illnessActive = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_disruption_mode")||"null"); return d&&(Date.now()-d.ts)<3*86400000;}catch{return false;}})();
+                if (_illnessActive && _isAllergen) {
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,order:weaningStarted?2:1,border:"1px solid rgba(212,168,85,0.25)"}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>🤒 Allergen paused — baby is unwell</div>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>New allergens shouldn't be introduced when {babyName||"baby"} is unwell — if there's a reaction, you won't know if it's the food or the illness. Stick to familiar foods today.</div>
+                      <div style={{fontSize:11,color:C.lt,marginTop:6}}>Allergen introduction will resume automatically when illness mode ends.</div>
+                    </div>
+                  );
+                }
 
                 return (
                   <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,order:weaningStarted?2:1}}>
