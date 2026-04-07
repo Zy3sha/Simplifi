@@ -30849,17 +30849,6 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
             <button onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();shareCarerCard();}} onClick={e=>{e.stopPropagation();haptic();shareCarerCard();}} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
               📤 Share and Print
             </button>
-            <button onTouchEnd={async e=>{e.preventDefault();e.stopPropagation();
-              haptic();
-              const html = await prepareCareCardHTML();
-              openCareCardPreview(html, babyName||"Baby");
-            }} onClick={async e=>{e.stopPropagation();
-              haptic();
-              const html = await prepareCareCardHTML();
-              openCareCardPreview(html, babyName||"Baby");
-            }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}50`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
-              📋 Preview what they'll receive
-            </button>
             <button onClick={e=>{e.stopPropagation();setShowCarerCard(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,touchAction:"manipulation"}}>
               Close
             </button>
