@@ -3886,11 +3886,12 @@ function App(){
     (v)=>JSON.stringify(Array.isArray(v)?v:[]));
   const[showObservations,setShowObservations]=useState(false);
   const addObservation = React.useCallback((icon, title, body, wedid) => {
-    // Dedupe: if an observation with same title exists in last 4h, skip
+    // Dedupe: if an observation with same title exists today, skip
     const _now = Date.now();
+    const _todayStart = new Date(); _todayStart.setHours(0,0,0,0);
     let _didAdd = false;
     setObservations(prev => {
-      const _recent = (prev||[]).find(o => o.title === title && (_now - (o.ts||0)) < 4*3600*1000);
+      const _recent = (prev||[]).find(o => o.title === title && (o.ts||0) >= _todayStart.getTime());
       if (_recent) return prev;
       _didAdd = true;
       const _entry = { id: "obs_"+_now+"_"+Math.floor(Math.random()*1000), ts:_now, icon, title, body, wedid, ack:false };
@@ -19209,7 +19210,7 @@ function App(){
       if (!_s) return;
       const _name = babyName || "Baby";
       const _h = new Date().getHours();
-      if (_s.isBehindTarget && !_s.allowNightTopUp) {
+      if (_s.isBehindTarget && !_s.allowNightTopUp && _s.hoursLeftInDay > 0) {
         addObservation("📊", "Loading up daytime feeds",
           `${_name} is ${_s.mlRemainingToday}ml off today's target with about ${_s.hoursLeftInDay}h of daytime left. Bigger daytime bottles now = fewer night wakes later.`,
           `We've nudged the next feed suggestion up to ~${_s.amountMl}ml so the target lands before bedtime — no need to wake overnight.`);
