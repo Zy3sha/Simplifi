@@ -19994,6 +19994,92 @@ function App(){
       }
     } catch {}
 
+    // ── Milk vs solids ratio monitoring ──
+    try {
+      if (_wks >= 26) {
+        const _todayRatio = getMilkSolidRatio(age, days[todayStr()] || []);
+        if (_todayRatio && _todayRatio.totalMilkMl > 0) {
+          if (_todayRatio.milkStatus === "low") {
+            addObservation("🍼", "Milk intake is low today",
+              `${_name} has had ${_todayRatio.totalMilkMl}ml of milk — below the ${_todayRatio.milkMin}ml minimum. At ${_todayRatio.months} months, ${_todayRatio.ratioLabel}.`,
+              "Milk is still the primary source of nutrition right now. Try offering milk BEFORE solids (not after) so " + _name + " doesn't fill up on food and skip the milk. Solid food is for learning tastes and textures — milk provides the calories and nutrients.");
+          }
+          // Track weekly trend
+          let _weekMilkAvg = 0, _weekSolidAvg = 0, _weekCount = 0;
+          for (let i = 1; i <= 7; i++) {
+            const d = new Date(); d.setDate(d.getDate() - i);
+            const ds = d.toISOString().slice(0, 10);
+            const r = getMilkSolidRatio(age, days[ds] || []);
+            if (r && r.totalMilkMl > 0) { _weekMilkAvg += r.totalMilkMl; _weekSolidAvg += r.solidCount; _weekCount++; }
+          }
+          if (_weekCount >= 4) {
+            _weekMilkAvg = Math.round(_weekMilkAvg / _weekCount);
+            _weekSolidAvg = Math.round(_weekSolidAvg / _weekCount * 10) / 10;
+            if (_weekMilkAvg < _todayRatio.milkMin) {
+              addObservation("📉", "Milk consistently low this week",
+                `${_name} is averaging ${_weekMilkAvg}ml/day of milk this week — below the ${_todayRatio.milkMin}ml minimum for ${_todayRatio.months} months.`,
+                "If " + _name + " is refusing milk, try: offering milk first thing in the morning before solids, using a different bottle/cup, or mixing milk into porridge/cereal. If this continues, mention it to your health visitor.");
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // ── Feed spacing optimizer ──
+    try {
+      const _napFeedPairs = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
+        naps.forEach(n => {
+          const napStartMins = timeVal({time: n.start});
+          const napDur = minDiff(n.start, n.end);
+          // Find the feed closest before this nap
+          const feedsBefore = ent.filter(e => isBabyFeed(e) && timeVal(e) < napStartMins).sort((a, b) => timeVal(b) - timeVal(a));
+          if (feedsBefore.length > 0) {
+            const gap = napStartMins - timeVal(feedsBefore[0]);
+            if (gap > 0 && gap < 120) _napFeedPairs.push({ gap, napDur });
+          }
+        });
+      }
+      if (_napFeedPairs.length >= 8) {
+        // Split into short gap (<30min) vs good gap (30-60min) vs long gap (>60min)
+        const short = _napFeedPairs.filter(p => p.gap < 30);
+        const good = _napFeedPairs.filter(p => p.gap >= 30 && p.gap <= 60);
+        const long = _napFeedPairs.filter(p => p.gap > 60);
+        const avgShort = short.length >= 2 ? Math.round(short.reduce((s, p) => s + p.napDur, 0) / short.length) : 0;
+        const avgGood = good.length >= 2 ? Math.round(good.reduce((s, p) => s + p.napDur, 0) / good.length) : 0;
+        const avgLong = long.length >= 2 ? Math.round(long.reduce((s, p) => s + p.napDur, 0) / long.length) : 0;
+        if (avgGood > avgShort + 10 && good.length >= 2) {
+          addObservation("🍼", "Feed timing affects naps",
+            `${_name} naps ${hm(avgGood)} avg when fed 30-60min before vs ${hm(avgShort)} when fed within 30min. That's ${hm(avgGood - avgShort)} more sleep.`,
+            "Feeding too close to nap time can cause discomfort (reflux, gas). Try finishing the feed at least 30 minutes before putting " + _name + " down.");
+        }
+      }
+    } catch {}
+
+    // ── Cumulative tiredness detector ──
+    try {
+      let _roughNights = 0;
+      let _totalDebtMins = 0;
+      for (let i = 0; i < 3; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+        if (nightWakes >= 3) _roughNights++;
+        // Estimate debt: each wake costs ~20-30min of lost sleep
+        _totalDebtMins += nightWakes * 25;
+      }
+      if (_roughNights >= 3 && _totalDebtMins > 120) {
+        addObservation("😴", "You've had " + _roughNights + " rough nights in a row",
+          `Cumulative sleep debt is building — roughly ${hm(_totalDebtMins)} of disrupted sleep over ${_roughNights} nights. This affects everything: mood, patience, milk supply, decision-making.`,
+          "Prioritise an early bedtime tonight for " + _name + " (even 15 minutes helps). And for YOU: nap when " + _name + " naps today if you possibly can. Accept help if it's offered. You are not failing — you are exhausted, and there's a difference. 💛");
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
@@ -22196,21 +22282,34 @@ function App(){
                       </div>
                     </div>
 
-                    {/* Today's milk/solids balance */}
+                    {/* Today's milk/solids balance with visual ratio bar */}
                     {_wr.ratio && _wr.ratio.showSolids && (
                       <div className="glass-card" style={_S.card16}>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Today's balance</div>
-                        <div style={{fontSize:13,color:C.mid,marginBottom:8}}>{_wr.ratio.ratioLabel}</div>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>🍼🥕 Milk vs Solids</div>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>{_wr.ratio.ratioLabel}</div>
+                        {/* Visual ratio bar */}
+                        <div style={{display:"flex",height:24,borderRadius:99,overflow:"hidden",marginBottom:10,border:"1px solid var(--card-border)"}}>
+                          {(()=>{
+                            const milkPct = _wr.ratio.months < 6 ? 100 : _wr.ratio.months < 7 ? 90 : _wr.ratio.months < 8 ? 75 : _wr.ratio.months < 10 ? 60 : _wr.ratio.months < 12 ? 45 : 30;
+                            return (<>
+                              <div style={{width:milkPct+"%",background:"linear-gradient(90deg,#C07088,#d88a9a)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white"}}>🍼 {milkPct}%</div>
+                              <div style={{width:(100-milkPct)+"%",background:"linear-gradient(90deg,#6FA898,#8BC4A8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white"}}>{100-milkPct > 15 ? "🥕 "+(100-milkPct)+"%" : ""}</div>
+                            </>);
+                          })()}
+                        </div>
                         <div style={{display:"flex",gap:8,marginBottom:8}}>
                           <div style={{flex:1,background:"var(--card-bg-alt)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
-                            <div style={{fontSize:10,color:C.lt}}>Milk</div>
+                            <div style={{fontSize:10,color:C.lt}}>Milk today</div>
                             <div style={{fontSize:15,fontWeight:700,color:_wr.ratio.milkStatus==="low"?C.ter:_wr.ratio.milkStatus==="high"?C.gold:C.mint}}>{_wr.ratio.totalMilkMl}ml</div>
+                            <div style={{fontSize:9,color:C.lt}}>target: {_wr.ratio.milkMin}–{_wr.ratio.milkTarget}ml</div>
                           </div>
                           <div style={{flex:1,background:"var(--card-bg-alt)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
                             <div style={{fontSize:10,color:C.lt}}>Solid meals</div>
-                            <div style={{fontSize:15,fontWeight:700,color:_wr.ratio.solidCount>0?C.mint:C.gold}}>{_wr.ratio.solidCount} / {_wr.ratio.solidMeals}</div>
+                            <div style={{fontSize:15,fontWeight:700,color:_wr.ratio.solidCount>=_wr.ratio.solidMeals?C.mint:C.gold}}>{_wr.ratio.solidCount} / {_wr.ratio.solidMeals}</div>
+                            <div style={{fontSize:9,color:C.lt}}>target: {_wr.ratio.solidMeals} meals</div>
                           </div>
                         </div>
+                        {_wr.ratio.milkStatus==="low" && <div style={{fontSize:11,color:C.ter,fontWeight:600,marginBottom:4}}>⚠️ Milk intake is below minimum — offer more milk feeds before solids</div>}
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.5,fontStyle:"italic"}}>{_wr.ratio.guidance}</div>
                       </div>
                     )}
