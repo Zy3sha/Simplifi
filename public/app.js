@@ -3842,6 +3842,7 @@ function App(){
   const[searchResults,setSearchResults]=useState(null);
   const[showSearch,setShowSearch]=useState(false);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
+  const[logForAll,setLogForAll]=useState(false);
   const[showSoundMachine,setShowSoundMachine]=useState(false);
   const[showSafeSleepPopup,setShowSafeSleepPopup]=useState(false);
   const[showRecModeChoice,setShowRecModeChoice]=useState(false);
@@ -15508,6 +15509,26 @@ function App(){
     }catch(e){ console.warn("[OBubba] Notification request failed:",e); showToast("Error: "+e.message,3000); }
   }
 
+        // Log same entry for ALL children (twins/multiples)
+        function quickAddLogForAll(type, data) {
+          const ids = Object.keys(children);
+          ids.forEach(cid => {
+            const child = children[cid];
+            if (!child) return;
+            const dayKey = todayStr();
+            const entry = { ...data, id: uid(), _ts: Date.now() };
+            setChildren(prev => {
+              const c = { ...prev[cid] };
+              const d = { ...(c.days || {}) };
+              d[dayKey] = [...(d[dayKey] || []), entry];
+              c.days = d;
+              return { ...prev, [cid]: c };
+            });
+          });
+          haptic(15);
+          showToast("✅ Logged for all " + ids.length + " children", 1800, 1);
+        }
+
         function quickAddLog(type, data){
     haptic(15);
 
@@ -17434,6 +17455,63 @@ function App(){
       fireEventReminders("after_wake"); // waking from nap = a wake
     }
   }
+  // ── Handover Summary (morning/evening) ──
+  function generateHandoverSummary(type) {
+    const name = babyName || "Baby";
+    const today = todayStr();
+    const ent = days[today] || [];
+    const feeds = ent.filter(e=>isBabyFeed(e));
+    const naps = ent.filter(e=>e.type==="nap"&&e.start&&e.end&&e.start!==e.end);
+    const nappies = ent.filter(e=>e.type==="poop");
+    const wet = nappies.filter(e=>(e.poopType||"").includes("wet")||e.poopType==="both").length;
+    const totalMl = feeds.reduce((s,f)=>s+(f.amount||0),0);
+    const totalNapMin = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+    const lastFeed = feeds.length > 0 ? feeds[feeds.length-1] : null;
+    const lastNap = naps.length > 0 ? naps[naps.length-1] : null;
+    const bedEntry = ent.find(e=>e.type==="sleep");
+    const wakeEntry = ent.find(e=>e.type==="wake"&&!e.night);
+
+    const lines = [];
+    if(type === "morning") {
+      lines.push("☀️ Good morning handover for " + name);
+      lines.push("");
+      if(wakeEntry) lines.push("Woke at " + fmt12(wakeEntry.time));
+      // Last night summary
+      const yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+      const yEnt = days[yday]||[];
+      const yBed = yEnt.find(e=>e.type==="sleep");
+      const nightWakes = yEnt.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night);
+      if(yBed) lines.push("Bedtime last night: " + fmt12(yBed.time));
+      lines.push("Night wakes: " + nightWakes.length);
+      if(lastFeed) lines.push("Last feed: " + fmt12(lastFeed.time) + (lastFeed.amount ? " ("+lastFeed.amount+"ml)" : ""));
+      lines.push("");
+      lines.push("Coming up:");
+      // Use prediction from tickDataRef
+      const td = tickDataRef.current||{};
+      if(td.nextNapAt) lines.push("Next nap around " + td.nextNapAt);
+      if(td.nextFeedAt) lines.push("Next feed around " + td.nextFeedAt);
+    } else {
+      lines.push("🌙 Evening handover for " + name);
+      lines.push("");
+      lines.push("Today's summary:");
+      lines.push("🍼 " + feeds.length + " feeds" + (totalMl > 0 ? " (" + totalMl + "ml total)" : ""));
+      lines.push("💤 " + naps.length + " naps (" + hm(totalNapMin) + " total)");
+      lines.push("🧷 " + nappies.length + " nappies (" + wet + " wet)");
+      if(lastFeed) lines.push("Last feed: " + fmt12(lastFeed.time) + (lastFeed.amount ? " ("+lastFeed.amount+"ml)" : ""));
+      if(lastNap) lines.push("Last nap ended: " + fmt12(lastNap.end));
+      lines.push("");
+      if(bedEntry) {
+        lines.push("Bedtime: " + fmt12(bedEntry.time));
+      } else {
+        const td = tickDataRef.current||{};
+        if(td.bedtimeAt) lines.push("Suggested bedtime: " + td.bedtimeAt);
+      }
+    }
+    lines.push("");
+    lines.push("— via OBubba");
+    return lines.join("\n");
+  }
+
   // ── Weekly Digest Generator ──
   // ── Bubba Care Generator ──
   function generateCarerCardHTML() {
@@ -20560,12 +20638,20 @@ function App(){
                 );
               })()}
 
+              {/* Twins: "Log for all" toggle */}
+              {!daySubScreen && childIds.length >= 2 && (
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4,paddingRight:4}}>
+                  <button onClick={()=>{haptic();setLogForAll(p=>!p);}} style={{padding:"3px 10px",borderRadius:99,border:`1px solid ${logForAll?C.ter:C.blush}`,background:logForAll?C.ter+"18":"transparent",fontSize:11,fontWeight:600,color:logForAll?C.ter:C.lt,cursor:_cP,fontFamily:_fI}}>
+                    {logForAll ? "✅ Log for all "+childIds.length : "👶👶 Log for all"}
+                  </button>
+                </div>
+              )}
               {/* ONE-TAP LOG ROW — only on dashboard, not sub-screens */}
               {!daySubScreen && <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"10px 8px",marginBottom:10,gap:1,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2,overflow:"hidden"}}>
                 {[
-                  {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>quickAddLog("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""})},
+                  {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""})},
                   {emoji:"🤱",label:"Breast",longAction:()=>openLogPanel("feed"),action:()=>{haptic();startBreastTimer("L");}},
-                  {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
+                  {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
                   {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?null:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
                   {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
                   {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
@@ -21537,6 +21623,23 @@ function App(){
                         <div style={{fontSize:12,color:C.mid,marginTop:2}}>Preview the card before sharing</div>
                       </div>
                     </button>
+                    {/* Handover summaries */}
+                    <div style={{display:"flex",gap:8,marginBottom:10}}>
+                      {[{type:"morning",emoji:"☀️",label:"Morning Handover"},{type:"evening",emoji:"🌙",label:"Evening Handover"}].map(h=>(
+                        <button key={h.type} onClick={()=>{
+                          haptic();
+                          const text = generateHandoverSummary(h.type);
+                          if(navigator.share){navigator.share({title:h.label,text}).catch(()=>{});}
+                          else{try{navigator.clipboard.writeText(text);showToast("📋 Copied!",1500,1);}catch{}}
+                          setShowShareFamily(false);
+                        }} className="glass-card" style={{flex:1,padding:"12px 10px",cursor:_cP,textAlign:"center",border:"1px solid var(--card-border)"}}>
+                          <span style={{fontSize:22,display:"block",marginBottom:4}}>{h.emoji}</span>
+                          <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{h.label}</div>
+                          <div style={{fontSize:10,color:C.mid,marginTop:2}}>{h.type==="morning"?"Last night + what's coming":"Full day summary"}</div>
+                        </button>
+                      ))}
+                    </div>
+
                     <button onClick={()=>{
                       haptic();
                       const _de = (days[selDay]||[]).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -23163,6 +23266,63 @@ function App(){
                         )}
                       </div>
                     )}
+
+                    {/* Why was last night different? — cross-reference daytime variables */}
+                    {_bedEntry && _wakeCount > 0 && (()=>{
+                      const _factors = [];
+                      const _recent7 = [];
+                      for(let i=1;i<=7;i++){
+                        const d=new Date();d.setDate(d.getDate()-i);
+                        const ds=d.toISOString().slice(0,10);
+                        const ent=days[ds]||[];
+                        const bed=ent.find(e=>e.type==="sleep");
+                        if(!bed) continue;
+                        const nw=ent.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night);
+                        _recent7.push({wakes:nw.length, entries:ent, date:ds, bedtime:bed.time});
+                      }
+                      if(_recent7.length < 3) return null;
+                      const _avgWakes = Math.round(_recent7.reduce((s,n)=>s+n.wakes,0)/_recent7.length*10)/10;
+                      const _diff = _wakeCount - _avgWakes;
+                      if(Math.abs(_diff) < 0.8) return null;
+                      const _worse = _diff > 0;
+                      const _todayEntries = days[selDay]||[];
+                      const _dayNaps = _todayEntries.filter(e=>e.type==="nap"&&e.start&&e.end&&e.start!==e.end);
+                      const _totalNapM = _dayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                      const _avgNapM = _recent7.length>0 ? _recent7.reduce((s,d)=>{
+                        const naps=d.entries.filter(e=>e.type==="nap"&&e.start&&e.end&&e.start!==e.end);
+                        return s+naps.reduce((ss,n)=>ss+minDiff(n.start,n.end),0);
+                      },0)/_recent7.length : 0;
+                      const _dayFeeds = _todayEntries.filter(e=>isBabyFeed(e));
+                      const _totalMl = _dayFeeds.reduce((s,f)=>s+(f.amount||0),0);
+                      const _avgMl = _recent7.length>0 ? _recent7.reduce((s,d)=>{
+                        return s+d.entries.filter(e=>isBabyFeed(e)).reduce((ss,f)=>ss+(f.amount||0),0);
+                      },0)/_recent7.length : 0;
+                      const _bedMins = timeToMins(_bedEntry.time);
+                      const _avgBedMins = _recent7.reduce((s,d)=>s+timeToMins(d.bedtime),0)/_recent7.length;
+                      const _bedDev = _bedMins - _avgBedMins;
+                      const _newFood = (weaning||[]).find(w=>w.date===selDay);
+                      if(_totalNapM > _avgNapM + 30) _factors.push({icon:"💤",text:"More day sleep than usual ("+hm(_totalNapM)+" vs avg "+hm(Math.round(_avgNapM))+")",type:_worse?"cause":"helped"});
+                      if(_totalNapM < _avgNapM - 30) _factors.push({icon:"💤",text:"Less day sleep than usual ("+hm(_totalNapM)+" vs avg "+hm(Math.round(_avgNapM))+")",type:_worse?"cause":"helped"});
+                      if(_totalMl > 0 && _totalMl < _avgMl * 0.75) _factors.push({icon:"🍼",text:"Lower milk intake ("+_totalMl+"ml vs avg "+Math.round(_avgMl)+"ml) — may wake hungry",type:"cause"});
+                      if(Math.abs(_bedDev) > 30) _factors.push({icon:"🕐",text:"Bedtime was "+Math.abs(Math.round(_bedDev))+"min "+(_bedDev>0?"later":"earlier")+" than usual",type:"note"});
+                      if(_newFood) _factors.push({icon:"🥄",text:"New food introduced: "+_newFood.food,type:"note"});
+                      if(_factors.length === 0) return null;
+                      return (
+                        <div className="glass-card" style={{...(_S.card),border:_worse?"1px solid rgba(212,168,85,0.25)":"1px solid rgba(80,200,120,0.25)"}}>
+                          <div style={{fontSize:13,fontFamily:_fM,color:_worse?C.gold:C.mint,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>
+                            {_worse?"🤔 Why was last night harder?":"💚 Why did last night go well?"}
+                          </div>
+                          <div style={{fontSize:12,color:C.mid,marginBottom:8}}>{_wakeCount} wakes vs your {_recent7.length}-night average of {_avgWakes}</div>
+                          {_factors.map((f,i)=>(
+                            <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"4px 0"}}>
+                              <span style={{fontSize:14,flexShrink:0}}>{f.icon}</span>
+                              <div style={{fontSize:12,color:C.deep,lineHeight:1.5}}>{f.text}</div>
+                            </div>
+                          ))}
+                          <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:6}}>Based on {_recent7.length} nights. Correlation ≠ cause — patterns worth watching.</div>
+                        </div>
+                      );
+                    })()}
 
                     {/* This Week vs Last Week */}
                     {_avgWakesThis !== null && _avgWakesLast !== null && (

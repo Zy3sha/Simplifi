@@ -85,6 +85,36 @@ struct OBWidgetToggleTimerIntent: AppIntent {
     }
 }
 
+struct OBNextPredictionIntent: AppIntent {
+    static var title: LocalizedStringResource = "When is the next nap"
+    static var description = IntentDescription("Ask OBubba when baby's next nap or feed is")
+    static var openAppWhenRun: Bool = false
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        guard let defaults = UserDefaults(suiteName: widgetAppGroupId),
+              let json = defaults.string(forKey: "widgetData"),
+              let data = json.data(using: .utf8),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return .result(value: "I don't have enough data yet. Open OBubba and log a wake to get predictions.")
+        }
+        let baby = dict["babyName"] as? String ?? "Baby"
+        var parts: [String] = []
+        if let timer = dict["activeTimer"] as? String, !timer.isEmpty {
+            let label = dict["timerLabel"] as? String ?? timer
+            parts.append("\(baby) is currently \(label.lowercased()).")
+        }
+        if let nextFeed = dict["nextFeedEstimate"] as? String, !nextFeed.isEmpty {
+            parts.append("Next feed estimated around \(nextFeed).")
+        }
+        if let nextPred = dict["nextPredictionLabel"] as? String, !nextPred.isEmpty {
+            parts.append("Next up: \(nextPred).")
+        }
+        if parts.isEmpty {
+            return .result(value: "No predictions right now. Log a wake and a nap to start getting predictions for \(baby).")
+        }
+        return .result(value: parts.joined(separator: " "))
+    }
+}
+
 struct OBStopTimerIntent: AppIntent {
     static var title: LocalizedStringResource = "Stop timer"
     static var description = IntentDescription("Stop the active nap or sleep timer in OBubba")
@@ -181,11 +211,12 @@ struct OBubbaShortcuts: AppShortcutsProvider {
 // MARK: - Design System
 // ══════════════════════════════════════════════════════════════════
 
+// Adaptive colours — light/dark mode
 private let brandRose    = Color(hex: "#C07088")
-private let brandDeep    = Color(hex: "#5B4F5F")
-private let brandWarm    = Color(hex: "#F0DDD6")
-private let brandBg      = Color(hex: "#FBF5F3")
-private let brandCream   = Color(hex: "#FAF0EB")
+private let brandDeep    = Color(light: "#5B4F5F", dark: "#E8DDE0")
+private let brandWarm    = Color(light: "#F0DDD6", dark: "#3A2E35")
+private let brandBg      = Color(light: "#FBF5F3", dark: "#1C1820")
+private let brandCream   = Color(light: "#FAF0EB", dark: "#252028")
 private let brandMint    = Color(hex: "#6FA898")
 private let brandPurple  = Color(hex: "#8B7EC8")
 private let brandSky     = Color(hex: "#7AABC4")
@@ -497,14 +528,16 @@ struct OBubbaSmallWidgetView: View {
     let entry: OBubbaEntry
     private var d: WidgetData { entry.data }
 
-    private let brandDeep = Color(red: 0.36, green: 0.31, blue: 0.37)
+    @Environment(\.colorScheme) private var colorScheme
+    private let brandDeep = Color(light: "#5B4F5F", dark: "#E8DDE0")
     private let brandMint = Color(red: 0.48, green: 0.65, blue: 0.55)
     private let brandRose = Color(red: 0.79, green: 0.44, blue: 0.36)
     private let brandPurple = Color(red: 0.55, green: 0.48, blue: 0.66)
-    private let bgGrad = LinearGradient(
-        colors: [Color(red: 0.98, green: 0.96, blue: 0.94), Color(red: 0.95, green: 0.91, blue: 0.88)],
-        startPoint: .topLeading, endPoint: .bottomTrailing
-    )
+    private var bgGrad: LinearGradient {
+        colorScheme == .dark
+            ? LinearGradient(colors: [Color(hex: "#1C1820"), Color(hex: "#252028")], startPoint: .topLeading, endPoint: .bottomTrailing)
+            : LinearGradient(colors: [Color(red: 0.98, green: 0.96, blue: 0.94), Color(red: 0.95, green: 0.91, blue: 0.88)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
 
     private var hasTimer: Bool {
         guard let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate else { return false }
@@ -1216,5 +1249,11 @@ extension Color {
             r = 1; g = 1; b = 1
         }
         self.init(red: r, green: g, blue: b)
+    }
+    /// Adaptive colour — light hex in light mode, dark hex in dark mode
+    init(light: String, dark: String) {
+        self.init(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(Color(hex: dark)) : UIColor(Color(hex: light))
+        })
     }
 }
