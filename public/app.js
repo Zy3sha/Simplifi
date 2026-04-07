@@ -200,7 +200,7 @@ var getResolvedRecentDays = function(days, currentDayKey, n) {
 
 // ═══ End Day Resolution Layer ══════════════════════════════════
 
-const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
+const hm = m => { if(!m||m<=0||typeof m!=="number"||isNaN(m))return"—"; m=Math.round(m); return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 // Helper: true for feeds baby actually consumed (excludes pump sessions which are expressed milk, not intake)
 const isBabyFeed = e => e && e.type === "feed" && e.feedType !== "pump";
 const fmtSec = s => { if(typeof s!=='number'||isNaN(s)||!isFinite(s)) s=0; return s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
@@ -6134,8 +6134,20 @@ function App(){
     if(napOn && !napPaused){
       timerRef.current=setInterval(()=>{
         setNapSec(s=>{
-          const next=s+1;
-          if(next%30===0 && napEntryId){
+          // Every 10 ticks, resync to real clock time to prevent drift
+          const next = s + 1;
+          let corrected = next;
+          if(next % 10 === 0 && napStartT) {
+            try {
+              const [sh,sm] = napStartT.split(":").map(Number);
+              const now = new Date();
+              const startDate = new Date(); startDate.setHours(sh,sm,0,0);
+              if(startDate > now) startDate.setDate(startDate.getDate()-1); // started yesterday
+              const realElapsed = Math.floor((now - startDate) / 1000);
+              if(realElapsed > 0 && realElapsed < 86400) corrected = realElapsed;
+            } catch {}
+          }
+          if(corrected%30===0 && napEntryId){
             setDays(d=>{
               const _sd = selDayRef.current;
               const entries=d[_sd]||[];
@@ -6144,13 +6156,13 @@ function App(){
               return{...d,[_sd]:entries.map(e=>e.id===napEntryId?{...e,end:now}:e)};
             });
           }
-          return next;
+          return corrected;
         });
       },1000);
     }
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
-  },[napOn, napPaused]);
+  },[napOn, napPaused, napStartT]);
 
   // Night timer tick — drives re-renders every second when bedtime is active and nap is not
   const nightTickRef=useRef(null);
@@ -6627,8 +6639,12 @@ function App(){
     const todayEntries = days[selDay] || [];
     // Find all completed naps (daytime, <8h, has start+end with positive duration)
     // Exclude the active nap entry (end===start while running) so napsComplete doesn't fire prematurely
-    const completedNaps = todayEntries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.end!==e.start&&minDiff(e.start,e.end)>0&&minDiff(e.start,e.end)<480)
+    const completedNapsRaw = todayEntries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.end!==e.start&&minDiff(e.start,e.end)>0&&minDiff(e.start,e.end)<480)
       .sort((a,b)=>{ const [ah,am]=a.start.split(":").map(Number); const [bh,bm]=b.start.split(":").map(Number); return (ah*60+am)-(bh*60+bm); });
+    // Deduplicate: naps with same start time → keep longest
+    const _napDedup = {};
+    completedNapsRaw.forEach(n => { const k=n.start; if(!_napDedup[k]||minDiff(n.start,n.end)>minDiff(_napDedup[k].start,_napDedup[k].end)) _napDedup[k]=n; });
+    const completedNaps = Object.values(_napDedup).sort((a,b)=>timeVal(a)-timeVal(b));
     const napsDone = completedNaps.length;
     const totalNapMins = completedNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
     // Expected naps — start with age baseline, reduce if today's naps were long
@@ -7098,7 +7114,16 @@ function App(){
     const _naps = _todayEntries.filter(e => e.type === "nap" && !e.night);
     // Only count naps that are actually finished (end differs from start and has positive duration)
     // The active nap entry has end===start while running — exclude it so "naps complete" doesn't fire early
-    const _completedNaps = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5);
+    // Deduplicate: if two naps have the same start time, keep only the one with the longer duration
+    const _completedNapsRaw = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5);
+    const _napsByStart = {};
+    _completedNapsRaw.forEach(n => {
+      const key = n.start;
+      if (!_napsByStart[key] || minDiff(n.start, n.end) > minDiff(_napsByStart[key].start, _napsByStart[key].end)) {
+        _napsByStart[key] = n;
+      }
+    });
+    const _completedNaps = Object.values(_napsByStart).sort((a,b)=>timeVal(a)-timeVal(b));
     const _napsDone = _completedNaps.length;
     const _totalNapMin = _completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     const _ageExpected = _profile.expectedNaps;
@@ -7798,9 +7823,12 @@ function App(){
       _whyLines.push("\u{1F512} " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see predictions based on " + _name + "'s own data, not just age guidelines.");
     }
     // Feed info
-    if (_latestWeight) {
+    if (_latestWeight && _feedsPerDay > 0) {
       const _dailyMl = Math.round(_latestWeight * 150);
-      _whyLines.push("🍼 At " + _latestWeight + "kg, " + _name + " needs roughly " + _dailyMl + "ml/day (~" + Math.round(_dailyMl/_feedsPerDay) + "ml per feed). OBubba adjusts this based on " + _name + "'s actual feeding pattern — some feeds are bigger, some smaller, and that's normal.");
+      const _perFeedMl = Math.round(_dailyMl / _feedsPerDay);
+      if (!isNaN(_dailyMl) && !isNaN(_perFeedMl)) {
+        _whyLines.push("🍼 At " + _latestWeight + "kg, " + _name + " needs roughly " + _dailyMl + "ml/day (~" + _perFeedMl + "ml per feed). OBubba adjusts this based on " + _name + "'s actual feeding pattern — some feeds are bigger, some smaller, and that's normal.");
+      }
     }
 
     // ══════════════════════════════════════════════════════

@@ -200,7 +200,7 @@ var getResolvedRecentDays = function(days, currentDayKey, n) {
 
 // ═══ End Day Resolution Layer ══════════════════════════════════
 
-const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
+const hm = m => { if(!m||m<=0||typeof m!=="number"||isNaN(m))return"—"; m=Math.round(m); return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 // Helper: true for feeds baby actually consumed (excludes pump sessions which are expressed milk, not intake)
 const isBabyFeed = e => e && e.type === "feed" && e.feedType !== "pump";
 const fmtSec = s => { if(typeof s!=='number'||isNaN(s)||!isFinite(s)) s=0; return s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
@@ -3844,6 +3844,11 @@ function App(){
   const[showSearch,setShowSearch]=useState(false);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[logForAll,setLogForAll]=useState(false);
+  const[showQuickStart,setShowQuickStart]=useState(false);
+  const[qsNaps,setQsNaps]=useState("3");
+  const[qsBedtime,setQsBedtime]=useState("19:00");
+  const[qsWake,setQsWake]=useState("07:00");
+  const[qsFeeds,setQsFeeds]=useState("5");
   const[showSoundMachine,setShowSoundMachine]=useState(false);
   const[showSafeSleepPopup,setShowSafeSleepPopup]=useState(false);
   const[showRecModeChoice,setShowRecModeChoice]=useState(false);
@@ -6129,8 +6134,20 @@ function App(){
     if(napOn && !napPaused){
       timerRef.current=setInterval(()=>{
         setNapSec(s=>{
-          const next=s+1;
-          if(next%30===0 && napEntryId){
+          // Every 10 ticks, resync to real clock time to prevent drift
+          const next = s + 1;
+          let corrected = next;
+          if(next % 10 === 0 && napStartT) {
+            try {
+              const [sh,sm] = napStartT.split(":").map(Number);
+              const now = new Date();
+              const startDate = new Date(); startDate.setHours(sh,sm,0,0);
+              if(startDate > now) startDate.setDate(startDate.getDate()-1); // started yesterday
+              const realElapsed = Math.floor((now - startDate) / 1000);
+              if(realElapsed > 0 && realElapsed < 86400) corrected = realElapsed;
+            } catch {}
+          }
+          if(corrected%30===0 && napEntryId){
             setDays(d=>{
               const _sd = selDayRef.current;
               const entries=d[_sd]||[];
@@ -6139,13 +6156,13 @@ function App(){
               return{...d,[_sd]:entries.map(e=>e.id===napEntryId?{...e,end:now}:e)};
             });
           }
-          return next;
+          return corrected;
         });
       },1000);
     }
     else clearInterval(timerRef.current);
     return()=>clearInterval(timerRef.current);
-  },[napOn, napPaused]);
+  },[napOn, napPaused, napStartT]);
 
   // Night timer tick — drives re-renders every second when bedtime is active and nap is not
   const nightTickRef=useRef(null);
@@ -6622,8 +6639,12 @@ function App(){
     const todayEntries = days[selDay] || [];
     // Find all completed naps (daytime, <8h, has start+end with positive duration)
     // Exclude the active nap entry (end===start while running) so napsComplete doesn't fire prematurely
-    const completedNaps = todayEntries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.end!==e.start&&minDiff(e.start,e.end)>0&&minDiff(e.start,e.end)<480)
+    const completedNapsRaw = todayEntries.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.end!==e.start&&minDiff(e.start,e.end)>0&&minDiff(e.start,e.end)<480)
       .sort((a,b)=>{ const [ah,am]=a.start.split(":").map(Number); const [bh,bm]=b.start.split(":").map(Number); return (ah*60+am)-(bh*60+bm); });
+    // Deduplicate: naps with same start time → keep longest
+    const _napDedup = {};
+    completedNapsRaw.forEach(n => { const k=n.start; if(!_napDedup[k]||minDiff(n.start,n.end)>minDiff(_napDedup[k].start,_napDedup[k].end)) _napDedup[k]=n; });
+    const completedNaps = Object.values(_napDedup).sort((a,b)=>timeVal(a)-timeVal(b));
     const napsDone = completedNaps.length;
     const totalNapMins = completedNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
     // Expected naps — start with age baseline, reduce if today's naps were long
@@ -7093,7 +7114,16 @@ function App(){
     const _naps = _todayEntries.filter(e => e.type === "nap" && !e.night);
     // Only count naps that are actually finished (end differs from start and has positive duration)
     // The active nap entry has end===start while running — exclude it so "naps complete" doesn't fire early
-    const _completedNaps = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5);
+    // Deduplicate: if two naps have the same start time, keep only the one with the longer duration
+    const _completedNapsRaw = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5);
+    const _napsByStart = {};
+    _completedNapsRaw.forEach(n => {
+      const key = n.start;
+      if (!_napsByStart[key] || minDiff(n.start, n.end) > minDiff(_napsByStart[key].start, _napsByStart[key].end)) {
+        _napsByStart[key] = n;
+      }
+    });
+    const _completedNaps = Object.values(_napsByStart).sort((a,b)=>timeVal(a)-timeVal(b));
     const _napsDone = _completedNaps.length;
     const _totalNapMin = _completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     const _ageExpected = _profile.expectedNaps;
@@ -7793,9 +7823,12 @@ function App(){
       _whyLines.push("\u{1F512} " + _name + "'s personal rhythm is forming — unlock Bubba Rhythm to see predictions based on " + _name + "'s own data, not just age guidelines.");
     }
     // Feed info
-    if (_latestWeight) {
+    if (_latestWeight && _feedsPerDay > 0) {
       const _dailyMl = Math.round(_latestWeight * 150);
-      _whyLines.push("🍼 At " + _latestWeight + "kg, " + _name + " needs roughly " + _dailyMl + "ml/day (~" + Math.round(_dailyMl/_feedsPerDay) + "ml per feed). OBubba adjusts this based on " + _name + "'s actual feeding pattern — some feeds are bigger, some smaller, and that's normal.");
+      const _perFeedMl = Math.round(_dailyMl / _feedsPerDay);
+      if (!isNaN(_dailyMl) && !isNaN(_perFeedMl)) {
+        _whyLines.push("🍼 At " + _latestWeight + "kg, " + _name + " needs roughly " + _dailyMl + "ml/day (~" + _perFeedMl + "ml per feed). OBubba adjusts this based on " + _name + "'s actual feeding pattern — some feeds are bigger, some smaller, and that's normal.");
+      }
     }
 
     // ══════════════════════════════════════════════════════
@@ -13549,6 +13582,21 @@ function App(){
         tonightLines.push({ text: "Expect roughly " + expectedWakes + " wakes tonight", why: wakeReason });
       }
 
+      // First wake timing prediction
+      if (_avgLS && _avgLS > 60) {
+        try {
+          const _bedEntry = (days[selDay]||[]).find(e=>e.type==="sleep");
+          if (_bedEntry) {
+            const _bedMins = timeVal(_bedEntry);
+            const _predictedFirstWake = _bedMins + _avgLS;
+            const _h = Math.floor((_predictedFirstWake % 1440) / 60);
+            const _m = Math.floor(_predictedFirstWake % 60);
+            const _wakeTime = fmt12(String(_h).padStart(2,"0")+":"+String(_m).padStart(2,"0"));
+            tonightLines.push({ text: "First wake usually around " + _wakeTime + " (" + hm(_avgLS) + " after bedtime)", why: "Based on " + _n + "'s average first stretch of " + hm(_avgLS) + " this week." });
+          }
+        } catch {}
+      }
+
       // Feed tip for better first stretch — use actual correlation data when available
       if (_avgLS) {
         const feedEntries = (days[selDay] || []).filter(e => e.type === "feed");
@@ -19224,6 +19272,110 @@ function App(){
     } catch {}
   }, [_feedCardMemo, babyName, addObservation]);
 
+  // ── Proactive intelligence: regression forecaster, nap transition, false starts, clock change ──
+  React.useEffect(() => {
+    try {
+      if (!age || !babyName) return;
+      const _name = babyName;
+      const _wks = age.totalWeeks;
+
+      // ── Regression forecaster ──
+      const _regressions = [
+        { start: 15, end: 19, label: "4-month", msg: "Sleep architecture is maturing. Naps may shorten, night wakes may increase for 2-4 weeks. This is PERMANENT brain development — not a setback. Keep routines consistent and it passes faster." },
+        { start: 34, end: 38, label: "8-month", msg: "Separation anxiety + crawling/pulling up. Baby may resist the cot, stand up during naps, or cry when you leave. Stay calm, brief check-ins work. Usually 2-3 weeks." },
+        { start: 50, end: 54, label: "12-month", msg: "Walking, first words, big cognitive leap. May temporarily fight naps or need a later bedtime. Stick with 2 naps — don't drop to 1 yet (most babies aren't ready until 14-18 months)." },
+        { start: 76, end: 80, label: "18-month", msg: "Language explosion + toddler independence. May refuse naps, test boundaries at bedtime, or have new night fears. Stay consistent — this is the last major regression." },
+      ];
+      const _upcoming = _regressions.find(r => _wks >= r.start - 2 && _wks < r.start);
+      const _active = _regressions.find(r => _wks >= r.start && _wks <= r.end);
+      if (_upcoming) {
+        addObservation("📅", _upcoming.label + " regression approaching",
+          `${_name} is ${_wks} weeks — the ${_upcoming.label} regression typically hits between ${_upcoming.start}-${_upcoming.end} weeks. Here's what to expect:`,
+          _upcoming.msg);
+      }
+      if (_active) {
+        addObservation("🌊", "You might be in the " + _active.label + " regression",
+          `${_name} is ${_wks} weeks — right in the typical ${_active.label} regression window. ${_active.msg}`,
+          "This is temporary. Keep bedtime consistent, don't introduce new sleep crutches, and be gentle with yourself. 💛");
+      }
+
+      // ── Nap transition detection ──
+      const _recent14 = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const naps = ent.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.start !== e.end);
+        if (naps.length > 0) _recent14.push({ naps: naps.length, date: ds });
+      }
+      if (_recent14.length >= 7) {
+        const _avgNaps = _recent14.reduce((s, d) => s + d.naps, 0) / _recent14.length;
+        const _lastNapRefused = _recent14.slice(0, 5).filter(d => d.naps < Math.round(_avgNaps)).length;
+        // 3→2 transition (typically 6-9 months)
+        if (_avgNaps >= 2.5 && _avgNaps <= 3.2 && _lastNapRefused >= 3 && _wks >= 24 && _wks <= 40) {
+          addObservation("📉", "Nap transition signal: 3 → 2 naps",
+            `${_name} has been fighting or skipping the 3rd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, this is a classic sign of readiness to drop to 2 naps.`,
+            "Transition gradually: push the first wake window by 15min every 2-3 days. The 2-nap schedule usually settles within 1-2 weeks. Bedtime may need to come earlier during the transition.");
+        }
+        // 2→1 transition (typically 14-18 months)
+        if (_avgNaps >= 1.5 && _avgNaps <= 2.2 && _lastNapRefused >= 3 && _wks >= 56 && _wks <= 80) {
+          addObservation("📉", "Nap transition signal: 2 → 1 nap",
+            `${_name} has been resisting or shortening the 2nd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, they may be ready for one longer midday nap.`,
+            "Don't rush — most babies aren't truly ready until 15-18 months. Try capping the morning nap to 30min first. If they still fight the afternoon nap for 2+ weeks, switch to one nap around 12:30pm.");
+        }
+      }
+
+      // ── False start detection ──
+      try {
+        const _falseStarts = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0, 10);
+          const ent = days[ds] || [];
+          const bed = ent.find(e => e.type === "sleep");
+          if (!bed) continue;
+          const bedMins = timeVal(bed);
+          const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night);
+          const firstWake = nightWakes.sort((a, b) => timeVal(a) - timeVal(b))[0];
+          if (firstWake) {
+            let diff = timeVal(firstWake) - bedMins;
+            if (diff < 0) diff += 1440;
+            if (diff <= 60 && diff > 0) _falseStarts.push(ds);
+          }
+        }
+        if (_falseStarts.length >= 3) {
+          addObservation("⏰", "False start pattern detected",
+            `${_name} has woken within 45-60 minutes of bedtime ${_falseStarts.length} of the last 7 nights. This is a "false start" — baby completes one sleep cycle and can't link to the next.`,
+            "Common causes: overtiredness (try bedtime 15-20min earlier), undertiredness (check total day sleep isn't too high), or environmental (room too warm, light creeping in). Try adjusting bedtime first — it's the easiest lever.");
+        }
+      } catch {}
+
+      // ── Clock change preparation ──
+      try {
+        const _now = new Date();
+        // UK clocks: last Sunday of March (spring forward), last Sunday of October (fall back)
+        const _yr = _now.getFullYear();
+        const _marchLast = new Date(_yr, 2, 31); // March
+        while (_marchLast.getDay() !== 0) _marchLast.setDate(_marchLast.getDate() - 1);
+        const _octLast = new Date(_yr, 9, 31); // October
+        while (_octLast.getDay() !== 0) _octLast.setDate(_octLast.getDate() - 1);
+        const _daysToMarch = Math.ceil((_marchLast - _now) / 86400000);
+        const _daysToOct = Math.ceil((_octLast - _now) / 86400000);
+        if (_daysToMarch > 0 && _daysToMarch <= 7) {
+          addObservation("🕐", "Clocks go forward in " + _daysToMarch + " days",
+            "Clocks spring forward this Sunday. " + _name + " will effectively lose an hour. Start shifting bedtime 10 minutes earlier each night from now.",
+            "By Sunday, bedtime will naturally be 30-40min earlier. On clock-change day, just follow the new clock — " + _name + "'s body will adjust within 2-3 days. Don't stress about it being perfect.");
+        }
+        if (_daysToOct > 0 && _daysToOct <= 7) {
+          addObservation("🕐", "Clocks go back in " + _daysToOct + " days",
+            "Clocks fall back this Sunday. " + _name + " may wake an hour earlier than usual. Start shifting bedtime 10 minutes later each night from now.",
+            "By Sunday, you'll have pushed bedtime 30-40min later. Early wake-ups are normal for the first 3-5 days — stay consistent and " + _name + "'s body clock will adjust.");
+        }
+      } catch {}
+
+    } catch {}
+  }, [age, babyName, days, selDay, addObservation]);
+
   // ── Skip auth on first launch — allow anonymous onboarding ──
   // Auth screen only shows when user explicitly taps "I already have an account" from onboarding,
   // or when deferred account prompt triggers (day 2-3)
@@ -19539,6 +19691,15 @@ function App(){
       setOnboarded(true);
       setTab("day");
       setSelDay(_obToday);
+      // Show quick-start prompt after a short delay — lets user seed yesterday's data
+      setTimeout(() => {
+        try {
+          if (!localStorage.getItem("ob_quickstart_offered")) {
+            localStorage.setItem("ob_quickstart_offered", "1");
+            setShowQuickStart(true);
+          }
+        } catch {}
+      }, 2000);
       // Show day explainer immediately if bedtime was picked, or after a short delay for others
       if (obTodayStatus === "bedtime") {
         try{ if(!localStorage.getItem("ob_day_explainer_v1")){ localStorage.setItem("ob_day_explainer_v1","1"); setTimeout(()=>setShowDayExplainer(true), 1200); }}catch{}
@@ -29643,6 +29804,88 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       )}
 
       {/* ═══ Day Explainer Popup ═══ */}
+      {/* Quick-start: seed yesterday's data for faster predictions */}
+      {showQuickStart&&(
+        <div onClick={()=>setShowQuickStart(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"24px 20px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)"}}>
+            <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4,textAlign:"center"}}>⚡ Quick Start</div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:16,textAlign:"center"}}>Tell us roughly what yesterday looked like — this helps predictions start smarter from day 1.</div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>How many naps?</label>
+              <div style={{display:"flex",gap:6}}>
+                {["2","3","4","5+"].map(n=>(
+                  <button key={n} onClick={()=>setQsNaps(n)} style={{flex:1,padding:"8px",borderRadius:10,border:`1.5px solid ${qsNaps===n?C.ter:C.blush}`,background:qsNaps===n?C.ter+"15":"transparent",color:qsNaps===n?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Roughly how many feeds?</label>
+              <div style={{display:"flex",gap:6}}>
+                {["3-4","5-6","7-8","9+"].map(n=>(
+                  <button key={n} onClick={()=>setQsFeeds(n)} style={{flex:1,padding:"8px",borderRadius:10,border:`1.5px solid ${qsFeeds===n?C.ter:C.blush}`,background:qsFeeds===n?C.ter+"15":"transparent",color:qsFeeds===n?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:10,marginBottom:16}}>
+              <div style={{flex:1}}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Wake up</label>
+                <input type="time" value={qsWake} onChange={e=>setQsWake(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--input-bg)",fontSize:15,fontFamily:_fI,boxSizing:_bBB,textAlign:"center"}}/>
+              </div>
+              <div style={{flex:1}}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Bedtime</label>
+                <input type="time" value={qsBedtime} onChange={e=>setQsBedtime(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--input-bg)",fontSize:15,fontFamily:_fI,boxSizing:_bBB,textAlign:"center"}}/>
+              </div>
+            </div>
+
+            <button onClick={()=>{
+              haptic();
+              // Generate yesterday's synthetic entries
+              const yday = new Date(); yday.setDate(yday.getDate()-1);
+              const ydayStr = yday.toISOString().slice(0,10);
+              const entries = [];
+              // Wake
+              entries.push({id:uid(),type:"wake",time:qsWake,night:false,src:"quickstart"});
+              // Feeds — spread evenly through the day
+              const wMins = parseInt(qsWake.split(":")[0])*60+parseInt(qsWake.split(":")[1]);
+              const bMins = parseInt(qsBedtime.split(":")[0])*60+parseInt(qsBedtime.split(":")[1]);
+              const dayLen = bMins - wMins;
+              const nFeeds = qsFeeds==="3-4"?4:qsFeeds==="5-6"?6:qsFeeds==="7-8"?8:10;
+              const feedGap = Math.floor(dayLen / nFeeds);
+              for(let i=0;i<nFeeds;i++){
+                const m = wMins + feedGap*i + Math.floor(feedGap/2);
+                const h = Math.floor(m/60); const mm = m%60;
+                entries.push({id:uid(),type:"feed",time:String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0"),feedType:obFeedType||"milk",amount:0,night:false,src:"quickstart"});
+              }
+              // Naps — spread evenly
+              const nNaps = qsNaps==="2"?2:qsNaps==="3"?3:qsNaps==="4"?4:5;
+              const awakeChunks = nNaps + 1;
+              const ww = Math.floor(dayLen / awakeChunks);
+              for(let i=0;i<nNaps;i++){
+                const napStart = wMins + ww*(i+1);
+                const napDur = 30 + Math.floor(Math.random()*30); // 30-60min
+                const napEnd = napStart + napDur;
+                const sH=Math.floor(napStart/60),sM=napStart%60,eH=Math.floor(napEnd/60),eM=napEnd%60;
+                entries.push({id:uid(),type:"nap",start:String(sH).padStart(2,"0")+":"+String(sM).padStart(2,"0"),end:String(eH).padStart(2,"0")+":"+String(eM).padStart(2,"0"),night:false,src:"quickstart"});
+              }
+              // Bedtime
+              entries.push({id:uid(),type:"sleep",time:qsBedtime,night:false,src:"quickstart"});
+              // Save
+              setDays(prev=>({...prev,[ydayStr]:[...(prev[ydayStr]||[]),...entries]}));
+              setShowQuickStart(false);
+              showToast("⚡ Yesterday seeded — predictions are already smarter!",2500,1);
+            }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
+              Seed yesterday's data ⚡
+            </button>
+            <button onClick={()=>setShowQuickStart(false)} style={{width:"100%",padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"transparent",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
+              Skip — I'll log from scratch
+            </button>
+          </div>
+        </div>
+      )}
+
       {showDayExplainer&&(
         <div onClick={()=>setShowDayExplainer(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
