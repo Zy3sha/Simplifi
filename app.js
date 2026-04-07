@@ -1528,7 +1528,7 @@ function Sheet({onClose,title,children}){
   },[]);
   return(
     <div ref={overlayRef} onClick={onClose} style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center",transition:"bottom 0.25s ease"}}>
-      <div ref={sheetRef} onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(24px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease"}}>
+      <div ref={sheetRef} onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(24px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease",position:"relative",zIndex:501}}>
         <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
         {title&&<div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:16}}>{title}</div>}
         {children}
@@ -15726,7 +15726,7 @@ function App(){
         e={...e,type:"feed",time:formTime,amount:displayToMl(form.amount,FU),night:form.night==="yes",feedType:feedType};
       }
     }
-    else if(eType==="nap"){e={...e,type:"nap",start:formStart,end:formEnd,night:false};}
+    else if(eType==="nap"){e={...e,type:"nap",start:formStart,end:formEnd,night:false,napLocation:form.napLocation||null};}
     else if(eType==="poop"){e={...e,type:"poop",time:formTime,poopType:form.poopType||"",night:false};}
     else if(eType==="wake"){
       e={...e,type:"wake",time:formTime,night:form.night==="yes"};
@@ -25752,13 +25752,56 @@ function App(){
                       It's okay if they only lick or play with it — this is learning, not eating. Offer milk first so baby isn't hungry and stressed.
                     </div>
 
-                    {/* Log + Tomorrow */}
+                    {/* Log + Try Later */}
                     <div style={{display:"flex",gap:8,alignItems:"center"}}>
                       <button onClick={()=>{haptic();setShowWeaningForm(true);setWeaningForm({food:_ft.food,date:todayStr(),reaction:"neutral",note:"",liked:null});}}
                         style={{flex:1,padding:"8px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                         Log attempt
                       </button>
+                      <button onClick={()=>{
+                        haptic();
+                        // Push current food to back of queue, advance to next
+                        try {
+                          const _skipped = JSON.parse(localStorage.getItem("ob_wean_skipped_v1")||"{}");
+                          _skipped[_ft.food] = { count: (_skipped[_ft.food]?.count||0)+1, date: todayStr() };
+                          localStorage.setItem("ob_wean_skipped_v1", JSON.stringify(_skipped));
+                          // Replace today's suggestion with tomorrow's, pick new tomorrow
+                          const _newTmr = _pool.find(f=>f.food!==_tmr.food&&f.food!==_ft.food) || _pool[0];
+                          localStorage.setItem("ob_wean_suggestions_v1", JSON.stringify({date:todayStr(), today:_tmr.food, tomorrow:_newTmr.food}));
+                          showToast("⏭ " + _ft.food + " skipped — we'll suggest it again in a few days", 2500, 1);
+                          // Force re-render by touching weaning state
+                          setWeaning(w=>[...w]);
+                        } catch {}
+                      }}
+                        style={{padding:"8px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                        ⏭ Try later
+                      </button>
                     </div>
+                    {/* Skipped allergen reminder */}
+                    {(()=>{
+                      try {
+                        const _skipped = JSON.parse(localStorage.getItem("ob_wean_skipped_v1")||"{}");
+                        const _allergenSkips = Object.entries(_skipped).filter(([food])=>{
+                          const f = _available.find(x=>x.food===food);
+                          return f && f.cat==="allergen" && !_isTried(f);
+                        }).filter(([,v])=>{
+                          const daysSince = Math.floor((Date.now()-new Date(v.date).getTime())/(1000*60*60*24));
+                          return daysSince >= 3; // resurface after 3 days
+                        });
+                        if(_allergenSkips.length === 0) return null;
+                        const [food] = _allergenSkips[0];
+                        const f = _available.find(x=>x.food===food);
+                        return (
+                          <div style={{marginTop:8,background:"rgba(212,168,85,0.06)",border:"1px solid rgba(212,168,85,0.2)",borderRadius:10,padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}>
+                            <span style={_S.f16}>{f?.emoji||"🍽"}</span>
+                            <div style={_S.flex1}>
+                              <div style={{fontSize:11,fontWeight:600,color:C.gold}}>Allergen reminder</div>
+                              <div style={{fontSize:11,color:C.mid}}>You skipped <strong>{food}</strong> — time to try? Allergens need regular exposure.</div>
+                            </div>
+                          </div>
+                        );
+                      } catch { return null; }
+                    })()}
 
                     {/* Tomorrow teaser */}
                     {_tmr && _tmr.food !== _ft.food && (()=>{
@@ -27648,6 +27691,18 @@ function App(){
                     <TimeInput value={form[k]} onChange={t=>setForm(f=>({...f,[k]:t}))} style={{marginBottom:0}}/>
                   </div>
                 ))}
+              </div>
+              {/* Nap location / quality */}
+              <div style={_S.mb12}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Where did they nap?</label>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {[{id:"cot",emoji:"🛏️",label:"Cot"},{id:"car",emoji:"🚗",label:"Car"},{id:"pram",emoji:"👶",label:"Pram"},{id:"carrier",emoji:"🦘",label:"Carrier"},{id:"arms",emoji:"🤱",label:"Arms"},{id:"other",emoji:"🏠",label:"Other"}].map(loc=>(
+                    <button key={loc.id} onClick={()=>setForm(f=>({...f,napLocation:f.napLocation===loc.id?null:loc.id}))}
+                      style={{padding:"6px 12px",borderRadius:99,border:`1.5px solid ${form.napLocation===loc.id?C.ter:C.blush}`,background:form.napLocation===loc.id?C.ter+"15":"transparent",color:form.napLocation===loc.id?C.ter:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                      {loc.emoji} {loc.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               {editEntry && (
                 <button onClick={()=>{
