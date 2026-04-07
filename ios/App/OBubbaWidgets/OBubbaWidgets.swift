@@ -76,6 +76,7 @@ struct OBWidgetToggleTimerIntent: AppIntent {
         }
         if hasActiveTimer {
             widgetStorePendingEntry(["type": "nap_stop", "source": "siri"])
+            clearActiveTimer()
             return .result(value: "Timer stopped ✓")
         } else {
             widgetStorePendingEntry(["type": "nap_start", "source": "siri"])
@@ -90,7 +91,39 @@ struct OBStopTimerIntent: AppIntent {
     static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
         widgetStorePendingEntry(["type": "nap_stop", "source": "siri"])
+        clearActiveTimer()
         return .result(value: "Timer stopped ✓")
+    }
+}
+
+/// Clears the active timer from widgetData so the widget immediately stops showing it.
+/// Also ends any running Live Activity.
+private func clearActiveTimer() {
+    guard let defaults = UserDefaults(suiteName: widgetAppGroupId) else { return }
+    // Read current widgetData, clear activeTimer + timerStart
+    if let json = defaults.string(forKey: "widgetData"),
+       let data = json.data(using: .utf8),
+       var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        dict["activeTimer"] = ""
+        dict["timerStart"] = ""
+        dict["timerLabel"] = ""
+        if let updated = try? JSONSerialization.data(withJSONObject: dict),
+           let updatedJson = String(data: updated, encoding: .utf8) {
+            defaults.set(updatedJson, forKey: "widgetData")
+            defaults.synchronize()
+        }
+    }
+    // End any Live Activity
+    if #available(iOS 16.2, *) {
+        Task {
+            for activity in Activity<OBubbaTimerAttributes>.activities {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
+    }
+    // Refresh widget
+    if #available(iOS 14.0, *) {
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
 
