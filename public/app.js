@@ -20263,6 +20263,165 @@ function App(){
       }
     } catch {}
 
+    // ── Witching hour predictor — fussy periods ──
+    try {
+      const _fussyTimes = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        // Detect fussy periods: multiple short wakes/feeds close together, or crying helper used
+        const _cryDate = (activeChild.cryingHelps || {})[ds];
+        if (_cryDate) {
+          const _cryTime = typeof _cryDate === "object" && _cryDate.time ? parseInt(_cryDate.time.split(":")[0]) : null;
+          if (_cryTime) _fussyTimes.push(_cryTime);
+        }
+        // Also check for rapid feed-then-wake-then-feed cycles (cluster feeding = fussy)
+        const feeds = ent.filter(e => isBabyFeed(e)).sort((a, b) => timeVal(a) - timeVal(b));
+        for (let j = 1; j < feeds.length; j++) {
+          const gap = timeVal(feeds[j]) - timeVal(feeds[j-1]);
+          if (gap > 0 && gap < 90) { // feeds <1.5h apart = cluster
+            const h = parseInt((feeds[j].time || "").split(":")[0]);
+            if (h >= 16 && h <= 21) _fussyTimes.push(h);
+          }
+        }
+      }
+      if (_fussyTimes.length >= 4) {
+        const _hourCounts = {};
+        _fussyTimes.forEach(h => _hourCounts[h] = (_hourCounts[h] || 0) + 1);
+        const _peakHour = Object.entries(_hourCounts).sort((a, b) => b[1] - a[1])[0];
+        if (_peakHour && _peakHour[1] >= 3) {
+          const _h = parseInt(_peakHour[0]);
+          addObservation("😫", "Witching hour: " + fmt12(String(_h).padStart(2, "0") + ":00") + "–" + fmt12(String(_h + 1).padStart(2, "0") + ":00"),
+            `${_name} tends to be fussiest around ${fmt12(String(_h).padStart(2, "0") + ":00")} (${_peakHour[1]} episodes in 2 weeks). This is the "witching hour" — extremely common in babies under 6 months.`,
+            "Prepare in advance: have a feed ready, dim the lights, try skin-to-skin or a bath at " + fmt12(String(Math.max(_h - 1, 16)).padStart(2, "0") + ":00") + ". Many babies cluster-feed in the evening — this is normal and helps them tank up for the night. It gets better around 3-4 months.");
+        }
+      }
+    } catch {}
+
+    // ── First stretch tracker — is it getting longer? ──
+    try {
+      const _firstStretches = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const bed = ent.find(e => e.type === "sleep" && !e.night);
+        if (!bed) continue;
+        const bedMins = timeVal(bed);
+        const nightWakes = [...ent.filter(e => e.night)].sort((a, b) => {
+          let am = timeVal(a) - bedMins; if (am < 0) am += 1440;
+          let bm = timeVal(b) - bedMins; if (bm < 0) bm += 1440;
+          return am - bm;
+        });
+        if (nightWakes.length > 0) {
+          let stretch = timeVal(nightWakes[0]) - bedMins;
+          if (stretch < 0) stretch += 1440;
+          if (stretch > 30 && stretch < 720) _firstStretches.push({ date: ds, mins: stretch, dayIdx: i });
+        }
+      }
+      if (_firstStretches.length >= 7) {
+        const _older = _firstStretches.filter(s => s.dayIdx >= 7);
+        const _newer = _firstStretches.filter(s => s.dayIdx < 7);
+        if (_older.length >= 3 && _newer.length >= 3) {
+          const _oldAvg = Math.round(_older.reduce((s, f) => s + f.mins, 0) / _older.length);
+          const _newAvg = Math.round(_newer.reduce((s, f) => s + f.mins, 0) / _newer.length);
+          if (_newAvg > _oldAvg + 15) {
+            addObservation("🌟", "First stretch is getting longer!",
+              `${_name}'s first unbroken sleep stretch has improved: ${hm(_newAvg)} this week vs ${hm(_oldAvg)} last week. That's ${hm(_newAvg - _oldAvg)} more unbroken sleep.`,
+              "This is genuine progress — " + _name + "'s ability to link sleep cycles is developing. Keep doing what you're doing. Consistent bedtime routine + full feed before bed are the biggest contributors.");
+          } else if (_newAvg < _oldAvg - 20) {
+            addObservation("📉", "First stretch has shortened",
+              `${_name}'s first unbroken stretch is ${hm(_newAvg)} this week vs ${hm(_oldAvg)} last week.`,
+              "Common causes: growth spurt (hungry sooner), developmental leap (brain too busy), teething pain, or room temperature. Usually temporary — check the basics and give it 3-4 days.");
+          }
+        }
+      }
+    } catch {}
+
+    // ── Overtired cascade detector ──
+    try {
+      let _cascadeDays = 0;
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
+        const napMin = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+        const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+        // Overtired pattern: short naps + many night wakes
+        const _napProfile2 = getAgeNapProfile(_wks);
+        if (napMin < _napProfile2.idealTotalMin * 0.7 && nightWakes >= 3) _cascadeDays++;
+      }
+      if (_cascadeDays >= 3) {
+        addObservation("🔄", "Overtired cascade building",
+          `${_name} has had short naps AND multiple night wakes for ${_cascadeDays} of the last 5 days. This is the overtired cycle: poor day sleep → overtired → poor night sleep → tired next day → poor naps → repeat.`,
+          "Breaking the cycle: focus on ONE good nap tomorrow. Contact nap, dark room, white noise — whatever gives " + _name + " the best chance of a long nap. Even one solid 90-minute nap can break the cascade. An early bedtime tonight (30min earlier than usual) also helps reset.");
+      }
+    } catch {}
+
+    // ── Feeding rhythm maturity — is baby naturally spacing feeds? ──
+    try {
+      const _feedGaps = { recent: [], older: [] };
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const feeds = ent.filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+        for (let j = 1; j < feeds.length; j++) {
+          const gap = timeVal(feeds[j]) - timeVal(feeds[j-1]);
+          if (gap > 30 && gap < 360) {
+            if (i < 7) _feedGaps.recent.push(gap); else _feedGaps.older.push(gap);
+          }
+        }
+      }
+      if (_feedGaps.recent.length >= 5 && _feedGaps.older.length >= 5) {
+        const _avgRecent = Math.round(_feedGaps.recent.reduce((a, b) => a + b, 0) / _feedGaps.recent.length);
+        const _avgOlder = Math.round(_feedGaps.older.reduce((a, b) => a + b, 0) / _feedGaps.older.length);
+        if (_avgRecent > _avgOlder + 15) {
+          addObservation("🍼", "Feed spacing is maturing",
+            `${_name}'s feeds are naturally spreading out: ${hm(_avgRecent)} apart this week vs ${hm(_avgOlder)} last week.`,
+            "This is a sign of a growing tummy and more efficient feeding. " + _name + " is taking more per feed and lasting longer between. You don't need to do anything — this is development happening on its own.");
+        }
+      }
+    } catch {}
+
+    // ── Emotional milestone — first settled night ──
+    try {
+      if (!localStorage.getItem("ob_first_settled_v1")) {
+        const _dk4 = Object.keys(days).sort().slice(-7);
+        const _settledNight = _dk4.find(dk => {
+          const ent = days[dk] || [];
+          const bed = ent.find(e => e.type === "sleep" && !e.night);
+          const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+          return bed && nightWakes === 0;
+        });
+        if (_settledNight) {
+          localStorage.setItem("ob_first_settled_v1", _settledNight);
+          addObservation("🎉", _name + " slept through!",
+            `No night wakes on ${new Date(_settledNight + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}. This is a huge milestone.`,
+            "This might not happen every night yet — and that's OK. But the fact it happened means " + _name + "'s biology is capable of it. It WILL become more consistent. You did this. Every feed, every gentle resettle, every 3am wake — it all led here. 💛");
+        }
+      }
+    } catch {}
+
+    // ── Parent wins — acknowledge the effort ──
+    try {
+      const _totalDaysLogged = Object.keys(days).filter(dk => (days[dk] || []).length > 0).length;
+      if (_totalDaysLogged === 7 && !localStorage.getItem("ob_7day_win")) {
+        localStorage.setItem("ob_7day_win", "1");
+        addObservation("🏅", "7 days of tracking!",
+          "You've logged consistently for a full week. That's more data than most parents ever collect — and " + _name + "'s predictions are getting personal now.",
+          "Every entry you've logged helps the app understand " + _name + "'s unique rhythm. Predictions are now based on real data, not just age guidelines. Keep going — the app gets smarter every day.");
+      }
+      if (_totalDaysLogged === 30 && !localStorage.getItem("ob_30day_win")) {
+        localStorage.setItem("ob_30day_win", "1");
+        addObservation("🏆", "30 days — you're a data hero",
+          "A full month of tracking " + _name + "'s patterns. The insights you're seeing now are deeply personalised — no other baby has these exact predictions.",
+          "OBubba knows " + _name + "'s rhythm, sweet spots, and patterns. The dream feed data, nap location stats, and night correlations are all unique to your family. You've built something valuable. 💛");
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
