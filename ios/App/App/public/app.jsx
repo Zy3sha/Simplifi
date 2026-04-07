@@ -7296,7 +7296,22 @@ function App(){
     // ══════════════════════════════════════════════════════
     let _reassure = "You're doing great 🤍";
     try {
-    if (_isNightTime) {
+    // Data-aware "it's OK" reassurance — triggered by what's actually happening
+    const _recentNaps = _completedNaps || [];
+    const _avgNapDur = _recentNaps.length ? Math.round(_recentNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0)/_recentNaps.length) : 0;
+    const _nightWakeCount = td.nightWakeCount || 0;
+    const _prevNightWakes = (()=>{try{const _pd=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();return(days[_pd]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;}catch{return 0;}})();
+
+    // Priority reassurance based on data patterns
+    if (_recentNaps.length >= 2 && _avgNapDur < 25 && _avgNapDur > 0 && !_isNightTime) {
+      _reassure = "Short naps are completely normal at " + (age?fmtAge(age):"this age") + ". " + _name + "'s brain is developing — nap length often improves around 5-6 months.";
+    } else if (_prevNightWakes >= 3 && !_isNightTime) {
+      _reassure = _prevNightWakes + " night wakes last night is exhausting — but you got through it. This won't last forever. You're stronger than you think.";
+    } else if (td.isFragmented) {
+      _reassure = "Catnapping days are hard. " + _name + " isn't doing anything wrong — some days are just like this. A contact nap can help reset.";
+    } else if (disruptionMode) {
+      _reassure = "Teething/illness days don't follow the rules. Go easy on yourself — survival mode is perfectly valid parenting.";
+    } else if (_isNightTime) {
       const _nightMsgs = [
         "The night feeds won't last forever. Every one of them is helping " + _name + " grow.",
         "You're awake because you love " + _name + ". That's enough. That's everything.",
@@ -15544,6 +15559,25 @@ function App(){
     const timeLabel = data.time ? " at "+fmt12(data.time) : "";
     showToast(label+timeLabel+" · Shake to undo",3000,1);
 
+    // Breast feed duration insight — show average + trend for breastfed parents
+    if (type === "feed" && data.feedType === "breast" && (data.breastL || data.breastR)) {
+      try {
+        const _breastFeeds = Object.values(days).flat().filter(e=>e.type==="feed"&&e.feedType==="breast"&&(e.breastL||e.breastR)).slice(-15);
+        if (_breastFeeds.length >= 3) {
+          const _avgDur = Math.round(_breastFeeds.reduce((s,f)=>s+(parseInt(f.breastL)||0)+(parseInt(f.breastR)||0),0)/_breastFeeds.length);
+          const _thisDur = (parseInt(data.breastL)||0) + (parseInt(data.breastR)||0);
+          const _recent5 = _breastFeeds.slice(-5);
+          const _older5 = _breastFeeds.slice(-10,-5);
+          if (_recent5.length >= 3 && _older5.length >= 3) {
+            const _recentAvg = Math.round(_recent5.reduce((s,f)=>s+(parseInt(f.breastL)||0)+(parseInt(f.breastR)||0),0)/_recent5.length);
+            const _olderAvg = Math.round(_older5.reduce((s,f)=>s+(parseInt(f.breastL)||0)+(parseInt(f.breastR)||0),0)/_older5.length);
+            if (_recentAvg < _olderAvg - 3) {
+              setTimeout(()=>showToast(`${_thisDur}min feed · avg ${_avgDur}min · feeds getting shorter — ${babyName||"baby"} is getting more efficient at the breast 💪`,4500,1),3500);
+            }
+          }
+        }
+      } catch(_){}
+    }
     // Partial feed detection — if bottle feed is <60% of average, show helpful context
     if (type === "feed" && data.feedType !== "pump" && data.feedType !== "breast" && data.amount > 0) {
       try {
@@ -20429,6 +20463,50 @@ function App(){
               )}
 
               {/* Morning wellbeing popup rendered as fixed overlay below */}
+
+              {/* FIRST WEEK GUIDE — age-specific "what's normal" for new users */}
+              {!daySubScreen && (()=>{
+                const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
+                if (_daysLogged >= 5 || !age) return null;
+                const _w = age.totalWeeks;
+                const _name = babyName||"Baby";
+                const _ww = getWakeWindow(_w);
+                const _profile = getAgeNapProfile(_w);
+                const _ageGuide = _w < 6
+                  ? {title:"Newborn (0-6 weeks)", naps:"4-5 naps", ww:"45-60 min awake", feeds:"8-12 feeds/day", night:"Waking every 2-3h is normal", tip:"There's no schedule yet — follow "+_name+"'s cues. Feed on demand, sleep when "+_name+" sleeps."}
+                  : _w < 13
+                  ? {title:"6 weeks - 3 months", naps:"3-4 naps", ww:_ww.label+" awake", feeds:"6-8 feeds/day", night:"1-3 night wakes typical", tip:"Patterns are starting to emerge. Log consistently and OBubba will learn "+_name+"'s rhythm within a week."}
+                  : _w < 26
+                  ? {title:"3-6 months", naps:"2-3 naps", ww:_ww.label+" awake", feeds:"5-6 feeds/day", night:"0-2 night wakes", tip:_name+"'s sleep is maturing. The 4-month regression may hit — it's a sign of healthy brain development, not a setback."}
+                  : _w < 39
+                  ? {title:"6-9 months", naps:"2 naps", ww:_ww.label+" awake", feeds:"4-5 feeds + solids", night:"0-1 night wakes", tip:"Solids are starting! Milk is still the main nutrition. "+_name+" may drop the 3rd nap soon."}
+                  : {title:_w<52?"9-12 months":"12+ months", naps:_w<52?"2 naps":"1-2 naps", ww:_ww.label+" awake", feeds:"3-4 feeds + meals", night:"May sleep through", tip:"Routine becomes more predictable. Consistency is your biggest tool now."};
+                return (
+                  <div className="glass-card" style={{padding:"16px",marginBottom:10,border:`1.5px solid ${C.mint}30`,background:`linear-gradient(135deg,${C.mint}06,${C.sky}04)`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <span style={_S.f20}>📖</span>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_name}'s age guide — {_ageGuide.title}</div>
+                        <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>Day {_daysLogged+1} with OBubba · {5-_daysLogged} more days to unlock full insights</div>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
+                      {[
+                        ["😴",_ageGuide.naps],
+                        ["⏱",_ageGuide.ww],
+                        ["🍼",_ageGuide.feeds],
+                        ["🌙",_ageGuide.night],
+                      ].map(([icon,text],i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",borderRadius:10,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+                          <span style={_S.f12}>{icon}</span>
+                          <span style={{fontSize:11,color:C.mid}}>{text}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{fontSize:12,color:C.mid,lineHeight:1.6,fontStyle:"italic"}}>{_ageGuide.tip}</div>
+                  </div>
+                );
+              })()}
 
               {/* ONE-TAP LOG ROW — only on dashboard, not sub-screens */}
               {!daySubScreen && <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"10px 8px",marginBottom:10,gap:1,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2,overflow:"hidden"}}>
