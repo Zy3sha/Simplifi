@@ -4020,22 +4020,6 @@ function App(){
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
   const[showForgotTimer,setShowForgotTimer]=useState(false);
   const _forgotTimerRef = React.useRef(false);
-  // Auto-detect forgotten nap timer: prompt after 2x average nap duration or 3h
-  React.useEffect(()=>{
-    if(!napOn || napPaused || !napSec || _forgotTimerRef.current) return;
-    // Calculate average nap duration from recent completed naps
-    const _recentNaps = (days[todayStr()]||[]).filter(e=>e.type==="nap"&&e.start&&e.end&&e.start!==e.end);
-    let _threshold = 10800; // default 3h
-    if(_recentNaps.length >= 2) {
-      const _avg = _recentNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0)/_recentNaps.length;
-      _threshold = Math.max(Math.round(_avg * 2 * 60), 5400); // 2x avg, min 1.5h
-    }
-    if(napSec >= _threshold) {
-      _forgotTimerRef.current = true;
-      setShowForgotTimer(true);
-    }
-  },[napOn, napSec, napPaused]);
-  React.useEffect(()=>{ if(!napOn) _forgotTimerRef.current = false; },[napOn]);
   const[partnerTick,setPartnerTick]=useState(0);
   // Tick every 30s if there are partner's active entries (forces badge update)
   React.useEffect(()=>{
@@ -4070,6 +4054,18 @@ function App(){
     }catch{return 0;}
   });
   const[napCountdown,setNapCountdown]=useState(null);
+  // Auto-detect forgotten nap timer: prompt after 2x average nap duration or 3h
+  React.useEffect(()=>{
+    if(!napOn || napPaused || !napSec || _forgotTimerRef.current) return;
+    const _recentNaps = (days[todayStr()]||[]).filter(e=>e.type==="nap"&&e.start&&e.end&&e.start!==e.end);
+    let _threshold = 10800;
+    if(_recentNaps.length >= 2) {
+      const _avg = _recentNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0)/_recentNaps.length;
+      _threshold = Math.max(Math.round(_avg * 2 * 60), 5400);
+    }
+    if(napSec >= _threshold) { _forgotTimerRef.current = true; setShowForgotTimer(true); }
+  },[napOn, napSec, napPaused]);
+  React.useEffect(()=>{ if(!napOn) _forgotTimerRef.current = false; },[napOn]);
 
   const[breastSide,setBreastSide]=useState(()=>{try{return localStorage.getItem("breast_side")||null;}catch{return null;}});
   const[breastSec,setBreastSec]=useState(()=>{try{const s=localStorage.getItem("breast_sec");return s?JSON.parse(s):{L:0,R:0};}catch{return {L:0,R:0};}});
