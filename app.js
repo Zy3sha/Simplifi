@@ -15785,7 +15785,17 @@ function App(){
           const _avgAmt = Math.round(_recentFeeds.reduce((s,f)=>s+f.amount,0)/_recentFeeds.length);
           if (data.amount < _avgAmt * 0.6 && _avgAmt > 0) {
             const _pct = Math.round((data.amount/_avgAmt)*100);
-            setTimeout(()=>showToast(`${data.amount}ml is ${_pct}% of ${babyName||"baby"}'s usual ${_avgAmt}ml — next feed may come sooner`,4000,0),3500);
+            // Check if teething is active (tooth logged in last 7 days)
+            const _recentTeeth = (activeChild.teething||[]).filter(t => {
+              if (!t.date) return false;
+              return (Date.now() - new Date(t.date).getTime()) < 7*24*3600*1000;
+            });
+            const _isTeething = _recentTeeth.length > 0 || (()=>{try{const d=JSON.parse(localStorage.getItem("ob_disruption_mode")||"null");return d&&d.reason==="teething";}catch{return false;}})();
+            if (_isTeething) {
+              setTimeout(()=>showToast(`🦷 ${data.amount}ml is less than usual — completely normal during teething. Sore gums can make feeding uncomfortable. Offer smaller, more frequent feeds. This passes in a few days.`,5000,1),3500);
+            } else {
+              setTimeout(()=>showToast(`${data.amount}ml is ${_pct}% of ${babyName||"baby"}'s usual ${_avgAmt}ml — next feed may come sooner`,4000,0),3500);
+            }
           }
         }
       } catch(_){}
@@ -19782,6 +19792,42 @@ function App(){
         addObservation("🌅", "Morning wake prediction",
           `${_name} typically wakes between ${fmt12(minsToTime(earlyBound))} and ${fmt12(minsToTime(lateBound))}, averaging ${fmt12(minsToTime(avgWakeMins))}.`,
           spread < 20 ? `Very consistent — ${_name}'s body clock is well-set. This stability helps the whole day run smoothly.` : `There's some variation (±${spread}min). A consistent morning wake time anchors the entire day's rhythm.`);
+      }
+    } catch {}
+
+    // ── Teething + feeding correlation ──
+    try {
+      const _recentTeeth = (activeChild.teething||[]).filter(t => t.date && (Date.now() - new Date(t.date).getTime()) < 7*24*3600*1000);
+      if (_recentTeeth.length > 0) {
+        // Check if feeding has dropped in the last 3 days vs the week before
+        const _last3feeds = [];
+        const _prev4feeds = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0, 10);
+          const ent = days[ds] || [];
+          const dayMl = ent.filter(e => isBabyFeed(e) && e.amount > 0).reduce((s, f) => s + f.amount, 0);
+          if (dayMl > 0) { if (i < 3) _last3feeds.push(dayMl); else _prev4feeds.push(dayMl); }
+        }
+        if (_last3feeds.length >= 2 && _prev4feeds.length >= 2) {
+          const _avg3 = Math.round(_last3feeds.reduce((a, b) => a + b, 0) / _last3feeds.length);
+          const _avg4 = Math.round(_prev4feeds.reduce((a, b) => a + b, 0) / _prev4feeds.length);
+          if (_avg3 < _avg4 * 0.8) {
+            const _drop = Math.round((1 - _avg3 / _avg4) * 100);
+            const _toothNames = _recentTeeth.map(t => t.name || t.tooth || "tooth").join(", ");
+            addObservation("🦷", "Teething + reduced feeding — this is normal",
+              `${_name} cut ${_recentTeeth.length > 1 ? _recentTeeth.length + " teeth" : "a tooth"} recently and daily intake has dropped ~${_drop}% (${_avg3}ml vs ${_avg4}ml). Sore gums make feeding uncomfortable — this is temporary.`,
+              "What helps: offer smaller, more frequent feeds. Try cold teething rings before feeds to numb the gums. A chilled bottle teat can also help. Intake usually bounces back within 3-5 days. If " + _name + " refuses feeds for 24+ hours or seems unwell, speak to your GP.");
+          } else {
+            addObservation("🦷", _recentTeeth.length > 1 ? _recentTeeth.length + " new teeth!" : "New tooth!",
+              `${_name} is teething — you might notice more drool, chewing, fussiness, and disrupted sleep. This is all completely normal.`,
+              "Feeding: some babies feed MORE for comfort, others refuse. Both are fine. Sleep: teething pain peaks at night — extra wakes are expected for a few days. Paracetamol (if age-appropriate) can help with pain. This phase passes. 💛");
+          }
+        } else if (_recentTeeth.length > 0) {
+          addObservation("🦷", _recentTeeth.length > 1 ? _recentTeeth.length + " new teeth!" : "New tooth!",
+            `${_name} is teething — you might notice more drool, chewing, fussiness, and disrupted sleep. This is all completely normal.`,
+            "Feeding: some babies feed MORE for comfort, others refuse. Both are fine. Sleep: teething pain peaks at night — extra wakes are expected for a few days. This phase passes. 💛");
+        }
       }
     } catch {}
 
