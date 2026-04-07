@@ -19831,6 +19831,169 @@ function App(){
       }
     } catch {}
 
+    // ── "Why is today different?" — auto-compare today vs 7-day average ──
+    try {
+      const _todayEnt = days[todayStr()] || [];
+      if (_todayEnt.length >= 3) {
+        const _todayFeeds = _todayEnt.filter(e => isBabyFeed(e));
+        const _todayMl = _todayFeeds.reduce((s, f) => s + (f.amount || 0), 0);
+        const _todayNaps = _todayEnt.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
+        const _todayNapMin = _todayNaps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+        // 7-day averages
+        let _avgMl7 = 0, _avgNap7 = 0, _count7 = 0;
+        for (let i = 1; i <= 7; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0, 10);
+          const ent = days[ds] || [];
+          if (ent.length < 2) continue;
+          _avgMl7 += ent.filter(e => isBabyFeed(e)).reduce((s, f) => s + (f.amount || 0), 0);
+          _avgNap7 += ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end).reduce((s, n) => s + minDiff(n.start, n.end), 0);
+          _count7++;
+        }
+        if (_count7 >= 3) {
+          _avgMl7 = Math.round(_avgMl7 / _count7);
+          _avgNap7 = Math.round(_avgNap7 / _count7);
+          const _factors = [];
+          if (_todayMl > 0 && Math.abs(_todayMl - _avgMl7) > _avgMl7 * 0.25) {
+            _factors.push(_todayMl > _avgMl7 ? "Fed " + Math.round((_todayMl/_avgMl7-1)*100) + "% more than usual (" + _todayMl + "ml vs " + _avgMl7 + "ml avg)" : "Fed " + Math.round((1-_todayMl/_avgMl7)*100) + "% less than usual (" + _todayMl + "ml vs " + _avgMl7 + "ml avg)");
+          }
+          if (Math.abs(_todayNapMin - _avgNap7) > 20) {
+            _factors.push(_todayNapMin > _avgNap7 ? "Napped " + hm(_todayNapMin - _avgNap7) + " more than usual" : "Napped " + hm(_avgNap7 - _todayNapMin) + " less than usual");
+          }
+          // Check for new food today
+          const _newFoodToday = (weaning || []).find(w => w.date === todayStr());
+          if (_newFoodToday) _factors.push("New food introduced: " + _newFoodToday.food);
+          // Check for teething
+          const _teethToday = (activeChild.teething || []).filter(t => t.date === todayStr());
+          if (_teethToday.length) _factors.push("New tooth logged today");
+
+          if (_factors.length >= 1) {
+            addObservation("📊", "Why is today different?",
+              `Today's pattern differs from ${_name}'s usual rhythm:`,
+              _factors.map(f => "• " + f).join("\n") + "\n\nVariation is normal — babies aren't robots. One off-day doesn't mean something's wrong.");
+          }
+        }
+      }
+    } catch {}
+
+    // ── Growth spurt detection — cross-reference weight gain + feeding surge ──
+    try {
+      if (weights && weights.length >= 2) {
+        const _sortedW = [...weights].sort((a, b) => a.date.localeCompare(b.date));
+        const _latest = _sortedW[_sortedW.length - 1];
+        const _prev = _sortedW[_sortedW.length - 2];
+        const _daysBetween = Math.round((new Date(_latest.date) - new Date(_prev.date)) / 86400000);
+        if (_daysBetween > 0 && _daysBetween <= 10) {
+          const _dailyGain = (_latest.kg - _prev.kg) / _daysBetween * 1000; // grams per day
+          // Normal: 15-30g/day for 0-3mo, 10-20g for 3-6mo
+          const _expectedDaily = _wks < 13 ? 25 : _wks < 26 ? 15 : 10;
+          if (_dailyGain > _expectedDaily * 1.5) {
+            // Check if feeds have been more frequent
+            const _feedCounts = [];
+            for (let i = 0; i < 5; i++) {
+              const d = new Date(); d.setDate(d.getDate() - i);
+              const ds = d.toISOString().slice(0, 10);
+              _feedCounts.push((days[ds] || []).filter(e => isBabyFeed(e)).length);
+            }
+            const _avgFeeds = _feedCounts.length ? Math.round(_feedCounts.reduce((a, b) => a + b, 0) / _feedCounts.length * 10) / 10 : 0;
+            if (_avgFeeds > 6) {
+              addObservation("📈", "Growth spurt detected",
+                `${_name} has gained ${Math.round((_latest.kg - _prev.kg) * 1000)}g in ${_daysBetween} days and is averaging ${_avgFeeds} feeds/day. This looks like a growth spurt.`,
+                "Growth spurts typically last 2-3 days. " + _name + " may want to feed more often, be fussier, and sleep differently (some babies sleep MORE, some less). This is temporary — feed on demand and follow " + _name + "'s cues. 💛");
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // ── Vaccination impact tracker ──
+    try {
+      const _appointments = JSON.parse(localStorage.getItem("appointments_v1") || "[]");
+      const _recentVax = _appointments.filter(a => {
+        if (!a.date) return false;
+        const label = (a.title || "").toLowerCase();
+        const isVax = label.includes("vaccin") || label.includes("immunis") || label.includes("jab") || label.includes("injection");
+        const daysAgo = Math.round((Date.now() - new Date(a.date).getTime()) / 86400000);
+        return isVax && daysAgo >= 0 && daysAgo <= 2;
+      });
+      if (_recentVax.length > 0) {
+        addObservation("💉", "Post-vaccination — expect disruption",
+          `${_name} had vaccinations ${_recentVax[0].date === todayStr() ? "today" : "yesterday"}. For the next 24-48 hours, expect:`,
+          "• Fussiness and crying (normal immune response)\n• Lower appetite — offer smaller, frequent feeds\n• Disrupted sleep — extra wakes, harder to settle\n• Mild fever — if >38°C, infant paracetamol (if age-appropriate)\n• A lump at the injection site (normal, fades in days)\n\nThis settles within 48 hours. If fever is high (>39°C), baby is very drowsy, or you're worried, call your GP or 111.");
+      }
+    } catch {}
+
+    // ── Routine consistency scoring ──
+    try {
+      const _wakeTimes = [];
+      const _bedTimes = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const wake = ent.find(e => e.type === "wake" && !e.night);
+        const bed = ent.find(e => e.type === "sleep" && !e.night);
+        if (wake) _wakeTimes.push(timeVal(wake));
+        if (bed) _bedTimes.push(timeVal(bed));
+      }
+      if (_wakeTimes.length >= 5 && _bedTimes.length >= 5) {
+        const _wakeSpread = Math.round(Math.sqrt(_wakeTimes.reduce((s, m) => s + Math.pow(m - _wakeTimes.reduce((a, b) => a + b, 0) / _wakeTimes.length, 2), 0) / _wakeTimes.length));
+        const _bedSpread = Math.round(Math.sqrt(_bedTimes.reduce((s, m) => s + Math.pow(m - _bedTimes.reduce((a, b) => a + b, 0) / _bedTimes.length, 2), 0) / _bedTimes.length));
+        if (_wakeSpread <= 15 && _bedSpread <= 15) {
+          addObservation("⭐", "Excellent routine consistency",
+            `${_name}'s wake time varies by only ±${_wakeSpread}min and bedtime by ±${_bedSpread}min this week.`,
+            "Consistent routines are the single biggest predictor of good sleep. " + _name + "'s body clock is well-set — keep it up. This stability helps naps land better and reduces night wakes.");
+        } else if (_wakeSpread > 30 || _bedSpread > 30) {
+          addObservation("🕐", "Routine is variable this week",
+            `Wake time varies by ±${_wakeSpread}min and bedtime by ±${_bedSpread}min. Consistency helps the body clock settle.`,
+            "The most impactful change is a consistent MORNING WAKE — even ±15min matters. The rest of the day anchors from there. Try waking " + _name + " within the same 15-minute window each morning for the next week.");
+        }
+      }
+    } catch {}
+
+    // ── Predictive night quality — forecast tonight based on today's data ──
+    try {
+      const _todayEnt2 = days[todayStr()] || [];
+      const _todayNaps2 = _todayEnt2.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
+      const _todayNapMin2 = _todayNaps2.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+      const _todayMl2 = _todayEnt2.filter(e => isBabyFeed(e)).reduce((s, f) => s + (f.amount || 0), 0);
+      const _h2 = new Date().getHours();
+      // Only show prediction in the evening (after 5pm)
+      if (_h2 >= 17 && _todayEnt2.length >= 4) {
+        // Compare today's nap total + intake to nights that went well vs poorly
+        const _nightData = [];
+        for (let i = 1; i <= 14; i++) {
+          const d = new Date(); d.setDate(d.getDate() - i);
+          const ds = d.toISOString().slice(0, 10);
+          const ent = days[ds] || [];
+          const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
+          const napMin = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+          const ml = ent.filter(e => isBabyFeed(e)).reduce((s, f) => s + (f.amount || 0), 0);
+          const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+          if (ent.length >= 4) _nightData.push({ napMin, ml, wakes: nightWakes });
+        }
+        if (_nightData.length >= 5) {
+          const _good = _nightData.filter(n => n.wakes <= 1);
+          const _rough = _nightData.filter(n => n.wakes >= 3);
+          if (_good.length >= 2 && _rough.length >= 2) {
+            const _avgGoodNap = Math.round(_good.reduce((s, n) => s + n.napMin, 0) / _good.length);
+            const _avgGoodMl = Math.round(_good.reduce((s, n) => s + n.ml, 0) / _good.length);
+            const _todayCloserToGood = Math.abs(_todayNapMin2 - _avgGoodNap) < Math.abs(_todayNapMin2 - Math.round(_rough.reduce((s, n) => s + n.napMin, 0) / _rough.length));
+            if (_todayCloserToGood) {
+              addObservation("🌟", "Tonight looks promising",
+                `Today's pattern (${hm(_todayNapMin2)} naps${_todayMl2 > 0 ? ", " + _todayMl2 + "ml" : ""}) matches ${_name}'s best nights (${hm(_avgGoodNap)} naps${_avgGoodMl > 0 ? ", " + _avgGoodMl + "ml" : ""} → ${Math.round(_good.reduce((s, n) => s + n.wakes, 0) / _good.length * 10) / 10} avg wakes).`,
+                "You've paced the day well. A full bedtime feed and consistent routine should set " + _name + " up for a good night. 💛");
+            } else {
+              const _avgRoughNap = Math.round(_rough.reduce((s, n) => s + n.napMin, 0) / _rough.length);
+              addObservation("🌙", "Tonight's forecast",
+                `Today's naps (${hm(_todayNapMin2)}) are ${_todayNapMin2 < _avgGoodNap ? "below" : "above"} ${_name}'s sweet spot (${hm(_avgGoodNap)}). Rougher nights tend to follow days with ${hm(_avgRoughNap)} nap time.`,
+                (_todayNapMin2 < _avgGoodNap ? "An earlier bedtime (15-20min) can help compensate for less daytime sleep. " : "Bedtime might need to be a little later to build enough sleep pressure. ") + "A big bedtime feed helps too.");
+            }
+          }
+        }
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
