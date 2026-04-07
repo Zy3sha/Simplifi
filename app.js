@@ -27509,7 +27509,7 @@ function App(){
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Bubba Care</div>
                 <div style={{fontSize:10,color:C.lt}}>Share routine</div>
               </button>
-              {backupCode ? (
+              {backupCode ? (<>
                 <button onClick={()=>{
                   const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
                   const days2=Object.values(children).reduce((s,c)=>s+Object.keys(c.days||{}).length,0);
@@ -27519,7 +27519,6 @@ function App(){
                   <div style={{fontSize:12,fontWeight:700,color:C.mint}}>Save to Cloud</div>
                   <div style={{fontSize:10,color:C.lt}}>Manual backup</div>
                 </button>
-                {/* Child sync status */}
                 {Object.keys(childSyncCodes).length > 0 && (
                   <div style={{gridColumn:"span 2",padding:"8px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,fontSize:11,color:C.lt}}>
                     <div style={{fontWeight:700,color:C.mid,marginBottom:4}}>Partner sync codes:</div>
@@ -27531,7 +27530,7 @@ function App(){
                     ))}
                   </div>
                 )}
-              ) : (
+              </>) : (
                 <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
                   <span style={_S.f24}>❓</span>
                   <div style={{fontSize:12,fontWeight:700,color:C.deep}}>App Tour</div>
