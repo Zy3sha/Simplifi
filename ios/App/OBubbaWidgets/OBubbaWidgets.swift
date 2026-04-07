@@ -35,30 +35,30 @@ private func widgetStorePendingEntry(_ dict: [String: Any]) {
 }
 
 struct OBWidgetLogFeedIntent: AppIntent {
-    static var title: LocalizedStringResource = "Quick Log Feed"
-    static var description = IntentDescription("Log a feed from the widget")
-    static var openAppWhenRun: Bool = true
-    func perform() async throws -> some IntentResult {
-        widgetStorePendingEntry(["type": "feed", "feedType": "bottle", "source": "widget"])
-        return .result()
+    static var title: LocalizedStringResource = "Log a feed"
+    static var description = IntentDescription("Log a bottle feed in OBubba")
+    static var openAppWhenRun: Bool = false
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        widgetStorePendingEntry(["type": "feed", "feedType": "bottle", "source": "siri"])
+        return .result(value: "Feed logged ✓")
     }
 }
 
 struct OBWidgetLogNappyIntent: AppIntent {
-    static var title: LocalizedStringResource = "Quick Log Nappy"
-    static var description = IntentDescription("Log a nappy from the widget")
-    static var openAppWhenRun: Bool = true
-    func perform() async throws -> some IntentResult {
-        widgetStorePendingEntry(["type": "poop", "poopType": "wet", "source": "widget"])
-        return .result()
+    static var title: LocalizedStringResource = "Log a nappy"
+    static var description = IntentDescription("Log a nappy change in OBubba")
+    static var openAppWhenRun: Bool = false
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        widgetStorePendingEntry(["type": "poop", "poopType": "wet", "source": "siri"])
+        return .result(value: "Nappy logged ✓")
     }
 }
 
 struct OBWidgetToggleTimerIntent: AppIntent {
-    static var title: LocalizedStringResource = "Toggle Timer"
-    static var description = IntentDescription("Start or stop the nap timer from widget")
-    static var openAppWhenRun: Bool = true
-    func perform() async throws -> some IntentResult {
+    static var title: LocalizedStringResource = "Toggle nap timer"
+    static var description = IntentDescription("Start or stop the nap timer in OBubba")
+    static var openAppWhenRun: Bool = false
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let defaults = UserDefaults(suiteName: widgetAppGroupId)
         let hasActiveTimer: Bool
         if let json = defaults?.string(forKey: "widgetData"),
@@ -70,31 +70,72 @@ struct OBWidgetToggleTimerIntent: AppIntent {
             hasActiveTimer = false
         }
         if hasActiveTimer {
-            widgetStorePendingEntry(["type": "nap_stop", "source": "widget"])
+            widgetStorePendingEntry(["type": "nap_stop", "source": "siri"])
+            return .result(value: "Timer stopped ✓")
         } else {
-            widgetStorePendingEntry(["type": "nap_start", "source": "widget"])
+            widgetStorePendingEntry(["type": "nap_start", "source": "siri"])
+            return .result(value: "Nap timer started ✓")
         }
-        return .result()
+    }
+}
+
+struct OBStopTimerIntent: AppIntent {
+    static var title: LocalizedStringResource = "Stop timer"
+    static var description = IntentDescription("Stop the active nap or sleep timer in OBubba")
+    static var openAppWhenRun: Bool = false
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        widgetStorePendingEntry(["type": "nap_stop", "source": "siri"])
+        return .result(value: "Timer stopped ✓")
     }
 }
 
 struct OBWidgetBreastLeftIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Left Breast"
-    static var description = IntentDescription("Start left breast feed timer from widget")
-    static var openAppWhenRun: Bool = true
-    func perform() async throws -> some IntentResult {
-        widgetStorePendingEntry(["type": "breast_start", "side": "left", "source": "widget"])
-        return .result()
+    static var title: LocalizedStringResource = "Start left breast"
+    static var description = IntentDescription("Start left breast feed timer in OBubba")
+    static var openAppWhenRun: Bool = false
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        widgetStorePendingEntry(["type": "breast_start", "side": "left", "source": "siri"])
+        return .result(value: "Left breast timer started ✓")
     }
 }
 
 struct OBWidgetBreastRightIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Right Breast"
-    static var description = IntentDescription("Start right breast feed timer from widget")
-    static var openAppWhenRun: Bool = true
-    func perform() async throws -> some IntentResult {
-        widgetStorePendingEntry(["type": "breast_start", "side": "right", "source": "widget"])
-        return .result()
+    static var title: LocalizedStringResource = "Start right breast"
+    static var description = IntentDescription("Start right breast feed timer in OBubba")
+    static var openAppWhenRun: Bool = false
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        widgetStorePendingEntry(["type": "breast_start", "side": "right", "source": "siri"])
+        return .result(value: "Right breast timer started ✓")
+    }
+}
+
+// ── Siri Shortcuts Provider — registers phrases for voice commands ──
+@available(iOS 16.0, *)
+struct OBubbaShortcuts: AppShortcutsProvider {
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(intent: OBWidgetLogFeedIntent(), phrases: [
+            "Log a feed in \(.applicationName)",
+            "Log feed in \(.applicationName)",
+            "\(.applicationName) log feed"
+        ], shortTitle: "Log Feed", systemImageName: "drop.fill")
+
+        AppShortcut(intent: OBWidgetLogNappyIntent(), phrases: [
+            "Log a nappy in \(.applicationName)",
+            "Log nappy in \(.applicationName)",
+            "\(.applicationName) log nappy"
+        ], shortTitle: "Log Nappy", systemImageName: "pin.fill")
+
+        AppShortcut(intent: OBStopTimerIntent(), phrases: [
+            "Stop timer in \(.applicationName)",
+            "Stop nap in \(.applicationName)",
+            "\(.applicationName) stop timer"
+        ], shortTitle: "Stop Timer", systemImageName: "stop.fill")
+
+        AppShortcut(intent: OBWidgetToggleTimerIntent(), phrases: [
+            "Start nap in \(.applicationName)",
+            "Toggle timer in \(.applicationName)",
+            "\(.applicationName) start nap"
+        ], shortTitle: "Toggle Timer", systemImageName: "timer")
     }
 }
 
