@@ -7826,6 +7826,15 @@ function App(){
       } else {
         _dot = "#7BA68C"; _label = "All naps complete";
         _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " done today";
+        // Split night warning: if recent pattern shows split nights, add actionable guidance
+        try {
+          const _splitCheck = advancedSleepPatterns();
+          const _splitPat = _splitCheck && _splitCheck.patterns ? _splitCheck.patterns.find(p => p.type === "split_nights") : null;
+          if (_splitPat) {
+            const _capTarget = _profile.idealTotalMax ? hm(_profile.idealTotalMax) : "2h 30m";
+            _rightNow = "Split night pattern detected — " + _name + " has been waking for 45+ min mid-night recently. Today's naps totalled " + hm(_totalNapMin) + ". Try capping total nap time to " + _capTarget + " tomorrow to increase overnight sleep pressure.";
+          }
+        } catch {}
       }
     }
     // ── PRIORITY 5d: Bedtime logged during day ──
@@ -18072,6 +18081,27 @@ function App(){
       }
       _villageUnlock();
       try { trackEvent("carer_portal_shared", { method: _method }); } catch {}
+      // Nursery referral prompt after 3+ Bubba Care shares
+      try {
+        const _shareCount = parseInt(localStorage.getItem("ob_care_share_count")||"0") + 1;
+        localStorage.setItem("ob_care_share_count", String(_shareCount));
+        if (_shareCount === 3 && !localStorage.getItem("ob_nursery_prompt_shown")) {
+          localStorage.setItem("ob_nursery_prompt_shown", "1");
+          setTimeout(() => {
+            showConfirm(
+              "💛 Love Bubba Care?",
+              "You've shared Bubba Care " + _shareCount + " times — your village is growing!\n\nDoes " + (babyName||"baby") + " go to nursery? Ask them if they'd like OBubba for all their families. We're building nursery features too.\n\nWant to tell them about us?",
+              () => {
+                const msg = "Hi! I use an app called OBubba to track " + (babyName||"my baby") + "'s feeds, sleep and naps. It has a feature called Bubba Care that lets me share a real-time care guide with carers via QR code.\n\nI thought you might like it for all the families at nursery — check it out at obubba.com 💛";
+                if(navigator.share) navigator.share({title:"OBubba for Nurseries",text:msg}).catch(()=>{});
+                else{try{navigator.clipboard.writeText(msg);showToast("📋 Message copied!",1500,1);}catch{}}
+                setConfirmDialog(null);
+              },
+              "Share with nursery"
+            );
+          }, 1500);
+        }
+      } catch {}
     } catch (err) {
       // User cancelled or share failed — fall back to opening the preview modal
       if (err && err.name !== "AbortError") {
@@ -21201,6 +21231,39 @@ function App(){
               })()}
 
               {/* Twins: "Log for all" toggle */}
+              {/* Twins/siblings: nap overlap window */}
+              {!daySubScreen && childIds.length >= 2 && (()=>{
+                try {
+                  const _overlapData = [];
+                  childIds.forEach(cid => {
+                    const ch = children[cid];
+                    if (!ch || !ch.dob) return;
+                    const aw = Math.floor((Date.now() - new Date(ch.dob+"T00:00:00").getTime()) / (7*24*3600*1000));
+                    const ww = getWakeWindow(aw);
+                    const todayEnt = (ch.days || {})[todayStr()] || [];
+                    const lastSleep = [...todayEnt.filter(e=>e.type==="nap"&&e.end&&e.start!==e.end), ...todayEnt.filter(e=>e.type==="wake"&&!e.night)].sort((a,b)=>timeVal(b)-timeVal(a))[0];
+                    if (lastSleep) {
+                      const endMins = timeVal(lastSleep);
+                      _overlapData.push({ name: ch.name, napWindowStart: endMins + ww.min, napWindowEnd: endMins + ww.max });
+                    }
+                  });
+                  if (_overlapData.length >= 2) {
+                    const maxStart = Math.max(..._overlapData.map(d => d.napWindowStart));
+                    const minEnd = Math.min(..._overlapData.map(d => d.napWindowEnd));
+                    if (minEnd > maxStart) {
+                      const _fmt = m => fmt12(String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0"));
+                      return (
+                        <div className="glass-card" style={{padding:"10px 14px",marginBottom:8,border:"1px solid rgba(123,104,238,0.2)"}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>👶👶 Nap overlap window</div>
+                          <div style={{fontSize:13,color:C.deep}}>Both can nap together: <strong>{_fmt(maxStart)} – {_fmt(minEnd)}</strong></div>
+                          <div style={{fontSize:10,color:C.lt,marginTop:2}}>Based on each child's wake window from their last sleep</div>
+                        </div>
+                      );
+                    }
+                  }
+                } catch {}
+                return null;
+              })()}
               {!daySubScreen && childIds.length >= 2 && (
                 <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4,paddingRight:4}}>
                   <button onClick={()=>{haptic();setLogForAll(p=>!p);}} style={{padding:"3px 10px",borderRadius:99,border:`1px solid ${logForAll?C.ter:C.blush}`,background:logForAll?C.ter+"18":"transparent",fontSize:11,fontWeight:600,color:logForAll?C.ter:C.lt,cursor:_cP,fontFamily:_fI}}>
@@ -31647,9 +31710,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
       )}
 
       {sharePreview&&(
-        <div style={{position:"fixed",inset:0,zIndex:9995,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={()=>{setSharePreview(null);setRecapExtraPhoto(null);}}>
-          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:"min(360px, calc(100vw - 32px))",display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
-            <img src={sharePreview.dataUrl} alt="Recap card" style={{width:"100%",height:"auto",maxHeight:"65vh",objectFit:"contain",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)",display:"block"}}/>
+        <div style={{position:"fixed",inset:0,zIndex:9995,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={()=>{setSharePreview(null);setRecapExtraPhoto(null);}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:"min(360px, calc(100vw - 32px))",display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+            <img src={sharePreview.dataUrl} alt="Recap card" style={{width:"100%",height:"auto",maxHeight:"60vh",objectFit:"contain",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)",display:"block"}}/>
             <div style={{display:"flex",gap:10,width:"100%"}}>
               <button onClick={()=>{haptic();if(recapPhotoRef.current)recapPhotoRef.current.click();}} style={{flex:1,padding:"14px",borderRadius:99,border:"2px solid rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.1)",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                 {recapExtraPhoto ? "🔄 Change Photo" : "📷 Add Photo"}
