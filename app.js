@@ -20080,6 +20080,90 @@ function App(){
       }
     } catch {}
 
+    // ── Poo pattern tracker — frequency changes can signal illness/diet ──
+    try {
+      const _pooCounts = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const poos = ent.filter(e => e.type === "poop");
+        if (ent.length >= 2) _pooCounts.push({ date: ds, total: poos.length, dirty: poos.filter(p => (p.poopType||"").includes("dirty") || p.poopType === "both").length });
+      }
+      if (_pooCounts.length >= 7) {
+        const _recent3 = _pooCounts.slice(0, 3);
+        const _prev = _pooCounts.slice(3);
+        const _avgRecent = _recent3.reduce((s, d) => s + d.dirty, 0) / _recent3.length;
+        const _avgPrev = _prev.reduce((s, d) => s + d.dirty, 0) / _prev.length;
+        // No dirty nappy for 3+ days
+        const _daysSinceDirty = _pooCounts.findIndex(d => d.dirty > 0);
+        if (_daysSinceDirty >= 3) {
+          addObservation("💩", "No dirty nappy for " + _daysSinceDirty + " days",
+            `${_name} hasn't had a dirty nappy in ${_daysSinceDirty} days. ${_wks < 6 ? "For babies under 6 weeks, this can be normal for breastfed babies (up to 7 days) but formula-fed babies should poo at least every 2-3 days." : "At this age, going 3+ days without a dirty nappy is worth monitoring."}`,
+            _wks < 6 ? "Breastfed: up to 7 days can be normal. Formula-fed: speak to your health visitor if no poo for 3+ days. Watch for straining, hard tummy, or discomfort." : "Try tummy massage (clockwise circles), bicycle legs, and a warm bath. If " + _name + " seems uncomfortable or it's been 5+ days, speak to your health visitor.");
+        }
+        // Sudden increase (possible tummy bug or new food reaction)
+        if (_avgRecent > _avgPrev + 2 && _avgRecent >= 4) {
+          const _newFood = (weaning || []).filter(w => { const da = Math.round((Date.now() - new Date(w.date).getTime()) / 86400000); return da >= 0 && da <= 3; });
+          addObservation("💩", "More dirty nappies than usual",
+            `${_name} is averaging ${Math.round(_avgRecent * 10) / 10} dirty nappies/day vs ${Math.round(_avgPrev * 10) / 10} normally.${_newFood.length ? " New food in last 3 days: " + _newFood.map(f => f.food).join(", ") + "." : ""}`,
+            "Could be: new food introduction, teething (excess drool = looser stools), or a mild tummy bug. Keep " + _name + " hydrated with extra milk feeds. If stools are watery, contain blood/mucus, or " + _name + " has a fever, see your GP.");
+        }
+      }
+    } catch {}
+
+    // ── Crying helper usage — track if crying episodes are reducing ──
+    try {
+      const _cryingHelps = activeChild.cryingHelps || {};
+      const _cryDates = Object.keys(_cryingHelps).sort();
+      if (_cryDates.length >= 5) {
+        const _recent5 = _cryDates.slice(-5);
+        const _older5 = _cryDates.slice(-10, -5);
+        if (_older5.length >= 3) {
+          // Count crying events per day
+          const _recentPerDay = _recent5.length / Math.max(1, Math.round((new Date(_recent5[_recent5.length-1]) - new Date(_recent5[0])) / 86400000) + 1);
+          const _olderPerDay = _older5.length / Math.max(1, Math.round((new Date(_older5[_older5.length-1]) - new Date(_older5[0])) / 86400000) + 1);
+          if (_recentPerDay < _olderPerDay * 0.6) {
+            addObservation("💛", _name + "'s settling is improving",
+              `You've used the crying helper ${_recentPerDay < 0.5 ? "much less" : "less"} often recently. ${_name} is developing self-regulation skills.`,
+              "This is a real milestone — even if it doesn't feel dramatic. Less crying means " + _name + "'s nervous system is maturing. Every time you responded with calm, you taught " + _name + " that the world is safe. That's your work paying off. 💛");
+          }
+        }
+      }
+    } catch {}
+
+    // ── Sleep environment correlation (if temperature is logged) ──
+    try {
+      const _tempNights = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const meds = JSON.parse(localStorage.getItem("meds_v1") || "{}");
+        const dayMeds = meds[ds] || [];
+        const tempEntry = dayMeds.find(m => m.temp && parseFloat(m.temp) > 10);
+        const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+        if (tempEntry) _tempNights.push({ temp: parseFloat(tempEntry.temp), wakes: nightWakes });
+      }
+      if (_tempNights.length >= 5) {
+        const _sorted = [..._tempNights].sort((a, b) => a.temp - b.temp);
+        const _cool = _sorted.slice(0, Math.ceil(_sorted.length / 2));
+        const _warm = _sorted.slice(Math.ceil(_sorted.length / 2));
+        if (_cool.length >= 2 && _warm.length >= 2) {
+          const _avgCoolWakes = Math.round(_cool.reduce((s, n) => s + n.wakes, 0) / _cool.length * 10) / 10;
+          const _avgWarmWakes = Math.round(_warm.reduce((s, n) => s + n.wakes, 0) / _warm.length * 10) / 10;
+          const _avgCoolTemp = Math.round(_cool.reduce((s, n) => s + n.temp, 0) / _cool.length * 10) / 10;
+          const _avgWarmTemp = Math.round(_warm.reduce((s, n) => s + n.temp, 0) / _warm.length * 10) / 10;
+          if (Math.abs(_avgCoolWakes - _avgWarmWakes) >= 0.8) {
+            const _better = _avgCoolWakes < _avgWarmWakes ? "cooler" : "warmer";
+            addObservation("🌡️", "Room temperature affects sleep",
+              `${_name} sleeps better in ${_better} rooms. ${_better === "cooler" ? _avgCoolTemp + "°C → " + _avgCoolWakes + " wakes vs " + _avgWarmTemp + "°C → " + _avgWarmWakes + " wakes." : _avgWarmTemp + "°C → " + _avgWarmWakes + " wakes vs " + _avgCoolTemp + "°C → " + _avgCoolWakes + " wakes."}`,
+              "NHS recommends 16-20°C for baby sleep. A room thermometer is one of the cheapest sleep improvements you can make.");
+          }
+        }
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
