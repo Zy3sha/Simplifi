@@ -6823,6 +6823,20 @@ function App(){
       }
     }
 
+    // Fix #3: if predictNextNap returns null AND at least one nap done, mark napsComplete
+    // (mirrors the same check in the hero card so they stay in sync)
+    if (!napsComplete && napsDone >= 1 && !napOn) {
+      try {
+        const _tickPred = (isPremium || trialActive) ? predictNextNap() : null;
+        if (!_tickPred && !(isPremium || trialActive)) {
+          // free users: if nextNapMins is null (no last awake time), no more naps
+          if (nextNapMins === null) napsComplete = true;
+        } else if ((isPremium || trialActive) && !_tickPred) {
+          napsComplete = true;
+        }
+      } catch {}
+    }
+
     // Bedtime prediction: after last nap end + last WW, clamped to age max
     let bedMins = null;
     try { const bp = tickDataRef.current.bed; if (bp && bp.time) { const [bh,bm]=bp.time.split(":").map(Number); bedMins = bh*60+bm; } } catch {}
@@ -7047,6 +7061,18 @@ function App(){
           if(elapsed < 0) elapsed = 0;
           elapsed = Math.max(0, elapsed - (bedTotalPausedSecRef.current || 0));
           if(elapsed >= 0 && elapsed < 14*3600) setNightElapsed(elapsed);
+          else setNightElapsed(null);
+        } else if (td.nextDayHasWake && td.bedEntryTime) {
+          // Fix #9: parent logged morning wake — keep showing final sleep duration for this render cycle
+          // Calculate total sleep duration from bedtime to now (or 14h cap) so the "12h sleep — amazing!" display persists
+          const [eh,em] = td.bedEntryTime.split(":").map(Number);
+          const eventDate = new Date();
+          eventDate.setHours(eh,em,0,0);
+          if (eventDate > now) eventDate.setDate(eventDate.getDate() - 1);
+          let finalElapsed = Math.floor((now - eventDate) / 1000);
+          if(finalElapsed < 0) finalElapsed = 0;
+          finalElapsed = Math.max(0, finalElapsed - (bedTotalPausedSecRef.current || 0));
+          if(finalElapsed >= 0 && finalElapsed < 14*3600) setNightElapsed(finalElapsed);
           else setNightElapsed(null);
         } else setNightElapsed(null);
         return;
@@ -7395,7 +7421,7 @@ function App(){
     // Catching-up context: only adds a hint if baby is behind target with limited daytime hours left
     const _feedMlContext = _nextBottleSuggestion && _nextBottleSuggestion.isBehindTarget
       ? " to hit the day target before bed"
-      : "";
+      : (_nextBottleSuggestion && _nextBottleSuggestion.transitioning ? " (transitioning from breast)" : "");
 
     // ── Growth spurt / quiet day detection ──
     let _growthSpurt = false;
@@ -7433,7 +7459,10 @@ function App(){
     let _bed = null; _bed = tickDataRef.current.bed;
 
     // ── Night feed hint (newborns need scheduled feeds) ──
-    const _needsScheduledNightFeeds = _w < 6 || (weights && weights.length >= 2 && weights[weights.length-1].kg < weights[0].kg);
+    // Compare latest weight to second-to-last (not birth weight) to detect recent weight loss
+    const _sortedWeights = weights && weights.length >= 2 ? [...weights].sort((a,b)=>(a.date||"").localeCompare(b.date||"")) : null;
+    const _recentWeightLoss = _sortedWeights && _sortedWeights.length >= 2 && _sortedWeights[_sortedWeights.length-1].kg < _sortedWeights[_sortedWeights.length-2].kg;
+    const _needsScheduledNightFeeds = _w < 6 || _recentWeightLoss;
     const _nightFeedHint = _needsScheduledNightFeeds
       ? "Feed every 2–3 hours — " + _name + " needs regular feeds to gain weight"
       : (()=>{ const p = []; if (_w < 26) p.push("Night wakes are completely normal at this age"); p.push("If " + _name + " wakes, offer a gentle feed" + (_w < 52 ? " and check the nappy" : "")); return p.join(". "); })();
@@ -8399,7 +8428,8 @@ function App(){
     const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
     if ((!ageWeeks && ageWeeks !== 0) || !selDay || !entries || !Array.isArray(entries)) return null;
 
-    const bedEntry4 = entries.find(e => {if(e.type!=="sleep"||e.night) return false; const bh=parseInt((e.time||"00:00").split(":")[0]); return bh>=12;});
+    // Fix #14: only block on sleep entries at 5pm+ (>=17h) — a nap logged as type:"sleep" at 12pm would otherwise block all predictions
+    const bedEntry4 = entries.find(e => {if(e.type!=="sleep"||e.night) return false; const bh=parseInt((e.time||"00:00").split(":")[0]); return bh>=17;});
     if (bedEntry4) {
       const bedMins4 = timeVal(bedEntry4);
       const now4 = new Date(), nowMins4 = now4.getHours()*60+now4.getMinutes();
@@ -9917,7 +9947,9 @@ function App(){
         if (!bed) return false;
         try { const [h] = bed.time.split(":").map(Number); return h >= 20; } catch { return false; } // 8pm+
       }).length;
-      if (aboveRange && (lateBedResistance >= 3 || splitNightDays >= 2)) {
+      // Suppress undertiredness when today's naps are fragmented — catnapping ≠ too much sleep
+      const _todayFragmented = !!(tickDataRef.current && tickDataRef.current.isFragmented);
+      if (aboveRange && (lateBedResistance >= 3 || splitNightDays >= 2) && !_todayFragmented) {
         patterns.push({
           type: "undertired",
           priority: 2,
@@ -15727,7 +15759,7 @@ function App(){
           ids.forEach(cid => {
             const child = children[cid];
             if (!child) return;
-            const dayKey = todayStr();
+            const dayKey = selDay; // Fix #18: use selDay so logs go to the viewed day, not always today
             const entry = { ...data, id: uid(), _ts: Date.now() };
             setChildren(prev => {
               const c = { ...prev[cid] };
@@ -16965,7 +16997,10 @@ function App(){
     });
     const _totalFeeds = _bottleCount + _breastCount;
     if (_totalFeeds < 3) return null;
-    if ((_bottleCount / _totalFeeds) < 0.7) return null; // breastfed — feed on demand
+    // Fix #19: lower threshold to 30% so transitioning breast-to-bottle parents get suggestions
+    const _bottleRatio = _bottleCount / _totalFeeds;
+    if (_bottleRatio < 0.3) return null; // purely breastfed — feed on demand
+    const _transitioning = _bottleRatio < 0.7; // between 30–70% bottle = breast-to-bottle transition
     // Today's progress
     const fc = feedCardResult;
     const _todayFeeds = (days[selDay]||[]).filter(e=>isBabyFeed(e)&&!e.night);
@@ -17012,7 +17047,8 @@ function App(){
       feedsRemainingToday: _feedsRemaining,
       hoursLeftInDay: _hoursLeftInDay,
       todayMl: _todayMl,
-      totalTarget: _totalTarget
+      totalTarget: _totalTarget,
+      transitioning: _transitioning // true when 30–70% bottle (breast-to-bottle transition)
     };
   }
 
@@ -20071,6 +20107,25 @@ function App(){
                 `${_name} is averaging ${_weekMilkAvg}ml/day of milk this week — below the ${_todayRatio.milkMin}ml minimum for ${_todayRatio.months} months.`,
                 "If " + _name + " is refusing milk, try: offering milk first thing in the morning before solids, using a different bottle/cup, or mixing milk into porridge/cereal. If this continues, mention it to your health visitor.");
             }
+          }
+        }
+        // Fix #20: solid refusal alert with escalation after 5 consecutive days
+        if (_todayRatio && _todayRatio.solidStatus === "low") {
+          let _consecutiveSolidRefusal = 0;
+          for (let i = 1; i <= 14; i++) {
+            const _d = new Date(); _d.setDate(_d.getDate() - i);
+            const _ds = _d.toISOString().slice(0, 10);
+            const _r = getWeaningRatio(age, days[_ds] || []);
+            if (_r && _r.solidStatus === "low") { _consecutiveSolidRefusal++; } else { break; }
+          }
+          if (_consecutiveSolidRefusal >= 5) {
+            addObservation("🥄", "Solid refusal — common and usually temporary",
+              `${_name} hasn't had any solid meals for ${_consecutiveSolidRefusal + 1} days. This is common and usually temporary.`,
+              "Mention it to your HV if it continues past 2 weeks. Keep offering small tastes without pressure — babies often accept foods after many exposures.");
+          } else {
+            addObservation("🥄", "No solid meals logged today",
+              `${_name} hasn't had any solid meals today. NHS recommends ${_todayRatio.solidMeals} meal${_todayRatio.solidMeals !== 1 ? "s" : ""} by ${Math.round(_todayRatio.months)} months.`,
+              "Offer a small taste at a meal time — even a few licks counts. Keep it relaxed, no pressure.");
           }
         }
       }
