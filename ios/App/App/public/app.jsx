@@ -2496,9 +2496,9 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
         )}
         {restoreMode && (
           <div style={{padding:"0 16px 16px",borderTop:"1px dashed #b0e8cc"}}>
-            <div style={{fontSize:13,color:C.lt,marginBottom:8,marginTop:10}}>Enter an account code from another device to import that data.</div>
+            <div style={{fontSize:13,color:C.lt,marginBottom:8,marginTop:10}}>Enter your backup code (find it in Account → Data & Sync on your other device). Starts with BK.</div>
             <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
-              placeholder="Enter account code"
+              placeholder="e.g. BKWULDFE"
               style={{width:"100%",fontSize:16,fontFamily:_fM,fontWeight:700,letterSpacing:_ls1,textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--bg-solid)",color:C.ter,outline:_oN,marginBottom:8,boxSizing:_bBB}}/>
             {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
             {restoreStatus==="ok" && <div style={{fontSize:13,color:"#50c878",marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
@@ -2523,9 +2523,9 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
       </button>
       {restoreMode && (
         <div style={{padding:"0 16px 16px"}}>
-          <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter an account code from another device to restore all data.</div>
+          <div style={{fontSize:13,color:C.lt,marginBottom:8}}>Enter your backup code (find it in Account → Data & Sync on your other device). Starts with BK.</div>
           <input value={restoreInput} onChange={e=>setRestoreInput(e.target.value.toUpperCase())}
-            placeholder="Enter account code"
+            placeholder="e.g. BKWULDFE"
             style={{width:"100%",fontSize:16,fontFamily:_fM,fontWeight:700,letterSpacing:_ls1,textAlign:"center",padding:"10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--bg-solid)",color:C.ter,outline:_oN,marginBottom:8,boxSizing:_bBB}}/>
           {restoreStatus==="fail" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>Code not found — check and try again</div>}
           {restoreStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ Data restored successfully!</div>}
