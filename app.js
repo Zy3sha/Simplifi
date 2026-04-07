@@ -4698,10 +4698,14 @@ function App(){
         _sharedData.pinnedNotes = JSON.parse(localStorage.getItem("pinned_notes_v1")||"[]");
         _sharedData.letters = JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
       } catch(_) {}
+      // Include child sync codes so they survive UID changes + new device restores
+      let _syncCodesForCloud = {};
+      try { _syncCodesForCloud = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}"); } catch {}
       await fsSet("families", code, {
         children: JSON.stringify(cleanForCloud),
         carerInfo: JSON.stringify(_carerInfoCloud),
         sharedData: JSON.stringify(_sharedData),
+        childSyncCodes: JSON.stringify(_syncCodesForCloud),
         updatedAt: serverTimestamp(),
         updatedBy: myUid,
         writeToken
@@ -5043,6 +5047,22 @@ function App(){
                     });
                   }
                 }
+              }
+            }
+            // Restore child sync codes from families doc (most reliable — survives UID changes + new devices)
+            if(snap.exists()) {
+              const _famData = snap.data();
+              if(_famData.childSyncCodes) {
+                try {
+                  const _cloudSyncCodes = JSON.parse(_famData.childSyncCodes);
+                  if(_cloudSyncCodes && typeof _cloudSyncCodes === "object" && Object.keys(_cloudSyncCodes).length > 0) {
+                    const _localCodes = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
+                    const _merged = {..._cloudSyncCodes, ..._localCodes};
+                    setChildSyncCodes(_merged);
+                    try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_merged)); }catch{}
+                    Object.entries(_merged).forEach(([cid,sc])=>subscribeToChildSync(cid,sc));
+                  }
+                } catch(_cscErr) { console.warn("childSyncCodes restore from families:", _cscErr); }
               }
             }
           } catch(e){ console.warn("OBubba cloud pull error",e); }
