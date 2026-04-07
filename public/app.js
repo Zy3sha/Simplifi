@@ -27652,11 +27652,6 @@ function App(){
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>App Tour</div>
                 <div style={{fontSize:10,color:C.lt}}>Replay guide</div>
               </button>
-              <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
-                <span style={_S.f24}>{backupCode?"❓":"💬"}</span>
-                <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{backupCode?"App Tour":"Get Help"}</div>
-                <div style={{fontSize:10,color:C.lt}}>{backupCode?"Replay guide":"Email us"}</div>
-              </button>
             </div>
           </div>
 
