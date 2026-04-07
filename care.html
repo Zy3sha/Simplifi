@@ -375,7 +375,55 @@ function _renderHtml() {
   const _weeks = familyContext.ageWeeks;
   const _ageStr = _weeks==null ? "" : _weeks<13 ? `${_weeks}w` : _weeks<52 ? `${Math.floor(_weeks/4.3)}mo` : `${Math.floor(_weeks/52)}y`;
   const _t = familyContext.today || {};
-  const _ww = _weeks!=null ? getWakeWindow(_weeks) : null;
+  const _guidelineWW = _weeks!=null ? getWakeWindow(_weeks) : null;
+  // Compute PERSONAL wake window from baby's actual recent patterns (overrides guideline if enough data)
+  let _ww = _guidelineWW;
+  let _wwIsPersonal = false;
+  try {
+    if (_childrenCache) {
+      const _ch = childId ? (_childrenCache.find(c=>c.id===childId)||_childrenCache[0]) : _childrenCache[0];
+      if (_ch && _ch.days) {
+        const _dks = Object.keys(_ch.days).sort().slice(-7);
+        const _gaps = [];
+        _dks.forEach(dk => {
+          const _de = (_ch.days[dk]||[]).filter(e=>!e.night).sort((a,b)=>{
+            const [ah,am]=(a.time||a.start||"00:00").split(":").map(Number);
+            const [bh,bm]=(b.time||b.start||"00:00").split(":").map(Number);
+            return (ah*60+am)-(bh*60+bm);
+          });
+          const _wake = _de.find(e=>e.type==="wake");
+          const _naps = _de.filter(e=>e.type==="nap"&&e.start&&e.end);
+          if (_wake && _naps.length) {
+            // Gap from wake to first nap
+            const [wh,wm]=_wake.time.split(":").map(Number);
+            const [nh,nm]=_naps[0].start.split(":").map(Number);
+            const g1 = (nh*60+nm)-(wh*60+wm);
+            if (g1 > 30 && g1 < 360) _gaps.push(g1);
+          }
+          // Gaps between consecutive naps
+          for (let i=0; i<_naps.length-1; i++) {
+            const [eh,em]=_naps[i].end.split(":").map(Number);
+            const [sh,sm]=_naps[i+1].start.split(":").map(Number);
+            const g = (sh*60+sm)-(eh*60+em);
+            if (g > 30 && g < 360) _gaps.push(g);
+          }
+        });
+        if (_gaps.length >= 5) {
+          _gaps.sort((a,b)=>a-b);
+          const _p25 = _gaps[Math.floor(_gaps.length*0.25)];
+          const _p75 = _gaps[Math.floor(_gaps.length*0.75)];
+          const _avg = Math.round(_gaps.reduce((a,b)=>a+b,0)/_gaps.length);
+          const _minWW = Math.round((_p25+_avg)/2/5)*5; // round to nearest 5min
+          const _maxWW = Math.round((_p75+_avg)/2/5)*5;
+          if (_minWW > 30 && _maxWW > _minWW) {
+            const _fmtWW = (m)=> m>=60 ? (m%60===0?Math.floor(m/60)+"h":Math.floor(m/60)+"h "+m%60+"m") : m+"m";
+            _ww = { min:_minWW, max:_maxWW, label:_fmtWW(_minWW)+"–"+_fmtWW(_maxWW) };
+            _wwIsPersonal = true;
+          }
+        }
+      }
+    }
+  } catch(e) { /* fall back to guideline */ }
   // Compute predictions — current wall-clock for "past" filtering
   const _nowD = new Date();
   const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
@@ -534,7 +582,7 @@ function _renderHtml() {
       <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">😴 Sleep & Routine</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
         ${_wakeEntry ? `<div style="color:#A898AC">Woke up today</div><div style="font-weight:600">${fmt12(_wakeEntry.time)}</div>` : ""}
-        ${_ww ? `<div style="color:#A898AC">Wake window</div><div style="font-weight:600">${_ww.label} between sleeps</div>` : ""}
+        ${_ww ? `<div style="color:#A898AC">Wake window</div><div style="font-weight:600">${_ww.label} between sleeps${_wwIsPersonal?" <span style='font-size:10px;color:#6fa898'>✓ personal</span>":""}</div>` : ""}
         ${_lastNapStr ? `<div style="color:#A898AC">Last nap</div><div style="font-weight:600">${_lastNapStr}${_lastNapDur?" ("+_lastNapDur+"m)":""}</div>` : ""}
       </div>
       <div style="font-size:12px;color:#7A6B7E;line-height:1.6">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${escapeHtml(_name)} down when you see these signs — don't wait until they're overtired.</div>

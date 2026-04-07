@@ -22,8 +22,8 @@
 			"sound": "notification.wav"
 		},
 		"SplashScreen": {
-			"launchShowDuration": 5000,
-			"launchAutoHide": false,
+			"launchShowDuration": 4000,
+			"launchAutoHide": true,
 			"backgroundColor": "#F0DDD6",
 			"androidSplashResourceName": "splash",
 			"androidScaleType": "CENTER_CROP",
@@ -33,7 +33,7 @@
 			"splashFullScreen": true,
 			"splashImmersive": true,
 			"layoutName": "launch_screen",
-			"useDialog": true
+			"useDialog": false
 		},
 		"Keyboard": {
 			"resize": "none",

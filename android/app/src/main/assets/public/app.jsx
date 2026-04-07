@@ -201,6 +201,8 @@ var getResolvedRecentDays = function(days, currentDayKey, n) {
 // ═══ End Day Resolution Layer ══════════════════════════════════
 
 const hm = m => { if(!m||m<=0)return"—"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
+// Helper: true for feeds baby actually consumed (excludes pump sessions which are expressed milk, not intake)
+const isBabyFeed = e => e && e.type === "feed" && e.feedType !== "pump";
 const fmtSec = s => { if(typeof s!=='number'||isNaN(s)||!isFinite(s)) s=0; return s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
 const haptic=(ms=10)=>{try{if(window.OBNative){window.OBNative.haptics.impact(typeof ms==="string"?ms.charAt(0).toUpperCase()+ms.slice(1):"Medium");return;}if(window._nativeHaptic){window._nativeHaptic(typeof ms==="string"?ms:"medium");return;}if(navigator.vibrate){navigator.vibrate(typeof ms==="number"?ms:10);}}catch{}};
 // ── Native Feature Integration ──
@@ -6599,6 +6601,9 @@ function App(){
       : 16.5 * 60; // fallback to 4:30pm if no wake time
     const skipLateNap = nextNapMins !== null && nextNapMins >= skipLateCutoff;
     let napsComplete = napsDone >= expectedNaps || skipLateNap;
+    if (!napsComplete && totalNapMins >= napProfile.idealTotalMax) {
+      napsComplete = true;
+    }
 
     // Bridge nap check: if naps are "complete" by count but it's too early for bedtime,
     // the baby may need a short catnap to bridge the gap without becoming overtired.
@@ -7127,7 +7132,7 @@ function App(){
     const _nappyGapM = _lastNappy ? _wallGap(_lastNappy) : 9999;
 
     // ── Today's daytime feeds (for totals) ──
-    const _allFeeds = _todayEntries.filter(e => e.type === "feed" && !e.night);
+    const _allFeeds = _todayEntries.filter(e => isBabyFeed(e) && !e.night);
     const _totalMl = _allFeeds.reduce((s,f) => s + (f.amount||0), 0);
 
     // ── Feed predictions ──
@@ -7184,8 +7189,8 @@ function App(){
     let _quietDay = false;
     try {
       const _heroGsRecent = getResolvedRecentDays(days, selDay, 7);
-      const _avgDailyMl = _heroGsRecent.length > 0 ? Math.round(_heroGsRecent.reduce((s,rd) => s + rd.entries.filter(e=>e.type==="feed"&&!e.night).reduce((ss,f)=>ss+(f.amount||0),0), 0) / _heroGsRecent.length) : 0;
-      const _avgFeedCount = _heroGsRecent.length > 0 ? Math.round(_heroGsRecent.reduce((s,rd) => s + rd.entries.filter(e=>e.type==="feed"&&!e.night).length, 0) / _heroGsRecent.length) : 0;
+      const _avgDailyMl = _heroGsRecent.length > 0 ? Math.round(_heroGsRecent.reduce((s,rd) => s + rd.entries.filter(e=>isBabyFeed(e)&&!e.night).reduce((ss,f)=>ss+(f.amount||0),0), 0) / _heroGsRecent.length) : 0;
+      const _avgFeedCount = _heroGsRecent.length > 0 ? Math.round(_heroGsRecent.reduce((s,rd) => s + rd.entries.filter(e=>isBabyFeed(e)&&!e.night).length, 0) / _heroGsRecent.length) : 0;
       if (_avgDailyMl > 0 && _totalMl > _avgDailyMl * 1.3 && _allFeeds.length >= 4) _growthSpurt = true;
       // Quiet day: by this hour, fewer feeds than usual average for this time
       // Only flag after noon AND at least 3 hours into the day to avoid false positives
@@ -7907,7 +7912,7 @@ function App(){
       return ka - kb;
     });
   })();
-  const totalMl=entries.filter(e=>e.type==="feed"&&!e.night).reduce((s,f)=>s+(f.amount||0),0);
+  const totalMl=entries.filter(e=>isBabyFeed(e)&&!e.night).reduce((s,f)=>s+(f.amount||0),0);
   // Include night feeds
   const totalMlWithNight=(()=>{
     const nightFeedMl=nightE.filter(e=>(e.amount||0)>0).reduce((s,f)=>s+(f.amount||0),0);
@@ -9775,7 +9780,7 @@ function App(){
       const nw = entries.filter(e=>e.night);
       const naps = entries.filter(e=>e.type==="nap"&&!e.night);
       const totalNapMins = naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-      const dayMl = entries.filter(e=>e.type==="feed"&&!e.night).reduce((s,f)=>s+(f.amount||0),0);
+      const dayMl = entries.filter(e=>isBabyFeed(e)&&!e.night).reduce((s,f)=>s+(f.amount||0),0);
       const nightMl = nw.filter(e=>(e.amount||0)>0).reduce((s,f)=>s+(f.amount||0),0);
       const selfSettled = nw.filter(e=>e.selfSettled).length;
       return { d, bed, wakes: nw.length, selfSettled, nightMl, dayMl, totalNapMins, times: nw.map(e=>e.time) };
@@ -10006,7 +10011,7 @@ function App(){
     // Calculate typical DAYTIME feed gap from last 7 completed OBubba days (exclude night feeds)
     const _fsRecent = getResolvedRecentDays(days, selDay, 7);
     const _perDayGaps = _fsRecent.map(rd => {
-      const dFeeds = rd.entries.filter(e => e.type === "feed" && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+      const dFeeds = rd.entries.filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
       const dg = [];
       for (let i = 1; i < dFeeds.length; i++) {
         const g = timeVal(dFeeds[i]) - timeVal(dFeeds[i - 1]);
@@ -11739,7 +11744,7 @@ function App(){
     const personalAvgMl = sortedF.slice(trimF, sortedF.length - trimF).length >= 2
       ? Math.round(sortedF.slice(trimF, sortedF.length - trimF).reduce((a,b)=>a+b,0) / sortedF.slice(trimF, sortedF.length - trimF).length)
       : (feedArr.length ? Math.round(feedArr.reduce((a,b)=>a+b,0)/feedArr.length) : null);
-    const feedCountArr = recent.map(d => (days[d]||[]).filter(e=>e.type==="feed"&&!e.night&&e.feedType!=="solids").length).filter(v=>v>0);
+    const feedCountArr = recent.map(d => (days[d]||[]).filter(e=>isBabyFeed(e)&&!e.night&&e.feedType!=="solids").length).filter(v=>v>0);
     const personalFeedCount = feedCountArr.length ? Math.round(feedCountArr.reduce((a,b)=>a+b,0)/feedCountArr.length) : null;
     const bedArr = recent.map(d => {
       const e = (days[d]||[]).find(x=>x.type==="sleep"&&!x.night);
@@ -12767,7 +12772,7 @@ function App(){
     // ── Feed context ──
     const _dayFeeds = _feeds.filter(e => !e.night);
     const _totalMl = _dayFeeds.reduce((s, f) => s + (f.amount || 0), 0);
-    const _avgDailyMl = (()=>{const vals=_recent7.map(d=>(days[d]||[]).filter(e=>e.type==="feed"&&!e.night).reduce((s,f)=>s+(f.amount||0),0)).filter(v=>v>0);return vals.length>=3?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;})();
+    const _avgDailyMl = (()=>{const vals=_recent7.map(d=>(days[d]||[]).filter(e=>isBabyFeed(e)&&!e.night).reduce((s,f)=>s+(f.amount||0),0)).filter(v=>v>0);return vals.length>=3?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;})();
     if (_dayFeeds.length >= 3 && _totalMl > 0 && _avgDailyMl > 0) {
       const pct = Math.round((_totalMl / _avgDailyMl) * 100);
       if (pct > 115) {
@@ -13201,7 +13206,7 @@ function App(){
     const insights = [];
 
     // Cluster feeding detection (3+ feeds within 2 hours)
-    const _todayFeeds = (days[selDay] || []).filter(e => e.type === "feed" && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+    const _todayFeeds = (days[selDay] || []).filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
     for (let i = 0; i < _todayFeeds.length - 2; i++) {
       const span = timeVal(_todayFeeds[i + 2]) - timeVal(_todayFeeds[i]);
       if (span > 0 && span <= 120) {
@@ -13232,7 +13237,7 @@ function App(){
       const bed = de.find(e => e.type === "sleep" && !e.night);
       if (!bed) return null;
       const bedMins = timeVal(bed);
-      const feeds = de.filter(e => e.type === "feed" && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
+      const feeds = de.filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
       const lastFeed = feeds.length ? feeds[feeds.length - 1] : null;
       if (!lastFeed || !lastFeed.amount) return null;
       const nextDayIdx = _dk.indexOf(d) + 1;
@@ -13755,7 +13760,7 @@ function App(){
     const _n = babyName || "Baby";
     const _today = days[selDay] || [];
     const _naps = _today.filter(e => e.type === "nap" && !e.night);
-    const _feeds = _today.filter(e => e.type === "feed" && !e.night);
+    const _feeds = _today.filter(e => isBabyFeed(e) && !e.night);
     const _dk = getRecentDays(7);
     const _h = new Date().getHours();
 
@@ -13800,7 +13805,7 @@ function App(){
     const _n = babyName || "Baby";
     const _today = days[selDay] || [];
     const _naps = _today.filter(e => e.type === "nap" && !e.night);
-    const _feeds = _today.filter(e => e.type === "feed" && !e.night);
+    const _feeds = _today.filter(e => isBabyFeed(e) && !e.night);
     const _poops = _today.filter(e => e.type === "poop" && !e.night);
     const _wakeE = findMorningWake(_today);
     const _bedE = _today.find(e => e.type === "sleep" && !e.night);
@@ -15372,10 +15377,14 @@ function App(){
       : selDay;      // normal: store on whatever day user is viewing
     setDays(d=>{
       const _dayArr = d[_targetDay]||[];
-      // Auto-detect night mode at log time: bedtime already logged → night
-      // Only wake and feed entries participate in night classification.
-      const _hasBed = _dayArr.some(e=>e.type==="sleep"&&!e.night&&!e.nightLocked);
-      const _autoNight = (type==="wake"||type==="feed") ? _hasBed : false;
+      // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime
+      const _bedEntry = _dayArr.find(e=>e.type==="sleep"&&!e.night&&!e.nightLocked);
+      const _bedMins = _bedEntry ? timeVal(_bedEntry) : null;
+      const _entryMins = data.time ? (()=>{ const [_h,_m]=data.time.split(":").map(Number); return _h*60+_m; })() : null;
+      const _isAfterBed = _bedMins !== null && _entryMins !== null && (
+        _entryMins >= _bedMins || _entryMins < 6*60
+      );
+      const _autoNight = (type==="wake"||type==="feed") && _isAfterBed;
       const nightFlag = (data.nightLocked || data.night !== undefined) ? !!data.night : _autoNight;
       const u=[..._dayArr,{id:entryId,night:nightFlag,modifiedAt:_now,...data}];
       return{...d,[_targetDay]:u};
@@ -16405,7 +16414,7 @@ function App(){
 
     // First feed time consistency
     const firstFeedTimes = _dk.map(d=>{
-      const feeds = (days[d]||[]).filter(e=>e.type==="feed"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+      const feeds = (days[d]||[]).filter(e=>isBabyFeed(e)&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
       return feeds.length ? timeVal(feeds[0]) : null;
     }).filter(Boolean);
     const avgFirstFeed = firstFeedTimes.length >= 3 ? Math.round(firstFeedTimes.reduce((a,b)=>a+b,0)/firstFeedTimes.length) : null;
@@ -16417,7 +16426,7 @@ function App(){
   }
 
   function getPredictedNextFeed() {
-    const todayFeeds = (days[selDay]||[]).filter(e=>e.type==="feed"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+    const todayFeeds = (days[selDay]||[]).filter(e=>isBabyFeed(e)&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
     if (todayFeeds.length < 2) return null;
     const now = new Date().getHours()*60 + new Date().getMinutes();
     const lastFeed = todayFeeds[todayFeeds.length-1];
@@ -16428,7 +16437,7 @@ function App(){
     const _dk = getRecentDays(7);
     const allGaps = [];
     _dk.forEach(d=>{
-      const feeds = (days[d]||[]).filter(e=>e.type==="feed"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+      const feeds = (days[d]||[]).filter(e=>isBabyFeed(e)&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
       for(let i=1;i<feeds.length;i++){
         const g = timeVal(feeds[i])-timeVal(feeds[i-1]);
         if(g>30&&g<480) allGaps.push(g);
@@ -16452,7 +16461,7 @@ function App(){
     const _dk = getRecentDays(3);
     let _bottleCount = 0, _breastCount = 0;
     _dk.forEach(d => {
-      const _feeds = (days[d]||[]).filter(e=>e.type==="feed"&&!e.night);
+      const _feeds = (days[d]||[]).filter(e=>isBabyFeed(e)&&!e.night);
       _feeds.forEach(f => {
         if (f.feedType === "breast") _breastCount++;
         else if (f.feedType === "bottle" || f.amount > 0) _bottleCount++;
@@ -16463,7 +16472,7 @@ function App(){
     if ((_bottleCount / _totalFeeds) < 0.7) return null; // breastfed — feed on demand
     // Today's progress
     const fc = feedCardResult;
-    const _todayFeeds = (days[selDay]||[]).filter(e=>e.type==="feed"&&!e.night);
+    const _todayFeeds = (days[selDay]||[]).filter(e=>isBabyFeed(e)&&!e.night);
     const _todayMl = fc.dayMl || 0;
     const _targetFeeds = fc.targetFeeds || 5;
     const _totalTarget = fc.totalTarget || 750;
@@ -17003,7 +17012,7 @@ function App(){
     const today = entries;
     const nowH = new Date().getHours();
     const isNight = nowH >= 21 || nowH < 6;
-    const allFeeds = today.filter(e => e.type === "feed" && !e.night);
+    const allFeeds = today.filter(e => isBabyFeed(e) && !e.night);
     const breastFeeds = allFeeds.filter(e => e.feedType === "breast");
     const bottleFeeds = allFeeds.filter(e => e.feedType === "milk" || e.feedType === "bottle");
     const isCombi = bottleFeeds.length > 0 && breastFeeds.length > 0;
@@ -17773,7 +17782,7 @@ function App(){
     lines.push("═══ FEEDING ═══");
     let totalFeeds=0, totalMl=0, breastCount=0, bottleCount=0, solidsCount=0;
     dk.forEach(d=>{
-      const feeds=(days[d]||[]).filter(e=>e.type==="feed"&&!e.night);
+      const feeds=(days[d]||[]).filter(e=>isBabyFeed(e)&&!e.night);
       totalFeeds+=feeds.length;
       totalMl+=feeds.reduce((s,f)=>s+(f.amount||0),0);
       breastCount+=feeds.filter(f=>f.feedType==="breast").length;
@@ -24555,7 +24564,7 @@ function App(){
 
                     {/* Feed confidence for under 12 weeks */}
                     {(()=>{
-                      const _todayFeeds = (days[selDay]||[]).filter(e=>e.type==="feed"&&!e.night);
+                      const _todayFeeds = (days[selDay]||[]).filter(e=>isBabyFeed(e)&&!e.night);
                       const _wetNappies = (days[selDay]||[]).filter(e=>{if(e.type!=="poop")return false;const _pt=(e.poopType||"wet").toLowerCase();return _pt.includes("wet")||_pt==="both";}).length;
                       const _h = new Date().getHours();
                       if(_h < 15 || !_todayFeeds.length) return null;
@@ -27275,7 +27284,7 @@ function App(){
 
           {eType==="nap"&&(
             <>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+              <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
                 {["start","end"].map(k=>(
                   <div key={k}>
                     <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{k==="start"?"Started":"Ended"}</label>
@@ -29114,7 +29123,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               // ── GRANDPARENT MODE — big tap-friendly logging interface ──
               const _gpName = babyName || "Baby";
               const _gpEntries = days[selDay] || [];
-              const _gpFeeds = _gpEntries.filter(e=>e.type==="feed"&&!e.night);
+              const _gpFeeds = _gpEntries.filter(e=>isBabyFeed(e)&&!e.night);
               const _gpLastFeed = _gpFeeds.length ? _gpFeeds[_gpFeeds.length-1] : null;
               const _gpNappies = _gpEntries.filter(e=>e.type==="poop");
               const _gpLastNappy = _gpNappies.length ? _gpNappies[_gpNappies.length-1] : null;

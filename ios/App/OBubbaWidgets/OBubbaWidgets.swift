@@ -655,7 +655,7 @@ struct OBubbaMediumWidgetView: View {
                     }
                 }
                 Link(destination: URL(string: "obubba://?action=quick_nappy")!) {
-                    ActionBtn(icon: "leaf.fill", label: "Nappy", color: brandMint)
+                    ActionBtn(icon: "pin.fill", label: "Nappy", color: brandMint)
                 }
                 if d.activeTimer == "bed" && hasTimer {
                     // Bedtime active — offer morning wake
