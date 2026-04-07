@@ -200,7 +200,7 @@ var getResolvedRecentDays = function(days, currentDayKey, n) {
 
 // ═══ End Day Resolution Layer ══════════════════════════════════
 
-const hm = m => { if(!m||m<=0||typeof m!=="number"||isNaN(m))return"—"; m=Math.round(m); return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
+const hm = m => { if(typeof m!=="number"||isNaN(m))return"—"; m=Math.round(m); if(m<=0)return"0m"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 // Helper: true for feeds baby actually consumed (excludes pump sessions which are expressed milk, not intake)
 const isBabyFeed = e => e && e.type === "feed" && e.feedType !== "pump";
 const fmtSec = s => { if(typeof s!=='number'||isNaN(s)||!isFinite(s)) s=0; return s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
@@ -7166,7 +7166,14 @@ function App(){
   // All feed/nappy gaps computed ONCE with wall-clock-aware cross-day math
   function renderHeroCard() {
    try {
-    if (!age) return null;
+    if (!age) return (
+      <div className="glass-card" style={{padding:"20px 18px",marginBottom:12,textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:8}}>👶</div>
+        <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:6}}>Add {babyName||"baby"}'s date of birth</div>
+        <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:12}}>We need this to give you age-appropriate predictions, wake windows, and sleep guidance.</div>
+        <button onClick={()=>{haptic();setTab("settings");}} style={{padding:"10px 24px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>Go to Settings →</button>
+      </div>
+    );
 
     // ══════════════════════════════════════════════════════
     // GUARD: Hero card is real-time only — show on the "active" day
@@ -7889,8 +7896,13 @@ function App(){
     }
     // ── PRIORITY 8: Day not started (after 10am) ──
     else {
-      _dot = "#A89898"; _label = "Ready to start";
-      _timing = "Log a wake to start tracking " + _name + "'s day";
+      if (_h >= 17 || _h < 5) {
+        _dot = "#7B68EE"; _label = "Good evening 🌙";
+        _timing = "Is " + _name + " heading to bed? Tap 🌙 Bed to start the sleep timer, or log today's entries to catch up.";
+      } else {
+        _dot = "#A89898"; _label = "Ready to start";
+        _timing = "Log a wake to start tracking " + _name + "'s day";
+      }
     }
 
     // ══════════════════════════════════════════════════════
@@ -8056,15 +8068,15 @@ function App(){
                 "Skip this nap?",
                 `If ${babyName||"baby"} won't settle, that's OK. We'll adjust — the next nap will come sooner and bedtime may move earlier to prevent overtiredness.`,
                 ()=>{
-                  // Log a skipped nap as an observation
-                  try {
-                    const _obs = JSON.parse(localStorage.getItem("ob_observations_v1")||"[]");
-                    _obs.push({id:uid(),time:new Date().toISOString(),text:"Nap skipped — " + (babyName||"baby") + " wouldn't settle",type:"info"});
-                    localStorage.setItem("ob_observations_v1",JSON.stringify(_obs.slice(-50)));
-                    setObservations(_obs.slice(-50));
-                  } catch{}
+                  // Log a zero-duration nap entry to advance the nap count
+                  // This makes the prediction engine skip to the next nap window
+                  const _skipTime = nowTime();
+                  quickAddLog("nap", {type:"nap", start:_skipTime, end:_skipTime, duration:0, night:false, note:"Skipped — wouldn't settle", _skipped:true});
+                  addObservation("⏭", "Nap skipped",
+                    `${babyName||"Baby"} wouldn't settle for this nap. The next nap window will come sooner and bedtime may move earlier.`,
+                    "Sometimes babies just aren't ready. A shorter wake window before the next nap attempt, or a different settling method (pram walk, car ride, contact nap) can help.");
                   setConfirmDialog(null);
-                  showToast("Nap skipped — predictions adjusted",2500,1);
+                  showToast("⏭ Nap skipped — next nap window updated",2500,1);
                 },
                 "Skip nap"
               );
@@ -20016,7 +20028,7 @@ function App(){
     // ── Milk vs solids ratio monitoring ──
     try {
       if (_wks >= 26) {
-        const _todayRatio = getMilkSolidRatio(age, days[todayStr()] || []);
+        const _todayRatio = getWeaningRatio(age, days[todayStr()] || []);
         if (_todayRatio && _todayRatio.totalMilkMl > 0) {
           if (_todayRatio.milkStatus === "low") {
             addObservation("🍼", "Milk intake is low today",
@@ -20028,7 +20040,7 @@ function App(){
           for (let i = 1; i <= 7; i++) {
             const d = new Date(); d.setDate(d.getDate() - i);
             const ds = d.toISOString().slice(0, 10);
-            const r = getMilkSolidRatio(age, days[ds] || []);
+            const r = getWeaningRatio(age, days[ds] || []);
             if (r && r.totalMilkMl > 0) { _weekMilkAvg += r.totalMilkMl; _weekSolidAvg += r.solidCount; _weekCount++; }
           }
           if (_weekCount >= 4) {
