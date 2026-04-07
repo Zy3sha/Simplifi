@@ -4009,6 +4009,24 @@ function App(){
   const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
   const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
+  const[showForgotTimer,setShowForgotTimer]=useState(false);
+  const _forgotTimerRef = React.useRef(false);
+  // Auto-detect forgotten nap timer: prompt after 2x average nap duration or 3h
+  React.useEffect(()=>{
+    if(!napOn || napPaused || !napSec || _forgotTimerRef.current) return;
+    // Calculate average nap duration from recent completed naps
+    const _recentNaps = (days[todayStr()]||[]).filter(e=>e.type==="nap"&&e.start&&e.end&&e.start!==e.end);
+    let _threshold = 10800; // default 3h
+    if(_recentNaps.length >= 2) {
+      const _avg = _recentNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0)/_recentNaps.length;
+      _threshold = Math.max(Math.round(_avg * 2 * 60), 5400); // 2x avg, min 1.5h
+    }
+    if(napSec >= _threshold) {
+      _forgotTimerRef.current = true;
+      setShowForgotTimer(true);
+    }
+  },[napOn, napSec, napPaused]);
+  React.useEffect(()=>{ if(!napOn) _forgotTimerRef.current = false; },[napOn]);
   const[partnerTick,setPartnerTick]=useState(0);
   // Tick every 30s if there are partner's active entries (forces badge update)
   React.useEffect(()=>{
@@ -6614,6 +6632,14 @@ function App(){
       napsComplete = true;
     }
 
+    // Fragmented nap detection: 3+ naps under 20min = baby is catnapping, NOT done napping
+    // Override napsComplete if total minutes are way below budget despite count being met
+    const _shortNapCount = completedNaps.filter(n => minDiff(n.start, n.end) < 20).length;
+    const _isFragmented = _shortNapCount >= 3 && totalNapMins < napProfile.idealTotalMin;
+    if (napsComplete && _isFragmented) {
+      napsComplete = false; // keep predicting naps — baby needs more sleep, not bedtime
+    }
+
     // Bridge nap check: if naps are "complete" by count but it's too early for bedtime,
     // the baby may need a short catnap to bridge the gap without becoming overtired.
     // Two conditions trigger this:
@@ -6661,7 +6687,7 @@ function App(){
         if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
         else lastNightEvent = lw.time;
       }
-      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins };
+      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile };
       // Bad Night Badge — solidarity after rough nights
       try {
         const _bnKey = "ob_bad_night_" + selDay;
@@ -7529,6 +7555,11 @@ function App(){
         const _pct = Math.round((_lastFeed.amount / _perFeedTarget) * 100);
         _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr + _feedMlContext : "") : "");
       }
+    }
+    // ── PRIORITY 4b: Fragmented naps detected ──
+    else if (_dayStarted && !_hasBed && td.isFragmented && !_napsComplete) {
+      _dot = C.gold; _label = "Rescue nap needed";
+      _rightNow = _name + " has had " + (td.shortNapCount||0) + " short naps (" + hm(td.totalNapMins||0) + " total, needs " + hm(td.napProfile?td.napProfile.idealTotalMin:120) + "+). Try a contact nap, dark room, or white noise for a longer stretch. A rescue nap will help avoid an overtired bedtime.";
     }
     // ── PRIORITY 5: Nap approaching / overdue ──
     else if (_dayStarted && _pred && !_hasBed && !_napsComplete) {
@@ -15449,6 +15480,20 @@ function App(){
     const timeLabel = data.time ? " at "+fmt12(data.time) : "";
     showToast(label+timeLabel+" · Shake to undo",3000,1);
 
+    // Partial feed detection — if bottle feed is <60% of average, show helpful context
+    if (type === "feed" && data.feedType !== "pump" && data.feedType !== "breast" && data.amount > 0) {
+      try {
+        const _recentFeeds = Object.values(days).flat().filter(e=>isBabyFeed(e)&&!e.night&&e.amount>0).slice(-20);
+        if (_recentFeeds.length >= 3) {
+          const _avgAmt = Math.round(_recentFeeds.reduce((s,f)=>s+f.amount,0)/_recentFeeds.length);
+          if (data.amount < _avgAmt * 0.6 && _avgAmt > 0) {
+            const _pct = Math.round((data.amount/_avgAmt)*100);
+            setTimeout(()=>showToast(`${data.amount}ml is ${_pct}% of ${babyName||"baby"}'s usual ${_avgAmt}ml — next feed may come sooner`,4000,0),3500);
+          }
+        }
+      } catch(_){}
+    }
+
     // Fire event-triggered reminders
     if (type === "feed") fireEventReminders("after_feed");
     else if (type === "wake" && !data.night) {
@@ -15456,6 +15501,32 @@ function App(){
       // Stop bed timer + Live Activity when morning wake is logged
       if (bedTimerDay) { setBedTimerDay(null); setBedTotalPausedSec(0); setBedPaused(false); setBedPausedAtSec(0); setBedPauseStart(null); try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{} }
       if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+      // "No night wakes logged?" prompt — if bedtime existed yesterday but no wakes recorded
+      setTimeout(()=>{
+        try {
+          const _prevDay = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+          const _prevEntries = days[_prevDay]||[];
+          const _hadBedtime = _prevEntries.some(e=>e.type==="sleep"&&!e.night);
+          const _todayE = days[todayStr()]||[];
+          const _nightWakes = [..._prevEntries.filter(e=>e.night), ..._todayE.filter(e=>e.night)];
+          if(_hadBedtime && _nightWakes.length === 0) {
+            showConfirm(
+              "Good night?",
+              `No night wakes logged since bedtime. Was it a settled night?`,
+              ()=>{
+                // Log as observation: great night
+                try { const _obs = JSON.parse(localStorage.getItem("ob_observations_v1")||"[]");
+                _obs.push({id:uid(),time:new Date().toISOString(),text:"No night wakes — settled night ✓",type:"positive"});
+                localStorage.setItem("ob_observations_v1",JSON.stringify(_obs.slice(-50)));
+                setObservations(_obs.slice(-50)); } catch{}
+                setConfirmDialog(null);
+                showToast("✓ Settled night logged",1500,1);
+              },
+              "No wakes ✓"
+            );
+          }
+        } catch(_){}
+      }, 2000);
     }
     else if (type === "poop") fireEventReminders("after_nappy");
 
@@ -29513,6 +29584,26 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
           </div>
         </div>
       )}
+      {/* ═══ Forgot Nap Timer Prompt ═══ */}
+      {showForgotTimer && napOn && (
+        <div role="dialog" aria-modal="true" onClick={()=>setShowForgotTimer(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"24px 22px",maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{fontSize:40,marginBottom:12}}>⏰</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>Still napping?</div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:16}}>The nap timer has been running for {hm(Math.round(napSec/60))}. Did {babyName||"baby"} wake up?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <button onClick={()=>{haptic();setShowForgotTimer(false);}} style={{padding:"13px",borderRadius:99,border:`1.5px solid ${C.mint}`,background:C.mint+"10",color:C.mint,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                😴 Still napping
+              </button>
+              <button onClick={()=>{haptic();setShowForgotTimer(false);endNap();}} style={{padding:"13px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                ☀️ Already woke — stop timer
+              </button>
+              <button onClick={()=>setShowForgotTimer(false)} style={{padding:"8px",background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP}}>Dismiss</button>
+            </div>
+          </div>
+        </div>
+      )}
+
             {showNightWake&&(()=>{
               return(
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);}}}>
