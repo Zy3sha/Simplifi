@@ -2263,7 +2263,9 @@ function calcAge(dob, dueDate) {
   const remainingDays = daysAfterMonths % 7;
   const years = Math.floor(months / 12);
   const monthsAfterYears = months % 12;
-  return { months, weeksAfterMonths, remainingDays, totalWeeks, totalDays, years, monthsAfterYears };
+  // For predictions (wake windows, nap counts, etc.), use corrected age if premature
+  const predictiveWeeks = weeksPreterm > 0 ? correctedWeeks : totalWeeks;
+  return { months, weeksAfterMonths, remainingDays, totalWeeks, totalDays, years, monthsAfterYears, correctedWeeks, weeksPreterm, isPreterm: weeksPreterm > 0, predictiveWeeks };
 }
 
 function fmtAge(age) {
@@ -6471,7 +6473,7 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("breast_sec",JSON.stringify(breastSec));}catch{}},[breastSec]);
   useEffect(()=>{try{localStorage.setItem("breast_active",breastActive?"1":"0");}catch{}},[breastActive]);
   const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate), [babyDob, activeChild.dueDate]);
-  const ageWeeks = age ? age.totalWeeks : null;
+  const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
 
   // ── Day entries: simple direct access, split by night flag ──
   const resolvedDay = React.useMemo(function() {
@@ -6723,7 +6725,7 @@ function App(){
   // ── Simple tick: baby's day is wake → WW → nap → WW → nap → bedtime ──
   const tickDataRef = React.useRef({});
   React.useMemo(()=>{
-    const ageWeeks = age ? age.totalWeeks : null;
+    const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
     if (!ageWeeks && ageWeeks !== 0) { tickDataRef.current = {}; return; }
     const ww = getWakeWindow(ageWeeks);
     const napProfile = getAgeNapProfile(ageWeeks);
@@ -8376,7 +8378,7 @@ function App(){
 
   // ── SECTION 7: PREDICTION ENGINE (NAP & BEDTIME) ──────────────────
   function predictNextNap() {
-    const ageWeeks = age ? age.totalWeeks : null;
+    const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
     if ((!ageWeeks && ageWeeks !== 0) || !selDay || !entries || !Array.isArray(entries)) return null;
 
     const bedEntry4 = entries.find(e => {if(e.type!=="sleep"||e.night) return false; const bh=parseInt((e.time||"00:00").split(":")[0]); return bh>=12;});
@@ -8779,7 +8781,7 @@ function App(){
     const todayNaps = today.filter(e => e.type === "nap" && !e.night);
     const napMinutes = todayNaps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
     const nightWakes = today.filter(e => e.night).length;
-    const ageWeeks = age ? age.totalWeeks : null;
+    const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
     if ((!ageWeeks && ageWeeks !== 0)) return { score: null, factors: [] };
     const ww = getWakeWindow(ageWeeks);
     const napProfile = getAgeNapProfile(ageWeeks);
@@ -11900,7 +11902,7 @@ function App(){
     const mlOlder = _mlO3.length ? _mlO3.reduce((a,b)=>a+b,0)/_mlO3.length : mlRecent3;
     const feedTrend = mlRecent3 > mlOlder + 30 ? "rising" : mlRecent3 < mlOlder - 30 ? "falling" : "stable";
 
-    const ageWeeks = age ? age.totalWeeks : null;
+    const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
     const ww = ageWeeks ? getWakeWindow(ageWeeks) : null;
     const napProfile = ageWeeks ? getAgeNapProfile(ageWeeks) : null;
 
@@ -26123,7 +26125,7 @@ function App(){
         {(tab==="develop"||(tab==="day"&&daySubScreen&&daySubScreen.startsWith("weaning")))&&(()=>{
           // Reset devFilter if stuck on "weaning" when on Development tab (weaning moved to Day tab)
           if(tab==="develop"&&(devFilter==="weaning"||devFilter==="weaning_hub")){setDevFilter(null);return null;}
-          const ageWeeks = age ? age.totalWeeks : null;
+          const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
           const name = babyName || "Baby";
           function getDevAdvice(ageWeeks) {
             if ((!ageWeeks && ageWeeks !== 0)) return [];
