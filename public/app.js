@@ -7733,19 +7733,39 @@ function App(){
             const _isDeepNight = _h >= 23 || _h < 6;
             const _isRough = _nwCount >= 2 && _isDeepNight;
             // Deep-night validation: explicit count + kindness when it's hard
+            // 3am deep comfort — warm amber mode
+            const _deepNightMessages = [
+              "You're here again. That takes more strength than anyone sees.",
+              "This feed will end. This night will end. And you will have done something extraordinary — again.",
+              "Nobody is counting how many times you got up. But you did. Every single time.",
+              "Right now, thousands of parents are doing exactly this. You're not alone in the dark.",
+              "The fact that you're exhausted AND still getting up? That's not weakness. That's love.",
+              "One day " + _name + " will sleep through. And you'll have been the one who held it all together until then.",
+              "You don't have to enjoy this moment. You just have to survive it. And you are.",
+              "Tomorrow you won't remember which feed this was. But " + _name + " will always know they were never alone.",
+            ];
+            const _deepIdx = (_nwCount + new Date().getDate()) % _deepNightMessages.length;
             if (_isRough) {
               return (
                 <>
-                  <div style={{fontSize:12,color:C.mid,marginTop:10,padding:"10px 12px",borderRadius:12,background:"rgba(155,184,168,0.08)",border:`1px solid ${C.mint}30`,textAlign:"center",lineHeight:1.5}}>
-                    You've handled {_nwCount} wake{_nwCount!==1?"s":""} tonight. You're doing it. 💛
+                  <div style={{marginTop:10,padding:"14px 16px",borderRadius:16,background:"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid rgba(212,168,85,0.15)",textAlign:"center"}}>
+                    <div style={{fontSize:13,color:C.deep,lineHeight:1.7,fontStyle:"italic",fontFamily:"'Playfair Display',serif"}}>{_deepNightMessages[_deepIdx]}</div>
+                    <div style={{fontSize:11,color:C.lt,marginTop:8}}>Wake {_nwCount} tonight · You're doing it 💛</div>
                   </div>
                   <button onClick={()=>{haptic();setTab("day");setDaySubScreen("wellbeing");}} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:`1px solid ${C.ter}30`,background:"rgba(192,112,136,0.04)",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI,textAlign:"center"}}>
-                    💛 Feeling at the edge? Get support
+                    💛 I need support right now
                   </button>
                 </>
               );
             }
-            return <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6,textAlign:"center"}}>{_h >= 0 && _h < 4 ? "You're not alone — this part is hard. Try to rest." : "You're doing wonderfully. Try to rest."}</div>;
+            // Peaceful night — gentle encouragement
+            const _peacefulMessages = [
+              "You're doing wonderfully. Try to rest while " + _name + " sleeps.",
+              _name + " is safe. You've done everything right. Close your eyes.",
+              "This quiet moment is yours. Rest — you've earned it.",
+              "Breathe. " + _name + " is sleeping. So can you.",
+            ];
+            return <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6,textAlign:"center",lineHeight:1.6}}>{_peacefulMessages[new Date().getDate() % _peacefulMessages.length]}</div>;
           })()}
         </div>
       );
@@ -20688,6 +20708,146 @@ function App(){
       }
     } catch {}
 
+    // ── Hard day detector — notice when it's been relentless ──
+    try {
+      const _h3 = new Date().getHours();
+      if (_h3 >= 18 && _h3 < 22) {
+        const _todayEnt4 = days[todayStr()] || [];
+        const _hardSignals = [];
+        // Count rough signals
+        const _ydayKey = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+        const _ydayEnt = days[_ydayKey] || [];
+        const _lastNightWakes = _ydayEnt.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+        if (_lastNightWakes >= 4) _hardSignals.push("4+ night wakes last night");
+        const _shortNaps = _todayEnt4.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end && minDiff(e.start, e.end) < 30).length;
+        if (_shortNaps >= 2) _hardSignals.push("multiple short naps");
+        const _feeds = _todayEnt4.filter(e => isBabyFeed(e));
+        const _refusedFeeds = _feeds.filter(f => f.amount > 0 && f.amount < 60).length;
+        if (_refusedFeeds >= 2) _hardSignals.push("feeds refused or very small");
+        const _cryToday = (activeChild.cryingHelps || {})[todayStr()];
+        if (_cryToday) _hardSignals.push("crying episode");
+
+        if (_hardSignals.length >= 2) {
+          const _hardMessages = [
+            "Today was relentless. You didn't get a break, you didn't get a thank you, and you're exhausted. But " + _name + " is safe, fed, and loved — because of you. That's enough. That's everything.",
+            "Some days just survive. Today was one of those days. You showed up anyway. That matters more than you know.",
+            "Nobody sees the 4am feeds, the refused bottles, the 20-minute naps that felt like 2 minutes. But we see it. You're doing an incredible job.",
+            "If today felt like failure — it wasn't. " + _name + " was held, fed, and comforted through every hard moment. That IS the job. And you did it.",
+          ];
+          addObservation("💛", "We see you today",
+            _hardMessages[new Date().getDate() % _hardMessages.length],
+            "Hard signals today: " + _hardSignals.join(", ") + ". These days pass. Tomorrow is a fresh start. Be gentle with yourself tonight. 🫶");
+        }
+      }
+    } catch {}
+
+    // ── Invisible work counter ──
+    try {
+      let _totalFeeds2 = 0, _totalNappies = 0, _totalNightWakes = 0, _totalDaysLogged2 = 0;
+      Object.values(days).forEach(dayArr => {
+        if (!dayArr || !dayArr.length) return;
+        _totalDaysLogged2++;
+        dayArr.forEach(e => {
+          if (e.type === "feed") _totalFeeds2++;
+          if (e.type === "poop") _totalNappies++;
+          if ((e.type === "wake" || e.type === "feed") && e.night) _totalNightWakes++;
+        });
+      });
+      // Show milestone counters at nice round numbers
+      if (_totalFeeds2 > 0 && _totalFeeds2 % 100 === 0 && !localStorage.getItem("ob_feed_milestone_" + _totalFeeds2)) {
+        localStorage.setItem("ob_feed_milestone_" + _totalFeeds2, "1");
+        addObservation("🏅", _totalFeeds2 + " feeds and counting",
+          "You've logged " + _totalFeeds2 + " feeds for " + _name + ". " + _totalNappies + " nappy changes. " + _totalNightWakes + " night wakes answered. " + _totalDaysLogged2 + " days of showing up.",
+          "Every single one of those was an act of love. No one is counting except us — and we think it's extraordinary. 💛");
+      }
+    } catch {}
+
+    // ── Good morning after a bad night ──
+    try {
+      const _h4 = new Date().getHours();
+      if (_h4 >= 6 && _h4 < 10) {
+        const _ydayKey2 = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+        const _ydayEnt2 = days[_ydayKey2] || [];
+        const _lastNightWakes2 = _ydayEnt2.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+        if (_lastNightWakes2 >= 4) {
+          addObservation("🌅", "You survived last night",
+            `${_lastNightWakes2} wakes. That's a hard night by any measure. Take it slow this morning — the predictions can wait.`,
+            "If you can, let someone else take the first shift today. Even 30 minutes of unbroken rest makes a difference. You're not behind — you're recovering. Coffee first, then the day. ☕");
+        }
+      }
+    } catch {}
+
+    // ── Sunday reflection — weekly emotional check-in ──
+    try {
+      const _dayOfWeek = new Date().getDay(); // 0 = Sunday
+      const _h5 = new Date().getHours();
+      if (_dayOfWeek === 0 && _h5 >= 18 && _h5 < 21) {
+        const _totalDays3 = Object.keys(days).filter(dk => (days[dk] || []).length > 0).length;
+        if (_totalDays3 >= 7) {
+          const _weekReflections = [
+            "Another week done. Not perfect, not Instagram-worthy, but real. " + _name + " is growing because of you.",
+            "This week had its moments — the good ones AND the hard ones. Both count. Both matter.",
+            "Seven more days of being " + _name + "'s whole world. That's not nothing. That's everything.",
+            "You made it through another week. Some of it was beautiful. Some of it was brutal. All of it was parenting.",
+          ];
+          addObservation("🌅", "Sunday reflection",
+            _weekReflections[Math.floor(_totalDays3 / 7) % _weekReflections.length],
+            "Take a moment to think of one thing that went well this week — however small. Hold onto that. The rest can fall away.");
+        }
+      }
+    } catch {}
+
+    // ── Partner appreciation nudge ──
+    try {
+      const _partnerEntries = Object.values(days).flat().filter(e => e && (e.loggedBy === "partner" || e.loggedBy === "grandparent" || e.loggedBy === "carer" || (e.note && e.note.includes("(logged by"))));
+      if (_partnerEntries.length > 0 && _partnerEntries.length % 10 === 0 && !localStorage.getItem("ob_partner_thanks_" + _partnerEntries.length)) {
+        localStorage.setItem("ob_partner_thanks_" + _partnerEntries.length, "1");
+        addObservation("🫶", "Your village is helping",
+          `Someone else has logged ${_partnerEntries.length} entries for ${_name}. You don't have to do this alone — and you're not.`,
+          "Whether it's a partner, grandparent, or carer — every entry they log is one less thing on your shoulders. Let them know it matters.");
+      }
+    } catch {}
+
+    // ── First week survival badge ──
+    try {
+      const _daysWithEntries = Object.keys(days).filter(dk => (days[dk] || []).length >= 3).length;
+      if (_daysWithEntries === 7 && !localStorage.getItem("ob_firstweek_badge")) {
+        localStorage.setItem("ob_firstweek_badge", "1");
+        addObservation("🎖️", "You survived the first week",
+          "7 days of logging. 7 days of feeds, naps, nappies, and probably not enough sleep. You did it.",
+          "The first week is the steepest learning curve. Every week from here gets a tiny bit easier — even if it doesn't feel like it yet. " + _name + "'s predictions are now personalised to their unique rhythm. You gave us the data to make that happen. 💛");
+      }
+    } catch {}
+
+    // ── Emotional safety net — Edinburgh check trigger ──
+    try {
+      // If parent has rated "struggling" on wellbeing check 3+ times in 7 days
+      const _wbResponses = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        try {
+          const _wb = JSON.parse(localStorage.getItem("wb_response_v1") || "{}");
+          if (_wb.date === ds && _wb.key === "struggling") _wbResponses.push(ds);
+        } catch {}
+      }
+      // Also check for cumulative hard signals
+      let _hardDays = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        const nw = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
+        if (nw >= 4) _hardDays++;
+      }
+      if ((_wbResponses.length >= 2 || _hardDays >= 5) && !localStorage.getItem("ob_safety_shown_" + todayStr().substring(0, 7))) {
+        localStorage.setItem("ob_safety_shown_" + todayStr().substring(0, 7), "1");
+        addObservation("💜", "You deserve support",
+          "We've noticed things have been really hard lately. Sleep deprivation is cumulative — it affects mood, patience, relationships, and how you feel about yourself. None of that is your fault.",
+          "If you're feeling overwhelmed, anxious, or low more often than not:\n\n📞 Health visitor: ask about the Edinburgh Postnatal Depression Scale — a simple questionnaire that helps identify if you need extra support\n📱 PANDAS helpline: 0808 196 1776 (free, confidential)\n💬 Samaritans: 116 123 (24/7)\n\nAsking for help is not failing. It's the bravest thing a parent can do. 💛");
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
@@ -21347,6 +21507,7 @@ function App(){
     <div style={{background:"transparent",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"var(--text-deep)",paddingBottom:80,maxWidth:"100vw",overflowX:"hidden"}}>
       <style>{`
         @keyframes pulse{0%,100%{box-shadow:0 0 0 12px rgba(201,112,90,0.15)}50%{box-shadow:0 0 0 22px rgba(201,112,90,0.04)}}
+        @keyframes breathe{0%,100%{transform:scale(1);opacity:0.4}28%{transform:scale(1.8);opacity:0.8}57%{transform:scale(1.8);opacity:0.8}100%{transform:scale(1);opacity:0.4}}
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -30823,6 +30984,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy — plea
               <div style={{fontSize:32,marginBottom:6}}>😢</div>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:4}}>Why is {babyName||"baby"} crying?</div>
               <div style={{fontSize:13,color:C.lt}}>Based on today's data and {babyName||"baby"}'s age</div>
+            </div>
+
+            {/* Breathing moment — ground the parent before problem-solving */}
+            <div style={{padding:"16px",borderRadius:16,background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))",border:"1px solid rgba(123,104,238,0.12)",marginBottom:14,textAlign:"center"}}>
+              <div style={{fontSize:14,color:C.deep,fontStyle:"italic",lineHeight:1.6,marginBottom:8}}>Before you check the list — take one breath.</div>
+              <div style={{fontSize:12,color:C.mid,marginBottom:10}}>In for 4 · hold for 4 · out for 6</div>
+              <div style={{width:48,height:48,borderRadius:"50%",background:"rgba(123,104,238,0.1)",border:"2px solid rgba(123,104,238,0.2)",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center",animation:"breathe 14s ease-in-out infinite"}}>
+                <div style={{width:20,height:20,borderRadius:"50%",background:"rgba(123,104,238,0.3)",animation:"breathe 14s ease-in-out infinite"}}/>
+              </div>
+              <div style={{fontSize:11,color:C.lt,marginTop:8}}>Crying is stressful. Your calm helps {babyName||"baby"} calm down too.</div>
             </div>
 
             {/* Reassurance card when nothing obvious */}
