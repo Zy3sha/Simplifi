@@ -3252,7 +3252,14 @@ function App(){
 
         if (t === "sleep") {
           if (!startTime) { skipped++; continue; }
-          addEntry(dateStr, {type:"nap", start:startTime, end:endTime||startTime, note:notes});
+          // Detect bedtime vs nap: sleep starting after 6pm = bedtime, otherwise nap
+          const _sh = parseInt(startTime.split(":")[0]);
+          if (_sh >= 18 || _sh < 4) {
+            // Bedtime
+            addEntry(dateStr, {type:"sleep", time:startTime, night:false, note:notes});
+          } else {
+            addEntry(dateStr, {type:"nap", start:startTime, end:endTime||startTime, note:notes});
+          }
         } else if (t === "feed") {
           if (!startTime) { skipped++; continue; }
           const isBreast = startLoc.toLowerCase().includes("breast");
@@ -3312,6 +3319,36 @@ function App(){
         else skipped++;
       }
     }
+
+    // Post-process: infer morning wakes for days that don't have one
+    // This is critical — predictions require a morning wake to calculate wake windows
+    Object.keys(newDays).forEach(d => {
+      const entries = newDays[d];
+      const hasWake = entries.some(e => e.type === "wake" && !e.night);
+      if (!hasWake && entries.length > 0) {
+        // Find the earliest daytime entry (not night)
+        const daytime = entries.filter(e => {
+          const t = e.time || e.start || "";
+          const h = parseInt(t.split(":")[0]);
+          return h >= 5 && h < 12;
+        }).sort((a,b) => {
+          const at = a.time || a.start || "23:59";
+          const bt = b.time || b.start || "23:59";
+          return at.localeCompare(bt);
+        });
+        if (daytime.length > 0) {
+          const firstTime = daytime[0].time || daytime[0].start;
+          // Infer wake 30 min before the first entry (baby was awake before the first feed/nap)
+          const [fh, fm] = firstTime.split(":").map(Number);
+          let wakeMin = fh * 60 + fm - 30;
+          if (wakeMin < 5 * 60) wakeMin = 5 * 60; // no earlier than 5am
+          const wH = String(Math.floor(wakeMin / 60)).padStart(2, "0");
+          const wM = String(wakeMin % 60).padStart(2, "0");
+          entries.unshift({ id: uid(), type: "wake", time: wH + ":" + wM, night: false, note: "Inferred from import", src: "import" });
+          imported++;
+        }
+      }
+    });
 
     if (imported > 0) {
       setDays(prev => {
