@@ -6810,7 +6810,16 @@ function App(){
     let bridgeNapNeeded = false;
     if (napsComplete && napsDone >= expectedNaps && lastAwakeMins !== null) {
       const sleepBudgetUnder = totalNapMins < napProfile.idealTotalMin;
-      const gapToEarliestBed = bedtimeFloor - lastAwakeMins;
+      // Use personal bedtime if available, else floor (matches hero card logic)
+      let _tickTargetBed = bedtimeFloor;
+      try {
+        const _pb2 = bedtimePrediction ? bedtimePrediction() : null;
+        if (_pb2 && _pb2.personalAvgBed) {
+          const _pp = _pb2.personalAvgBed.split(":").map(Number);
+          if (_pp.length === 2 && !isNaN(_pp[0])) { const _pBed = _pp[0]*60+_pp[1]; if (_pBed > bedtimeFloor) _tickTargetBed = _pBed; }
+        }
+      } catch {}
+      const gapToEarliestBed = _tickTargetBed - lastAwakeMins;
       const gapTooLong = gapToEarliestBed > ww.max * 1.3;
       // Safety: don't suggest a bridge nap if it would start at or past bedtime window.
       // Bridge start = lastAwakeMins + ~75% of WW. If that lands inside bedtime window, skip it.
@@ -7346,11 +7355,14 @@ function App(){
     }
 
     // ── Last feed — ONE wall-clock-aware cross-day calculation ──
-    // Pool includes active day + previous day + calendar today (if different from active day)
+    // Pool includes active day + previous 2 days + calendar today (if different from active day)
+    // Extended to 2 days back to handle cross-midnight scenarios where bedtime was 2 days ago
     const _tag = (arr, dk) => arr.map(e => ({...e, _dk: dk}));
+    const _prev2DayStr = prevCalDay(_prevDayStr);
     const _feedPool = [
       ..._tag(_todayEntries, selDay),
       ..._tag(_prevEntries, _prevDayStr),
+      ..._tag(days[_prev2DayStr]||[], _prev2DayStr),
       ...(selDay !== _calToday ? _tag(days[_calToday]||[], _calToday) : [])
     ];
     const _isFeed = (e) => e.time && (e.type === "feed" || (e.amount && e.amount > 0) || (e.night && (e.assistedType === "milk" || e.feedType === "milk")));
