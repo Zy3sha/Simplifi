@@ -4,84 +4,86 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Families (baby data) ──
-    // Document ID = backup code. Anyone authenticated with the code can read/write.
-    // The backup code IS the auth for family sync — this is by design.
-    // Protection: no deletes, max 1.5MB per write, must have children field
+    // GET only (no list/enumerate). You must know the code to access.
     match /families/{code} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
+      allow list: if false;
       allow create: if request.auth != null
-        && request.resource.data.keys().hasAny(['children'])
-        && request.resource.data.size() < 20;
+        && request.resource.data.keys().hasAny(['children']);
       allow update: if request.auth != null
-        && request.resource.data.size() < 20;
-      allow delete: if false; // never allow deleting family data
+        && request.resource.data.keys().hasAny(['children']);
+      allow delete: if false;
+    }
+
+    // ── Carer Token Lookup ──
+    // Maps CT tokens to backup codes. GET only (know token = access).
+    match /carer_tokens/{token} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null;
+      allow delete: if false;
     }
 
     // ── UID to Backup mapping ──
-    // Each user can only read/write their own document (keyed by UID).
+    // Locked to own UID only
     match /uid_to_backup/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── Usernames ──
-    // Anyone can read (check availability). Only create/update own.
-    // Once claimed, only the original claimer can update.
+    // GET only (check if username exists). No list/enumerate.
     match /usernames/{username} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
+      allow list: if false; // cannot enumerate all usernames
       allow create: if request.auth != null;
       allow update: if request.auth != null;
-      allow delete: if false; // never delete usernames
+      allow delete: if false;
     }
 
     // ── Child Sync Codes ──
-    // Any authenticated user can read/write (code is the auth, like families).
-    // Protection: no deletes, size limit
+    // GET only. No list.
     match /child_syncs/{code} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth != null
-        && request.resource.data.size() < 15;
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null;
       allow delete: if false;
     }
 
     // ── Child Code Map (legacy) ──
     match /child_code_map/{childId} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
+      allow list: if false;
       allow create, update: if request.auth != null;
       allow delete: if false;
     }
 
     // ── FCM Tokens ──
-    // Each user can only manage their own push tokens.
     match /fcm_tokens/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── User Activity ──
-    // Each user can only manage their own activity doc.
     match /user_activity/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
     // ── Carer Logs ──
-    // Top-level carer_logs doc: readable/writable by anyone authenticated
-    // Subcollection entries: same (carer uses shared link with anonymous auth)
-    // Protection: no deletes of the parent doc, size limit on entries
+    // GET only on parent doc. Entries subcollection open for carers.
     match /carer_logs/{code} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
+      allow list: if false;
       allow create, update: if request.auth != null;
       allow delete: if false;
 
       match /entries/{entryId} {
         allow read: if request.auth != null;
-        allow create: if request.auth != null
-          && request.resource.data.size() < 15;
+        allow create: if request.auth != null;
         allow update: if request.auth != null;
-        allow delete: if request.auth != null; // parents can delete reviewed entries
+        allow delete: if request.auth != null;
       }
     }
 
     // ── Block everything else ──
-    // Any collection not listed above is denied
     match /{document=**} {
       allow read, write: if false;
     }

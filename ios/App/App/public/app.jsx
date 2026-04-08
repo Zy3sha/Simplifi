@@ -4846,6 +4846,10 @@ function App(){
       // Include carer token so care.html can look up the family by CT token
       let _carerTokenForCloud = null;
       try { const _ctd = JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null"); if(_ctd && _ctd.token) _carerTokenForCloud = _ctd.token; } catch {}
+      // Write carer token to separate lookup collection (so families list is blocked)
+      if (_carerTokenForCloud && code) {
+        try { await fsSet("carer_tokens", _carerTokenForCloud, {backupCode: code, updatedAt: serverTimestamp()}, true); } catch {}
+      }
       await fsSet("families", code, {
         children: JSON.stringify(cleanForCloud),
         carerInfo: JSON.stringify(_carerInfoCloud),

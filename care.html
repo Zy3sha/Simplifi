@@ -102,7 +102,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCdHzmheQRbtzP_JI1FuWcZLeW8yVja5-0",
@@ -137,14 +137,13 @@ if (!rawCode || rawCode.length < 4) {
 } else {
   // Sign in anonymously, load context, then render
   signInAnonymously(auth).then(async () => {
-    // If code is a CT token, look up the real backup code
+    // If code is a CT token, look up the real backup code from carer_tokens collection
     if (rawCode.startsWith("CT")) {
       try {
-        const _snap = await getDocs(query(collection(db, "families"), where("carerToken", "==", rawCode)));
-        if (!_snap.empty) {
-          code = _snap.docs[0].id; // doc ID is the backup code
+        const _tokenDoc = await getDoc(doc(db, "carer_tokens", rawCode));
+        if (_tokenDoc.exists() && _tokenDoc.data().backupCode) {
+          code = _tokenDoc.data().backupCode;
         }
-        // If not found, fall back to using the CT token directly (may fail gracefully below)
       } catch(e) { console.warn("CT token lookup failed", e); }
     }
     await loadFamilyContext();
