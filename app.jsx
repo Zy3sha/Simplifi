@@ -3506,7 +3506,6 @@ function App(){
   const[showShareFamily,setShowShareFamily]=useState(false);
   // Day notes (free-form per day)
   const[dayNote,setDayNote]=useState("");
-  const[pinnedNoteInput,setPinnedNoteInput]=useState("");
   // Load day note when selDay changes
   useEffect(()=>{try{setDayNote(localStorage.getItem("ob_day_note_"+selDay)||"");}catch{setDayNote("");}},[selDay]);
   // Reset sub-screen when switching tabs
@@ -3847,7 +3846,6 @@ function App(){
     }catch{return false;}
   },[days]);
   // Signal shown today
-  const[dataSignalShownToday,setDataSignalShownToday]=useState(()=>{
     try{return localStorage.getItem("data_signal_date")=== new Date().toISOString().slice(0,10);}catch{return false;}
   });
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
@@ -3879,14 +3877,12 @@ function App(){
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(false);
   const[msShowAchieved,setMsShowAchieved]=useState(false);
-    const[growthLogOpen,setGrowthLogOpen]=useState(false);
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
   const[insightFilter,setInsightFilter]=useState(null);
   const[devFilter,setDevFilter]=useState(null);
   const toggleInsight=(k)=>setInsightSection(p=>({...p,[k]:!p[k]}));
   const[showBfHub,setShowBfHub]=useState(false);
   const[bfHubSection,setBfHubSection]=useState(null);
-  const[vaccOpen,setVaccOpen]=useState(false);
   const[vaccTick,setVaccTick]=useState(0);
   const[showMealPicker,setShowMealPicker]=useState(false);
   // Allergen safety gate. stored per child
@@ -3934,7 +3930,6 @@ function App(){
     }catch{return false;}
   });
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
-  const[devActFilter,setDevActFilter]=useState("motor");
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null);
   const[nappyMode,setNappyMode]=useState(null);
@@ -3998,7 +3993,6 @@ function App(){
   const[showSoundMachine,setShowSoundMachine]=useState(false);
   const[showSafeSleepPopup,setShowSafeSleepPopup]=useState(false);
   const[showRecModeChoice,setShowRecModeChoice]=useState(false);
-  const[sleepStoryExpanded,setSleepStoryExpanded]=useState(false);
   const[soundPlaying,setSoundPlaying]=useState(null); // "white"|"brown"|"pink"|"rain"|"heartbeat"|"shush"
   const[soundVolume,setSoundVolume]=useState(0.5);
   const[soundTimer,setSoundTimer]=useState(0); // minutes, 0=no timer
@@ -4412,7 +4406,6 @@ function App(){
   const[obName,setObName]=useState("");
   const[obDob,setObDob]=useState("");
   const[obSex,setObSex]=useState("");
-  const[obBornEarly,setObBornEarly]=useState(false);
   const[obDueDate,setObDueDate]=useState("");
   const[obTodayStatus,setObTodayStatus]=useState(""); // "woke"|"fed"|"napped"|"bedtime"
   const[obFeedType,setObFeedType]=useState(""); // "breast"|"bottle"|"both"
@@ -4421,17 +4414,11 @@ function App(){
   const[showDeferredAuth,setShowDeferredAuth]=useState(false);
   const[familyShareGate,setFamilyShareGate]=useState(false);
   const[showImportAfterSetup,setShowImportAfterSetup]=useState(false);
-  const[showFirstLogQ,setShowFirstLogQ]=useState(false);
   // Aliases for questionnaire state setters (PWA uses Q*, native uses Fq*)
   const[fqStep,setFqStep]=useState(0);
   const[fqWakeTime,setFqWakeTime]=useState("");
-  const[fqHasNap,setFqHasNap]=useState(null);
-  const[fqNapStart,setFqNapStart]=useState("");
-  const[fqNapEnd,setFqNapEnd]=useState("");
   const[fqFeedTime,setFqFeedTime]=useState("");
-  const[fqFeedAmount,setFqFeedAmount]=useState("");
   const[fqNappyTime,setFqNappyTime]=useState("");
-  const[fqNappyType,setFqNappyType]=useState("wet");
   const[showImportModal,setShowImportModal]=useState(false);
   const[importResult,setImportResult]=useState(null);
   const[needsChildSetup,setNeedsChildSetup]=useState(false);
@@ -4440,7 +4427,6 @@ function App(){
   const[familyUsername,setFamilyUsername]=useState(()=>{try{return localStorage.getItem("family_username")||null;}catch{return null;}});
   const[authScreen,setAuthScreen]=useState(()=>{try{const v=localStorage.getItem("auth_verified"),u=localStorage.getItem("family_username");if(u&&!v) return "login"; return null;}catch{return null;}});
   const[authRecoveryEmail,setAuthRecoveryEmail]=useState("");
-  const[showBioPrompt,setShowBioPrompt]=useState(false);
   const bioAttemptedRef=React.useRef(false);
   const[authMode,setAuthMode]=useState(()=>{
     try{ if(localStorage.getItem("_just_deleted")){ localStorage.removeItem("_just_deleted"); return "create"; } }catch{}
@@ -4464,12 +4450,9 @@ function App(){
   const authUsernameCheckRef = React.useRef(null);
   const[showForgotPin,setShowForgotPin]=useState(false);
   const[forgotPinStep,setForgotPinStep]=useState("word");
-  const[forgotPinWord,setForgotPinWord]=useState("");
   const[forgotPinNewPin,setForgotPinNewPin]=useState("");
   const[forgotPinLoading,setForgotPinLoading]=useState(false);
   const[forgotPinError,setForgotPinError]=useState("");
-  const[obPin,setObPin]=useState("");
-  const[obPin2,setObPin2]=useState("");
   const[obLinkCode,setObLinkCode]=useState("");
   const[obLinkStatus,setObLinkStatus]=useState("");
   const[obLinkError,setObLinkError]=useState("");
@@ -4591,9 +4574,6 @@ function App(){
   useEffect(()=>{backupCodeRef.current=backupCode;},[backupCode]);
   const[syncStatus,setSyncStatus]=useState("idle");
   const[showFamilyModal,setShowFamilyModal]=useState(false);
-  const[recoveryWordInput,setRecoveryWordInput]=useState("");
-  const[recoveryWordSaving,setRecoveryWordSaving]=useState(false);
-  const[recoveryWordStatus,setRecoveryWordStatus]=useState(null);
   const[recoveryEmail,setRecoveryEmail]=useState("");
   const[recoveryEmailSaving,setRecoveryEmailSaving]=useState(false);
   const[recoveryEmailStatus,setRecoveryEmailStatus]=useState(null);
@@ -4610,7 +4590,6 @@ function App(){
   const[csSex,setCsSex]=useState("");
   const[csDueDate,setCsDueDate]=useState("");
   const[csConfirmDelete,setCsConfirmDelete]=useState(false);
-  const[joinError,setJoinError]=useState("");
   const[fbReady,setFbReady]=useState(false);
   const syncRef = React.useRef(null);
 
@@ -21418,7 +21397,7 @@ function App(){
       // Set onboarding flags, but NO account creation
       try{ localStorage.setItem("onboarded_v2","1"); }catch{}
       try{ localStorage.setItem("ob_onboard_anon","1"); }catch{}
-      try{ localStorage.setItem("ob_onboard_date", _obToday); }catch{}
+      try{  }catch{}
       // Trial start. only set if not already set (prevents resetting on same device)
       try{ if(!localStorage.getItem("obubba_trial_start")) localStorage.setItem("obubba_trial_start", new Date().toISOString()); }catch{}
       // Set breast feeding preference if answered
@@ -26902,7 +26881,6 @@ function App(){
           const devAdvice = getDevAdvice(ageWeeks);
 
           const nowActs = DEV_ACTIVITIES.filter(a => ageWeeks !== null && ageWeeks >= a.weeks[0] && ageWeeks <= a.weeks[1]);
-          const filteredActs = nowActs.filter(a => a.cat === devActFilter);
 
           // ── Milestone components ──
           const doneCount = MILESTONES.filter(m => milestones[m.id]?.date).length;
@@ -28024,9 +28002,25 @@ function App(){
                   } else {
                     _ft = _pool[_doy % _pool.length];
                   }
-                  // Pick tomorrow: next item in pool that isn't today's pick
+                  // Ensure variety: avoid same food category 3 days in a row
+                  const _recentCats = (weaning||[]).slice(-2).map(w => {
+                    const match = _available.find(f => w.food && w.food.toLowerCase().includes(f.food.toLowerCase().split(" ")[0]));
+                    return match ? match.cat : null;
+                  }).filter(Boolean);
+                  if (_recentCats.length >= 2 && _recentCats.every(c => c === _ft.cat) && _ft.cat !== "allergen") {
+                    // Same category 2 days in a row. pick from a different category
+                    const _diffCat = _pool.find(f => f.cat !== _ft.cat && f.food !== _ft.food);
+                    if (_diffCat) _ft = _diffCat;
+                  }
+                  // Pick tomorrow: next item in pool that isn't today's pick, preferring different category
                   const _ftIdx = _pool.findIndex(f=>f.food===_ft.food);
-                  _tmr = _pool[(_ftIdx + 1) % _pool.length] || _ft;
+                  let _tmrIdx = (_ftIdx + 1) % _pool.length;
+                  // Try to find a different category for tomorrow
+                  for (let _ti = 0; _ti < _pool.length; _ti++) {
+                    const _candidate = _pool[(_ftIdx + 1 + _ti) % _pool.length];
+                    if (_candidate.cat !== _ft.cat && _candidate.food !== _ft.food) { _tmrIdx = (_ftIdx + 1 + _ti) % _pool.length; break; }
+                  }
+                  _tmr = _pool[_tmrIdx] || _ft;
                   // Persist
                   try { localStorage.setItem("ob_wean_suggestions_v1", JSON.stringify({date:_today, today:_ft.food, tomorrow:_tmr.food})); } catch {}
                 }
@@ -30806,7 +30800,7 @@ function App(){
             <button onClick={()=>{
               if(!hasAccess()){ triggerPaywall("nap_prediction"); setShowRecModeChoice(false); return; }
               setUsePersonalRecs(true);
-              try{localStorage.setItem("use_personal_recs_v1","true");localStorage.setItem("rec_mode_asked_v1","1");}catch{}
+              try{localStorage.setItem("use_personal_recs_v1","true");}catch{}
               updateChild({personalRecs:true});
               setShowRecModeChoice(false);
               haptic();
@@ -30816,7 +30810,7 @@ function App(){
             <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:12,lineHeight:1.5}}>Blends {babyName||"baby"}'s actual patterns with NHS guidance. Gets smarter the more you log.</div>
             <button onClick={()=>{
               setUsePersonalRecs(false);
-              try{localStorage.setItem("use_personal_recs_v1","false");localStorage.setItem("rec_mode_asked_v1","1");}catch{}
+              try{localStorage.setItem("use_personal_recs_v1","false");}catch{}
               updateChild({personalRecs:false});
               setShowRecModeChoice(false);
               haptic();
@@ -32626,7 +32620,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         const _entry = {id:_eid,type:"nap",start:_nowTime,end:_nowTime,loggedBy:"grandparent"};
                         setDays(d=>({...d,[selDay]:[...(d[selDay]||[]),_entry]}));
                         setNapStartT(_nowTime);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
-                        try{localStorage.setItem("nap_active","1");localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);}catch{}
+                        try{localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);}catch{}
                         showToast("💤 Nap started. saved",2000,1);
                       }
                     }} style={{..._btn,background:napOn?"rgba(123,166,140,0.15)":"var(--card-bg)",borderColor:napOn?C.mint:C.blush}}>
