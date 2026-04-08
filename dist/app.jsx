@@ -24255,6 +24255,63 @@ function App(){
               })()}
               </>}{/* end newborn gate. moved from later */}
               </div>{/* end Today's Plan collapsible */}
+              {/* ═══ Today's Stats Summary ═══ */}
+              {(()=>{
+                const _ent = days[selDay] || [];
+                const _naps = _ent.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.start!==e.end);
+                const _totalSleepMin = _naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                const _wake = _ent.find(e=>e.type==="wake"&&!e.night);
+                const _bed = _ent.find(e=>e.type==="sleep"&&!e.night);
+                // Total awake = time from wake to now (or bedtime) minus nap time
+                const _wakeMins2 = _wake ? timeVal(_wake) : null;
+                const _nowM2 = _bed ? timeVal(_bed) : new Date().getHours()*60+new Date().getMinutes();
+                const _totalDayMin = _wakeMins2 !== null ? _nowM2 - _wakeMins2 : 0;
+                const _totalAwakeMin = Math.max(0, _totalDayMin - _totalSleepMin);
+                // Last night stats
+                const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+                const _yEnt = days[_yday] || [];
+                const _yBed = _yEnt.find(e=>e.type==="sleep"&&!e.night);
+                const _todayWake = _wake;
+                let _nightStretchMin = 0;
+                let _nightWakeMin = 0;
+                if (_yBed && _todayWake) {
+                  let _bedM = timeVal(_yBed);
+                  let _wakeM = timeVal(_todayWake);
+                  if (_wakeM < _bedM) _wakeM += 1440;
+                  _nightStretchMin = _wakeM - _bedM;
+                  // Night wakes: count time awake from wake entries
+                  const _nightWakes = _yEnt.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night);
+                  _nightWakes.forEach(w => { _nightWakeMin += (w.wakeDuration || 0); });
+                  // If no durations logged, estimate from wake count
+                  if (_nightWakeMin === 0 && _nightWakes.length > 0) _nightWakeMin = _nightWakes.length * 15;
+                }
+                return (
+                  <div style={{marginTop:10,padding:"12px 14px",borderRadius:14,background:"var(--card-bg-alt)",border:`1px solid var(--card-border)`}}>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Today's Summary</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                      <div style={{padding:"8px",borderRadius:10,background:"var(--card-bg)",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:C.lt}}>Total awake</div>
+                        <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{hm(_totalAwakeMin)}</div>
+                      </div>
+                      <div style={{padding:"8px",borderRadius:10,background:"var(--card-bg)",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:C.lt}}>Total day sleep</div>
+                        <div style={{fontSize:16,fontWeight:700,color:"#8B7EC8"}}>{hm(_totalSleepMin)}</div>
+                      </div>
+                      {_nightStretchMin > 0 && <>
+                        <div style={{padding:"8px",borderRadius:10,background:"var(--card-bg)",textAlign:"center"}}>
+                          <div style={{fontSize:10,color:C.lt}}>Night stretch</div>
+                          <div style={{fontSize:16,fontWeight:700,color:"#7B68EE"}}>{hm(_nightStretchMin)}</div>
+                        </div>
+                        <div style={{padding:"8px",borderRadius:10,background:"var(--card-bg)",textAlign:"center"}}>
+                          <div style={{fontSize:10,color:C.lt}}>Awake at night</div>
+                          <div style={{fontSize:16,fontWeight:700,color:_nightWakeMin>60?C.ter:C.mint}}>{hm(_nightWakeMin)}</div>
+                        </div>
+                      </>}
+                    </div>
+                  </div>
+                );
+              })()}
+
               </>)}{/* end plan-only gate */}
 
               {/* ═══ Timeline + Night Wakes. LOG-ONLY ═══ */}
@@ -29700,13 +29757,13 @@ function App(){
                 {[["breastL","Left (L)"],["breastR","Right (R)"]].map(([k,lbl])=>(
                   <div key={k}>
                     <label style={{fontSize:14,fontFamily:_fM,color:C.lt,display:"block",marginBottom:3}}>{lbl}</label>
-                    <input type="number" inputMode="numeric" min="0" max="60" placeholder="mins" value={logForm[k]||""} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
+                    <input type="number" inputMode="decimal" min="0" max="60" step="0.5" placeholder="mins" value={logForm[k]||""} onChange={e=>setLogForm(f=>({...f,[k]:e.target.value}))}
                       style={{width:"100%",padding:"9px 11px",borderRadius:12,border:"1.5px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB,textAlign:"center"}}/>
                   </div>
                 ))}
               </div>
               <div style={{fontSize:15,color:C.lt,fontFamily:_fM,marginTop:6,textAlign:"center"}}>
-                Total: {((parseInt(logForm.breastL)||0)+(parseInt(logForm.breastR)||0))} min
+                Total: {((parseFloat(logForm.breastL)||0)+(parseFloat(logForm.breastR)||0))} min
               </div>
             </div>
           )}
@@ -29950,13 +30007,13 @@ function App(){
                   {[["breastL","Left (L)"],["breastR","Right (R)"]].map(([k,lbl])=>(
                     <div key={k}>
                       <label style={{fontSize:14,fontFamily:_fM,color:C.lt,display:"block",marginBottom:3}}>{lbl}</label>
-                      <input type="number" inputMode="numeric" min="0" max="60" placeholder="mins" value={form[k]||""} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}
+                      <input type="number" inputMode="decimal" min="0" max="60" step="0.5" placeholder="mins" value={form[k]||""} onChange={e=>setForm(f=>({...f,[k]:e.target.value}))}
                         style={{width:"100%",padding:"9px 11px",borderRadius:12,border:"1.5px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB,textAlign:"center"}}/>
                     </div>
                   ))}
                 </div>
                 <div style={{fontSize:15,color:C.lt,fontFamily:_fM,marginTop:6,textAlign:"center"}}>
-                  Total: {((parseInt(form.breastL)||0)+(parseInt(form.breastR)||0))} min
+                  Total: {((parseFloat(form.breastL)||0)+(parseFloat(form.breastR)||0))} min
                 </div>
               </div>
             )}
