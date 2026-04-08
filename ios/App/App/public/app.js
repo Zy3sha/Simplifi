@@ -31427,8 +31427,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ "What we noticed". observations log (OBubba's journal, not commands) ═══ */}
       {showObservations && (
         <div role="dialog" aria-modal="true" onClick={()=>{
-          // Mark all as acknowledged on close
-          setObservations(prev=>(prev||[]).map(o=>({...o,ack:true})));
+          // Clear all observations on close. they've been read.
+          setObservations([]);
+          try{localStorage.setItem("ob_observations_v1","[]");}catch{}
           setShowObservations(false);
         }} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"24px 20px 32px",width:"100%",maxWidth:_isTablet?560:420,margin:"0 auto",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 -10px 40px rgba(0,0,0,0.15)"}}>
@@ -31473,16 +31474,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
             )}
             <button onClick={()=>{
-              setObservations(prev=>(prev||[]).map(o=>({...o,ack:true})));
+              setObservations([]);
+              try{localStorage.setItem("ob_observations_v1","[]");}catch{}
               setShowObservations(false);
             }} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginTop:8,boxShadow:"0 4px 16px rgba(192,112,136,0.25)"}}>
               Got it, thanks 💛
             </button>
-            {(observations||[]).length > 0 && (
-              <button onClick={()=>{haptic();setObservations([]);setShowObservations(false);}} style={{width:"100%",padding:"10px",borderRadius:99,border:_bN,background:"transparent",color:C.lt,fontSize:12,cursor:_cP,fontFamily:_fI,marginTop:6}}>
-                Clear journal
-              </button>
-            )}
           </div>
         </div>
       )}
