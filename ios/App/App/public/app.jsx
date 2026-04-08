@@ -15403,16 +15403,16 @@ function App(){
     // ── Palettes per variant ──
     const palettes = {
       sleepwin: { bg:["#E8DDF0","#D8CCE4","#C9BCD6"], primary:"#3B2F52", secondary:"#5D4C78",
-        glows:[[W*0.08,H*-0.08,380*2.2,"rgba(180,150,210,0.55)"],[W*0.98,H*0.3,320*2.2,"rgba(140,110,180,0.35)"],[W*0.35,H*1.08,420*2.2,"rgba(100,80,140,0.25)"],[W*0.5,H*0.5,460*1.1,"rgba(240,230,255,0.45)"]],
+        glows:[[W*0.08,H*-0.08,300,"rgba(180,150,210,0.35)"],[W*0.92,H*0.3,280,"rgba(140,110,180,0.2)"],[W*0.35,H*1.08,350,"rgba(100,80,140,0.15)"]],
         glass:{fill:"rgba(255,255,255,0.25)",stroke:"rgba(255,255,255,0.4)"} },
       daywin: { bg:["#FFF3DC","#FFE9C8","#F5D9B0"], primary:"#5A3F28", secondary:"#8A6B48",
-        glows:[[W*0.08,H*-0.08,380*2.2,"rgba(255,200,130,0.6)"],[W*0.98,H*0.3,320*2.2,"rgba(255,170,90,0.35)"],[W*0.35,H*1.08,420*2.2,"rgba(230,140,70,0.2)"],[W*0.5,H*0.5,460*1.1,"rgba(255,248,220,0.55)"]],
+        glows:[[W*0.08,H*-0.08,300,"rgba(255,200,130,0.35)"],[W*0.92,H*0.3,280,"rgba(255,170,90,0.2)"],[W*0.35,H*1.08,350,"rgba(230,140,70,0.12)"]],
         glass:{fill:"rgba(255,255,255,0.32)",stroke:"rgba(255,255,255,0.55)"} },
       milestone: { bg:["#FAF1DC","#F3E3BC","#E8D29A"], primary:"#4A3820", secondary:"#7A5E32",
-        glows:[[W*0.08,H*-0.08,380*2.2,"rgba(245,200,100,0.6)"],[W*0.98,H*0.25,320*2.2,"rgba(220,170,60,0.4)"],[W*0.35,H*1.08,420*2.2,"rgba(180,130,40,0.25)"],[W*0.5,H*0.5,480*1.1,"rgba(255,240,200,0.6)"]],
+        glows:[[W*0.08,H*-0.08,300,"rgba(245,200,100,0.35)"],[W*0.92,H*0.25,280,"rgba(220,170,60,0.25)"],[W*0.35,H*1.08,350,"rgba(180,130,40,0.15)"]],
         glass:{fill:"rgba(255,253,245,0.35)",stroke:"rgba(255,240,200,0.6)"} },
       badnight: { bg:["#F3E5DD","#EBD6CC","#DEC4B8"], primary:"#4A352E", secondary:"#7A584C",
-        glows:[[W*0.08,H*-0.08,380*2.2,"rgba(232,180,160,0.55)"],[W*0.98,H*0.3,320*2.2,"rgba(200,140,120,0.3)"],[W*0.35,H*1.08,420*2.2,"rgba(150,100,85,0.2)"],[W*0.5,H*0.5,460*1.1,"rgba(255,238,228,0.5)"]],
+        glows:[[W*0.08,H*-0.08,300,"rgba(232,180,160,0.3)"],[W*0.92,H*0.3,280,"rgba(200,140,120,0.18)"],[W*0.35,H*1.08,350,"rgba(150,100,85,0.12)"]],
         glass:{fill:"rgba(255,250,245,0.3)",stroke:"rgba(255,230,215,0.5)"} }
     };
     const P = palettes[cardType] || palettes.sleepwin;
@@ -15451,9 +15451,9 @@ function App(){
       try {
         const _pImg = new Image();
         await new Promise((res,rej)=>{_pImg.onload=res; _pImg.onerror=rej; _pImg.src=_profilePhotoSrc; setTimeout(rej, 1500);});
-        const _pR = 46, _pCy = 108;
-        // Position photo to the LEFT of centred logo. we'll draw logo offset right
-        const _pCx = W/2 - 180;
+        const _pR = 56, _pCy = 108;
+        // Position photo to the LEFT of centred logo with good spacing
+        const _pCx = W/2 - 200;
         ctx.save();
         ctx.beginPath(); ctx.arc(_pCx, _pCy, _pR, 0, Math.PI*2); ctx.clip();
         const _piw = _pImg.width, _pih = _pImg.height;
@@ -15468,9 +15468,7 @@ function App(){
     // ── OBUBBA logo at top (Playfair-style, bold, letter-spaced) ──
     ctx.font = "700 76px Georgia, 'Playfair Display', serif";
     ctx.fillStyle = P.primary;
-    ctx.shadowColor = "rgba(255,255,255,0.35)"; ctx.shadowBlur = 40;
     drawSpacedText("OBUBBA", W/2 + _logoOffsetX, 120, 6);
-    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
 
     // ── Hero content area ──
     const centerY = H/2;
@@ -15519,13 +15517,13 @@ function App(){
 
     // ── Mascot row: [AppStore] [Mascot / optional user photo] [GooglePlay] ──
     const rowY = H - 200;
-    const mascotSize = 220;
+    const mascotSize = 280;
     const isCeleb = cardType !== "badnight";
     const mascotImgSrc = isCeleb ? "obubba-celebration.png" : "obubba-happy.png";
     const _extraPhoto = details.extraPhoto || null;
 
     // Soft glow behind mascot/photo
-    const mgGlow = ctx.createRadialGradient(W/2, rowY+mascotSize/2, 0, W/2, rowY+mascotSize/2, mascotSize*0.8);
+    const mgGlow = ctx.createRadialGradient(W/2, rowY+mascotSize/2, 0, W/2, rowY+mascotSize/2, mascotSize*0.6);
     mgGlow.addColorStop(0, P.secondary+"60"); mgGlow.addColorStop(0.7, "transparent");
     ctx.fillStyle = mgGlow; ctx.fillRect(W/2-mascotSize, rowY-40, mascotSize*2, mascotSize+80);
 
@@ -15738,7 +15736,7 @@ function App(){
     }
 
     // ── Mascot + branding footer ──
-    const mascotSize = 220;
+    const mascotSize = 280;
     try {
       const mascotImg = new Image();
       await new Promise((res,rej)=>{ mascotImg.onload=res; mascotImg.onerror=rej; mascotImg.src="obubba-celebration.png"; setTimeout(()=>{ try{mascotImg.src="obubba-happy.png";}catch{} },1500); setTimeout(rej, 3000); });
