@@ -2278,7 +2278,15 @@ function fmtAge(age) {
   const parts = [];
   if (age.months > 0) parts.push(`${age.months}mo`);
   if (age.weeksAfterMonths > 0) parts.push(`${age.weeksAfterMonths}w`);
-  return parts.join(" ") || "Newborn";
+  const base = parts.join(" ") || "Newborn";
+  if (age.isPreterm && age.correctedWeeks !== undefined) {
+    const cw = age.correctedWeeks;
+    const cm = Math.floor(cw / 4.33);
+    const crw = Math.floor(cw % 4.33);
+    const corrStr = cm > 0 ? (cm + "mo" + (crw > 0 ? " " + crw + "w" : "")) : (cw + "w");
+    return base + " (adjusted: " + corrStr + ")";
+  }
+  return base;
 }
 
 function UsernameSetForm({ normaliseUsername, reserveUsername, saveRecoveryEmail, showToast, C }) {
@@ -6346,14 +6354,24 @@ function App(){
         if(elapsed >= guardMins*60 && elapsed < guardMins*60+62) {
           showToast("💛 " + (babyName||"Baby") + " has been napping " + hm(Math.floor(elapsed/60)) + ". tap the nap pill if they've woken", 8000, 2);
         }
-        // 4h+ nap auto-convert to bedtime. app did it, tell parent
-        if (!_isBedTimer && elapsed >= 4*3600) {
-          // Auto-convert long nap to bedtime
-          setDays(d => {
-            const entries = d[_sd] || [];
-            return {...d, [_sd]: entries.map(e => e.id === napEntryId ? {...e, type: "sleep"} : e)};
-          });
-          showToast("🌙 Long sleep over 4h. we've converted it to bedtime for you", 5000, 2);
+        // 4h+ nap. ask parent if this is bedtime or a forgotten timer
+        if (!_isBedTimer && elapsed >= 4*3600 && !localStorage.getItem("ob_long_nap_asked_"+napEntryId)) {
+          localStorage.setItem("ob_long_nap_asked_"+napEntryId, "1");
+          const _napEndTime = nowTime();
+          showConfirm(
+            "Timer has been running " + hm(Math.floor(elapsed/60)),
+            "Is " + (babyName||"baby") + " sleeping for the night, or did the timer get left on?",
+            ()=>{
+              // Convert to bedtime
+              setDays(d => {
+                const entries = d[_sd] || [];
+                return {...d, [_sd]: entries.map(e => e.id === napEntryId ? {...e, type: "sleep"} : e)};
+              });
+              setConfirmDialog(null);
+              showToast("🌙 Converted to bedtime", 2000, 1);
+            },
+            "Yes, bedtime"
+          );
         }
       } catch {}
     }, 60000);
@@ -7583,11 +7601,11 @@ function App(){
 
     // ── Build secondary info line (always: last feed + nappy context) ──
     const _secParts = [];
-    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr + (_nextFeedMlStr ? " · " + _nextFeedMlStr + (_feedMlContext ? " (catching up)" : "") : "") : ""));
+    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr + (_nextFeedMlStr ? " · " + _nextFeedMlStr + (_feedMlContext ? " (bigger feed may help tonight)" : "") : "") : ""));
     if (_nappyGapM < 9000 && _nappyGapM >= 120) _secParts.push("🧷 Nappy " + hm(_nappyGapM) + " ago");
     else if (_nappyGapM < 120 && _nappyGapM < 9000) _secParts.push("🧷 Nappy changed " + hm(_nappyGapM) + " ago");
     if (_growthSpurt) _secParts.push("📈 Possible growth spurt. extra feeds are normal");
-    if (_quietDay && !_growthSpurt) _secParts.push("Fewer feeds than usual today. keep offering");
+    if (_quietDay && !_growthSpurt) _secParts.push("Quieter feeding day. this is common (growth spurts, developmental phases). keep offering as normal");
     _secondary = _secParts.length > 0 ? _secParts.join(" · ") : null;
 
     // ── Build NEXT event line. the single most relevant upcoming thing ──
@@ -7725,7 +7743,7 @@ function App(){
                 ))}
               </div>
               <button onClick={resumeBedTimer} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
-                {"\u{1F319}"} Back to sleep. resume timer
+                {"\u{1F319}"} Baby's settled. back to sleep
               </button>
             </div>
           ) : (
@@ -7820,21 +7838,32 @@ function App(){
         _dot = "#D4A855"; _label = "Bridge nap 🌉";
         _timing = _napMins < 20 ? "Sleeping " + _napMins + " min · Gently wake around 20 min" : _napMins < 30 ? "Sleeping " + _napMins + " min · Time to gently wake " + _name : "Sleeping " + _napMins + " min · That's OK. we'll nudge bedtime a little later";
       } else if (_napMins >= _napMax + 30) {
-        _dot = "#E8937A"; _label = "Nap " + (_napsDone + 1) + ". very long";
-        _timing = "Sleeping " + hm(_napMins) + " · Well past the typical " + _napMax + " min max for " + fmtAge(age);
-        _rightNow = "Right now: Consider gently waking " + _name + ". very long naps can steal from overnight sleep";
+        _dot = "#D4A855"; _label = "Nap " + (_napsDone + 1) + " · long nap";
+        _timing = "Sleeping " + hm(_napMins) + " · " + _name + " is getting a big sleep. We'll adjust bedtime automatically";
+        _rightNow = _name + " has been napping a while. No need to wake them unless you want to protect bedtime tonight.";
       } else if (_napMins >= _napMax) {
-        _dot = "#D4A855"; _label = "Nap " + (_napsDone + 1) + ". long";
-        _timing = "Sleeping " + hm(_napMins) + " · Past the typical " + _napMax + " min max";
+        _dot = "#D4A855"; _label = "Nap " + (_napsDone + 1) + " · longer than usual";
+        _timing = "Sleeping " + hm(_napMins) + " · a good long nap. Bedtime may shift slightly later";
       } else {
         _dot = "#7BA68C"; _label = "Nap " + (_napsDone + 1);
         _timing = "Sleeping " + hm(_napMins) + " · " + _name + " is resting well";
       }
     }
-    // ── PRIORITY 4: Feed overdue ──
+    // ── PRIORITY 4: Feed overdue (with critical escalation for young babies) ──
     else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedTimerDay) {
-      _dot = "#7aabc4"; _label = "Feed window opening";
-      _timing = _feedGapM >= 120 ? _name + " might be hungry soon" : "Last feed " + hm(_feedGapM) + " ago. feed window opening";
+      const _isCriticalGap = _feedGapM >= 360 && _w < 12; // 6h+ gap for under 12 weeks
+      const _isLongGap = _feedGapM >= 300; // 5h+ for any age
+      if (_isCriticalGap) {
+        _dot = "#e8574a"; _label = "Feed overdue. check on " + _name;
+        _timing = "No feed logged for " + hm(_feedGapM) + ". If " + _name + " is refusing feeds or seems unwell, contact your " + _doctor + ".";
+        _rightNow = "For babies under 12 weeks, going 6+ hours without a feed during the day needs attention. Try a smaller, more frequent offer. If " + _name + " is lethargic, has a fever, or you're worried, call your " + _doctor + " now.";
+      } else if (_isLongGap) {
+        _dot = "#D4A855"; _label = "Been a while since last feed";
+        _timing = "Last feed " + hm(_feedGapM) + " ago. " + _name + " might be ready for a feed.";
+      } else {
+        _dot = "#7aabc4"; _label = "Feed window opening";
+        _timing = _feedGapM >= 120 ? _name + " might be hungry soon" : "Last feed " + hm(_feedGapM) + " ago. feed window opening";
+      }
       if (_lastFeed && _lastFeed.amount > 0 && _lastFeed.amount < _perFeedTarget * 0.75) {
         const _pct = Math.round((_lastFeed.amount / _perFeedTarget) * 100);
         _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr + _feedMlContext : "") : "");
@@ -9108,7 +9137,7 @@ function App(){
 
       // FIX #5: Early wake cycle. if avg night sleep exceeds age max, nudge bedtime later
       // This prevents the cycle: too-early bedtime → too much night sleep → 5am wake → repeat
-      const _nightMaxByAge = age.totalWeeks < 13 ? 600 : age.totalWeeks < 26 ? 720 : age.totalWeeks < 52 ? 720 : age.totalWeeks < 78 ? 690 : 660; // minutes
+      const _nightMaxByAge = age.totalWeeks < 13 ? 600 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 720 : age.totalWeeks < 52 ? 720 : age.totalWeeks < 78 ? 690 : 660; // minutes
       const _nightDurations = _bedRecentDays.map(rd => {
         const bedE = rd.entries.find(x => x.type === "sleep" && !x.night);
         if (!bedE) return null;
@@ -9249,7 +9278,7 @@ function App(){
 
       // Short-nap adjustment: if the previous nap was short, reduce this WW
       const prevNap = i === 0 ? todayNaps[todayNaps.length - 1] : null;
-      if (prevNap && prevNap.start && prevNap.end && age.totalWeeks >= 17) {
+      if (prevNap && prevNap.start && prevNap.end && ((age.predictiveWeeks??age.totalWeeks)) >= 17) {
         const prevDur = minDiff(prevNap.start, prevNap.end);
         if (prevDur <= 20) rawWW = Math.max(ww.min, rawWW - 45);
         else if (prevDur <= 40) rawWW = Math.max(ww.min, rawWW - 30);
@@ -10468,7 +10497,7 @@ function App(){
       _perDayGaps.forEach(d => gaps.push(...d.gaps));
     }
     const avgGap = gaps.length >= 3 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null;
-    const threshold = avgGap || (age.totalWeeks < 4 ? 120 : age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 160 : age.totalWeeks < 26 ? 150 : age.totalWeeks < 52 ? 180 : 210);
+    const threshold = avgGap || (age.totalWeeks < 4 ? 120 : age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 160 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 150 : age.totalWeeks < 52 ? 180 : 210);
 
     return { gap, threshold, avgGap, lastFeedTime: lastFeed.time, overdue: gap > threshold };
   }
@@ -13615,7 +13644,7 @@ function App(){
       feedDate.setHours(ft[0], ft[1], 0, 0);
       _feedGap = Math.max(0, Math.round((_nowMs - feedDate.getTime()) / 60000));
     }
-    const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : age.totalWeeks < 26 ? 210 : 270;
+    const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 210 : 270;
 
     let _topReason = null;
     if (_feedGap > _feedThreshold) _topReason = "Last feed was " + hm(_feedGap) + " ago. might be waking for a feed";
@@ -17370,7 +17399,7 @@ function App(){
   // Weaning cross-domain report: allergens, foods, textures, reactions, growth & sleep deltas.
   // Returns null for babies under 26 weeks.
   function getWeaningReport() {
-    if (!age || age.totalWeeks < 26) return null;
+    if (!age || ((age.predictiveWeeks??age.totalWeeks)) < 26) return null;
     const _wlog = weaning || [];
     const _aw = age.totalWeeks;
 
@@ -19551,9 +19580,9 @@ function App(){
       const _name = babyName || "Baby";
       const _h = new Date().getHours();
       if (_s.isBehindTarget && !_s.allowNightTopUp && _s.hoursLeftInDay > 0) {
-        addObservation("📊", "Loading up daytime feeds",
-          `${_name} is ${_s.mlRemainingToday}ml off today's target with about ${_s.hoursLeftInDay}h of daytime left. Bigger daytime bottles now = fewer night wakes later.`,
-          `We've nudged the next feed suggestion up to ~${_s.amountMl}ml so the target lands before bedtime. no need to wake overnight.`);
+        addObservation("📊", "Feeding pace today",
+          `${_name} is ${_s.mlRemainingToday}ml below the daily guideline with about ${_s.hoursLeftInDay}h left. No need to force it. follow ${_name}'s hunger cues.`,
+          `We've gently nudged the next suggestion to ~${_s.amountMl}ml. This is a guide, not a target. ${_name} knows what they need. If they refuse, that's OK. the day will balance out.`);
       }
       if (_s.context === "target met" && _h >= 15 && _h < 20) {
         addObservation("💚", "Day target reached",
@@ -22436,8 +22465,8 @@ function App(){
                 const _pinnedCount = pinnedNotes.length;
                 const _noteParts = [_pinnedCount&&(_pinnedCount+" pinned"),_reminderCount&&(_reminderCount+" reminder"+(_reminderCount>1?"s":"")),_hasNote&&"1 note"].filter(Boolean);
                 const _notesSub = _noteParts.length ? _noteParts.join(" \u00b7 ") : "Add notes or reminders";
-                const _weanReady = age && age.totalWeeks >= 17;
-                const _weanSub = !_weanReady ? "From 17 weeks" : age.totalWeeks < 26 ? "Getting ready" : weaningStarted ? "Food & allergens" : "Start journey";
+                const _weanReady = age && ((age.predictiveWeeks??age.totalWeeks)) >= 17;
+                const _weanSub = !_weanReady ? "From 17 weeks" : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? "Getting ready" : weaningStarted ? "Food & allergens" : "Start journey";
                 return (
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
                     {(()=>{
@@ -22841,7 +22870,7 @@ function App(){
                     </button>);})()}
 
                     {/* Weaning Report. only 6mo+ and once there are entries */}
-                    {age && age.totalWeeks >= 26 && (weaning||[]).length > 0 && (
+                    {age && ((age.predictiveWeeks??age.totalWeeks)) >= 26 && (weaning||[]).length > 0 && (
                       <button onClick={()=>{haptic();setDaySubScreen("weaning_report");}} className="glass-card" style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)"}}>
                         <span style={_S.f26}>📋</span>
                         <div style={_S.flex1}>
@@ -24468,8 +24497,10 @@ function App(){
                     try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{};
                     saveWellbeingHistory(label);
                     const msg = pick(wellbeingMsgs[label]);
-                    if(label==="Struggling"||label==="Need support"){
-                      setShowWellbeing({msg, label, resources: wellbeingResources});
+                    if(label==="Need support"){
+                      setShowSupportModal(true);
+                    } else if(label==="Struggling"){
+                      setShowSupportModal(true);
                     } else {
                       showMascot(label==="Great"?"celebration":"happy", "💜 "+msg, 5000);
                     }
@@ -25465,7 +25496,7 @@ function App(){
                       </div>
                       {_volTrend && (
                         <div style={{fontSize:12,color:_volTrend==="up"?C.gold:_volTrend==="down"?C.ter:C.lt,marginTop:6}}>
-                          {_volTrend==="up" ? "📈 Intake trending up this week" : _volTrend==="down" ? "📉 Intake lower than last week" : "➡️ Consistent with last week"}
+                          {_volTrend==="up" ? "📈 Intake trending up this week" : _volTrend==="down" ? "📉 Intake a bit lower this week. this is normal variation. only mention to your " + _doctor + " if it continues 5+ days with signs of dehydration" : "➡️ Consistent with last week"}
                         </div>
                       )}
                     </div>
@@ -26986,7 +27017,7 @@ function App(){
               
               </div>}
               {/* ═══ Pre-weaning education. comprehensive guide (17-25 weeks) ═══ */}
-              {age && age.totalWeeks >= 17 && age.totalWeeks < 24 && !weaningStarted && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && ((age.predictiveWeeks??age.totalWeeks)) < 24 && !weaningStarted && daySubScreen!=="weaning_journey" && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
                 const _wksTilWeaning = Math.max(0, 26 - age.totalWeeks);
                 return (
                   <div>
@@ -27004,7 +27035,7 @@ function App(){
                       {!weaningStarted && (
                         <button onClick={()=>{
                           haptic();
-                          const _early = age.totalWeeks < 26;
+                          const _early = ((age.predictiveWeeks??age.totalWeeks)) < 26;
                           const _msg = _early
                             ? `Before starting weaning, please read the information guide below to make sure you and ${babyName||"baby"} are ready and informed.\n\n${babyName||"Baby"} is ${fmtAge(age)}. that's before the recommended 6 months.\n\nHave you checked the readiness signs below and confirmed with your ${_doctor} or health visitor that it's OK to start?`
                             : `Before starting weaning, please read the information guide below to make sure you and ${babyName||"baby"} are ready and informed.\n\nOnce you start, OBubba will unlock daily food suggestions, recipes, allergen tracking, and a food journal.\n\nReady to begin?`;
@@ -27267,9 +27298,9 @@ function App(){
                       <div style={{padding:"12px 14px",borderRadius:14,background:`${C.mint}08`,border:`1.5px solid ${C.mint}30`,marginTop:8}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.mint,marginBottom:4}}>✨ All 3 signs spotted!</div>
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>
-                          {babyName||"Baby"} may be showing signs of readiness. {age.totalWeeks >= 26 ? "You could start introducing first tastes. scroll down for food suggestions and safety guidance." : `At ${fmtAge(age)}, it's a little early. chat with your ${_doctor} or health visitor who can help you decide on timing.`}
+                          {babyName||"Baby"} may be showing signs of readiness. {((age.predictiveWeeks??age.totalWeeks)) >= 26 ? "You could start introducing first tastes. scroll down for food suggestions and safety guidance." : `At ${fmtAge(age)}, it's a little early. chat with your ${_doctor} or health visitor who can help you decide on timing.`}
                         </div>
-                        {age.totalWeeks >= 26 && (
+                        {((age.predictiveWeeks??age.totalWeeks)) >= 26 && (
                           <div>
                             <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:10}}>
                               Remember: first foods are about learning, not nutrition. Milk stays as the main source for months yet. There's no rush. let {babyName||"baby"} set the pace.
@@ -27304,7 +27335,7 @@ function App(){
                     </div>
 
                     {/* Start Weaning Early. GP approved (17-25 weeks only) */}
-                    {age.totalWeeks >= 17 && age.totalWeeks < 26 && !weaningStarted && (
+                    {((age.predictiveWeeks??age.totalWeeks)) >= 17 && ((age.predictiveWeeks??age.totalWeeks)) < 26 && !weaningStarted && (
                       <div style={{marginTop:14,padding:"14px 16px",borderRadius:14,background:`${C.ter}06`,border:`1.5px solid ${C.ter}20`}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:6}}>👩‍⚕️ Starting early on GP advice?</div>
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:10}}>
@@ -27327,7 +27358,7 @@ function App(){
               })()}
 
               {/* ═══ Start Weaning Gate. shows for 26+ weeks when not yet started ═══ */}
-              {age && age.totalWeeks >= 26 && !weaningStarted && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 26 && !weaningStarted && (devFilter==="weaning" || daySubScreen==="weaning_before") && (()=>{
                 const _allReady = _checks.sit && _checks.coord && _checks.swallow;
                 return (
                   <div className="glass-card" style={{padding:"24px 18px",marginBottom:12,textAlign:"center"}}>
@@ -27370,7 +27401,7 @@ function App(){
               <div style={{display:"flex",flexDirection:"column"}}>
 
               {/* ═══ First Tastes + Try Tomorrow suggestion ═══ */}
-              {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning"||daySubScreen==="weaning_journey") && (()=>{
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning"||daySubScreen==="weaning_journey") && (()=>{
                 const _wksSinceWean = Math.max(0, age.totalWeeks - 26);
                 const _allFoods = [
                   // Phase 1. first 2 weeks: veg only (NHS recommends starting with vegetables)
@@ -27743,7 +27774,7 @@ function App(){
 
 
               {/* ═══ Foods to Avoid. NHS safety guidance ═══ */}
-              {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_journey" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="overview") && (
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && daySubScreen!=="weaning_journey" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="overview") && (
                 <div style={{border:"1.5px solid rgba(232,87,74,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:12,background:"rgba(232,87,74,0.03)"}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                     <span style={_S.f14}>🚫</span>
@@ -27769,7 +27800,7 @@ function App(){
               )}
 
               {/* ═══ Allergen Checklist ═══ */}
-              {age && age.totalWeeks >= 17 && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="allergens") && (()=>{
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_journey" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="allergens") && (()=>{
                 const _introduced = ALLERGEN_GUIDE.filter(a => allergenIntroduced(weaning, a.id));
                 const _notDone = ALLERGEN_GUIDE.filter(a => !allergenIntroduced(weaning, a.id));
                 const _needsMaintaining = _introduced.filter(a => !allergenRecent(weaning, a.id));
@@ -28243,7 +28274,7 @@ function App(){
               })()}
 
               {/* ═══ Recipe Library (Premium) ═══ */}
-              {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning" || daySubScreen==="weaning_journey") && (()=>{
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning" || daySubScreen==="weaning_journey") && (()=>{
                 const _currentStage = WEANING_STAGES.find(s=>age.totalWeeks>=s.weeksRange[0]&&age.totalWeeks<=s.weeksRange[1]) || WEANING_STAGES[0];
                 const _recipesBase = WEANING_RECIPES.filter(r=>r.stage===_recipeStage);
                 const _recipes = recipeNutrientFilter === "all" ? _recipesBase
@@ -28439,7 +28470,7 @@ function App(){
                       const _milkFeeds = (_todayData.feeds||[]).length;
                       const _solidCount = (_todayData.weaning||[]).length || (weaning||[]).filter(w=>w.date===selDay).length;
                       if(!_milkFeeds && !_solidCount) return null;
-                      const _showSolids = age.totalWeeks >= 26;
+                      const _showSolids = ((age.predictiveWeeks??age.totalWeeks)) >= 26;
                       if(!_showSolids) return null;
                       const _total = _milkFeeds + _solidCount;
                       const _guidance = _solidCount === 0 ? "Try offering a solid food today alongside milk feeds"
