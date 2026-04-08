@@ -3952,6 +3952,30 @@ function App(){
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[logForAll,setLogForAll]=useState(false);
   const[showSupportModal,setShowSupportModal]=useState(false);
+  const[showBreathing,setShowBreathing]=useState(false);
+  const[breathPhase,setBreathPhase]=useState("inhale");
+  const[breathCount,setBreathCount]=useState(0);
+  // Breathing meditation auto-cycle: inhale 4s → hold 4s → exhale 6s = 14s per cycle
+  useEffect(()=>{
+    if(!showBreathing) return;
+    let _cancelled = false;
+    let _cycle = 0;
+    const _run = () => {
+      if(_cancelled) return;
+      setBreathPhase("inhale");
+      setTimeout(()=>{ if(!_cancelled) setBreathPhase("hold"); }, 4000);
+      setTimeout(()=>{ if(!_cancelled) setBreathPhase("exhale"); }, 8000);
+      setTimeout(()=>{
+        if(_cancelled) return;
+        _cycle++;
+        setBreathCount(_cycle);
+        if(_cycle >= 8) { setShowBreathing(false); setBreathCount(0); showToast("🫁 Well done. 2 minutes of calm. 💛",3000,1); }
+        else _run();
+      }, 14000);
+    };
+    _run();
+    return ()=>{ _cancelled = true; };
+  },[showBreathing]);
   const[showBedRoutine,setShowBedRoutine]=useState(false);
   const[bedRoutineStep,setBedRoutineStep]=useState(0);
   const[bedRoutineStart,setBedRoutineStart]=useState(null);
@@ -23351,8 +23375,15 @@ function App(){
                   {/* Water tracker */}
                   <div className="glass-card" style={_S.card18}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>💧 Water</div>
-                      <span style={{fontSize:12,color:_waterCount>=8?C.mint:C.mid,fontWeight:600,fontFamily:_fM}}>{_waterCount}/8 glasses</span>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:14,fontWeight:700,color:C.deep}}>💧 Water</span>
+                        <button onClick={()=>{haptic();const _wu=(localStorage.getItem("ob_water_unit")||"glasses");const _next=_wu==="glasses"?"ml":_wu==="ml"?"oz":"glasses";try{localStorage.setItem("ob_water_unit",_next);}catch{}setPartnerTick(t=>t+1);}} style={{padding:"2px 8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:10,fontWeight:600,color:C.lt,cursor:_cP}}>
+                          {(localStorage.getItem("ob_water_unit")||"glasses")==="ml"?"ml":(localStorage.getItem("ob_water_unit")||"glasses")==="oz"?"fl oz":"glasses"}
+                        </button>
+                      </div>
+                      <span style={{fontSize:12,color:_waterCount>=8?C.mint:C.mid,fontWeight:600,fontFamily:_fM}}>
+                        {(localStorage.getItem("ob_water_unit")||"glasses")==="ml"?(_waterCount*250)+"ml":(localStorage.getItem("ob_water_unit")||"glasses")==="oz"?(_waterCount*8)+"oz":_waterCount+"/8 glasses"}
+                      </span>
                     </div>
                     <div style={{display:"flex",gap:6,marginBottom:8}}>
                       {[1,2,3,4,5,6,7,8].map(n=>{
@@ -23374,6 +23405,15 @@ function App(){
                     </div>
                     <div style={{fontSize:10,color:C.lt,textAlign:"center",fontFamily:_fM,fontStyle:"italic"}}>Tap a glass to log it · tap the last filled glass to undo</div>
                     {_waterCount < 4 && <div style={{fontSize:11,color:C.lt,marginTop:6,fontStyle:"italic",textAlign:"center"}}>Dehydration makes everything harder. tiredness, headaches, milk supply. You matter too.</div>}
+                  </div>
+
+                  {/* Breathing meditation */}
+                  <div className="glass-card" style={_S.card18}>
+                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>🫁 Breathe</div>
+                    <button onClick={()=>{haptic();setShowBreathing(true);}} style={{width:"100%",padding:"16px",borderRadius:14,border:`1px solid rgba(123,104,238,0.2)`,background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))",cursor:_cP,textAlign:"center"}}>
+                      <div style={{fontSize:13,color:C.deep,fontWeight:600}}>Start a breathing exercise</div>
+                      <div style={{fontSize:11,color:C.lt,marginTop:4}}>2 min guided breathing. calms your nervous system.</div>
+                    </button>
                   </div>
 
                   {/* Daily self-care checklist */}
@@ -32160,6 +32200,38 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         </div>
         );
       })()}
+
+      {/* ═══ Breathing Meditation ═══ */}
+      {showBreathing&&(
+        <div style={{position:"fixed",inset:0,zIndex:9998,background:"linear-gradient(180deg,#1a1030 0%,#2a1840 50%,#1a1030 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowBreathing(false);setBreathCount(0);}}>
+          <div onClick={e=>e.stopPropagation()} style={{textAlign:"center",maxWidth:360}}>
+            <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",marginBottom:20,letterSpacing:"0.15em",textTransform:"uppercase"}}>
+              {breathCount > 0 ? "Breath " + breathCount + " of 8" : "Follow the circle"}
+            </div>
+
+            {/* Breathing circle */}
+            <div style={{width:160,height:160,borderRadius:"50%",border:"2px solid rgba(123,104,238,0.3)",margin:"0 auto 24px",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+              <div style={{
+                width: breathPhase==="inhale"?140:breathPhase==="hold"?140:80,
+                height: breathPhase==="inhale"?140:breathPhase==="hold"?140:80,
+                borderRadius:"50%",
+                background: breathPhase==="inhale"?"rgba(123,104,238,0.25)":breathPhase==="hold"?"rgba(123,104,238,0.35)":"rgba(123,104,238,0.15)",
+                transition: breathPhase==="inhale"?"all 4s ease-in-out":breathPhase==="hold"?"all 0.3s":"all 6s ease-in-out",
+                boxShadow: breathPhase==="hold"?"0 0 40px rgba(123,104,238,0.4)":"0 0 20px rgba(123,104,238,0.2)",
+              }}/>
+            </div>
+
+            <div style={{fontSize:28,fontWeight:700,color:"white",fontFamily:"'Playfair Display',serif",marginBottom:8}}>
+              {breathPhase==="inhale"?"Breathe in":breathPhase==="hold"?"Hold":"Breathe out"}
+            </div>
+            <div style={{fontSize:16,color:"rgba(255,255,255,0.5)",marginBottom:4}}>
+              {breathPhase==="inhale"?"1... 2... 3... 4...":breathPhase==="hold"?"1... 2... 3... 4...":"1... 2... 3... 4... 5... 6..."}
+            </div>
+
+            <div style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginTop:40}}>Tap anywhere to stop</div>
+          </div>
+        </div>
+      )}
 
       {showSupportModal&&(
         <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(44,31,26,0.7)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowSupportModal(false)}>
