@@ -235,6 +235,10 @@ const haptic=(ms=10)=>{try{if(window.OBNative){window.OBNative.haptics.impact(ty
 const _isNativePlatform = () => window.OBNative && window.OBNative.isNative();
 // Global native check used by Live Activity, notifications, and widget calls
 var _isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+// Always stop existing Live Activity before starting a new one (prevents duplicates)
+function _laStop() { try { const la = window.Capacitor?.Plugins?.OBLiveActivity; if(la){la.stop?.().catch(()=>{});la.stopPrediction?.().catch(()=>{});} } catch{} }
+function _laStart(opts) { _laStop(); setTimeout(()=>{ try{window.Capacitor?.Plugins?.OBLiveActivity?.start?.(opts).catch(()=>{});}catch{} },200); }
+function _laStartPred(opts) { _laStop(); setTimeout(()=>{ try{window.Capacitor?.Plugins?.OBLiveActivity?.startPrediction?.(opts).catch(()=>{});}catch{} },200); }
 window._isNative = _isNative;
 const _getPlatform = () => window.OBNative ? window.OBNative.getPlatform() : 'web';
 // Native keyboard: adjust viewport when keyboard appears
@@ -2849,14 +2853,14 @@ function App(){
           setBreastSide("left"); setBreastActive(true); setBreastSec({L:0,R:0});
           setBreastStartTime(timeNow);
           try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side","left"); localStorage.setItem("breast_startTime",timeNow); localStorage.setItem("breast_startMs",String(Date.now())); }catch{}
-          if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.start?.({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side:"left"}).catch(()=>{});
+          if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side:"left"}).catch(()=>{});
           showToast("🤱 Nursing Left via Widget ✓", 3000, 1);
           break;
         case 'breast_right':
           setBreastSide("right"); setBreastActive(true); setBreastSec({L:0,R:0});
           setBreastStartTime(timeNow);
           try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side","right"); localStorage.setItem("breast_startTime",timeNow); localStorage.setItem("breast_startMs",String(Date.now())); }catch{}
-          if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.start?.({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side:"right"}).catch(()=>{});
+          if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side:"right"}).catch(()=>{});
           showToast("🤱 Nursing Right via Widget ✓", 3000, 1);
           break;
       }
@@ -2941,7 +2945,7 @@ function App(){
                 setBreastSide(side); setBreastActive(true); setBreastSec({L:0,R:0});
                 setBreastStartTime(time);
                 try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side",side); localStorage.setItem("breast_startTime",time); localStorage.setItem("breast_startMs",String(Date.now())); }catch{}
-                if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.start?.({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side}).catch(()=>{});
+                if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side}).catch(()=>{});
                 showToast("🤱 Nursing " + (side==="left"?"Left":"Right") + " via Widget ✓", 3000, 1);
               }
             } catch(e){ console.warn("Siri entry error:", e); }
@@ -16337,11 +16341,7 @@ function App(){
     if(eType==="sleep" && !e.night && editEntry && _isNative && !_wakeEntry) {
       const _eParts = formTime.split(":").map(Number);
       const _eDate = new Date(); _eDate.setHours(_eParts[0], _eParts[1], 0, 0);
-      window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
-      setTimeout(()=>{
-        window.Capacitor?.Plugins?.OBLiveActivity?.start({type:'sleep',babyName:babyName||'Baby',startTime:_eDate.getTime()})
-          .catch(()=>{});
-      }, 500);
+      _laStart({type:'sleep',babyName:babyName||'Baby',startTime:_eDate.getTime()});
     }
     setModal(null);setEditEntry(null);
   }
@@ -17802,7 +17802,7 @@ function App(){
     setBreastSide(side);
     setBreastActive(true);
     // Start Live Activity for feed timer (Dynamic Island)
-    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.start({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:side==='L'?'left':'right'});
+    if(_isNative) _laStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:side==='L'?'left':'right'});
   }
   function pauseBreastTimer(){setBreastActive(false);}
   function switchBreastSide(side){
