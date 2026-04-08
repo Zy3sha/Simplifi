@@ -6919,19 +6919,7 @@ function App(){
       }
     }
 
-    // Fix #3: if predictNextNap returns null AND at least one nap done, mark napsComplete
-    // (mirrors the same check in the hero card so they stay in sync)
-    if (!napsComplete && napsDone >= 1 && !napOn) {
-      try {
-        const _tickPred = (isPremium || trialActive) ? predictNextNap() : null;
-        if (!_tickPred && !(isPremium || trialActive)) {
-          // free users: if nextNapMins is null (no last awake time), no more naps
-          if (nextNapMins === null) napsComplete = true;
-        } else if ((isPremium || trialActive) && !_tickPred) {
-          napsComplete = true;
-        }
-      } catch {}
-    }
+    // Fix #3 removed: predictNextNap() is now called once above as single source of truth
 
     // Bedtime prediction: use bedtimePrediction() (same as Plan)
     let bedMins = null;
