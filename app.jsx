@@ -29421,21 +29421,6 @@ function App(){
               </button>
             </div>
 
-            {/* Parenting style */}
-            <div style={{padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                <span style={_S.f18}>🫶</span>
-                <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Parenting Approach</div>
-              </div>
-              <div style={{display:"flex",gap:6}}>
-                {[{id:"responsive",label:"Responsive",desc:"Follow baby's cues"},{id:"routine",label:"Routine",desc:"Structured schedule"},{id:"family",label:"Family-led",desc:"Flexible, co-sleeping OK"}].map(s=>(
-                  <button key={s.id} onClick={()=>{haptic();setParentingStyle(s.id);}} style={{flex:1,padding:"8px 4px",borderRadius:10,border:`1.5px solid ${parentingStyle===s.id?"#7B68EE":C.blush}`,background:parentingStyle===s.id?"rgba(123,104,238,0.08)":"transparent",cursor:_cP,textAlign:"center"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:parentingStyle===s.id?"#7B68EE":C.mid}}>{s.label}</div>
-                    <div style={{fontSize:9,color:C.lt}}>{s.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* Fluid unit */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
