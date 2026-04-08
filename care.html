@@ -102,7 +102,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCdHzmheQRbtzP_JI1FuWcZLeW8yVja5-0",
@@ -119,12 +119,15 @@ const db = getFirestore(app);
 
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
-const code = (params.get("code") || "").toUpperCase().trim();
+const rawCode = (params.get("code") || "").toUpperCase().trim();
 const childId = (params.get("child") || "").trim();
+
+// resolvedCode will be set to the actual backup code (BK...) after CT token lookup
+let code = rawCode;
 
 const $app = document.getElementById("app");
 
-if (!code || code.length < 4) {
+if (!rawCode || rawCode.length < 4) {
   $app.innerHTML = `
     <div class="error-screen">
       <div class="icon">🔑</div>
@@ -134,6 +137,16 @@ if (!code || code.length < 4) {
 } else {
   // Sign in anonymously, load context, then render
   signInAnonymously(auth).then(async () => {
+    // If code is a CT token, look up the real backup code
+    if (rawCode.startsWith("CT")) {
+      try {
+        const _snap = await getDocs(query(collection(db, "families"), where("carerToken", "==", rawCode)));
+        if (!_snap.empty) {
+          code = _snap.docs[0].id; // doc ID is the backup code
+        }
+        // If not found, fall back to using the CT token directly (may fail gracefully below)
+      } catch(e) { console.warn("CT token lookup failed", e); }
+    }
     await loadFamilyContext();
     renderApp();
   }).catch((err) => {

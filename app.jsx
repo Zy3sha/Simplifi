@@ -3821,7 +3821,14 @@ function App(){
     const now = new Date();
     return (now - last) > 28*24*60*60*1000;
   })();
-  const[showPartnerCheck,setShowPartnerCheck]=useState(false);
+  const[showPartnerCheck,setShowPartnerCheck]=useState(()=>{
+    if(!partnerCheckDue) return false;
+    try{
+      const snooze = localStorage.getItem("partner_check_snooze_v1");
+      if(snooze && (Date.now()-new Date(snooze).getTime()) < 7*24*60*60*1000) return false;
+    }catch{}
+    return true;
+  });
   // Data-driven stress signal. 5+ consecutive nights with 3+ wakes
   const wellbeingDataSignal = React.useMemo(()=>{
     try{
@@ -4807,6 +4814,9 @@ function App(){
         }
       } catch (_mergeErr) { console.warn("Entry merge read failed (writing anyway):", _mergeErr); }
 
+      // Include carer token so care.html can look up the family by CT token
+      let _carerTokenForCloud = null;
+      try { const _ctd = JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null"); if(_ctd && _ctd.token) _carerTokenForCloud = _ctd.token; } catch {}
       await fsSet("families", code, {
         children: JSON.stringify(cleanForCloud),
         carerInfo: JSON.stringify(_carerInfoCloud),
@@ -4814,7 +4824,8 @@ function App(){
         childSyncCodes: JSON.stringify(_syncCodesForCloud),
         updatedAt: serverTimestamp(),
         updatedBy: myUid,
-        writeToken
+        writeToken,
+        ...(_carerTokenForCloud ? {carerToken: _carerTokenForCloud} : {})
       });
 
       if(myUid && myUid !== "anon") {
@@ -8341,6 +8352,38 @@ function App(){
                 </div>
               )}
               <div style={{fontSize:11,color:C.lt,marginTop:10,fontStyle:"italic",borderTop:"1px solid var(--card-border)",paddingTop:8}}>Sleep and wake windows: NHS Start4Life, AASM, WHO. Growth data: WHO Child Growth Standards. Feeding: NHS/WHO complementary feeding guidance. This is general guidance. not medical advice. If you have concerns, speak to your {_doctor}.</div>
+              {/* Does this match? feedback */}
+              {(()=>{
+                const _wmKey = "ww_match_"+selDay;
+                const _wmSaved = (()=>{try{return localStorage.getItem(_wmKey);}catch{return null;}})();
+                if(_wmSaved) return <div style={{fontSize:11,color:C.mint,marginTop:8,fontStyle:"italic"}}>✓ Thanks for your feedback</div>;
+                return (
+                  <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--card-border)"}}>
+                    <div style={{fontSize:12,fontWeight:600,color:C.mid,marginBottom:6}}>Does this match what you're seeing?</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {[
+                        {label:"Yes, feels right",val:"match",adj:0},
+                        {label:"Baby seems tired earlier",val:"tired",adj:-10},
+                        {label:"Baby seems more awake",val:"awake",adj:10},
+                      ].map(opt=>(
+                        <button key={opt.val} onClick={()=>{
+                          haptic();
+                          try{localStorage.setItem(_wmKey,opt.val);}catch{}
+                          if(opt.adj!==0){
+                            try{
+                              const _cur=(()=>{try{return parseInt(localStorage.getItem("ww_adjust")||"0",10);}catch{return 0;}})();
+                              localStorage.setItem("ww_adjust",String(Math.max(-30,Math.min(30,_cur+opt.adj))));
+                            }catch{}
+                            showToast(opt.adj<0?"We'll shorten the wake window prediction slightly":"We'll extend the wake window slightly",3000,1);
+                          } else {
+                            showToast("💛 Great. we'll keep the predictions as-is.",2000,1);
+                          }
+                        }} style={{fontSize:11,padding:"5px 10px",borderRadius:99,border:"1px solid var(--card-border)",background:"var(--card-bg)",color:C.mid,cursor:_cP,fontWeight:600}}>{opt.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -8876,6 +8919,15 @@ function App(){
             sourceLabel += " · adaptive ±" + Math.abs(_diff) + "min from " + _adaptivePred.source;
           }
         }
+      }
+    } catch {}
+
+    // Apply user feedback adjustment (ww_adjust, set via "Does this match?" buttons)
+    try {
+      const _wwAdj = parseInt(localStorage.getItem("ww_adjust")||"0",10);
+      if(_wwAdj !== 0) {
+        wakeWindowMin = Math.max(ww.min, wakeWindowMin + _wwAdj);
+        wakeWindowMax = Math.min(ww.max + 15, wakeWindowMax + _wwAdj);
       }
     } catch {}
 
@@ -18189,8 +18241,20 @@ function App(){
       Safe sleep advice: lullabytrust.org.uk
     </div>`);
 
-    // QR code points to Bubba Care. backup code is the access token
-    const carerPortalUrl = `https://obubba.com/care.html?code=${encodeURIComponent(backupCode||"")}&child=${encodeURIComponent(resolvedActiveId||"")}`;
+    // QR code points to Bubba Care. use short-lived carer token (not the raw backup code)
+    const _carerToken = (()=>{
+      try {
+        const _stored = JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");
+        // Reuse token if created within 30 days
+        if(_stored && _stored.token && _stored.created && (Date.now()-new Date(_stored.created).getTime()) < 30*24*60*60*1000) return _stored.token;
+        // Generate new short-lived carer token
+        const _bc = backupCode || "";
+        const _newToken = "CT" + _bc.substring(2,6) + Math.random().toString(36).substring(2,6).toUpperCase();
+        localStorage.setItem("ob_carer_token_v1", JSON.stringify({token:_newToken, created: new Date().toISOString(), backupCode: _bc}));
+        return _newToken;
+      } catch { return backupCode||""; }
+    })();
+    const carerPortalUrl = `https://obubba.com/care.html?code=${encodeURIComponent(_carerToken)}&child=${encodeURIComponent(resolvedActiveId||"")}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
 
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
@@ -23330,6 +23394,18 @@ function App(){
                     ))}
                   </div>
 
+                  {/* Partner check-in nudge (once per 28 days) */}
+                  {partnerCheckDue && showPartnerCheck && (
+                    <div className="glass-card" style={{padding:"16px 18px",marginBottom:12,background:"rgba(123,104,238,0.04)",border:"1.5px solid rgba(123,104,238,0.15)"}}>
+                      <div style={{fontSize:14,fontWeight:700,color:"#7b68ee",marginBottom:6}}>💛 Partner check-in</div>
+                      <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>Have you checked in with your partner lately? Sleep deprivation hits both of you. A 5-minute conversation can make a big difference.</div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>{haptic();setLastPartnerCheckDate(new Date().toISOString());setShowPartnerCheck(false);showToast("💛 You've got this. Together.",2500,1);}} style={{flex:1,padding:"10px 8px",borderRadius:12,background:"rgba(123,104,238,0.12)",border:"1.5px solid rgba(123,104,238,0.3)",color:"#7b68ee",fontSize:12,fontWeight:700,cursor:_cP}}>I'll do it today 💛</button>
+                        <button onClick={()=>{haptic();try{localStorage.setItem("partner_check_snooze_v1",new Date().toISOString());}catch{}setShowPartnerCheck(false);}} style={{flex:1,padding:"10px 8px",borderRadius:12,background:"var(--card-bg)",border:"1.5px solid var(--card-border)",color:C.lt,fontSize:12,fontWeight:600,cursor:_cP}}>Not now</button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Reassurance */}
                   {(()=>{
                     const _msgs = [
@@ -25510,6 +25586,79 @@ function App(){
               })()}
 
               {/* Hide all old collapsible content */}
+
+              {/* ═══ Weekly Rhythm Fingerprint Chart (PREMIUM) ═══ */}
+              {hasAccess() && (()=>{
+                try {
+                  const _axisStart = 6 * 60;  // 6am
+                  const _axisEnd = 21 * 60;   // 9pm
+                  const _axisRange = _axisEnd - _axisStart;
+                  const _toPercent = (mins) => Math.max(0, Math.min(100, (mins - _axisStart) / _axisRange * 100));
+                  const _last7 = (()=>{
+                    const out=[];
+                    for(let i=6;i>=0;i--){
+                      const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-i);
+                      out.push(dt.toISOString().slice(0,10));
+                    }
+                    return out;
+                  })();
+                  const _dayLabel = (dk) => {
+                    const d = new Date(dk+"T12:00:00");
+                    return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+                  };
+                  const _napColor = "rgba(123,104,238,0.55)";
+                  const _napColorToday = "rgba(123,104,238,0.2)";
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4}}>📊 Weekly Rhythm</div>
+                      <div style={{fontSize:11,color:C.lt,marginBottom:10}}>Wake time → naps → bedtime · last 7 days</div>
+                      {/* Time axis labels */}
+                      <div style={{display:"flex",marginBottom:4,paddingLeft:30}}>
+                        {[6,9,12,15,18,21].map(h=>(
+                          <div key={h} style={{flex:1,fontSize:9,color:C.lt,fontFamily:"monospace",textAlign:"left"}}>{h > 12 ? (h-12)+"pm" : h+"am"}</div>
+                        ))}
+                      </div>
+                      {_last7.map((dk,rowIdx)=>{
+                        const _ents = (days[dk]||[]).filter(e=>!e.night);
+                        const _wakeE = _ents.find(e=>e.type==="wake");
+                        const _bedE = _ents.find(e=>e.type==="sleep");
+                        const _naps = _ents.filter(e=>e.type==="nap"&&e.start&&e.end);
+                        const _isToday = dk === selDay;
+                        const _dayLbl = _dayLabel(dk);
+                        const _wakeM = _wakeE ? timeVal(_wakeE) : null;
+                        const _bedM = _bedE ? timeVal(_bedE) : null;
+                        return (
+                          <div key={dk} style={{display:"flex",alignItems:"center",marginBottom:3}}>
+                            <div style={{width:26,fontSize:9,color:_isToday?C.ter:C.lt,fontWeight:_isToday?700:400,fontFamily:"monospace",flexShrink:0}}>{_dayLbl}</div>
+                            <div style={{flex:1,height:14,position:"relative",background:"var(--card-bg-alt)",borderRadius:4,overflow:"hidden"}}>
+                              {/* Wake marker */}
+                              {_wakeM !== null && <div style={{position:"absolute",left:_toPercent(_wakeM)+"%",top:0,width:2,height:"100%",background:C.mint,borderRadius:1}}/>}
+                              {/* Bedtime marker */}
+                              {_bedM !== null && <div style={{position:"absolute",left:_toPercent(_bedM)+"%",top:0,width:2,height:"100%",background:C.ter,borderRadius:1}}/>}
+                              {/* Nap blocks */}
+                              {_naps.map((n,ni)=>{
+                                const _ns = timeVal({time:n.start});
+                                const _ne = timeVal({time:n.end});
+                                const _left = _toPercent(_ns);
+                                const _width = _toPercent(_ne) - _left;
+                                return (
+                                  <div key={ni} style={{position:"absolute",left:_left+"%",width:Math.max(1.5,_width)+"%",top:1,height:"calc(100% - 2px)",background:_isToday?_napColorToday:_napColor,borderRadius:2,border:_isToday?"1.5px dashed rgba(123,104,238,0.6)":"none"}}/>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div style={{display:"flex",gap:10,marginTop:8,flexWrap:"wrap"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:_napColor}}/><span style={{fontSize:10,color:C.lt}}>Nap</span></div>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:10,height:10,borderRadius:2,background:_napColorToday,border:"1.5px dashed rgba(123,104,238,0.6)"}}/><span style={{fontSize:10,color:C.lt}}>Today (predicted)</span></div>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:2,height:10,background:C.mint,borderRadius:1}}/><span style={{fontSize:10,color:C.lt}}>Wake</span></div>
+                        <div style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:2,height:10,background:C.ter,borderRadius:1}}/><span style={{fontSize:10,color:C.lt}}>Bed</span></div>
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
 
               </div>}
 
