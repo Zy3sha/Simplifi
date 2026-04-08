@@ -6892,6 +6892,13 @@ function App(){
     if (!napsComplete && totalNapMins >= napProfile.idealTotalMax) {
       napsComplete = true;
     }
+    // Safety: if it's past bedtime floor and fewer than half expected naps are logged,
+    // assume some naps were missed and switch to bedtime mode.
+    // This prevents showing "Nap 2 approaching" at 7pm when bedtime is due.
+    const _nowMinsForCheck = new Date().getHours() * 60 + new Date().getMinutes();
+    if (!napsComplete && _nowMinsForCheck >= bedtimeFloor - 30 && napsDone < expectedNaps && napsDone >= 1) {
+      napsComplete = true; // time-based override. it's bedtime regardless of nap count
+    }
 
     // Fragmented nap detection: 3+ naps under 20min = baby is catnapping, NOT done napping
     // Override napsComplete if total minutes are way below budget despite count being met
@@ -8081,7 +8088,12 @@ function App(){
         }
       } else {
         _dot = "#7BA68C"; _label = "All naps complete";
-        _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " done today";
+        const _expectedForAge = _profile.expectedNaps;
+        const _missedNaps = _napsDone < _expectedForAge - 1 && _nowM >= bedtimeFloor - 30;
+        _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today";
+        if (_missedNaps) {
+          _rightNow = "Only " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today (usually " + _expectedForAge + "). If " + _name + " napped and you forgot to log, that's OK. bedtime prediction still works from what we have. If " + _name + " genuinely missed naps, an earlier bedtime helps.";
+        }
         // Show bedtime routine button when within 1h of predicted bedtime
         const _bedPredMins3 = _bed && _bed.time ? (()=>{const [bh3,bm3]=_bed.time.split(":").map(Number);return bh3*60+bm3;})() : null;
         if (_bedPredMins3 && (_bedPredMins3 - _nowM) <= 60 && (_bedPredMins3 - _nowM) > -15) {
