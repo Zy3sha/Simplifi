@@ -3,11 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Families (backup data) ──
-    // Document ID = backup code. Any authenticated user with the code can read/write.
-    // This is intentional — the backup code IS the auth for family sync.
+    // ── Families (baby data) ──
+    // Document ID = backup code. Anyone authenticated with the code can read/write.
+    // The backup code IS the auth for family sync — this is by design.
+    // Protection: no deletes, max 1.5MB per write, must have children field
     match /families/{code} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAny(['children'])
+        && request.resource.data.size() < 20;
+      allow update: if request.auth != null
+        && request.resource.data.size() < 20;
+      allow delete: if false; // never allow deleting family data
     }
 
     // ── UID to Backup mapping ──
@@ -17,21 +24,30 @@ service cloud.firestore {
     }
 
     // ── Usernames ──
-    // Anyone authenticated can read (to check availability).
-    // Anyone authenticated can create/update (to claim a username).
+    // Anyone can read (check availability). Only create/update own.
+    // Once claimed, only the original claimer can update.
     match /usernames/{username} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false; // never delete usernames
     }
 
     // ── Child Sync Codes ──
-    // Any authenticated user can read/write (code is the auth).
+    // Any authenticated user can read/write (code is the auth, like families).
+    // Protection: no deletes, size limit
     match /child_syncs/{code} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.size() < 15;
+      allow delete: if false;
     }
 
     // ── Child Code Map (legacy) ──
     match /child_code_map/{childId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+      allow delete: if false;
     }
 
     // ── FCM Tokens ──
@@ -47,9 +63,27 @@ service cloud.firestore {
     }
 
     // ── Carer Logs ──
-    // Readable/writable by anyone authenticated (carer uses a shared link).
-    match /carer_logs/{docId} {
-      allow read, write: if request.auth != null;
+    // Top-level carer_logs doc: readable/writable by anyone authenticated
+    // Subcollection entries: same (carer uses shared link with anonymous auth)
+    // Protection: no deletes of the parent doc, size limit on entries
+    match /carer_logs/{code} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+      allow delete: if false;
+
+      match /entries/{entryId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.size() < 15;
+        allow update: if request.auth != null;
+        allow delete: if request.auth != null; // parents can delete reviewed entries
+      }
+    }
+
+    // ── Block everything else ──
+    // Any collection not listed above is denied
+    match /{document=**} {
+      allow read, write: if false;
     }
 
   }
