@@ -22164,6 +22164,28 @@ function App(){
               const nightEndWake = todayBedEntry
                 ? (nextDayMorningWake || null)
                 : morningWake;
+              // Bedtime routine prompt: 30 min before predicted bedtime, no bed logged yet
+              if (!bedEntry && !bedTimerDay) {
+                try {
+                  const _bp = bedtimePrediction ? bedtimePrediction() : null;
+                  if (_bp && _bp.time) {
+                    const [_bh,_bm] = _bp.time.split(":").map(Number);
+                    const _predBed = _bh*60+_bm;
+                    const _minsToBed = _predBed - _nowMins;
+                    if (_minsToBed > 0 && _minsToBed <= 30) {
+                      return (
+                        <button onClick={()=>{haptic();setShowBedRoutine(true);setBedRoutineStep(0);setBedRoutineStart(null);}}
+                          style={{background:"linear-gradient(135deg,rgba(123,104,238,0.15),rgba(123,104,238,0.08))",border:"1px solid rgba(123,104,238,0.3)",borderRadius:99,padding:"6px 14px",display:"flex",alignItems:"center",gap:6,cursor:_cP}}>
+                          <span style={{fontSize:13}}>🌙</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#7B68EE"}}>Start routine</span>
+                          <span style={{fontSize:10,color:"rgba(123,104,238,0.6)"}}>{_minsToBed}m to bed</span>
+                        </button>
+                      );
+                    }
+                  }
+                } catch {}
+              }
+
               // Night timer: show elapsed since bedtime/last wake
               if(bedEntry) {
                 const bedM = timeVal(bedEntry);
