@@ -658,20 +658,10 @@ let expectedNaps=napProfile.expectedNaps;const idealTotalMax=napProfile.idealNap
 // (logBedtimeNow and saveLogSleep always set night:false; night wakes use type:"wake")
 // No hour restriction. user may re-log in the morning to fix previous night's timer
 const bedEntry=todayEntries.find(e=>e.type==="sleep"&&!e.night);const hasBedtime=!!bedEntry;const bedEntryTime=bedEntry?bedEntry.time:null;// Find last awake start: latest of (wake time, last nap end)
-const wakeEntry=findMorningWake(todayEntries);let lastAwakeMins=wakeEntry?timeVal(wakeEntry):null;completedNaps.forEach(n=>{const[eh,em]=n.end.split(":").map(Number);const endMins=eh*60+em;if(lastAwakeMins===null||endMins>lastAwakeMins)lastAwakeMins=endMins;});// Next nap prediction: simply lastAwakeStart + middle of WW range
-const wwMid=Math.round(progressiveWW(ageWeeks,napsDone,expectedNaps));const nextNapMins=lastAwakeMins!==null?lastAwakeMins+wwMid:null;// Treat naps as complete if all done, OR if next nap would start too late
-// skipLateNap cutoff is RELATIVE to morning wake: 10 hours after wake
-const morningWakeMins=wakeEntry?timeVal(wakeEntry):null;const bedtimeFloor=clampBedtime(0,ageWeeks);// earliest reasonable bedtime for age
-const skipLateCutoff=morningWakeMins!==null?morningWakeMins+10*60// 10 hours after wake (e.g. wake 7am → cutoff 5pm)
-:16.5*60;// fallback to 4:30pm if no wake time
-// Consult predictNextNap() — the SAME function Today's Plan uses.
-// If it says there's still a nap to come, trust it. If it returns null, naps are done.
-let _planPred=null;try{_planPred=predictNextNap?predictNextNap():null;}catch{}const _planSaysMoreNaps=_planPred&&_planPred.napStart_min&&!_planPred.isComplete;const skipLateNap=nextNapMins!==null&&nextNapMins>=skipLateCutoff;let napsComplete=napsDone>=expectedNaps||skipLateNap;// If predictNextNap says there ARE more naps, trust it over the count
-if(napsComplete&&_planSaysMoreNaps&&napsDone<expectedNaps){napsComplete=false;// Plan says more naps — override
-}// If predictNextNap says NO more naps, trust it
-if(!napsComplete&&!_planSaysMoreNaps&&napsDone>=1){napsComplete=true;// Plan says done — override
-}if(!napsComplete&&totalNapMins>=napProfile.idealTotalMax){napsComplete=true;}// Safety: if it's past bedtime floor and no naps predicted, switch to bedtime
-const _nowMinsForCheck=new Date().getHours()*60+new Date().getMinutes();if(!napsComplete&&_nowMinsForCheck>=bedtimeFloor-30&&!_planSaysMoreNaps&&napsDone>=1){napsComplete=true;}// Fragmented nap detection: 3+ naps under 20min = baby is catnapping, NOT done napping
+const wakeEntry=findMorningWake(todayEntries);let lastAwakeMins=wakeEntry?timeVal(wakeEntry):null;completedNaps.forEach(n=>{const[eh,em]=n.end.split(":").map(Number);const endMins=eh*60+em;if(lastAwakeMins===null||endMins>lastAwakeMins)lastAwakeMins=endMins;});// ═══ SINGLE SOURCE OF TRUTH: predictNextNap() ═══
+// This is the SAME function Today's Plan uses. No duplicate calculations.
+// If it says there's a nap → we show a nap. If null → naps are done.
+const morningWakeMins=wakeEntry?timeVal(wakeEntry):null;const bedtimeFloor=clampBedtime(0,ageWeeks);let _planPred=null;try{_planPred=predictNextNap?predictNextNap():null;}catch{}const napsComplete=!_planPred;const nextNapMins=_planPred&&_planPred.napStart_min?Math.round(_planPred.napStart_min):null;// Fragmented nap detection: 3+ naps under 20min = baby is catnapping, NOT done napping
 // Override napsComplete if total minutes are way below budget despite count being met
 const _shortNapCount=completedNaps.filter(n=>minDiff(n.start,n.end)<20).length;const _isFragmented=_shortNapCount>=3&&totalNapMins<napProfile.idealTotalMin;if(napsComplete&&_isFragmented){napsComplete=false;// keep predicting naps. baby needs more sleep, not bedtime
 }// Bridge nap check: if naps are "complete" by count but it's too early for bedtime,
