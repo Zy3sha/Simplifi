@@ -18260,8 +18260,9 @@ function App(){
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
       <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:8px">📱 Bubba Care</div>
       <img src="${qrUrl}" alt="QR Code" style="width:150px;height:150px;border-radius:8px;border:2px solid #e8ddd5" onerror="this.style.display='none'"/>
-      <div style="font-size:11px;color:#A898AC;margin-top:8px">Scan to open ${name}'s Bubba Care</div>
-      <div style="font-size:10px;color:#C0A8B0;margin-top:4px">Carers can log feeds, naps & nappies. you'll review them in the app</div>
+      <div style="font-size:12px;color:#A898AC;margin-top:8px">Scan the QR code or tap the link below</div>
+      <a href="${carerPortalUrl}" style="display:inline-block;margin-top:8px;padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:14px;font-weight:700;text-decoration:none">Open Bubba Care →</a>
+      <div style="font-size:10px;color:#C0A8B0;margin-top:8px">Carers can log feeds, naps & nappies. you'll review them in the app</div>
     </div>`);
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name}'s Bubba Care</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:60px 12px 40px;padding-top:max(60px,env(safe-area-inset-top,60px));background:#FFFCF9;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;overflow-x:hidden}h2{font-family:Georgia,serif;font-size:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:3px 6px;font-size:12px;word-break:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}@media(max-width:430px){body{font-size:13px;padding:60px 10px 32px;padding-top:max(60px,env(safe-area-inset-top,60px))}h2{font-size:15px}td,th{padding:2px 4px;font-size:11px}}</style></head><body>${sections.join("")}</body></html>`;
@@ -32257,7 +32258,17 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             {/* Action buttons */}
             <div onClick={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{position:"relative",zIndex:10}}>
             <button onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();shareCarerCard();}} onClick={e=>{e.stopPropagation();haptic();shareCarerCard();}} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
-              📤 Share and Print
+              📤 Share Care Guide
+            </button>
+            <button onClick={e=>{
+              e.stopPropagation();haptic();
+              const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
+              const _url = "https://obubba.com/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
+              const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
+              if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
+              else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
+            }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
+              🔗 Send Link (no QR needed)
             </button>
             <button onClick={e=>{e.stopPropagation();setShowCarerCard(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,touchAction:"manipulation"}}>
               Close

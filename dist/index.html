@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+
+  <!-- SEO Essentials -->
+  <title>OBubba — Smart Baby Tracker | Feed, Sleep, Nap & Milestone Tracking</title>
+  <meta name="description" content="Track your baby's feeds, sleep, naps, growth and milestones with smart predictions. OBubba learns your baby's unique rhythm using NHS and WHO guidance. Free for iPhone and Android."/>
+  <meta name="keywords" content="baby tracker, baby app, feeding tracker, sleep tracker, nap timer, breastfeed timer, milestone tracker, growth chart, NHS baby, newborn tracker, baby schedule, baby routine, nap prediction, bedtime prediction"/>
+  <link rel="canonical" href="https://obubba.com/"/>
+
+  <!-- Open Graph (Facebook, WhatsApp, iMessage link previews) -->
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://obubba.com/"/>
+  <meta property="og:title" content="OBubba — Smart Baby Tracker"/>
+  <meta property="og:description" content="Track feeds, sleep, naps, milestones & growth with personalised predictions powered by NHS guidance + your baby's unique rhythm."/>
+  <meta property="og:image" content="https://obubba.com/og-image.png"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta property="og:site_name" content="OBubba"/>
+  <meta property="og:locale" content="en_GB"/>
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="OBubba — Smart Baby Tracker"/>
+  <meta name="twitter:description" content="The baby app that learns your baby's rhythm. Track feeds, sleep, naps, milestones & growth with personalised predictions."/>
+  <meta name="twitter:image" content="https://obubba.com/og-image.png"/>
+
+  <!-- PWA / Mobile -->
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="OBubba"/>
+  <meta name="application-name" content="OBubba"/>
+  <meta name="theme-color" content="#f0ddd6"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <link rel="manifest" href="/assets/manifest-CzZqht1Z.json"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+
+  <!-- Structured Data — tells Google this is an app -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "OBubba — Smart Baby Tracker",
+    "description": "Smart baby tracker that learns your baby's unique rhythm. Track feeds, sleep, naps, growth and milestones with personalised predictions based on NHS and WHO guidance.",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "iOS, Android, Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "GBP"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "OBubba",
+      "url": "https://obubba.com"
+    },
+    "url": "https://obubba.com",
+    "image": "https://obubba.com/obubba-happy.png"
+  }
+  </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+
+  <!-- External libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+
+  <!-- Firebase -->
+
+  <!-- Native Plugin Bridge (Capacitor + platform features) -->
+  <script src="native-plugins.js" defer></script>
+
+  <!-- Styles -->
+  <script type="module" crossorigin src="/assets/index-VKbY149e.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BdUFHcxp.css">
+<script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
+<body>
+<div id="root"></div>
+<button id="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">🌙</button>
+
+<!-- Theme system (must run immediately for no flash) -->
+<script src="theme.js"></script>
+
+<!-- Native splash failsafe: hide iOS/Android launch splash progressively, even if JS errors -->
+<script>
+(function(){
+  var _force = function(){
+    try { if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen) window.Capacitor.Plugins.SplashScreen.hide(); } catch(_){}
+  };
+  setTimeout(_force, 600);
+  setTimeout(_force, 1500);
+  setTimeout(_force, 3000);
+  setTimeout(_force, 5000);
+  // Also hide on first user interaction (tap through to unstick)
+  document.addEventListener('click', _force, { once: true });
+  document.addEventListener('touchstart', _force, { once: true });
+})();
+</script>
+
+<!-- iOS pinch-zoom lock (belt-and-braces: prevents the WKWebView from getting stuck in a zoomed state after modals close) -->
+<script>
+(function(){
+  // Block multi-touch gestures that trigger pinch-zoom
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, { passive: false });
+  document.addEventListener('gestureend', function(e){ e.preventDefault(); }, { passive: false });
+  // Block double-tap zoom
+  var lastTouch = 0;
+  document.addEventListener('touchend', function(e){
+    var now = Date.now();
+    if (now - lastTouch <= 300) e.preventDefault();
+    lastTouch = now;
+  }, { passive: false });
+})();
+</script>
+
+<!-- App loader (fetches app.jsx, compiles, + utilities) -->
+<script src="loader.js"></script>
+</body>
+</html>
