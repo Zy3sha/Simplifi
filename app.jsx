@@ -3955,6 +3955,8 @@ function App(){
   const[showBedRoutine,setShowBedRoutine]=useState(false);
   const[bedRoutineStep,setBedRoutineStep]=useState(0);
   const[bedRoutineStart,setBedRoutineStart]=useState(null);
+  const[showEditRoutine,setShowEditRoutine]=useState(false);
+  const[customRoutine,setCustomRoutine]=usePersistedState("ob_bed_routine_v1", null); // null = use defaults
   const[gentleMode,setGentleMode]=useState(()=>{try{return localStorage.getItem("ob_gentle_mode")==="1";}catch{return false;}});
   const[nurseryMode,setNurseryMode]=usePersistedState("ob_nursery_mode",null); // null or {start:"09:00",end:"17:00",days:[1,2,3,4,5]}
   const[parentingStyle,setParentingStyle]=usePersistedState("ob_parenting_style","responsive"); // "responsive" | "routine" | "family"
@@ -31996,7 +31998,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
       {/* ═══ Bedtime Routine Timer ═══ */}
       {showBedRoutine&&(()=>{
-        const _steps = [
+        const _defaultSteps = [
           {emoji:"🛁",title:"Bath time",duration:10,note:"Warm water, gentle wash. Keep it calm and quiet."},
           {emoji:"👶",title:"Nappy + pyjamas",duration:5,note:"Fresh nappy, sleeping bag or pyjamas. Dim the lights."},
           {emoji:"🧴",title:"Massage (optional)",duration:5,note:"Gentle strokes on arms, legs, tummy. Calming and bonding."},
@@ -32004,6 +32006,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           {emoji:"📖",title:"Story or song",duration:5,note:"One short book or a lullaby. Same one every night builds association."},
           {emoji:"🌙",title:"Into bed",duration:2,note:"Kiss, say goodnight, put down drowsy but awake. Leave the room."},
         ];
+        const _steps = customRoutine || _defaultSteps;
         const _step = _steps[bedRoutineStep] || _steps[0];
         const _elapsed = bedRoutineStart ? Math.floor((Date.now() - bedRoutineStart) / 60000) : 0;
         const _totalMins = _steps.reduce((s, st) => s + st.duration, 0);
@@ -32059,10 +32062,56 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               )}
             </div>
 
-            <button onClick={()=>{setShowBedRoutine(false);setBedRoutineStep(0);setBedRoutineStart(null);}} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
-              Close
-            </button>
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <button onClick={()=>setShowEditRoutine(true)} style={{flex:1,padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
+                ✏️ Edit routine
+              </button>
+              <button onClick={()=>{setShowBedRoutine(false);setBedRoutineStep(0);setBedRoutineStart(null);}} style={{flex:1,padding:"10px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
+                Close
+              </button>
+            </div>
           </div>
+
+          {/* Edit routine overlay */}
+          {showEditRoutine && (
+            <div onClick={e=>e.stopPropagation()} style={{position:"absolute",inset:0,background:"var(--picker-bg)",borderRadius:28,padding:"24px 20px",overflowY:"auto"}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:4}}>Customise Routine</div>
+              <div style={{fontSize:12,color:C.lt,marginBottom:12}}>Drag to reorder. tap ✕ to remove. Add your own steps.</div>
+              {(_steps).map((step, i) => (
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:12,border:`1px solid ${C.blush}`,marginBottom:6,background:"var(--card-bg)"}}>
+                  <span style={{fontSize:18}}>{step.emoji}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{step.title}</div>
+                    <div style={{fontSize:10,color:C.lt}}>{step.duration} min</div>
+                  </div>
+                  <button onClick={()=>{
+                    const _newSteps = [..._steps];
+                    _newSteps.splice(i, 1);
+                    setCustomRoutine(_newSteps.length > 0 ? _newSteps : null);
+                  }} style={{background:"none",border:"none",color:C.ter,fontSize:16,cursor:_cP,padding:"4px"}}>✕</button>
+                </div>
+              ))}
+              <button onClick={()=>{
+                haptic();
+                const _name2 = prompt("Step name (e.g. 'White noise on')");
+                if (!_name2) return;
+                const _emoji = prompt("Emoji (e.g. 🎵)") || "✨";
+                const _dur = parseInt(prompt("Duration in minutes") || "5") || 5;
+                const _newSteps = [..._steps, {emoji:_emoji, title:_name2, duration:_dur, note:""}];
+                setCustomRoutine(_newSteps);
+              }} style={{width:"100%",padding:"12px",borderRadius:12,border:`2px dashed ${C.blush}`,background:"transparent",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:12}}>
+                + Add step
+              </button>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{setCustomRoutine(null);setShowEditRoutine(false);}} style={{flex:1,padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
+                  Reset to default
+                </button>
+                <button onClick={()=>setShowEditRoutine(false)} style={{flex:1,padding:"10px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:12,fontWeight:700,cursor:_cP}}>
+                  Save ✓
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         );
       })()}
