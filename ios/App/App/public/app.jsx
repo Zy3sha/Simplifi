@@ -8004,6 +8004,15 @@ function App(){
         _dot = _bridgeNapNeeded ? "#D4A855" : "#7BA68C";
         _label = _bridgeNapNeeded ? "Bridge nap planned" : "All good right now";
         _timing = "Awake " + hm(_awakeMin) + " · " + (_bridgeNapNeeded ? "Bridge nap" : "Nap " + (_napsDone+1)) + " around " + _napTimeStr + (_bridgeNapNeeded ? _bridgeNote : _longNapNote) + _rhythmTag;
+        // Gentle "what's next" after a nap just ended
+        if (_awakeMin < 30 && _napsDone >= 1) {
+          const _fAgo = _feedGapM || 0;
+          if (_fAgo > 90) {
+            _rightNow = _name + " just woke up. a feed would be lovely right about now. then some play time before the next nap 💛";
+          } else {
+            _rightNow = _name + " just woke up. some play time on the mat or in your arms. next nap around " + _napTimeStr + " 💛";
+          }
+        }
       }
     }
     // ── PRIORITY 5a-bridge: Bridge nap needed but no prediction available (fallback) ──
@@ -8400,12 +8409,13 @@ function App(){
       </div>
     );
    } catch(err) {
-    console.error("HeroCard error:", err?.message || err);
+    console.error("HeroCard error:", err?.message || err, err?.stack);
+    const _greetFallback = _h >= 12 ? "All good ☀️" : "Good morning! ☀️";
     return (
       <div className="glass-card" style={{padding:"18px 16px",marginBottom:12}}>
         <div style={_S.flexCenter10}>
           <div style={{width:10,height:10,borderRadius:"50%",background:"#7BA68C"}}/>
-          <span style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Good morning! ☀️</span>
+          <span style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{_greetFallback}</span>
         </div>
         <div style={{fontSize:13,color:C.mid,marginTop:6}}>{babyName||"Baby"}'s day is underway</div>
         <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginTop:6}}>You're doing great 🤍</div>
@@ -23937,16 +23947,22 @@ function App(){
                 const _freeAvgDur = Math.round((_freeProfile.idealNapDurMin + _freeProfile.idealNapDurMax) / 2);
                 const _freeItems = [];
                 let _freeCursor = _freeWakeMin || 7*60; // default 7am if no wake logged
+                // Calculate bedtime first so we can suppress naps that overlap it
+                let _freeBedEstimate = _freeCursor;
+                for (let i = 0; i < _freeExpected; i++) {
+                  _freeBedEstimate += clampWakeWindow(progressiveWW(age.totalWeeks, i, _freeExpected), age.totalWeeks) + _freeAvgDur;
+                }
+                const _freeBedWW = clampWakeWindow(progressiveWW(age.totalWeeks, _freeExpected, _freeExpected), age.totalWeeks);
+                const _freeBedM = clampBedtime(_freeBedEstimate + _freeBedWW, age.totalWeeks);
                 for (let i = 0; i < _freeExpected; i++) {
                   const _ww = clampWakeWindow(progressiveWW(age.totalWeeks, i, _freeExpected), age.totalWeeks);
                   const napStart = _freeCursor + _ww;
                   const napEnd = napStart + _freeAvgDur;
+                  // Skip nap if it would start within 30min of bedtime
+                  if (napStart >= _freeBedM - 30) break;
                   _freeItems.push({start: napStart, end: napEnd, idx: i, ww: _ww});
                   _freeCursor = napEnd;
                 }
-                // Bedtime from progressive WW after last nap
-                const _freeBedWW = clampWakeWindow(progressiveWW(age.totalWeeks, _freeExpected, _freeExpected), age.totalWeeks);
-                const _freeBedM = clampBedtime(_freeCursor + _freeBedWW, age.totalWeeks);
                 return (
                   <div style={{padding:"8px 0"}}>
                     <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Research-Based Schedule for {age?fmtAge(age):""}</div>
