@@ -664,13 +664,14 @@ const wwMid=Math.round(progressiveWW(ageWeeks,napsDone,expectedNaps));const next
 const morningWakeMins=wakeEntry?timeVal(wakeEntry):null;const bedtimeFloor=clampBedtime(0,ageWeeks);// earliest reasonable bedtime for age
 const skipLateCutoff=morningWakeMins!==null?morningWakeMins+10*60// 10 hours after wake (e.g. wake 7am → cutoff 5pm)
 :16.5*60;// fallback to 4:30pm if no wake time
-// Also calculate predicted bedtime so we can skip naps that are too close
-const _predBedWW=Math.round(progressiveWW(ageWeeks,expectedNaps,expectedNaps));const _predBedMins=lastAwakeMins!==null?lastAwakeMins+_predBedWW:bedtimeFloor;const _clampedBedMins=clampBedtime(_predBedMins,ageWeeks);// Skip nap if it would start within 45min of predicted bedtime — just go to bed
-const napTooCloseToBed=nextNapMins!==null&&_clampedBedMins>0&&nextNapMins>=_clampedBedMins-45;const skipLateNap=nextNapMins!==null&&(nextNapMins>=skipLateCutoff||napTooCloseToBed);let napsComplete=napsDone>=expectedNaps||skipLateNap;if(!napsComplete&&totalNapMins>=napProfile.idealTotalMax){napsComplete=true;}// Safety: if it's past bedtime floor and fewer than half expected naps are logged,
-// assume some naps were missed and switch to bedtime mode.
-// This prevents showing "Nap 2 approaching" at 7pm when bedtime is due.
-const _nowMinsForCheck=new Date().getHours()*60+new Date().getMinutes();if(!napsComplete&&_nowMinsForCheck>=bedtimeFloor-30&&napsDone<expectedNaps&&napsDone>=1){napsComplete=true;// time-based override. it's bedtime regardless of nap count
-}// Fragmented nap detection: 3+ naps under 20min = baby is catnapping, NOT done napping
+// Consult predictNextNap() — the SAME function Today's Plan uses.
+// If it says there's still a nap to come, trust it. If it returns null, naps are done.
+let _planPred=null;try{_planPred=predictNextNap?predictNextNap():null;}catch{}const _planSaysMoreNaps=_planPred&&_planPred.napStart_min&&!_planPred.isComplete;const skipLateNap=nextNapMins!==null&&nextNapMins>=skipLateCutoff;let napsComplete=napsDone>=expectedNaps||skipLateNap;// If predictNextNap says there ARE more naps, trust it over the count
+if(napsComplete&&_planSaysMoreNaps&&napsDone<expectedNaps){napsComplete=false;// Plan says more naps — override
+}// If predictNextNap says NO more naps, trust it
+if(!napsComplete&&!_planSaysMoreNaps&&napsDone>=1){napsComplete=true;// Plan says done — override
+}if(!napsComplete&&totalNapMins>=napProfile.idealTotalMax){napsComplete=true;}// Safety: if it's past bedtime floor and no naps predicted, switch to bedtime
+const _nowMinsForCheck=new Date().getHours()*60+new Date().getMinutes();if(!napsComplete&&_nowMinsForCheck>=bedtimeFloor-30&&!_planSaysMoreNaps&&napsDone>=1){napsComplete=true;}// Fragmented nap detection: 3+ naps under 20min = baby is catnapping, NOT done napping
 // Override napsComplete if total minutes are way below budget despite count being met
 const _shortNapCount=completedNaps.filter(n=>minDiff(n.start,n.end)<20).length;const _isFragmented=_shortNapCount>=3&&totalNapMins<napProfile.idealTotalMin;if(napsComplete&&_isFragmented){napsComplete=false;// keep predicting naps. baby needs more sleep, not bedtime
 }// Bridge nap check: if naps are "complete" by count but it's too early for bedtime,
