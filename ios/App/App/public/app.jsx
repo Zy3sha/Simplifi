@@ -3920,6 +3920,8 @@ function App(){
   const[logForAll,setLogForAll]=useState(false);
   const[showSupportModal,setShowSupportModal]=useState(false);
   const[gentleMode,setGentleMode]=useState(()=>{try{return localStorage.getItem("ob_gentle_mode")==="1";}catch{return false;}});
+  const[nurseryMode,setNurseryMode]=usePersistedState("ob_nursery_mode",null); // null or {start:"09:00",end:"17:00",days:[1,2,3,4,5]}
+  const[parentingStyle,setParentingStyle]=usePersistedState("ob_parenting_style","responsive"); // "responsive" | "routine" | "family"
   const[showQuickStart,setShowQuickStart]=useState(false);
   const[qsNaps,setQsNaps]=useState("3");
   const[qsBedtime,setQsBedtime]=useState("19:00");
@@ -7888,7 +7890,16 @@ function App(){
       }
     }
     // ── PRIORITY 4: Feed overdue (with critical escalation for young babies) ──
-    else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedTimerDay) {
+    // Suppress during nursery hours
+    else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedTimerDay && !(()=>{
+      if (!nurseryMode) return false;
+      const _dayOfWk = new Date().getDay();
+      if (!(nurseryMode.days||[]).includes(_dayOfWk)) return false;
+      const _nH = new Date().getHours();
+      const _nStart = parseInt((nurseryMode.start||"09:00").split(":")[0]);
+      const _nEnd = parseInt((nurseryMode.end||"17:00").split(":")[0]);
+      return _nH >= _nStart && _nH < _nEnd;
+    })()) {
       // Check for reverse-cycling breastfed baby. suppress daytime urgency
       const _isReverseCycling = (()=>{try{const p=advancedSleepPatterns();return p&&p.patterns&&p.patterns.some(pp=>pp.type==="reverse_cycling");}catch{return false;}})();
       const _isBreastfed = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
@@ -28991,6 +29002,36 @@ function App(){
               <button onClick={()=>{haptic();setGentleMode(!gentleMode);try{localStorage.setItem("ob_gentle_mode",!gentleMode?"1":"0");}catch{};showToast(gentleMode?"Scores visible again":"💛 Gentle Mode on. no scores, no pressure.",2500,1);}} style={{background:gentleMode?"linear-gradient(135deg,#7B68EE,#6B5B95)":"var(--card-bg-alt)",border:gentleMode?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:gentleMode?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
                 {gentleMode?"💛 On":"Off"}
               </button>
+            </div>
+
+            {/* Nursery / childcare */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+              <div style={_S.flexCenter10}>
+                <span style={_S.f18}>🏫</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Baby at Nursery</div>
+                  <div style={{fontSize:10,color:C.lt}}>{nurseryMode ? "9am-5pm weekdays" : "Off"}</div>
+                </div>
+              </div>
+              <button onClick={()=>{haptic();setNurseryMode(nurseryMode ? null : {start:"09:00",end:"17:00",days:[1,2,3,4,5]});showToast(nurseryMode?"Nursery mode off":"🏫 Nursery mode on. gap warnings suppressed 9am-5pm weekdays",3000,1);}} style={{background:nurseryMode?"linear-gradient(135deg,#7B68EE,#6B5B95)":"var(--card-bg-alt)",border:nurseryMode?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:nurseryMode?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
+                {nurseryMode?"🏫 On":"Off"}
+              </button>
+            </div>
+
+            {/* Parenting style */}
+            <div style={{padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={_S.f18}>🫶</span>
+                <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Parenting Approach</div>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                {[{id:"responsive",label:"Responsive",desc:"Follow baby's cues"},{id:"routine",label:"Routine",desc:"Structured schedule"},{id:"family",label:"Family-led",desc:"Flexible, co-sleeping OK"}].map(s=>(
+                  <button key={s.id} onClick={()=>{haptic();setParentingStyle(s.id);}} style={{flex:1,padding:"8px 4px",borderRadius:10,border:`1.5px solid ${parentingStyle===s.id?"#7B68EE":C.blush}`,background:parentingStyle===s.id?"rgba(123,104,238,0.08)":"transparent",cursor:_cP,textAlign:"center"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:parentingStyle===s.id?"#7B68EE":C.mid}}>{s.label}</div>
+                    <div style={{fontSize:9,color:C.lt}}>{s.desc}</div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Fluid unit */}
