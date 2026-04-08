@@ -21058,6 +21058,81 @@ function App(){
       }
     } catch {}
 
+    // ── Solids ↔ Nappies cross-intelligence ──
+    try {
+      if ((weaning||[]).length > 0) {
+        // Check last 3 days: did a new food correlate with nappy changes?
+        for (let _di = 0; _di < 3; _di++) {
+          const _d = new Date(); _d.setDate(_d.getDate() - _di);
+          const _ds = _d.toISOString().slice(0, 10);
+          const _nextDs = (()=>{const d2=new Date(_d);d2.setDate(d2.getDate()+1);return d2.toISOString().slice(0,10);})();
+          // Food introduced on this day
+          const _foodsOnDay = (weaning||[]).filter(w => w.date === _ds);
+          if (!_foodsOnDay.length) continue;
+          // Nappies on next day
+          const _nextDayEnt = days[_nextDs] || [];
+          const _nextDirty = _nextDayEnt.filter(e => e.type === "poop" && ((e.poopType||"").includes("dirty") || e.poopType === "both")).length;
+          // Compare to average dirty nappies
+          let _avgDirty = 0, _avgCount = 0;
+          for (let _j = 2; _j < 7; _j++) {
+            const _dd = new Date(); _dd.setDate(_dd.getDate() - _j);
+            const _dds = _dd.toISOString().slice(0, 10);
+            const _de = days[_dds] || [];
+            const _dirtyCount = _de.filter(e => e.type === "poop" && ((e.poopType||"").includes("dirty") || e.poopType === "both")).length;
+            if (_de.length >= 2) { _avgDirty += _dirtyCount; _avgCount++; }
+          }
+          if (_avgCount < 2) continue;
+          _avgDirty = _avgDirty / _avgCount;
+          const _foodNames = _foodsOnDay.map(f => f.food).join(", ");
+          const _isAllergenFood = _foodsOnDay.some(f => detectAllergens(f.food).length > 0);
+          const _isIronRich = _foodsOnDay.some(f => {
+            const match = _available ? _available.find(af => f.food && f.food.toLowerCase().includes(af.food.toLowerCase().split(" ")[0])) : null;
+            return match && match.iron;
+          });
+
+          // More dirty nappies than usual after new food
+          if (_nextDirty > _avgDirty + 1.5 && _nextDirty >= 3) {
+            if (_isAllergenFood) {
+              addObservation("⚠️", "Nappy change after allergen: " + _foodNames,
+                `${_name} had ${_nextDirty} dirty nappies the day after trying ${_foodNames} (usually ${Math.round(_avgDirty)}). Since this was an allergen food, watch for other signs: rash, swelling, or vomiting.`,
+                "If stools contain mucus, blood, or " + _name + " seems in pain, contact your " + _doctor + ". A single loose nappy after a new food is usually just the digestive system adjusting.", 1);
+              break;
+            } else {
+              addObservation("💩", "More nappies after new food",
+                `${_name} had ${_nextDirty} dirty nappies the day after trying ${_foodNames} (usually ${Math.round(_avgDirty)}). This is completely normal. the digestive system is adjusting to new textures and nutrients.`,
+                "No action needed unless it continues for 3+ days or " + _name + " seems uncomfortable. The body adapts quickly.");
+              break;
+            }
+          }
+
+          // Iron-rich food → darker stools (reassurance)
+          if (_isIronRich && _nextDirty >= 1 && _di === 0) {
+            addObservation("💪", "Iron-rich food may change nappies",
+              `${_name} tried ${_foodNames} (iron-rich) recently. Don't be alarmed if nappies are darker or greenish over the next day or two.`,
+              "Iron changes stool colour. this is completely normal and a sign the body is absorbing the iron. Dark/green stools after iron-rich foods are expected, not a concern.");
+            break;
+          }
+
+          // Constipation after starting solids
+          const _todayDirty = (days[todayStr()]||[]).filter(e => e.type === "poop" && ((e.poopType||"").includes("dirty") || e.poopType === "both")).length;
+          const _daysSinceDirty2 = (()=>{
+            for (let k = 0; k < 5; k++) {
+              const dd = new Date(); dd.setDate(dd.getDate() - k);
+              const dds = dd.toISOString().slice(0, 10);
+              if ((days[dds]||[]).some(e => e.type === "poop" && ((e.poopType||"").includes("dirty") || e.poopType === "both"))) return k;
+            }
+            return 5;
+          })();
+          if (_daysSinceDirty2 >= 3 && _wks >= 26 && _di === 0) {
+            addObservation("💩", "Constipation since starting solids?",
+              `No dirty nappy for ${_daysSinceDirty2} days. This is very common when babies start solids. the gut is adjusting to processing food instead of just milk.`,
+              "Try: offer water with meals (small sips from a cup), include high-fibre foods (pear, prune, broccoli), bicycle legs and tummy massage. If " + _name + " is straining and distressed, mention it to your " + _doctor + ".");
+            break;
+          }
+        }
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
@@ -24418,6 +24493,49 @@ function App(){
                           <div style={{fontSize:16,fontWeight:700,color:_nightWakeMin>60?C.ter:C.mint}}>{hm(_nightWakeMin)}</div>
                         </div>
                       </>}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Milk:Solids ratio on Plan tab */}
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 26 && (()=>{
+                const _wr = getWeaningRatio ? getWeaningRatio(age, days[selDay]||[]) : null;
+                if (!_wr || !_wr.showSolids) return null;
+                const milkPct = _wr.months < 6 ? 100 : _wr.months < 7 ? 90 : _wr.months < 8 ? 75 : _wr.months < 10 ? 60 : _wr.months < 12 ? 45 : 30;
+                return (
+                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:"var(--card-bg-alt)",border:`1px solid var(--card-border)`}}>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>🍼🥕 Milk vs Solids</div>
+                    <div style={{display:"flex",height:20,borderRadius:99,overflow:"hidden",marginBottom:6,border:"1px solid var(--card-border)"}}>
+                      <div style={{width:milkPct+"%",background:"linear-gradient(90deg,#C07088,#d88a9a)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"white"}}>🍼 {milkPct}%</div>
+                      <div style={{width:(100-milkPct)+"%",background:"linear-gradient(90deg,#6FA898,#8BC4A8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"white"}}>{100-milkPct > 15 ? "🥕 "+(100-milkPct)+"%" : ""}</div>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.mid}}>
+                      <span>Milk: {_wr.totalMilkMl||0}ml / {_wr.milkTarget}ml</span>
+                      <span>Solids: {_wr.solidCount||0} / {_wr.solidMeals} meals</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Hydration meter on Plan tab */}
+              {(()=>{
+                const _ent = days[selDay] || [];
+                const _wet = _ent.filter(e => e.type === "poop" && ((e.poopType||"").includes("wet") || e.poopType === "both")).length;
+                if (_wet >= 6) return null; // target met, no need to show
+                return (
+                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:_wet<4?"rgba(192,112,136,0.06)":"rgba(111,168,152,0.06)",border:`1px solid ${_wet<4?"rgba(192,112,136,0.15)":"rgba(111,168,152,0.15)"}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                      <span style={{fontSize:18}}>💧</span>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_wet}/6 wet nappies</div>
+                        <div style={{fontSize:10,color:C.lt}}>Aim for 6+ in 24h for adequate hydration</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:4}}>
+                      {[1,2,3,4,5,6].map(n=>(
+                        <div key={n} style={{flex:1,height:6,borderRadius:99,background:n<=_wet?C.mint+"80":C.blush}}/>
+                      ))}
                     </div>
                   </div>
                 );
