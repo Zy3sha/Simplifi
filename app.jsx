@@ -86,37 +86,31 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
   s.textContent = "html,body{overscroll-behavior:none!important;overflow-x:hidden!important;max-width:100vw!important;touch-action:pan-y!important;}body{-webkit-overflow-scrolling:touch;position:relative;overflow-x:hidden!important;}*{-webkit-overflow-scrolling:touch;}button,input,select,textarea,a,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}input,textarea,select{max-width:100%!important;box-sizing:border-box!important;}";
   document.head.appendChild(s);
   // ── Scroll guard: prevent accidental button taps while scrolling ──
-  // Tracks touch movement. If finger moves >8px vertically, suppress the click.
-  var _scrollGuard = { startY: 0, startX: 0, moved: false, scrolling: false, timer: null };
-  document.addEventListener("touchstart", function(e) {
-    var t = e.touches[0];
-    _scrollGuard.startY = t.clientY;
-    _scrollGuard.startX = t.clientX;
-    _scrollGuard.moved = false;
-    _scrollGuard.scrolling = false;
-  }, { passive: true });
-  document.addEventListener("touchmove", function(e) {
-    var t = e.touches[0];
-    var dy = Math.abs(t.clientY - _scrollGuard.startY);
-    var dx = Math.abs(t.clientX - _scrollGuard.startX);
-    if (dy > 8 || dx > 8) {
-      _scrollGuard.moved = true;
-      _scrollGuard.scrolling = true;
-      clearTimeout(_scrollGuard.timer);
-      _scrollGuard.timer = setTimeout(function() { _scrollGuard.scrolling = false; }, 300);
-    }
-  }, { passive: true });
+  // Only suppresses clicks that happen during an active scroll momentum.
+  // Uses scroll event (not touch tracking) so genuine taps always work.
+  var _isScrolling = false;
+  var _scrollTimer = null;
+  window.addEventListener("scroll", function() {
+    _isScrolling = true;
+    clearTimeout(_scrollTimer);
+    _scrollTimer = setTimeout(function() { _isScrolling = false; }, 150);
+  }, { passive: true, capture: true });
   document.addEventListener("click", function(e) {
-    if (_scrollGuard.moved || _scrollGuard.scrolling) {
-      var tag = (e.target.tagName || "").toLowerCase();
-      // Don't suppress clicks on inputs/selects (need those for forms)
-      if (tag === "input" || tag === "select" || tag === "textarea") return;
-      e.preventDefault();
-      e.stopPropagation();
-      _scrollGuard.moved = false;
-      return false;
+    if (!_isScrolling) return;
+    var tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "select" || tag === "textarea" || tag === "a") return;
+    // Only block if inside a scrollable container (not modals/sheets which are fixed)
+    var el = e.target;
+    while (el && el !== document.body) {
+      var ov = window.getComputedStyle(el).overflowY;
+      if (ov === "auto" || ov === "scroll") {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      el = el.parentElement;
     }
-  }, true); // capture phase — intercepts before React handlers
+  }, true);
 })();
 
 // ═══════════════════════════════════════════════════════════════════════
