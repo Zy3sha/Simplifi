@@ -6879,32 +6879,26 @@ function App(){
     });
     // ═══ SINGLE SOURCE OF TRUTH: predictNextNap() ═══
     // This is the SAME function Today's Plan uses. No duplicate calculations.
-    // If it says there's a nap → we show a nap. If null → naps are done.
     const morningWakeMins = wakeEntry ? timeVal(wakeEntry) : null;
     const bedtimeFloor = clampBedtime(0, ageWeeks);
     let _planPred = null;
     try { _planPred = predictNextNap ? predictNextNap() : null; } catch {}
-    const napsComplete = !_planPred;
+    let napsComplete = !_planPred;
     const nextNapMins = _planPred && _planPred.napStart_min ? Math.round(_planPred.napStart_min) : null;
 
-    // Fragmented nap detection: 3+ naps under 20min = baby is catnapping, NOT done napping
-    // Override napsComplete if total minutes are way below budget despite count being met
+    // Fragmented nap detection from data (used for observations, not overriding Plan)
     const _shortNapCount = completedNaps.filter(n => minDiff(n.start, n.end) < 20).length;
     const _isFragmented = _shortNapCount >= 3 && totalNapMins < napProfile.idealTotalMin;
-    if (napsComplete && _isFragmented) {
-      napsComplete = false; // keep predicting naps. baby needs more sleep, not bedtime
-    }
 
-    // Bridge nap check: if naps are "complete" by count but it's too early for bedtime,
-    // the baby may need a short catnap to bridge the gap without becoming overtired.
-    // Two conditions trigger this:
-    //   a) Total nap minutes are below the age-appropriate minimum (sleep budget under)
-    //   b) Gap from last nap end to earliest reasonable bedtime exceeds max WW × 1.3 (gap too long)
-    let bridgeNapNeeded = false;
-    if (napsComplete && napsDone >= expectedNaps && lastAwakeMins !== null) {
-      const sleepBudgetUnder = totalNapMins < napProfile.idealTotalMin;
-      // Use personal bedtime if available, else floor (matches hero card logic)
-      let _tickTargetBed = bedtimeFloor;
+    // Bridge nap: Plan already handles this via predictNextNap().
+    // We just detect it for display purposes (hero card label).
+    let bridgeNapNeeded = _planPred && _planPred.isBridge;
+    // Fallback detection if predictNextNap doesn't flag it
+    if (!bridgeNapNeeded && !napsComplete && napsDone >= expectedNaps) {
+      bridgeNapNeeded = true; // extra nap beyond expected = bridge
+    }
+    // Legacy compat: some code checks these
+    let _tickTargetBed = bedtimeFloor;
       try {
         const _pb2 = bedtimePrediction ? bedtimePrediction() : null;
         if (_pb2 && _pb2.personalAvgBed) {
@@ -6939,11 +6933,16 @@ function App(){
       } catch {}
     }
 
-    // Bedtime prediction: after last nap end + last WW, clamped to age max
+    // Bedtime prediction: use bedtimePrediction() (same as Plan)
     let bedMins = null;
-    try { const bp = tickDataRef.current.bed; if (bp && bp.time) { const [bh,bm]=bp.time.split(":").map(Number); bedMins = bh*60+bm; } } catch {}
-    if (!bedMins && lastAwakeMins !== null && (napsComplete || bridgeNapNeeded)) {
-      bedMins = lastAwakeMins + wwMid;
+    try {
+      const bp = bedtimePrediction ? bedtimePrediction() : null;
+      if (bp && bp.time) { const [bh,bm]=bp.time.split(":").map(Number); bedMins = bh*60+bm; }
+    } catch {}
+    // Fallback: last awake + age wake window, clamped
+    if (!bedMins && lastAwakeMins !== null && napsComplete) {
+      const _fallbackWW = Math.round(progressiveWW(ageWeeks, napsDone, expectedNaps));
+      bedMins = lastAwakeMins + _fallbackWW;
       const maxBed = clampBedtime(24*60, ageWeeks);
       if (bedMins > maxBed) bedMins = maxBed;
     }
