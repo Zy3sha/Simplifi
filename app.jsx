@@ -4913,6 +4913,22 @@ function App(){
             cloudSyncedRef.current = true;
             const incomingCount = countAllEntries(incoming);
             if(incomingCount > cloudEntryCountRef.current) cloudEntryCountRef.current = incomingCount;
+            // If incoming data has a morning wake today AND bed timer is running, stop it
+            // This handles partner sync: one parent logs wake, other phone stops timer
+            const _todayK2 = new Date().toISOString().split("T")[0];
+            Object.values(merged).forEach(ch => {
+              const _todayEnt = (ch.days && ch.days[_todayK2]) || [];
+              const _hasWake = _todayEnt.some(e => e.type === "wake" && !e.night);
+              if (_hasWake && bedTimerDay) {
+                setBedTimerDay(null);
+                setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+                try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+                if(window.Capacitor?.Plugins?.OBLiveActivity) {
+                  window.Capacitor.Plugins.OBLiveActivity.stop?.().catch(()=>{});
+                  window.Capacitor.Plugins.OBLiveActivity.stopPrediction?.().catch(()=>{});
+                }
+              }
+            });
             return merged;
           });
         }
