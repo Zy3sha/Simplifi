@@ -34,10 +34,11 @@ window.onerror = function(msg, src, line, col, err) {
     + '</div>';
 };
 
-// ── Load and compile JSX from external file ──
-// Guard: prevent double-execution (Capacitor + service worker can cause re-runs)
-if (window.__obAppLoaded) { console.warn('[OBubba] loader.js skipped — app already loaded'); }
-else {
+// ── App is now pre-compiled (app.js loaded via <script defer>) ──
+// loader.js no longer needs to fetch/compile app.jsx
+// Keep error handler + glass effects + service worker registration
+if (true) { console.log('[OBubba] Pre-compiled app.js loaded via defer'); }
+else if (false) {
 window.__obAppLoaded = true;
 (function() {
   var errorPage = function(title, detail) {
@@ -52,11 +53,13 @@ window.__obAppLoaded = true;
       + '</div>';
   };
 
-  function loadScript(src) {
+  function compile(src) {
     try {
+      if (typeof Babel === 'undefined') throw new Error('Babel not loaded');
       if (typeof React === 'undefined') throw new Error('React not loaded');
-      // Pre-compiled JS — load directly as script (no Babel transform needed)
-      var blob = new Blob([src], { type: 'application/javascript' });
+      var result = Babel.transform(src, { presets: ['react'] });
+      // Use Blob URL — do NOT wrap code in try/catch as it breaks const/let/class scoping
+      var blob = new Blob([result.code], { type: 'application/javascript' });
       var url = URL.createObjectURL(blob);
       var s = document.createElement('script');
       s.src = url;
@@ -64,38 +67,23 @@ window.__obAppLoaded = true;
       s.onerror = function(e) { errorPage('Script load', 'Failed to execute compiled code'); };
       document.body.appendChild(s);
     } catch(e) {
-      errorPage('Load', e.message);
+      errorPage('Compile', e.message);
     }
   }
 
-  // Load pre-compiled app.js (falls back to app.jsx + Babel if needed)
-  fetch('app.js?v=' + Date.now())
+  fetch('app.jsx?v=' + Date.now())
     .then(function(r) {
-      if (!r.ok) throw new Error('app.js not found: ' + r.status);
+      if (!r.ok) throw new Error('Failed to load app.jsx: ' + r.status);
       return r.text();
     })
-    .then(loadScript)
-    .catch(function() {
-      // Fallback: try app.jsx with Babel compile (development / PWA update delay)
-      fetch('app.jsx?v=' + Date.now())
-        .then(function(r) {
-          if (!r.ok) throw new Error('Failed to load app.jsx: ' + r.status);
-          return r.text();
-        })
-        .then(function(src) {
-          if (typeof Babel === 'undefined') throw new Error('Babel not loaded');
-          var result = Babel.transform(src, { presets: ['react'] });
-          var blob = new Blob([result.code], { type: 'application/javascript' });
-          var url = URL.createObjectURL(blob);
-          var s = document.createElement('script');
-          s.src = url;
-          s.onload = function() { URL.revokeObjectURL(url); };
-          s.onerror = function(e) { errorPage('Script load', 'Failed to execute compiled code'); };
-          document.body.appendChild(s);
-        })
-        .catch(function(err) {
-          errorPage('Fetch', err.message);
-        });
+    .then(compile)
+    .catch(function(err) {
+      var embedded = document.getElementById('jsx-src');
+      if (embedded) {
+        compile(embedded.textContent);
+      } else {
+        errorPage('Fetch', err.message);
+      }
     });
 })();
 } // end guard: window.__obAppLoaded
