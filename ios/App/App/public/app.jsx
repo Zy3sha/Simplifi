@@ -7671,9 +7671,10 @@ function App(){
       _selfCareNudge = "😴 " + _name + " has been napping " + _napElapsed + " minutes. Put the phone down. do something just for you right now.";
       try{localStorage.setItem(_napNudgeKey, "1");}catch{}
     } else {
-      _selfCareNudge = (!_parentNudgeShown && !_isNightTime && _h >= 10)
-        ? _selfCareNudges[Math.floor((_now - new Date(_now.getFullYear(),0,0)) / 86400000) % _selfCareNudges.length]
-        : null;
+      if (!_parentNudgeShown && !_isNightTime && _h >= 10) {
+        _selfCareNudge = _selfCareNudges[Math.floor((_now - new Date(_now.getFullYear(),0,0)) / 86400000) % _selfCareNudges.length];
+        try{localStorage.setItem("parent_nudge_date",todayStr());}catch{}
+      }
     }
     } catch(e) { _selfCareNudge = null; }
 
@@ -14629,7 +14630,7 @@ function App(){
       if (_deletedEntry.type === "sleep" && !_deletedEntry.night) {
         window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
         setTimerMode("prediction");
-        try { localStorage.setItem("timerMode","prediction"); } catch{}
+        try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
       } else if (_deletedEntry.type === "nap" && napEntryId === id) {
         // Also clean up the nap timer state if the active nap entry is deleted directly
         setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
@@ -14824,7 +14825,7 @@ function App(){
         if (_isNative && type === "sleep") {
           window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
           setTimerMode("prediction");
-          try { localStorage.setItem("timerMode","prediction"); } catch{}
+          try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
         }
         showToast("↩️ Undone",1500,1);
         setLastAction(null);
@@ -16841,7 +16842,7 @@ function App(){
     try { localStorage.removeItem("bed_timer_day"); } catch {}
     // Reset timer mode
     setTimerMode("prediction");
-    try { localStorage.setItem("timerMode","prediction"); } catch{}
+    try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
     // Determine the correct day to log wake on
     // If selDay has a bedtime, wake goes on selDay+1 (the new day)
     // If selDay has NO bedtime (we're already viewing the new day), wake goes on selDay
