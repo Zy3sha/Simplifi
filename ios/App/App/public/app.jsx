@@ -16806,7 +16806,19 @@ function App(){
     setBedTotalPausedSec(0);
     try{localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Always stop Live Activity on morning wake. bedtime Live Activity runs without napOn
-    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+    // Multiple attempts because iOS ActivityKit can be flaky
+    if(_isNative) {
+      const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+      if (_la) {
+        _la.stop?.().catch(()=>{});
+        _la.stopPrediction?.().catch(()=>{});
+        // Retry after 1s and 3s in case iOS didn't process the first call
+        setTimeout(()=>{ _la.stop?.().catch(()=>{}); _la.stopPrediction?.().catch(()=>{}); }, 1000);
+        setTimeout(()=>{ _la.stop?.().catch(()=>{}); _la.stopPrediction?.().catch(()=>{}); }, 3000);
+      }
+    }
+    // Also clear the bed_timer_day from localStorage immediately
+    try { localStorage.removeItem("bed_timer_day"); } catch {}
     // Reset timer mode
     setTimerMode("prediction");
     try { localStorage.setItem("timerMode","prediction"); } catch{}
