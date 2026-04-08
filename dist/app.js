@@ -3081,7 +3081,8 @@ function App(){
     }catch{}
     return null;
   });
-  const childIds = Object.keys(children);
+  const childIds = Object.keys(children).filter(id => !(children[id]||{}).archived);
+  const archivedChildIds = Object.keys(children).filter(id => (children[id]||{}).archived);
   const resolvedActiveId = (activeChildId && children[activeChildId]) ? activeChildId : childIds[0];
   const activeChild = children[resolvedActiveId] || { id:"", name:"", dob:"", sex:"", unborn:false, days:{}, weights:[], heights:[], photos:[], milestones:{}, teething:[], weaning:[], cryingHelps:{} };
 
@@ -3918,6 +3919,7 @@ function App(){
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[logForAll,setLogForAll]=useState(false);
   const[showSupportModal,setShowSupportModal]=useState(false);
+  const[gentleMode,setGentleMode]=useState(()=>{try{return localStorage.getItem("ob_gentle_mode")==="1";}catch{return false;}});
   const[showQuickStart,setShowQuickStart]=useState(false);
   const[qsNaps,setQsNaps]=useState("3");
   const[qsBedtime,setQsBedtime]=useState("19:00");
@@ -6217,6 +6219,30 @@ function App(){
     setActiveChildId(cid);
     trackEvent("child_added");
     return cid;
+  }
+  const[showMemorial,setShowMemorial]=useState(null); // childId or null
+  function archiveChild(cid) {
+    setChildren(prev => {
+      const next = {...prev};
+      if (next[cid]) {
+        next[cid] = {...next[cid], archived: true, archivedAt: new Date().toISOString()};
+      }
+      if(backupCodeRef.current && window._fbUid) pushToCloud(backupCodeRef.current, next);
+      return next;
+    });
+    const remaining = childIds.filter(id => id !== cid && !(children[id]||{}).archived);
+    if(remaining.length > 0) setActiveChildId(remaining[0]);
+    showToast("💛 Archived with love. You can find them in Account anytime.", 4000, 1);
+  }
+  function unarchiveChild(cid) {
+    setChildren(prev => {
+      const next = {...prev};
+      if (next[cid]) { next[cid] = {...next[cid], archived: false, archivedAt: null}; }
+      if(backupCodeRef.current && window._fbUid) pushToCloud(backupCodeRef.current, next);
+      return next;
+    });
+    setActiveChildId(cid);
+    showToast("Welcome back 💛", 2000, 1);
   }
   function deleteChild(cid) {
     setChildren(prev => {
@@ -28880,6 +28906,30 @@ function App(){
               <span style={{background:"#7B68EE",color:"white",fontSize:12,fontWeight:700,borderRadius:99,padding:"3px 10px"}}>{carerEntries.length}</span>
             </button>
           )}
+          {/* Archived children (memorial) */}
+          {archivedChildIds.length > 0 && (
+            <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+              <div style={{fontSize:11,fontFamily:_fM,color:"#7B68EE",textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>🕊️ Remembered with love</div>
+              {archivedChildIds.map(cid => {
+                const ac = children[cid];
+                if (!ac) return null;
+                return (
+                  <button key={cid} onClick={()=>{haptic();setShowMemorial(cid);}} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"10px 12px",borderRadius:14,border:"1px solid rgba(123,104,238,0.15)",background:"rgba(123,104,238,0.04)",cursor:_cP,marginBottom:6,textAlign:"left"}}>
+                    {ac.photo ? (
+                      <img src={ac.photo} alt="" style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(123,104,238,0.2)"}}/>
+                    ) : (
+                      <div style={{width:40,height:40,borderRadius:"50%",background:"rgba(123,104,238,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🕊️</div>
+                    )}
+                    <div>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{ac.name || "Baby"}</div>
+                      <div style={{fontSize:11,color:C.lt}}>Tap to visit their page 💛</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* End Carer Session (only if active) */}
           {backupCode&&(
             <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care. your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} className="glass-card" style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",marginBottom:12,cursor:_cP,textAlign:"left",width:"100%",border:"1.5px solid rgba(224,96,112,0.15)",background:"rgba(224,96,112,0.03)"}}>
@@ -28906,6 +28956,20 @@ function App(){
               </div>
               <button onClick={()=>{haptic();toggleTheme();}} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:_bN,borderRadius:99,padding:"6px 14px",color:"white",fontSize:12,fontWeight:700,cursor:_cP}}>
                 {isDark?"☀️ Day":"🌙 Night"}
+              </button>
+            </div>
+
+            {/* Gentle Mode. hides scores and targets for parents who find numbers stressful */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+              <div style={_S.flexCenter10}>
+                <span style={_S.f18}>💛</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Gentle Mode</div>
+                  <div style={{fontSize:10,color:C.lt}}>Hides scores, targets & numbers</div>
+                </div>
+              </div>
+              <button onClick={()=>{haptic();setGentleMode(!gentleMode);try{localStorage.setItem("ob_gentle_mode",!gentleMode?"1":"0");}catch{};showToast(gentleMode?"Scores visible again":"💛 Gentle Mode on. no scores, no pressure.",2500,1);}} style={{background:gentleMode?"linear-gradient(135deg,#7B68EE,#6B5B95)":"var(--card-bg-alt)",border:gentleMode?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:gentleMode?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
+                {gentleMode?"💛 On":"Off"}
               </button>
             </div>
 
@@ -31558,6 +31622,100 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       )}
 
       {/* ═══ Support Modal. opens when parent taps "Struggling" ═══ */}
+      {/* ═══ Memorial Page. for archived children ═══ */}
+      {showMemorial && (()=>{
+        const _mc = children[showMemorial];
+        if (!_mc) return null;
+        const _mName = _mc.name || "Your baby";
+        const _mDob = _mc.dob;
+        const _mAge = _mDob ? fmtAge(calcAge(_mDob)) : "";
+        const _mPhoto = _mc.photo;
+        const _mMilestones = Object.entries(_mc.milestones || {}).filter(([,v]) => v && v.date);
+        const _mDays = Object.keys(_mc.days || {}).filter(dk => (_mc.days[dk]||[]).length > 0);
+        const _mTotalFeeds = Object.values(_mc.days||{}).flat().filter(e=>e&&e.type==="feed").length;
+        const _mTotalNaps = Object.values(_mc.days||{}).flat().filter(e=>e&&e.type==="nap").length;
+        const _mMessages = [
+          "Some babies are only here for a moment. But the love they leave behind lasts forever.",
+          "You carried them. You held them. You loved them. That is not nothing. That is everything.",
+          "Grief is not a sign of weakness. It is the price of having loved someone completely.",
+          "The world may not know their name. But you do. And you always will.",
+          "They were here. They mattered. They were loved beyond measure.",
+          "There is no right way to grieve. There is no timeline. There is only love, and it doesn't end.",
+        ];
+        return (
+        <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(44,31,26,0.8)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowMemorial(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"32px 24px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",textAlign:"center"}}>
+            {/* Photo */}
+            {_mPhoto ? (
+              <img src={_mPhoto} alt={_mName} style={{width:100,height:100,borderRadius:"50%",objectFit:"cover",border:"4px solid rgba(123,104,238,0.2)",boxShadow:"0 8px 24px rgba(123,104,238,0.15)",marginBottom:16}}/>
+            ) : (
+              <div style={{width:100,height:100,borderRadius:"50%",background:"linear-gradient(135deg,rgba(123,104,238,0.1),rgba(192,112,136,0.1))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:40,margin:"0 auto 16px",border:"4px solid rgba(123,104,238,0.15)"}}>🕊️</div>
+            )}
+
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:4}}>{_mName}</div>
+            {_mDob && <div style={{fontSize:13,color:C.lt,marginBottom:4}}>{new Date(_mDob+"T00:00:00").toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"})}</div>}
+            {_mAge && <div style={{fontSize:12,color:C.lt,marginBottom:16}}>{_mAge}</div>}
+
+            {/* Comforting message */}
+            <div style={{padding:"16px 18px",borderRadius:16,background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))",border:"1px solid rgba(123,104,238,0.12)",marginBottom:16}}>
+              <div style={{fontSize:14,color:C.deep,lineHeight:1.7,fontStyle:"italic",fontFamily:"'Playfair Display',serif"}}>
+                {_mMessages[(_mDays.length + (_mMilestones.length)) % _mMessages.length]}
+              </div>
+            </div>
+
+            {/* Their story in numbers */}
+            {_mDays.length > 0 && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>{_mName}'s story</div>
+                <div style={{display:"flex",justifyContent:"center",gap:16}}>
+                  <div><div style={{fontSize:22,fontWeight:700,color:C.deep}}>{_mDays.length}</div><div style={{fontSize:10,color:C.lt}}>days tracked</div></div>
+                  {_mTotalFeeds > 0 && <div><div style={{fontSize:22,fontWeight:700,color:C.deep}}>{_mTotalFeeds}</div><div style={{fontSize:10,color:C.lt}}>feeds</div></div>}
+                  {_mTotalNaps > 0 && <div><div style={{fontSize:22,fontWeight:700,color:C.deep}}>{_mTotalNaps}</div><div style={{fontSize:10,color:C.lt}}>naps</div></div>}
+                </div>
+                <div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginTop:8}}>Every one of those was an act of love.</div>
+              </div>
+            )}
+
+            {/* Milestones achieved */}
+            {_mMilestones.length > 0 && (
+              <div style={{marginBottom:16,textAlign:"left"}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,textAlign:"center"}}>Milestones</div>
+                {_mMilestones.slice(0,8).map(([id,data])=>{
+                  const ms = (typeof MILESTONES !== "undefined" ? MILESTONES : []).find(m=>m.id===id);
+                  return (
+                    <div key={id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",fontSize:12,color:C.mid}}>
+                      <span style={{color:C.mint}}>✓</span>
+                      <span>{ms ? ms.label : id.replace(/_/g," ")}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Support resources */}
+            <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(155,184,168,0.08)",border:"1px solid rgba(155,184,168,0.15)",marginBottom:16,textAlign:"left"}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.mint,marginBottom:6}}>If you need someone to talk to</div>
+              <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
+                📞 Sands (stillbirth & neonatal death): <a href="tel:08081643332" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>0808 164 3332</a><br/>
+                📞 The Lullaby Trust bereavement: <a href="tel:08088026868" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>0808 802 6868</a><br/>
+                📞 Samaritans: <a href="tel:116123" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>116 123</a> (24/7)<br/>
+                <span style={{fontSize:11,fontStyle:"italic",color:C.lt}}>You don't have to carry this alone.</span>
+              </div>
+            </div>
+
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>unarchiveChild(showMemorial)} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
+                Restore to active
+              </button>
+              <button onClick={()=>setShowMemorial(null)} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                Close 💛
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
       {showSupportModal&&(
         <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(44,31,26,0.7)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowSupportModal(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
@@ -32365,26 +32523,68 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 ))}
               </div>
             </div>
+            {/* Medical conditions */}
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,display:"block",marginBottom:8}}>Medical conditions</label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {[{id:"reflux",label:"Reflux",emoji:"🤢"},{id:"cmpa",label:"CMPA/allergy",emoji:"🥛"},{id:"nicu",label:"NICU/hospital",emoji:"🏥"},{id:"tongue_tie",label:"Tongue tie",emoji:"👅"}].map(c=>{
+                  const _isActive = (activeChild.conditions||[]).includes(c.id);
+                  return (
+                    <button key={c.id} onClick={()=>{
+                      haptic();
+                      const _cur = activeChild.conditions || [];
+                      const _next = _isActive ? _cur.filter(x=>x!==c.id) : [..._cur, c.id];
+                      updateChild({conditions:_next});
+                    }} style={{padding:"6px 12px",borderRadius:99,border:`1.5px solid ${_isActive?"#7B68EE":C.blush}`,background:_isActive?"rgba(123,104,238,0.1)":"transparent",color:_isActive?"#7B68EE":C.mid,fontSize:12,fontWeight:600,cursor:_cP}}>
+                      {c.emoji} {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{fontSize:10,color:C.lt,marginTop:4}}>These adjust how the app tracks and advises. Reflux = frequency over volume. CMPA = custom targets.</div>
+            </div>
+            {/* Custom daily ml target (for CMPA/special formula) */}
+            {(activeChild.conditions||[]).includes("cmpa") && (
+              <div style={{marginBottom:16}}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,display:"block",marginBottom:4}}>Custom daily target (ml)</label>
+                <div style={{fontSize:11,color:C.lt,marginBottom:6}}>Enter the amount your dietitian recommended, or leave blank for standard NHS targets.</div>
+                <input type="number" inputMode="numeric" placeholder="e.g. 600" value={activeChild.customDailyTarget||""} onChange={e=>updateChild({customDailyTarget:parseInt(e.target.value)||null})}
+                  style={{width:"100%",fontSize:16,padding:"10px 14px",borderRadius:12,border:`2px solid ${C.blush}`,outline:_oN,fontFamily:_fI,boxSizing:_bBB}}/>
+              </div>
+            )}
+
             <button onClick={()=>{
               updateChild({name:csName.trim(),dob:csDob,sex:csSex,dueDate:csDueDate||null});
               setShowChildSettings(false);
             }} style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:_bN,borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:_cP,marginBottom:10,fontFamily:_fI,boxShadow:"0 4px 16px rgba(201,112,90,0.35)"}}>
               Save Changes
             </button>
-            {Object.keys(children).length > 1 && !csConfirmDelete && (
-              <button onClick={()=>setCsConfirmDelete(true)}
-                style={{width:"100%",background:_bN,border:`2px solid ${C.blush}`,borderRadius:99,padding:"12px",color:C.ter,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
-                🗑 Delete this child
+            {Object.keys(children).length > 1 && !csConfirmDelete && (<>
+              <button onClick={()=>{
+                haptic();
+                showConfirm(
+                  "Archive " + (csName||"this child") + "?",
+                  "This gently removes " + (csName||"them") + " from the active view but preserves all their data, milestones, and memories. You can visit their page anytime from Account.\n\nNothing is deleted. Nothing is lost.",
+                  ()=>{ archiveChild(resolvedActiveId); setShowChildSettings(false); setConfirmDialog(null); },
+                  "Archive with love 💛"
+                );
+              }}
+                style={{width:"100%",background:_bN,border:`2px solid rgba(123,104,238,0.3)`,borderRadius:99,padding:"12px",color:"#7B68EE",fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
+                💛 Archive {csName||"this child"}
               </button>
-            )}
+              <button onClick={()=>setCsConfirmDelete(true)}
+                style={{width:"100%",background:_bN,border:`1px solid ${C.blush}`,borderRadius:99,padding:"10px",color:C.lt,fontSize:12,fontWeight:500,cursor:_cP,fontFamily:_fI}}>
+                Delete permanently
+              </button>
+            </>)}
             {csConfirmDelete && (
               <div style={{background:"var(--card-bg-alt)",border:`2px solid ${C.ter}`,borderRadius:16,padding:"16px",textAlign:"center"}}>
-                <div style={{fontSize:15,fontWeight:600,color:C.deep,marginBottom:12}}>Delete {csName||"this child"}? This cannot be undone.</div>
+                <div style={{fontSize:15,fontWeight:600,color:C.deep,marginBottom:12}}>Delete {csName||"this child"} permanently? This cannot be undone.</div>
                 <div style={_S.flexRowGap8}>
                   <button onClick={()=>setCsConfirmDelete(false)} style={{flex:1,padding:"11px",borderRadius:99,border:`2px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Cancel</button>
                   <button onClick={()=>{deleteChild(resolvedActiveId);setShowChildSettings(false);setCsConfirmDelete(false);}}
                     style={{flex:1,padding:"11px",borderRadius:99,border:_bN,background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-                    Yes, delete
+                    Delete forever
                   </button>
                 </div>
               </div>
