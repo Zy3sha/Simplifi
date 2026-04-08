@@ -664,7 +664,9 @@ const wwMid=Math.round(progressiveWW(ageWeeks,napsDone,expectedNaps));const next
 const morningWakeMins=wakeEntry?timeVal(wakeEntry):null;const bedtimeFloor=clampBedtime(0,ageWeeks);// earliest reasonable bedtime for age
 const skipLateCutoff=morningWakeMins!==null?morningWakeMins+10*60// 10 hours after wake (e.g. wake 7am → cutoff 5pm)
 :16.5*60;// fallback to 4:30pm if no wake time
-const skipLateNap=nextNapMins!==null&&nextNapMins>=skipLateCutoff;let napsComplete=napsDone>=expectedNaps||skipLateNap;if(!napsComplete&&totalNapMins>=napProfile.idealTotalMax){napsComplete=true;}// Safety: if it's past bedtime floor and fewer than half expected naps are logged,
+// Also calculate predicted bedtime so we can skip naps that are too close
+const _predBedWW=Math.round(progressiveWW(ageWeeks,expectedNaps,expectedNaps));const _predBedMins=lastAwakeMins!==null?lastAwakeMins+_predBedWW:bedtimeFloor;const _clampedBedMins=clampBedtime(_predBedMins,ageWeeks);// Skip nap if it would start within 45min of predicted bedtime — just go to bed
+const napTooCloseToBed=nextNapMins!==null&&_clampedBedMins>0&&nextNapMins>=_clampedBedMins-45;const skipLateNap=nextNapMins!==null&&(nextNapMins>=skipLateCutoff||napTooCloseToBed);let napsComplete=napsDone>=expectedNaps||skipLateNap;if(!napsComplete&&totalNapMins>=napProfile.idealTotalMax){napsComplete=true;}// Safety: if it's past bedtime floor and fewer than half expected naps are logged,
 // assume some naps were missed and switch to bedtime mode.
 // This prevents showing "Nap 2 approaching" at 7pm when bedtime is due.
 const _nowMinsForCheck=new Date().getHours()*60+new Date().getMinutes();if(!napsComplete&&_nowMinsForCheck>=bedtimeFloor-30&&napsDone<expectedNaps&&napsDone>=1){napsComplete=true;// time-based override. it's bedtime regardless of nap count

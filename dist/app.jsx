@@ -6887,7 +6887,13 @@ function App(){
     const skipLateCutoff = morningWakeMins !== null
       ? morningWakeMins + 10 * 60 // 10 hours after wake (e.g. wake 7am → cutoff 5pm)
       : 16.5 * 60; // fallback to 4:30pm if no wake time
-    const skipLateNap = nextNapMins !== null && nextNapMins >= skipLateCutoff;
+    // Also calculate predicted bedtime so we can skip naps that are too close
+    const _predBedWW = Math.round(progressiveWW(ageWeeks, expectedNaps, expectedNaps));
+    const _predBedMins = lastAwakeMins !== null ? lastAwakeMins + _predBedWW : bedtimeFloor;
+    const _clampedBedMins = clampBedtime(_predBedMins, ageWeeks);
+    // Skip nap if it would start within 45min of predicted bedtime — just go to bed
+    const napTooCloseToBed = nextNapMins !== null && _clampedBedMins > 0 && nextNapMins >= _clampedBedMins - 45;
+    const skipLateNap = nextNapMins !== null && (nextNapMins >= skipLateCutoff || napTooCloseToBed);
     let napsComplete = napsDone >= expectedNaps || skipLateNap;
     if (!napsComplete && totalNapMins >= napProfile.idealTotalMax) {
       napsComplete = true;
