@@ -8692,13 +8692,17 @@ function App(){
     let _effNaps = napStructure ? napStructure.effectiveNapCount : napProfile2.expectedNaps;
     // FIX #7: Hybrid day. adapt nap count based on today's first nap quality
     const _todayCompNaps = entries.filter(e => e.type==="nap" && !e.night && e.start && e.end && minDiff(e.start, e.end) >= 5 && minDiff(e.start, e.end) < 480).sort((a,b) => timeVal(a) - timeVal(b));
+    const _totalNapMinsToday = _todayCompNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     if (_todayCompNaps.length >= 1) {
       const _firstNapDur = minDiff(_todayCompNaps[0].start, _todayCompNaps[0].end);
-      if (_firstNapDur >= 75 && _effNaps > 1) _effNaps = _effNaps - 1; // long first nap -> one fewer today
-      else if (_firstNapDur < 40) _effNaps = Math.max(_effNaps, napProfile2.expectedNaps); // short -> keep count
+      // Only reduce nap count for long first nap if budget is ALSO met
+      if (_firstNapDur >= 75 && _effNaps > 1 && _totalNapMinsToday >= napProfile2.idealTotalMin) {
+        _effNaps = _effNaps - 1; // long first nap + budget met -> one fewer today
+      } else if (_firstNapDur < 40) {
+        _effNaps = Math.max(_effNaps, napProfile2.expectedNaps); // short -> keep count
+      }
     }
-    // FIX #8: Nap budget exhausted. if total nap mins >= age max, skip to bedtime
-    const _totalNapMinsToday = _todayCompNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
+    // Nap budget exhausted. if total nap mins >= age max, skip to bedtime
     if (_totalNapMinsToday >= napProfile2.idealTotalMax) return null; // budget spent -> bedtime mode
     // Allow one extra nap if bridge nap is scheduled OR if tickData detected a bridge nap is needed
     const _tickBridgeNeeded = tickDataRef.current && tickDataRef.current.bridgeNapNeeded;
