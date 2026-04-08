@@ -552,6 +552,13 @@ struct OBubbaSmallWidgetView: View {
             : LinearGradient(colors: [Color(red: 0.98, green: 0.96, blue: 0.94), Color(red: 0.95, green: 0.91, blue: 0.88)], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
+    static func formatBedtime(_ date: Date) -> String {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "h:mma"
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        return fmt.string(from: date).lowercased()
+    }
+
     private var hasTimer: Bool {
         guard let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate else { return false }
         return Date().timeIntervalSince(startDate) < 14 * 3600
@@ -581,12 +588,9 @@ struct OBubbaSmallWidgetView: View {
                         .foregroundColor(brandDeep)
                         .monospacedDigit()
 
-                    // Show "since X" for bedtime timers so parents know what it's counting
+                    // Show "since X" for bedtime timers
                     if label.lowercased().contains("sleep") {
-                        let fmt = DateFormatter()
-                        fmt.dateFormat = "h:mma"
-                        fmt.locale = Locale(identifier: "en_US_POSIX")
-                        Text("since \(fmt.string(from: startDate).lowercased())")
+                        Text("since \(Self.formatBedtime(startDate))")
                             .font(.system(size: 9, weight: .medium))
                             .foregroundColor(brandDeep.opacity(0.5))
                     }
