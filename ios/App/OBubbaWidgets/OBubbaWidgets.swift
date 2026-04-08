@@ -79,8 +79,21 @@ struct OBWidgetToggleTimerIntent: AppIntent {
             clearActiveTimer()
             return .result(value: "Timer stopped ✓")
         } else {
-            widgetStorePendingEntry(["type": "nap_start", "source": "siri"])
-            return .result(value: "Nap timer started ✓")
+            // Check if next prediction is bedtime — start bed timer instead of nap
+            var isBedtime = false
+            if let json = defaults?.string(forKey: "widgetData"),
+               let data = json.data(using: .utf8),
+               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let label = dict["nextPredictionLabel"] as? String {
+                isBedtime = label.lowercased().contains("bed")
+            }
+            if isBedtime {
+                widgetStorePendingEntry(["type": "sleep", "source": "widget"])
+                return .result(value: "Bedtime started ✓")
+            } else {
+                widgetStorePendingEntry(["type": "nap_start", "source": "widget"])
+                return .result(value: "Nap timer started ✓")
+            }
         }
     }
 }
@@ -567,6 +580,16 @@ struct OBubbaSmallWidgetView: View {
                         .font(.system(size: 24, weight: .heavy, design: .rounded))
                         .foregroundColor(brandDeep)
                         .monospacedDigit()
+
+                    // Show "since X" for bedtime timers so parents know what it's counting
+                    if label.lowercased().contains("sleep") {
+                        let fmt = DateFormatter()
+                        fmt.dateFormat = "h:mma"
+                        fmt.locale = Locale(identifier: "en_US_POSIX")
+                        Text("since \(fmt.string(from: startDate).lowercased())")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(brandDeep.opacity(0.5))
+                    }
 
                 } else if let targetDate = d.predictionTargetDate,
                           let label = d.nextPredictionLabel, !label.isEmpty {
