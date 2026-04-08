@@ -23951,16 +23951,22 @@ function App(){
                   _freeBedEstimate += clampWakeWindow(progressiveWW(age.totalWeeks, i, _freeExpected), age.totalWeeks) + _freeAvgDur;
                 }
                 const _freeBedWW = clampWakeWindow(progressiveWW(age.totalWeeks, _freeExpected, _freeExpected), age.totalWeeks);
-                const _freeBedM = clampBedtime(_freeBedEstimate + _freeBedWW, age.totalWeeks);
+                // Use estimate for bridge detection, recalculate actual bedtime after loop
+                let _freeBedM = clampBedtime(_freeBedEstimate + _freeBedWW, age.totalWeeks);
                 for (let i = 0; i < _freeExpected; i++) {
                   const _ww = clampWakeWindow(progressiveWW(age.totalWeeks, i, _freeExpected), age.totalWeeks);
                   const napStart = _freeCursor + _ww;
-                  const napEnd = napStart + _freeAvgDur;
+                  // If this nap would start within 90min of bedtime, make it a bridge nap (20min)
+                  const _isBridge = napStart >= _freeBedM - 90;
+                  const _napDur = _isBridge ? 20 : _freeAvgDur;
+                  const napEnd = napStart + _napDur;
                   // Skip nap if it would start within 30min of bedtime
                   if (napStart >= _freeBedM - 30) break;
-                  _freeItems.push({start: napStart, end: napEnd, idx: i, ww: _ww});
+                  _freeItems.push({start: napStart, end: napEnd, idx: i, ww: _ww, isBridge: _isBridge});
                   _freeCursor = napEnd;
                 }
+                // Recalculate actual bedtime from where naps actually ended (bridge nap = shorter = earlier cursor)
+                _freeBedM = clampBedtime(_freeCursor + _freeBedWW, age.totalWeeks);
                 return (
                   <div style={{padding:"8px 0"}}>
                     <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Research-Based Schedule for {age?fmtAge(age):""}</div>
@@ -23983,8 +23989,8 @@ function App(){
                       {_freeItems.map(n => (
                         <div key={n.idx} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:n.idx<_freeItems.length-1?`1px solid ${C.blush}`:"none"}}>
                           <span style={_S.f13}>{"\u{1F634}"}</span>
-                          <span style={{fontSize:13,fontWeight:600,color:C.deep}}>Nap {n.idx+1}</span>
-                          <span style={{fontSize:12,color:C.mid}}>around {_fmtMin(n.start)}</span>
+                          <span style={{fontSize:13,fontWeight:600,color:C.deep}}>{n.isBridge ? "Bridge nap" : "Nap "+(n.idx+1)}</span>
+                          <span style={{fontSize:12,color:C.mid}}>around {_fmtMin(n.start)}{n.isBridge ? " (~20min)" : ""}</span>
                           <span style={{fontSize:10,color:C.lt,marginLeft:"auto"}}>{hm(n.ww)} WW</span>
                         </div>
                       ))}
@@ -27840,8 +27846,9 @@ function App(){
                 try { _stored = JSON.parse(localStorage.getItem("ob_wean_suggestions_v1")||"null"); } catch {}
                 let _ft, _tmr;
                 if (_stored && _stored.date === _today) {
-                  // Same day. use stored picks (stable across logs)
-                  _ft = _findByName(_stored.today) || _pool[0];
+                  // Same day. use stored picks BUT advance if today's pick was just tried
+                  const _storedFood = _findByName(_stored.today);
+                  _ft = (_storedFood && !_isTried(_storedFood)) ? _storedFood : _pool[0];
                   _tmr = _findByName(_stored.tomorrow) || _pool[1] || _pool[0];
                 } else {
                   // Day rolled over. compute fresh
