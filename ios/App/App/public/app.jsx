@@ -3957,6 +3957,7 @@ function App(){
   const[logForAll,setLogForAll]=useState(false);
   const[showSupportModal,setShowSupportModal]=useState(false);
   const[showBreathing,setShowBreathing]=useState(false);
+  const[showYouTime,setShowYouTime]=useState(false);
   const[waterUnit,setWaterUnit]=usePersistedState("ob_water_unit","glasses");
   const[breathPhase,setBreathPhase]=useState("inhale");
   const[breathCount,setBreathCount]=useState(0);
@@ -17788,6 +17789,8 @@ function App(){
         if (insights.length) showMascot("celebration", "✨ "+insights[0], 5000);
       } catch {}
     }, 800);
+    // "You Time" popup. baby is down, now it's your turn 💛
+    setTimeout(()=>setShowYouTime(true), 3000);
   }
   function startBreastTimer(side){
     if(!breastStartTime){
@@ -32295,6 +32298,60 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       })()}
 
       {/* ═══ Breathing Meditation ═══ */}
+      {/* ═══ "You Time" — triggered when bedtime is logged ═══ */}
+      {showYouTime&&(
+        <div style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(20,15,30,0.92)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowYouTime(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:380,maxHeight:"85vh",overflowY:"auto"}}>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:40,marginBottom:8}}>💛</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1.3}}>What a day.</div>
+              <div style={{fontSize:14,color:C.mid,lineHeight:1.7,marginTop:8}}>
+                {babyName||"Baby"} is down. You did such an amazing job today. {babyName||"They"} would be proud of how well you're doing.
+              </div>
+              <div style={{fontSize:15,color:C.deep,fontWeight:600,fontStyle:"italic",marginTop:12}}>Now it's a little bit of you time. 💛</div>
+            </div>
+
+            <div style={{fontSize:13,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,textAlign:"center"}}>What would feel good right now?</div>
+
+            {[
+              {emoji:"☕",label:"Make a cup of tea",response:"Perfect. Put the kettle on, sit down, and just... breathe. You've earned this.",checklistKey:"tea"},
+              {emoji:"🫁",label:"Breathing exercise",response:null,action:"breathe"},
+              {emoji:"🛁",label:"A nice soak in the bath",response:"Run that bath. Add the bubbles. Lock the door. This time is YOURS.",checklistKey:"bath"},
+              {emoji:"📱",label:"Scroll in peace",response:"No judgement. Sometimes mindless scrolling is exactly what you need. Enjoy it guilt-free.",checklistKey:"relax"},
+              {emoji:"🛋️",label:"Just sit and do nothing",response:"That's not lazy. That's recovery. Your body and mind need this after today.",checklistKey:"rest"},
+              {emoji:"📺",label:"Watch something",response:"Put something on that makes YOU happy. Not baby sensory. Not parenting tips. Something for you.",checklistKey:"tv"},
+            ].map(opt=>(
+              <button key={opt.label} onClick={()=>{
+                haptic();
+                setShowYouTime(false);
+                if (opt.action === "breathe") {
+                  setTimeout(()=>setShowBreathing(true), 300);
+                } else {
+                  showToast(opt.response, 5000, 1);
+                  // Add to today's self-care checklist
+                  if (opt.checklistKey) {
+                    try {
+                      const _scKey2 = "ob_selfcare_"+todayStr();
+                      const _sc = JSON.parse(localStorage.getItem(_scKey2)||"{}");
+                      _sc.youTime = opt.label;
+                      _sc.youTimeAt = nowTime();
+                      localStorage.setItem(_scKey2, JSON.stringify(_sc));
+                    } catch {}
+                  }
+                }
+              }} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:14,border:`1px solid var(--card-border)`,background:"var(--card-bg)",cursor:_cP,marginBottom:8,textAlign:"left"}}>
+                <span style={{fontSize:24}}>{opt.emoji}</span>
+                <span style={{fontSize:15,fontWeight:600,color:C.deep}}>{opt.label}</span>
+              </button>
+            ))}
+
+            <button onClick={()=>setShowYouTime(false)} style={{width:"100%",marginTop:4,padding:"10px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
+
       {showBreathing&&(
         <div style={{position:"fixed",inset:0,zIndex:9998,background:"linear-gradient(180deg,#1a1030 0%,#2a1840 50%,#1a1030 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowBreathing(false);setBreathCount(0);}}>
           <div onClick={e=>e.stopPropagation()} style={{textAlign:"center",maxWidth:360}}>
