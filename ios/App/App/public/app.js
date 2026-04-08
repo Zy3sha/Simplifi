@@ -23282,29 +23282,46 @@ function App(){
                       ))}
                     </div>
 
-                    <button onClick={()=>{
+                    <button onClick={async ()=>{
                       haptic();
-                      const _de = (days[selDay]||[]).sort((a,b)=>timeVal(a)-timeVal(b));
-                      const _name = babyName||"Baby";
-                      let _text = "📋 "+_name+"'s Full Log. "+fmtLong(selDay)+"\n\n";
-                      _de.forEach(e=>{
-                        const _t = e.time || "";
-                        const _type = e.type==="feed"?(e.feedType==="breast"?"🤱 Breast feed":"🍼 Bottle feed"):e.type==="nap"?"😴 Nap":e.type==="poop"?"🧷 Nappy":e.type==="wake"?(e.night?"🌙 Night wake":"☀️ Wake"):e.type==="sleep"?"🌙 Bedtime":"📝 "+e.type;
-                        let _detail = "";
-                        if(e.type==="feed"&&e.amount) _detail = ". "+e.amount+(FU==="oz"?"oz":"ml");
-                        if(e.type==="nap"&&e.start&&e.end) _detail = ". "+e.start+"–"+e.end+" ("+minDiff(e.start,e.end)+"min)";
-                        if(e.type==="poop") _detail = ". "+(e.poopType||"wet");
-                        _text += fmt12(_t)+" "+_type+_detail+"\n";
-                      });
-                      _text += "\nSent with love from OBubba 💜";
-                      if(navigator.share){navigator.share({title:_name+"'s Log",text:_text}).catch(()=>{});}
-                      else{try{navigator.clipboard.writeText(_text);showToast("Copied to clipboard!",1500,1);}catch{}}
                       setShowShareFamily(false);
+                      showToast("Creating card…",1200);
+                      try {
+                        const _de = (days[selDay]||[]).sort((a,b)=>timeVal(a)-timeVal(b));
+                        const _name = babyName||"Baby";
+                        const _feeds = _de.filter(e=>e.type==="feed").length;
+                        const _naps = _de.filter(e=>e.type==="nap").length;
+                        const _nappies = _de.filter(e=>e.type==="poop").length;
+                        const _napMins = _de.filter(e=>e.type==="nap"&&e.start&&e.end).reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                        const _totalMl = _de.filter(e=>isBabyFeed(e)).reduce((s,f)=>s+(f.amount||0),0);
+                        const _isToday = selDay===todayStr();
+                        const _dayLabel = _isToday ? "TODAY" : fmtLong(selDay).toUpperCase();
+                        // Build detailed message for the card
+                        const _lines = [];
+                        _de.forEach(e=>{
+                          const _t = e.time || "";
+                          const _type = e.type==="feed"?(e.feedType==="breast"?"🤱 Breast":"🍼 Bottle"):e.type==="nap"?"😴 Nap":e.type==="poop"?"🧷 Nappy":e.type==="wake"?(e.night?"🌙 Night":"☀️ Wake"):e.type==="sleep"?"🌙 Bed":"📝 "+e.type;
+                          let _d2 = "";
+                          if(e.type==="feed"&&e.amount) _d2 = " "+e.amount+"ml";
+                          if(e.type==="nap"&&e.start&&e.end) _d2 = " "+minDiff(e.start,e.end)+"m";
+                          if(e.type==="poop") _d2 = " "+(e.poopType||"");
+                          _lines.push(fmt12(_t)+" "+_type+_d2);
+                        });
+                        const _msg = _lines.join("\n");
+                        const _cardData = {
+                          statLabel: _dayLabel,
+                          stat: _feeds+" feeds · "+_naps+" naps · "+_nappies+" nappies",
+                          message: (_totalMl ? _totalMl+"ml total · " : "") + (_napMins ? hm(_napMins)+" nap time" : "")
+                        };
+                        const canvas = await renderShareCard("daywin", _name+"'s Full Day", _cardData);
+                        const dataUrl = canvas.toDataURL("image/png");
+                        setSharePreview({title:_name+"'s Day · "+fmtLong(selDay), milestone:null, dataUrl, cardType:"daywin", cardTitle:_name+"'s Full Day", cardData:_cardData});
+                      } catch(e) { console.warn("Full log card failed:", e); showToast("Couldn't build card",2000,0); }
                     }} className="glass-card" style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"16px 18px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)"}}>
                       <span style={_S.f26}>📋</span>
                       <div style={_S.flex1}>
                         <div style={{fontSize:15,fontWeight:700,color:C.deep}}>Full Detailed Log</div>
-                        <div style={{fontSize:12,color:C.mid,marginTop:2}}>Every entry with times and details</div>
+                        <div style={{fontSize:12,color:C.mid,marginTop:2}}>Preview as a card before sharing</div>
                       </div>
                     </button>
                     <button onClick={()=>setShowShareFamily(false)} style={{width:"100%",padding:"14px",borderRadius:14,border:"1px solid var(--card-border)",background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,marginTop:6}}>Cancel</button>
