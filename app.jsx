@@ -3845,9 +3845,6 @@ function App(){
       return hardNights >= 5;
     }catch{return false;}
   },[days]);
-  // Signal shown today
-    try{return localStorage.getItem("data_signal_date")=== new Date().toISOString().slice(0,10);}catch{return false;}
-  });
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
   const[notifPermission,setNotifPermission]=useState("default");
   useEffect(()=>{
