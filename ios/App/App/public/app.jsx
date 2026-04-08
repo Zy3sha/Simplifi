@@ -3865,6 +3865,7 @@ function App(){
   const [_gagOpen, _setGagOpen] = useState(false);
   const [_waterOpen, _setWaterOpen] = useState(false);
   const [_recipeStage, _setRecipeStage] = useState(1);
+  const [recipeNutrientFilter, setRecipeNutrientFilter] = useState("all");
   const [_recipeOpen, _setRecipeOpen] = useState(null);
   const [_recipePrep, _setRecipePrep] = useState("method");
   const [_agEczema, _setAgEczema] = useState("");
@@ -20617,7 +20618,8 @@ function App(){
         const _hvLabel2 = _isUS ? "pediatrician" : _isAU ? "child health nurse" : "health visitor";
         addObservation("🏥", "For your next " + _hvLabel2 + " check-up",
           "Based on " + _name + "'s recent data, these might be worth mentioning:",
-          _hvItems.map(item => "• " + item).join("\n") + "\n\nThese are conversation starters, not diagnoses. Your health visitor will have the full picture and can advise. You can share the Health Report (Account → Data section) for a detailed summary.");
+          _hvItems.map(item => "• " + item).join("\n"),
+          "These are conversation starters, not diagnoses. Your " + _hvLabel2 + " will have the full picture and can advise. You can share the Health Report (Account → Data section) for a detailed summary.");
       }
     } catch {}
 
@@ -27413,6 +27415,23 @@ function App(){
                    blw:"Lightly toast bread, cut into strips. Add a thin scraping of unsalted butter or smooth nut butter (at 6+ months).",
                    puree:"Soften in water or milk for spoon feeding if needed.",
                    cat:"grain",phase:2,iron:false},
+                  // Phase 2 iron-rich additions
+                  {food:"Red lentil puree",emoji:"🫘",note:"Iron-rich, protein-packed, smooth texture. perfect early protein",
+                   blw:"Cook red lentils until very soft, mash with veg puree. Spread on toast fingers for BLW.",
+                   puree:"Cook with water until completely soft (15min), blend smooth. Mix with sweet potato for iron + vitamin C combo.",
+                   cat:"protein",phase:2,iron:true},
+                  {food:"Fortified baby porridge",emoji:"🥣",note:"Iron-fortified. babies' iron stores from birth deplete around 6 months",
+                   blw:"Mix thick and offer on pre-loaded spoon. Add mashed banana or fruit puree for flavour.",
+                   puree:"Mix with breast milk or formula to smooth consistency. The iron fortification is important as stores deplete from 6 months.",
+                   cat:"grain",phase:2,iron:true},
+                  {food:"Beef mince",emoji:"🥩",note:"Best source of easily absorbed (heme) iron. crucial from 6 months",
+                   blw:"Cook mince well, mix with mashed potato or veg. Roll into tiny soft balls or spread on toast.",
+                   puree:"Cook thoroughly, blend with veg and a little water until smooth. One of the best iron sources for babies.",
+                   cat:"protein",phase:2,iron:true},
+                  {food:"Chicken thigh",emoji:"🍗",note:"Dark meat has more iron than breast. soft and easy to shred",
+                   blw:"Cook thigh until very tender, shred into thin strips. Offer with soft veg.",
+                   puree:"Cook until falling apart, blend with cooking liquid and veg. Dark meat = more iron than breast.",
+                   cat:"protein",phase:2,iron:true},
                   // Phase 3. 4+ weeks: protein and allergens
                   {food:"Scrambled egg",emoji:"🥚",note:"Excellent protein. introduce early to reduce allergy risk",
                    blw:"Cook soft, fluffy scrambles in a little butter. Serve in small pieces. Use Lion-stamped eggs (UK).",
@@ -28226,7 +28245,15 @@ function App(){
               {/* ═══ Recipe Library (Premium) ═══ */}
               {age && age.totalWeeks >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning" || daySubScreen==="weaning_journey") && (()=>{
                 const _currentStage = WEANING_STAGES.find(s=>age.totalWeeks>=s.weeksRange[0]&&age.totalWeeks<=s.weeksRange[1]) || WEANING_STAGES[0];
-                const _recipes = WEANING_RECIPES.filter(r=>r.stage===_recipeStage);
+                const _recipesBase = WEANING_RECIPES.filter(r=>r.stage===_recipeStage);
+                const _recipes = recipeNutrientFilter === "all" ? _recipesBase
+                  : recipeNutrientFilter === "iron" ? _recipesBase.filter(r=>r.iron)
+                  : recipeNutrientFilter === "allergen" ? _recipesBase.filter(r=>r.allergens&&r.allergens.length>0)
+                  : recipeNutrientFilter === "quick" ? _recipesBase.filter(r=>r.tags&&r.tags.includes("quick"))
+                  : recipeNutrientFilter === "protein" ? _recipesBase.filter(r=>r.tags&&r.tags.includes("protein"))
+                  : recipeNutrientFilter === "veg" ? _recipesBase.filter(r=>r.tags&&r.tags.includes("veg"))
+                  : recipeNutrientFilter === "vitC" ? _recipesBase.filter(r=>r.vitC)
+                  : _recipesBase;
                 const _canAccess = hasAccess();
                 const _freeLimit = 2;
 
@@ -28241,12 +28268,21 @@ function App(){
                     </div>
 
                     {/* Stage filter pills */}
-                    <div style={{display:"flex",gap:6,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
+                    <div style={{display:"flex",gap:6,marginBottom:6,overflowX:"auto",paddingBottom:2}}>
                       {WEANING_STAGES.map(s=>(
                         <button key={s.id} onClick={()=>{haptic(8);_setRecipeStage(s.id);_setRecipeOpen(null);}}
                           style={{display:"flex",alignItems:"center",gap:4,padding:"6px 12px",borderRadius:99,border:`1.5px solid ${_recipeStage===s.id?C.ter:C.blush}`,background:_recipeStage===s.id?C.ter+"12":"var(--card-bg)",color:_recipeStage===s.id?C.ter:C.mid,fontSize:11,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0}}>
                           <span style={{width:16,height:16,borderRadius:"50%",background:_recipeStage===s.id?C.ter:C.lt,color:"white",fontSize:9,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{s.id}</span>
                           {s.name}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Nutrient filter chips */}
+                    <div style={{display:"flex",gap:5,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
+                      {[{id:"all",label:"All",emoji:"🍽"},{id:"iron",label:"Iron-rich",emoji:"💪"},{id:"allergen",label:"Allergens",emoji:"⚠️"},{id:"quick",label:"Quick",emoji:"⚡"},{id:"protein",label:"Protein",emoji:"🥩"},{id:"veg",label:"Veg",emoji:"🥕"},{id:"vitC",label:"Vitamin C",emoji:"🍊"}].map(f=>(
+                        <button key={f.id} onClick={()=>{haptic(8);setRecipeNutrientFilter(prev=>prev===f.id?"all":f.id);}}
+                          style={{padding:"5px 10px",borderRadius:99,border:`1px solid ${recipeNutrientFilter===f.id?C.mint:C.blush}`,background:recipeNutrientFilter===f.id?C.mint+"15":"transparent",color:recipeNutrientFilter===f.id?C.mint:C.lt,fontSize:10,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0}}>
+                          {f.emoji} {f.label}
                         </button>
                       ))}
                     </div>
