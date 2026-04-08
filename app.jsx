@@ -106,7 +106,7 @@ const mtp24h = m => { const n=((m%1440)+1440)%1440; return String(Math.floor(n/6
 const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
 // A day has meaningful data if it has at least 2 non-auto entries (wake + something)
 const dayHasData = (entries) => { if(!entries || !entries.length) return false; const real = entries.filter(e => !e.auto); return real.length >= 2; };
-const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString(navigator.language||"en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -2636,7 +2636,7 @@ function SharedAlbumViewer({albumCode}){
   );
 
   const p=album.memories[Math.max(0,Math.min(page,album.memories.length-1))];
-  const _fmtDate=d=>{if(!d)return"";try{const dt=new Date(d+"T12:00:00");return dt.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"});}catch{return d;}};
+  const _fmtDate=d=>{if(!d)return"";try{const dt=new Date(d+"T12:00:00");return dt.toLocaleDateString(navigator.language||"en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"});}catch{return d;}};
   const _fmt12=t=>{if(!t)return"";const[h,m]=t.split(":").map(Number);const ap=h>=12?"pm":"am";return((h%12)||12)+":"+(m<10?"0"+m:m)+ap;};
 
   return (
@@ -7701,7 +7701,7 @@ function App(){
         <div className="glass-card" style={{padding:"20px 18px",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:"#7B68EE",boxShadow:"0 0 8px rgba(123,104,238,0.4)",animation:"candlePulse 4s ease-in-out infinite"}}/>
-            <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Sleeping peacefully 🌙</span>
+            <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{bedPaused ? "Baby is awake 🌙" : "Sleeping peacefully 🌙"}</span>
           </div>
           <div style={{fontSize:14,color:C.mid,marginBottom:6}}>{_timeStr}</div>
           {/* Last feed during the night */}
@@ -14861,7 +14861,7 @@ function App(){
         ctx.font="24px sans-serif";ctx.fillStyle="#8A7888";ctx.fillText(details.statLabel||"",W/2,my+120);
       }
       ctx.font="22px sans-serif";ctx.fillStyle="#A098B0";
-      ctx.fillText(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),W/2,cardY+cardH-40);
+      ctx.fillText(new Date().toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"}),W/2,cardY+cardH-40);
 
     } else if(cardType==="village"||cardType==="referral"){
       ctx.font="bold 64px Georgia,serif";ctx.fillStyle="#3A3050";
@@ -14978,7 +14978,7 @@ function App(){
       const titleLines=_wrapText(ctx,(title||"A special milestone")+" \u{1f389}",cardW-80);
       let ty=titleY;titleLines.forEach(l=>{ctx.fillText(l,W/2,ty);ty+=50;});
       ctx.font="24px sans-serif";ctx.fillStyle="#A098B0";
-      ctx.fillText(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}),W/2,ty+20);
+      ctx.fillText(new Date().toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"}),W/2,ty+20);
       const divY=ty+60;
       ctx.strokeStyle="rgba(180,170,200,0.2)";ctx.lineWidth=1.5;
       ctx.beginPath();ctx.moveTo(cardX+80,divY);ctx.lineTo(cardX+cardW-80,divY);ctx.stroke();
@@ -15421,7 +15421,7 @@ function App(){
     ctx.font = "500 20px -apple-system,sans-serif";
     ctx.fillStyle = P.secondary; ctx.globalAlpha = 0.5;
     ctx.textAlign = "center";
-    drawSpacedText(new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}).toUpperCase(), W/2, H-40, 3);
+    drawSpacedText(new Date().toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"}).toUpperCase(), W/2, H-40, 3);
     ctx.globalAlpha = 1;
 
     return canvas;
@@ -15716,7 +15716,7 @@ function App(){
         title:"⛈ Phase "+p.phase+": "+p.name+" (Unsettled)",
         date:startDate.toISOString().slice(0,10),
         endTime:null,time:null,
-        note:"OBubba Developmental Phase "+p.phase+"\\n\\nUnsettled period: "+startDate.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+peakDate.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+"\\n\\n"+p.fussy+"\\n\\nSkills coming: "+p.skills.join(", "),
+        note:"OBubba Developmental Phase "+p.phase+"\\n\\nUnsettled period: "+startDate.toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short"})+" – "+peakDate.toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short"})+"\\n\\n"+p.fussy+"\\n\\nSkills coming: "+p.skills.join(", "),
         uid:"phase-fussy-"+p.phase
       });
       // Skills/bloom period
@@ -16959,6 +16959,14 @@ function App(){
   function feedScore(preFc) {
     const fc = preFc || feedCard();
     if (!fc || !fc.totalTarget) return null;
+    // Breastfed babies: score on frequency only, not volume (can't measure breast milk)
+    const _isBreastOnly = fc.totalMl === 0 && fc.feedCount > 0;
+    if (_isBreastOnly) {
+      let bScore = 50; // base score for feeding at all
+      if (fc.feedCount >= 6) bScore += 30; else if (fc.feedCount >= 4) bScore += 20; else bScore += 10;
+      bScore += 20; // spacing bonus (assume OK since we can't measure)
+      return { score: Math.min(100, bScore), label: bScore >= 70 ? "Feeding well" : "Early days", isBreastOnly: true };
+    }
     let score = 0;
     // Volume component (0-40 points)
     const volPct = fc.totalMl / fc.totalTarget;
@@ -17946,7 +17954,7 @@ function App(){
       <div style="font-size:40px;margin-bottom:8px">👶</div>
       <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${name}'s Bubba Care</h1>
       ${ageStr ? `<p style="color:#A898AC;margin:4px 0">${ageStr} old</p>` : ""}
-      <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
+      <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString(navigator.language||"en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
     </div>`);
 
     // IMPORTANT NOTES (allergies, medical)
@@ -18001,7 +18009,7 @@ function App(){
     // SAFE SLEEP. Lullaby Trust
     sections.push(`<div style="background:#EEF3FA;border:1px solid #c8d8e8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#7aabc4;font-size:16px;margin:0 0 10px">🛏️ Safe Sleep Essentials</h2>
-      <p style="font-size:12px;color:#7aabc4;margin:0 0 10px;font-style:italic">Based on The Lullaby Trust safer sleep guidance</p>
+      <p style="font-size:12px;color:#7aabc4;margin:0 0 10px;font-style:italic">Based on ${_isUS?"AAP Safe Sleep guidelines":"The Lullaby Trust safer sleep guidance"}</p>
       <div style="font-size:14px;color:#5B4F5F;line-height:1.8">
         ✅ Always on their <b>back</b>. for every sleep, day and night<br>
         ✅ <b>Clear cot</b>. firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
@@ -20479,7 +20487,7 @@ function App(){
         if (_settledNight) {
           localStorage.setItem("ob_first_settled_v1", _settledNight);
           addObservation("🎉", _name + " slept through!",
-            `No night wakes on ${new Date(_settledNight + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}. This is a huge milestone.`,
+            `No night wakes on ${new Date(_settledNight + "T00:00:00").toLocaleDateString(navigator.language||"en-GB", { weekday: "long", day: "numeric", month: "long" })}. This is a huge milestone.`,
             "This might not happen every night yet. and that's OK. But the fact it happened means " + _name + "'s biology is capable of it. It WILL become more consistent. You did this. Every feed, every gentle resettle, every 3am wake. it all led here. 💛");
         }
       }
@@ -22318,6 +22326,15 @@ function App(){
                     }
                   }
                 } catch {}
+                // Show placeholder if one child has no data
+                if (_overlapData.length < 2 && childIds.length >= 2) {
+                  const _missingNames = childIds.filter(cid => !_overlapData.some(d => d.name === (children[cid]||{}).name)).map(cid => (children[cid]||{}).name || "child");
+                  if (_missingNames.length > 0) return (
+                    <div style={{padding:"8px 14px",marginBottom:8,borderRadius:12,border:"1px dashed rgba(123,104,238,0.2)",fontSize:11,color:C.lt,textAlign:"center"}}>
+                      👶👶 Log {_missingNames.join(" & ")}'s wake to see the nap overlap window
+                    </div>
+                  );
+                }
                 return null;
               })()}
               {!daySubScreen && childIds.length >= 2 && (
@@ -22614,7 +22631,7 @@ function App(){
                                 <div style={{width:10,height:10,borderRadius:"50%",background:_isDue?C.ter:C.mint,flexShrink:0}}/>
                                 <div style={_S.flex1}>
                                   <div style={{fontSize:14,fontWeight:600,color:_isDue?C.ter:C.deep}}>{c.label}</div>
-                                  <div style={{fontSize:12,color:C.lt,marginTop:2}}>{_isDue?"Due now":"~"+_dateEst.toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</div>
+                                  <div style={{fontSize:12,color:C.lt,marginTop:2}}>{_isDue?"Due now":"~"+_dateEst.toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short"})}</div>
                                   <div style={{fontSize:12,color:C.mid,marginTop:4,lineHeight:1.5}}>{c.detail}</div>
                                 </div>
                               </div>
@@ -24894,9 +24911,10 @@ function App(){
                             <div style={{fontSize:9,color:C.lt,fontFamily:_fM}}>SLEEP</div>
                           </div>
                         </div>
-                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:2}}>
                           {_score >= SCORE_GREAT ? "Great night" : _score >= SCORE_GOOD ? "Decent night" : _score >= SCORE_OK ? "Tough night" : "Rough night"}
                         </div>
+                        {_score < SCORE_OK && <div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginBottom:4}}>Scores are just a snapshot. they don't mean anything went wrong.</div>}
                         {_trending && <div style={{fontSize:12,color:_trendColor,marginBottom:_score>=70?10:0}}>{_trendText}</div>}
                         {_score !== null && _score >= SCORE_SHAREABLE && (
                           <button onClick={async()=>{
@@ -26896,7 +26914,7 @@ function App(){
                 if (!ageWeeks || !babyDob) return null;
                 const dobDate = new Date(babyDob+"T00:00:00");
                 const wkToDate2 = (w) => { const d = new Date(dobDate); d.setDate(d.getDate() + w*7); return d; };
-                const fmtD2 = (d) => d.toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+                const fmtD2 = (d) => d.toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short"});
                 const activePhase = DEV_PHASES.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
                 const nextPhase2 = DEV_PHASES.find(l => l.windowStart > (activePhase ? activePhase.windowEnd : ageWeeks));
                 const isPrePhase = !activePhase && nextPhase2 && ageWeeks >= nextPhase2.windowStart - 1;
@@ -28981,7 +28999,7 @@ function App(){
                         </div>
                         {_letters.map((l,i) => (
                           <div key={i} style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.blush}`}}>
-                            <div style={{fontSize:11,color:C.lt,marginBottom:6}}>{new Date(l.date).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})} {"\u2014"} {l.babyAge || ""}</div>
+                            <div style={{fontSize:11,color:C.lt,marginBottom:6}}>{new Date(l.date).toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"})} {"\u2014"} {l.babyAge || ""}</div>
                             <div style={{fontSize:13,color:C.mid,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{l.text}</div>
                           </div>
                         ))}
@@ -28992,7 +29010,7 @@ function App(){
                           <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
                             <span style={_S.f20}>{"\u{1F512}"}</span>
                             <div style={_S.flex1}>
-                              <div style={{fontSize:13,fontWeight:600,color:C.mid}}>Letter from {new Date(l.date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
+                              <div style={{fontSize:13,fontWeight:600,color:C.mid}}>Letter from {new Date(l.date).toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short",year:"numeric"})}</div>
                               <div style={{fontSize:11,color:C.lt}}>Written when {babyName||"baby"} was {l.babyAge || "newborn"}</div>
                             </div>
                             <span style={{fontSize:10,color:C.lt,fontStyle:"italic"}}>Opens on 1st birthday</span>
@@ -32692,7 +32710,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const[cYr,cMo]=apptCalMonth.split("-").map(Number);
         const firstDay=new Date(cYr,cMo-1,1).getDay();
         const daysInMonth=new Date(cYr,cMo,0).getDate();
-        const monthLabel=new Date(cYr,cMo-1,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+        const monthLabel=new Date(cYr,cMo-1,1).toLocaleDateString(navigator.language||"en-GB",{month:"long",year:"numeric"});
         const apptByDay={};
         appointments.forEach(a=>{ if(a.date&&a.date.startsWith(apptCalMonth)) { const d=parseInt(a.date.slice(-2)); if(!apptByDay[d])apptByDay[d]=[]; apptByDay[d].push(a); } });
         const cells=[]; for(let i=0;i<(firstDay===0?6:firstDay-1);i++)cells.push(null);
@@ -32950,7 +32968,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const daysInMonth=new Date(cYear,cMon,0).getDate();
         const prevMonth=()=>{const d=new Date(cYear,cMon-2,1);setCalMonth(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));};
         const nextMonth=()=>{const d=new Date(cYear,cMon,1);setCalMonth(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));};
-        const monthName=new Date(cYear,cMon-1,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+        const monthName=new Date(cYear,cMon-1,1).toLocaleDateString(navigator.language||"en-GB",{month:"long",year:"numeric"});
         const daysWithData=new Set(Object.keys(days).filter(k=>(days[k]||[]).length>0&&k.startsWith(calMonth)));
         const cells=[];
         for(let i=0;i<(firstDay===0?6:firstDay-1);i++)cells.push(null);
@@ -34006,7 +34024,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               const _dob = new Date(babyDob+"T00:00:00");
               const _addW = (w)=>{ const d=new Date(_dob); d.setDate(d.getDate()+w*7); return d; };
               const _addM = (m)=>{ const d=new Date(_dob); d.setMonth(d.getMonth()+m); return d; };
-              const _fmt = (d)=>d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+              const _fmt = (d)=>d.toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short",year:"numeric"});
               const _today = new Date();
               const _key = "vaccs_v1_"+resolvedActiveId;
               const _done = (()=>{try{return JSON.parse(localStorage.getItem(_key)||"[]");}catch{return [];}})();
