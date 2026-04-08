@@ -8649,17 +8649,36 @@ function App(){
     // FIX #7: Hybrid day. adapt nap count based on today's first nap quality
     const _todayCompNaps = entries.filter(e => e.type==="nap" && !e.night && e.start && e.end && minDiff(e.start, e.end) >= 5 && minDiff(e.start, e.end) < 480).sort((a,b) => timeVal(a) - timeVal(b));
     const _totalNapMinsToday = _todayCompNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
+    // Check if teething/illness is active — relax sleep budget
+    const _isTeethingActive = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_disruption_mode")||"null");return d&&(Date.now()-d.ts)<3*86400000;}catch{return false;}})()
+      || (activeChild.teething||[]).some(t=>t.date&&(Date.now()-new Date(t.date).getTime())<7*24*3600*1000);
+    const _adjustedMax = _isTeethingActive ? napProfile2.idealTotalMax + 60 : napProfile2.idealTotalMax; // +1h during teething
+
     if (_todayCompNaps.length >= 1) {
       const _firstNapDur = minDiff(_todayCompNaps[0].start, _todayCompNaps[0].end);
-      // Only reduce nap count for long first nap if budget is ALSO met
-      if (_firstNapDur >= 75 && _effNaps > 1 && _totalNapMinsToday >= napProfile2.idealTotalMin) {
-        _effNaps = _effNaps - 1; // long first nap + budget met -> one fewer today
+      // Only reduce nap count for long first nap if budget is ALSO met AND not teething
+      if (_firstNapDur >= 75 && _effNaps > 1 && _totalNapMinsToday >= napProfile2.idealTotalMin && !_isTeethingActive) {
+        _effNaps = _effNaps - 1;
       } else if (_firstNapDur < 40) {
-        _effNaps = Math.max(_effNaps, napProfile2.expectedNaps); // short -> keep count
+        _effNaps = Math.max(_effNaps, napProfile2.expectedNaps);
       }
     }
-    // Nap budget exhausted. if total nap mins >= age max, skip to bedtime
-    if (_totalNapMinsToday >= napProfile2.idealTotalMax) return null; // budget spent -> bedtime mode
+    // Nap budget exhausted — but ALWAYS allow a bridge nap if wake window to bedtime is too long
+    if (_totalNapMinsToday >= _adjustedMax) {
+      // Check: would skipping all remaining naps create a wake window longer than age max?
+      const _lastNapEnd = _todayCompNaps.length > 0 ? timeVal({time:_todayCompNaps[_todayCompNaps.length-1].end}) : null;
+      const _nowM3 = new Date().getHours()*60 + new Date().getMinutes();
+      const _awakeNow = _lastNapEnd ? _nowM3 - _lastNapEnd : 0;
+      let _estBed = clampBedtime(0, ageWeeks);
+      try { const bp = bedtimePrediction ? bedtimePrediction() : null; if(bp&&bp.time){const[bh,bm]=bp.time.split(":").map(Number);_estBed=bh*60+bm;} } catch {}
+      const _gapToBed = _estBed - _nowM3;
+      // If gap to bedtime > age max wake window, offer a bridge nap regardless of budget
+      if (_gapToBed > ww.max + 15) {
+        // Don't return null — fall through to predict a bridge nap
+      } else {
+        return null; // budget met AND wake window is manageable — go to bed
+      }
+    }
     // Allow one extra nap if bridge nap is scheduled OR if tickData detected a bridge nap is needed
     const _tickBridgeNeeded = tickDataRef.current && tickDataRef.current.bridgeNapNeeded;
     const adjustedExpected = _effNaps + (bridgeNapScheduled || _tickBridgeNeeded ? 1 : 0);
