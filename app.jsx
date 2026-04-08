@@ -27976,8 +27976,9 @@ function App(){
 
                 // Filter by phase — use ACTUAL weaning duration (days with food logged) not just age minus 26
                 const _weaningDays = (weaning||[]).length;
-                const _effectiveWks = Math.max(_wksSinceWean, Math.floor(_weaningDays / 3)); // ~3 foods/week = 1 phase week
-                const _phaseMax = _effectiveWks < 2 ? (_weaningDays >= 5 ? 2 : 1) : _effectiveWks < 4 ? 2 : 3;
+                const _effectiveWks = Math.max(_wksSinceWean, Math.floor(_weaningDays / 3));
+                // Phase 1: first 5 foods (veg only). Phase 2: 5+ foods (protein + iron). Phase 3: 8+ foods (allergens)
+                const _phaseMax = _weaningDays >= 8 ? 3 : _weaningDays >= 5 ? 2 : 1;
                 const _available = _allFoods.filter(f => f.phase <= _phaseMax);
 
                 // STABLE suggestions: persist today/tomorrow picks to localStorage so they
@@ -28458,7 +28459,9 @@ function App(){
                     {/* Next allergen to introduce. hide in Before Weaning */}
                     {daySubScreen!=="weaning_before" && _notDone.length > 0 && (()=>{
                       const _next = _notDone.sort((a,b)=>a.priority-b.priority)[0];
-                      const _lastLog = weaning.length ? [...weaning].sort((a,b)=>b.date.localeCompare(a.date))[0] : null;
+                      // Only count days since last ALLERGEN food (not any food). regular foods don't need a waiting period.
+                      const _lastAllergenLog = weaning.length ? [...weaning].filter(w=>detectAllergens(w.food).length>0).sort((a,b)=>b.date.localeCompare(a.date))[0] : null;
+                      const _lastLog = _lastAllergenLog;
                       const _daysSinceLast = _lastLog ? Math.floor((Date.now()-new Date(_lastLog.date).getTime())/(1000*60*60*24)) : null;
                       const _readyForNext = _daysSinceLast === null || _daysSinceLast >= 2;
                       return (
