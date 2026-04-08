@@ -3952,6 +3952,9 @@ function App(){
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[logForAll,setLogForAll]=useState(false);
   const[showSupportModal,setShowSupportModal]=useState(false);
+  const[showBedRoutine,setShowBedRoutine]=useState(false);
+  const[bedRoutineStep,setBedRoutineStep]=useState(0);
+  const[bedRoutineStart,setBedRoutineStart]=useState(null);
   const[gentleMode,setGentleMode]=useState(()=>{try{return localStorage.getItem("ob_gentle_mode")==="1";}catch{return false;}});
   const[nurseryMode,setNurseryMode]=usePersistedState("ob_nursery_mode",null); // null or {start:"09:00",end:"17:00",days:[1,2,3,4,5]}
   const[parentingStyle,setParentingStyle]=usePersistedState("ob_parenting_style","responsive"); // "responsive" | "routine" | "family"
@@ -8067,6 +8070,11 @@ function App(){
       } else {
         _dot = "#7BA68C"; _label = "All naps complete";
         _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " done today";
+        // Show bedtime routine button when within 1h of predicted bedtime
+        const _bedPredMins3 = _bed && _bed.time ? (()=>{const [bh3,bm3]=_bed.time.split(":").map(Number);return bh3*60+bm3;})() : null;
+        if (_bedPredMins3 && (_bedPredMins3 - _nowM) <= 60 && (_bedPredMins3 - _nowM) > -15) {
+          _secondary = (<button onClick={()=>{haptic();setShowBedRoutine(true);setBedRoutineStep(0);setBedRoutineStart(null);}} style={{marginTop:6,padding:"8px 16px",borderRadius:99,border:`1px solid rgba(123,104,238,0.3)`,background:"rgba(123,104,238,0.06)",color:"#7B68EE",fontSize:12,fontWeight:700,cursor:_cP}}>🌙 Start bedtime routine</button>);
+        }
         // Split night warning: if recent pattern shows split nights, add actionable guidance
         try {
           const _splitCheck = advancedSleepPatterns();
@@ -20985,6 +20993,42 @@ function App(){
       }
     } catch {}
 
+    // ── Multi-day alternating pattern recognition ──
+    try {
+      const _altDays = [];
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const ds = d.toISOString().slice(0, 10);
+        const ent = days[ds] || [];
+        if (ent.length < 3) continue;
+        const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
+        const napMin = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+        _altDays.push({ date: ds, napMin, napCount: naps.length, idx: i });
+      }
+      if (_altDays.length >= 8) {
+        // Check for alternating short/long nap days (ABAB pattern)
+        let _altScore = 0;
+        for (let i = 1; i < _altDays.length - 1; i++) {
+          const prev = _altDays[i-1].napMin;
+          const curr = _altDays[i].napMin;
+          const next = _altDays[i+1].napMin;
+          // Current day is opposite of both neighbours
+          if ((curr > prev + 20 && curr > next + 20) || (curr < prev - 20 && curr < next - 20)) {
+            _altScore++;
+          }
+        }
+        if (_altScore >= 4) {
+          const _shortDays = _altDays.filter((d, i) => i % 2 === 0).slice(0, 4);
+          const _longDays = _altDays.filter((d, i) => i % 2 === 1).slice(0, 4);
+          const _avgShort = Math.round(_shortDays.reduce((s, d) => s + d.napMin, 0) / _shortDays.length);
+          const _avgLong = Math.round(_longDays.reduce((s, d) => s + d.napMin, 0) / _longDays.length);
+          addObservation("🔄", _name + " has an alternating nap pattern",
+            `${_name} alternates between shorter nap days (~${hm(_avgShort)}) and longer nap days (~${hm(_avgLong)}). This ABAB pattern is common and completely normal.`,
+            "Some babies naturally compensate. a short nap day is followed by a longer one as the body catches up on sleep pressure. You don't need to fix this. the app adjusts predictions based on yesterday's pattern to anticipate which type of day today will be.");
+        }
+      }
+    } catch {}
+
     // ── Nap location intelligence ──
     try {
       const _napLocs = {};
@@ -31950,6 +31994,79 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         );
       })()}
 
+      {/* ═══ Bedtime Routine Timer ═══ */}
+      {showBedRoutine&&(()=>{
+        const _steps = [
+          {emoji:"🛁",title:"Bath time",duration:10,note:"Warm water, gentle wash. Keep it calm and quiet."},
+          {emoji:"👶",title:"Nappy + pyjamas",duration:5,note:"Fresh nappy, sleeping bag or pyjamas. Dim the lights."},
+          {emoji:"🧴",title:"Massage (optional)",duration:5,note:"Gentle strokes on arms, legs, tummy. Calming and bonding."},
+          {emoji:"🍼",title:"Final feed",duration:15,note:"Full feed in a quiet, dimly lit room. This is the biggest feed of the day."},
+          {emoji:"📖",title:"Story or song",duration:5,note:"One short book or a lullaby. Same one every night builds association."},
+          {emoji:"🌙",title:"Into bed",duration:2,note:"Kiss, say goodnight, put down drowsy but awake. Leave the room."},
+        ];
+        const _step = _steps[bedRoutineStep] || _steps[0];
+        const _elapsed = bedRoutineStart ? Math.floor((Date.now() - bedRoutineStart) / 60000) : 0;
+        const _totalMins = _steps.reduce((s, st) => s + st.duration, 0);
+        const _targetBedStr = (()=>{
+          try { const td = tickDataRef.current||{}; if(td.bedMins) return fmt12(minsToTime(td.bedMins)); } catch {}
+          return null;
+        })();
+        return (
+        <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(44,31,26,0.8)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowBedRoutine(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto"}}>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:36,marginBottom:6}}>{_step.emoji}</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep}}>Bedtime Routine</div>
+              {_targetBedStr && <div style={{fontSize:12,color:C.lt,marginTop:4}}>Target bedtime: {_targetBedStr}</div>}
+              <div style={{fontSize:12,color:C.mid,marginTop:2}}>Step {bedRoutineStep + 1} of {_steps.length} · ~{_totalMins} min total</div>
+            </div>
+
+            {/* Progress bar */}
+            <div style={{display:"flex",gap:3,marginBottom:16}}>
+              {_steps.map((st, i) => (
+                <div key={i} style={{flex:1,height:4,borderRadius:99,background:i < bedRoutineStep ? C.mint : i === bedRoutineStep ? C.ter : C.blush,transition:"background 0.3s"}}/>
+              ))}
+            </div>
+
+            {/* Current step */}
+            <div style={{padding:"16px",borderRadius:16,background:"rgba(123,104,238,0.06)",border:"1px solid rgba(123,104,238,0.12)",marginBottom:16,textAlign:"center"}}>
+              <div style={{fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>{_step.title}</div>
+              <div style={{fontSize:13,color:C.mid,lineHeight:1.6}}>{_step.note}</div>
+              <div style={{fontSize:11,color:C.lt,marginTop:8}}>~{_step.duration} min</div>
+            </div>
+
+            {/* Navigation */}
+            <div style={{display:"flex",gap:8}}>
+              {bedRoutineStep > 0 && (
+                <button onClick={()=>{haptic();setBedRoutineStep(s=>s-1);}} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>
+                  ← Back
+                </button>
+              )}
+              {bedRoutineStep < _steps.length - 1 ? (
+                <button onClick={()=>{haptic();setBedRoutineStep(s=>s+1);if(!bedRoutineStart)setBedRoutineStart(Date.now());}} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
+                  {bedRoutineStep === 0 ? "Start routine ✨" : "Next step →"}
+                </button>
+              ) : (
+                <button onClick={()=>{
+                  haptic();
+                  setShowBedRoutine(false);
+                  setBedRoutineStep(0);
+                  setBedRoutineStart(null);
+                  showToast("🌙 Routine complete. sweet dreams, " + (babyName||"baby") + " 💛", 3000, 1);
+                }} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
+                  Done. goodnight 🌙
+                </button>
+              )}
+            </div>
+
+            <button onClick={()=>{setShowBedRoutine(false);setBedRoutineStep(0);setBedRoutineStart(null);}} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
+              Close
+            </button>
+          </div>
+        </div>
+        );
+      })()}
+
       {showSupportModal&&(
         <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(44,31,26,0.7)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowSupportModal(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
@@ -31976,16 +32093,29 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Talk to someone now</div>
             {(()=>{
               const _loc = (navigator.language||"en-GB").toLowerCase();
-              const _isUS = _loc.includes("en-us");
-              const _isAU = _loc.includes("en-au");
-              const _isIE = _loc.includes("en-ie");
-              const _isNZ = _loc.includes("en-nz");
+              const _tz = Intl.DateTimeFormat().resolvedOptions().timeZone||"";
+              const _isUS = _loc.includes("en-us") || _tz.includes("America/");
+              const _isCA = _loc.includes("en-ca") || _loc.includes("fr-ca") || _tz.includes("Canada/");
+              const _isAU = _loc.includes("en-au") || _tz.includes("Australia/");
+              const _isIE = _loc.includes("en-ie") || _tz.includes("Europe/Dublin");
+              const _isNZ = _loc.includes("en-nz") || _tz.includes("Pacific/Auckland");
+              const _isZA = _loc.includes("en-za") || _tz.includes("Africa/Johannesburg");
+              const _isIN = _loc.includes("en-in") || _loc.includes("hi") || _tz.includes("Asia/Kolkata");
+              const _isSG = _loc.includes("en-sg") || _tz.includes("Asia/Singapore");
+              const _isDE = _loc.includes("de") || _tz.includes("Europe/Berlin");
+              const _isFR = _loc.includes("fr") && !_isCA || _tz.includes("Europe/Paris");
+              const _isES = _loc.includes("es") || _tz.includes("Europe/Madrid");
+              const _isNL = _loc.includes("nl") || _tz.includes("Europe/Amsterdam");
               const _lines = _isUS ? [
                 {name:"Postpartum Support International",phone:"1-800-944-4773",note:"Call or text. 24/7. Free."},
                 {name:"Crisis Text Line",phone:"741741",note:"Text HOME to 741741"},
-                {name:"National Suicide Prevention",phone:"988",note:"Call or text 988. 24/7."},
+                {name:"988 Suicide & Crisis Lifeline",phone:"988",note:"Call or text 988. 24/7."},
+              ] : _isCA ? [
+                {name:"Pacific Postpartum Society",phone:"604-255-7999",note:"Postpartum support"},
+                {name:"Crisis Services Canada",phone:"1-833-456-4566",note:"24/7. Free."},
+                {name:"Kids Help Phone (parent line)",phone:"1-800-668-6868",note:"24/7"},
               ] : _isAU ? [
-                {name:"PANDA (Perinatal Anxiety & Depression)",phone:"1300-726-306",note:"Mon-Fri 9am-7:30pm AEST"},
+                {name:"PANDA",phone:"1300-726-306",note:"Perinatal mental health. Mon-Fri 9am-7:30pm"},
                 {name:"Lifeline Australia",phone:"13-11-14",note:"24/7. Free."},
                 {name:"Beyond Blue",phone:"1300-22-4636",note:"24/7. Free."},
               ] : _isIE ? [
@@ -31994,6 +32124,26 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               ] : _isNZ ? [
                 {name:"Plunket",phone:"0800-933-922",note:"24/7 parenting helpline"},
                 {name:"Lifeline NZ",phone:"0800-543-354",note:"24/7. Free."},
+              ] : _isZA ? [
+                {name:"SADAG",phone:"0800-567-567",note:"Depression & anxiety. 24/7. Free."},
+                {name:"Lifeline South Africa",phone:"0861-322-322",note:"24/7"},
+              ] : _isIN ? [
+                {name:"Vandrevala Foundation",phone:"+91-9999-666-555",note:"24/7. Free. Multilingual."},
+                {name:"iCall",phone:"+91-9152987821",note:"Mon-Sat 8am-10pm"},
+              ] : _isSG ? [
+                {name:"Singapore Association for Mental Health",phone:"1800-283-7019",note:"24/7"},
+                {name:"Fei Yue Community Services",phone:"1800-111-2222",note:"Family support"},
+              ] : _isDE ? [
+                {name:"Telefonseelsorge",phone:"0800-111-0111",note:"24/7. Kostenlos."},
+                {name:"Elterntelefon",phone:"0800-111-0550",note:"Mo-Fr 9-17 Uhr. Kostenlos."},
+              ] : _isFR ? [
+                {name:"SOS Amitié",phone:"09-72-39-40-50",note:"24/7. Gratuit."},
+                {name:"Fil Santé Jeunes",phone:"0800-235-236",note:"Gratuit. Anonyme."},
+              ] : _isES ? [
+                {name:"Teléfono de la Esperanza",phone:"717-003-717",note:"24/7. Gratuito."},
+              ] : _isNL ? [
+                {name:"113 Zelfmoordpreventie",phone:"0900-0113",note:"24/7"},
+                {name:"Ouders van Nu",phone:"030-291-6800",note:"Ouderlijn"},
               ] : [
                 {name:"PANDAS Foundation",phone:"0808-196-1776",note:"Perinatal mental health. Free. Confidential."},
                 {name:"Samaritans",phone:"116 123",note:"24/7. Free. No judgement."},
