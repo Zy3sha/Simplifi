@@ -588,7 +588,17 @@ function _renderHtml() {
       const entries = _t.entries || [];
       const nowM = _nowMins;
       const bedEntry = entries.find(e=>e.type==="sleep"&&!e.night);
-      const activeNap = entries.find(e=>e.type==="nap"&&e.start&&(!e.end||e.start===e.end));
+      // Active nap: end is missing, equals start, OR end is within last 5 min (timer updates end every 30s)
+      const activeNap = entries.find(e=>{
+        if(e.type!=="nap"||!e.start) return false;
+        if(!e.end||e.start===e.end) return true;
+        // Check if end time is very recent (nap timer updates end every 30s)
+        const [eh,em]=(e.end||"").split(":").map(Number);
+        if(isNaN(eh)) return false;
+        const endMins = eh*60+em;
+        const diff = nowM - endMins;
+        return diff >= 0 && diff <= 5; // within last 5 minutes = still active
+      });
       const lastCompletedNap = (_t.naps||[]).filter(n=>n.end&&n.start!==n.end).pop();
       const wakeEntry = entries.find(e=>e.type==="wake"&&!e.night);
       let statusIcon="☀️", statusText=_name+" is awake", statusColor="#6A8A7A", statusBg="rgba(155,184,168,0.1)";
