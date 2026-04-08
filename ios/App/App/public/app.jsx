@@ -6890,36 +6890,8 @@ function App(){
     const _shortNapCount = completedNaps.filter(n => minDiff(n.start, n.end) < 20).length;
     const _isFragmented = _shortNapCount >= 3 && totalNapMins < napProfile.idealTotalMin;
 
-    // Bridge nap: Plan already handles this via predictNextNap().
-    // We just detect it for display purposes (hero card label).
-    let bridgeNapNeeded = _planPred && _planPred.isBridge;
-    // Fallback detection if predictNextNap doesn't flag it
-    if (!bridgeNapNeeded && !napsComplete && napsDone >= expectedNaps) {
-      bridgeNapNeeded = true; // extra nap beyond expected = bridge
-    }
-    // Legacy compat: some code checks these
-    let _tickTargetBed = bedtimeFloor;
-      try {
-        const _pb2 = bedtimePrediction ? bedtimePrediction() : null;
-        if (_pb2 && _pb2.personalAvgBed) {
-          const _pp = _pb2.personalAvgBed.split(":").map(Number);
-          if (_pp.length === 2 && !isNaN(_pp[0])) { const _pBed = _pp[0]*60+_pp[1]; if (_pBed > bedtimeFloor) _tickTargetBed = _pBed; }
-        }
-      } catch {}
-      const gapToEarliestBed = _tickTargetBed - lastAwakeMins;
-      const gapTooLong = gapToEarliestBed > ww.max * 1.3;
-      // Safety: don't suggest a bridge nap if it would start at or past bedtime window.
-      // Bridge start = lastAwakeMins + ~75% of WW. If that lands inside bedtime window, skip it.
-      const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
-      const _projectedBridgeStart = lastAwakeMins + Math.round(((ww.min+ww.max)/2) * 0.75);
-      const _tooLateForBridge = _projectedBridgeStart >= bedtimeFloor - 15 || _nowMins >= bedtimeFloor - 15;
-      if ((sleepBudgetUnder || gapTooLong) && !_tooLateForBridge) {
-        bridgeNapNeeded = true;
-        napsComplete = false; // keep in nap mode so predictions continue
-      }
-    }
-
-    // Fix #3 removed: predictNextNap() is now called once above as single source of truth
+    // Bridge nap: detected from predictNextNap result or nap count
+    let bridgeNapNeeded = (_planPred && _planPred.isBridge) || (!napsComplete && napsDone >= expectedNaps);
 
     // Bedtime prediction: use bedtimePrediction() (same as Plan)
     let bedMins = null;
