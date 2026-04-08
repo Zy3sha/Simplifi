@@ -3957,6 +3957,7 @@ function App(){
   const[logForAll,setLogForAll]=useState(false);
   const[showSupportModal,setShowSupportModal]=useState(false);
   const[showBreathing,setShowBreathing]=useState(false);
+  const[waterUnit,setWaterUnit]=usePersistedState("ob_water_unit","glasses");
   const[breathPhase,setBreathPhase]=useState("inhale");
   const[breathCount,setBreathCount]=useState(0);
   // Breathing meditation auto-cycle: inhale 4s → hold 4s → exhale 6s = 14s per cycle
@@ -23450,33 +23451,52 @@ function App(){
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <span style={{fontSize:14,fontWeight:700,color:C.deep}}>💧 Water</span>
-                        <button onClick={()=>{haptic();const _wu=(localStorage.getItem("ob_water_unit")||"glasses");const _next=_wu==="glasses"?"ml":_wu==="ml"?"oz":"glasses";try{localStorage.setItem("ob_water_unit",_next);}catch{}setPartnerTick(t=>t+1);}} style={{padding:"2px 8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:10,fontWeight:600,color:C.lt,cursor:_cP}}>
-                          {(localStorage.getItem("ob_water_unit")||"glasses")==="ml"?"ml":(localStorage.getItem("ob_water_unit")||"glasses")==="oz"?"fl oz":"glasses"}
+                        <button onClick={()=>{haptic();setWaterUnit(u=>u==="glasses"?"ml":u==="ml"?"oz":"glasses");}} style={{padding:"2px 8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:10,fontWeight:600,color:C.lt,cursor:_cP}}>
+                          {waterUnit==="ml"?"ml":waterUnit==="oz"?"fl oz":"glasses"}
                         </button>
                       </div>
                       <span style={{fontSize:12,color:_waterCount>=8?C.mint:C.mid,fontWeight:600,fontFamily:_fM}}>
-                        {(localStorage.getItem("ob_water_unit")||"glasses")==="ml"?(_waterCount*250)+"ml":(localStorage.getItem("ob_water_unit")||"glasses")==="oz"?(_waterCount*8)+"oz":_waterCount+"/8 glasses"}
+                        {waterUnit==="ml"?(_waterCount*250)+"ml":waterUnit==="oz"?(_waterCount*8)+"oz":_waterCount+"/8 glasses"}
                       </span>
                     </div>
-                    <div style={{display:"flex",gap:6,marginBottom:8}}>
-                      {[1,2,3,4,5,6,7,8].map(n=>{
-                        const _filled = n <= _waterCount;
-                        return (
-                          <button key={n} onClick={()=>{
-                            haptic();
-                            // Tap a filled box → reduce to n-1 (uncheck). Tap empty → fill to n.
-                            const _newCount = _filled && n === _waterCount ? n - 1 : n;
-                            const _d = {..._scData, water: _newCount};
-                            try { localStorage.setItem(_scKey, JSON.stringify(_d)); } catch {}
-                            setPartnerTick(t=>t+1);
-                            if (_newCount > _waterCount) showToast("💧 "+_newCount+"/8 glasses",1000,1);
-                          }} aria-label={_filled?"Remove glass "+n:"Add glass "+n} style={{flex:1,height:36,borderRadius:8,background:_filled?"linear-gradient(135deg,#7BA68C,#5A8A6C)":"var(--card-bg-alt)",border:"1px solid "+(_filled?C.mint+"40":C.blush),transition:"all 0.2s",cursor:_cP,padding:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
-                            {_filled && <span style={{opacity:0.9}}>💧</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div style={{fontSize:10,color:C.lt,textAlign:"center",fontFamily:_fM,fontStyle:"italic"}}>Tap a glass to log it · tap the last filled glass to undo</div>
+                    {waterUnit === "glasses" ? (<>
+                      <div style={{display:"flex",gap:6,marginBottom:8}}>
+                        {[1,2,3,4,5,6,7,8].map(n=>{
+                          const _filled = n <= _waterCount;
+                          return (
+                            <button key={n} onClick={()=>{
+                              haptic();
+                              const _newCount = _filled && n === _waterCount ? n - 1 : n;
+                              const _d = {..._scData, water: _newCount};
+                              try { localStorage.setItem(_scKey, JSON.stringify(_d)); } catch {}
+                              setPartnerTick(t=>t+1);
+                              if (_newCount > _waterCount) showToast("💧 "+_newCount+"/8 glasses",1000,1);
+                            }} aria-label={_filled?"Remove glass "+n:"Add glass "+n} style={{flex:1,height:36,borderRadius:8,background:_filled?"linear-gradient(135deg,#7BA68C,#5A8A6C)":"var(--card-bg-alt)",border:"1px solid "+(_filled?C.mint+"40":C.blush),transition:"all 0.2s",cursor:_cP,padding:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+                              {_filled && <span style={{opacity:0.9}}>💧</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{fontSize:10,color:C.lt,textAlign:"center",fontFamily:_fM,fontStyle:"italic"}}>Tap a glass to log it · tap the last filled glass to undo</div>
+                    </>) : (
+                      <div style={{marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:8}}>
+                          <button onClick={()=>{haptic();const _nc=Math.max(0,_waterCount-1);const _d={..._scData,water:_nc};try{localStorage.setItem(_scKey,JSON.stringify(_d));}catch{}setPartnerTick(t=>t+1);}} style={{width:44,height:44,borderRadius:12,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:20,fontWeight:700,color:C.mid,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                          <div style={{textAlign:"center",minWidth:80}}>
+                            <div style={{fontSize:28,fontWeight:700,color:C.deep}}>{waterUnit==="ml"?_waterCount*250:_waterCount*8}</div>
+                            <div style={{fontSize:11,color:C.lt}}>{waterUnit==="ml"?"ml":"fl oz"}</div>
+                          </div>
+                          <button onClick={()=>{haptic();const _nc=Math.min(12,_waterCount+1);const _d={..._scData,water:_nc};try{localStorage.setItem(_scKey,JSON.stringify(_d));}catch{}setPartnerTick(t=>t+1);showToast("💧 "+(waterUnit==="ml"?_nc*250+"ml":_nc*8+"oz"),1000,1);}} style={{width:44,height:44,borderRadius:12,border:`1px solid ${C.mint}40`,background:"rgba(111,168,152,0.1)",fontSize:20,fontWeight:700,color:C.mint,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                        </div>
+                        <div style={{display:"flex",gap:6,justifyContent:"center"}}>
+                          {(waterUnit==="ml"?[250,500,750]:[8,16,24]).map(amt=>(
+                            <button key={amt} onClick={()=>{haptic();const _glasses=waterUnit==="ml"?Math.round(amt/250):Math.round(amt/8);const _nc=Math.min(12,_glasses);const _d={..._scData,water:_nc};try{localStorage.setItem(_scKey,JSON.stringify(_d));}catch{}setPartnerTick(t=>t+1);showToast("💧 "+amt+(waterUnit==="ml"?"ml":"oz"),1000,1);}} style={{padding:"6px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:11,fontWeight:600,color:C.mid,cursor:_cP}}>
+                              {amt}{waterUnit==="ml"?"ml":"oz"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {_waterCount < 4 && <div style={{fontSize:11,color:C.lt,marginTop:6,fontStyle:"italic",textAlign:"center"}}>Dehydration makes everything harder. tiredness, headaches, milk supply. You matter too.</div>}
                   </div>
 
