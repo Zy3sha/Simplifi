@@ -23126,7 +23126,7 @@ function App(){
                     <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10}}>How are you feeling?</div>
                     <div style={_S.flexRowGap8}>
                       {[["great","😊","Great"],["ok","😐","OK"],["tired","😴","Tired"],["struggling","😢","Struggling"]].map(([key,emoji,label])=>(
-                        <button key={key} onClick={()=>{haptic();setWellbeingResponse(key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key,date:todayStr()}));}catch{}showToast(key==="struggling"?"💜 It's OK to not be OK. Scroll down for support.":key==="tired"?"You're running on empty. rest is not a reward, it's a necessity.":"💜 Logged. You matter.",2000,1);}}
+                        <button key={key} onClick={()=>{haptic();setWellbeingResponse(key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key,date:todayStr()}));}catch{}showToast(key==="struggling"?"💜 It's OK to not be OK. Scroll down for support.":key==="tired"?"You're running on empty. Rest is not a reward, it's a necessity.":key==="ok"?"💛 Glad to hear it. You're doing a brilliant job. Keep going.":"💜 That's a good day. "+( babyName||"Baby")+" is lucky to have you. 🫶",3000,1);}}
                           style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:"1.5px solid "+(wellbeingResponse===key?"#7b68ee":"var(--card-border)"),background:wellbeingResponse===key?"rgba(123,104,238,0.08)":"var(--card-bg)",cursor:_cP}}>
                           <span style={_S.f20}>{emoji}</span>
                           <span style={{fontSize:10,fontWeight:600,color:wellbeingResponse===key?"#7b68ee":C.mid}}>{label}</span>
