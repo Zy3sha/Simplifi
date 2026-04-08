@@ -3908,6 +3908,7 @@ function App(){
   const[showSearch,setShowSearch]=useState(false);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
   const[logForAll,setLogForAll]=useState(false);
+  const[showSupportModal,setShowSupportModal]=useState(false);
   const[showQuickStart,setShowQuickStart]=useState(false);
   const[qsNaps,setQsNaps]=useState("3");
   const[qsBedtime,setQsBedtime]=useState("19:00");
@@ -23126,7 +23127,7 @@ function App(){
                     <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10}}>How are you feeling?</div>
                     <div style={_S.flexRowGap8}>
                       {[["great","😊","Great"],["ok","😐","OK"],["tired","😴","Tired"],["struggling","😢","Struggling"]].map(([key,emoji,label])=>(
-                        <button key={key} onClick={()=>{haptic();setWellbeingResponse(key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key,date:todayStr()}));}catch{}showToast(key==="struggling"?"💜 It's OK to not be OK. Scroll down for support.":key==="tired"?"You're running on empty. Rest is not a reward, it's a necessity.":key==="ok"?"💛 Glad to hear it. You're doing a brilliant job. Keep going.":"💜 That's a good day. "+( babyName||"Baby")+" is lucky to have you. 🫶",3000,1);}}
+                        <button key={key} onClick={()=>{haptic();setWellbeingResponse(key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key,date:todayStr()}));}catch{} if(key==="struggling"){setShowSupportModal(true);}else{showToast(key==="tired"?"You're running on empty. Rest is not a reward, it's a necessity.":key==="ok"?"💛 Glad to hear it. You're doing a brilliant job. Keep going.":"💜 That's a good day. "+(babyName||"Baby")+" is lucky to have you. 🫶",3000,1);}}}
                           style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:"1.5px solid "+(wellbeingResponse===key?"#7b68ee":"var(--card-border)"),background:wellbeingResponse===key?"rgba(123,104,238,0.08)":"var(--card-bg)",cursor:_cP}}>
                           <span style={_S.f20}>{emoji}</span>
                           <span style={{fontSize:10,fontWeight:600,color:wellbeingResponse===key?"#7b68ee":C.mid}}>{label}</span>
@@ -31466,6 +31467,84 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             </button>
             <button onClick={()=>setShowQuickStart(false)} style={{width:"100%",padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"transparent",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
               Skip. I'll log from scratch
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Support Modal. opens when parent taps "Struggling" ═══ */}
+      {showSupportModal&&(
+        <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(44,31,26,0.7)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowSupportModal(false)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+            <div style={{textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:40,marginBottom:8}}>💜</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1.3}}>You're not failing.</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1.3,marginBottom:12}}>You're surviving.</div>
+              <div style={{fontSize:14,color:C.mid,lineHeight:1.7}}>
+                Parenting is the hardest job with no training, no breaks, and very little sleep. What you're feeling right now is valid. It doesn't make you a bad parent. It makes you human.
+              </div>
+            </div>
+
+            <div style={{padding:"14px 16px",borderRadius:16,background:"rgba(123,104,238,0.06)",border:"1px solid rgba(123,104,238,0.15)",marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:700,color:"#7B68EE",marginBottom:8}}>Right now, you can:</div>
+              <div style={{fontSize:13,color:C.deep,lineHeight:1.7}}>
+                {'• Put ' + (babyName||'baby') + ' down safely in their cot, on their back'}<br/>
+                • Walk away for 2 minutes. Breathe.<br/>
+                • Make a cup of tea. Sit down.<br/>
+                • Come back when you feel steadier.<br/>
+                <span style={{fontStyle:"italic",color:C.lt}}>This is not abandonment. This is self-regulation. {babyName||'Baby'} is safe.</span>
+              </div>
+            </div>
+
+            <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Talk to someone now</div>
+            {(()=>{
+              const _loc = (navigator.language||"en-GB").toLowerCase();
+              const _isUS = _loc.includes("en-us");
+              const _isAU = _loc.includes("en-au");
+              const _isIE = _loc.includes("en-ie");
+              const _isNZ = _loc.includes("en-nz");
+              const _lines = _isUS ? [
+                {name:"Postpartum Support International",phone:"1-800-944-4773",note:"Call or text. 24/7. Free."},
+                {name:"Crisis Text Line",phone:"741741",note:"Text HOME to 741741"},
+                {name:"National Suicide Prevention",phone:"988",note:"Call or text 988. 24/7."},
+              ] : _isAU ? [
+                {name:"PANDA (Perinatal Anxiety & Depression)",phone:"1300-726-306",note:"Mon-Fri 9am-7:30pm AEST"},
+                {name:"Lifeline Australia",phone:"13-11-14",note:"24/7. Free."},
+                {name:"Beyond Blue",phone:"1300-22-4636",note:"24/7. Free."},
+              ] : _isIE ? [
+                {name:"Parentline",phone:"1890-927-277",note:"Mon-Fri 10am-9pm"},
+                {name:"Samaritans Ireland",phone:"116-123",note:"24/7. Free."},
+              ] : _isNZ ? [
+                {name:"Plunket",phone:"0800-933-922",note:"24/7 parenting helpline"},
+                {name:"Lifeline NZ",phone:"0800-543-354",note:"24/7. Free."},
+              ] : [
+                {name:"PANDAS Foundation",phone:"0808-196-1776",note:"Perinatal mental health. Free. Confidential."},
+                {name:"Samaritans",phone:"116 123",note:"24/7. Free. No judgement."},
+                {name:"NHS 111",phone:"111",note:"Health advice when it's not 999"},
+                {name:"NSPCC",phone:"0808-800-5000",note:"If you're worried about hurting your child"},
+              ];
+              return _lines.map((l,i)=>(
+                <a key={i} href={"tel:"+l.phone.replace(/[^0-9+]/g,"")} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:14,border:"1.5px solid rgba(123,104,238,0.2)",background:"rgba(123,104,238,0.04)",marginBottom:8,textDecoration:"none",color:C.deep,cursor:"pointer"}}>
+                  <span style={{fontSize:22}}>📞</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:14,fontWeight:700}}>{l.name}</div>
+                    <div style={{fontSize:12,color:C.lt}}>{l.note}</div>
+                  </div>
+                  <div style={{fontSize:15,fontWeight:700,color:"#7B68EE",fontFamily:"ui-monospace,monospace"}}>{l.phone}</div>
+                </a>
+              ));
+            })()}
+
+            <div style={{marginTop:14,padding:"12px 14px",borderRadius:14,background:"rgba(155,184,168,0.08)",border:"1px solid rgba(155,184,168,0.15)"}}>
+              <div style={{fontSize:13,color:C.deep,lineHeight:1.7,textAlign:"center"}}>
+                Asking for help is not weakness.<br/>
+                It is the single bravest thing a parent can do.<br/>
+                <strong>You deserve support. 💛</strong>
+              </div>
+            </div>
+
+            <button onClick={()=>setShowSupportModal(false)} style={{width:"100%",marginTop:16,padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
+              I hear you 💜
             </button>
           </div>
         </div>
