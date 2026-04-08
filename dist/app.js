@@ -27447,8 +27447,10 @@ function App(){
                    cat:"allergen",phase:3,iron:false,allergenId:"sesame",morningOnly:true},
                 ];
 
-                // Filter by phase
-                const _phaseMax = _wksSinceWean < 2 ? 1 : _wksSinceWean < 4 ? 2 : 3;
+                // Filter by phase — use ACTUAL weaning duration (days with food logged) not just age minus 26
+                const _weaningDays = (weaning||[]).length;
+                const _effectiveWks = Math.max(_wksSinceWean, Math.floor(_weaningDays / 3)); // ~3 foods/week = 1 phase week
+                const _phaseMax = _effectiveWks < 2 ? (_weaningDays >= 5 ? 2 : 1) : _effectiveWks < 4 ? 2 : 3;
                 const _available = _allFoods.filter(f => f.phase <= _phaseMax);
 
                 // STABLE suggestions: persist today/tomorrow picks to localStorage so they
@@ -27456,7 +27458,18 @@ function App(){
                 const _triedFoods = (weaning||[]).map(w => (w.food||"").toLowerCase());
                 const _isTried = (f) => _triedFoods.some(t => t.includes(f.food.toLowerCase().split(" ")[0]));
                 const _notTried = _available.filter(f => !_isTried(f));
-                const _pool = _notTried.length > 0 ? _notTried : _available;
+                // Ensure allergens appear regularly: every 3rd-4th suggestion should be an allergen (if any untried)
+                const _untriedAllergens = _notTried.filter(f => f.cat === "allergen");
+                const _untriedNonAllergen = _notTried.filter(f => f.cat !== "allergen");
+                // Interleave: [veg, veg, ALLERGEN, veg, veg, ALLERGEN, ...]
+                const _interleaved = [];
+                let _ai = 0, _vi = 0;
+                while (_vi < _untriedNonAllergen.length || _ai < _untriedAllergens.length) {
+                  if (_vi < _untriedNonAllergen.length) _interleaved.push(_untriedNonAllergen[_vi++]);
+                  if (_vi < _untriedNonAllergen.length) _interleaved.push(_untriedNonAllergen[_vi++]);
+                  if (_ai < _untriedAllergens.length) _interleaved.push(_untriedAllergens[_ai++]);
+                }
+                const _pool = _interleaved.length > 0 ? _interleaved : (_notTried.length > 0 ? _notTried : _available);
                 const _findByName = (name) => _available.find(f=>f.food===name) || _pool.find(f=>f.food===name);
                 const _today = todayStr();
                 const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
