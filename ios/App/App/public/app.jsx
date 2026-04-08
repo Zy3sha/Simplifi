@@ -24499,7 +24499,7 @@ function App(){
               })()}
 
               {/* Milk:Solids ratio on Plan tab */}
-              {age && (weaningStarted || ((age.predictiveWeeks??age.totalWeeks)) >= 26) && (()=>{
+              {age && (weaningStarted || (weaning||[]).length > 0 || ((age.predictiveWeeks??age.totalWeeks)) >= 26) && (()=>{
                 const _aw2 = (age.predictiveWeeks??age.totalWeeks);
                 const _wr = getWeaningRatio ? getWeaningRatio(_aw2, days[selDay]||[]) : null;
                 if (!_wr || !_wr.showSolids) return null;
