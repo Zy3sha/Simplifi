@@ -7607,6 +7607,18 @@ function App(){
     const _napElapsed = napSec ? Math.floor(napSec / 60) : 0;
     const _napNudgeKey = "nap_nudge_" + selDay;
     const _napNudgeShown = (()=>{try{return localStorage.getItem(_napNudgeKey)==="1";}catch{return false;}})();
+    // Anxious parent intervention. if they've opened the app 3+ times during this nap
+    if (napOn && !_isNightTime) {
+      try {
+        const _napCheckKey = "nap_checks_" + napEntryId;
+        const _checks = parseInt(localStorage.getItem(_napCheckKey) || "0") + 1;
+        localStorage.setItem(_napCheckKey, String(_checks));
+        if (_checks === 3 && !localStorage.getItem(_napCheckKey + "_shown")) {
+          localStorage.setItem(_napCheckKey + "_shown", "1");
+          _selfCareNudge = _name + " is sleeping peacefully. The timer is running. everything is OK. This moment is yours. rest, breathe, or just be. 💛";
+        }
+      } catch {}
+    }
     if (napOn && _napElapsed >= 40 && !_napNudgeShown && !_isNightTime) {
       _selfCareNudge = "😴 " + _name + " has been napping " + _napElapsed + " minutes. Put the phone down. do something just for you right now.";
       try{localStorage.setItem(_napNudgeKey, "1");}catch{}
@@ -7761,7 +7773,7 @@ function App(){
               {/* Settle method selection */}
               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5,textAlign:"center"}}>How did they settle?</div>
               <div style={{display:"flex",gap:6,marginBottom:10}}>
-                {[["self","Self-soothed"],["assisted","Assisted"],["milk","Milk/feed"],["other","Other"]].map(([k,l])=>(
+                {[["self","Settled alone"],["assisted","Assisted"],["milk","Milk/feed"],["other","Other"]].map(([k,l])=>(
                   <button key={k} onClick={()=>setBedWakeSettle(k)}
                     style={{flex:1,padding:"8px 4px",borderRadius:10,border:`1.5px solid ${bedWakeSettle===k?"#7b68ee":"rgba(123,104,238,0.15)"}`,background:bedWakeSettle===k?"rgba(123,104,238,0.1)":"transparent",color:bedWakeSettle===k?"#7b68ee":C.lt,fontSize:11,fontWeight:bedWakeSettle===k?700:500,cursor:_cP,fontFamily:_fM}}>
                     {l}
@@ -7877,6 +7889,13 @@ function App(){
     }
     // ── PRIORITY 4: Feed overdue (with critical escalation for young babies) ──
     else if (_dayStarted && _feedGapM >= _feedThreshM && _feedGapM < 1500 && !_hasBed && !bedTimerDay) {
+      // Check for reverse-cycling breastfed baby. suppress daytime urgency
+      const _isReverseCycling = (()=>{try{const p=advancedSleepPatterns();return p&&p.patterns&&p.patterns.some(pp=>pp.type==="reverse_cycling");}catch{return false;}})();
+      const _isBreastfed = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
+      if (_isReverseCycling && _isBreastfed && _feedGapM < 360) {
+        _dot = "#7aabc4"; _label = "Reverse-cycling pattern";
+        _timing = _name + " feeds more at night. Daytime gaps are expected. Offer in a quiet room when ready.";
+      } else {
       const _isCriticalGap = _feedGapM >= 360 && _w < 12; // 6h+ gap for under 12 weeks
       const _isLongGap = _feedGapM >= 300; // 5h+ for any age
       if (_isCriticalGap) {
@@ -7894,6 +7913,7 @@ function App(){
         const _pct = Math.round((_lastFeed.amount / _perFeedTarget) * 100);
         _rightNow = _name + " drank " + _pct + "% of the usual feed (" + _lastFeed.amount + "ml of ~" + _perFeedTarget + "ml). May get peckish sooner." + (_nextFeedStr ? " Next feed ~" + _nextFeedStr + (_nextFeedMlStr ? " · try " + _nextFeedMlStr + _feedMlContext : "") : "");
       }
+      } // close else for reverse-cycling check
     }
     // ── PRIORITY 4b: Skip nap option when prediction is active for 30+ min ──
     // (Shows subtly. not intrusive, just available if parent needs it)
