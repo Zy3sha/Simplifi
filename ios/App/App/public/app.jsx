@@ -7320,6 +7320,7 @@ function App(){
   // All feed/nappy gaps computed ONCE with wall-clock-aware cross-day math
   function renderHeroCard() {
    try {
+    const td = tickDataRef.current || {};
     if (!age) return (
       <div className="glass-card" style={{padding:"20px 18px",marginBottom:12,textAlign:"center"}}>
         <div style={{fontSize:32,marginBottom:8}}>👶</div>
