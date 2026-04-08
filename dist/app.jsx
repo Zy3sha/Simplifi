@@ -23956,12 +23956,17 @@ function App(){
                 for (let i = 0; i < _freeExpected; i++) {
                   const _ww = clampWakeWindow(progressiveWW(age.totalWeeks, i, _freeExpected), age.totalWeeks);
                   const napStart = _freeCursor + _ww;
-                  // If this nap would start within 90min of bedtime, make it a bridge nap (20min)
-                  const _isBridge = napStart >= _freeBedM - 90;
+                  // Bridge nap: only if total day sleep so far is below minimum AND this nap is close to bedtime
+                  const _totalSoFar = _freeItems.reduce((s, n2) => s + (n2.end - n2.start), 0);
+                  const _budgetMin = _freeProfile.idealTotalMin || 120;
+                  const _needsMore = _totalSoFar < _budgetMin;
+                  const _closeTobed = napStart >= _freeBedM - 90;
+                  const _isBridge = _closeTobed && _needsMore;
                   const _napDur = _isBridge ? 20 : _freeAvgDur;
                   const napEnd = napStart + _napDur;
-                  // Skip nap if it would start within 30min of bedtime
+                  // Skip nap if: starts within 30min of bedtime, OR sleep budget is already met
                   if (napStart >= _freeBedM - 30) break;
+                  if (_closeTobed && !_needsMore) break; // budget met, go straight to bed
                   _freeItems.push({start: napStart, end: napEnd, idx: i, ww: _ww, isBridge: _isBridge});
                   _freeCursor = napEnd;
                 }
