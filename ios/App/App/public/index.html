@@ -34,7 +34,7 @@
   <meta name="application-name" content="OBubba"/>
   <meta name="theme-color" content="#f0ddd6"/>
   <meta name="mobile-web-app-capable" content="yes"/>
-  <link rel="manifest" href="/assets/manifest-CzZqht1Z.json"/>
+  <link rel="manifest" href="manifest.json"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
 
   <!-- Structured Data -->
@@ -56,7 +56,7 @@
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
 
   <!-- External libraries (React loaded from CDN for PWA; Babel removed — app.js is pre-compiled) -->
   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
@@ -69,9 +69,8 @@
   <script src="/native-plugins.js" defer></script>
 
   <!-- Styles -->
-  <script type="module" crossorigin src="/assets/index-C_zVoVQg.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-Di29DR1C.css">
-<script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
 <body style="background:#FFFEFD;margin:0">
 <div id="ob-splash" style="position:fixed;inset:0;z-index:99999;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#FFFEFD 0%,#FDFAF9 40%,#FBF9F8 100%);padding:40px 24px;text-align:center">
   <style>
@@ -85,7 +84,7 @@
     @keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}
   </style>
   <div style="position:relative;margin-bottom:28px">
-    <img class="baby" src="/assets/obubba-loading-DLfYS6CY.png" alt="" width="180" height="270" style="object-fit:contain">
+    <img class="baby" src="obubba-loading.png" alt="" width="180" height="270" style="object-fit:contain">
     <span class="z1">z</span><span class="z2">z</span><span class="z3">z</span>
   </div>
   <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#5B4F5F;margin-bottom:8px">OBubba</div>
