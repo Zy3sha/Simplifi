@@ -4735,8 +4735,8 @@ function App(){
   // ── One-time cleanup: remove night:true from food entries (misclassified catch-up logs) ──
   useEffect(()=>{
     try {
-      if (localStorage.getItem("ob_food_night_fix_v3")) return;
-      localStorage.setItem("ob_food_night_fix_v3", "1");
+      if (localStorage.getItem("ob_food_night_fix_v4")) return;
+      localStorage.setItem("ob_food_night_fix_v4", "1");
       // Fix misclassified night entries: food catch-ups + daytime entries marked as night
       const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus","mash","melty","finger","stick","puree","app ","avocado"];
       setDays(d=>{
@@ -4755,10 +4755,9 @@ function App(){
               dayChanged = true;
               return {...e, night: false, nightLocked: false};
             }
-            // Rule 2: "night" wake at 6am-5pm with no feed amount = almost certainly daytime
-            // Real night wakes happen between bedtime (6-10pm) and morning wake (5-8am)
-            // A "night wake" at 8:15am is clearly wrong
-            if (eh >= 6 && eh < 17 && e.type === "wake" && !(parseInt(e.amount)||0)) {
+            // Rule 2: ANY "night" entry between 6am-5pm = almost certainly daytime
+            // Real night entries happen between bedtime (6-10pm) and morning wake (5-8am)
+            if (eh >= 6 && eh < 17) {
               dayChanged = true;
               return {...e, night: false, nightLocked: false};
             }
