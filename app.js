@@ -667,10 +667,10 @@ const bedEntry=todayEntries.find(e=>e.type==="sleep"&&!e.night);const hasBedtime
 const wakeEntry=findMorningWake(todayEntries);let lastAwakeMins=wakeEntry?timeVal(wakeEntry):null;completedNaps.forEach(n=>{const[eh,em]=n.end.split(":").map(Number);const endMins=eh*60+em;if(lastAwakeMins===null||endMins>lastAwakeMins)lastAwakeMins=endMins;});// ═══ SINGLE SOURCE OF TRUTH: predictNextNap() ═══
 // This is the SAME function Today's Plan uses. No duplicate calculations.
 const morningWakeMins=wakeEntry?timeVal(wakeEntry):null;const bedtimeFloor=clampBedtime(0,ageWeeks);let _planPred=null;try{_planPred=predictNextNap?predictNextNap():null;}catch(e){console.error('[OBubba] predictNextNap crashed:',e.message,e.stack?.split('\n').slice(0,3).join(' | '));}// Debug: log why napsComplete is set
-if(!_planPred&&napsDone<3)console.warn('[OBubba] predictNextNap returned null with only',napsDone,'naps done. expectedNaps:',expectedNaps,'totalNapMins:',totalNapMins);// napsComplete: true when either (a) all expected naps done, or (b) day sleep budget exceeded.
-// Sleep consultants: when total day sleep exceeds the age max, skip remaining naps and go
-// straight to early bedtime. More day sleep steals from night sleep.
-const _budgetExceeded=totalNapMins>=napProfile.idealTotalMax;let napsComplete=napsDone>=expectedNaps||_budgetExceeded;const nextNapMins=_planPred&&typeof _planPred.napStart_min==="number"?Math.round(_planPred.napStart_min):null;// Fragmented nap detection from data (used for observations, not overriding Plan)
+if(!_planPred&&napsDone<3)console.warn('[OBubba] predictNextNap returned null with only',napsDone,'naps done. expectedNaps:',expectedNaps,'totalNapMins:',totalNapMins);// napsComplete: true when nap count met AND prediction engine agrees (returns null).
+// predictNextNap() already accounts for budget, teething, proximity, bridge naps.
+// If it returns a prediction, there's still a nap to do — trust the engine.
+let napsComplete=napsDone>=expectedNaps&&!_planPred;const nextNapMins=_planPred&&typeof _planPred.napStart_min==="number"?Math.round(_planPred.napStart_min):null;// Fragmented nap detection from data (used for observations, not overriding Plan)
 const _shortNapCount=completedNaps.filter(n=>minDiff(n.start,n.end)<20).length;const _isFragmented=_shortNapCount>=3&&totalNapMins<napProfile.idealTotalMin;// Bridge nap: detected from predictNextNap result or nap count
 let bridgeNapNeeded=_planPred&&_planPred.isBridge||!napsComplete&&napsDone>=expectedNaps;// Bedtime prediction: use bedtimePrediction() (same as Plan)
 let bedMins=null;try{const bp=bedtimePrediction?bedtimePrediction():null;if(bp&&bp.time){const[bh,bm]=bp.time.split(":").map(Number);bedMins=bh*60+bm;}}catch(e){console.error('[OBubba] bedtimePrediction crashed:',e.message);}// Fallback: last awake + age wake window, clamped
@@ -2444,9 +2444,8 @@ const[sh,sm]=napStartT.split(":").map(Number);cursor=sh*60+sm+avgNapDur;}else if
 // 1. Place naps using progressive WW (first nap uses cached prediction)
 // 2. After all naps placed, calculate bedtime from last nap end + final WW
 // 3. If gap to bedtime too long, add bridge/extra nap
-let napIdx=napsDone;let projectedNapMins=totalCompletedNapMins;let isFirstPredicted=true;// ═══ SLEEP BUDGET CHECK: skip remaining naps if budget exceeded ═══
-// Same logic as tick useMemo — Plan view must agree
-const _planBudgetExceeded=projectedNapMins>=napProfile.idealTotalMax;// Step 1: Place expected naps
+let napIdx=napsDone;let projectedNapMins=totalCompletedNapMins;let isFirstPredicted=true;// ═══ SINGLE SOURCE: if predictNextNap() returned null, no more naps ═══
+const _planBudgetExceeded=!tickDataRef.current.pred;// Step 1: Place expected naps
 while(napIdx<expectedTotal&&!_planBudgetExceeded){let napStart;// First predicted nap: use cached prediction (matches nap pill)
 if(isFirstPredicted&&!napOn){const pred2=tickDataRef.current.pred;napStart=pred2&&typeof pred2.napStart_min==="number"&&!isNaN(pred2.napStart_min)?pred2.napStart_min:cursor+clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);isFirstPredicted=false;}else{napStart=cursor+clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);}// Determine nap duration. try full, then shorter, then bridge
 const isLast=napIdx===expectedTotal-1;const maxBed=clampBedtime(24*60,w);const minBedWW=w<30?60:90;let napDur=avgNapDur;let napLabel=`~${hm(avgNapDur)} based on recent avg`;let isBridge=false;// For last nap: try full duration, then shorter, then bridge (15-25min max)

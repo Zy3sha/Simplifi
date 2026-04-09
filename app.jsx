@@ -6922,11 +6922,10 @@ function App(){
     try { _planPred = predictNextNap ? predictNextNap() : null; } catch(e) { console.error('[OBubba] predictNextNap crashed:', e.message, e.stack?.split('\n').slice(0,3).join(' | ')); }
     // Debug: log why napsComplete is set
     if (!_planPred && napsDone < 3) console.warn('[OBubba] predictNextNap returned null with only', napsDone, 'naps done. expectedNaps:', expectedNaps, 'totalNapMins:', totalNapMins);
-    // napsComplete: true when either (a) all expected naps done, or (b) day sleep budget exceeded.
-    // Sleep consultants: when total day sleep exceeds the age max, skip remaining naps and go
-    // straight to early bedtime. More day sleep steals from night sleep.
-    const _budgetExceeded = totalNapMins >= napProfile.idealTotalMax;
-    let napsComplete = napsDone >= expectedNaps || _budgetExceeded;
+    // napsComplete: true when nap count met AND prediction engine agrees (returns null).
+    // predictNextNap() already accounts for budget, teething, proximity, bridge naps.
+    // If it returns a prediction, there's still a nap to do — trust the engine.
+    let napsComplete = napsDone >= expectedNaps && !_planPred;
     const nextNapMins = _planPred && typeof _planPred.napStart_min === "number" ? Math.round(_planPred.napStart_min) : null;
 
     // Fragmented nap detection from data (used for observations, not overriding Plan)
@@ -24481,9 +24480,8 @@ function App(){
                   let projectedNapMins = totalCompletedNapMins;
                   let isFirstPredicted = true;
 
-                  // ═══ SLEEP BUDGET CHECK: skip remaining naps if budget exceeded ═══
-                  // Same logic as tick useMemo — Plan view must agree
-                  const _planBudgetExceeded = projectedNapMins >= napProfile.idealTotalMax;
+                  // ═══ SINGLE SOURCE: if predictNextNap() returned null, no more naps ═══
+                  const _planBudgetExceeded = !tickDataRef.current.pred;
 
                   // Step 1: Place expected naps
                   while (napIdx < expectedTotal && !_planBudgetExceeded) {
