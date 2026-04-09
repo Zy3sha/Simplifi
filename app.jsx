@@ -24166,6 +24166,8 @@ function App(){
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && !(age && age.totalWeeks < 4) && (()=>{
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime) return null;
+                // Hide when nap is actively running — timer pill already shows baby is sleeping
+                if (napOn) return null;
                 const _ne = _td.nextEvent;
                 if (!_ne) return null;
                 const _isGentleAge = age && age.totalWeeks < 8;
