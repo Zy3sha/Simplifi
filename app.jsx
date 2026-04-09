@@ -4732,6 +4732,36 @@ function App(){
     });
   },[]);
 
+  // ── One-time cleanup: remove night:true from food entries (misclassified catch-up logs) ──
+  useEffect(()=>{
+    try {
+      if (localStorage.getItem("ob_food_night_fix_v1")) return;
+      localStorage.setItem("ob_food_night_fix_v1", "1");
+      // Common food words that shouldn't be night entries
+      const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus"];
+      setDays(d=>{
+        let changed = false;
+        const result = {...d};
+        Object.keys(d).forEach(dk=>{
+          const arr = d[dk];
+          if (!arr || !arr.length) return;
+          const fixed = arr.map(e=>{
+            if (!e.night) return e;
+            // Check if this night entry has a food-like note
+            const note = ((e.note||"")+"").toLowerCase();
+            if (note && _foodWords.some(f=>note.includes(f))) {
+              changed = true;
+              return {...e, night: false, nightLocked: false};
+            }
+            return e;
+          });
+          if (changed) result[dk] = fixed;
+        });
+        return changed ? result : d;
+      });
+    } catch {}
+  },[]);
+
   useEffect(()=>{
     const check = setInterval(()=>{
       if(window._fb){ setFbReady(true); clearInterval(check); }
@@ -24689,16 +24719,17 @@ function App(){
                 const _ent = days[selDay] || [];
                 const _naps = _ent.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.start!==e.end);
                 const _totalSleepMin = _naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-                const _wake = _ent.find(e=>e.type==="wake"&&!e.night);
+                // Use findMorningWake for reliable wake detection (same as prediction engine)
+                const _wake = findMorningWake(_ent);
                 const _bed = _ent.find(e=>e.type==="sleep"&&!e.night);
                 // Total awake = time from wake to now (or bedtime) minus nap time
                 const _wakeMins2 = _wake ? timeVal(_wake) : null;
                 const _nowM2 = _bed ? timeVal(_bed) : new Date().getHours()*60+new Date().getMinutes();
-                const _totalDayMin = _wakeMins2 !== null ? _nowM2 - _wakeMins2 : 0;
+                const _totalDayMin = _wakeMins2 !== null ? Math.max(0, _nowM2 - _wakeMins2) : 0;
                 const _totalAwakeMin = Math.max(0, _totalDayMin - _totalSleepMin);
-                // Last night stats
-                const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
-                const _yEnt = days[_yday] || [];
+                // Last night stats: look for bedtime on yesterday AND selDay's previous day
+                const _prevDay = prevCalDay(selDay);
+                const _yEnt = days[_prevDay] || [];
                 const _yBed = _yEnt.find(e=>e.type==="sleep"&&!e.night);
                 const _todayWake = _wake;
                 let _nightStretchMin = 0;
@@ -24708,9 +24739,14 @@ function App(){
                   let _wakeM = timeVal(_todayWake);
                   if (_wakeM < _bedM) _wakeM += 1440;
                   _nightStretchMin = _wakeM - _bedM;
-                  // Night wakes: count time awake from wake entries
-                  const _nightWakes = _yEnt.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night);
-                  _nightWakes.forEach(w => { _nightWakeMin += (w.wakeDuration || 0); });
+                  // Sanity: night stretch can't be more than 16 hours
+                  if (_nightStretchMin > 960) _nightStretchMin = 0;
+                  // Night wakes: check both yesterday (after bed) and today (before wake)
+                  const _nightWakes = [
+                    ..._yEnt.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night),
+                    ..._ent.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night)
+                  ];
+                  _nightWakes.forEach(w => { _nightWakeMin += (parseInt(w.assistedDuration)||0); });
                   // If no durations logged, estimate from wake count
                   if (_nightWakeMin === 0 && _nightWakes.length > 0) _nightWakeMin = _nightWakes.length * 15;
                 }
