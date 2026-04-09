@@ -22323,13 +22323,13 @@ function App(){
                   </div>
                 );
               }
-              // Use tick effect's simple napsComplete check (matches pill countdown logic)
-              // Also: if it's past predicted bedtime OR past 8pm with no nap countdown, it's bedtime
+              // ═══ SINGLE SOURCE: predictNextNap() decides nap vs bed ═══
               const _td = tickDataRef.current || {};
               const _nowH = new Date().getHours();
-              const isBed = (bedCountdown !== null && (_td.napsComplete || false))
-                || (napCountdown !== null && napCountdown <= 0 && _nowH >= 20)
-                || (bedCountdown !== null && bedCountdown <= 0);
+              // Ask the Plan: is there a nap coming, or is it bedtime?
+              let _pillPred = null;
+              try { _pillPred = predictNextNap ? predictNextNap() : null; } catch {}
+              const isBed = !_pillPred; // no nap predicted = bedtime mode
               // Shared state for all users
               const _todayE2 = (days[selDay]||[]).filter(e=>!e.night);
               const _wakeE2 = _todayE2.find(e=>e.type==="wake");
