@@ -132,6 +132,37 @@ const mtp24h = m => { const n=((m%1440)+1440)%1440; return String(Math.floor(n/6
 const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
 // A day has meaningful data if it has at least 2 non-auto entries (wake + something)
 const dayHasData = (entries) => { if(!entries || !entries.length) return false; const real = entries.filter(e => !e.auto); return real.length >= 2; };
+// ═══ Smart Hydration Count ═══
+// A wet nappy after a long sleep stretch counts as more than 1 (baby was hydrated overnight).
+// Also provides age-adjusted targets.
+function smartHydration(dayEntries, ageWeeks) {
+  if (!dayEntries || !dayEntries.length) return { count: 0, target: 6, label: "0 of 6+" };
+  const wetNappies = dayEntries.filter(e => { if(e.type!=="poop") return false; const p=(e.poopType||"").toLowerCase(); return p.includes("wet")||p==="both"; });
+  let smartCount = 0;
+  wetNappies.forEach(n => {
+    const nMins = n.time ? (parseInt(n.time.split(":")[0])*60+parseInt(n.time.split(":")[1])) : 0;
+    // Find the previous sleep/nap that ended before this nappy
+    const prevSleeps = dayEntries.filter(e => (e.type==="nap"||e.type==="sleep") && e.end).map(e => {
+      const [eh,em] = (e.end||"00:00").split(":").map(Number); return eh*60+em;
+    }).filter(m => m <= nMins + 15); // within 15 min of nappy = post-sleep nappy
+    // Also check: is this the first nappy of the day (morning nappy after overnight)?
+    const isFirstNappy = wetNappies.indexOf(n) === 0;
+    const isAfterLongSleep = prevSleeps.length > 0;
+    // Check gap since previous nappy
+    const nIdx = wetNappies.indexOf(n);
+    const prevNappy = nIdx > 0 ? wetNappies[nIdx-1] : null;
+    const gap = prevNappy && prevNappy.time ? nMins - (parseInt(prevNappy.time.split(":")[0])*60+parseInt(prevNappy.time.split(":")[1])) : (isFirstNappy ? 720 : 0); // first nappy: assume 12h overnight gap
+    // Smart counting: gap 6-10h = counts as 2, gap 10+h = counts as 3
+    if (gap >= 600) smartCount += 3; // 10+ hours (overnight)
+    else if (gap >= 360) smartCount += 2; // 6-10 hours (long nap or early overnight)
+    else smartCount += 1; // normal daytime change
+  });
+  // Age-adjusted target
+  const months = (ageWeeks || 0) / 4.33;
+  const target = months < 6 ? 6 : months < 12 ? 5 : 4;
+  const ok = smartCount >= target;
+  return { count: smartCount, raw: wetNappies.length, target, ok, label: smartCount + " of " + target + "+" };
+}
 const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString(navigator.language||"en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
@@ -225,6 +256,33 @@ var getResolvedRecentDays = function(days, currentDayKey, n) {
 };
 
 // ═══ End Day Resolution Layer ══════════════════════════════════
+
+// ═══ Android Persistent Timer Notification (lock screen) ═══
+// Shows a sticky notification when a timer is running, similar to Huckleberry
+const TIMER_NOTIF_ID = 99999;
+function showTimerNotification(title, body) {
+  try {
+    const LN = window.Capacitor?.Plugins?.LocalNotifications;
+    if (!LN) return;
+    // Only on Android (iOS uses Live Activities)
+    if (window.Capacitor?.getPlatform?.() !== 'android') return;
+    LN.schedule({ notifications: [{
+      id: TIMER_NOTIF_ID, title, body,
+      ongoing: true, autoCancel: false,
+      channelId: "obubba_timers",
+      smallIcon: "ic_notification",
+      iconColor: "#C07088"
+    }] }).catch(()=>{});
+  } catch {}
+}
+function clearTimerNotification() {
+  try {
+    const LN = window.Capacitor?.Plugins?.LocalNotifications;
+    if (!LN) return;
+    if (window.Capacitor?.getPlatform?.() !== 'android') return;
+    LN.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] }).catch(()=>{});
+  } catch {}
+}
 
 const hm = m => { if(typeof m!=="number"||isNaN(m))return"—"; m=Math.round(m); if(m<=0)return"0m"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 // Helper: true for feeds baby actually consumed (excludes pump sessions which are expressed milk, not intake)
@@ -3297,13 +3355,24 @@ function App(){
 
         if (t === "sleep") {
           if (!startTime) { skipped++; continue; }
-          // Detect bedtime vs nap: sleep starting after 6pm = bedtime, otherwise nap
           const _sh = parseInt(startTime.split(":")[0]);
-          if (_sh >= 18 || _sh < 4) {
-            // Bedtime
+          const _sm = parseInt(startTime.split(":")[1])||0;
+          // Calculate duration if both start and end exist
+          let _durMins = 0;
+          if (endTime) {
+            const [_eh,_em] = endTime.split(":").map(Number);
+            _durMins = (_eh*60+_em) - (_sh*60+_sm);
+            if (_durMins < 0) _durMins += 1440; // crosses midnight
+          }
+          // Classify: bedtime vs nap
+          // Bedtime if: starts 5pm-4am, OR duration > 3 hours (180min), OR starts 4-5pm AND > 2h
+          const _isBedtime = _sh >= 17 || _sh < 4 || _durMins >= 180 || (_sh >= 16 && _durMins >= 120);
+          if (_isBedtime) {
             addEntry(dateStr, {type:"sleep", time:startTime, night:false, note:notes});
           } else {
-            addEntry(dateStr, {type:"nap", start:startTime, end:endTime||startTime, note:notes});
+            // Nap: cap at 6h max (sanity check for bad import data)
+            const _cappedEnd = endTime || startTime;
+            addEntry(dateStr, {type:"nap", start:startTime, end:_cappedEnd, note:notes});
           }
         } else if (t === "feed") {
           if (!startTime) { skipped++; continue; }
@@ -3747,6 +3816,8 @@ function App(){
   // Nappy reminder
   const[nappyReminderMins,setNappyReminderMins]=useState(()=>{try{return parseInt(localStorage.getItem("nappy_reminder_v1"))||0;}catch{return 0;}});
   useEffect(()=>{try{localStorage.setItem("nappy_reminder_v1",String(nappyReminderMins));}catch{}},[nappyReminderMins]);
+  // Day boundary mode: "wake" = day starts at morning wake (sleep consultant standard), "midnight" = simple calendar days
+  const[dayBoundary,setDayBoundary]=usePersistedState("ob_day_boundary_v1","wake");
   const nappyReminderRef = React.useRef(null);
   useEffect(()=>{
     clearInterval(nappyReminderRef.current);
@@ -3876,7 +3947,7 @@ function App(){
     })();
   },[]);
   const[msShowPastMs,setMsShowPastMs]=useState(false);
-  const[msShowUpcoming,setMsShowUpcoming]=useState(false);
+  const[msShowUpcoming,setMsShowUpcoming]=useState(true);
   const[msShowAchieved,setMsShowAchieved]=useState(false);
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
   const[insightFilter,setInsightFilter]=useState(null);
@@ -4042,7 +4113,7 @@ function App(){
   const[showObservations,setShowObservations]=useState(false);
   const addObservation = React.useCallback((icon, title, body, wedid, priority) => {
     // Dedupe: if an observation with same title exists today, skip
-    // Cap: max 5 observations per day to avoid overwhelming parents
+    // Cap: max 3 observations per day. only show the most important ones
     const _now = Date.now();
     const _todayStart = new Date(); _todayStart.setHours(0,0,0,0);
     let _didAdd = false;
@@ -4053,7 +4124,7 @@ function App(){
       if (_recent) return prev;
       // Daily cap: count today's observations
       const _todayCount = (prev||[]).filter(o => (o.ts||0) >= _todayStart.getTime()).length;
-      if (_todayCount >= 5) {
+      if (_todayCount >= 3) {
         // Only allow priority 1-2 (critical/high) to exceed the cap
         if (_prio > 2) return prev;
       }
@@ -4157,7 +4228,7 @@ function App(){
     if (startT) {
       const [sh,sm] = startT.split(":").map(Number);
       const now = new Date();
-      const startDate = new Date(); startDate.setHours(sh,sm,0,0);
+      const startDate = napDay ? new Date(napDay+"T"+startT+":00") : (()=>{const d=new Date();d.setHours(sh,sm,0,0);return d;})();
       const elapsedH = (now - startDate) / (1000*3600);
       if (elapsedH > 4 || elapsedH < -1) {
         console.warn("OBubba: timer running 4h+ or negative. auto-stopping");
@@ -4182,6 +4253,25 @@ function App(){
   const bedPauseStartRef = useRef(null);
   const bedTotalPausedSecRef = useRef(0);
   useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;bedTotalPausedSecRef.current=bedTotalPausedSec;},[bedPaused,bedPauseStart,bedTotalPausedSec]);
+  // Auto-stop stale bed timer: if today has a morning wake, bed timer from last night should be cleared
+  useEffect(()=>{
+    if (!bedTimerDay) return;
+    try {
+      const _todayK = new Date().toISOString().split("T")[0];
+      const _todayEnt = days[_todayK] || [];
+      const _hasWake = _todayEnt.some(e => e.type === "wake" && !e.night);
+      if (_hasWake) {
+        console.log("[OBubba] Morning wake found. auto-stopping stale bed timer from", bedTimerDay);
+        setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+        try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+        clearTimerNotification(); // Android: clear lock screen notification
+        if(window.Capacitor?.Plugins?.OBLiveActivity) {
+          window.Capacitor.Plugins.OBLiveActivity.stop?.().catch(()=>{});
+          window.Capacitor.Plugins.OBLiveActivity.stopPrediction?.().catch(()=>{});
+        }
+      }
+    } catch {}
+  },[bedTimerDay, days]);
   const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
   const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
@@ -4211,9 +4301,11 @@ function App(){
 
         const now=new Date();
         const [sh,sm]=startT.split(":").map(Number);
-        const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+        // Use stored nap_start_day to build correct start date (survives midnight crossing)
+        const _napDay2 = localStorage.getItem("nap_start_day");
+        const startDate = _napDay2 ? new Date(_napDay2+"T"+startT+":00") : (()=>{const d=new Date();d.setHours(sh,sm,0,0);return d;})();
         const elapsed=Math.floor((now-startDate)/1000);
-        // Cap at 23h. if negative (start was yesterday), fall back to savedSec
+        // Cap at 23h. if negative or very old, fall back to savedSec
         if(elapsed<0||elapsed>23*3600) return savedSec;
         return elapsed>0?elapsed:savedSec;
       }
@@ -4245,7 +4337,20 @@ function App(){
   const[timerEndPrompt,setTimerEndPrompt]=useState(null); // {start, end, durMins} when timer stopped
   // Bug 1: explicit timer mode. 'prediction' | 'activeSleep'
   const[timerMode,setTimerMode]=useState(()=> {
-    try { return localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction"); } catch { return "prediction"; }
+    try {
+      const _tm = localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction");
+      // If timerMode is activeSleep, verify bed timer is valid
+      if (_tm === "activeSleep") {
+        const _btd = localStorage.getItem("bed_timer_day");
+        const _today = new Date().toISOString().split("T")[0];
+        // Stale if: no bed_timer_day at all, OR bed_timer_day is from a previous day
+        if (!_btd || _btd < _today) {
+          ["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start","timer_mode_v1"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+          return "prediction";
+        }
+      }
+      return _tm;
+    } catch { return "prediction"; }
   });
 
   // ── Per-child timer isolation: save/restore timer state on child switch ──
@@ -4668,6 +4773,43 @@ function App(){
     });
   },[]);
 
+  // ── One-time cleanup: remove night:true from food entries (misclassified catch-up logs) ──
+  useEffect(()=>{
+    try {
+      if (localStorage.getItem("ob_food_night_fix_v5")) return;
+      localStorage.setItem("ob_food_night_fix_v5", "1");
+      // Fix misclassified night entries: food catch-ups + daytime entries marked as night
+      const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus","mash","melty","finger","stick","puree","app ","avocado"];
+      setDays(d=>{
+        let changed = false;
+        const result = {...d};
+        Object.keys(d).forEach(dk=>{
+          const arr = d[dk];
+          if (!arr || !arr.length) return;
+          let dayChanged = false;
+          const fixed = arr.map(e=>{
+            if (!e.night || e._nightFixed) return e;
+            const note = ((e.note||"")+"").toLowerCase().trim();
+            const [eh] = (e.time||"06:00").split(":").map(Number);
+            // Rule 1: food-like note = not a night entry
+            if (note && _foodWords.some(f=>note.includes(f))) {
+              dayChanged = true;
+              return {...e, night: false, nightLocked: false, modifiedAt: Date.now(), _nightFixed: true};
+            }
+            // Rule 2: ANY "night" entry between 6am-5pm = almost certainly daytime
+            if (eh >= 6 && eh < 17) {
+              dayChanged = true;
+              return {...e, night: false, nightLocked: false, modifiedAt: Date.now(), _nightFixed: true};
+            }
+            return e;
+          });
+          if (dayChanged) { result[dk] = fixed; changed = true; }
+        });
+        return changed ? result : d;
+      });
+    } catch {}
+  },[]);
+
   useEffect(()=>{
     const check = setInterval(()=>{
       if(window._fb){ setFbReady(true); clearInterval(check); }
@@ -4675,70 +4817,37 @@ function App(){
     return ()=>clearInterval(check);
   },[]);
 
-  // ── Cold-start Live Activity restore ──────────────────────────
-  // When app is killed and relaunched while a timer is active,
-  // restart the Live Activity so the Dynamic Island / Lock Screen banner reappears.
+  // ── Cold-start Live Activity: KILL ALL then let normal flow recreate ──
+  // On every cold start, unconditionally stop all Live Activities.
+  // The normal tick/timer useEffects will recreate the correct one if needed.
+  // This prevents stale timers (21h sleeping, yesterday's bedtime) from persisting.
   useEffect(()=>{
     if(!window._isNative) return;
     const _la = window.Capacitor?.Plugins?.OBLiveActivity;
     if(!_la) return;
-    // Small delay so all state is fully initialised before we query
-    const t = setTimeout(async()=>{
+    // Kill immediately AND after a delay (iOS sometimes needs both)
+    const kill = ()=>{ try{_la.stop?.().catch(()=>{});_la.stopPrediction?.().catch(()=>{});}catch{} };
+    kill();
+    const t1 = setTimeout(kill, 500);
+    const t2 = setTimeout(kill, 1500);
+    // After killing, restore ONLY the nap timer if genuinely active today
+    const t3 = setTimeout(()=>{
       try {
-        // CRITICAL: Always stop any stale LA before restoring to prevent duplicates.
-        // iOS may have kept a Live Activity running from a previous session that
-        // should no longer be displayed (e.g. yesterday's bedtime that was never stopped).
-        try { await _la.stop?.().catch(()=>{}); } catch {}
-        try { await _la.stopPrediction?.().catch(()=>{}); } catch {}
         if(napOn && napStartT) {
-          // Nap timer is still running. restore nap Live Activity
-          const [_h,_m] = napStartT.split(":").map(Number);
-          const _startDate = new Date();
-          _startDate.setHours(_h,_m,0,0);
-          // If the time is in the future it must have been yesterday
-          if(_startDate > new Date()) _startDate.setDate(_startDate.getDate()-1);
-          _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime()}).catch(()=>{});
-        } else if(timerMode==="activeSleep" && !napOn) {
-          // Bedtime is active. find the bed entry and use settle time
-          const _todayK = new Date().toISOString().split("T")[0];
-          const _prevK = (()=>{const dt=new Date(_todayK+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-          const _todayEntries = days[_todayK]||[];
-          const _prevEntries = days[_prevK]||[];
-          // Bed entry: today's or (if it's still night-time) yesterday's bedtime
-          const _bedE = findBedtime(_todayEntries) || findBedtime(_prevEntries);
-          if(_bedE && _bedE.time) {
-            const _bedMinsX = timeVal(_bedE);
-            // Night wakes: on prev day after bedtime OR on today's entries early AM
-            const _nightWakesT = [
-              ..._prevEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&timeVal(e)>=_bedMinsX),
-              ..._todayEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&timeVal(e)<8*60)
-            ].sort((a,b)=>{
-              const ta=timeVal(a),tb=timeVal(b);
-              const ka=ta>=_bedMinsX?ta:ta+1440;
-              const kb=tb>=_bedMinsX?tb:tb+1440;
-              return ka-kb;
-            });
-            // CUMULATIVE SLEEP MODEL: sum awake stretches, shift bedtime forward by that total.
-            // Virtual start = bedtime + totalAwakeSec. Timer ticks up = cumulative sleep since bedtime.
-            let _totalAwakeSec = 0;
-            for(const _w of _nightWakesT) {
-              const _ad = parseInt(_w.assistedDuration)||0;
-              _totalAwakeSec += _ad * 60;
-            }
-            // Build startDate: bedtime origin
-            const _startDate = new Date();
-            const _displayMins = _bedMinsX % 1440;
-            _startDate.setHours(Math.floor(_displayMins/60)%24,_displayMins%60,0,0);
-            // If bedtime appears to be in the future it was yesterday
-            if(_startDate.getTime() > Date.now()+60000) _startDate.setDate(_startDate.getDate()-1);
-            // Shift forward by awake time so counter-up = cumulative sleep
-            const _virtualStart = _startDate.getTime() + (_totalAwakeSec * 1000);
-            _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_virtualStart}).catch(()=>{});
+          const _napDay = localStorage.getItem("nap_start_day");
+          const _today = new Date().toISOString().split("T")[0];
+          if (_napDay === _today) {
+            const [_h,_m] = napStartT.split(":").map(Number);
+            const _sd = new Date(); _sd.setHours(_h,_m,0,0);
+            if(_sd > new Date()) _sd.setDate(_sd.getDate()-1);
+            _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_sd.getTime()}).catch(()=>{});
           }
         }
-      } catch(_e) { console.warn("Live Activity restore failed",_e); }
-    }, 1200);
-    return ()=>clearTimeout(t);
+        // Bed timer LA is recreated by the normal night-mode rendering, not here.
+        // This eliminates the stale bed timer restart entirely.
+      } catch {}
+    }, 2000);
+    return ()=>{ clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
   const pushToCloud = React.useCallback(async(code, allChildren) => {
@@ -5269,7 +5378,9 @@ function App(){
   const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
   const justRestoredRef = React.useRef(false);
   const cloudEntryCountRef = React.useRef(0);
-  const deletedDaysRef = React.useRef(new Set());
+  const deletedDaysRef = React.useRef(new Set(
+    (()=>{ try { const s=localStorage.getItem("ob_deleted_days"); return s?JSON.parse(s):[]; } catch{ return []; } })()
+  ));
   // Persist deleted entry IDs so cloud sync doesn't resurrect them after restart
   const deletedEntryIdsRef = React.useRef(new Set(
     (()=>{ try { const s=localStorage.getItem("ob_deleted_ids"); return s?JSON.parse(s):[]; } catch{ return []; } })()
@@ -6655,7 +6766,7 @@ function App(){
       // Include ALL entries (not just night). morning nappies/feeds logged before wake
       // might be stored on yesterday's key but should count as today's widget data
       var _bedDayEntries = [];
-      if (bedTimerDay && bedTimerDay !== todayKey) {
+      if (dayBoundary === "wake" && bedTimerDay && bedTimerDay !== todayKey) {
         var _todayMidnight = new Date(todayKey + "T00:00:00");
         _bedDayEntries = (days[bedTimerDay] || []).filter(function(e) {
           // Include night entries (always) + any entry with time after midnight (belongs to today)
@@ -6715,8 +6826,8 @@ function App(){
       // Determine active timer
       var activeTimer = null, timerStartTime = null, timerStartMs = null, activeSide = null;
       if (napOn && napStartT) { activeTimer = "nap"; timerStartTime = napStartT; timerStartMs = _hhmToMs(napStartT); }
-      // Check bedtime on today or bedTimerDay (if bedtime was logged on a previous calendar day)
-      var _bedDayEntries = bedTimerDay ? (days[bedTimerDay]||[]) : rd;
+      // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only
+      var _bedDayEntries = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : rd;
       var _bedEntry = findBedtime(_bedDayEntries) || findBedtime(rd);
       if (_bedEntry && !activeTimer) {
         // Check if baby has woken up. morning wake on today means night is over
@@ -6758,58 +6869,11 @@ function App(){
 
       // Next predicted event. show nap/bed countdown on widget
       // Pass both formatted string AND epoch ms so widget can show live countdown
-      var nextPrediction = null;
-      var nextPredictionMs = null;
-      var nextPredictionLabel = null;
-      try {
-        var td = tickDataRef.current || {};
-        // If next predicted nap is within 30 min of bedtime, it IS bedtime. show "Bed"
-        // Call predictNextNap() directly so widget always matches hero card & Today's Plan
-        var _freshPred = tickDataRef.current.pred;
-        var _napMinsForWidget = td.nextNapMins;
-        if (_freshPred && typeof _freshPred.napStart_min === "number") {
-          _napMinsForWidget = Math.round(_freshPred.napStart_min);
-        }
-        var _napIsActuallyBed = _napMinsForWidget && td.bedMins && (_napMinsForWidget >= td.bedMins - 30);
-        if (_napMinsForWidget && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
-          var npH = Math.floor(_napMinsForWidget/60)%24, npM = Math.round(_napMinsForWidget%60);
-          var _napNum = (td.napsDone || 0) + 1;
-          nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2,"0") + ":" + String(npM).padStart(2,"0"));
-          nextPredictionLabel = "Nap " + _napNum;
-          var _npDate = new Date(); _npDate.setHours(npH, npM, 0, 0);
-          if (_npDate.getTime() > Date.now()) {
-            // Future. show countdown
-            nextPredictionMs = _npDate.getTime();
-          } else {
-            // Nap prediction has passed. baby is overdue for a nap
-            nextPrediction = "Nap " + _napNum + " \u2014 time for a nap";
-            nextPredictionLabel = "Nap " + _napNum;
-            nextPredictionMs = null; // no countdown, just the nudge text
-          }
-        } else if (td.bedMins && (td.napsComplete || _napIsActuallyBed) && !td.hasBedtime) {
-          var bpH = Math.floor(td.bedMins/60)%24, bpM = Math.round(td.bedMins%60);
-          nextPrediction = "Bed ~" + fmt12(String(bpH).padStart(2,"0") + ":" + String(bpM).padStart(2,"0"));
-          nextPredictionLabel = "Bedtime";
-          var _bpDate = new Date(); _bpDate.setHours(bpH, bpM, 0, 0);
-          if (_bpDate.getTime() > Date.now()) {
-            nextPredictionMs = _bpDate.getTime();
-          } else {
-            // Bedtime has passed. show nudge text, no countdown
-            nextPrediction = "Time for bed";
-            nextPredictionLabel = "Bedtime";
-            nextPredictionMs = null;
-          }
-        }
-        // Fallback: show bedtime if no nap/bed prediction but bedtime IS predicted
-        if (!nextPrediction && td.bedMins && !td.hasBedtime) {
-          var _fbH = Math.floor(td.bedMins/60)%24, _fbM = Math.round(td.bedMins%60);
-          nextPrediction = "Bed ~" + fmt12(String(_fbH).padStart(2,"0") + ":" + String(_fbM).padStart(2,"0"));
-          nextPredictionLabel = "Bedtime";
-          var _fbDate = new Date(); _fbDate.setHours(_fbH, _fbM, 0, 0);
-          if (_fbDate.getTime() < Date.now()) _fbDate.setDate(_fbDate.getDate() + 1);
-          nextPredictionMs = _fbDate.getTime();
-        }
-      } catch(ex2) {}
+      // ═══ SINGLE SOURCE: read prediction strings from tickDataRef (computed once in tick useMemo) ═══
+      var td = tickDataRef.current || {};
+      var nextPrediction = td.nextPrediction || null;
+      var nextPredictionMs = td.nextPredictionMs || null;
+      var nextPredictionLabel = td.nextPredictionLabel || null;
 
       // Breastfeeding detection: show nursing buttons if breast feed logged in last 7 days
       var showNursing = false;
@@ -6925,10 +6989,14 @@ function App(){
     const bedtimeFloor = clampBedtime(0, ageWeeks);
     let _planPred = null;
     try { _planPred = predictNextNap ? predictNextNap() : null; } catch(e) { console.error('[OBubba] predictNextNap crashed:', e.message, e.stack?.split('\n').slice(0,3).join(' | ')); }
-    // napsComplete should check napsDone vs expectedNaps, NOT just whether prediction returned null
-    // predictNextNap returns null for many reasons (close to bedtime, budget met, error)
-    // but 0 naps done should never be "naps complete"
-    let napsComplete = napsDone >= expectedNaps && !_planPred;
+    // Debug: log why napsComplete is set
+    if (!_planPred && napsDone < 3) console.warn('[OBubba] predictNextNap returned null with only', napsDone, 'naps done. expectedNaps:', expectedNaps, 'totalNapMins:', totalNapMins);
+    // napsComplete: true when nap count met AND prediction engine agrees (returns null).
+    // Also true if nap prediction is 30+ min overdue and baby isn't sleeping — skip to bed.
+    const _nowMinsTC = new Date().getHours()*60 + new Date().getMinutes();
+    const _napOverdue = _planPred && typeof _planPred.napStart_min === "number" && !napOn
+      && (_nowMinsTC - _planPred.napStart_min > 30);
+    let napsComplete = (napsDone >= expectedNaps && !_planPred) || _napOverdue;
     const nextNapMins = _planPred && typeof _planPred.napStart_min === "number" ? Math.round(_planPred.napStart_min) : null;
 
     // Fragmented nap detection from data (used for observations, not overriding Plan)
@@ -6974,10 +7042,11 @@ function App(){
         else lastNightEvent = lw.time;
       }
       // ═══ NEXT EVENT — single source of truth for hero, pill, coming up, widget ═══
-      const _nextEvent = _planPred && typeof _planPred.napStart_min === "number"
-        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+      // If nap is 30+ min overdue, switch to bedtime (baby didn't settle)
+      const _nextEvent = (_planPred && typeof _planPred.napStart_min === "number" && !_napOverdue)
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - _nowMinsTC }
         : bedMins
-        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - _nowMinsTC }
         : null;
       tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile, nextEvent: _nextEvent };
       // Bad Night Badge. solidarity after rough nights
@@ -6990,17 +7059,41 @@ function App(){
         }
       } catch {}
     } else {
-      const _nextEvent2 = _planPred && typeof _planPred.napStart_min === "number"
-        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+      const _nextEvent2 = (_planPred && typeof _planPred.napStart_min === "number" && !_napOverdue)
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - _nowMinsTC }
         : bedMins
-        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - _nowMinsTC }
         : null;
       tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins, nextEvent: _nextEvent2 };
     }
     // Keep pred/bed for other consumers (premium/trial only for personal predictions)
-    try { tickDataRef.current.pred = (isPremium || trialActive) ? predictNextNap() : null; } catch {}
+    // pred/bed cached for Plan view and detailed displays
+    try { tickDataRef.current.pred = predictNextNap(); } catch {}
     try { tickDataRef.current.bed = bedtimePrediction(); } catch {}
     try { tickDataRef.current.bridgeInfo = earlyBedtimeRisk(); } catch {}
+
+    // ═══ SINGLE SOURCE: widget/hero/countdown prediction strings ═══
+    // Computed ONCE here. ALL surfaces read from tickDataRef. No duplicate computation.
+    try {
+      const _ne = tickDataRef.current.nextEvent;
+      const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
+      let _wp = null, _wpMs = null, _wpLabel = null;
+      if (_ne && _ne.type === "nap" && _ne.timeMins) {
+        const _napNum = (napsDone || 0) + 1;
+        _wp = (bridgeNapNeeded ? "Bridge nap" : "Nap " + _napNum) + " ~" + fmt12(_ne.timeMins);
+        _wpLabel = bridgeNapNeeded ? "Bridge nap" : "Nap " + _napNum;
+        var _npD = new Date(); _npD.setHours(Math.floor(_ne.timeMins/60)%24, _ne.timeMins%60, 0, 0);
+        if (_npD.getTime() > Date.now()) _wpMs = _npD.getTime();
+      } else if (bedMins && !hasBedtime) {
+        _wp = "Bed ~" + fmt12(bedMins);
+        _wpLabel = "Bedtime";
+        var _bpD = new Date(); _bpD.setHours(Math.floor(bedMins/60)%24, bedMins%60, 0, 0);
+        if (_bpD.getTime() > Date.now()) _wpMs = _bpD.getTime();
+      }
+      tickDataRef.current.nextPrediction = _wp;
+      tickDataRef.current.nextPredictionMs = _wpMs;
+      tickDataRef.current.nextPredictionLabel = _wpLabel;
+    } catch {}
 
     // ── BubbaRhythm Score (daily vibe score 0-100) ──
     try {
@@ -7038,7 +7131,7 @@ function App(){
         tickDataRef.current.rhythmVibe = _rsVibe;
       }
     } catch {}
-  },[selDay, days, age, bridgeNapScheduled, napStructure]);
+  },[selDay, days, age, bridgeNapScheduled, napStructure, napOn, napEntryId]);
 
   // Helper: get next nap/bed label for Live Activity display (e.g. "Nap 2 2:00pm" or "Bed 7:30pm")
   function _getNextNapBedLabel() {
@@ -7120,8 +7213,8 @@ function App(){
 
     // Prediction countdown mode
     // Recompute lastNightEvent fresh here so it's never stale after a night wake is logged
-    // Check bedtime on the day it was logged (bedTimerDay) or selDay
-    const _bedCheckEntries = bedTimerDay ? (days[bedTimerDay]||[]) : (days[selDay]||[]);
+    // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only
+    const _bedCheckEntries = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : (days[selDay]||[]);
     const _bedEntry = findBedtime(_bedCheckEntries) || findBedtime(days[selDay]||[]);
     const _hasBed = !!_bedEntry;
     if(_hasBed) {
@@ -7223,15 +7316,9 @@ function App(){
       }
 
       // ── PHASE 3: All naps done → bedtime countdown ──
-      // Call bedtimePrediction() directly so countdown matches Today's Plan exactly
+      // ═══ SINGLE SOURCE: bedtime countdown reads from tickDataRef.bedMins ═══
       if (td.napsComplete) {
-        const _countdownBed = tickDataRef.current.bed;
-        let _countdownBedMins = td.bedMins;
-        if (_countdownBed && _countdownBed.time) {
-          try { const [_bh,_bm] = _countdownBed.time.split(":").map(Number); _countdownBedMins = _bh*60+_bm; } catch {}
-        }
-        // Use Today's Plan bedtime if available (single source of truth)
-        if (tickDataRef.current.planBedMins) _countdownBedMins = tickDataRef.current.planBedMins;
+        const _countdownBedMins = td.bedMins;
         if (_countdownBedMins !== null && typeof _countdownBedMins === "number" && !isNaN(_countdownBedMins)) {
           setNapCountdown(null);
           const diffSec = Math.round((_countdownBedMins - nowMins) * 60);
@@ -7262,10 +7349,12 @@ function App(){
       try {
         const _la = window.Capacitor?.Plugins?.OBLiveActivity;
         if (!_la) return;
-        // Check localStorage directly. always current, no React batching issues
+        // Check localStorage + entry data. covers timer desync after rebuild/update
+        const _hasActiveNapLA = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
         const _anyTimer = localStorage.getItem("nap_on") === "1"
           || localStorage.getItem("breast_active") === "1"
-          || !!bedTimerDay;
+          || !!bedTimerDay
+          || _hasActiveNapLA;
         if (_anyTimer) {
           if (_predLAState !== "") { _la.stopPrediction?.().catch(()=>{}); _predLAState = ""; }
           return;
@@ -7379,7 +7468,7 @@ function App(){
     // Only count naps that are actually finished (end differs from start and has positive duration)
     // The active nap entry has end===start while running. exclude it so "naps complete" doesn't fire early
     // Deduplicate: if two naps have the same start time, keep only the one with the longer duration
-    const _completedNapsRaw = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5);
+    const _completedNapsRaw = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5 && n.id !== napEntryId);
     const _napsByStart = {};
     _completedNapsRaw.forEach(n => {
       const key = n.start;
@@ -7392,25 +7481,11 @@ function App(){
     const _totalNapMin = _completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     const _ageExpected = _profile.expectedNaps;
     let _structExpected = napStructure ? napStructure.effectiveNapCount : _ageExpected;
-    // Match predictNextNap() logic: long first nap (≥75min) → one fewer nap today
-    if (_completedNaps.length >= 1) {
-      const _firstDur = minDiff(_completedNaps[0].start, _completedNaps[0].end);
-      if (_firstDur >= 75 && _structExpected > 1) _structExpected = _structExpected - 1;
-      else if (_firstDur < 40) _structExpected = Math.max(_structExpected, _ageExpected);
-    }
-    // Nap budget exhausted → no more naps
-    if (_totalNapMin >= _profile.idealTotalMax) _structExpected = Math.min(_structExpected, _napsDone);
-    // Consult predictNextNap(). if it returns null, no more naps fit today
-    // This ensures hero card matches Today's Plan exactly
-    try {
-      if (_napsDone > 0 && !napOn) {
-        const _heroP = tickDataRef.current.pred;
-        if (!_heroP) _structExpected = Math.min(_structExpected, _napsDone);
-      }
-    } catch {}
-    const _adjustedExpected = _structExpected;
+    // ═══ SINGLE SOURCE: read napsComplete from tickDataRef (computed once in tick useMemo) ═══
+    // Don't recompute here — the tick useMemo already handles long naps, budget, and transitions.
+    const _adjustedExpected = (tickDataRef.current || {}).expectedNaps || _structExpected;
     const _longNapNote = (_structExpected < _ageExpected) ? " (adjusted today)" : "";
-    let _napsComplete = _napsDone >= _adjustedExpected;
+    let _napsComplete = (tickDataRef.current || {}).napsComplete || _napsDone >= _adjustedExpected;
     const _dailySleepMax = _profile.idealNapDurMax * _adjustedExpected;
 
     // ── Awake time ──
@@ -7459,9 +7534,9 @@ function App(){
       const _targetBed = _personalBedtime && _personalBedtime > _bedtimeFloor ? _personalBedtime : _bedtimeFloor;
       const _gapToBed = _targetBed - _lastSleep;
       const _gapTooLong = _gapToBed > _gapTolerance;
-      if (_sleepBudgetUnder || _gapTooLong) {
+      if ((_sleepBudgetUnder || _gapTooLong) && !(tickDataRef.current||{}).napsComplete) {
         _bridgeNapNeeded = true;
-        _napsComplete = false; // stay in nap prediction mode
+        _napsComplete = false; // stay in nap prediction mode (but NOT if tick useMemo says naps are done)
       }
     }
 
@@ -7577,7 +7652,7 @@ function App(){
     } else if (_td2.nextNapMins) {
       // Build a fake _pred object from the simple midpoint so the hero card displays it
       const _nowMins2 = new Date().getHours()*60+new Date().getMinutes();
-      _pred = { napStart_min: _td2.nextNapMins, napStart_max: _td2.nextNapMins, sourceLabel: "Research-based guidelines", isOverdue: _nowMins2 > _td2.nextNapMins };
+      _pred = { napStart_min: _td2.nextNapMins, napStart_max: _td2.nextNapMins, sourceLabel: "OBubba Sleep Engine", isOverdue: _nowMins2 > _td2.nextNapMins };
     }
     let _bed = null; _bed = tickDataRef.current.bed;
 
@@ -7696,7 +7771,10 @@ function App(){
 
     // ── Build secondary info line (always: last feed + nappy context) ──
     const _secParts = [];
-    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr + (_nextFeedMlStr ? " · " + _nextFeedMlStr + (_feedMlContext ? " (bigger feed may help tonight)" : "") : "") : ""));
+    if (_feedGapM < 9000) {
+      const _isBedtime = _hasBed || !!bedTimerDay;
+      _secParts.push("\u{1F37C} " + (_isBedtime ? "Last feed " + hm(_feedGapM) + " ago" : "Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " \u00B7 next ~" + _nextFeedStr + (_nextFeedMlStr ? " \u00B7 " + _nextFeedMlStr + (_feedMlContext ? " (bigger feed may help tonight)" : "") : "") : "")));
+    }
     if (_nappyGapM < 9000 && _nappyGapM >= 120) _secParts.push("🧷 Nappy " + hm(_nappyGapM) + " ago");
     else if (_nappyGapM < 120 && _nappyGapM < 9000) _secParts.push("🧷 Nappy changed " + hm(_nappyGapM) + " ago");
     if (_growthSpurt) _secParts.push("📈 Possible growth spurt. extra feeds are normal");
@@ -7785,8 +7863,8 @@ function App(){
       }
     }
 
-    // ── PRIORITY 1: Night mode (bedtime active OR 9pm-5am with bedtime logged) ──
-    if ((_hasBed && bedTimerDay) || ((_h >= 21 || _h < 5) && _hasBed)) {
+    // ── PRIORITY 1: Night mode. starts the moment bedtime is logged ──
+    if (_hasBed) {
       const _bedEntry = findBedtime(_todayEntries);
       const _timeStr = nightElapsed !== null && nightElapsed > 0
         ? "Sleeping since " + (_bedEntry ? fmt12(_bedEntry.time) : "") + " · " + Math.floor(nightElapsed/3600) + "h " + Math.floor((nightElapsed%3600)/60) + "m"
@@ -8106,12 +8184,19 @@ function App(){
           _timing = "Bedtime at ~" + fmt12(_bed.time) + " · An earlier bedtime helps";
         }
       } else {
-        _dot = "#7BA68C"; _label = "All naps complete";
         const _expectedForAge = _profile.expectedNaps;
+        const _budgetOver = _totalNapMin >= _profile.idealTotalMax;
         const _missedNaps = _napsDone < _expectedForAge - 1 && _nowM >= bedtimeFloor - 30;
-        _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today";
-        if (_missedNaps) {
-          _rightNow = "Only " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today (usually " + _expectedForAge + "). If " + _name + " napped and you forgot to log, that's OK. bedtime prediction still works from what we have. If " + _name + " genuinely missed naps, an earlier bedtime helps.";
+        if (_budgetOver && _napsDone < _expectedForAge) {
+          _dot = "#7BA68C"; _label = "Great naps today. skip to bedtime";
+          _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + hm(_totalNapMin) + " day sleep (budget met)";
+          _rightNow = _name + " had great naps today (" + hm(_totalNapMin) + " total). Sleep consultants recommend skipping the remaining nap and going straight to an earlier bedtime. More day sleep can steal from night sleep.";
+        } else {
+          _dot = "#7BA68C"; _label = "All naps complete";
+          _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today";
+          if (_missedNaps) {
+            _rightNow = "Only " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today (usually " + _expectedForAge + "). If " + _name + " napped and you forgot to log, that's OK. bedtime prediction still works from what we have. If " + _name + " genuinely missed naps, an earlier bedtime helps.";
+          }
         }
         // Show bedtime routine button when within 1h of predicted bedtime
         const _bedPredMins3 = _bed && _bed.time ? (()=>{const [bh3,bm3]=_bed.time.split(":").map(Number);return bh3*60+bm3;})() : null;
@@ -8596,7 +8681,7 @@ function App(){
     let min, max, label;
     // Stages: [maxMonths, minWW, maxWW]
     const stages = [
-      [1.39, 30, 75],   // 0-6wk:   TCB 30-60, Cleveland 45-60, we use wider for flexibility
+      [1.39, 30, 90],   // 0-6wk:   TCB 30-60, Cleveland 45-60, wider for newborn variability
       [3,    45, 90],    // 6wk-3mo: TCB 60-90, consensus 45-90
       [5,    75, 120],   // 3-5mo:   TCB 75-120, tightened from [90,150]. overtiredness risk
       [7,    120, 180],  // 5-7mo:   TCB 2-3h, restored to match TCB range exactly
@@ -8798,7 +8883,7 @@ function App(){
         }
       });
     }
-    // Blend: personal data + NHS progressive (even 1 data point is better than pure NHS)
+    // Blend: personal data + Sleep Engine (even 1 data point is better than engine alone)
     if (positionWWs.length >= 1) {
       const sorted2 = [...positionWWs].sort((a,b)=>a.gap-b.gap);
       // Only trim outliers if we have enough data (5+). Otherwise use all entries.
@@ -8810,9 +8895,10 @@ function App(){
       const posAvg = totalWeight > 0 ? Math.round(trimmed.reduce((s,p)=>s+p.gap*p.weight,0) / totalWeight) : null;
       if (posAvg === null) { /* fall through to NHS fallback below */ }
       // Personal mode (true): blend personal + NHS. PREMIUM FEATURE
-      // NHS mode (false): pure NHS only. FREE
-      // Free users: full research-based engine (progressive WW, sleep pressure, bridge naps)
-      //   but NO personal data blending. uses NHS/research consensus only
+      // Sleep Engine mode (false): full engine without personal blending. FREE
+      // Free users: OBubba Sleep Engine (progressive WW, sleep pressure, bridge naps,
+      //   circadian alignment, regression awareness, teething mode) — everything except
+      //   personal rhythm blending from baby's tracked data
       // Premium users: same research base + personal tracked data blended in,
       //   gently nudging toward healthier sleep schedules
       const _isFreeUser = !hasAccess();
@@ -8847,7 +8933,7 @@ function App(){
         : "";
       sourceLabel = _usePersonal && posAvg !== null
         ? `${possessive(babyName||"Baby")} personal rhythm (${posAvg}min avg)${nudgeNote}`
-        : `Research-based guidelines for ${fmtAge(age)}`;
+        : `OBubba Sleep Engine for ${fmtAge(age)}`;
     } else {
       // Fall back to progressive NHS
       const clamped = Math.max(ww.min, Math.min(ww.max, nhsProgressive));
@@ -9044,12 +9130,15 @@ function App(){
     const nowMins = now.getHours()*60 + now.getMinutes();
     const isOverdue = nowMins > finalMaxMins;
 
-    if (!isOverdue) {
+    // Check if this would be a bridge nap (last nap before bed, close to bedtime)
+    const _isBridgeCandidate = napsDoneToday >= adjustedExpected - 1;
+    if (!isOverdue && !_isBridgeCandidate) {
       const bed = bedtimePrediction();
       if (bed) {
         const [bh, bm] = bed.time.split(":").map(Number);
         const bedMins = bh*60 + bm;
         // Bug 4: if predicted nap is within 90 min of bedtime, skip to bedtime
+        // BUT exempt bridge naps — they're meant to be close to bedtime
         if (bedMins - finalMinMins < 90) return null;
         // Bug 4: also skip if nap end would be too close to bedtime
         if (bedMins - finalMinMins < wakeWindowMax) return null;
@@ -9796,12 +9885,15 @@ function App(){
     const dk = _ntRecent.map(rd => rd.dayKey);
     const napCounts = _ntRecent.map(rd => rd.entries.filter(e=>e.type==="nap"&&!e.night).length);
     const daysWithFewer = napCounts.filter(n => n < profile.expectedNaps).length;
+    // Age ranges are a guide, not a gate. every baby is different.
+    // The lower bound is the EARLIEST a transition is physiologically reasonable.
+    // Data (consistent fewer naps + mature wake windows) can confirm readiness.
     const transitions = [
-      { from:4, to:3, ageRange:[17,26], ww:"2–3 hrs" },
-      { from:3, to:2, ageRange:[26,35], ww:"2.5–3.5 hrs" },
-      { from:2, to:1, ageRange:[56,78], ww:"4–6 hrs" },
+      { from:4, to:3, ageRange:[13,26], ww:"2–3 hrs" },
+      { from:3, to:2, ageRange:[20,39], ww:"2.5–3.5 hrs" },
+      { from:2, to:1, ageRange:[48,78], ww:"4–6 hrs" },
     ];
-    const match = transitions.find(t => w >= t.ageRange[0] && w <= t.ageRange[1] && profile.expectedNaps === t.from);
+    const match = transitions.find(t => w >= t.ageRange[0] && w <= t.ageRange[1] && profile.expectedNaps >= t.from);
     if (!match || daysWithFewer < 4) return null;
     const _adviceByTrans = {
       "3-2": `Stretch the morning wake window gradually. add 15 minutes every few days until it reaches 2.5–3 hours. The 3rd nap will start shortening naturally. When it disappears, shift the afternoon nap slightly earlier. Use a 6–6:30pm bedtime on days the 3rd nap is skipped. overtiredness causes more night wakes, not fewer. Give it 2–4 weeks. Some days will still need 3 naps and that's fine.`,
@@ -9889,7 +9981,8 @@ function App(){
     const dailyData = recent.map(rd => {
       const entries = rd.entries;
       const naps = entries.filter(e => e.type === "nap" && !e.night);
-      const napMins = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+      // Cap individual naps at 6h (360min) to prevent imported bad data from inflating totals
+      const napMins = naps.reduce((s, n) => s + Math.min(360, minDiff(n.start, n.end)), 0);
       const napCount = naps.length;
       const bedEntry = entries.find(e => e.type === "sleep" && !e.night);
       const wakeEntry = findMorningWake(entries);
@@ -10639,6 +10732,12 @@ function App(){
     const name = babyName || "Baby";
     const w = age.totalWeeks;
 
+    // Suppress nap predictions while napping, or when naps are complete (overdue → bedtime)
+    if (napOn) return null;
+    const _hasActiveNap2 = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+    if (_hasActiveNap2) return null;
+    if ((tickDataRef.current||{}).napsComplete) return null;
+
     // Check nap prediction
     const pred = tickDataRef.current.pred;
     if (pred && !pred.isOverdue) {
@@ -10651,10 +10750,10 @@ function App(){
 
     // Feed alerts handled by the Last Feed card. no duplicate banner needed
 
-    // Check hydration
-    const wetCount = today.filter(e => { if(e.type!=="poop") return false; const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
+    // Check hydration (smart counting: post-sleep nappies count as 2-3)
+    const _hydration = smartHydration(today, w);
     const h = new Date().getHours();
-    if (h >= 14 && wetCount < 4) return { emoji: "💧", text: `${wetCount} wet nappies today. aim for 6+ in 24 hours for adequate hydration.`, priority: "med", why: "NHS guidance recommends 6+ wet nappies in 24 hours as a sign of adequate hydration. Fewer wet nappies, especially in the afternoon, may mean baby needs more milk." };
+    if (h >= 14 && !_hydration.ok) return { emoji: "💧", text: `${_hydration.raw} wet nappies today (${_hydration.count} hydration score). aim for ${_hydration.target}+ for adequate hydration.`, priority: "med", why: `Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). ${_hydration.raw} changes = ${_hydration.count} hydration score vs ${_hydration.target}+ target for ${fmtAge(age)}.` };
 
     // Check bedtime approaching. two-stage alert
     const bed = tickDataRef.current.bed;
@@ -10903,7 +11002,8 @@ function App(){
       const recent14 = getRecentDays(14);
       if (recent14.length >= 7) {
         // 3→2 transition: age 26-39wk, last nap short/refused
-        if (w >= 26 && w <= 39 && baseNaps >= 3) {
+        // 3→2: data-driven. some babies ready from 20wk if wake windows are mature
+        if (w >= 20 && w <= 39 && baseNaps >= 3) {
           const lastNapShortDays = recent14.filter(d => {
             const naps = (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end);
             if (naps.length < 3) return true; // nap 3 didn't happen = "refused"
@@ -13048,14 +13148,29 @@ function App(){
       }
     }
 
-    // ── 6. Nappy Reminder (schedule based on last nappy time) ──
+    // ── 6. Nappy Reminder (smart: delays if baby is napping or nap is predicted) ──
     if(nappyReminderMins && nappyReminderMins > 0){
       const _todayNappies = todayEntries.filter(e=>e.type==="poop").sort((a,b)=>timeVal(a)-timeVal(b));
       const _lastNappy = _todayNappies.length ? _todayNappies[_todayNappies.length-1] : null;
       if(_lastNappy && _lastNappy.time){
         const [_nh,_nm] = _lastNappy.time.split(":").map(Number);
         const _nappyTime = new Date(); _nappyTime.setHours(_nh, _nm, 0, 0);
-        const _nappyRemindAt = new Date(_nappyTime.getTime() + nappyReminderMins * 60 * 1000);
+        let _nappyRemindAt = new Date(_nappyTime.getTime() + nappyReminderMins * 60 * 1000);
+        // Smart: if reminder falls during a predicted nap, delay to after the nap
+        const _nrMins = _nappyRemindAt.getHours()*60 + _nappyRemindAt.getMinutes();
+        const _pred = td.pred;
+        if (_pred && typeof _pred.napStart_min === "number") {
+          const _napEnd = _pred.napStart_min + 60; // estimate 1h nap
+          if (_nrMins >= _pred.napStart_min - 5 && _nrMins <= _napEnd + 5) {
+            // Reminder falls during predicted nap window — delay to after nap
+            _nappyRemindAt = new Date(); _nappyRemindAt.setHours(Math.floor(_napEnd/60)%24, _napEnd%60+5, 0, 0);
+          }
+        }
+        // Also suppress if nap is actively running
+        if (napOn) {
+          // Delay by 30 min from now (baby is sleeping)
+          _nappyRemindAt = new Date(now + 30*60*1000);
+        }
         if(_nappyRemindAt.getTime() > now && _nappyRemindAt.getTime() < now + 6*3600000){
           notifications.push({title:`🧷 Time for a nappy check`,body:`It's been ${hm(nappyReminderMins)} since ${_bn}'s last change at ${fmt12(_lastNappy.time)}.`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders"});
         }
@@ -14524,7 +14639,7 @@ function App(){
     if (isPremium || trialActive) {
       _pred = tickDataRef.current.pred;
     } else if (_td3.nextNapMins) {
-      _pred = { napStart_min: _td3.nextNapMins, napStart_max: _td3.nextNapMins, sourceLabel: "Research-based guidelines", isOverdue: _nowM > _td3.nextNapMins };
+      _pred = { napStart_min: _td3.nextNapMins, napStart_max: _td3.nextNapMins, sourceLabel: "OBubba Sleep Engine", isOverdue: _nowM > _td3.nextNapMins };
     }
     const _profile = getAgeNapProfile(_aw);
 
@@ -16107,9 +16222,11 @@ function App(){
     // (past midnight), store on the bedtime's day so night wakes stay with their bedtime.
     const _isNightEntry = data.night || data.nightLocked;
     const _todayCalendar = todayStr();
-    const _targetDay = (_isNightEntry && bedTimerDay && bedTimerDay !== _todayCalendar && selDay === _todayCalendar)
-      ? bedTimerDay  // route to bedtime's day (e.g. March 29 when it's 2am March 30)
-      : selDay;      // normal: store on whatever day user is viewing
+    // Wake mode: night entries route to bedtime's calendar day (sleep consultant standard)
+    // Midnight mode: all entries stay on the calendar day they're created (simple)
+    const _targetDay = (dayBoundary === "wake" && _isNightEntry && bedTimerDay && bedTimerDay !== _todayCalendar && selDay === _todayCalendar)
+      ? bedTimerDay  // wake mode: route to bedtime's day (e.g. March 29 when it's 2am March 30)
+      : selDay;      // midnight mode OR normal daytime: store on current day
     setDays(d=>{
       const _dayArr = d[_targetDay]||[];
       // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime
@@ -17051,6 +17168,9 @@ function App(){
         _startLA({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime(),nextNap:"Nap "+_napNum});
       }
     } catch(ex) {}
+    // Android: persistent lock screen notification
+    const _napNum2 = ((tickDataRef.current||{}).napsDone || 0) + 1;
+    showTimerNotification("😴 Nap " + _napNum2 + " in progress", (babyName||"Baby") + " started napping at " + fmt12(t));
     // Force widget to refresh immediately. bypass the 60s rate limit via explicit reloadAll
     setTimeout(()=>{
       try{ window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{}); }catch{}
@@ -17592,7 +17712,7 @@ function App(){
         const tips = [];
         if (_bud.hasChronicDebt) tips.push({ icon: "🌙", title: "Build back the sleep budget", body: "Total sleep has been below the " + _bud.aasm.label + " range for " + _bud.debtDays + " days. Try an earlier bedtime tonight. even 15 min helps." });
         if (_bud.belowRange && !_bud.hasChronicDebt) tips.push({ icon: "🛌", title: "A little more sleep would help", body: _name + "'s total sleep is averaging " + _bud.avgTotal + "h. The AASM range is " + _bud.aasm.label + ". An earlier bedtime is the easiest lever." });
-        if (_bud.dayTooMuch) tips.push({ icon: "☀️", title: "Day naps may be stealing night sleep", body: "Day sleep is averaging " + _bud.avgDay + "min. Try capping the longest nap by 10-15 min to protect night pressure." });
+        if (_bud.dayTooMuch && _bud.avgDay < 600) tips.push({ icon: "\u2600\uFE0F", title: "Day naps may be stealing night sleep", body: "Day sleep is averaging " + _bud.avgDay + "min. Try capping the longest nap by 10-15 min to protect night pressure." });
         if (_bud.dayTooLittle) tips.push({ icon: "😴", title: "Naps could use more time", body: "Day sleep is under the expected range. A longer first nap often extends the ones that follow." });
         if (tips.length) { const t = _pick(tips); return { ...t, source: "Based on your last 7 days" }; }
       }
@@ -17793,6 +17913,8 @@ function App(){
         });
       }
     }
+    // Android: persistent lock screen notification for bedtime
+    showTimerNotification("\u{1F319} " + (babyName||"Baby") + " is sleeping", "Bedtime started at " + fmt12(formTime));
     fireEventReminders("after_bedtime");
     // One-time safe sleep signpost for babies under 6 months
     try {
@@ -17854,6 +17976,7 @@ function App(){
     }
     setBreastSide(side);
     setBreastActive(true);
+    showTimerNotification("\u{1F931} Nursing " + (side==="L"?"left":"right") + " side", (babyName||"Baby") + " started feeding at " + fmt12(breastStartTime||nowTime()));
     // Start Live Activity for feed timer (Dynamic Island)
     if(_isNative) _laStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:side==='L'?'left':'right'});
   }
@@ -17905,6 +18028,7 @@ function App(){
 
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
     try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
+    clearTimerNotification(); // Android: clear lock screen notification
     // Stop Live Activity when feed saved
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     // Auto-resume nap if it was paused by the breast timer
@@ -17946,6 +18070,7 @@ function App(){
   }
   function endNap(){
     if(!napOn) return;
+    clearTimerNotification(); // Android: clear lock screen notification
     if (!napStartT) { setNapOn(false); setNapPaused(false); setTimerMode("prediction"); return; }
     setNapOn(false);
     setNapPaused(false);
@@ -19718,6 +19843,7 @@ function App(){
     Object.keys(children).forEach(cid => {
       deletedDaysRef.current.add(cid + ":" + dayToDelete);
     });
+    try { localStorage.setItem("ob_deleted_days", JSON.stringify([...deletedDaysRef.current])); } catch {}
     const cnt = (days[dayToDelete]||[]).length;
     userDeletedCountRef.current += cnt;
     setDays(d=>{
@@ -19849,7 +19975,7 @@ function App(){
       if (_s.isBehindTarget && !_s.allowNightTopUp && _s.hoursLeftInDay > 0) {
         addObservation("📊", "Feeding pace today",
           `${_name} is ${_s.mlRemainingToday}ml below the daily guideline with about ${_s.hoursLeftInDay}h left. No need to force it. follow ${_name}'s hunger cues.`,
-          `We've gently nudged the next suggestion to ~${_s.amountMl}ml. This is a guide, not a target. ${_name} knows what they need. If they refuse, that's OK. the day will balance out.`);
+          `What OBubba is doing: we've adjusted the next feed suggestion to ~${_s.amountMl}ml to gently catch up. This is a guide, not a target. ${_name} knows what they need.`);
       }
       if (_s.context === "target met" && _h >= 15 && _h < 20) {
         addObservation("💚", "Day target reached",
@@ -19953,15 +20079,15 @@ function App(){
         const _lastNapRefused = _recent14.slice(0, 5).filter(d => d.naps < Math.round(_avgNaps)).length;
         // 3→2 transition (typically 6-9 months)
         if (_avgNaps >= 2.5 && _avgNaps <= 3.2 && _lastNapRefused >= 3 && _wks >= 24 && _wks <= 40) {
-          addObservation("📉", "Nap transition signal: 3 → 2 naps",
+          addObservation("📉", "Nap transition signal: 3 \u2192 2 naps",
             `${_name} has been fighting or skipping the 3rd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, this is a classic sign of readiness to drop to 2 naps.`,
-            "Transition gradually: push the first wake window by 15min every 2-3 days. The 2-nap schedule usually settles within 1-2 weeks. Bedtime may need to come earlier during the transition.");
+            "What OBubba is doing: we've already started stretching wake windows on days " + _name + " handles 2 naps well. On days they need a 3rd nap, we'll add it. Bedtime is automatically adjusted earlier on 2-nap days. You don't need to do anything \u2014 just follow the predictions.");
         }
         // 2→1 transition (typically 14-18 months)
         if (_avgNaps >= 1.5 && _avgNaps <= 2.2 && _lastNapRefused >= 3 && _wks >= 56 && _wks <= 80) {
-          addObservation("📉", "Nap transition signal: 2 → 1 nap",
+          addObservation("📉", "Nap transition signal: 2 \u2192 1 nap",
             `${_name} has been resisting or shortening the 2nd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, they may be ready for one longer midday nap.`,
-            "Don't rush. most babies aren't truly ready until 15-18 months. Try capping the morning nap to 30min first. If they still fight the afternoon nap for 2+ weeks, switch to one nap around 12:30pm.");
+            "What OBubba is doing: we're testing longer wake windows on days " + _name + " skips nap 2. On days they still need 2 naps, we'll keep both. Bedtime moves earlier automatically on 1-nap days. This transition takes 4\u20136 weeks \u2014 we'll guide you through it.");
         }
       }
 
@@ -20119,7 +20245,7 @@ function App(){
         const lateBound = avgWakeMins + Math.min(spread, 30);
         addObservation("🌅", "Morning wake prediction",
           `${_name} typically wakes between ${fmt12(minsToTime(earlyBound))} and ${fmt12(minsToTime(lateBound))}, averaging ${fmt12(minsToTime(avgWakeMins))}.`,
-          spread < 20 ? `Very consistent. ${_name}'s body clock is well-set. This stability helps the whole day run smoothly.` : `There's some variation (±${spread}min). A consistent morning wake time anchors the entire day's rhythm.`);
+          spread < 20 ? `What OBubba is doing: we use this consistent wake time to anchor ${_name}'s entire day schedule. Nap times and bedtime are all built from this.` : `What OBubba is doing: we're using ${_name}'s average wake time (${fmt12(minsToTime(avgWakeMins))}) as the anchor for today's schedule. The \u00B1${spread}min variation is factored into our predictions.`);
       }
     } catch {}
 
@@ -20145,16 +20271,16 @@ function App(){
             const _toothNames = _recentTeeth.map(t => t.name || t.tooth || "tooth").join(", ");
             addObservation("🦷", "Teething + reduced feeding. this is normal",
               `${_name} cut ${_recentTeeth.length > 1 ? _recentTeeth.length + " teeth" : "a tooth"} recently and daily intake has dropped ~${_drop}% (${_avg3}ml vs ${_avg4}ml). Sore gums make feeding uncomfortable. this is temporary.`,
-              "What helps: offer smaller, more frequent feeds. Try cold teething rings before feeds to numb the gums. A chilled bottle teat can also help. Intake usually bounces back within 3-5 days. If " + _name + " refuses feeds for 24+ hours or seems unwell, speak to your GP.");
+              "What OBubba is doing: we've relaxed the sleep budget (allowing more day sleep) and shortened wake windows while " + _name + " is teething. Feed suggestions are adjusted for smaller, more frequent feeds. If " + _name + " refuses feeds for 24+ hours or seems unwell, speak to your GP.");
           } else {
             addObservation("🦷", _recentTeeth.length > 1 ? _recentTeeth.length + " new teeth!" : "New tooth!",
               `${_name} is teething. you might notice more drool, chewing, fussiness, and disrupted sleep. This is all completely normal.`,
-              "Feeding: some babies feed MORE for comfort, others refuse. Both are fine. Sleep: teething pain peaks at night. extra wakes are expected for a few days. Paracetamol (if age-appropriate) can help with pain. This phase passes. 💛");
+              "What OBubba is doing: we've activated teething mode \u2014 wake windows are shortened by 20%, sleep budget is relaxed, and predictions expect more disruption. This adjusts automatically and resets when the teething phase passes. \u{1F49B}");
           }
         } else if (_recentTeeth.length > 0) {
           addObservation("🦷", _recentTeeth.length > 1 ? _recentTeeth.length + " new teeth!" : "New tooth!",
             `${_name} is teething. you might notice more drool, chewing, fussiness, and disrupted sleep. This is all completely normal.`,
-            "Feeding: some babies feed MORE for comfort, others refuse. Both are fine. Sleep: teething pain peaks at night. extra wakes are expected for a few days. This phase passes. 💛");
+            "What OBubba is doing: teething mode is active \u2014 shorter wake windows, relaxed sleep budget, adjusted predictions. This phase passes. \u{1F49B}");
         }
       }
     } catch {}
@@ -20896,7 +21022,7 @@ function App(){
         _pooCounts2.push(wet);
       }
       const _avgWet = _pooCounts2.length ? Math.round(_pooCounts2.reduce((a, b) => a + b, 0) / _pooCounts2.length * 10) / 10 : 0;
-      if (_avgWet < 4) _hvItems.push("💧 Wet nappies averaging " + _avgWet + "/day (target 6+). possible dehydration signal");
+      if (_avgWet < 3) _hvItems.push("\u{1F4A7} Wet nappies averaging " + _avgWet + "/day. possible dehydration signal \u2014 speak to your health visitor");
       // Weaning reactions
       const _reactions = (weaning || []).filter(w => w.reaction === "allergic" || w.reaction === "bad");
       if (_reactions.length > 0) _hvItems.push("🥄 Food reactions logged: " + _reactions.map(r => r.food).join(", ") + ". discuss allergen testing");
@@ -22187,7 +22313,7 @@ function App(){
               const bridgeIcon = _isBridgeTimer ? "🌉" : "";
               const cautionLabel = _isBridgeTimer && napCaution && !napWarn ? "Gently wake" : (napCaution && !napPaused ? "Tap to stop" : "");
               return (
-              <div style={{position:"relative"}}>
+              <div style={{position:"relative",zIndex:showNapStartEdit?100:1}}>
               <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:5,background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP,animation:napWarn?"pulse 1s infinite":"none"}}>
                 <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"white"}}>{napPaused?"⏸":napWarn?"⏰":napCaution?"⏰":(_isBridgeTimer?"🌉":"😴")} {fmtSec(napSec)}</span>
                 {cautionLabel && !napPaused && <span style={{fontSize:10,color:"rgba(255,255,255,0.8)",fontFamily:_fM}}>{cautionLabel}</span>}
@@ -22259,6 +22385,9 @@ function App(){
               // Only show countdown/timer pill on today or yesterday (active OBubba day)
               const _isPillDay = selDay === todayStr() || selDay === prevCalDay(todayStr());
               if (!_isPillDay) return null;
+              // If a nap entry is ongoing in data (timer may have desynced), don't show prediction countdown
+              const _hasActiveNapPill = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+              if (_hasActiveNapPill) return null;
               // Newborns (<6 weeks): no countdown pressure. show "Sleep" button instead
               const _isNewborn = age && age.totalWeeks < 6;
               if (_isNewborn && !napOn && !bedTimerDay) {
@@ -22292,10 +22421,11 @@ function App(){
               const nightEndWake = todayBedEntry
                 ? (nextDayMorningWake || null)
                 : morningWake;
-              // Bedtime routine prompt: 30 min before predicted bedtime, no bed logged yet
-              if (!bedEntry && !bedTimerDay) {
+              // Bedtime routine prompt: only when naps are complete + 30 min before predicted bedtime
+              const _tdPill = tickDataRef.current || {};
+              if (!bedEntry && !bedTimerDay && _tdPill.napsComplete) {
                 try {
-                  const _bp = bedtimePrediction ? bedtimePrediction() : null;
+                  const _bp = _tdPill.bed || null;
                   if (_bp && _bp.time) {
                     const [_bh,_bm] = _bp.time.split(":").map(Number);
                     const _predBed = _bh*60+_bm;
@@ -22480,7 +22610,7 @@ function App(){
         <div style={{paddingBottom:2,position:"relative",zIndex:2}}>
           {/* Day navigation bar: arrows + date + calendar + search */}
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:showSearch?6:0}}>
-            <button aria-label="Previous day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:15,color:C.mid,flexShrink:0}}>‹</button>
+            <button aria-label="Previous day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:18,color:C.mid,flexShrink:0}}>{"\u2039"}</button>
             <button aria-label="Open calendar" onClick={()=>{setCalMonth(selDay.slice(0,7));setShowCalendar(true);}}
               onContextMenu={e=>{e.preventDefault();haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");}}
               onTouchStart={e=>{e.currentTarget._lp=setTimeout(()=>{haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");},600);}}
@@ -22489,7 +22619,7 @@ function App(){
               style={{flex:1,background:"var(--card-bg-solid)",border:`1.5px solid ${C.ter}`,borderRadius:12,padding:"5px 12px",cursor:_cP,textAlign:"center"}}>
               <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:10,color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:6,letterSpacing:"0.02em"}}>TODAY</span>:null}</div>
             </button>
-            <button aria-label="Next day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:15,color:C.mid,flexShrink:0}}>›</button>
+            <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:18,color:C.mid,flexShrink:0}}>{"\u203A"}</button>
             <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:10,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:14,color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
           </div>
           {/* Search bar */}
@@ -22685,8 +22815,8 @@ function App(){
               {/* Twins: "Log for all" toggle */}
               {/* Twins/siblings: nap overlap window */}
               {!daySubScreen && childIds.length >= 2 && (()=>{
+                const _overlapData = [];
                 try {
-                  const _overlapData = [];
                   childIds.forEach(cid => {
                     const ch = children[cid];
                     if (!ch || !ch.dob) return;
@@ -23912,12 +24042,12 @@ function App(){
               {age && age.totalWeeks < 13 && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _fcEntries = days[selDay] || [];
                 const _fcFeeds = _fcEntries.filter(function(e){ return e.type==="feed"; }).length;
-                const _fcWet = _fcEntries.filter(function(e){ return e.type==="poop" && ((e.poopType||"")+"").toLowerCase().includes("wet"); }).length;
+                const _fcHydration = smartHydration(_fcEntries, age.totalWeeks);
                 const _fcTarget = age.totalWeeks < 4 ? 8 : 6;
                 const _h = new Date().getHours();
                 const _fcTargetByNow = Math.max(1, Math.round(_fcTarget * Math.min(_h / 20, 1)));
                 const _fcOk = _fcFeeds >= _fcTargetByNow;
-                const _fcWetOk = _fcWet >= Math.max(1, Math.round(6 * Math.min(_h / 20, 1)));
+                const _fcWetOk = _fcHydration.ok || _fcHydration.count >= Math.max(1, Math.round(_fcHydration.target * Math.min(_h / 20, 1)));
                 const _fcColor = _fcOk && _fcWetOk ? "#7BA68C" : (!_fcOk && !_fcWetOk) ? "#D47070" : "#D4A855";
                 const _fcMsg = _fcOk && _fcWetOk ? "Feeding looks on track today"
                   : (!_fcOk && !_fcWetOk) ? "Feeds and wet nappies are below expected. speak to your health visitor if worried"
@@ -23931,7 +24061,7 @@ function App(){
                     </div>
                     <div style={{display:"flex",gap:16,marginBottom:4}}>
                       <span style={{fontSize:12,color:C.mid}}>{"\u{1F37C}"} {_fcFeeds} feeds (target: {_fcTarget}+)</span>
-                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F4A7}"} {_fcWet} wet nappies (target: 6+)</span>
+                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F4A7}"} {_fcHydration.label} hydration</span>
                     </div>
                     <div style={{fontSize:11,color:_fcColor,fontWeight:600}}>{_fcMsg}</div>
                   </div>
@@ -24164,6 +24294,11 @@ function App(){
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && !(age && age.totalWeeks < 4) && (()=>{
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime) return null;
+                // Hide when nap is actively running — timer pill already shows baby is sleeping
+                // Check both timer state AND entry data (timer can desync from entry on app restart)
+                if (napOn) return null;
+                const _hasActiveNap = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+                if (_hasActiveNap) return null;
                 const _ne = _td.nextEvent;
                 if (!_ne) return null;
                 const _isGentleAge = age && age.totalWeeks < 8;
@@ -24171,8 +24306,8 @@ function App(){
                 if (_ne.type === "nap") {
                   _items.push({icon:"😴", label:_ne.label, time:(_isGentleAge?"around ":"")+_ne.timeStr});
                 }
-                // Always show bedtime below the nap (but only if bedtime is PM — sanity check)
-                if (_td.bedMins && _td.bedMins >= 17*60) {
+                // Only show bedtime when naps are complete (bedtime time changes after each nap)
+                if (_td.napsComplete && _td.bedMins && _td.bedMins >= 17*60) {
                   _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(_td.bedMins)});
                 } else if (_ne.type === "bed" && _ne.timeMins && _ne.timeMins >= 17*60) {
                   _items.push({icon:"🌙", label:_ne.label, time:"~"+_ne.timeStr});
@@ -24324,8 +24459,8 @@ function App(){
                 _freeBedM = clampBedtime(_freeCursor + _freeBedWW, age.totalWeeks);
                 return (
                   <div style={{padding:"8px 0"}}>
-                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Research-Based Schedule for {age?fmtAge(age):""}</div>
-                    <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Based on NHS, WHO & AASM guidelines for {babyName||"baby"}'s age. Every baby is different {"\u2014"} always follow sleepy cues.</div>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Sleep Engine Schedule for {age?fmtAge(age):""}</div>
+                    <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Powered by the OBubba Sleep Engine {"\u2014"} built from pediatric sleep research & consultant guidelines. Every baby is different {"\u2014"} always follow sleepy cues.</div>
                     <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
                       <div style={{flex:1,minWidth:90,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
                         <div style={{fontSize:9,color:C.lt}}>Wake windows</div>
@@ -24366,7 +24501,7 @@ function App(){
               })()}
 
               {/* Tomorrow's schedule. premium teaser */}
-              {STORE_READY && !isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (isPremium || trialActive) && (
+              {STORE_READY && hasAccess() && todayPlanOpen && Object.keys(days).length >= 5 && (
                 <button onClick={()=>triggerPaywall("tomorrow")} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
                   📋 Plan ahead. see tomorrow's predicted schedule →
                 </button>
@@ -24450,8 +24585,11 @@ function App(){
                   let projectedNapMins = totalCompletedNapMins;
                   let isFirstPredicted = true;
 
+                  // ═══ SINGLE SOURCE: if predictNextNap() returned null, no more naps ═══
+                  const _planBudgetExceeded = !tickDataRef.current.pred || (tickDataRef.current||{}).napsComplete;
+
                   // Step 1: Place expected naps
-                  while (napIdx < expectedTotal) {
+                  while (napIdx < expectedTotal && !_planBudgetExceeded) {
                     let napStart;
                     // First predicted nap: use cached prediction (matches nap pill)
                     if (isFirstPredicted && !napOn) {
@@ -24537,17 +24675,11 @@ function App(){
                     }
                   }
 
-                  // Blend bedtime lightly with historical average (90% WW, 10% historical)
-                  const bedPred = tickDataRef.current.bed;
-                  if (bedPred && bedPred.time) {
-                    const histBedM = timeVal(bedPred);
-                    if (typeof histBedM === "number" && !isNaN(histBedM)) {
-                      const blended = Math.round(bedM * 0.9 + histBedM * 0.1);
-                      // Guard: historical can't push more than 20min past WW calc
-                      bedM = Math.min(blended, bedM + 20);
-                      bedM = clampBedtime(bedM, w);
-                      bedTime = mtp(bedM);
-                    }
+                  // ═══ SINGLE SOURCE: use tickDataRef.bedMins so Plan matches COMING UP ═══
+                  const _tickBedMins = (tickDataRef.current || {}).bedMins;
+                  if (_tickBedMins && typeof _tickBedMins === "number") {
+                    bedM = _tickBedMins;
+                    bedTime = mtp(bedM);
                   }
 
                   // Bedtime display
@@ -24588,7 +24720,8 @@ function App(){
                         napNote = `${expectedTotal - napIdx} fewer nap${expectedTotal-napIdx>1?"s":""} today. long nap reduced sleep debt`;
                       }
                     } else {
-                      napNote = bedPred && bedPred.estimated ? "estimated" : "";
+                      const _bedPredRef = (tickDataRef.current||{}).bed;
+                      napNote = _bedPredRef && _bedPredRef.estimated ? "estimated" : "";
                     }
                     items.push({ icon: "\u{1F319}", label: "Bedtime", time: fmt12(bedTime), sub: napNote, predicted: true, mins: bedM });
                     hasPredictions = true;
@@ -24648,16 +24781,17 @@ function App(){
                 const _ent = days[selDay] || [];
                 const _naps = _ent.filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.start!==e.end);
                 const _totalSleepMin = _naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-                const _wake = _ent.find(e=>e.type==="wake"&&!e.night);
+                // Use findMorningWake for reliable wake detection (same as prediction engine)
+                const _wake = findMorningWake(_ent);
                 const _bed = _ent.find(e=>e.type==="sleep"&&!e.night);
                 // Total awake = time from wake to now (or bedtime) minus nap time
                 const _wakeMins2 = _wake ? timeVal(_wake) : null;
                 const _nowM2 = _bed ? timeVal(_bed) : new Date().getHours()*60+new Date().getMinutes();
-                const _totalDayMin = _wakeMins2 !== null ? _nowM2 - _wakeMins2 : 0;
+                const _totalDayMin = _wakeMins2 !== null ? Math.max(0, _nowM2 - _wakeMins2) : 0;
                 const _totalAwakeMin = Math.max(0, _totalDayMin - _totalSleepMin);
-                // Last night stats
-                const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
-                const _yEnt = days[_yday] || [];
+                // Last night stats: look for bedtime on yesterday AND selDay's previous day
+                const _prevDay = prevCalDay(selDay);
+                const _yEnt = days[_prevDay] || [];
                 const _yBed = _yEnt.find(e=>e.type==="sleep"&&!e.night);
                 const _todayWake = _wake;
                 let _nightStretchMin = 0;
@@ -24667,9 +24801,14 @@ function App(){
                   let _wakeM = timeVal(_todayWake);
                   if (_wakeM < _bedM) _wakeM += 1440;
                   _nightStretchMin = _wakeM - _bedM;
-                  // Night wakes: count time awake from wake entries
-                  const _nightWakes = _yEnt.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night);
-                  _nightWakes.forEach(w => { _nightWakeMin += (w.wakeDuration || 0); });
+                  // Sanity: night stretch can't be more than 16 hours
+                  if (_nightStretchMin > 960) _nightStretchMin = 0;
+                  // Night wakes: check both yesterday (after bed) and today (before wake)
+                  const _nightWakes = [
+                    ..._yEnt.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night),
+                    ..._ent.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night)
+                  ];
+                  _nightWakes.forEach(w => { _nightWakeMin += (parseInt(w.assistedDuration)||0); });
                   // If no durations logged, estimate from wake count
                   if (_nightWakeMin === 0 && _nightWakes.length > 0) _nightWakeMin = _nightWakes.length * 15;
                 }
@@ -29810,6 +29949,24 @@ function App(){
             </div>
           </div>
 
+          {/* ═══ DAY BOUNDARY ═══ */}
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.blush}`}}>
+            <div style={_S.flexCenter10}>
+              <span style={_S.f18}>{"\u{1F305}"}</span>
+              <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Day starts at</span>
+              <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight belong to yesterday's bedtime. This is what sleep consultants use.\n\n\u{1F55B} Midnight. Simple calendar days. 1am entries show on today. Some parents find this more intuitive."}/>
+            </div>
+            <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:"1px solid "+C.blush,overflow:"hidden",marginTop:8,marginBottom:8}}>
+              <button onClick={()=>{setDayBoundary("wake");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
+              <button onClick={()=>{setDayBoundary("midnight");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
+            </div>
+            <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
+              {dayBoundary==="wake"
+                ? "Night feeds belong to bedtime's day. Sleep consultant standard."
+                : "Simple calendar days. 1am entries show on today."}
+            </div>
+          </div>
+
           {/* ═══ 5. TIME CAPSULE ═══ */}
             {(()=>{
               try {
@@ -32136,8 +32293,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
             ) : (
               <div style={{marginTop:14}}>
-                {(observations||[]).map((o,i)=>{
-                  const _mins = Math.floor((Date.now() - (o.ts||0)) / 60000);
+                {(observations||[]).filter(o=>o.title && o.ts && o.ts > 1700000000000).map((o,i)=>{
+                  const _mins = Math.floor((Date.now() - o.ts) / 60000);
                   const _ago = _mins < 1 ? "just now" : _mins < 60 ? _mins+"m ago" : _mins < 1440 ? Math.floor(_mins/60)+"h ago" : Math.floor(_mins/1440)+"d ago";
                   return (
                     <div key={o.id} style={{padding:"14px 16px",borderRadius:16,border:`1px solid ${o.ack?C.blush:C.mint+"40"}`,background:o.ack?"var(--card-bg)":"rgba(123,166,140,0.06)",marginBottom:10}}>
@@ -32652,7 +32809,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   setShowBedRoutine(false);
                   setBedRoutineStep(0);
                   setBedRoutineStart(null);
-                  showToast("🌙 Routine complete. sweet dreams, " + (babyName||"baby") + " 💛", 3000, 1);
+                  showToast("🌙 Routine complete. tap Bed to log bedtime 💛", 3000, 1);
                 }} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
                   Done. goodnight 🌙
                 </button>
@@ -32681,6 +32838,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{step.title}</div>
                     <div style={{fontSize:10,color:C.lt}}>{step.duration} min</div>
                   </div>
+                  <button onClick={()=>{
+                    if (i === 0) return;
+                    const _ns = [..._steps]; const _t = _ns[i]; _ns[i] = _ns[i-1]; _ns[i-1] = _t;
+                    setCustomRoutine(_ns);
+                  }} style={{background:"none",border:"none",color:i>0?C.mid:C.blush,fontSize:14,cursor:i>0?_cP:"default",padding:"4px"}}>↑</button>
+                  <button onClick={()=>{
+                    if (i === _steps.length-1) return;
+                    const _ns = [..._steps]; const _t = _ns[i]; _ns[i] = _ns[i+1]; _ns[i+1] = _t;
+                    setCustomRoutine(_ns);
+                  }} style={{background:"none",border:"none",color:i<_steps.length-1?C.mid:C.blush,fontSize:14,cursor:i<_steps.length-1?_cP:"default",padding:"4px"}}>↓</button>
                   <button onClick={()=>{
                     const _newSteps = [..._steps];
                     _newSteps.splice(i, 1);

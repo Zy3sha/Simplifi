@@ -417,8 +417,14 @@ var OBDatabase = {
     if (!SQL) { this._initInProgress = false; return Promise.resolve(false); }
     var self = this;
     try {
-      return SQL.createConnection({ database: 'obubba', version: 1, encrypted: false, mode: 'no-encryption' })
+      // Try encrypted first (new installs), fall back to unencrypted (existing users)
+      return SQL.createConnection({ database: 'obubba', version: 1, encrypted: true, mode: 'encryption' })
         .then(function() { return SQL.open({ database: 'obubba' }); })
+        .catch(function() {
+          // Existing unencrypted DB — open without encryption
+          return SQL.createConnection({ database: 'obubba', version: 1, encrypted: false, mode: 'no-encryption' })
+            .then(function() { return SQL.open({ database: 'obubba' }); });
+        })
         .then(function() {
           return SQL.execute({
             database: 'obubba',

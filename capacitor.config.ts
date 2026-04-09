@@ -90,8 +90,8 @@ const config: CapacitorConfig = {
     // ── SQLite (offline persistence) ──
     CapacitorSQLite: {
       iosDatabaseLocation: 'Library/CapacitorDatabase',
-      iosIsEncryption: false,
-      androidIsEncryption: false,
+      iosIsEncryption: true,
+      androidIsEncryption: true,
     },
 
     // ── Camera ──

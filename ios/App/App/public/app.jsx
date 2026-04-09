@@ -257,6 +257,33 @@ var getResolvedRecentDays = function(days, currentDayKey, n) {
 
 // ═══ End Day Resolution Layer ══════════════════════════════════
 
+// ═══ Android Persistent Timer Notification (lock screen) ═══
+// Shows a sticky notification when a timer is running, similar to Huckleberry
+const TIMER_NOTIF_ID = 99999;
+function showTimerNotification(title, body) {
+  try {
+    const LN = window.Capacitor?.Plugins?.LocalNotifications;
+    if (!LN) return;
+    // Only on Android (iOS uses Live Activities)
+    if (window.Capacitor?.getPlatform?.() !== 'android') return;
+    LN.schedule({ notifications: [{
+      id: TIMER_NOTIF_ID, title, body,
+      ongoing: true, autoCancel: false,
+      channelId: "obubba_timers",
+      smallIcon: "ic_notification",
+      iconColor: "#C07088"
+    }] }).catch(()=>{});
+  } catch {}
+}
+function clearTimerNotification() {
+  try {
+    const LN = window.Capacitor?.Plugins?.LocalNotifications;
+    if (!LN) return;
+    if (window.Capacitor?.getPlatform?.() !== 'android') return;
+    LN.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] }).catch(()=>{});
+  } catch {}
+}
+
 const hm = m => { if(typeof m!=="number"||isNaN(m))return"—"; m=Math.round(m); if(m<=0)return"0m"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 // Helper: true for feeds baby actually consumed (excludes pump sessions which are expressed milk, not intake)
 const isBabyFeed = e => e && e.type === "feed" && e.feedType !== "pump";
@@ -3789,6 +3816,8 @@ function App(){
   // Nappy reminder
   const[nappyReminderMins,setNappyReminderMins]=useState(()=>{try{return parseInt(localStorage.getItem("nappy_reminder_v1"))||0;}catch{return 0;}});
   useEffect(()=>{try{localStorage.setItem("nappy_reminder_v1",String(nappyReminderMins));}catch{}},[nappyReminderMins]);
+  // Day boundary mode: "wake" = day starts at morning wake (sleep consultant standard), "midnight" = simple calendar days
+  const[dayBoundary,setDayBoundary]=usePersistedState("ob_day_boundary_v1","wake");
   const nappyReminderRef = React.useRef(null);
   useEffect(()=>{
     clearInterval(nappyReminderRef.current);
@@ -4235,6 +4264,7 @@ function App(){
         console.log("[OBubba] Morning wake found. auto-stopping stale bed timer from", bedTimerDay);
         setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
         try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+        clearTimerNotification(); // Android: clear lock screen notification
         if(window.Capacitor?.Plugins?.OBLiveActivity) {
           window.Capacitor.Plugins.OBLiveActivity.stop?.().catch(()=>{});
           window.Capacitor.Plugins.OBLiveActivity.stopPrediction?.().catch(()=>{});
@@ -6736,7 +6766,7 @@ function App(){
       // Include ALL entries (not just night). morning nappies/feeds logged before wake
       // might be stored on yesterday's key but should count as today's widget data
       var _bedDayEntries = [];
-      if (bedTimerDay && bedTimerDay !== todayKey) {
+      if (dayBoundary === "wake" && bedTimerDay && bedTimerDay !== todayKey) {
         var _todayMidnight = new Date(todayKey + "T00:00:00");
         _bedDayEntries = (days[bedTimerDay] || []).filter(function(e) {
           // Include night entries (always) + any entry with time after midnight (belongs to today)
@@ -6796,8 +6826,8 @@ function App(){
       // Determine active timer
       var activeTimer = null, timerStartTime = null, timerStartMs = null, activeSide = null;
       if (napOn && napStartT) { activeTimer = "nap"; timerStartTime = napStartT; timerStartMs = _hhmToMs(napStartT); }
-      // Check bedtime on today or bedTimerDay (if bedtime was logged on a previous calendar day)
-      var _bedDayEntries = bedTimerDay ? (days[bedTimerDay]||[]) : rd;
+      // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only
+      var _bedDayEntries = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : rd;
       var _bedEntry = findBedtime(_bedDayEntries) || findBedtime(rd);
       if (_bedEntry && !activeTimer) {
         // Check if baby has woken up. morning wake on today means night is over
@@ -7183,8 +7213,8 @@ function App(){
 
     // Prediction countdown mode
     // Recompute lastNightEvent fresh here so it's never stale after a night wake is logged
-    // Check bedtime on the day it was logged (bedTimerDay) or selDay
-    const _bedCheckEntries = bedTimerDay ? (days[bedTimerDay]||[]) : (days[selDay]||[]);
+    // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only
+    const _bedCheckEntries = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : (days[selDay]||[]);
     const _bedEntry = findBedtime(_bedCheckEntries) || findBedtime(days[selDay]||[]);
     const _hasBed = !!_bedEntry;
     if(_hasBed) {
@@ -16192,9 +16222,11 @@ function App(){
     // (past midnight), store on the bedtime's day so night wakes stay with their bedtime.
     const _isNightEntry = data.night || data.nightLocked;
     const _todayCalendar = todayStr();
-    const _targetDay = (_isNightEntry && bedTimerDay && bedTimerDay !== _todayCalendar && selDay === _todayCalendar)
-      ? bedTimerDay  // route to bedtime's day (e.g. March 29 when it's 2am March 30)
-      : selDay;      // normal: store on whatever day user is viewing
+    // Wake mode: night entries route to bedtime's calendar day (sleep consultant standard)
+    // Midnight mode: all entries stay on the calendar day they're created (simple)
+    const _targetDay = (dayBoundary === "wake" && _isNightEntry && bedTimerDay && bedTimerDay !== _todayCalendar && selDay === _todayCalendar)
+      ? bedTimerDay  // wake mode: route to bedtime's day (e.g. March 29 when it's 2am March 30)
+      : selDay;      // midnight mode OR normal daytime: store on current day
     setDays(d=>{
       const _dayArr = d[_targetDay]||[];
       // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime
@@ -17136,6 +17168,9 @@ function App(){
         _startLA({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime(),nextNap:"Nap "+_napNum});
       }
     } catch(ex) {}
+    // Android: persistent lock screen notification
+    const _napNum2 = ((tickDataRef.current||{}).napsDone || 0) + 1;
+    showTimerNotification("😴 Nap " + _napNum2 + " in progress", (babyName||"Baby") + " started napping at " + fmt12(t));
     // Force widget to refresh immediately. bypass the 60s rate limit via explicit reloadAll
     setTimeout(()=>{
       try{ window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{}); }catch{}
@@ -17878,6 +17913,8 @@ function App(){
         });
       }
     }
+    // Android: persistent lock screen notification for bedtime
+    showTimerNotification("\u{1F319} " + (babyName||"Baby") + " is sleeping", "Bedtime started at " + fmt12(formTime));
     fireEventReminders("after_bedtime");
     // One-time safe sleep signpost for babies under 6 months
     try {
@@ -17939,6 +17976,7 @@ function App(){
     }
     setBreastSide(side);
     setBreastActive(true);
+    showTimerNotification("\u{1F931} Nursing " + (side==="L"?"left":"right") + " side", (babyName||"Baby") + " started feeding at " + fmt12(breastStartTime||nowTime()));
     // Start Live Activity for feed timer (Dynamic Island)
     if(_isNative) _laStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:side==='L'?'left':'right'});
   }
@@ -17990,6 +18028,7 @@ function App(){
 
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
     try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
+    clearTimerNotification(); // Android: clear lock screen notification
     // Stop Live Activity when feed saved
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     // Auto-resume nap if it was paused by the breast timer
@@ -18031,6 +18070,7 @@ function App(){
   }
   function endNap(){
     if(!napOn) return;
+    clearTimerNotification(); // Android: clear lock screen notification
     if (!napStartT) { setNapOn(false); setNapPaused(false); setTimerMode("prediction"); return; }
     setNapOn(false);
     setNapPaused(false);
@@ -29906,6 +29946,24 @@ function App(){
                   ? "Learning " + (babyName||"your baby") + "'s unique rhythm."
                   : "NHS, WHO & AASM age-based wake windows."}
               </div>
+            </div>
+          </div>
+
+          {/* ═══ DAY BOUNDARY ═══ */}
+          <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.blush}`}}>
+            <div style={_S.flexCenter10}>
+              <span style={_S.f18}>{"\u{1F305}"}</span>
+              <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Day starts at</span>
+              <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight belong to yesterday's bedtime. This is what sleep consultants use.\n\n\u{1F55B} Midnight. Simple calendar days. 1am entries show on today. Some parents find this more intuitive."}/>
+            </div>
+            <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:"1px solid "+C.blush,overflow:"hidden",marginTop:8,marginBottom:8}}>
+              <button onClick={()=>{setDayBoundary("wake");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
+              <button onClick={()=>{setDayBoundary("midnight");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
+            </div>
+            <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
+              {dayBoundary==="wake"
+                ? "Night feeds belong to bedtime's day. Sleep consultant standard."
+                : "Simple calendar days. 1am entries show on today."}
             </div>
           </div>
 
