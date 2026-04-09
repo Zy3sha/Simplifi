@@ -22687,8 +22687,8 @@ function App(){
               {/* Twins: "Log for all" toggle */}
               {/* Twins/siblings: nap overlap window */}
               {!daySubScreen && childIds.length >= 2 && (()=>{
+                const _overlapData = [];
                 try {
-                  const _overlapData = [];
                   childIds.forEach(cid => {
                     const ch = children[cid];
                     if (!ch || !ch.dob) return;
