@@ -22240,6 +22240,9 @@ function App(){
               // Only show countdown/timer pill on today or yesterday (active OBubba day)
               const _isPillDay = selDay === todayStr() || selDay === prevCalDay(todayStr());
               if (!_isPillDay) return null;
+              // If a nap entry is ongoing in data (timer may have desynced), don't show prediction countdown
+              const _hasActiveNapPill = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+              if (_hasActiveNapPill) return null;
               // Newborns (<6 weeks): no countdown pressure. show "Sleep" button instead
               const _isNewborn = age && age.totalWeeks < 6;
               if (_isNewborn && !napOn && !bedTimerDay) {
