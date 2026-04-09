@@ -8630,7 +8630,11 @@ function App(){
   // ── SECTION 7: PREDICTION ENGINE (NAP & BEDTIME) ──────────────────
   function predictNextNap() {
     const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
-    if ((!ageWeeks && ageWeeks !== 0) || !selDay || !entries || !Array.isArray(entries)) return null;
+    // Always read fresh entries from days state (not stale closure)
+    const _freshDay = todayStr();
+    const _freshEntries = days[_freshDay] || [];
+    const entries = _freshEntries.length > 0 ? _freshEntries : (days[selDay] || []);
+    if ((!ageWeeks && ageWeeks !== 0) || !entries || !Array.isArray(entries)) return null;
 
     // Fix #14: only block on sleep entries at 5pm+ (>=17h). a nap logged as type:"sleep" at 12pm would otherwise block all predictions
     const bedEntry4 = entries.find(e => {if(e.type!=="sleep"||e.night) return false; const bh=parseInt((e.time||"00:00").split(":")[0]); return bh>=17;});
