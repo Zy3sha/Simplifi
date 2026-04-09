@@ -7040,7 +7040,7 @@ function App(){
         tickDataRef.current.rhythmVibe = _rsVibe;
       }
     } catch {}
-  },[selDay, days, age, bridgeNapScheduled, napStructure]);
+  },[selDay, days, age, bridgeNapScheduled, napStructure, napOn]);
 
   // Helper: get next nap/bed label for Live Activity display (e.g. "Nap 2 2:00pm" or "Bed 7:30pm")
   function _getNextNapBedLabel() {
@@ -22189,7 +22189,7 @@ function App(){
               const bridgeIcon = _isBridgeTimer ? "🌉" : "";
               const cautionLabel = _isBridgeTimer && napCaution && !napWarn ? "Gently wake" : (napCaution && !napPaused ? "Tap to stop" : "");
               return (
-              <div style={{position:"relative"}}>
+              <div style={{position:"relative",zIndex:showNapStartEdit?100:1}}>
               <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:5,background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP,animation:napWarn?"pulse 1s infinite":"none"}}>
                 <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"white"}}>{napPaused?"⏸":napWarn?"⏰":napCaution?"⏰":(_isBridgeTimer?"🌉":"😴")} {fmtSec(napSec)}</span>
                 {cautionLabel && !napPaused && <span style={{fontSize:10,color:"rgba(255,255,255,0.8)",fontFamily:_fM}}>{cautionLabel}</span>}
