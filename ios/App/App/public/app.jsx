@@ -7783,8 +7783,9 @@ function App(){
       }
     }
 
-    // ── PRIORITY 1: Night mode (bedtime active OR 9pm-5am with bedtime logged) ──
-    if ((_hasBed && bedTimerDay) || ((_h >= 21 || _h < 5) && _hasBed)) {
+    // ── PRIORITY 1: Night mode (bedtime logged + bed timer active, OR late night with bedtime) ──
+    // Triggers as soon as bedtime is logged and bed timer starts, regardless of clock time
+    if ((_hasBed && bedTimerDay) || (_hasBed && timerMode === "activeSleep") || ((_h >= 21 || _h < 5) && _hasBed)) {
       const _bedEntry = findBedtime(_todayEntries);
       const _timeStr = nightElapsed !== null && nightElapsed > 0
         ? "Sleeping since " + (_bedEntry ? fmt12(_bedEntry.time) : "") + " · " + Math.floor(nightElapsed/3600) + "h " + Math.floor((nightElapsed%3600)/60) + "m"
