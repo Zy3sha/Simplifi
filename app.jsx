@@ -8598,7 +8598,7 @@ function App(){
     let min, max, label;
     // Stages: [maxMonths, minWW, maxWW]
     const stages = [
-      [1.39, 30, 75],   // 0-6wk:   TCB 30-60, Cleveland 45-60, we use wider for flexibility
+      [1.39, 30, 90],   // 0-6wk:   TCB 30-60, Cleveland 45-60, wider for newborn variability
       [3,    45, 90],    // 6wk-3mo: TCB 60-90, consensus 45-90
       [5,    75, 120],   // 3-5mo:   TCB 75-120, tightened from [90,150]. overtiredness risk
       [7,    120, 180],  // 5-7mo:   TCB 2-3h, restored to match TCB range exactly
