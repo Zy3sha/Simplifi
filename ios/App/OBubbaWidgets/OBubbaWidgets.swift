@@ -806,14 +806,17 @@ struct OBubbaMediumWidgetView: View {
                     Link(destination: URL(string: "obubba://?action=quick_wake")!) {
                         ActionBtn(icon: "sun.max.fill", label: "Wake", color: brandGold, filled: true)
                     }
-                } else {
+                } else if hasTimer {
                     Link(destination: URL(string: "obubba://?action=stop_timer")!) {
-                        ActionBtn(
-                            icon: hasTimer ? "stop.fill" : "play.fill",
-                            label: hasTimer ? "Stop" : "Nap",
-                            color: hasTimer ? brandRose : brandPurple,
-                            filled: hasTimer
-                        )
+                        ActionBtn(icon: "stop.fill", label: "Stop", color: brandRose, filled: true)
+                    }
+                } else if (d.nextPredictionLabel ?? "").lowercased().contains("bed") {
+                    Link(destination: URL(string: "obubba://?action=start_bedtime")!) {
+                        ActionBtn(icon: "moon.fill", label: "Sleep", color: brandPurple, filled: false)
+                    }
+                } else {
+                    Link(destination: URL(string: "obubba://?action=toggle_nap")!) {
+                        ActionBtn(icon: "play.fill", label: "Nap", color: brandPurple, filled: false)
                     }
                 }
             }
