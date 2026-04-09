@@ -3556,6 +3556,11 @@ function App(){
   });
 
   const[selDay,setSelDay]=useState(()=>{
+    // When bed timer is active, stay on the bedtime day (cross-midnight support)
+    try {
+      const _btd = localStorage.getItem("bed_timer_day");
+      if (_btd) return _btd;
+    } catch {}
     // Start on the current OBubba day. today if it has data,
     // otherwise the most recent day with entries
     try {
@@ -4850,11 +4855,26 @@ function App(){
     return ()=>{ clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+  // Global throttle: prevent sync storms by enforcing minimum interval between cloud pushes
+  const _lastPushTs = useRef(0);
+  const _pushQueued = useRef(null);
+  const PUSH_MIN_INTERVAL = 10000; // 10 seconds minimum between pushes
+
   const pushToCloud = React.useCallback(async(code, allChildren) => {
     if(!window._fb || !code || window._deletingAccount) return;
     // Safety: never push blank/empty state to cloud (would wipe real data)
     const _hasData = Object.values(allChildren).some(c => c.name || Object.values(c.days||{}).some(d => d && d.length > 0));
     if(!_hasData) return;
+    // Throttle: if we pushed recently, queue it for later
+    const _now = Date.now();
+    const _elapsed = _now - _lastPushTs.current;
+    if (_elapsed < PUSH_MIN_INTERVAL) {
+      // Queue a push for when the interval expires (only keep latest)
+      clearTimeout(_pushQueued.current);
+      _pushQueued.current = setTimeout(() => pushToCloud(code, allChildren), PUSH_MIN_INTERVAL - _elapsed + 100);
+      return;
+    }
+    _lastPushTs.current = _now;
     const {db, doc, setDoc, serverTimestamp} = window._fb;
 
     if(!window._fbUid) {
@@ -5043,27 +5063,26 @@ function App(){
             if(Array.isArray(sd.appointments) && sd.appointments.length > 0) {
               setAppointments(prev => {
                 const ids = new Set(prev.map(a=>a.id));
-                const merged = [...prev];
-                let added = false;
-                sd.appointments.forEach(a => { if(!ids.has(a.id)) { merged.push(a); added = true; } });
-                if(added) setNotesOpen(true);
-                return merged;
+                const newOnes = sd.appointments.filter(a => !ids.has(a.id));
+                if(!newOnes.length) return prev; // CRITICAL: return same ref to prevent re-render loop
+                setNotesOpen(true);
+                return [...prev, ...newOnes];
               });
             }
             if(Array.isArray(sd.reminders) && sd.reminders.length > 0) {
               setReminders(prev => {
                 const ids = new Set(prev.map(r=>r.id));
-                const merged = [...prev];
-                sd.reminders.forEach(r => { if(!ids.has(r.id)) merged.push(r); });
-                return merged;
+                const newOnes = sd.reminders.filter(r => !ids.has(r.id));
+                if(!newOnes.length) return prev; // same ref = no re-render
+                return [...prev, ...newOnes];
               });
             }
             if(Array.isArray(sd.pinnedNotes) && sd.pinnedNotes.length > 0) {
               setPinnedNotes(prev => {
                 const ids = new Set(prev.map(n=>n.id));
-                const merged = [...prev];
-                sd.pinnedNotes.forEach(n => { if(!ids.has(n.id)) merged.push(n); });
-                return merged;
+                const newOnes = sd.pinnedNotes.filter(n => !ids.has(n.id));
+                if(!newOnes.length) return prev; // same ref = no re-render
+                return [...prev, ...newOnes];
               });
             }
             // Restore letters from cloud
@@ -7864,8 +7883,11 @@ function App(){
     }
 
     // ── PRIORITY 1: Night mode. starts the moment bedtime is logged ──
-    if (_hasBed) {
-      const _bedEntry = findBedtime(_todayEntries);
+    // Cross-midnight: if today has no bedtime but bed timer is running from yesterday, use yesterday's bedtime
+    const _crossMidnightBTD = !_hasBed && (bedTimerDay || localStorage.getItem("bed_timer_day"));
+    const _crossMidnightBedEntry = _crossMidnightBTD ? findBedtime(days[_crossMidnightBTD]||[]) : null;
+    if (_hasBed || _crossMidnightBedEntry) {
+      const _bedEntry = findBedtime(_todayEntries) || _crossMidnightBedEntry;
       const _timeStr = nightElapsed !== null && nightElapsed > 0
         ? "Sleeping since " + (_bedEntry ? fmt12(_bedEntry.time) : "") + " · " + Math.floor(nightElapsed/3600) + "h " + Math.floor((nightElapsed%3600)/60) + "m"
         : "Sleeping for the night";
@@ -7924,15 +7946,6 @@ function App(){
             </div>
           ) : (
             <div>
-              {/* Quick-log buttons for 3am simplicity */}
-              <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:0,night:true,nightLocked:true,note:"Night feed (quick)"});showToast("🍼 Night feed logged at "+fmt12(t),1200,1);}} style={{flex:1,padding:"14px 10px",borderRadius:14,border:"none",background:"linear-gradient(135deg,rgba(212,168,85,0.12),rgba(212,168,85,0.06))",color:C.deep,fontSize:14,fontWeight:700,cursor:_cP}}>
-                  {"\u{1F37C}"} Quick feed
-                </button>
-                <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("wake",{type:"wake",time:t,night:true,nightLocked:true,selfSettled:false,note:"Night wake (quick)"});showToast("🌙 Night wake logged at "+fmt12(t),1200,1);}} style={{flex:1,padding:"14px 10px",borderRadius:14,border:"none",background:"linear-gradient(135deg,rgba(123,104,238,0.12),rgba(123,104,238,0.06))",color:C.deep,fontSize:14,fontWeight:700,cursor:_cP}}>
-                  {"\u{1F319}"} Quick wake
-                </button>
-              </div>
               <div style={_S.flexRowGap8}>
                 <button onClick={pauseBedTimer} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
                   {"\u23F8\uFE0F"} Baby awake
@@ -16831,7 +16844,15 @@ function App(){
     if (!bedTimerDay) {
       try { const _lsBTD = localStorage.getItem("bed_timer_day"); if(_lsBTD) setBedTimerDay(_lsBTD); } catch {}
     }
-    const _effectiveBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    let _effectiveBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    // Last resort: find the bedtime entry day from data (hero card shows night mode but bedTimerDay was cleared)
+    if (!_effectiveBTD) {
+      const _today = todayStr();
+      const _prevDay = (()=>{const d=new Date(_today+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+      if (findBedtime(days[_today]||[])) { _effectiveBTD = _today; }
+      else if (findBedtime(days[_prevDay]||[])) { _effectiveBTD = _prevDay; }
+      if (_effectiveBTD) { setBedTimerDay(_effectiveBTD); try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{} }
+    }
     if (!_effectiveBTD || bedPaused) return;
     haptic();
     // Freeze display at current elapsed seconds
