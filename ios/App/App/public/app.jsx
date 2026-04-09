@@ -4265,7 +4265,20 @@ function App(){
   const[timerEndPrompt,setTimerEndPrompt]=useState(null); // {start, end, durMins} when timer stopped
   // Bug 1: explicit timer mode. 'prediction' | 'activeSleep'
   const[timerMode,setTimerMode]=useState(()=> {
-    try { return localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction"); } catch { return "prediction"; }
+    try {
+      const _tm = localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction");
+      // If timerMode is activeSleep but bed_timer_day is from a previous day, it's stale
+      if (_tm === "activeSleep") {
+        const _btd = localStorage.getItem("bed_timer_day");
+        const _today = new Date().toISOString().split("T")[0];
+        if (_btd && _btd < _today) {
+          // Stale bed timer from yesterday. clear everything
+          ["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start","timer_mode_v1"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+          return "prediction";
+        }
+      }
+      return _tm;
+    } catch { return "prediction"; }
   });
 
   // ── Per-child timer isolation: save/restore timer state on child switch ──
