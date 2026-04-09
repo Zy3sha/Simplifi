@@ -7541,7 +7541,7 @@ function App(){
     } else if (_td2.nextNapMins) {
       // Build a fake _pred object from the simple midpoint so the hero card displays it
       const _nowMins2 = new Date().getHours()*60+new Date().getMinutes();
-      _pred = { napStart_min: _td2.nextNapMins, napStart_max: _td2.nextNapMins, sourceLabel: "Research-based guidelines", isOverdue: _nowMins2 > _td2.nextNapMins };
+      _pred = { napStart_min: _td2.nextNapMins, napStart_max: _td2.nextNapMins, sourceLabel: "OBubba Sleep Engine", isOverdue: _nowMins2 > _td2.nextNapMins };
     }
     let _bed = null; _bed = tickDataRef.current.bed;
 
@@ -8769,7 +8769,7 @@ function App(){
         }
       });
     }
-    // Blend: personal data + NHS progressive (even 1 data point is better than pure NHS)
+    // Blend: personal data + Sleep Engine (even 1 data point is better than engine alone)
     if (positionWWs.length >= 1) {
       const sorted2 = [...positionWWs].sort((a,b)=>a.gap-b.gap);
       // Only trim outliers if we have enough data (5+). Otherwise use all entries.
@@ -8781,9 +8781,10 @@ function App(){
       const posAvg = totalWeight > 0 ? Math.round(trimmed.reduce((s,p)=>s+p.gap*p.weight,0) / totalWeight) : null;
       if (posAvg === null) { /* fall through to NHS fallback below */ }
       // Personal mode (true): blend personal + NHS. PREMIUM FEATURE
-      // NHS mode (false): pure NHS only. FREE
-      // Free users: full research-based engine (progressive WW, sleep pressure, bridge naps)
-      //   but NO personal data blending. uses NHS/research consensus only
+      // Sleep Engine mode (false): full engine without personal blending. FREE
+      // Free users: OBubba Sleep Engine (progressive WW, sleep pressure, bridge naps,
+      //   circadian alignment, regression awareness, teething mode) — everything except
+      //   personal rhythm blending from baby's tracked data
       // Premium users: same research base + personal tracked data blended in,
       //   gently nudging toward healthier sleep schedules
       const _isFreeUser = !hasAccess();
@@ -8818,7 +8819,7 @@ function App(){
         : "";
       sourceLabel = _usePersonal && posAvg !== null
         ? `${possessive(babyName||"Baby")} personal rhythm (${posAvg}min avg)${nudgeNote}`
-        : `Research-based guidelines for ${fmtAge(age)}`;
+        : `OBubba Sleep Engine for ${fmtAge(age)}`;
     } else {
       // Fall back to progressive NHS
       const clamped = Math.max(ww.min, Math.min(ww.max, nhsProgressive));
@@ -14508,7 +14509,7 @@ function App(){
     if (isPremium || trialActive) {
       _pred = tickDataRef.current.pred;
     } else if (_td3.nextNapMins) {
-      _pred = { napStart_min: _td3.nextNapMins, napStart_max: _td3.nextNapMins, sourceLabel: "Research-based guidelines", isOverdue: _nowM > _td3.nextNapMins };
+      _pred = { napStart_min: _td3.nextNapMins, napStart_max: _td3.nextNapMins, sourceLabel: "OBubba Sleep Engine", isOverdue: _nowM > _td3.nextNapMins };
     }
     const _profile = getAgeNapProfile(_aw);
 
@@ -24317,8 +24318,8 @@ function App(){
                 _freeBedM = clampBedtime(_freeCursor + _freeBedWW, age.totalWeeks);
                 return (
                   <div style={{padding:"8px 0"}}>
-                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Research-Based Schedule for {age?fmtAge(age):""}</div>
-                    <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Based on NHS, WHO & AASM guidelines for {babyName||"baby"}'s age. Every baby is different {"\u2014"} always follow sleepy cues.</div>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Sleep Engine Schedule for {age?fmtAge(age):""}</div>
+                    <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Powered by the OBubba Sleep Engine {"\u2014"} built from pediatric sleep research & consultant guidelines. Every baby is different {"\u2014"} always follow sleepy cues.</div>
                     <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
                       <div style={{flex:1,minWidth:90,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
                         <div style={{fontSize:9,color:C.lt}}>Wake windows</div>
