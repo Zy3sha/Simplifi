@@ -2887,6 +2887,10 @@ function App(){
               const time = entry.time || timeNow;
               if(entry.type==='wake') {
                 quickAddLog("wake", {type:"wake", time, night:false, note:"via Siri"});
+                // Clear bed timer + Live Activity on morning wake from widget/Siri
+                setBedTimerDay(null);
+                try{localStorage.removeItem("bed_timer_day");}catch{}
+                if(_isNative) _laStop();
                 showToast(entry.source==='widget' ? "☀️ Wake logged via Widget ✓" : "☀️ Morning wake logged via Siri ✓", 3000, 1);
               } else if(entry.type==='feed') {
                 const _amt = entry.amount ? parseInt(entry.amount) : 0;
@@ -16617,17 +16621,20 @@ function App(){
     const dayEntries = days[_calToday]||[];
     const hasBedtime = dayEntries.some(e=>e.type==="sleep"&&!e.night);
     const h = new Date().getHours();
-    
+
     // Check if previous day has a bedtime (covers early AM on a new day)
-    const prevDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+    // Use _calToday (not selDay) because setSelDay above is async — selDay may still be stale
+    const prevDay = (()=>{const d=new Date(_calToday+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
     const prevHasBedtime = !!findBedtime(days[prevDay]||[]);
     // Also check if morning wake already exists today. use global hasMorningWake (time position, not night flag)
     const _hasMorningWakeLocal = hasMorningWake(dayEntries);
-    
+
     if(!hasBedtime && !prevHasBedtime){
       // No bedtime on today or yesterday. just log morning wake
       quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
       setBedTimerDay(null);
+      // Always stop Live Activity as safety net
+      if(_isNative) _laStop();
       // Show morning wellbeing message
       setTimeout(()=>{
         const _name2=babyName||"baby";
@@ -16667,6 +16674,8 @@ function App(){
     
     // Fallback. log morning wake
     quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
+    setBedTimerDay(null);
+    if(_isNative) _laStop();
   }
 
   function pauseBedTimer(){
