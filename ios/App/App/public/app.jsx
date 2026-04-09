@@ -24574,7 +24574,8 @@ function App(){
                         napNote = `${expectedTotal - napIdx} fewer nap${expectedTotal-napIdx>1?"s":""} today. long nap reduced sleep debt`;
                       }
                     } else {
-                      napNote = bedPred && bedPred.estimated ? "estimated" : "";
+                      const _bedPredRef = (tickDataRef.current||{}).bed;
+                      napNote = _bedPredRef && _bedPredRef.estimated ? "estimated" : "";
                     }
                     items.push({ icon: "\u{1F319}", label: "Bedtime", time: fmt12(bedTime), sub: napNote, predicted: true, mins: bedM });
                     hasPredictions = true;
@@ -32638,14 +32639,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   setShowBedRoutine(false);
                   setBedRoutineStep(0);
                   setBedRoutineStart(null);
-                  // Log bedtime entry so the pill disappears and bed timer starts
-                  const _bedT = nowTime();
-                  quickAddLog("sleep",{type:"sleep",time:_bedT,night:false});
-                  // Start bed timer
-                  setBedTimerDay(selDay);
-                  try{localStorage.setItem("bed_timer_day",selDay);localStorage.setItem("timer_mode_v1","activeSleep");}catch{}
-                  setTimerMode("activeSleep");
-                  showToast("🌙 Bedtime logged. sweet dreams, " + (babyName||"baby") + " 💛", 3000, 1);
+                  showToast("🌙 Routine complete. tap Bed to log bedtime 💛", 3000, 1);
                 }} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
                   Done. goodnight 🌙
                 </button>
