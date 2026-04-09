@@ -7235,10 +7235,12 @@ function App(){
       try {
         const _la = window.Capacitor?.Plugins?.OBLiveActivity;
         if (!_la) return;
-        // Check localStorage directly. always current, no React batching issues
+        // Check localStorage + entry data. covers timer desync after rebuild/update
+        const _hasActiveNapLA = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
         const _anyTimer = localStorage.getItem("nap_on") === "1"
           || localStorage.getItem("breast_active") === "1"
-          || !!bedTimerDay;
+          || !!bedTimerDay
+          || _hasActiveNapLA;
         if (_anyTimer) {
           if (_predLAState !== "") { _la.stopPrediction?.().catch(()=>{}); _predLAState = ""; }
           return;
