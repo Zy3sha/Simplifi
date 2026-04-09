@@ -6881,9 +6881,11 @@ function App(){
     // Debug: log why napsComplete is set
     if (!_planPred && napsDone < 3) console.warn('[OBubba] predictNextNap returned null with only', napsDone, 'naps done. expectedNaps:', expectedNaps, 'totalNapMins:', totalNapMins);
     // napsComplete: true when nap count met AND prediction engine agrees (returns null).
-    // predictNextNap() already accounts for budget, teething, proximity, bridge naps.
-    // If it returns a prediction, there's still a nap to do — trust the engine.
-    let napsComplete = napsDone >= expectedNaps && !_planPred;
+    // Also true if nap prediction is 30+ min overdue and baby isn't sleeping — skip to bed.
+    const _nowMinsTC = new Date().getHours()*60 + new Date().getMinutes();
+    const _napOverdue = _planPred && typeof _planPred.napStart_min === "number" && !napOn
+      && (_nowMinsTC - _planPred.napStart_min > 30);
+    let napsComplete = (napsDone >= expectedNaps && !_planPred) || _napOverdue;
     const nextNapMins = _planPred && typeof _planPred.napStart_min === "number" ? Math.round(_planPred.napStart_min) : null;
 
     // Fragmented nap detection from data (used for observations, not overriding Plan)
@@ -6929,10 +6931,11 @@ function App(){
         else lastNightEvent = lw.time;
       }
       // ═══ NEXT EVENT — single source of truth for hero, pill, coming up, widget ═══
-      const _nextEvent = _planPred && typeof _planPred.napStart_min === "number"
-        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+      // If nap is 30+ min overdue, switch to bedtime (baby didn't settle)
+      const _nextEvent = (_planPred && typeof _planPred.napStart_min === "number" && !_napOverdue)
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - _nowMinsTC }
         : bedMins
-        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - _nowMinsTC }
         : null;
       tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile, nextEvent: _nextEvent };
       // Bad Night Badge. solidarity after rough nights
@@ -6945,10 +6948,10 @@ function App(){
         }
       } catch {}
     } else {
-      const _nextEvent2 = _planPred && typeof _planPred.napStart_min === "number"
-        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+      const _nextEvent2 = (_planPred && typeof _planPred.napStart_min === "number" && !_napOverdue)
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - _nowMinsTC }
         : bedMins
-        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - _nowMinsTC }
         : null;
       tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins, nextEvent: _nextEvent2 };
     }
