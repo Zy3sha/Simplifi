@@ -5337,7 +5337,9 @@ function App(){
   const writeTokenRef = React.useRef("tok_" + Math.random().toString(36).slice(2));
   const justRestoredRef = React.useRef(false);
   const cloudEntryCountRef = React.useRef(0);
-  const deletedDaysRef = React.useRef(new Set());
+  const deletedDaysRef = React.useRef(new Set(
+    (()=>{ try { const s=localStorage.getItem("ob_deleted_days"); return s?JSON.parse(s):[]; } catch{ return []; } })()
+  ));
   // Persist deleted entry IDs so cloud sync doesn't resurrect them after restart
   const deletedEntryIdsRef = React.useRef(new Set(
     (()=>{ try { const s=localStorage.getItem("ob_deleted_ids"); return s?JSON.parse(s):[]; } catch{ return []; } })()
@@ -19789,6 +19791,7 @@ function App(){
     Object.keys(children).forEach(cid => {
       deletedDaysRef.current.add(cid + ":" + dayToDelete);
     });
+    try { localStorage.setItem("ob_deleted_days", JSON.stringify([...deletedDaysRef.current])); } catch {}
     const cnt = (days[dayToDelete]||[]).length;
     userDeletedCountRef.current += cnt;
     setDays(d=>{
