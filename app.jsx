@@ -3907,7 +3907,7 @@ function App(){
     })();
   },[]);
   const[msShowPastMs,setMsShowPastMs]=useState(false);
-  const[msShowUpcoming,setMsShowUpcoming]=useState(false);
+  const[msShowUpcoming,setMsShowUpcoming]=useState(true);
   const[msShowAchieved,setMsShowAchieved]=useState(false);
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
   const[insightFilter,setInsightFilter]=useState(null);
