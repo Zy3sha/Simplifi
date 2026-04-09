@@ -4735,8 +4735,8 @@ function App(){
   // ── One-time cleanup: remove night:true from food entries (misclassified catch-up logs) ──
   useEffect(()=>{
     try {
-      if (localStorage.getItem("ob_food_night_fix_v4")) return;
-      localStorage.setItem("ob_food_night_fix_v4", "1");
+      if (localStorage.getItem("ob_food_night_fix_v5")) return;
+      localStorage.setItem("ob_food_night_fix_v5", "1");
       // Fix misclassified night entries: food catch-ups + daytime entries marked as night
       const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus","mash","melty","finger","stick","puree","app ","avocado"];
       setDays(d=>{
@@ -4747,19 +4747,18 @@ function App(){
           if (!arr || !arr.length) return;
           let dayChanged = false;
           const fixed = arr.map(e=>{
-            if (!e.night) return e;
+            if (!e.night || e._nightFixed) return e;
             const note = ((e.note||"")+"").toLowerCase().trim();
             const [eh] = (e.time||"06:00").split(":").map(Number);
             // Rule 1: food-like note = not a night entry
             if (note && _foodWords.some(f=>note.includes(f))) {
               dayChanged = true;
-              return {...e, night: false, nightLocked: false};
+              return {...e, night: false, nightLocked: false, modifiedAt: Date.now(), _nightFixed: true};
             }
             // Rule 2: ANY "night" entry between 6am-5pm = almost certainly daytime
-            // Real night entries happen between bedtime (6-10pm) and morning wake (5-8am)
             if (eh >= 6 && eh < 17) {
               dayChanged = true;
-              return {...e, night: false, nightLocked: false};
+              return {...e, night: false, nightLocked: false, modifiedAt: Date.now(), _nightFixed: true};
             }
             return e;
           });
