@@ -9940,7 +9940,8 @@ function App(){
     const dailyData = recent.map(rd => {
       const entries = rd.entries;
       const naps = entries.filter(e => e.type === "nap" && !e.night);
-      const napMins = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+      // Cap individual naps at 6h (360min) to prevent imported bad data from inflating totals
+      const napMins = naps.reduce((s, n) => s + Math.min(360, minDiff(n.start, n.end)), 0);
       const napCount = naps.length;
       const bedEntry = entries.find(e => e.type === "sleep" && !e.night);
       const wakeEntry = findMorningWake(entries);
@@ -17665,7 +17666,7 @@ function App(){
         const tips = [];
         if (_bud.hasChronicDebt) tips.push({ icon: "🌙", title: "Build back the sleep budget", body: "Total sleep has been below the " + _bud.aasm.label + " range for " + _bud.debtDays + " days. Try an earlier bedtime tonight. even 15 min helps." });
         if (_bud.belowRange && !_bud.hasChronicDebt) tips.push({ icon: "🛌", title: "A little more sleep would help", body: _name + "'s total sleep is averaging " + _bud.avgTotal + "h. The AASM range is " + _bud.aasm.label + ". An earlier bedtime is the easiest lever." });
-        if (_bud.dayTooMuch) tips.push({ icon: "☀️", title: "Day naps may be stealing night sleep", body: "Day sleep is averaging " + _bud.avgDay + "min. Try capping the longest nap by 10-15 min to protect night pressure." });
+        if (_bud.dayTooMuch && _bud.avgDay < 600) tips.push({ icon: "\u2600\uFE0F", title: "Day naps may be stealing night sleep", body: "Day sleep is averaging " + _bud.avgDay + "min. Try capping the longest nap by 10-15 min to protect night pressure." });
         if (_bud.dayTooLittle) tips.push({ icon: "😴", title: "Naps could use more time", body: "Day sleep is under the expected range. A longer first nap often extends the ones that follow." });
         if (tips.length) { const t = _pick(tips); return { ...t, source: "Based on your last 7 days" }; }
       }
