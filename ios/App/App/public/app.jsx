@@ -132,6 +132,37 @@ const mtp24h = m => { const n=((m%1440)+1440)%1440; return String(Math.floor(n/6
 const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${day}/${mo}/${y.slice(2)}`; };
 // A day has meaningful data if it has at least 2 non-auto entries (wake + something)
 const dayHasData = (entries) => { if(!entries || !entries.length) return false; const real = entries.filter(e => !e.auto); return real.length >= 2; };
+// ═══ Smart Hydration Count ═══
+// A wet nappy after a long sleep stretch counts as more than 1 (baby was hydrated overnight).
+// Also provides age-adjusted targets.
+function smartHydration(dayEntries, ageWeeks) {
+  if (!dayEntries || !dayEntries.length) return { count: 0, target: 6, label: "0 of 6+" };
+  const wetNappies = dayEntries.filter(e => { if(e.type!=="poop") return false; const p=(e.poopType||"").toLowerCase(); return p.includes("wet")||p==="both"; });
+  let smartCount = 0;
+  wetNappies.forEach(n => {
+    const nMins = n.time ? (parseInt(n.time.split(":")[0])*60+parseInt(n.time.split(":")[1])) : 0;
+    // Find the previous sleep/nap that ended before this nappy
+    const prevSleeps = dayEntries.filter(e => (e.type==="nap"||e.type==="sleep") && e.end).map(e => {
+      const [eh,em] = (e.end||"00:00").split(":").map(Number); return eh*60+em;
+    }).filter(m => m <= nMins + 15); // within 15 min of nappy = post-sleep nappy
+    // Also check: is this the first nappy of the day (morning nappy after overnight)?
+    const isFirstNappy = wetNappies.indexOf(n) === 0;
+    const isAfterLongSleep = prevSleeps.length > 0;
+    // Check gap since previous nappy
+    const nIdx = wetNappies.indexOf(n);
+    const prevNappy = nIdx > 0 ? wetNappies[nIdx-1] : null;
+    const gap = prevNappy && prevNappy.time ? nMins - (parseInt(prevNappy.time.split(":")[0])*60+parseInt(prevNappy.time.split(":")[1])) : (isFirstNappy ? 720 : 0); // first nappy: assume 12h overnight gap
+    // Smart counting: gap 6-10h = counts as 2, gap 10+h = counts as 3
+    if (gap >= 600) smartCount += 3; // 10+ hours (overnight)
+    else if (gap >= 360) smartCount += 2; // 6-10 hours (long nap or early overnight)
+    else smartCount += 1; // normal daytime change
+  });
+  // Age-adjusted target
+  const months = (ageWeeks || 0) / 4.33;
+  const target = months < 6 ? 6 : months < 12 ? 5 : 4;
+  const ok = smartCount >= target;
+  return { count: smartCount, raw: wetNappies.length, target, ok, label: smartCount + " of " + target + "+" };
+}
 const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString(navigator.language||"en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
@@ -10635,10 +10666,10 @@ function App(){
 
     // Feed alerts handled by the Last Feed card. no duplicate banner needed
 
-    // Check hydration
-    const wetCount = today.filter(e => { if(e.type!=="poop") return false; const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
+    // Check hydration (smart counting: post-sleep nappies count as 2-3)
+    const _hydration = smartHydration(today, w);
     const h = new Date().getHours();
-    if (h >= 14 && wetCount < 4) return { emoji: "💧", text: `${wetCount} wet nappies today. aim for 6+ in 24 hours for adequate hydration.`, priority: "med", why: "NHS guidance recommends 6+ wet nappies in 24 hours as a sign of adequate hydration. Fewer wet nappies, especially in the afternoon, may mean baby needs more milk." };
+    if (h >= 14 && !_hydration.ok) return { emoji: "💧", text: `${_hydration.raw} wet nappies today (${_hydration.count} hydration score). aim for ${_hydration.target}+ for adequate hydration.`, priority: "med", why: `Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). ${_hydration.raw} changes = ${_hydration.count} hydration score vs ${_hydration.target}+ target for ${fmtAge(age)}.` };
 
     // Check bedtime approaching. two-stage alert
     const bed = tickDataRef.current.bed;
@@ -13033,14 +13064,29 @@ function App(){
       }
     }
 
-    // ── 6. Nappy Reminder (schedule based on last nappy time) ──
+    // ── 6. Nappy Reminder (smart: delays if baby is napping or nap is predicted) ──
     if(nappyReminderMins && nappyReminderMins > 0){
       const _todayNappies = todayEntries.filter(e=>e.type==="poop").sort((a,b)=>timeVal(a)-timeVal(b));
       const _lastNappy = _todayNappies.length ? _todayNappies[_todayNappies.length-1] : null;
       if(_lastNappy && _lastNappy.time){
         const [_nh,_nm] = _lastNappy.time.split(":").map(Number);
         const _nappyTime = new Date(); _nappyTime.setHours(_nh, _nm, 0, 0);
-        const _nappyRemindAt = new Date(_nappyTime.getTime() + nappyReminderMins * 60 * 1000);
+        let _nappyRemindAt = new Date(_nappyTime.getTime() + nappyReminderMins * 60 * 1000);
+        // Smart: if reminder falls during a predicted nap, delay to after the nap
+        const _nrMins = _nappyRemindAt.getHours()*60 + _nappyRemindAt.getMinutes();
+        const _pred = td.pred;
+        if (_pred && typeof _pred.napStart_min === "number") {
+          const _napEnd = _pred.napStart_min + 60; // estimate 1h nap
+          if (_nrMins >= _pred.napStart_min - 5 && _nrMins <= _napEnd + 5) {
+            // Reminder falls during predicted nap window — delay to after nap
+            _nappyRemindAt = new Date(); _nappyRemindAt.setHours(Math.floor(_napEnd/60)%24, _napEnd%60+5, 0, 0);
+          }
+        }
+        // Also suppress if nap is actively running
+        if (napOn) {
+          // Delay by 30 min from now (baby is sleeping)
+          _nappyRemindAt = new Date(now + 30*60*1000);
+        }
         if(_nappyRemindAt.getTime() > now && _nappyRemindAt.getTime() < now + 6*3600000){
           notifications.push({title:`🧷 Time for a nappy check`,body:`It's been ${hm(nappyReminderMins)} since ${_bn}'s last change at ${fmt12(_lastNappy.time)}.`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders"});
         }
@@ -20881,7 +20927,7 @@ function App(){
         _pooCounts2.push(wet);
       }
       const _avgWet = _pooCounts2.length ? Math.round(_pooCounts2.reduce((a, b) => a + b, 0) / _pooCounts2.length * 10) / 10 : 0;
-      if (_avgWet < 4) _hvItems.push("💧 Wet nappies averaging " + _avgWet + "/day (target 6+). possible dehydration signal");
+      if (_avgWet < 3) _hvItems.push("\u{1F4A7} Wet nappies averaging " + _avgWet + "/day. possible dehydration signal \u2014 speak to your health visitor");
       // Weaning reactions
       const _reactions = (weaning || []).filter(w => w.reaction === "allergic" || w.reaction === "bad");
       if (_reactions.length > 0) _hvItems.push("🥄 Food reactions logged: " + _reactions.map(r => r.food).join(", ") + ". discuss allergen testing");
@@ -23901,12 +23947,12 @@ function App(){
               {age && age.totalWeeks < 13 && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _fcEntries = days[selDay] || [];
                 const _fcFeeds = _fcEntries.filter(function(e){ return e.type==="feed"; }).length;
-                const _fcWet = _fcEntries.filter(function(e){ return e.type==="poop" && ((e.poopType||"")+"").toLowerCase().includes("wet"); }).length;
+                const _fcHydration = smartHydration(_fcEntries, age.totalWeeks);
                 const _fcTarget = age.totalWeeks < 4 ? 8 : 6;
                 const _h = new Date().getHours();
                 const _fcTargetByNow = Math.max(1, Math.round(_fcTarget * Math.min(_h / 20, 1)));
                 const _fcOk = _fcFeeds >= _fcTargetByNow;
-                const _fcWetOk = _fcWet >= Math.max(1, Math.round(6 * Math.min(_h / 20, 1)));
+                const _fcWetOk = _fcHydration.ok || _fcHydration.count >= Math.max(1, Math.round(_fcHydration.target * Math.min(_h / 20, 1)));
                 const _fcColor = _fcOk && _fcWetOk ? "#7BA68C" : (!_fcOk && !_fcWetOk) ? "#D47070" : "#D4A855";
                 const _fcMsg = _fcOk && _fcWetOk ? "Feeding looks on track today"
                   : (!_fcOk && !_fcWetOk) ? "Feeds and wet nappies are below expected. speak to your health visitor if worried"
@@ -23920,7 +23966,7 @@ function App(){
                     </div>
                     <div style={{display:"flex",gap:16,marginBottom:4}}>
                       <span style={{fontSize:12,color:C.mid}}>{"\u{1F37C}"} {_fcFeeds} feeds (target: {_fcTarget}+)</span>
-                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F4A7}"} {_fcWet} wet nappies (target: 6+)</span>
+                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F4A7}"} {_fcHydration.label} hydration</span>
                     </div>
                     <div style={{fontSize:11,color:_fcColor,fontWeight:600}}>{_fcMsg}</div>
                   </div>
