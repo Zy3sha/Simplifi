@@ -9046,12 +9046,15 @@ function App(){
     const nowMins = now.getHours()*60 + now.getMinutes();
     const isOverdue = nowMins > finalMaxMins;
 
-    if (!isOverdue) {
+    // Check if this would be a bridge nap (last nap before bed, close to bedtime)
+    const _isBridgeCandidate = napsDoneToday >= adjustedExpected - 1;
+    if (!isOverdue && !_isBridgeCandidate) {
       const bed = bedtimePrediction();
       if (bed) {
         const [bh, bm] = bed.time.split(":").map(Number);
         const bedMins = bh*60 + bm;
         // Bug 4: if predicted nap is within 90 min of bedtime, skip to bedtime
+        // BUT exempt bridge naps — they're meant to be close to bedtime
         if (bedMins - finalMinMins < 90) return null;
         // Bug 4: also skip if nap end would be too close to bedtime
         if (bedMins - finalMinMins < wakeWindowMax) return null;
