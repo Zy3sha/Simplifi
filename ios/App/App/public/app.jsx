@@ -23980,17 +23980,22 @@ function App(){
               {/* ═══ COMPACT "COMING UP". moved above timeline for visibility ═══ */}
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _td = tickDataRef.current || {};
-                if (_td.hasBedtime || !_td.lastAwakeMins) return null;
+                if (_td.hasBedtime) return null;
                 const _items = [];
-                if (!_td.napsComplete && _td.nextNapMins && _td.nextNapMins > 0) {
-                  const _napH = Math.floor(_td.nextNapMins/60)%24;
-                  const _napM = Math.round(_td.nextNapMins%60);
-                  _items.push({icon:"😴", label:(_td.bridgeNapNeeded?"Bridge nap":"Nap "+(_td.napsDone+1)), time:fmt12(String(_napH).padStart(2,"0")+":"+String(_napM).padStart(2,"0"))});
+                // Use predictNextNap() — same source as Plan tab
+                let _cuPred = null;
+                try { _cuPred = predictNextNap ? predictNextNap() : null; } catch {}
+                if (_cuPred && _cuPred.napStart_min) {
+                  const _napH = Math.floor(_cuPred.napStart_min/60)%24;
+                  const _napM = Math.round(_cuPred.napStart_min%60);
+                  const _napsDone2 = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.start!==e.end).length;
+                  _items.push({icon:"😴", label:"Nap "+(_napsDone2+1), time:fmt12(String(_napH).padStart(2,"0")+":"+String(_napM).padStart(2,"0"))});
                 }
-                if (_td.bedMins) {
-                  const _bedH = Math.floor(_td.bedMins/60)%24;
-                  const _bedM = Math.round(_td.bedMins%60);
-                  _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(String(_bedH).padStart(2,"0")+":"+String(_bedM).padStart(2,"0"))});
+                // Bedtime from bedtimePrediction()
+                let _cuBed = null;
+                try { _cuBed = bedtimePrediction ? bedtimePrediction() : null; } catch {}
+                if (_cuBed && _cuBed.time) {
+                  _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(_cuBed.time)});
                 }
                 if (!_items.length) return null;
                 return (
