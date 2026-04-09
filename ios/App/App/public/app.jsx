@@ -19834,7 +19834,7 @@ function App(){
       if (_s.isBehindTarget && !_s.allowNightTopUp && _s.hoursLeftInDay > 0) {
         addObservation("📊", "Feeding pace today",
           `${_name} is ${_s.mlRemainingToday}ml below the daily guideline with about ${_s.hoursLeftInDay}h left. No need to force it. follow ${_name}'s hunger cues.`,
-          `We've gently nudged the next suggestion to ~${_s.amountMl}ml. This is a guide, not a target. ${_name} knows what they need. If they refuse, that's OK. the day will balance out.`);
+          `What OBubba is doing: we've adjusted the next feed suggestion to ~${_s.amountMl}ml to gently catch up. This is a guide, not a target. ${_name} knows what they need.`);
       }
       if (_s.context === "target met" && _h >= 15 && _h < 20) {
         addObservation("💚", "Day target reached",
@@ -19938,15 +19938,15 @@ function App(){
         const _lastNapRefused = _recent14.slice(0, 5).filter(d => d.naps < Math.round(_avgNaps)).length;
         // 3→2 transition (typically 6-9 months)
         if (_avgNaps >= 2.5 && _avgNaps <= 3.2 && _lastNapRefused >= 3 && _wks >= 24 && _wks <= 40) {
-          addObservation("📉", "Nap transition signal: 3 → 2 naps",
+          addObservation("📉", "Nap transition signal: 3 \u2192 2 naps",
             `${_name} has been fighting or skipping the 3rd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, this is a classic sign of readiness to drop to 2 naps.`,
-            "Transition gradually: push the first wake window by 15min every 2-3 days. The 2-nap schedule usually settles within 1-2 weeks. Bedtime may need to come earlier during the transition.");
+            "What OBubba is doing: we've already started stretching wake windows on days " + _name + " handles 2 naps well. On days they need a 3rd nap, we'll add it. Bedtime is automatically adjusted earlier on 2-nap days. You don't need to do anything \u2014 just follow the predictions.");
         }
         // 2→1 transition (typically 14-18 months)
         if (_avgNaps >= 1.5 && _avgNaps <= 2.2 && _lastNapRefused >= 3 && _wks >= 56 && _wks <= 80) {
-          addObservation("📉", "Nap transition signal: 2 → 1 nap",
+          addObservation("📉", "Nap transition signal: 2 \u2192 1 nap",
             `${_name} has been resisting or shortening the 2nd nap ${_lastNapRefused} of the last 5 days. At ${_wks} weeks, they may be ready for one longer midday nap.`,
-            "Don't rush. most babies aren't truly ready until 15-18 months. Try capping the morning nap to 30min first. If they still fight the afternoon nap for 2+ weeks, switch to one nap around 12:30pm.");
+            "What OBubba is doing: we're testing longer wake windows on days " + _name + " skips nap 2. On days they still need 2 naps, we'll keep both. Bedtime moves earlier automatically on 1-nap days. This transition takes 4\u20136 weeks \u2014 we'll guide you through it.");
         }
       }
 
@@ -20104,7 +20104,7 @@ function App(){
         const lateBound = avgWakeMins + Math.min(spread, 30);
         addObservation("🌅", "Morning wake prediction",
           `${_name} typically wakes between ${fmt12(minsToTime(earlyBound))} and ${fmt12(minsToTime(lateBound))}, averaging ${fmt12(minsToTime(avgWakeMins))}.`,
-          spread < 20 ? `Very consistent. ${_name}'s body clock is well-set. This stability helps the whole day run smoothly.` : `There's some variation (±${spread}min). A consistent morning wake time anchors the entire day's rhythm.`);
+          spread < 20 ? `What OBubba is doing: we use this consistent wake time to anchor ${_name}'s entire day schedule. Nap times and bedtime are all built from this.` : `What OBubba is doing: we're using ${_name}'s average wake time (${fmt12(minsToTime(avgWakeMins))}) as the anchor for today's schedule. The \u00B1${spread}min variation is factored into our predictions.`);
       }
     } catch {}
 
@@ -20130,16 +20130,16 @@ function App(){
             const _toothNames = _recentTeeth.map(t => t.name || t.tooth || "tooth").join(", ");
             addObservation("🦷", "Teething + reduced feeding. this is normal",
               `${_name} cut ${_recentTeeth.length > 1 ? _recentTeeth.length + " teeth" : "a tooth"} recently and daily intake has dropped ~${_drop}% (${_avg3}ml vs ${_avg4}ml). Sore gums make feeding uncomfortable. this is temporary.`,
-              "What helps: offer smaller, more frequent feeds. Try cold teething rings before feeds to numb the gums. A chilled bottle teat can also help. Intake usually bounces back within 3-5 days. If " + _name + " refuses feeds for 24+ hours or seems unwell, speak to your GP.");
+              "What OBubba is doing: we've relaxed the sleep budget (allowing more day sleep) and shortened wake windows while " + _name + " is teething. Feed suggestions are adjusted for smaller, more frequent feeds. If " + _name + " refuses feeds for 24+ hours or seems unwell, speak to your GP.");
           } else {
             addObservation("🦷", _recentTeeth.length > 1 ? _recentTeeth.length + " new teeth!" : "New tooth!",
               `${_name} is teething. you might notice more drool, chewing, fussiness, and disrupted sleep. This is all completely normal.`,
-              "Feeding: some babies feed MORE for comfort, others refuse. Both are fine. Sleep: teething pain peaks at night. extra wakes are expected for a few days. Paracetamol (if age-appropriate) can help with pain. This phase passes. 💛");
+              "What OBubba is doing: we've activated teething mode \u2014 wake windows are shortened by 20%, sleep budget is relaxed, and predictions expect more disruption. This adjusts automatically and resets when the teething phase passes. \u{1F49B}");
           }
         } else if (_recentTeeth.length > 0) {
           addObservation("🦷", _recentTeeth.length > 1 ? _recentTeeth.length + " new teeth!" : "New tooth!",
             `${_name} is teething. you might notice more drool, chewing, fussiness, and disrupted sleep. This is all completely normal.`,
-            "Feeding: some babies feed MORE for comfort, others refuse. Both are fine. Sleep: teething pain peaks at night. extra wakes are expected for a few days. This phase passes. 💛");
+            "What OBubba is doing: teething mode is active \u2014 shorter wake windows, relaxed sleep budget, adjusted predictions. This phase passes. \u{1F49B}");
         }
       }
     } catch {}
