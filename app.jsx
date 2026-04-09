@@ -7451,16 +7451,24 @@ function App(){
 
     // ══════════════════════════════════════════════════════
     // GUARD: Hero card is real-time only. show on the "active" day
-    // In OBubba, the day doesn't change at midnight. it changes when morning wake is logged
-    // So hero shows if selDay is calendar today OR if selDay is yesterday and today has no morning wake yet
+    // When dayBoundary==="wake": the OBubba day doesn't change at midnight.
+    // It changes when morning wake is logged. So hero shows if:
+    // - selDay is calendar today, OR
+    // - selDay is yesterday and today has no morning wake yet, OR
+    // - selDay is the bedTimerDay (bed timer active, regardless of calendar date)
     // ══════════════════════════════════════════════════════
     const _calToday = todayStr();
     const _calYesterday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
-    const _isActiveDay = selDay === _calToday || (selDay === _calYesterday && !hasMorningWake(days[_calToday]||[]));
+    const _activeBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    const _isActiveDay = selDay === _calToday
+      || (selDay === _calYesterday && !hasMorningWake(days[_calToday]||[]))
+      || (dayBoundary === "wake" && _activeBTD && selDay === _activeBTD);
     if (!_isActiveDay) return null;
 
     // ══════════════════════════════════════════════════════
     // LAYER 1: Unified data. computed once, used everywhere
+    // When viewing bedTimerDay (cross-midnight), merge bedtime-day entries
+    // with any early-morning entries logged on calendar today
     // ══════════════════════════════════════════════════════
     const _name = babyName || "Baby";
     const _now = new Date();
@@ -7899,15 +7907,9 @@ function App(){
             <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{bedPaused ? "Baby is awake 🌙" : "Sleeping peacefully 🌙"}</span>
           </div>
           <div style={{fontSize:14,color:C.mid,marginBottom:6}}>{_timeStr}</div>
-          {/* Last feed during the night */}
-          {(()=>{
-            const _allFeeds = _todayEntries.filter(e => e.type === "feed").sort((a,b) => timeVal(b) - timeVal(a));
-            const _lastFeed = _allFeeds[0];
-            if (!_lastFeed) return null;
-            const _feedMins = timeVal(_lastFeed);
-            const _nowMins2 = new Date().getHours() * 60 + new Date().getMinutes();
-            let _feedAgo = _nowMins2 - _feedMins;
-            if (_feedAgo < 0) _feedAgo += 1440;
+          {/* Last feed during the night — use cross-day wall-clock calculation (works after midnight) */}
+          {_lastFeed && (()=>{
+            const _feedAgo = _feedGapM;
             const _feedStr = fmt12(_lastFeed.time || "");
             const _amtStr = _lastFeed.amount ? " · " + _lastFeed.amount + "ml" : _lastFeed.feedType === "breast" ? " · breast" : "";
             const _agoStr = _feedAgo < 60 ? _feedAgo + "m ago" : Math.floor(_feedAgo / 60) + "h " + (_feedAgo % 60) + "m ago";
