@@ -22370,8 +22370,18 @@ function App(){
                   </button>
                 );
               }
-              const countdown = isBed ? bedCountdown : napCountdown;
-              if(!isBed && napCountdown === null) return null;
+              // Calculate countdown from prediction (don't rely on napCountdown/bedCountdown state)
+              let countdown = null;
+              if (!isBed && _pillPred && _pillPred.napStart_min) {
+                countdown = Math.round(_pillPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes());
+              } else if (isBed) {
+                countdown = bedCountdown;
+                // Fallback: calculate from bedtimePrediction if bedCountdown is null
+                if (countdown === null) {
+                  try { const _bp2 = bedtimePrediction ? bedtimePrediction() : null; if(_bp2&&_bp2.time){const[_bh2,_bm2]=_bp2.time.split(":").map(Number);countdown=(_bh2*60+_bm2)-(new Date().getHours()*60+new Date().getMinutes());} } catch {}
+                }
+              }
+              if(countdown === null) return null;
               const isNeutral = !isBed && napCountdown === -1;
               const isNapNow = !isBed && !isNeutral && napCountdown !== null && napCountdown <= 0;
               const isBedNow = isBed && bedCountdown !== null && bedCountdown <= 0;
