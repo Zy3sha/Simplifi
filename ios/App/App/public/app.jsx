@@ -4719,13 +4719,15 @@ function App(){
           if(_startDate > new Date()) _startDate.setDate(_startDate.getDate()-1);
           _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime()}).catch(()=>{});
         } else if(timerMode==="activeSleep" && !napOn) {
-          // Bedtime is active. find the bed entry and use settle time
-          // BUT: if today has a morning wake, bed timer is stale — don't restart
+          // Bedtime is active. BUT if bed timer is from a previous day, it's stale.
           const _todayK = new Date().toISOString().split("T")[0];
-          const _todayHasWake = (days[_todayK]||[]).some(e => e.type === "wake" && !e.night);
-          if (_todayHasWake) {
-            console.log("[OBubba] Cold-start: bed timer stale (morning wake exists). not restarting LA");
-            try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+          const _btDay = localStorage.getItem("bed_timer_day");
+          // Stale: bed timer day is before today (yesterday or older)
+          if (_btDay && _btDay < _todayK) {
+            console.log("[OBubba] Cold-start: bed timer stale (from", _btDay, "today is", _todayK, "). clearing");
+            try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start","timer_mode_v1"].forEach(k=>localStorage.removeItem(k));}catch{}
+            setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+            setTimerMode("prediction");
             return;
           }
           const _prevK = (()=>{const dt=new Date(_todayK+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
