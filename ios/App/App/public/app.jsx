@@ -3556,25 +3556,12 @@ function App(){
   });
 
   const[selDay,setSelDay]=useState(()=>{
-    const _boundary = (()=>{try{return localStorage.getItem("ob_day_boundary_v1")||"wake";}catch{return "wake";}})();
-    // When bed timer state exists AND day boundary is "morning wake", use bedTimerDay
-    try {
-      const _btd = localStorage.getItem("bed_timer_day");
-      if (_btd && _boundary === "wake") return _btd;
-    } catch {}
-    // Data-driven fallback: if yesterday has a bedtime and today has no morning wake, stay on yesterday
+    // Always start on calendar today. The hero card handles cross-midnight
+    // display for both dayBoundary modes (wake and midnight).
     try {
       const child = children[activeChildId] || children[Object.keys(children)[0]];
       const d = (child && child.days) || {};
       const key = todayStr();
-      if (_boundary === "wake") {
-        const _yest = (()=>{const dt=new Date();dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-        const _yEntries = d[_yest] || [];
-        const _tEntries = d[key] || [];
-        const _yHasBed = _yEntries.some(e => e.type === "sleep" && !e.night);
-        const _tHasWake = _tEntries.some(e => e.type === "wake" && !e.night && (()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<=12;})());
-        if (_yHasBed && !_tHasWake) return _yest;
-      }
       // Today first, then fall back to latest day with entries
       if (key && d[key] && d[key].length) return key;
       // Fall back to the latest calendar day that has any entries
