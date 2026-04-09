@@ -3556,20 +3556,26 @@ function App(){
   });
 
   const[selDay,setSelDay]=useState(()=>{
-    // When bed timer is active AND day boundary is "morning wake", stay on the bedtime day
-    // When day boundary is "midnight", use calendar today (hero card reads bedtime cross-day)
+    const _boundary = (()=>{try{return localStorage.getItem("ob_day_boundary_v1")||"wake";}catch{return "wake";}})();
+    // When bed timer state exists AND day boundary is "morning wake", use bedTimerDay
     try {
-      const _boundary = localStorage.getItem("ob_day_boundary_v1") || "wake";
       const _btd = localStorage.getItem("bed_timer_day");
       if (_btd && _boundary === "wake") return _btd;
     } catch {}
-    // Start on the current OBubba day. today if it has data,
-    // otherwise the most recent day with entries
+    // Data-driven fallback: if yesterday has a bedtime and today has no morning wake, stay on yesterday
     try {
       const child = children[activeChildId] || children[Object.keys(children)[0]];
       const d = (child && child.days) || {};
-      // Today first, then fall back to latest day with entries
       const key = todayStr();
+      if (_boundary === "wake") {
+        const _yest = (()=>{const dt=new Date();dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+        const _yEntries = d[_yest] || [];
+        const _tEntries = d[key] || [];
+        const _yHasBed = _yEntries.some(e => e.type === "sleep" && !e.night);
+        const _tHasWake = _tEntries.some(e => e.type === "wake" && !e.night && (()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<=12;})());
+        if (_yHasBed && !_tHasWake) return _yest;
+      }
+      // Today first, then fall back to latest day with entries
       if (key && d[key] && d[key].length) return key;
       // Fall back to the latest calendar day that has any entries
       const sorted = Object.keys(d).filter(k => d[k] && d[k].length).sort();
@@ -7462,9 +7468,13 @@ function App(){
     const _calToday = todayStr();
     const _calYesterday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
     const _activeBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    // Check if yesterday has a bedtime and today has no morning wake (data-driven, not state-driven)
+    const _yesterdayHasBed = !!findBedtime(days[_calYesterday]||[]);
+    const _todayNoWake = !hasMorningWake(days[_calToday]||[]);
     const _isActiveDay = selDay === _calToday
-      || (selDay === _calYesterday && !hasMorningWake(days[_calToday]||[]))
-      || (dayBoundary === "wake" && _activeBTD && selDay === _activeBTD);
+      || (selDay === _calYesterday && _todayNoWake)
+      || (dayBoundary === "wake" && _activeBTD && selDay === _activeBTD)
+      || (dayBoundary === "wake" && _yesterdayHasBed && _todayNoWake && selDay === _calYesterday);
     if (!_isActiveDay) return null;
 
     // ══════════════════════════════════════════════════════
@@ -7893,9 +7903,22 @@ function App(){
     }
 
     // ── PRIORITY 1: Night mode. starts the moment bedtime is logged ──
-    // Cross-midnight: if today has no bedtime but bed timer is running from yesterday, use yesterday's bedtime
-    const _crossMidnightBTD = !_hasBed && (bedTimerDay || localStorage.getItem("bed_timer_day"));
-    const _crossMidnightBedEntry = _crossMidnightBTD ? findBedtime(days[_crossMidnightBTD]||[]) : null;
+    // Cross-midnight: check actual data, not just bedTimerDay state (which can be null/stale)
+    // If today has no bedtime and no morning wake, check yesterday (and bedTimerDay) for a bedtime
+    let _crossMidnightBedEntry = null;
+    if (!_hasBed && !_hasMorningWake) {
+      // Check bedTimerDay first, then yesterday, then day before (covers timezone edge cases)
+      const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
+      const _candidateDays = [_btd, _calYesterday, _prevDayStr].filter(Boolean);
+      // Deduplicate
+      const _seen = new Set();
+      for (const _cd of _candidateDays) {
+        if (_seen.has(_cd)) continue;
+        _seen.add(_cd);
+        const _be = findBedtime(days[_cd]||[]);
+        if (_be) { _crossMidnightBedEntry = _be; break; }
+      }
+    }
     if (_hasBed || _crossMidnightBedEntry) {
       const _bedEntry = findBedtime(_todayEntries) || _crossMidnightBedEntry;
       const _timeStr = nightElapsed !== null && nightElapsed > 0
