@@ -14791,18 +14791,28 @@ function App(){
       if(force > 35 && Date.now() - lastShake > 1000){
         lastShake = Date.now();
         haptic(30);
-        // Undo the last action
+        // Confirm before undoing
         const {entryId, day, type} = lastAction;
-        setDays(d=>{
-          const entries = (d[day]||[]).filter(e=>e.id!==entryId);
-          return {...d, [day]: entries};
-        });
-        // Stop Live Activity if undoing a bedtime log
-        if (_isNative && type === "sleep") {
-          window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
-          setTimerMode("prediction");
-          try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
-        }
+        const _typeName = type==="feed"?"feed":type==="poop"?"nappy":type==="nap"?"nap":type==="wake"?"wake":type==="sleep"?"bedtime":"entry";
+        showConfirm(
+          "Undo last " + _typeName + "?",
+          "This will remove the " + _typeName + " you just logged.",
+          ()=>{
+            setDays(d=>{
+              const entries = (d[day]||[]).filter(e=>e.id!==entryId);
+              return {...d, [day]: entries};
+            });
+            if (_isNative && type === "sleep") {
+              _laStop();
+              setTimerMode("prediction");
+              try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
+            }
+            setLastAction(null);
+            setConfirmDialog(null);
+            showToast("↩️ Undone",1500,1);
+          },
+          "Undo"
+        );
         showToast("↩️ Undone",1500,1);
         setLastAction(null);
       }
@@ -16641,7 +16651,12 @@ function App(){
   }
 
   function pauseBedTimer(){
-    if (!bedTimerDay || bedPaused) return;
+    // Recover bedTimerDay from localStorage if state is null but timer is clearly running
+    if (!bedTimerDay) {
+      try { const _lsBTD = localStorage.getItem("bed_timer_day"); if(_lsBTD) setBedTimerDay(_lsBTD); } catch {}
+    }
+    const _effectiveBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    if (!_effectiveBTD || bedPaused) return;
     haptic();
     // Freeze display at current elapsed seconds
     const frozenSec = nightElapsed || 0;
