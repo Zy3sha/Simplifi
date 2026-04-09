@@ -4708,79 +4708,37 @@ function App(){
     return ()=>clearInterval(check);
   },[]);
 
-  // ── Cold-start Live Activity restore ──────────────────────────
-  // When app is killed and relaunched while a timer is active,
-  // restart the Live Activity so the Dynamic Island / Lock Screen banner reappears.
+  // ── Cold-start Live Activity: KILL ALL then let normal flow recreate ──
+  // On every cold start, unconditionally stop all Live Activities.
+  // The normal tick/timer useEffects will recreate the correct one if needed.
+  // This prevents stale timers (21h sleeping, yesterday's bedtime) from persisting.
   useEffect(()=>{
     if(!window._isNative) return;
     const _la = window.Capacitor?.Plugins?.OBLiveActivity;
     if(!_la) return;
-    // Small delay so all state is fully initialised before we query
-    const t = setTimeout(async()=>{
+    // Kill immediately AND after a delay (iOS sometimes needs both)
+    const kill = ()=>{ try{_la.stop?.().catch(()=>{});_la.stopPrediction?.().catch(()=>{});}catch{} };
+    kill();
+    const t1 = setTimeout(kill, 500);
+    const t2 = setTimeout(kill, 1500);
+    // After killing, restore ONLY the nap timer if genuinely active today
+    const t3 = setTimeout(()=>{
       try {
-        // CRITICAL: Always stop any stale LA before restoring to prevent duplicates.
-        // iOS may have kept a Live Activity running from a previous session that
-        // should no longer be displayed (e.g. yesterday's bedtime that was never stopped).
-        try { await _la.stop?.().catch(()=>{}); } catch {}
-        try { await _la.stopPrediction?.().catch(()=>{}); } catch {}
         if(napOn && napStartT) {
-          // Nap timer is still running. restore nap Live Activity
-          const [_h,_m] = napStartT.split(":").map(Number);
-          const _startDate = new Date();
-          _startDate.setHours(_h,_m,0,0);
-          // If the time is in the future it must have been yesterday
-          if(_startDate > new Date()) _startDate.setDate(_startDate.getDate()-1);
-          _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime()}).catch(()=>{});
-        } else if(timerMode==="activeSleep" && !napOn) {
-          // Bedtime is active. BUT if bed timer is from a previous day, it's stale.
-          const _todayK = new Date().toISOString().split("T")[0];
-          const _btDay = localStorage.getItem("bed_timer_day");
-          // Stale: bed timer day is before today (yesterday or older)
-          if (_btDay && _btDay < _todayK) {
-            console.log("[OBubba] Cold-start: bed timer stale (from", _btDay, "today is", _todayK, "). clearing");
-            try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start","timer_mode_v1"].forEach(k=>localStorage.removeItem(k));}catch{}
-            setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
-            setTimerMode("prediction");
-            return;
-          }
-          const _prevK = (()=>{const dt=new Date(_todayK+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
-          const _todayEntries = days[_todayK]||[];
-          const _prevEntries = days[_prevK]||[];
-          // Bed entry: today's or (if it's still night-time) yesterday's bedtime
-          const _bedE = findBedtime(_todayEntries) || findBedtime(_prevEntries);
-          if(_bedE && _bedE.time) {
-            const _bedMinsX = timeVal(_bedE);
-            // Night wakes: on prev day after bedtime OR on today's entries early AM
-            const _nightWakesT = [
-              ..._prevEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&timeVal(e)>=_bedMinsX),
-              ..._todayEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&timeVal(e)<8*60)
-            ].sort((a,b)=>{
-              const ta=timeVal(a),tb=timeVal(b);
-              const ka=ta>=_bedMinsX?ta:ta+1440;
-              const kb=tb>=_bedMinsX?tb:tb+1440;
-              return ka-kb;
-            });
-            // CUMULATIVE SLEEP MODEL: sum awake stretches, shift bedtime forward by that total.
-            // Virtual start = bedtime + totalAwakeSec. Timer ticks up = cumulative sleep since bedtime.
-            let _totalAwakeSec = 0;
-            for(const _w of _nightWakesT) {
-              const _ad = parseInt(_w.assistedDuration)||0;
-              _totalAwakeSec += _ad * 60;
-            }
-            // Build startDate: bedtime origin
-            const _startDate = new Date();
-            const _displayMins = _bedMinsX % 1440;
-            _startDate.setHours(Math.floor(_displayMins/60)%24,_displayMins%60,0,0);
-            // If bedtime appears to be in the future it was yesterday
-            if(_startDate.getTime() > Date.now()+60000) _startDate.setDate(_startDate.getDate()-1);
-            // Shift forward by awake time so counter-up = cumulative sleep
-            const _virtualStart = _startDate.getTime() + (_totalAwakeSec * 1000);
-            _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_virtualStart}).catch(()=>{});
+          const _napDay = localStorage.getItem("nap_start_day");
+          const _today = new Date().toISOString().split("T")[0];
+          if (_napDay === _today) {
+            const [_h,_m] = napStartT.split(":").map(Number);
+            const _sd = new Date(); _sd.setHours(_h,_m,0,0);
+            if(_sd > new Date()) _sd.setDate(_sd.getDate()-1);
+            _la.start({type:'sleep',babyName:babyName||'Baby',startTime:_sd.getTime()}).catch(()=>{});
           }
         }
-      } catch(_e) { console.warn("Live Activity restore failed",_e); }
-    }, 1200);
-    return ()=>clearTimeout(t);
+        // Bed timer LA is recreated by the normal night-mode rendering, not here.
+        // This eliminates the stale bed timer restart entirely.
+      } catch {}
+    }, 2000);
+    return ()=>{ clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
   const pushToCloud = React.useCallback(async(code, allChildren) => {
@@ -22317,10 +22275,11 @@ function App(){
               const nightEndWake = todayBedEntry
                 ? (nextDayMorningWake || null)
                 : morningWake;
-              // Bedtime routine prompt: 30 min before predicted bedtime, no bed logged yet
-              if (!bedEntry && !bedTimerDay) {
+              // Bedtime routine prompt: only when naps are complete + 30 min before predicted bedtime
+              const _tdPill = tickDataRef.current || {};
+              if (!bedEntry && !bedTimerDay && _tdPill.napsComplete) {
                 try {
-                  const _bp = bedtimePrediction ? bedtimePrediction() : null;
+                  const _bp = _tdPill.bed || null;
                   if (_bp && _bp.time) {
                     const [_bh,_bm] = _bp.time.split(":").map(Number);
                     const _predBed = _bh*60+_bm;
