@@ -4735,8 +4735,8 @@ function App(){
   // ── One-time cleanup: remove night:true from food entries (misclassified catch-up logs) ──
   useEffect(()=>{
     try {
-      if (localStorage.getItem("ob_food_night_fix_v1")) return;
-      localStorage.setItem("ob_food_night_fix_v1", "1");
+      if (localStorage.getItem("ob_food_night_fix_v2")) return;
+      localStorage.setItem("ob_food_night_fix_v2", "1");
       // Fix misclassified night entries: food catch-ups + daytime entries marked as night
       const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus","mash","melty","finger","stick","puree"];
       setDays(d=>{
