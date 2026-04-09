@@ -4182,6 +4182,24 @@ function App(){
   const bedPauseStartRef = useRef(null);
   const bedTotalPausedSecRef = useRef(0);
   useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;bedTotalPausedSecRef.current=bedTotalPausedSec;},[bedPaused,bedPauseStart,bedTotalPausedSec]);
+  // Auto-stop stale bed timer: if today has a morning wake, bed timer from last night should be cleared
+  useEffect(()=>{
+    if (!bedTimerDay) return;
+    try {
+      const _todayK = new Date().toISOString().split("T")[0];
+      const _todayEnt = days[_todayK] || [];
+      const _hasWake = _todayEnt.some(e => e.type === "wake" && !e.night);
+      if (_hasWake) {
+        console.log("[OBubba] Morning wake found. auto-stopping stale bed timer from", bedTimerDay);
+        setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+        try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+        if(window.Capacitor?.Plugins?.OBLiveActivity) {
+          window.Capacitor.Plugins.OBLiveActivity.stop?.().catch(()=>{});
+          window.Capacitor.Plugins.OBLiveActivity.stopPrediction?.().catch(()=>{});
+        }
+      }
+    } catch {}
+  },[bedTimerDay, days]);
   const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
   const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
