@@ -7374,7 +7374,7 @@ function App(){
     // Don't recompute here — the tick useMemo already handles long naps, budget, and transitions.
     const _adjustedExpected = (tickDataRef.current || {}).expectedNaps || _structExpected;
     const _longNapNote = (_structExpected < _ageExpected) ? " (adjusted today)" : "";
-    let _napsComplete = _napsDone >= _adjustedExpected;
+    let _napsComplete = (tickDataRef.current || {}).napsComplete || _napsDone >= _adjustedExpected;
     const _dailySleepMax = _profile.idealNapDurMax * _adjustedExpected;
 
     // ── Awake time ──
@@ -10616,10 +10616,11 @@ function App(){
     const name = babyName || "Baby";
     const w = age.totalWeeks;
 
-    // Suppress nap predictions while a nap is actively running
+    // Suppress nap predictions while napping, or when naps are complete (overdue → bedtime)
     if (napOn) return null;
     const _hasActiveNap2 = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
     if (_hasActiveNap2) return null;
+    if ((tickDataRef.current||{}).napsComplete) return null;
 
     // Check nap prediction
     const pred = tickDataRef.current.pred;
@@ -24443,7 +24444,7 @@ function App(){
                   let isFirstPredicted = true;
 
                   // ═══ SINGLE SOURCE: if predictNextNap() returned null, no more naps ═══
-                  const _planBudgetExceeded = !tickDataRef.current.pred;
+                  const _planBudgetExceeded = !tickDataRef.current.pred || (tickDataRef.current||{}).napsComplete;
 
                   // Step 1: Place expected naps
                   while (napIdx < expectedTotal && !_planBudgetExceeded) {
