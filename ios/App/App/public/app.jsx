@@ -6760,58 +6760,11 @@ function App(){
 
       // Next predicted event. show nap/bed countdown on widget
       // Pass both formatted string AND epoch ms so widget can show live countdown
-      var nextPrediction = null;
-      var nextPredictionMs = null;
-      var nextPredictionLabel = null;
-      try {
-        var td = tickDataRef.current || {};
-        // If next predicted nap is within 30 min of bedtime, it IS bedtime. show "Bed"
-        // Call predictNextNap() directly so widget always matches hero card & Today's Plan
-        var _freshPred = tickDataRef.current.pred;
-        var _napMinsForWidget = td.nextNapMins;
-        if (_freshPred && typeof _freshPred.napStart_min === "number") {
-          _napMinsForWidget = Math.round(_freshPred.napStart_min);
-        }
-        var _napIsActuallyBed = _napMinsForWidget && td.bedMins && (_napMinsForWidget >= td.bedMins - 30);
-        if (_napMinsForWidget && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
-          var npH = Math.floor(_napMinsForWidget/60)%24, npM = Math.round(_napMinsForWidget%60);
-          var _napNum = (td.napsDone || 0) + 1;
-          nextPrediction = "Nap " + _napNum + " ~" + fmt12(String(npH).padStart(2,"0") + ":" + String(npM).padStart(2,"0"));
-          nextPredictionLabel = "Nap " + _napNum;
-          var _npDate = new Date(); _npDate.setHours(npH, npM, 0, 0);
-          if (_npDate.getTime() > Date.now()) {
-            // Future. show countdown
-            nextPredictionMs = _npDate.getTime();
-          } else {
-            // Nap prediction has passed. baby is overdue for a nap
-            nextPrediction = "Nap " + _napNum + " \u2014 time for a nap";
-            nextPredictionLabel = "Nap " + _napNum;
-            nextPredictionMs = null; // no countdown, just the nudge text
-          }
-        } else if (td.bedMins && (td.napsComplete || _napIsActuallyBed) && !td.hasBedtime) {
-          var bpH = Math.floor(td.bedMins/60)%24, bpM = Math.round(td.bedMins%60);
-          nextPrediction = "Bed ~" + fmt12(String(bpH).padStart(2,"0") + ":" + String(bpM).padStart(2,"0"));
-          nextPredictionLabel = "Bedtime";
-          var _bpDate = new Date(); _bpDate.setHours(bpH, bpM, 0, 0);
-          if (_bpDate.getTime() > Date.now()) {
-            nextPredictionMs = _bpDate.getTime();
-          } else {
-            // Bedtime has passed. show nudge text, no countdown
-            nextPrediction = "Time for bed";
-            nextPredictionLabel = "Bedtime";
-            nextPredictionMs = null;
-          }
-        }
-        // Fallback: show bedtime if no nap/bed prediction but bedtime IS predicted
-        if (!nextPrediction && td.bedMins && !td.hasBedtime) {
-          var _fbH = Math.floor(td.bedMins/60)%24, _fbM = Math.round(td.bedMins%60);
-          nextPrediction = "Bed ~" + fmt12(String(_fbH).padStart(2,"0") + ":" + String(_fbM).padStart(2,"0"));
-          nextPredictionLabel = "Bedtime";
-          var _fbDate = new Date(); _fbDate.setHours(_fbH, _fbM, 0, 0);
-          if (_fbDate.getTime() < Date.now()) _fbDate.setDate(_fbDate.getDate() + 1);
-          nextPredictionMs = _fbDate.getTime();
-        }
-      } catch(ex2) {}
+      // ═══ SINGLE SOURCE: read prediction strings from tickDataRef (computed once in tick useMemo) ═══
+      var td = tickDataRef.current || {};
+      var nextPrediction = td.nextPrediction || null;
+      var nextPredictionMs = td.nextPredictionMs || null;
+      var nextPredictionLabel = td.nextPredictionLabel || null;
 
       // Breastfeeding detection: show nursing buttons if breast feed logged in last 7 days
       var showNursing = false;
@@ -7000,9 +6953,33 @@ function App(){
       tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins, nextEvent: _nextEvent2 };
     }
     // Keep pred/bed for other consumers (premium/trial only for personal predictions)
-    try { tickDataRef.current.pred = (isPremium || trialActive) ? predictNextNap() : null; } catch {}
+    // pred/bed cached for Plan view and detailed displays
+    try { tickDataRef.current.pred = predictNextNap(); } catch {}
     try { tickDataRef.current.bed = bedtimePrediction(); } catch {}
     try { tickDataRef.current.bridgeInfo = earlyBedtimeRisk(); } catch {}
+
+    // ═══ SINGLE SOURCE: widget/hero/countdown prediction strings ═══
+    // Computed ONCE here. ALL surfaces read from tickDataRef. No duplicate computation.
+    try {
+      const _ne = tickDataRef.current.nextEvent;
+      const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
+      let _wp = null, _wpMs = null, _wpLabel = null;
+      if (_ne && _ne.type === "nap" && _ne.timeMins) {
+        const _napNum = (napsDone || 0) + 1;
+        _wp = (bridgeNapNeeded ? "Bridge nap" : "Nap " + _napNum) + " ~" + fmt12(_ne.timeMins);
+        _wpLabel = bridgeNapNeeded ? "Bridge nap" : "Nap " + _napNum;
+        var _npD = new Date(); _npD.setHours(Math.floor(_ne.timeMins/60)%24, _ne.timeMins%60, 0, 0);
+        if (_npD.getTime() > Date.now()) _wpMs = _npD.getTime();
+      } else if (bedMins && !hasBedtime) {
+        _wp = "Bed ~" + fmt12(bedMins);
+        _wpLabel = "Bedtime";
+        var _bpD = new Date(); _bpD.setHours(Math.floor(bedMins/60)%24, bedMins%60, 0, 0);
+        if (_bpD.getTime() > Date.now()) _wpMs = _bpD.getTime();
+      }
+      tickDataRef.current.nextPrediction = _wp;
+      tickDataRef.current.nextPredictionMs = _wpMs;
+      tickDataRef.current.nextPredictionLabel = _wpLabel;
+    } catch {}
 
     // ── BubbaRhythm Score (daily vibe score 0-100) ──
     try {
@@ -7040,7 +7017,7 @@ function App(){
         tickDataRef.current.rhythmVibe = _rsVibe;
       }
     } catch {}
-  },[selDay, days, age, bridgeNapScheduled, napStructure, napOn]);
+  },[selDay, days, age, bridgeNapScheduled, napStructure, napOn, napEntryId]);
 
   // Helper: get next nap/bed label for Live Activity display (e.g. "Nap 2 2:00pm" or "Bed 7:30pm")
   function _getNextNapBedLabel() {
@@ -7225,15 +7202,9 @@ function App(){
       }
 
       // ── PHASE 3: All naps done → bedtime countdown ──
-      // Call bedtimePrediction() directly so countdown matches Today's Plan exactly
+      // ═══ SINGLE SOURCE: bedtime countdown reads from tickDataRef.bedMins ═══
       if (td.napsComplete) {
-        const _countdownBed = tickDataRef.current.bed;
-        let _countdownBedMins = td.bedMins;
-        if (_countdownBed && _countdownBed.time) {
-          try { const [_bh,_bm] = _countdownBed.time.split(":").map(Number); _countdownBedMins = _bh*60+_bm; } catch {}
-        }
-        // Use Today's Plan bedtime if available (single source of truth)
-        if (tickDataRef.current.planBedMins) _countdownBedMins = tickDataRef.current.planBedMins;
+        const _countdownBedMins = td.bedMins;
         if (_countdownBedMins !== null && typeof _countdownBedMins === "number" && !isNaN(_countdownBedMins)) {
           setNapCountdown(null);
           const diffSec = Math.round((_countdownBedMins - nowMins) * 60);
