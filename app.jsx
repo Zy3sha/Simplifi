@@ -32638,7 +32638,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   setShowBedRoutine(false);
                   setBedRoutineStep(0);
                   setBedRoutineStart(null);
-                  showToast("🌙 Routine complete. sweet dreams, " + (babyName||"baby") + " 💛", 3000, 1);
+                  // Log bedtime entry so the pill disappears and bed timer starts
+                  const _bedT = nowTime();
+                  quickAddLog("sleep",{type:"sleep",time:_bedT,night:false});
+                  // Start bed timer
+                  setBedTimerDay(selDay);
+                  try{localStorage.setItem("bed_timer_day",selDay);localStorage.setItem("timer_mode_v1","activeSleep");}catch{}
+                  setTimerMode("activeSleep");
+                  showToast("🌙 Bedtime logged. sweet dreams, " + (babyName||"baby") + " 💛", 3000, 1);
                 }} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
                   Done. goodnight 🌙
                 </button>
@@ -32667,6 +32674,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{step.title}</div>
                     <div style={{fontSize:10,color:C.lt}}>{step.duration} min</div>
                   </div>
+                  <button onClick={()=>{
+                    if (i === 0) return;
+                    const _ns = [..._steps]; const _t = _ns[i]; _ns[i] = _ns[i-1]; _ns[i-1] = _t;
+                    setCustomRoutine(_ns);
+                  }} style={{background:"none",border:"none",color:i>0?C.mid:C.blush,fontSize:14,cursor:i>0?_cP:"default",padding:"4px"}}>↑</button>
+                  <button onClick={()=>{
+                    if (i === _steps.length-1) return;
+                    const _ns = [..._steps]; const _t = _ns[i]; _ns[i] = _ns[i+1]; _ns[i+1] = _t;
+                    setCustomRoutine(_ns);
+                  }} style={{background:"none",border:"none",color:i<_steps.length-1?C.mid:C.blush,fontSize:14,cursor:i<_steps.length-1?_cP:"default",padding:"4px"}}>↓</button>
                   <button onClick={()=>{
                     const _newSteps = [..._steps];
                     _newSteps.splice(i, 1);
