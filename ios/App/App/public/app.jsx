@@ -7369,23 +7369,9 @@ function App(){
     const _totalNapMin = _completedNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
     const _ageExpected = _profile.expectedNaps;
     let _structExpected = napStructure ? napStructure.effectiveNapCount : _ageExpected;
-    // Match predictNextNap() logic: long first nap (≥75min) → one fewer nap today
-    if (_completedNaps.length >= 1) {
-      const _firstDur = minDiff(_completedNaps[0].start, _completedNaps[0].end);
-      if (_firstDur >= 75 && _structExpected > 1) _structExpected = _structExpected - 1;
-      else if (_firstDur < 40) _structExpected = Math.max(_structExpected, _ageExpected);
-    }
-    // Nap budget exhausted → no more naps
-    if (_totalNapMin >= _profile.idealTotalMax) _structExpected = Math.min(_structExpected, _napsDone);
-    // Consult predictNextNap(). if it returns null, no more naps fit today
-    // This ensures hero card matches Today's Plan exactly
-    try {
-      if (_napsDone > 0 && !napOn) {
-        const _heroP = tickDataRef.current.pred;
-        if (!_heroP) _structExpected = Math.min(_structExpected, _napsDone);
-      }
-    } catch {}
-    const _adjustedExpected = _structExpected;
+    // ═══ SINGLE SOURCE: read napsComplete from tickDataRef (computed once in tick useMemo) ═══
+    // Don't recompute here — the tick useMemo already handles long naps, budget, and transitions.
+    const _adjustedExpected = (tickDataRef.current || {}).expectedNaps || _structExpected;
     const _longNapNote = (_structExpected < _ageExpected) ? " (adjusted today)" : "";
     let _napsComplete = _napsDone >= _adjustedExpected;
     const _dailySleepMax = _profile.idealNapDurMax * _adjustedExpected;
