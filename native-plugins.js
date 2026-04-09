@@ -120,37 +120,10 @@ var OBAppleSignIn = {
   }
 };
 
-// ── 4. GOOGLE SIGN-IN ───────────────────────────────────────────
+// ── 4. GOOGLE SIGN-IN (removed — not shipping) ─────────────────
 var OBGoogleSignIn = {
-  signIn: function() {
-    var GA = _plug('GoogleAuth');
-    if (!GA) return Promise.resolve({ success: false, error: 'no_plugin' });
-    try {
-      return GA.initialize({
-        clientId: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
-        scopes: ['profile', 'email']
-      }).then(function() {
-        return GA.signIn();
-      }).then(function(result) {
-        return {
-          success: true,
-          user: result.id,
-          email: result.email,
-          name: result.name,
-          imageUrl: result.imageUrl,
-          idToken: result.authentication.idToken
-        };
-      }).catch(function(e) {
-        return { success: false, error: (e && e.message) || 'google_signin_failed' };
-      });
-    } catch(e) { return Promise.resolve({ success: false, error: 'error' }); }
-  },
-  signOut: function() {
-    var GA = _plug('GoogleAuth');
-    if (!GA) return Promise.resolve();
-    try { return GA.signOut().catch(function(){}); }
-    catch(e) { return Promise.resolve(); }
-  }
+  signIn: function() { return Promise.resolve({ success: false, error: 'not_available' }); },
+  signOut: function() { return Promise.resolve(); }
 };
 
 // ── 5. PUSH NOTIFICATIONS (APNs + FCM) ─────────────────────────

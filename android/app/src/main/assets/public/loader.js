@@ -34,10 +34,11 @@ window.onerror = function(msg, src, line, col, err) {
     + '</div>';
 };
 
-// ── Load and compile JSX from external file ──
-// Guard: prevent double-execution (Capacitor + service worker can cause re-runs)
-if (window.__obAppLoaded) { console.warn('[OBubba] loader.js skipped — app already loaded'); }
-else {
+// ── App is now pre-compiled (app.js loaded via <script defer>) ──
+// loader.js no longer needs to fetch/compile app.jsx
+// Keep error handler + glass effects + service worker registration
+if (true) { console.log('[OBubba] Pre-compiled app.js loaded via defer'); }
+else if (false) {
 window.__obAppLoaded = true;
 (function() {
   var errorPage = function(title, detail) {

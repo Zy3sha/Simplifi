@@ -6,7 +6,11 @@ var isDark = false;
 
 function getTimeTheme() {
   var h = new Date().getHours();
-  return (h >= 19 || h < 7) ? 'dark' : 'light';
+  // Time-based: 7pm-7am = dark
+  if (h >= 19 || h < 7) return 'dark';
+  // During daytime, respect system preference if available
+  try { if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark'; } catch(e) {}
+  return 'light';
 }
 
 function getNextBoundary() {

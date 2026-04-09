@@ -124,7 +124,7 @@ const quickAction = params.get("action");
 const uid = () => { const _id = Date.now().toString(36)+Math.random().toString(36).slice(2,5); if(window._localEntryIds) window._localEntryIds.add(_id); return _id; };
 window._localEntryIds = new Set();
 const minsToTime = m => { if(typeof m !== "number" || isNaN(m)) return ""; const h=Math.floor(m/60)%24; return String(h).padStart(2,"0")+":"+String(Math.round(m%60)).padStart(2,"0"); };
-const fmt12 = t => { if(!t)return""; if(typeof t==="number") t=minsToTime(t); const[h,m]=(t||"").split(":").map(Number); if(isNaN(h)||isNaN(m))return""; return`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`; };
+const fmt12 = t => { if(t===null||t===undefined||t==="")return""; if(typeof t==="number") t=minsToTime(t); const[h,m]=(t||"").split(":").map(Number); if(isNaN(h)||isNaN(m))return""; return`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`; };
 const minDiff = (s,e) => { if(!s||!e)return 0; const[sh,sm]=s.split(":").map(Number),[eh,em]=e.split(":").map(Number); if(isNaN(sh)||isNaN(sm)||isNaN(eh)||isNaN(em)) return 0; let d=eh*60+em-sh*60-sm; if(d<0)d+=1440; return d; };
 const timeVal = e => { const t=e.time||e.start||"00:00"; const[h,m]=t.split(":").map(Number); if(isNaN(h)||isNaN(m)) return 0; return h*60+m; };
 // Convert minutes-since-midnight to "HH:MM" (24h). Handles negatives and overflow via modulo 1440.
@@ -2887,6 +2887,10 @@ function App(){
               const time = entry.time || timeNow;
               if(entry.type==='wake') {
                 quickAddLog("wake", {type:"wake", time, night:false, note:"via Siri"});
+                // Clear bed timer + Live Activity on morning wake from widget/Siri
+                setBedTimerDay(null);
+                try{localStorage.removeItem("bed_timer_day");}catch{}
+                if(_isNative) _laStop();
                 showToast(entry.source==='widget' ? "☀️ Wake logged via Widget ✓" : "☀️ Morning wake logged via Siri ✓", 3000, 1);
               } else if(entry.type==='feed') {
                 const _amt = entry.amount ? parseInt(entry.amount) : 0;
@@ -3987,6 +3991,14 @@ function App(){
   const[qsBedtime,setQsBedtime]=useState("19:00");
   const[qsWake,setQsWake]=useState("07:00");
   const[qsFeeds,setQsFeeds]=useState("5");
+  // Catch-up wizard state
+  const[showCatchUp,setShowCatchUp]=useState(false);
+  const[catchUpDay,setCatchUpDay]=useState(null);
+  const[cuFeeds,setCuFeeds]=useState("5");
+  const[cuNaps,setCuNaps]=useState("2");
+  const[cuNappies,setCuNappies]=useState("4");
+  const[cuWake,setCuWake]=useState("07:00");
+  const[cuBed,setCuBed]=useState("19:00");
   const[showSoundMachine,setShowSoundMachine]=useState(false);
   const[showSafeSleepPopup,setShowSafeSleepPopup]=useState(false);
   const[showRecModeChoice,setShowRecModeChoice]=useState(false);
@@ -4066,6 +4078,7 @@ function App(){
   const[showDayExplainer,setShowDayExplainer]=useState(false);
   const[showNoJudgement,setShowNoJudgement]=useState(()=>{try{return !localStorage.getItem("ob_no_judge_v1");}catch{return false;}});
   const[badNightBadge,setBadNightBadge]=useState(null);
+  const[safeSleepDismissed,setSafeSleepDismissed]=useState(false);
   const[showLetterPrompt,setShowLetterPrompt]=useState(false);
   const[letterText,setLetterText]=useState("");
   const[showPassItOn,setShowPassItOn]=useState(false);
@@ -6754,9 +6767,8 @@ function App(){
         // Call predictNextNap() directly so widget always matches hero card & Today's Plan
         var _freshPred = tickDataRef.current.pred;
         var _napMinsForWidget = td.nextNapMins;
-        if (_freshPred && _freshPred.napStart_min) {
-          var _pp = [Math.floor(_freshPred.napStart_min/60), Math.round(_freshPred.napStart_min%60)];
-          _napMinsForWidget = _pp[0]*60+_pp[1];
+        if (_freshPred && typeof _freshPred.napStart_min === "number") {
+          _napMinsForWidget = Math.round(_freshPred.napStart_min);
         }
         var _napIsActuallyBed = _napMinsForWidget && td.bedMins && (_napMinsForWidget >= td.bedMins - 30);
         if (_napMinsForWidget && !td.hasBedtime && !napOn && !td.napsComplete && !_napIsActuallyBed) {
@@ -6865,6 +6877,10 @@ function App(){
     } catch(e) { console.warn("Widget data update failed:", e); }
   }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
 
+  // ── Hoisted for use by predictNextNap/bedtimePrediction inside the tick useMemo below ──
+  const entries = days[selDay] || [];
+  const hasAccess = () => isPremium || trialActive || !STORE_READY;
+
   // ── Simple tick: baby's day is wake → WW → nap → WW → nap → bedtime ──
   const tickDataRef = React.useRef({});
   React.useMemo(()=>{
@@ -6908,9 +6924,12 @@ function App(){
     const morningWakeMins = wakeEntry ? timeVal(wakeEntry) : null;
     const bedtimeFloor = clampBedtime(0, ageWeeks);
     let _planPred = null;
-    try { _planPred = predictNextNap ? predictNextNap() : null; } catch {}
-    let napsComplete = !_planPred;
-    const nextNapMins = _planPred && _planPred.napStart_min ? Math.round(_planPred.napStart_min) : null;
+    try { _planPred = predictNextNap ? predictNextNap() : null; } catch(e) { console.error('[OBubba] predictNextNap crashed:', e.message, e.stack?.split('\n').slice(0,3).join(' | ')); }
+    // napsComplete should check napsDone vs expectedNaps, NOT just whether prediction returned null
+    // predictNextNap returns null for many reasons (close to bedtime, budget met, error)
+    // but 0 naps done should never be "naps complete"
+    let napsComplete = napsDone >= expectedNaps && !_planPred;
+    const nextNapMins = _planPred && typeof _planPred.napStart_min === "number" ? Math.round(_planPred.napStart_min) : null;
 
     // Fragmented nap detection from data (used for observations, not overriding Plan)
     const _shortNapCount = completedNaps.filter(n => minDiff(n.start, n.end) < 20).length;
@@ -6924,13 +6943,17 @@ function App(){
     try {
       const bp = bedtimePrediction ? bedtimePrediction() : null;
       if (bp && bp.time) { const [bh,bm]=bp.time.split(":").map(Number); bedMins = bh*60+bm; }
-    } catch {}
+    } catch(e) { console.error('[OBubba] bedtimePrediction crashed:', e.message); }
     // Fallback: last awake + age wake window, clamped
-    if (!bedMins && lastAwakeMins !== null && napsComplete) {
+    // Only use fallback when naps are ACTUALLY complete (napsDone >= expected), not just "no prediction"
+    if (!bedMins && lastAwakeMins !== null && napsComplete && napsDone >= expectedNaps) {
       const _fallbackWW = Math.round(progressiveWW(ageWeeks, napsDone, expectedNaps));
       bedMins = lastAwakeMins + _fallbackWW;
       const maxBed = clampBedtime(24*60, ageWeeks);
       if (bedMins > maxBed) bedMins = maxBed;
+      // Sanity: bedtime before 5pm is almost certainly wrong
+      const minBed = clampBedtime(0, ageWeeks);
+      if (bedMins < minBed) bedMins = minBed;
     }
     // Night timer data
     const nextDay = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()+1);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
@@ -6951,10 +6974,10 @@ function App(){
         else lastNightEvent = lw.time;
       }
       // ═══ NEXT EVENT — single source of truth for hero, pill, coming up, widget ═══
-      const _nextEvent = _planPred && _planPred.napStart_min
-        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(String(Math.floor(_planPred.napStart_min/60)%24).padStart(2,"0")+":"+String(Math.round(_planPred.napStart_min%60)).padStart(2,"0")), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+      const _nextEvent = _planPred && typeof _planPred.napStart_min === "number"
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
         : bedMins
-        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(String(Math.floor(bedMins/60)%24).padStart(2,"0")+":"+String(Math.round(bedMins%60)).padStart(2,"0")), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
         : null;
       tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile, nextEvent: _nextEvent };
       // Bad Night Badge. solidarity after rough nights
@@ -6967,10 +6990,10 @@ function App(){
         }
       } catch {}
     } else {
-      const _nextEvent2 = _planPred && _planPred.napStart_min
-        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(String(Math.floor(_planPred.napStart_min/60)%24).padStart(2,"0")+":"+String(Math.round(_planPred.napStart_min%60)).padStart(2,"0")), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+      const _nextEvent2 = _planPred && typeof _planPred.napStart_min === "number"
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
         : bedMins
-        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(String(Math.floor(bedMins/60)%24).padStart(2,"0")+":"+String(Math.round(bedMins%60)).padStart(2,"0")), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
         : null;
       tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins, nextEvent: _nextEvent2 };
     }
@@ -7029,9 +7052,8 @@ function App(){
         // Call predictNextNap() directly so DI/LA always matches hero card & Today's Plan
         let _napM = td.nextNapMins;
         const _freshPredLA = tickDataRef.current.pred;
-        if (_freshPredLA && _freshPredLA.napStart_min) {
-          const _pp = [Math.floor(_freshPredLA.napStart_min/60), Math.round(_freshPredLA.napStart_min%60)];
-          _napM = _pp[0]*60+_pp[1];
+        if (_freshPredLA && typeof _freshPredLA.napStart_min === "number") {
+          _napM = Math.round(_freshPredLA.napStart_min);
         }
         if (_napM) {
           const nH = Math.floor(_napM / 60), nM = _napM % 60;
@@ -7255,9 +7277,8 @@ function App(){
         let _predNapMins = td.nextNapMins;
         try {
           const _predFresh = tickDataRef.current.pred;
-          if (_predFresh && _predFresh.napStart_min) {
-            const _pf = [Math.floor(_predFresh.napStart_min/60), Math.round(_predFresh.napStart_min%60)];
-            _predNapMins = _pf[0]*60+_pf[1];
+          if (_predFresh && typeof _predFresh.napStart_min === "number") {
+            _predNapMins = Math.round(_predFresh.napStart_min);
           }
         } catch {}
         if (!td.napsComplete && _predNapMins !== null && _predNapMins > nowMins) {
@@ -7816,18 +7837,32 @@ function App(){
                   </button>
                 ))}
               </div>
+              <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:0,night:true,nightLocked:true,note:"Night feed (quick)"});resumeBedTimer();showToast("🍼 Feed logged + back to sleep",1200,1);}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
+                {"\u{1F37C}"} Feed + back to sleep
+              </button>
               <button onClick={resumeBedTimer} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
                 {"\u{1F319}"} Baby's settled. back to sleep
               </button>
             </div>
           ) : (
-            <div style={_S.flexRowGap8}>
-              <button onClick={pauseBedTimer} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
-                {"\u23F8\uFE0F"} Baby awake
-              </button>
-              <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
-                {"\u{1F4DD}"} Log night wake
-              </button>
+            <div>
+              {/* Quick-log buttons for 3am simplicity */}
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:0,night:true,nightLocked:true,note:"Night feed (quick)"});showToast("🍼 Night feed logged at "+fmt12(t),1200,1);}} style={{flex:1,padding:"14px 10px",borderRadius:14,border:"none",background:"linear-gradient(135deg,rgba(212,168,85,0.12),rgba(212,168,85,0.06))",color:C.deep,fontSize:14,fontWeight:700,cursor:_cP}}>
+                  {"\u{1F37C}"} Quick feed
+                </button>
+                <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("wake",{type:"wake",time:t,night:true,nightLocked:true,selfSettled:false,note:"Night wake (quick)"});showToast("🌙 Night wake logged at "+fmt12(t),1200,1);}} style={{flex:1,padding:"14px 10px",borderRadius:14,border:"none",background:"linear-gradient(135deg,rgba(123,104,238,0.12),rgba(123,104,238,0.06))",color:C.deep,fontSize:14,fontWeight:700,cursor:_cP}}>
+                  {"\u{1F319}"} Quick wake
+                </button>
+              </div>
+              <div style={_S.flexRowGap8}>
+                <button onClick={pauseBedTimer} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
+                  {"\u23F8\uFE0F"} Baby awake
+                </button>
+                <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
+                  {"\u{1F4DD}"} Log details
+                </button>
+              </div>
             </div>
           )}
           <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>
@@ -8445,11 +8480,8 @@ function App(){
     if(d === today_str && (!days[d] || days[d].length === 0)) return false;
     return true;
   })].reverse();
-  const entries=days[selDay]||[];
+  // entries and hasAccess are declared earlier (before tick useMemo) to avoid TDZ errors
   const _bedtimeCount = entries.filter(e=>e.type==="sleep").length;
-
-  // Premium gate. true if user has premium, trial, or store isn't ready (web/dev).
-  const hasAccess = () => isPremium || trialActive || !STORE_READY;
 
   // Auto-reclassify night entries whenever entries or selected day changes
   React.useEffect(()=>{
@@ -9005,8 +9037,8 @@ function App(){
       }
     }
 
-    const napStart_min = (()=>{ const h=Math.floor(finalMinMins/60)%24; const m=finalMinMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
-    const napStart_max = (()=>{ const h=Math.floor(finalMaxMins/60)%24; const m=finalMaxMins%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; })();
+    const napStart_min = finalMinMins;
+    const napStart_max = finalMaxMins;
 
     const now = new Date();
     const nowMins = now.getHours()*60 + now.getMinutes();
@@ -9068,7 +9100,7 @@ function App(){
         if (newMax < finalMaxMins) {
           // Recalculate napStart_max
           const h2 = Math.floor(newMax/60)%24; const m2 = newMax%60;
-          return { napStart_min, napStart_max: `${String(h2).padStart(2,"0")}:${String(m2).padStart(2,"0")}`, wakeWindowMin, wakeWindowMax, sourceLabel: sourceLabel + " (PM adjusted)", lastAwakeStart, isOverdue };
+          return { napStart_min, napStart_max: newMax, wakeWindowMin, wakeWindowMax, sourceLabel: sourceLabel + " (PM adjusted)", lastAwakeStart, isOverdue };
         }
       }
     }
@@ -9194,6 +9226,8 @@ function App(){
   }
   function bedtimePrediction() {
     if (!entries || !Array.isArray(entries)) return null;
+    // Newborns 0-4 weeks: no bedtime prediction (sleep is chaotic, no circadian rhythm yet)
+    if (age && age.totalWeeks < 4) return null;
     const today = entries;
     const todayNaps = today.filter(e => e.type === "nap" && !e.night && e.start && e.end && minDiff(e.start, e.end) >= 5 && minDiff(e.start, e.end) < 480);
     if (!age) return null;
@@ -16085,7 +16119,8 @@ function App(){
       const _isAfterBed = _bedMins !== null && _entryMins !== null && (
         _entryMins >= _bedMins || _entryMins < 6*60
       );
-      const _autoNight = (type==="wake"||type==="feed") && _isAfterBed;
+      // Never auto-classify solids feeds as night entries (food logging should stay daytime)
+      const _autoNight = (type==="wake"||type==="feed") && data.feedType !== "solids" && _isAfterBed;
       const nightFlag = (data.nightLocked || data.night !== undefined) ? !!data.night : _autoNight;
       const u=[..._dayArr,{id:entryId,night:nightFlag,modifiedAt:_now,...data}];
       return{...d,[_targetDay]:u};
@@ -16617,17 +16652,20 @@ function App(){
     const dayEntries = days[_calToday]||[];
     const hasBedtime = dayEntries.some(e=>e.type==="sleep"&&!e.night);
     const h = new Date().getHours();
-    
+
     // Check if previous day has a bedtime (covers early AM on a new day)
-    const prevDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+    // Use _calToday (not selDay) because setSelDay above is async — selDay may still be stale
+    const prevDay = (()=>{const d=new Date(_calToday+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
     const prevHasBedtime = !!findBedtime(days[prevDay]||[]);
     // Also check if morning wake already exists today. use global hasMorningWake (time position, not night flag)
     const _hasMorningWakeLocal = hasMorningWake(dayEntries);
-    
+
     if(!hasBedtime && !prevHasBedtime){
       // No bedtime on today or yesterday. just log morning wake
       quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
       setBedTimerDay(null);
+      // Always stop Live Activity as safety net
+      if(_isNative) _laStop();
       // Show morning wellbeing message
       setTimeout(()=>{
         const _name2=babyName||"baby";
@@ -16667,6 +16705,8 @@ function App(){
     
     // Fallback. log morning wake
     quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
+    setBedTimerDay(null);
+    if(_isNative) _laStop();
   }
 
   function pauseBedTimer(){
@@ -22062,7 +22102,7 @@ function App(){
                   return <div style={{fontSize:12,color:C.ter,fontWeight:600,fontFamily:_fM,marginTop:3,letterSpacing:"0.02em"}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
                 }
                 if (!age) return null;
-                return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:3,letterSpacing:"0.03em"}}>{fmtAge(age)}{age.months >= 1 ? ` · ${age.totalWeeks}wk` : ""}</div>;
+                return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:3,letterSpacing:"0.03em",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><span>{fmtAge(age)}{age.months >= 1 ? ` \u00B7 ${age.totalWeeks}wk` : ""}</span>{age.totalWeeks < 6 && <span style={{fontSize:9,fontFamily:_fM,color:"#7b68ee",background:"rgba(123,104,238,0.08)",padding:"2px 8px",borderRadius:99}}>Newborn</span>}</div>;
               })()}
             </div>
           </div>
@@ -22159,7 +22199,7 @@ function App(){
                 </button>
               </div>
               {showNapStartEdit && (
-                <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 8px)",left:0,right:0,background:"var(--picker-bg,#FFFCF9)",borderRadius:16,padding:"14px",boxShadow:"0 8px 24px rgba(0,0,0,0.15)",zIndex:50,minWidth:220}}>
+                <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 8px)",left:0,right:0,background:"var(--picker-bg,#FFFCF9)",borderRadius:16,padding:"14px",boxShadow:"0 8px 24px rgba(0,0,0,0.15)",zIndex:150,minWidth:220}}>
                   <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Nap started at</div>
                   <input type="time" value={napStartT||""} onChange={e=>{
                     const newT = e.target.value;
@@ -22824,7 +22864,8 @@ function App(){
                 const _feeds = _de.filter(e=>e.type==="feed").length;
                 const _naps = _de.filter(e=>e.type==="nap").length;
                 const _nappies = _de.filter(e=>e.type==="poop").length;
-                const _logSub = [_feeds&&(_feeds+" feed"+(_feeds>1?"s":"")),_naps&&(_naps+" nap"+(_naps>1?"s":"")),_nappies&&(_nappies+" napp"+(_nappies>1?"ies":"y"))].filter(Boolean).join(" \u00b7 ") || "No entries yet";
+                const _wakes = _de.filter(e=>e.type==="wake").length;
+                const _logSub = [_wakes&&(_wakes+" wake"+(_wakes>1?"s":"")),_feeds&&(_feeds+" feed"+(_feeds>1?"s":"")),_naps&&(_naps+" nap"+(_naps>1?"s":"")),_nappies&&(_nappies+" napp"+(_nappies>1?"ies":"y"))].filter(Boolean).join(" \u00b7 ") || "No entries yet";
                 const _hasNote = !!(dayNote || localStorage.getItem("ob_day_note_"+selDay));
                 const _reminderCount = (nappyReminderMins ? 1 : 0);
                 const _pinnedCount = pinnedNotes.length;
@@ -22885,6 +22926,26 @@ function App(){
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>You matter too</div>
                     </button>
                   </div>
+                );
+              })()}
+
+              {/* ═══ CATCH-UP PROMPT: show when yesterday has no entries ═══ */}
+              {!daySubScreen && (()=>{
+                const _yday = (function(){var d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+                const _ydayEntries = days[_yday]||[];
+                if (_ydayEntries.length > 0) return null;
+                // Only show if we have at least 2 days of data (not brand new user)
+                if (Object.keys(days).length < 2) return null;
+                return (
+                  <button onClick={()=>{haptic();setCatchUpDay(_yday);setCuFeeds("5");setCuNaps("2");setCuNappies("4");setCuWake("07:00");setCuBed("19:00");setShowCatchUp(true);}} style={{width:"100%",padding:"12px 16px",borderRadius:14,border:"1.5px dashed rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.03)",marginBottom:10,cursor:_cP,textAlign:"left"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:16}}>{"\u{1F4CB}"}</span>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Missing yesterday?</div>
+                        <div style={{fontSize:11,color:C.lt}}>Catch up in 30 seconds {"\u2014"} rough times are fine</div>
+                      </div>
+                    </div>
+                  </button>
                 );
               })()}
 
@@ -23789,6 +23850,110 @@ function App(){
                 }
               }}>
 
+              {/* ═══ PAST DAY BANNER: show when viewing a day that isn't today ═══ */}
+              {todayPanel==="log" && selDay !== todayStr() && selDay < todayStr() && (
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 14px",borderRadius:12,background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.2)",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:14}}>{"\u{1F4CC}"}</span>
+                    <span style={{fontSize:12,fontWeight:700,color:C.deep}}>Logging to {(function(){try{var d=new Date(selDay+"T12:00:00");return d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});}catch(e){return selDay;}})()}</span>
+                  </div>
+                  <button onClick={()=>{haptic();setSelDay(todayStr());}} style={{padding:"4px 12px",borderRadius:99,border:"1px solid "+C.ter+"40",background:C.ter+"10",color:C.ter,fontSize:11,fontWeight:700,cursor:_cP}}>Back to today</button>
+                </div>
+              )}
+
+              {/* ═══ NEWBORN CARDS (0-13 weeks). shown before Detailed Log for prominence ═══ */}
+
+              {/* First Week Home card (0-2 weeks) */}
+              {age && age.totalWeeks < 2 && todayPanel==="log" && selDay===todayStr() && !localStorage.getItem("ob_first_week_dismissed_"+selDay) && (
+                <div style={{padding:"18px 16px",marginBottom:10,borderRadius:14,border:"1.5px solid rgba(155,184,168,0.3)",background:"linear-gradient(135deg,rgba(155,184,168,0.06),rgba(212,168,85,0.04))"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div style={{fontSize:24,marginBottom:8}}>{"\u{1F31F}"}</div>
+                    <button onClick={()=>{localStorage.setItem("ob_first_week_dismissed_"+selDay,"1");haptic(10);}} style={{background:"none",border:"none",fontSize:14,color:C.lt,cursor:_cP,padding:4}}>{"\u00D7"}</button>
+                  </div>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>Welcome to your first week with {babyName||"baby"}</div>
+                  <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>
+                    Right now, there's no schedule to follow. Just feed on demand, sleep when {babyName||"baby"} sleeps, and let OBubba do the tracking.
+                  </div>
+                  <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px"}}>
+                    {[["\u{1F37C}","Feed every 2\u20133 hours","day and night \u2014 this is essential for weight gain"],["\u{1F634}","Wake windows: 30\u201345 min","then back to sleep \u2014 follow sleepy cues"],["\u{1F6CF}\uFE0F","Same room for sleep","firm, flat mattress, nothing in the cot"],["\u{1F4A7}","6+ wet nappies a day","the best sign feeding is going well"]].map(function(row,i){
+                      return React.createElement("div",{key:i,style:{display:"flex",gap:10,padding:"5px 0",borderTop:i?"1px solid "+C.blush:"none"}},
+                        React.createElement("span",{style:{fontSize:14,flexShrink:0}},row[0]),
+                        React.createElement("div",null,
+                          React.createElement("div",{style:{fontSize:12,fontWeight:700,color:C.deep}},row[1]),
+                          React.createElement("div",{style:{fontSize:11,color:C.lt}},row[2])
+                        )
+                      );
+                    })}
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginTop:10,textAlign:"center"}}>
+                    Patterns emerge around 6{"\u2013"}8 weeks. For now, you're doing everything right. {"\u{1F49B}"}
+                  </div>
+                </div>
+              )}
+
+              {/* Safe sleep checklist (0-13 weeks) */}
+              {age && age.totalWeeks < 13 && todayPanel==="log" && selDay===todayStr() && !safeSleepDismissed && (
+                <div style={{padding:"12px 16px",borderRadius:14,background:"rgba(123,104,238,0.04)",border:"1px solid rgba(123,104,238,0.15)",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:16}}>{"\u{1F6CF}\uFE0F"}</span>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Safe sleep checklist</div>
+                    </div>
+                    <button onClick={()=>setSafeSleepDismissed(true)} style={{background:"none",border:"none",fontSize:12,color:C.lt,cursor:_cP}}>{"\u00D7"}</button>
+                  </div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:6}}>
+                    {["\u2713 Always on their back","\u2713 Firm, flat mattress","\u2713 Room 16\u201320\u00B0C","\u2713 Clear cot (no toys, pillows, bumpers)","\u2713 Same room as you for 6 months"].map(function(t,i){ return React.createElement("div",{key:i,style:{padding:"1px 0"}},t); })}
+                  </div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:6}}>Source: NHS & Lullaby Trust</div>
+                </div>
+              )}
+
+              {/* Feeding confidence indicator (0-13 weeks) */}
+              {age && age.totalWeeks < 13 && todayPanel==="log" && selDay===todayStr() && (()=>{
+                const _fcEntries = days[selDay] || [];
+                const _fcFeeds = _fcEntries.filter(function(e){ return e.type==="feed"; }).length;
+                const _fcWet = _fcEntries.filter(function(e){ return e.type==="poop" && ((e.poopType||"")+"").toLowerCase().includes("wet"); }).length;
+                const _fcTarget = age.totalWeeks < 4 ? 8 : 6;
+                const _h = new Date().getHours();
+                const _fcTargetByNow = Math.max(1, Math.round(_fcTarget * Math.min(_h / 20, 1)));
+                const _fcOk = _fcFeeds >= _fcTargetByNow;
+                const _fcWetOk = _fcWet >= Math.max(1, Math.round(6 * Math.min(_h / 20, 1)));
+                const _fcColor = _fcOk && _fcWetOk ? "#7BA68C" : (!_fcOk && !_fcWetOk) ? "#D47070" : "#D4A855";
+                const _fcMsg = _fcOk && _fcWetOk ? "Feeding looks on track today"
+                  : (!_fcOk && !_fcWetOk) ? "Feeds and wet nappies are below expected. speak to your health visitor if worried"
+                  : !_fcOk ? "Feed count is a little low for this time of day"
+                  : "Fewer wet nappies than expected. keep an eye on this";
+                return (
+                  <div style={{padding:"10px 14px",borderRadius:14,border:"1px solid "+_fcColor+"30",background:_fcColor+"08",marginBottom:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:_fcColor}}/>
+                      <span style={{fontSize:12,fontWeight:700,color:C.deep}}>Feeding confidence</span>
+                    </div>
+                    <div style={{display:"flex",gap:16,marginBottom:4}}>
+                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F37C}"} {_fcFeeds} feeds (target: {_fcTarget}+)</span>
+                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F4A7}"} {_fcWet} wet nappies (target: 6+)</span>
+                    </div>
+                    <div style={{fontSize:11,color:_fcColor,fontWeight:600}}>{_fcMsg}</div>
+                  </div>
+                );
+              })()}
+
+              {/* Postpartum wellness nudge (0-2 weeks) */}
+              {age && age.totalWeeks < 2 && todayPanel==="log" && selDay===todayStr() && (
+                <div style={{padding:"14px 16px",borderRadius:14,background:"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid rgba(212,168,85,0.2)",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <span style={{fontSize:16}}>{"\u{1F49B}"}</span>
+                    <div style={{fontSize:13,fontWeight:700,color:C.deep}}>How are YOU doing?</div>
+                  </div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>
+                    The first two weeks are intense. Baby blues (tearfulness, mood swings) affect up to 80% of new parents and usually pass by day 14.
+                  </div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
+                    If feelings of sadness, anxiety, or hopelessness persist beyond 2 weeks, please speak to your midwife, GP, or health visitor. You deserve support.
+                  </div>
+                </div>
+              )}
+
               {/* ═══ Detailed Log. brought back per user request (gives access to Med/Temp, Tummy Time, Activities beyond the dashboard quick-log) ═══ */}
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
               <button onClick={()=>{haptic();setDetailLogOpen(!detailLogOpen);if(!detailLogOpen){setTodayPlanOpen(false);setNotesOpen(false);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:detailLogOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:detailLogOpen?0:10}}>
@@ -23995,25 +24160,27 @@ function App(){
 
 
               {/* ═══ COMPACT "COMING UP". moved above timeline for visibility ═══ */}
-              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && (()=>{
+              {/* Hidden for 0-4 week newborns (sleep is chaotic, predictions are inappropriate) */}
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && !(age && age.totalWeeks < 4) && (()=>{
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime) return null;
                 const _ne = _td.nextEvent;
                 if (!_ne) return null;
+                const _isGentleAge = age && age.totalWeeks < 8;
                 const _items = [];
                 if (_ne.type === "nap") {
-                  _items.push({icon:"😴", label:_ne.label, time:_ne.timeStr});
+                  _items.push({icon:"😴", label:_ne.label, time:(_isGentleAge?"around ":"")+_ne.timeStr});
                 }
-                // Always show bedtime below the nap
-                if (_td.bedMins) {
-                  _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(String(Math.floor(_td.bedMins/60)%24).padStart(2,"0")+":"+String(Math.round(_td.bedMins%60)).padStart(2,"0"))});
-                } else if (_ne.type === "bed") {
+                // Always show bedtime below the nap (but only if bedtime is PM — sanity check)
+                if (_td.bedMins && _td.bedMins >= 17*60) {
+                  _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(_td.bedMins)});
+                } else if (_ne.type === "bed" && _ne.timeMins && _ne.timeMins >= 17*60) {
                   _items.push({icon:"🌙", label:_ne.label, time:"~"+_ne.timeStr});
                 }
                 if (!_items.length) return null;
                 return (
                   <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))",border:"1px solid rgba(123,104,238,0.12)"}}>
-                    <div style={{fontSize:10,fontFamily:_fM,color:"#7B68EE",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>⏱ Coming up</div>
+                    <div style={{fontSize:10,fontFamily:_fM,color:"#7B68EE",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>{_isGentleAge ? "🌱 Gentle guide" : "⏱ Coming up"}</div>
                     {_items.map((item,i)=>(
                       <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 0"}}>
                         <span style={{fontSize:14}}>{item.icon}</span>
@@ -24021,6 +24188,7 @@ function App(){
                         <span style={{fontSize:13,color:C.mid,fontFamily:_fM}}>{item.time}</span>
                       </div>
                     ))}
+                    {_isGentleAge && <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:4}}>Always follow sleepy cues at this age</div>}
                   </div>
                 );
               })()}
@@ -24587,12 +24755,23 @@ function App(){
               </div>
               <div ref={logListCallbackRef} style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
                 {dayE.length===0&&(
-                  <div style={{textAlign:"center",padding:"22px 12px",background:"var(--card-bg-alt)",borderRadius:14,border:`1px dashed ${C.blush}`}}>
-                    <div style={{fontSize:28,marginBottom:8}}>👆</div>
-                    <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>Start {babyName||"baby"}'s day</div>
-                    <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>
-                      Tap a button above to log {babyName||"baby"}'s first entry for today.
-                    </div>
+                  <div style={{textAlign:"center",padding:"22px 12px",background:"var(--card-bg-alt)",borderRadius:14,border:"1px dashed "+C.blush}}>
+                    {selDay < todayStr() ? (<>
+                      <div style={{fontSize:28,marginBottom:8}}>{"\u{1F4CB}"}</div>
+                      <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>No entries for this day</div>
+                      <div style={{fontSize:13,color:C.lt,lineHeight:1.5,marginBottom:12}}>
+                        Fill in from memory {"\u2014"} rough times are fine.
+                      </div>
+                      <button onClick={()=>{haptic();setCatchUpDay(selDay);setCuFeeds("5");setCuNaps("2");setCuNappies("4");setCuWake("07:00");setCuBed("19:00");setShowCatchUp(true);}} style={{padding:"10px 24px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
+                        Catch up {"\u{1F4CB}"}
+                      </button>
+                    </>) : (<>
+                      <div style={{fontSize:28,marginBottom:8}}>{"\u{1F446}"}</div>
+                      <div style={{fontSize:15,fontWeight:600,color:C.mid,marginBottom:4}}>Start {babyName||"baby"}'s day</div>
+                      <div style={{fontSize:13,color:C.lt,lineHeight:1.5}}>
+                        Tap a button above to log {babyName||"baby"}'s first entry for today.
+                      </div>
+                    </>)}
                   </div>
                 )}
                 {[...dayE].sort((a,b)=>{const ta=timeVal(a),tb=timeVal(b);const ka=ta<5*60?ta+1440:ta;const kb=tb<5*60?tb+1440:tb;return ka-kb;}).map(e=>{
@@ -31673,8 +31852,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               setWeaning(prev=>[...prev,{id:uid(),food:weaningForm.food.trim(),date:_wDate,reaction:weaningForm.reaction,note:weaningForm.note,liked:weaningForm.liked,allergens:detectAllergens(weaningForm.food)}]);
               // Flip weaningStarted flag if this is the first food logged
               if(!weaningStarted){try{localStorage.setItem("weaning_started_"+selectedChild,"1");}catch{}setWeaningStarted(true);}
-              // Also add to today's log as a solids feed entry
-              quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,note:weaningForm.food.trim(),date:_wDate});
+              // Also add to today's log as a solids feed entry (only if logging for today, not historical catch-up)
+              if (_wDate === todayStr()) {
+                quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,note:weaningForm.food.trim()});
+              }
               setShowWeaningForm(false);
               const al = detectAllergens(weaningForm.food);
               showToast(al.length ? `🥄 Logged. contains allergen${al.length>1?"s":""}: ${al.join(", ")}` : "🥄 Food Logged!", al.length ? 4000 : 1500, al.length ? 2 : 1);
@@ -32208,6 +32389,110 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             </button>
             <button onClick={()=>setShowQuickStart(false)} style={{width:"100%",padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"transparent",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
               Skip. I'll log from scratch
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Catch-Up Wizard. backfill a missed day in 30 seconds ═══ */}
+      {showCatchUp&&(
+        <div onClick={()=>setShowCatchUp(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"24px 20px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",maxHeight:"85vh",overflowY:"auto"}}>
+            <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:4,textAlign:"center"}}>{"\u{1F4CB}"} Catch Up</div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:16,textAlign:"center"}}>Fill in a missed day from memory. rough times are fine {"\u2014"} this helps predictions stay on track.</div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Which day?</label>
+              <input type="date" value={catchUpDay||""} onChange={e=>setCatchUpDay(e.target.value)} max={todayStr()} style={{width:"100%",padding:"8px",borderRadius:10,border:"1.5px solid "+C.blush,background:"var(--input-bg)",fontSize:15,fontFamily:_fI,boxSizing:_bBB,textAlign:"center"}}/>
+            </div>
+
+            <div style={{display:"flex",gap:10,marginBottom:12}}>
+              <div style={{flex:1}}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Wake up</label>
+                <input type="time" value={cuWake} onChange={e=>setCuWake(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:10,border:"1.5px solid "+C.blush,background:"var(--input-bg)",fontSize:15,fontFamily:_fI,boxSizing:_bBB,textAlign:"center"}}/>
+              </div>
+              <div style={{flex:1}}>
+                <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Bedtime</label>
+                <input type="time" value={cuBed} onChange={e=>setCuBed(e.target.value)} style={{width:"100%",padding:"8px",borderRadius:10,border:"1.5px solid "+C.blush,background:"var(--input-bg)",fontSize:15,fontFamily:_fI,boxSizing:_bBB,textAlign:"center"}}/>
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>How many feeds?</label>
+              <div style={{display:"flex",gap:6}}>
+                {["3-4","5-6","7-8","9+"].map(n=>(
+                  <button key={n} onClick={()=>setCuFeeds(n)} style={{flex:1,padding:"8px",borderRadius:10,border:"1.5px solid "+(cuFeeds===n?C.ter:C.blush),background:cuFeeds===n?C.ter+"15":"transparent",color:cuFeeds===n?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>How many naps?</label>
+              <div style={{display:"flex",gap:6}}>
+                {["1","2","3","4+"].map(n=>(
+                  <button key={n} onClick={()=>setCuNaps(n)} style={{flex:1,padding:"8px",borderRadius:10,border:"1.5px solid "+(cuNaps===n?C.ter:C.blush),background:cuNaps===n?C.ter+"15":"transparent",color:cuNaps===n?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Wet nappies?</label>
+              <div style={{display:"flex",gap:6}}>
+                {["2-3","4-5","6+"].map(n=>(
+                  <button key={n} onClick={()=>setCuNappies(n)} style={{flex:1,padding:"8px",borderRadius:10,border:"1.5px solid "+(cuNappies===n?C.ter:C.blush),background:cuNappies===n?C.ter+"15":"transparent",color:cuNappies===n?C.ter:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>{n}</button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={()=>{
+              if(!catchUpDay) { showToast("Pick a day first",1500,1); return; }
+              haptic();
+              const entries = [];
+              const wMins = parseInt(cuWake.split(":")[0])*60+parseInt(cuWake.split(":")[1]);
+              const bMins = parseInt(cuBed.split(":")[0])*60+parseInt(cuBed.split(":")[1]);
+              const dayLen = Math.max(60, bMins - wMins);
+              // Wake
+              entries.push({id:uid(),type:"wake",time:cuWake,night:false,src:"catchup"});
+              // Feeds
+              const nFeeds = cuFeeds==="3-4"?4:cuFeeds==="5-6"?6:cuFeeds==="7-8"?8:10;
+              const feedGap = Math.floor(dayLen / nFeeds);
+              for(var i=0;i<nFeeds;i++){
+                var m = wMins + feedGap*i + Math.floor(feedGap/2);
+                var h = Math.floor(m/60)%24, mm = m%60;
+                entries.push({id:uid(),type:"feed",time:String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0"),feedType:obFeedType||"milk",amount:0,night:false,src:"catchup"});
+              }
+              // Naps
+              var nNaps = cuNaps==="1"?1:cuNaps==="2"?2:cuNaps==="3"?3:4;
+              var awakeChunks = nNaps + 1;
+              var ww2 = Math.floor(dayLen / awakeChunks);
+              for(var j=0;j<nNaps;j++){
+                var napStart = wMins + ww2*(j+1);
+                var napDur = 30 + Math.floor(Math.random()*30);
+                var napEnd = napStart + napDur;
+                var sH=Math.floor(napStart/60)%24,sM=napStart%60,eH=Math.floor(napEnd/60)%24,eM=napEnd%60;
+                entries.push({id:uid(),type:"nap",start:String(sH).padStart(2,"0")+":"+String(sM).padStart(2,"0"),end:String(eH).padStart(2,"0")+":"+String(eM).padStart(2,"0"),night:false,src:"catchup"});
+              }
+              // Nappies
+              var nNappies = cuNappies==="2-3"?3:cuNappies==="4-5"?5:7;
+              var nappyGap = Math.floor(dayLen / nNappies);
+              for(var k=0;k<nNappies;k++){
+                var nm = wMins + nappyGap*k + Math.floor(nappyGap/2);
+                var nH = Math.floor(nm/60)%24, nM2 = nm%60;
+                entries.push({id:uid(),type:"poop",time:String(nH).padStart(2,"0")+":"+String(nM2).padStart(2,"0"),poopType:"wet",night:false,src:"catchup"});
+              }
+              // Bedtime
+              entries.push({id:uid(),type:"sleep",time:cuBed,night:false,src:"catchup"});
+              // Save to the chosen day
+              setDays(function(prev){return Object.assign({},prev,{[catchUpDay]:[].concat(prev[catchUpDay]||[],entries)});});
+              setShowCatchUp(false);
+              setSelDay(catchUpDay);
+              var _cuDateLabel = (function(){try{var d=new Date(catchUpDay+"T12:00:00");return d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});}catch(e){return catchUpDay;}})();
+              showToast("\u{1F4CB} "+_cuDateLabel+" filled in. predictions updated!",2500,1);
+            }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
+              Fill in {catchUpDay ? (function(){try{var d=new Date(catchUpDay+"T12:00:00");return d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});}catch(e){return catchUpDay;}})() : "this day"} {"\u{1F4CB}"}
+            </button>
+            <button onClick={()=>setShowCatchUp(false)} style={{width:"100%",padding:"10px",borderRadius:99,border:"1px solid "+C.blush,background:"transparent",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
+              Cancel
             </button>
           </div>
         </div>
