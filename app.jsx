@@ -4737,25 +4737,32 @@ function App(){
     try {
       if (localStorage.getItem("ob_food_night_fix_v1")) return;
       localStorage.setItem("ob_food_night_fix_v1", "1");
-      // Common food words that shouldn't be night entries
-      const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus"];
+      // Fix misclassified night entries: food catch-ups + daytime entries marked as night
+      const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus","mash","melty","finger","stick","puree"];
       setDays(d=>{
         let changed = false;
         const result = {...d};
         Object.keys(d).forEach(dk=>{
           const arr = d[dk];
           if (!arr || !arr.length) return;
+          let dayChanged = false;
           const fixed = arr.map(e=>{
             if (!e.night) return e;
-            // Check if this night entry has a food-like note
             const note = ((e.note||"")+"").toLowerCase();
+            const [eh] = (e.time||"06:00").split(":").map(Number);
+            // Rule 1: food-like note = not a night entry
             if (note && _foodWords.some(f=>note.includes(f))) {
-              changed = true;
+              dayChanged = true;
+              return {...e, night: false, nightLocked: false};
+            }
+            // Rule 2: "night" entry at 6am-12pm is almost certainly daytime (misclassified)
+            if (eh >= 6 && eh < 12 && e.type === "wake" && !e.selfSettled && !e.assisted && !(parseInt(e.assistedDuration)||0)) {
+              dayChanged = true;
               return {...e, night: false, nightLocked: false};
             }
             return e;
           });
-          if (changed) result[dk] = fixed;
+          if (dayChanged) { result[dk] = fixed; changed = true; }
         });
         return changed ? result : d;
       });
