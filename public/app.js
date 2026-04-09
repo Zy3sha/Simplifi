@@ -757,7 +757,7 @@ let _personalBedWW=null;let _personalBedtime=null;try{const _pr=getPositionalRhy
 _personalBedWW=_pr.bed.p75;}// Personal bedtime estimate (string "HH:MM")
 const _pb=computePersonalBaselines();if(_pb&&_pb.personalAvgBed){const _parts=_pb.personalAvgBed.split(":").map(Number);if(_parts.length===2&&!isNaN(_parts[0]))_personalBedtime=_parts[0]*60+_parts[1];}}catch{}// Tolerable gap: personal 75th percentile + 15min grace, OR age-based fallback
 const _gapTolerance=_personalBedWW?_personalBedWW+15:_ww.max*1.3;// Target bedtime: personal if later than floor, else floor
-const _bedtimeFloor=clampBedtime(0,_w);const _targetBed=_personalBedtime&&_personalBedtime>_bedtimeFloor?_personalBedtime:_bedtimeFloor;const _gapToBed=_targetBed-_lastSleep;const _gapTooLong=_gapToBed>_gapTolerance;if(_sleepBudgetUnder||_gapTooLong){_bridgeNapNeeded=true;_napsComplete=false;// stay in nap prediction mode
+const _bedtimeFloor=clampBedtime(0,_w);const _targetBed=_personalBedtime&&_personalBedtime>_bedtimeFloor?_personalBedtime:_bedtimeFloor;const _gapToBed=_targetBed-_lastSleep;const _gapTooLong=_gapToBed>_gapTolerance;if((_sleepBudgetUnder||_gapTooLong)&&!(tickDataRef.current||{}).napsComplete){_bridgeNapNeeded=true;_napsComplete=false;// stay in nap prediction mode (but NOT if tick useMemo says naps are done)
 }}// ── Last feed. ONE wall-clock-aware cross-day calculation ──
 // Pool includes active day + previous 2 days + calendar today (if different from active day)
 // Extended to 2 days back to handle cross-midnight scenarios where bedtime was 2 days ago

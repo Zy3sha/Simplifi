@@ -7423,9 +7423,9 @@ function App(){
       const _targetBed = _personalBedtime && _personalBedtime > _bedtimeFloor ? _personalBedtime : _bedtimeFloor;
       const _gapToBed = _targetBed - _lastSleep;
       const _gapTooLong = _gapToBed > _gapTolerance;
-      if (_sleepBudgetUnder || _gapTooLong) {
+      if ((_sleepBudgetUnder || _gapTooLong) && !(tickDataRef.current||{}).napsComplete) {
         _bridgeNapNeeded = true;
-        _napsComplete = false; // stay in nap prediction mode
+        _napsComplete = false; // stay in nap prediction mode (but NOT if tick useMemo says naps are done)
       }
     }
 
