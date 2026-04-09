@@ -16596,7 +16596,10 @@ function App(){
   }
 
   function handleSmartWake(){
-    const dayEntries = days[selDay]||[];
+    // Always ensure we're on today's date when logging a morning wake
+    const _calToday = todayStr();
+    if (selDay !== _calToday) setSelDay(_calToday);
+    const dayEntries = days[_calToday]||[];
     const hasBedtime = dayEntries.some(e=>e.type==="sleep"&&!e.night);
     const h = new Date().getHours();
     

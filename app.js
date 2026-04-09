@@ -1780,7 +1780,8 @@ reasons.push({emoji:"🌡️",title:"Too hot or cold",detail:"The Lullaby Trust 
 if(age){const reg=detectSleepRegression();if(reg){reasons.push({emoji:"🔄",title:"Sleep regression",detail:reg.label||"Developmental changes can disrupt sleep and mood",action:"This is temporary. maintain routines, extra comfort is OK",urgency:"med",score:45});}}// Boost scores based on what's helped before (learned per-child)
 const helpCounts=cryingHelps||{};reasons.forEach(r=>{const key=r.title.toLowerCase().replace(/\s+/g,"_");const count=helpCounts[key]||0;if(count>0)r.score+=Math.min(20,count*5);// boost up to +20 from history
 r._helpKey=key;r._helpCount=count;});// Sort by score descending
-reasons.sort((a,b)=>b.score-a.score);return reasons;}function handleSmartWake(){const dayEntries=days[selDay]||[];const hasBedtime=dayEntries.some(e=>e.type==="sleep"&&!e.night);const h=new Date().getHours();// Check if previous day has a bedtime (covers early AM on a new day)
+reasons.sort((a,b)=>b.score-a.score);return reasons;}function handleSmartWake(){// Always ensure we're on today's date when logging a morning wake
+const _calToday=todayStr();if(selDay!==_calToday)setSelDay(_calToday);const dayEntries=days[_calToday]||[];const hasBedtime=dayEntries.some(e=>e.type==="sleep"&&!e.night);const h=new Date().getHours();// Check if previous day has a bedtime (covers early AM on a new day)
 const prevDay=(()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();const prevHasBedtime=!!findBedtime(days[prevDay]||[]);// Also check if morning wake already exists today. use global hasMorningWake (time position, not night flag)
 const _hasMorningWakeLocal=hasMorningWake(dayEntries);if(!hasBedtime&&!prevHasBedtime){// No bedtime on today or yesterday. just log morning wake
 quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});setBedTimerDay(null);// Show morning wellbeing message
