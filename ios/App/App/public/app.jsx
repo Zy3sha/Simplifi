@@ -6880,10 +6880,12 @@ function App(){
     const bedtimeFloor = clampBedtime(0, ageWeeks);
     let _planPred = null;
     try { _planPred = predictNextNap ? predictNextNap() : null; } catch(e) { console.error('[OBubba] predictNextNap crashed:', e.message, e.stack?.split('\n').slice(0,3).join(' | ')); }
-    // napsComplete should check napsDone vs expectedNaps, NOT just whether prediction returned null
-    // predictNextNap returns null for many reasons (close to bedtime, budget met, error)
-    // but 0 naps done should never be "naps complete"
-    let napsComplete = napsDone >= expectedNaps && !_planPred;
+    // Debug: log why napsComplete is set
+    if (!_planPred && napsDone < 3) console.warn('[OBubba] predictNextNap returned null with only', napsDone, 'naps done. expectedNaps:', expectedNaps, 'totalNapMins:', totalNapMins);
+    // napsComplete: ONLY true when napsDone >= expectedNaps. predictNextNap returning null
+    // should NOT make naps "complete" — it could return null for many reasons (proximity to bed,
+    // budget met, error). A day with 2 naps when 3 are expected is NOT naps complete.
+    let napsComplete = napsDone >= expectedNaps;
     const nextNapMins = _planPred && typeof _planPred.napStart_min === "number" ? Math.round(_planPred.napStart_min) : null;
 
     // Fragmented nap detection from data (used for observations, not overriding Plan)
