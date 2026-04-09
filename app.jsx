@@ -9770,12 +9770,15 @@ function App(){
     const dk = _ntRecent.map(rd => rd.dayKey);
     const napCounts = _ntRecent.map(rd => rd.entries.filter(e=>e.type==="nap"&&!e.night).length);
     const daysWithFewer = napCounts.filter(n => n < profile.expectedNaps).length;
+    // Age ranges are a guide, not a gate. every baby is different.
+    // The lower bound is the EARLIEST a transition is physiologically reasonable.
+    // Data (consistent fewer naps + mature wake windows) can confirm readiness.
     const transitions = [
-      { from:4, to:3, ageRange:[17,26], ww:"2–3 hrs" },
-      { from:3, to:2, ageRange:[26,35], ww:"2.5–3.5 hrs" },
-      { from:2, to:1, ageRange:[56,78], ww:"4–6 hrs" },
+      { from:4, to:3, ageRange:[13,26], ww:"2–3 hrs" },
+      { from:3, to:2, ageRange:[20,39], ww:"2.5–3.5 hrs" },
+      { from:2, to:1, ageRange:[48,78], ww:"4–6 hrs" },
     ];
-    const match = transitions.find(t => w >= t.ageRange[0] && w <= t.ageRange[1] && profile.expectedNaps === t.from);
+    const match = transitions.find(t => w >= t.ageRange[0] && w <= t.ageRange[1] && profile.expectedNaps >= t.from);
     if (!match || daysWithFewer < 4) return null;
     const _adviceByTrans = {
       "3-2": `Stretch the morning wake window gradually. add 15 minutes every few days until it reaches 2.5–3 hours. The 3rd nap will start shortening naturally. When it disappears, shift the afternoon nap slightly earlier. Use a 6–6:30pm bedtime on days the 3rd nap is skipped. overtiredness causes more night wakes, not fewer. Give it 2–4 weeks. Some days will still need 3 naps and that's fine.`,
@@ -10882,7 +10885,8 @@ function App(){
       const recent14 = getRecentDays(14);
       if (recent14.length >= 7) {
         // 3→2 transition: age 26-39wk, last nap short/refused
-        if (w >= 26 && w <= 39 && baseNaps >= 3) {
+        // 3→2: data-driven. some babies ready from 20wk if wake windows are mature
+        if (w >= 20 && w <= 39 && baseNaps >= 3) {
           const lastNapShortDays = recent14.filter(d => {
             const naps = (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end);
             if (naps.length < 3) return true; // nap 3 didn't happen = "refused"
