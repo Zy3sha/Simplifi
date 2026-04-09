@@ -7352,7 +7352,7 @@ function App(){
     // Only count naps that are actually finished (end differs from start and has positive duration)
     // The active nap entry has end===start while running. exclude it so "naps complete" doesn't fire early
     // Deduplicate: if two naps have the same start time, keep only the one with the longer duration
-    const _completedNapsRaw = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5);
+    const _completedNapsRaw = _naps.filter(n => n.end && n.end !== n.start && minDiff(n.start, n.end) >= 5 && n.id !== napEntryId);
     const _napsByStart = {};
     _completedNapsRaw.forEach(n => {
       const key = n.start;
@@ -10614,6 +10614,11 @@ function App(){
     if (!isToday) return null;
     const name = babyName || "Baby";
     const w = age.totalWeeks;
+
+    // Suppress nap predictions while a nap is actively running
+    if (napOn) return null;
+    const _hasActiveNap2 = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+    if (_hasActiveNap2) return null;
 
     // Check nap prediction
     const pred = tickDataRef.current.pred;
