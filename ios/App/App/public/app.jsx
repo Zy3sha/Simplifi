@@ -24357,7 +24357,7 @@ function App(){
               })()}
 
               {/* Tomorrow's schedule. premium teaser */}
-              {STORE_READY && !isPremium && todayPlanOpen && Object.keys(days).length >= 5 && (isPremium || trialActive) && (
+              {STORE_READY && hasAccess() && todayPlanOpen && Object.keys(days).length >= 5 && (
                 <button onClick={()=>triggerPaywall("tomorrow")} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
                   📋 Plan ahead. see tomorrow's predicted schedule →
                 </button>
@@ -24441,8 +24441,12 @@ function App(){
                   let projectedNapMins = totalCompletedNapMins;
                   let isFirstPredicted = true;
 
+                  // ═══ SLEEP BUDGET CHECK: skip remaining naps if budget exceeded ═══
+                  // Same logic as tick useMemo — Plan view must agree
+                  const _planBudgetExceeded = projectedNapMins >= napProfile.idealTotalMax;
+
                   // Step 1: Place expected naps
-                  while (napIdx < expectedTotal) {
+                  while (napIdx < expectedTotal && !_planBudgetExceeded) {
                     let napStart;
                     // First predicted nap: use cached prediction (matches nap pill)
                     if (isFirstPredicted && !napOn) {
@@ -24528,17 +24532,11 @@ function App(){
                     }
                   }
 
-                  // Blend bedtime lightly with historical average (90% WW, 10% historical)
-                  const bedPred = tickDataRef.current.bed;
-                  if (bedPred && bedPred.time) {
-                    const histBedM = timeVal(bedPred);
-                    if (typeof histBedM === "number" && !isNaN(histBedM)) {
-                      const blended = Math.round(bedM * 0.9 + histBedM * 0.1);
-                      // Guard: historical can't push more than 20min past WW calc
-                      bedM = Math.min(blended, bedM + 20);
-                      bedM = clampBedtime(bedM, w);
-                      bedTime = mtp(bedM);
-                    }
+                  // ═══ SINGLE SOURCE: use tickDataRef.bedMins so Plan matches COMING UP ═══
+                  const _tickBedMins = (tickDataRef.current || {}).bedMins;
+                  if (_tickBedMins && typeof _tickBedMins === "number") {
+                    bedM = _tickBedMins;
+                    bedTime = mtp(bedM);
                   }
 
                   // Bedtime display
