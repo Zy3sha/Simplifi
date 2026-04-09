@@ -4735,10 +4735,10 @@ function App(){
   // ── One-time cleanup: remove night:true from food entries (misclassified catch-up logs) ──
   useEffect(()=>{
     try {
-      if (localStorage.getItem("ob_food_night_fix_v2")) return;
-      localStorage.setItem("ob_food_night_fix_v2", "1");
+      if (localStorage.getItem("ob_food_night_fix_v3")) return;
+      localStorage.setItem("ob_food_night_fix_v3", "1");
       // Fix misclassified night entries: food catch-ups + daytime entries marked as night
-      const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus","mash","melty","finger","stick","puree"];
+      const _foodWords = ["potato","carrot","egg","banana","porridge","yoghurt","yogurt","apple","broccoli","avocado","toast","rice","chicken","salmon","peas","lentil","oat","cheese","mango","pear","sweet potato","aubergine","courgette","hummus","mash","melty","finger","stick","puree","app ","avocado"];
       setDays(d=>{
         let changed = false;
         const result = {...d};
@@ -4748,15 +4748,17 @@ function App(){
           let dayChanged = false;
           const fixed = arr.map(e=>{
             if (!e.night) return e;
-            const note = ((e.note||"")+"").toLowerCase();
+            const note = ((e.note||"")+"").toLowerCase().trim();
             const [eh] = (e.time||"06:00").split(":").map(Number);
             // Rule 1: food-like note = not a night entry
             if (note && _foodWords.some(f=>note.includes(f))) {
               dayChanged = true;
               return {...e, night: false, nightLocked: false};
             }
-            // Rule 2: "night" entry at 6am-12pm is almost certainly daytime (misclassified)
-            if (eh >= 6 && eh < 12 && e.type === "wake" && !e.selfSettled && !e.assisted && !(parseInt(e.assistedDuration)||0)) {
+            // Rule 2: "night" wake at 6am-5pm with no feed amount = almost certainly daytime
+            // Real night wakes happen between bedtime (6-10pm) and morning wake (5-8am)
+            // A "night wake" at 8:15am is clearly wrong
+            if (eh >= 6 && eh < 17 && e.type === "wake" && !(parseInt(e.amount)||0)) {
               dayChanged = true;
               return {...e, night: false, nightLocked: false};
             }
