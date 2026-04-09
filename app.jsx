@@ -6882,10 +6882,11 @@ function App(){
     try { _planPred = predictNextNap ? predictNextNap() : null; } catch(e) { console.error('[OBubba] predictNextNap crashed:', e.message, e.stack?.split('\n').slice(0,3).join(' | ')); }
     // Debug: log why napsComplete is set
     if (!_planPred && napsDone < 3) console.warn('[OBubba] predictNextNap returned null with only', napsDone, 'naps done. expectedNaps:', expectedNaps, 'totalNapMins:', totalNapMins);
-    // napsComplete: ONLY true when napsDone >= expectedNaps. predictNextNap returning null
-    // should NOT make naps "complete" — it could return null for many reasons (proximity to bed,
-    // budget met, error). A day with 2 naps when 3 are expected is NOT naps complete.
-    let napsComplete = napsDone >= expectedNaps;
+    // napsComplete: true when either (a) all expected naps done, or (b) day sleep budget exceeded.
+    // Sleep consultants: when total day sleep exceeds the age max, skip remaining naps and go
+    // straight to early bedtime. More day sleep steals from night sleep.
+    const _budgetExceeded = totalNapMins >= napProfile.idealTotalMax;
+    let napsComplete = napsDone >= expectedNaps || _budgetExceeded;
     const nextNapMins = _planPred && typeof _planPred.napStart_min === "number" ? Math.round(_planPred.napStart_min) : null;
 
     // Fragmented nap detection from data (used for observations, not overriding Plan)
@@ -8069,12 +8070,19 @@ function App(){
           _timing = "Bedtime at ~" + fmt12(_bed.time) + " · An earlier bedtime helps";
         }
       } else {
-        _dot = "#7BA68C"; _label = "All naps complete";
         const _expectedForAge = _profile.expectedNaps;
+        const _budgetOver = _totalNapMin >= _profile.idealTotalMax;
         const _missedNaps = _napsDone < _expectedForAge - 1 && _nowM >= bedtimeFloor - 30;
-        _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today";
-        if (_missedNaps) {
-          _rightNow = "Only " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today (usually " + _expectedForAge + "). If " + _name + " napped and you forgot to log, that's OK. bedtime prediction still works from what we have. If " + _name + " genuinely missed naps, an earlier bedtime helps.";
+        if (_budgetOver && _napsDone < _expectedForAge) {
+          _dot = "#7BA68C"; _label = "Great naps today. skip to bedtime";
+          _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + hm(_totalNapMin) + " day sleep (budget met)";
+          _rightNow = _name + " had great naps today (" + hm(_totalNapMin) + " total). Sleep consultants recommend skipping the remaining nap and going straight to an earlier bedtime. More day sleep can steal from night sleep.";
+        } else {
+          _dot = "#7BA68C"; _label = "All naps complete";
+          _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today";
+          if (_missedNaps) {
+            _rightNow = "Only " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today (usually " + _expectedForAge + "). If " + _name + " napped and you forgot to log, that's OK. bedtime prediction still works from what we have. If " + _name + " genuinely missed naps, an earlier bedtime helps.";
+          }
         }
         // Show bedtime routine button when within 1h of predicted bedtime
         const _bedPredMins3 = _bed && _bed.time ? (()=>{const [bh3,bm3]=_bed.time.split(":").map(Number);return bh3*60+bm3;})() : null;
