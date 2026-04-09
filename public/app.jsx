@@ -17347,11 +17347,41 @@ function App(){
 
       <div style={{padding:tab==="settings"?"0 14px 90px":"16px 14px 90px",maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
-          !selDay||!days[selDay]?(
+          !selDay?(
             <div style={{textAlign:"center",padding:"40px 20px",color:C.lt}}>
               <img src="obubba-thinking.png" alt="" style={{width:120,height:120,objectFit:"contain",marginBottom:12,opacity:0.8,filter:"drop-shadow(0 8px 20px rgba(217,207,243,0.25))"}}/>
               <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.mid,marginBottom:8}}>No day selected</div>
               <div style={{fontSize:15,fontFamily:_fM}}>Tap + Date to get started</div>
+            </div>
+          ):!days[selDay]?(
+            <div style={{textAlign:"center",padding:"40px 20px",color:C.lt}}>
+              <img src="sleep-baby.png" alt="" style={{width:130,height:130,objectFit:"contain",marginBottom:16,filter:"drop-shadow(0 8px 20px rgba(217,207,243,0.25))"}}/>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.mid,marginBottom:8}}>
+                {selDay===todayStr()?"Good morning!":"No entries yet"}
+              </div>
+              <div style={{fontSize:14,color:C.mid,lineHeight:1.6,marginBottom:20,fontFamily:_fM}}>
+                {selDay===todayStr()
+                  ?"Log "+(babyName||"baby")+"'s wake time to start the day"
+                  :"Tap a button below to add an entry"}
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+                {selDay===todayStr()&&(
+                  <button onClick={()=>{haptic();setLogPanel("wake");}} style={{padding:"12px 24px",borderRadius:20,background:C.ter,color:"#fff",border:"none",fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fM}}>
+                    ☀️ Log Wake Up
+                  </button>
+                )}
+                <button onClick={()=>{haptic();setLogPanel("feed");}} style={{padding:"12px 20px",borderRadius:20,background:"rgba(192,112,136,0.12)",color:C.ter,border:"1px solid rgba(192,112,136,0.2)",fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fM}}>
+                  🍼 Feed
+                </button>
+                <button onClick={()=>{haptic();setLogPanel("nappy");}} style={{padding:"12px 20px",borderRadius:20,background:"rgba(192,112,136,0.12)",color:C.ter,border:"1px solid rgba(192,112,136,0.2)",fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fM}}>
+                  🧷 Nappy
+                </button>
+              </div>
+              {selDay!==todayStr()&&(
+                <button onClick={()=>{haptic();setCatchUpDate(selDay);setCatchUpOpen(true);}} style={{marginTop:16,padding:"10px 20px",borderRadius:16,background:"rgba(192,112,136,0.08)",color:C.mid,border:"1px dashed rgba(192,112,136,0.3)",fontSize:13,fontWeight:500,cursor:_cP,fontFamily:_fM}}>
+                  📝 Catch up this day
+                </button>
+              )}
             </div>
           ):( 
             <div>
