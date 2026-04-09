@@ -3328,13 +3328,24 @@ function App(){
 
         if (t === "sleep") {
           if (!startTime) { skipped++; continue; }
-          // Detect bedtime vs nap: sleep starting after 6pm = bedtime, otherwise nap
           const _sh = parseInt(startTime.split(":")[0]);
-          if (_sh >= 18 || _sh < 4) {
-            // Bedtime
+          const _sm = parseInt(startTime.split(":")[1])||0;
+          // Calculate duration if both start and end exist
+          let _durMins = 0;
+          if (endTime) {
+            const [_eh,_em] = endTime.split(":").map(Number);
+            _durMins = (_eh*60+_em) - (_sh*60+_sm);
+            if (_durMins < 0) _durMins += 1440; // crosses midnight
+          }
+          // Classify: bedtime vs nap
+          // Bedtime if: starts 5pm-4am, OR duration > 3 hours (180min), OR starts 4-5pm AND > 2h
+          const _isBedtime = _sh >= 17 || _sh < 4 || _durMins >= 180 || (_sh >= 16 && _durMins >= 120);
+          if (_isBedtime) {
             addEntry(dateStr, {type:"sleep", time:startTime, night:false, note:notes});
           } else {
-            addEntry(dateStr, {type:"nap", start:startTime, end:endTime||startTime, note:notes});
+            // Nap: cap at 6h max (sanity check for bad import data)
+            const _cappedEnd = endTime || startTime;
+            addEntry(dateStr, {type:"nap", start:startTime, end:_cappedEnd, note:notes});
           }
         } else if (t === "feed") {
           if (!startTime) { skipped++; continue; }
