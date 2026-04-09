@@ -2,11 +2,11 @@
 // OBubba Service Worker — Offline-first with smart caching
 // ══════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'obubba-v1';
+const CACHE_NAME = 'obubba-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/app.jsx',
+  '/app.js',
   '/styles.css',
   '/theme.js',
   '/loader.js',
@@ -22,7 +22,6 @@ const STATIC_ASSETS = [
 const CDN_ASSETS = [
   'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js',
-  'https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js',
 ];
 
 // ── Install: pre-cache static assets ────────────────────────────
