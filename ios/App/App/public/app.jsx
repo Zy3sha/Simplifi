@@ -7691,7 +7691,10 @@ function App(){
 
     // ── Build secondary info line (always: last feed + nappy context) ──
     const _secParts = [];
-    if (_feedGapM < 9000) _secParts.push("🍼 Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " · next ~" + _nextFeedStr + (_nextFeedMlStr ? " · " + _nextFeedMlStr + (_feedMlContext ? " (bigger feed may help tonight)" : "") : "") : ""));
+    if (_feedGapM < 9000) {
+      const _isBedtime = _hasBed || !!bedTimerDay;
+      _secParts.push("\u{1F37C} " + (_isBedtime ? "Last feed " + hm(_feedGapM) + " ago" : "Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " \u00B7 next ~" + _nextFeedStr + (_nextFeedMlStr ? " \u00B7 " + _nextFeedMlStr + (_feedMlContext ? " (bigger feed may help tonight)" : "") : "") : "")));
+    }
     if (_nappyGapM < 9000 && _nappyGapM >= 120) _secParts.push("🧷 Nappy " + hm(_nappyGapM) + " ago");
     else if (_nappyGapM < 120 && _nappyGapM < 9000) _secParts.push("🧷 Nappy changed " + hm(_nappyGapM) + " ago");
     if (_growthSpurt) _secParts.push("📈 Possible growth spurt. extra feeds are normal");
