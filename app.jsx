@@ -4042,7 +4042,7 @@ function App(){
   const[showObservations,setShowObservations]=useState(false);
   const addObservation = React.useCallback((icon, title, body, wedid, priority) => {
     // Dedupe: if an observation with same title exists today, skip
-    // Cap: max 5 observations per day to avoid overwhelming parents
+    // Cap: max 3 observations per day. only show the most important ones
     const _now = Date.now();
     const _todayStart = new Date(); _todayStart.setHours(0,0,0,0);
     let _didAdd = false;
@@ -4053,7 +4053,7 @@ function App(){
       if (_recent) return prev;
       // Daily cap: count today's observations
       const _todayCount = (prev||[]).filter(o => (o.ts||0) >= _todayStart.getTime()).length;
-      if (_todayCount >= 5) {
+      if (_todayCount >= 3) {
         // Only allow priority 1-2 (critical/high) to exceed the cap
         if (_prio > 2) return prev;
       }
@@ -32117,8 +32117,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
             ) : (
               <div style={{marginTop:14}}>
-                {(observations||[]).map((o,i)=>{
-                  const _mins = Math.floor((Date.now() - (o.ts||0)) / 60000);
+                {(observations||[]).filter(o=>o.title && o.ts && o.ts > 1700000000000).map((o,i)=>{
+                  const _mins = Math.floor((Date.now() - o.ts) / 60000);
                   const _ago = _mins < 1 ? "just now" : _mins < 60 ? _mins+"m ago" : _mins < 1440 ? Math.floor(_mins/60)+"h ago" : Math.floor(_mins/1440)+"d ago";
                   return (
                     <div key={o.id} style={{padding:"14px 16px",borderRadius:16,border:`1px solid ${o.ack?C.blush:C.mint+"40"}`,background:o.ack?"var(--card-bg)":"rgba(123,166,140,0.06)",marginBottom:10}}>
