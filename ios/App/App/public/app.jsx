@@ -6950,7 +6950,13 @@ function App(){
         if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
         else lastNightEvent = lw.time;
       }
-      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile };
+      // ═══ NEXT EVENT — single source of truth for hero, pill, coming up, widget ═══
+      const _nextEvent = _planPred && _planPred.napStart_min
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(String(Math.floor(_planPred.napStart_min/60)%24).padStart(2,"0")+":"+String(Math.round(_planPred.napStart_min%60)).padStart(2,"0")), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+        : bedMins
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(String(Math.floor(bedMins/60)%24).padStart(2,"0")+":"+String(Math.round(bedMins%60)).padStart(2,"0")), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        : null;
+      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile, nextEvent: _nextEvent };
       // Bad Night Badge. solidarity after rough nights
       try {
         const _bnKey = "ob_bad_night_" + selDay;
@@ -6961,7 +6967,12 @@ function App(){
         }
       } catch {}
     } else {
-      tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins };
+      const _nextEvent2 = _planPred && _planPred.napStart_min
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(String(Math.floor(_planPred.napStart_min/60)%24).padStart(2,"0")+":"+String(Math.round(_planPred.napStart_min%60)).padStart(2,"0")), countdown: Math.round(_planPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes()) }
+        : bedMins
+        ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(String(Math.floor(bedMins/60)%24).padStart(2,"0")+":"+String(Math.round(bedMins%60)).padStart(2,"0")), countdown: bedMins - (new Date().getHours()*60 + new Date().getMinutes()) }
+        : null;
+      tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins, nextEvent: _nextEvent2 };
     }
     // Keep pred/bed for other consumers (premium/trial only for personal predictions)
     try { tickDataRef.current.pred = (isPremium || trialActive) ? predictNextNap() : null; } catch {}
@@ -22330,13 +22341,11 @@ function App(){
                   </div>
                 );
               }
-              // ═══ SINGLE SOURCE: predictNextNap() decides nap vs bed ═══
+              // ═══ READ FROM tickDataRef.nextEvent — one source of truth ═══
               const _td = tickDataRef.current || {};
               const _nowH = new Date().getHours();
-              // Ask the Plan: is there a nap coming, or is it bedtime?
-              let _pillPred = null;
-              try { _pillPred = predictNextNap ? predictNextNap() : null; } catch {}
-              const isBed = !_pillPred; // no nap predicted = bedtime mode
+              const _ne2 = _td.nextEvent;
+              const isBed = !_ne2 || _ne2.type === "bed";
               // Shared state for all users
               const _todayE2 = (days[selDay]||[]).filter(e=>!e.night);
               const _wakeE2 = _todayE2.find(e=>e.type==="wake");
@@ -22377,17 +22386,8 @@ function App(){
                   </button>
                 );
               }
-              // Calculate countdown from prediction (don't rely on napCountdown/bedCountdown state)
-              let countdown = null;
-              if (!isBed && _pillPred && _pillPred.napStart_min) {
-                countdown = Math.round(_pillPred.napStart_min) - (new Date().getHours()*60 + new Date().getMinutes());
-              } else if (isBed) {
-                countdown = bedCountdown;
-                // Fallback: calculate from bedtimePrediction if bedCountdown is null
-                if (countdown === null) {
-                  try { const _bp2 = bedtimePrediction ? bedtimePrediction() : null; if(_bp2&&_bp2.time){const[_bh2,_bm2]=_bp2.time.split(":").map(Number);countdown=(_bh2*60+_bm2)-(new Date().getHours()*60+new Date().getMinutes());} } catch {}
-                }
-              }
+              // Read countdown from nextEvent — computed once in tick engine
+              const countdown = _ne2 ? _ne2.countdown : null;
               if(countdown === null) return null;
               const isNeutral = !isBed && napCountdown === -1;
               const isNapNow = !isBed && !isNeutral && napCountdown !== null && napCountdown <= 0;
@@ -23998,21 +23998,17 @@ function App(){
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime) return null;
+                const _ne = _td.nextEvent;
+                if (!_ne) return null;
                 const _items = [];
-                // Use predictNextNap() — same source as Plan tab
-                let _cuPred = null;
-                try { _cuPred = predictNextNap ? predictNextNap() : null; } catch {}
-                if (_cuPred && _cuPred.napStart_min) {
-                  const _napH = Math.floor(_cuPred.napStart_min/60)%24;
-                  const _napM = Math.round(_cuPred.napStart_min%60);
-                  const _napsDone2 = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end&&e.start!==e.end).length;
-                  _items.push({icon:"😴", label:"Nap "+(_napsDone2+1), time:fmt12(String(_napH).padStart(2,"0")+":"+String(_napM).padStart(2,"0"))});
+                if (_ne.type === "nap") {
+                  _items.push({icon:"😴", label:_ne.label, time:_ne.timeStr});
                 }
-                // Bedtime from bedtimePrediction()
-                let _cuBed = null;
-                try { _cuBed = bedtimePrediction ? bedtimePrediction() : null; } catch {}
-                if (_cuBed && _cuBed.time) {
-                  _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(_cuBed.time)});
+                // Always show bedtime below the nap
+                if (_td.bedMins) {
+                  _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(String(Math.floor(_td.bedMins/60)%24).padStart(2,"0")+":"+String(Math.round(_td.bedMins%60)).padStart(2,"0"))});
+                } else if (_ne.type === "bed") {
+                  _items.push({icon:"🌙", label:_ne.label, time:"~"+_ne.timeStr});
                 }
                 if (!_items.length) return null;
                 return (
