@@ -24189,8 +24189,8 @@ function App(){
                 if (_ne.type === "nap") {
                   _items.push({icon:"😴", label:_ne.label, time:(_isGentleAge?"around ":"")+_ne.timeStr});
                 }
-                // Always show bedtime below the nap (but only if bedtime is PM — sanity check)
-                if (_td.bedMins && _td.bedMins >= 17*60) {
+                // Only show bedtime when naps are complete (bedtime time changes after each nap)
+                if (_td.napsComplete && _td.bedMins && _td.bedMins >= 17*60) {
                   _items.push({icon:"🌙", label:"Bedtime", time:"~"+fmt12(_td.bedMins)});
                 } else if (_ne.type === "bed" && _ne.timeMins && _ne.timeMins >= 17*60) {
                   _items.push({icon:"🌙", label:_ne.label, time:"~"+_ne.timeStr});
