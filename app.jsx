@@ -6912,8 +6912,11 @@ function App(){
     const morningWakeMins = wakeEntry ? timeVal(wakeEntry) : null;
     const bedtimeFloor = clampBedtime(0, ageWeeks);
     let _planPred = null;
-    try { _planPred = predictNextNap ? predictNextNap() : null; } catch {}
-    let napsComplete = !_planPred;
+    try { _planPred = predictNextNap ? predictNextNap() : null; } catch(e) { console.error('[OBubba] predictNextNap crashed:', e.message, e.stack?.split('\n').slice(0,3).join(' | ')); }
+    // napsComplete should check napsDone vs expectedNaps, NOT just whether prediction returned null
+    // predictNextNap returns null for many reasons (close to bedtime, budget met, error)
+    // but 0 naps done should never be "naps complete"
+    let napsComplete = napsDone >= expectedNaps && !_planPred;
     const nextNapMins = _planPred && _planPred.napStart_min ? Math.round(_planPred.napStart_min) : null;
 
     // Fragmented nap detection from data (used for observations, not overriding Plan)
@@ -6928,13 +6931,17 @@ function App(){
     try {
       const bp = bedtimePrediction ? bedtimePrediction() : null;
       if (bp && bp.time) { const [bh,bm]=bp.time.split(":").map(Number); bedMins = bh*60+bm; }
-    } catch {}
+    } catch(e) { console.error('[OBubba] bedtimePrediction crashed:', e.message); }
     // Fallback: last awake + age wake window, clamped
-    if (!bedMins && lastAwakeMins !== null && napsComplete) {
+    // Only use fallback when naps are ACTUALLY complete (napsDone >= expected), not just "no prediction"
+    if (!bedMins && lastAwakeMins !== null && napsComplete && napsDone >= expectedNaps) {
       const _fallbackWW = Math.round(progressiveWW(ageWeeks, napsDone, expectedNaps));
       bedMins = lastAwakeMins + _fallbackWW;
       const maxBed = clampBedtime(24*60, ageWeeks);
       if (bedMins > maxBed) bedMins = maxBed;
+      // Sanity: bedtime before 5pm is almost certainly wrong
+      const minBed = clampBedtime(0, ageWeeks);
+      if (bedMins < minBed) bedMins = minBed;
     }
     // Night timer data
     const nextDay = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()+1);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
