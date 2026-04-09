@@ -16132,9 +16132,10 @@ function App(){
     if (type === "feed") fireEventReminders("after_feed");
     else if (type === "wake" && !data.night) {
       fireEventReminders("after_wake");
-      // Stop bed timer + Live Activity when morning wake is logged
-      if (bedTimerDay) { setBedTimerDay(null); setBedTotalPausedSec(0); setBedPaused(false); setBedPausedAtSec(0); setBedPauseStart(null); try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{} }
-      if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+      // Stop bed timer + Live Activity when morning wake is logged. ALWAYS clear, not just if state is set
+      setBedTimerDay(null); setBedTotalPausedSec(0); setBedPaused(false); setBedPausedAtSec(0); setBedPauseStart(null);
+      try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+      if(_isNative) { _laStop(); }
       // "No night wakes logged?" prompt. if bedtime existed yesterday but no wakes recorded
       setTimeout(()=>{
         try {
