@@ -7378,9 +7378,12 @@ function App(){
         if (!_la) return;
         // Check localStorage + entry data. covers timer desync after rebuild/update
         const _hasActiveNapLA = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+        // Data-driven bed timer check: bedTimerDay state OR localStorage OR yesterday has bedtime + today no wake
+        const _bedTimerActive = !!bedTimerDay || !!localStorage.getItem("bed_timer_day")
+          || (!!findBedtime(days[(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})()]||[]) && !hasMorningWake(days[todayStr()]||[]));
         const _anyTimer = localStorage.getItem("nap_on") === "1"
           || localStorage.getItem("breast_active") === "1"
-          || !!bedTimerDay
+          || _bedTimerActive
           || _hasActiveNapLA;
         if (_anyTimer) {
           if (_predLAState !== "") { _la.stopPrediction?.().catch(()=>{}); _predLAState = ""; }
@@ -33731,9 +33734,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               if(nwForm.settleDuration) entry.settleDuration = parseInt(nwForm.settleDuration);
               if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
-                // Night wakes from the manual form save to selDay —
-                // the user explicitly navigated to this day and pressed "+ add"
-                const targetDay = selDay;
+                // Night wakes respect dayBoundary: in wake mode, route to bedTimerDay
+                const _todayCal = todayStr();
+                const targetDay = (dayBoundary === "wake" && bedTimerDay && bedTimerDay !== _todayCal && selDay === _todayCal)
+                  ? bedTimerDay : selDay;
                 const existing = d[targetDay]||[];
                 const filtered = nightEditId ? existing.filter(x=>x.id!==nightEditId) : existing;
                 const combined = [...filtered, entry];
