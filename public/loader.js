@@ -34,6 +34,15 @@ window.onerror = function(msg, src, line, col, err) {
     + '</div>';
 };
 
+// ── Catch unhandled promise rejections (Firebase, sync, native plugins) ──
+window.addEventListener("unhandledrejection", function(event) {
+  // Suppress non-actionable cross-origin rejections (Firebase analytics, ad scripts)
+  var reason = event.reason;
+  var msg = (reason && reason.message) || String(reason || "");
+  if (msg.indexOf("analytics") >= 0 || msg.indexOf("gtag") >= 0 || msg.indexOf("firebaseinstallations") >= 0) return;
+  console.warn("[OBubba] Unhandled promise rejection:", msg);
+});
+
 // ── App is now pre-compiled (app.js loaded via <script defer>) ──
 // loader.js no longer needs to fetch/compile app.jsx
 // Keep error handler + glass effects + service worker registration

@@ -4157,7 +4157,7 @@ function App(){
     if (startT) {
       const [sh,sm] = startT.split(":").map(Number);
       const now = new Date();
-      const startDate = new Date(); startDate.setHours(sh,sm,0,0);
+      const startDate = napDay ? new Date(napDay+"T"+startT+":00") : (()=>{const d=new Date();d.setHours(sh,sm,0,0);return d;})();
       const elapsedH = (now - startDate) / (1000*3600);
       if (elapsedH > 4 || elapsedH < -1) {
         console.warn("OBubba: timer running 4h+ or negative. auto-stopping");
@@ -4211,9 +4211,11 @@ function App(){
 
         const now=new Date();
         const [sh,sm]=startT.split(":").map(Number);
-        const startDate=new Date(); startDate.setHours(sh,sm,0,0);
+        // Use stored nap_start_day to build correct start date (survives midnight crossing)
+        const _napDay2 = localStorage.getItem("nap_start_day");
+        const startDate = _napDay2 ? new Date(_napDay2+"T"+startT+":00") : (()=>{const d=new Date();d.setHours(sh,sm,0,0);return d;})();
         const elapsed=Math.floor((now-startDate)/1000);
-        // Cap at 23h. if negative (start was yesterday), fall back to savedSec
+        // Cap at 23h. if negative or very old, fall back to savedSec
         if(elapsed<0||elapsed>23*3600) return savedSec;
         return elapsed>0?elapsed:savedSec;
       }
