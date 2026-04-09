@@ -22555,7 +22555,7 @@ function App(){
         <div style={{paddingBottom:2,position:"relative",zIndex:2}}>
           {/* Day navigation bar: arrows + date + calendar + search */}
           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:showSearch?6:0}}>
-            <button aria-label="Previous day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:15,color:C.mid,flexShrink:0}}>‹</button>
+            <button aria-label="Previous day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:18,color:C.mid,flexShrink:0}}>{"\u2039"}</button>
             <button aria-label="Open calendar" onClick={()=>{setCalMonth(selDay.slice(0,7));setShowCalendar(true);}}
               onContextMenu={e=>{e.preventDefault();haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");}}
               onTouchStart={e=>{e.currentTarget._lp=setTimeout(()=>{haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");},600);}}
@@ -22564,7 +22564,7 @@ function App(){
               style={{flex:1,background:"var(--card-bg-solid)",border:`1.5px solid ${C.ter}`,borderRadius:12,padding:"5px 12px",cursor:_cP,textAlign:"center"}}>
               <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:10,color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:6,letterSpacing:"0.02em"}}>TODAY</span>:null}</div>
             </button>
-            <button aria-label="Next day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:15,color:C.mid,flexShrink:0}}>›</button>
+            <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:18,color:C.mid,flexShrink:0}}>{"\u203A"}</button>
             <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:10,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:14,color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
           </div>
           {/* Search bar */}
