@@ -24141,7 +24141,10 @@ function App(){
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime) return null;
                 // Hide when nap is actively running — timer pill already shows baby is sleeping
+                // Check both timer state AND entry data (timer can desync from entry on app restart)
                 if (napOn) return null;
+                const _hasActiveNap = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+                if (_hasActiveNap) return null;
                 const _ne = _td.nextEvent;
                 if (!_ne) return null;
                 const _isGentleAge = age && age.totalWeeks < 8;
