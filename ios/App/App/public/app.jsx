@@ -4267,12 +4267,12 @@ function App(){
   const[timerMode,setTimerMode]=useState(()=> {
     try {
       const _tm = localStorage.getItem("timer_mode_v1") || (localStorage.getItem("nap_on")==="1" ? "activeSleep" : "prediction");
-      // If timerMode is activeSleep but bed_timer_day is from a previous day, it's stale
+      // If timerMode is activeSleep, verify bed timer is valid
       if (_tm === "activeSleep") {
         const _btd = localStorage.getItem("bed_timer_day");
         const _today = new Date().toISOString().split("T")[0];
-        if (_btd && _btd < _today) {
-          // Stale bed timer from yesterday. clear everything
+        // Stale if: no bed_timer_day at all, OR bed_timer_day is from a previous day
+        if (!_btd || _btd < _today) {
           ["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start","timer_mode_v1"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
           return "prediction";
         }
