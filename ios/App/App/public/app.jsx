@@ -3556,10 +3556,12 @@ function App(){
   });
 
   const[selDay,setSelDay]=useState(()=>{
-    // When bed timer is active, stay on the bedtime day (cross-midnight support)
+    // When bed timer is active AND day boundary is "morning wake", stay on the bedtime day
+    // When day boundary is "midnight", use calendar today (hero card reads bedtime cross-day)
     try {
+      const _boundary = localStorage.getItem("ob_day_boundary_v1") || "wake";
       const _btd = localStorage.getItem("bed_timer_day");
-      if (_btd) return _btd;
+      if (_btd && _boundary === "wake") return _btd;
     } catch {}
     // Start on the current OBubba day. today if it has data,
     // otherwise the most recent day with entries
