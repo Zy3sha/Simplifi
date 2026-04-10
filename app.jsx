@@ -9416,7 +9416,16 @@ function App(){
       </div>
     );
    } catch(err) {
-    console.error("HeroCard error:", err?.message || err, err?.stack);
+    // Report the real error — message, file, line if available, and the
+    // top of the stack. Previously this just logged err?.message which
+    // truncated most useful info.
+    try {
+      const _errMsg = err && err.message ? err.message : String(err);
+      const _errStack = err && err.stack ? String(err.stack).split("\n").slice(0, 5).join(" | ") : "(no stack)";
+      console.error("[OBubba] HeroCard threw:", _errMsg, "→", _errStack);
+      // Fire-and-forget analytics so we can see this in Firebase
+      try { trackEvent("hero_card_error", { msg: _errMsg.slice(0, 120) }); } catch(_) {}
+    } catch(_) {}
     // Declare _h locally in the catch scope. Previously this referenced the
     // _h from the try block, which is out of scope in the catch — when the
     // hero card threw, the catch handler ALSO threw with 'Can't find
@@ -17711,10 +17720,30 @@ function App(){
     // for "Back to sleep" with a soothed duration). Previously this
     // short-circuited straight into the night-wake modal or logged a
     // fresh wake entry, breaking the pause/resume flow entirely.
-    // Recover bedTimerDay from localStorage if state is null but timer is running.
+    //
+    // We use THREE signals to detect an active bed timer (belt + braces):
+    //   1. bedTimerDay state
+    //   2. localStorage bed_timer_day (state might not have rehydrated)
+    //   3. Data-based: a bedtime entry on today or yesterday without a
+    //      morning wake after it (covers the case where both state and
+    //      localStorage got cleared but the data still says baby is asleep)
     let _btdForWake = bedTimerDay;
     if (!_btdForWake) {
       try { _btdForWake = localStorage.getItem("bed_timer_day") || null; } catch(_) {}
+    }
+    // Data-based fallback: scan today + yesterday for an unclosed bedtime.
+    if (!_btdForWake) {
+      try {
+        const _calTT = todayStr();
+        const _prevT = (()=>{const d=new Date(_calTT+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+        const _todayBed = findBedtime(days[_calTT]||[]);
+        const _prevBed = findBedtime(days[_prevT]||[]);
+        const _todayHasWake = hasMorningWake(days[_calTT]||[]);
+        // If today has a bedtime logged AND it's PM now with no morning-wake-after-bed, baby is still asleep
+        if (_todayBed && new Date().getHours() >= 17) _btdForWake = _calTT;
+        // If yesterday has bedtime AND today has no morning wake, baby is still asleep from last night
+        else if (_prevBed && !_todayHasWake) _btdForWake = _prevT;
+      } catch(_) {}
     }
     if (_btdForWake && !bedPaused) {
       // Only pause if we're within the night window — don't pause when
@@ -17723,16 +17752,20 @@ function App(){
       // (after 5am) AND the bed started yesterday, treat it as end-of-night
       // (morning wake). Otherwise treat as mid-night wake → pause.
       const _nowH = new Date().getHours();
-      const _nowMinsW = new Date().getHours()*60 + new Date().getMinutes();
-      // Check: is there already a bedtime logged on today (different from
-      // the bedtime day)? If _btdForWake is yesterday and it's past 5am,
-      // user is ending the night → fall through to morning-wake path.
       const _calT = todayStr();
+      // End-of-night detection: bed was yesterday's AND it's a reasonable
+      // morning hour. Anything else (PM tap, early AM tap, today's bedtime)
+      // is a mid-night wake that should pause.
       const _isEndOfNight = _btdForWake !== _calT && _nowH >= 5 && _nowH < 12;
       if (!_isEndOfNight) {
         // True mid-night wake. Pause the bed timer — it'll log a pending
         // wake entry, show the "Back to sleep" controls, and let user
         // log how long they soothed before resuming.
+        // Make sure bedTimerDay state is set so pauseBedTimer's guard
+        // passes (pauseBedTimer also recovers from localStorage/data).
+        if (!bedTimerDay && _btdForWake) {
+          try { setBedTimerDay(_btdForWake); localStorage.setItem("bed_timer_day", _btdForWake); } catch(_) {}
+        }
         pauseBedTimer();
         return;
       }
