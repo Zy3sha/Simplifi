@@ -18376,6 +18376,21 @@ function App(){
     
     // Fallback. log morning wake
     quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
+    // timer_stopped analytics for the bed timer. Duration in minutes from
+    // the bedtime entry in the bed timer day.
+    try {
+      const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
+      if (_btd) {
+        const _bedEnt = (days[_btd] || []).find(e => e.type === "sleep" && !e.night);
+        if (_bedEnt && _bedEnt.time) {
+          const [_bh, _bm] = _bedEnt.time.split(":").map(Number);
+          const _bed = new Date(_btd + "T00:00:00");
+          _bed.setHours(_bh, _bm, 0, 0);
+          const _durMin = Math.max(0, Math.round((Date.now() - _bed.getTime()) / 60000));
+          trackEvent("timer_stopped", { type: "bed", duration_mins: _durMin });
+        }
+      }
+    } catch {}
     setBedTimerDay(null);
     if(_isNative) _laStop();
   }
@@ -19601,6 +19616,7 @@ function App(){
     // Allow saving even with 0 seconds. logs as breastfeed at start time
     const lMins=breastSec.L > 0 ? Math.max(1, Math.round(breastSec.L/60)) : 0;
     const rMins=breastSec.R > 0 ? Math.max(1, Math.round(breastSec.R/60)) : 0;
+    try { trackEvent("timer_stopped", { type: "breast", duration_mins: Math.round(totalSec/60) }); } catch {}
     // If bed timer is paused (night wake in progress), this is a night feed:
     // route to bedTimerDay, mark night, and remove the pending placeholder wake entry
     const _nightMode = bedPausedRef.current && !!bedTimerDay;
@@ -21613,6 +21629,25 @@ function App(){
       const _isPremium = localStorage.getItem("ob_premium")==="1" ? "premium" : "free";
       trackEvent("app_open", { platform: _plat, plan: _isPremium });
     } catch {}
+    // Analytics: streak_day. Count consecutive days ending today that have
+    // at least one entry. Fires once per calendar day, gated by localStorage.
+    try {
+      const _streakKey = "ob_streak_fired_" + todayStr();
+      if (!localStorage.getItem(_streakKey)) {
+        let _streak = 0;
+        const _cursor = new Date();
+        for (let i = 0; i < 365; i++) {
+          const _dk = `${_cursor.getFullYear()}-${String(_cursor.getMonth()+1).padStart(2,"0")}-${String(_cursor.getDate()).padStart(2,"0")}`;
+          const _has = (days[_dk] || []).some(e => e && e.type);
+          if (_has) { _streak++; _cursor.setDate(_cursor.getDate() - 1); }
+          else break;
+        }
+        if (_streak > 0) {
+          trackEvent("streak_day", { days: _streak });
+          localStorage.setItem(_streakKey, "1");
+        }
+      }
+    } catch {}
   },[]);
 
   // Set Firebase Analytics user ID when known (for attribution across sessions)
@@ -23297,6 +23332,14 @@ function App(){
     );
   }
   if (!onboarded) {
+    // Fire onboarding_started once per fresh install (guarded by localStorage
+    // so a re-render or a returning unfinished user doesn't re-fire it).
+    try {
+      if (!localStorage.getItem("ob_onboarding_started_fired")) {
+        localStorage.setItem("ob_onboarding_started_fired", "1");
+        trackEvent("onboarding_started", { platform: (window.Capacitor?.getPlatform?.()||"web") });
+      }
+    } catch {}
     const _obMaxSteps = 4;
     const completeOnboarding = async () => {
       // Save baby data. update state AND persist to localStorage immediately
@@ -24236,7 +24279,7 @@ function App(){
                 const _pillBg = bedPaused ? "#D4A855" : C.sky;
                 return (
                   <div style={{display:"flex",alignItems:"center",gap:3}}>
-                    <div onClick={()=>{haptic();if(bedPaused){resumeBedTimer();}else{setShowNightTimerMenu(true);}}} style={{display:"flex",alignItems:"center",gap:5,background:_pillBg,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
+                    <div onClick={()=>{haptic();try{trackEvent("prediction_viewed",{type:"bed_timer"});}catch{}if(bedPaused){resumeBedTimer();}else{setShowNightTimerMenu(true);}}} style={{display:"flex",alignItems:"center",gap:5,background:_pillBg,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
                       <span style={_S.f13}>{bedPaused?"\u{23F8}\uFE0F":"\u{1F319}"}</span>
                       <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
                         <span style={{fontSize:9,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {fmt12(bedEntry.time)}</span>
@@ -32528,7 +32571,7 @@ function App(){
                   <div style={{fontSize:10,color:C.lt}}>Hides scores, targets & numbers</div>
                 </div>
               </div>
-              <button onClick={()=>{haptic();setGentleMode(!gentleMode);try{localStorage.setItem("ob_gentle_mode",!gentleMode?"1":"0");}catch{};showToast(gentleMode?"Scores visible again":"💛 Gentle Mode on. no scores, no pressure.",2500,1);}} style={{background:gentleMode?"linear-gradient(135deg,#7B68EE,#6B5B95)":"var(--card-bg-alt)",border:gentleMode?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:gentleMode?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
+              <button onClick={()=>{haptic();setGentleMode(!gentleMode);try{localStorage.setItem("ob_gentle_mode",!gentleMode?"1":"0");}catch{};try{trackEvent("setting_changed",{setting:"gentle_mode",value:!gentleMode?"on":"off"});}catch{};showToast(gentleMode?"Scores visible again":"💛 Gentle Mode on. no scores, no pressure.",2500,1);}} style={{background:gentleMode?"linear-gradient(135deg,#7B68EE,#6B5B95)":"var(--card-bg-alt)",border:gentleMode?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:gentleMode?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
                 {gentleMode?"💛 On":"Off"}
               </button>
             </div>
@@ -32555,8 +32598,8 @@ function App(){
                 <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Fluid</span>
               </div>
               <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:`1px solid ${C.blush}`,overflow:"hidden"}}>
-                <button onClick={()=>setFluidUnit("ml")} style={{padding:"5px 16px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:fluidUnit==="ml"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:fluidUnit==="ml"?"white":C.lt,cursor:"pointer",borderRadius:99}}>ml</button>
-                <button onClick={()=>setFluidUnit("oz")} style={{padding:"5px 16px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:fluidUnit==="oz"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:fluidUnit==="oz"?"white":C.lt,cursor:"pointer",borderRadius:99}}>fl oz</button>
+                <button onClick={()=>{setFluidUnit("ml");try{trackEvent("setting_changed",{setting:"fluid_unit",value:"ml"});}catch{}}} style={{padding:"5px 16px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:fluidUnit==="ml"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:fluidUnit==="ml"?"white":C.lt,cursor:"pointer",borderRadius:99}}>ml</button>
+                <button onClick={()=>{setFluidUnit("oz");try{trackEvent("setting_changed",{setting:"fluid_unit",value:"oz"});}catch{}}} style={{padding:"5px 16px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:fluidUnit==="oz"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:fluidUnit==="oz"?"white":C.lt,cursor:"pointer",borderRadius:99}}>fl oz</button>
               </div>
             </div>
 
