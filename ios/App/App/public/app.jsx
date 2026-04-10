@@ -7977,17 +7977,68 @@ function App(){
               {(()=>{
                 const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
                 const _icon = _isBreast ? "🤱" : "🍼";
-                const _label = _isBreast ? "Breast feed + back to sleep" : "Feed + back to sleep";
+                // For breastfeeding moms: show L/R timer buttons (live timer) OR quick log
+                // For bottle: just the quick log
+                if (_isBreast) {
+                  // If breast timer is running during this night pause, show live elapsed
+                  if (breastActive) {
+                    const _total = breastSec.L + breastSec.R;
+                    const _mm = Math.floor(_total/60), _ss = _total%60;
+                    return (
+                      <div style={{marginBottom:6}}>
+                        <div style={{textAlign:"center",padding:"8px 0",background:"rgba(123,104,238,0.06)",borderRadius:12,marginBottom:6,border:"1px solid rgba(123,104,238,0.2)"}}>
+                          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>{breastSide==="L"?"🤱 Left side":"🤱 Right side"}</div>
+                          <div style={{fontSize:22,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{String(_mm).padStart(2,"0")}:{String(_ss).padStart(2,"0")}</div>
+                        </div>
+                        <div style={{display:"flex",gap:6,marginBottom:6}}>
+                          <button onClick={()=>{haptic();startBreastTimer(breastSide==="L"?"R":"L");}} style={{flex:1,padding:"10px",borderRadius:10,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.04)",color:C.deep,fontSize:12,fontWeight:600,cursor:_cP}}>
+                            Switch to {breastSide==="L"?"Right":"Left"}
+                          </button>
+                          <button onClick={()=>{
+                            haptic(20);
+                            // Save breast feed, then update the pending wake entry to reflect it + resume bed timer
+                            saveBreastFeed();
+                            setBedWakeSettle("milk");
+                            setTimeout(()=>{ resumeBedTimer("milk"); showToast("🤱 Breast feed + back to sleep",1500,1); }, 50);
+                          }} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:12,fontWeight:700,cursor:_cP}}>
+                            Done + back to sleep
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Not timing: show Start L/Start R buttons + quick log
+                  return (
+                    <div style={{marginBottom:6}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5,textAlign:"center"}}>🤱 Time the feed</div>
+                      <div style={{display:"flex",gap:6,marginBottom:6}}>
+                        <button onClick={()=>{haptic();startBreastTimer("L");}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:700,cursor:_cP}}>
+                          ◀ Start Left
+                        </button>
+                        <button onClick={()=>{haptic();startBreastTimer("R");}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:700,cursor:_cP}}>
+                          Start Right ▶
+                        </button>
+                      </div>
+                      <button onClick={()=>{
+                        haptic(20);
+                        setBedWakeSettle("milk");
+                        resumeBedTimer("milk");
+                        showToast("🤱 Quick feed logged + back to sleep",1200,1);
+                      }} style={{width:"100%",padding:"10px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.25)",background:"rgba(212,168,85,0.04)",color:C.lt,fontSize:11,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                        Or: quick log without timing →
+                      </button>
+                    </div>
+                  );
+                }
+                // Bottle feed: single button
                 return (
                   <button onClick={()=>{
                     haptic(20);
-                    // Pass "milk" directly to resumeBedTimer. It will update the
-                    // existing pending wake entry into a feed (no duplicate entry).
                     setBedWakeSettle("milk");
                     resumeBedTimer("milk");
-                    showToast(_icon+" Feed logged + back to sleep",1200,1);
+                    showToast("🍼 Feed logged + back to sleep",1200,1);
                   }} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                    {_icon} {_label}
+                    🍼 Feed + back to sleep
                   </button>
                 );
               })()}
@@ -18141,7 +18192,10 @@ function App(){
     // Allow saving even with 0 seconds. logs as breastfeed at start time
     const lMins=breastSec.L > 0 ? Math.max(1, Math.round(breastSec.L/60)) : 0;
     const rMins=breastSec.R > 0 ? Math.max(1, Math.round(breastSec.R/60)) : 0;
-    const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:false,note:""};
+    // If bed timer is paused (night wake in progress), this is a night feed:
+    // route to bedTimerDay, mark night, and remove the pending placeholder wake entry
+    const _nightMode = bedPausedRef.current && !!bedTimerDay;
+    const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:_nightMode,nightLocked:_nightMode,note:_nightMode?"Night breast feed":""};
 
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
     try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
@@ -18150,7 +18204,18 @@ function App(){
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     // Auto-resume nap if it was paused by the breast timer
     try{if(localStorage.getItem("nap_paused_by_breast")==="1"){localStorage.removeItem("nap_paused_by_breast");resumeNap();}}catch{}
-    setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
+    if (_nightMode) {
+      // Night mode: write to bedTimerDay, remove the pending wake placeholder
+      const _pendingId = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
+      setDays(d=>{
+        const _tgt = bedTimerDay || todayStr();
+        const existing = (d[_tgt]||[]).filter(e => !_pendingId || e.id !== _pendingId);
+        return {...d, [_tgt]: [...existing, entry]};
+      });
+      try{localStorage.removeItem("bed_wake_entry_id");}catch{}
+    } else {
+      setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
+    }
     trackEvent("entry_logged",{type:"breast_feed"});
     haptic("medium")
     showToast("🤱 Feed Logged ✓",1200,1);
