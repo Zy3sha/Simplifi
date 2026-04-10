@@ -1113,6 +1113,37 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
   const solidCount = solidFeeds.length;
   const hasSolidsToday = solidCount > 0;
 
+  // ── Breast feeds today ──
+  // Breast feeds store L/R minutes instead of ml. We use TIME as the honest
+  // primary metric — NOT estimated ml, because babies pause, look around,
+  // comfort nurse, switch sides, and generally don't feed at a constant rate.
+  // Any ml estimation would mislead parents and create false comparisons.
+  // Instead we compare against age-appropriate BREAST FEED COUNT targets and
+  // total daily feeding TIME.
+  const breastFeedsToday = todayEntries.filter(e => e.type === "feed" && e.feedType === "breast" && !e.night);
+  const breastMinToday = breastFeedsToday.reduce((s, f) => s + (parseInt(f.breastL)||0) + (parseInt(f.breastR)||0), 0);
+  const breastCountToday = breastFeedsToday.length;
+  const isBreastfeedingToday = breastCountToday >= 1 || breastMinToday > 0;
+  // Age-appropriate breast feed count target (daytime feeds only).
+  // From WHO/NHS: newborns 8-12/day, 3mo 6-8, 6mo 4-6, 9mo 3-5, 12mo 2-4.
+  const breastFeedCountTarget =
+    months < 1 ? [8, 12]
+    : months < 3 ? [7, 10]
+    : months < 6 ? [5, 8]
+    : months < 9 ? [4, 6]
+    : months < 12 ? [3, 5]
+    : [2, 4];
+  // Age-appropriate total daily breastfeeding TIME target (rough guide).
+  // From lactation guidance: newborn ~180min/day, 3mo ~150min, 6mo ~120min
+  // (dropping as solids come in), 9mo ~90min, 12mo ~60min.
+  const breastTimeTargetMin =
+    months < 1 ? [150, 240]
+    : months < 3 ? [120, 200]
+    : months < 6 ? [90, 180]
+    : months < 9 ? [60, 150]
+    : months < 12 ? [45, 120]
+    : [30, 90];
+
   // ── PERSONAL AVERAGES from recent days ──
   // Split last 14 days into "solid days" and "milk-only days" and compute
   // the median milk intake on each type. This gives us a "what's normal for
@@ -1169,8 +1200,23 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     personalLabel = "your typical daily intake";
   }
 
-  if (totalMilkMl === 0) {
-    statusMsg = "No milk logged yet today.";
+  // ── Breastfed status (honest, time+count based) ──
+  if (isBreastfeedingToday && totalMilkMl === 0) {
+    // Pure breastfeeding today. use breast feed count + time for status
+    const [_tMin, _tMax] = breastFeedCountTarget;
+    const [_mMin, _mMax] = breastTimeTargetMin;
+    if (breastCountToday >= _tMin && breastMinToday >= _mMin * 0.75) {
+      statusTone = "ok";
+      statusMsg = "✓ Feeding on track. " + breastCountToday + " feed" + (breastCountToday===1?"":"s") + " totalling " + (breastMinToday >= 60 ? Math.floor(breastMinToday/60)+"h "+(breastMinToday%60)+"m" : breastMinToday+"m") + ".";
+    } else if (breastCountToday >= Math.max(1, _tMin - 1)) {
+      statusTone = "attention";
+      statusMsg = "A little below typical for " + Math.round(months*10)/10 + "mo. Offer on cues — babies often feed more before a growth spurt.";
+    } else {
+      statusTone = "attention";
+      statusMsg = "Well below typical. Offer the breast freely — supply follows demand.";
+    }
+  } else if (totalMilkMl === 0) {
+    statusMsg = "No feeds logged yet today.";
     statusTone = "ok";
   } else if (personalTarget) {
     const _ratio = totalMilkMl / personalTarget;
@@ -1239,7 +1285,53 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     statusMsg,
     nhsAlert,
     showSolids: months >= 5.0 || _hasEverHadSolids,
+    // ── Breastfeeding additions ──
+    // Honest time-based metrics. No ml estimation.
+    isBreastfeedingToday,
+    breastMinToday,
+    breastCountToday,
+    breastFeedCountTarget,  // [min, max]
+    breastTimeTargetMin,    // [min, max] in minutes
   };
+}
+
+// ═══ Universal feeding intake formatter ═══
+// Returns a display-ready object adapted to mom's feeding mode.
+// Every place showing "total milk today" should call this so breastfed
+// moms see time and count, not zero ml. No ml estimation from time —
+// we use time as the honest primary metric because breastfeeding is
+// not a constant flow (pauses, comfort nursing, side switches).
+// Returns { mode, big, unit, label, detail }.
+function formatFeedingIntake(dayEntries, flagBreast) {
+  const _ents = dayEntries || [];
+  let breastMin = 0, breastCount = 0, bottleMl = 0, bottleCount = 0;
+  _ents.forEach(e => {
+    if (!e || e.type !== "feed" || e.night) return;
+    if (e.feedType === "breast") {
+      breastCount++;
+      breastMin += (parseInt(e.breastL)||0) + (parseInt(e.breastR)||0);
+    } else if (e.feedType !== "solids" && e.feedType !== "pump") {
+      const ml = parseFloat(e.amount) || 0;
+      if (ml > 0 || e.feedType === "bottle" || e.feedType === "milk") {
+        bottleCount++;
+        bottleMl += ml;
+      }
+    }
+  });
+  const hmFmt = m => m >= 60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m";
+  if (breastCount > 0 && bottleCount > 0) {
+    return { mode: "combo",  big: hmFmt(breastMin), unit: "+ "+bottleMl+"ml", label: "Breast + Bottle", detail: breastCount+" breast, "+bottleCount+" bottle" };
+  }
+  if (breastCount > 0) {
+    return { mode: "breast", big: hmFmt(breastMin), unit: "🤱 total", label: "Breast time today", detail: breastCount+" feed"+(breastCount===1?"":"s") };
+  }
+  if (bottleCount > 0) {
+    return { mode: "bottle", big: String(bottleMl), unit: "ml", label: "Total milk", detail: bottleCount+" feed"+(bottleCount===1?"":"s") };
+  }
+  if (flagBreast) {
+    return { mode: "empty",  big: "—", unit: "🤱", label: "Breast time today", detail: "No feeds logged yet" };
+  }
+  return { mode: "empty", big: "—", unit: "ml", label: "Total milk", detail: "No feeds logged yet" };
 }
 
 // ═══ Shared First Tastes food catalogue ═══
@@ -1324,6 +1416,349 @@ function getNextWeaningSuggestions(weaningLog, weeksSinceWeanStart, count) {
     _out.push(_poolCopy.splice(_pickIdx, 1)[0]);
   }
   return _out;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// NIGHT ANALYSIS HELPERS
+// ══════════════════════════════════════════════════════════════════
+// Pure functions that mine the night-wake data (captured via pauseBedTimer)
+// to produce the insights Tier 1 and Tier 2 surfaces: Last Night At A Glance,
+// settle-method trends, overtired/undertired diagnosis, weekly digest.
+// All functions are dependency-free and return plain objects so they're
+// easy to test and reuse anywhere in the app (hero card, Insights, reports).
+
+// Convert "HH:MM" to minutes since midnight. Returns null on bad input.
+function _nightMins(t) {
+  if (!t || typeof t !== "string") return null;
+  const [h, m] = t.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+// Safe "gap in minutes" between two HH:MM strings, wrapping cross-midnight.
+function _nightGap(fromT, toT) {
+  const a = _nightMins(fromT), b = _nightMins(toT);
+  if (a === null || b === null) return 0;
+  let d = b - a;
+  if (d < 0) d += 24 * 60;
+  return d;
+}
+
+// Analyze a single night given the night's entries (from bedtime through
+// morning wake). Returns a rich breakdown used by the "Last Night" card.
+// `nightEntries` should include the bedtime sleep entry, all night-flagged
+// wakes/feeds, and the morning wake (if logged). `bedtimeMins` fallback
+// can be passed when the caller has already located the bedtime entry.
+function analyzeLastNight(days, bedtimeDayKey, morningDayKey) {
+  if (!days || !bedtimeDayKey) return null;
+  const bedDayEnt = days[bedtimeDayKey] || [];
+  const morningDayEnt = days[morningDayKey] || bedDayEnt;
+  const bedEntry = bedDayEnt.find(e => e && e.type === "sleep" && !e.night);
+  if (!bedEntry) return null;
+  const bedMins = _nightMins(bedEntry.time);
+  if (bedMins === null) return null;
+  // Morning wake: first non-night wake in morningDayEnt with hour 5-12
+  const morningWake = morningDayEnt.find(e => {
+    if (!e || e.type !== "wake" || e.night) return false;
+    const m = _nightMins(e.time);
+    return m !== null && m >= 5 * 60 && m <= 12 * 60;
+  });
+  const morningMins = morningWake ? _nightMins(morningWake.time) : null;
+  // Night wakes: any night-flagged wake/feed between bedtime and morning
+  const nightWakesRaw = [
+    ...bedDayEnt.filter(e => e && e.night && (e.type === "wake" || e.type === "feed")),
+    ...(morningDayKey !== bedtimeDayKey ? (morningDayEnt || []).filter(e => e && e.night && (e.type === "wake" || e.type === "feed")) : [])
+  ];
+  // Sort chronologically from bedtime onward (PM first, then AM = cross-midnight)
+  const nightWakes = nightWakesRaw
+    .map(e => {
+      const m = _nightMins(e.time);
+      if (m === null) return null;
+      const fromBed = m >= bedMins ? m - bedMins : (24 * 60 - bedMins) + m;
+      const durationMin = parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0;
+      const method = e.selfSettled ? "self"
+        : e.feedType === "breast" ? "breast"
+        : e.assistedType === "milk" || e.feedType === "milk" || e.feedType === "bottle" || (e.amount && e.amount > 0) ? "milk"
+        : e.assistedType === "other" ? "other"
+        : "assisted";
+      return { time: e.time, mins: m, fromBedMin: fromBed, durationMin, method, raw: e };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.fromBedMin - b.fromBedMin);
+  // Truncate at morning wake — anything after is a new day's wake
+  const morningFromBed = morningMins !== null
+    ? (morningMins >= bedMins ? morningMins - bedMins : (24 * 60 - bedMins) + morningMins)
+    : null;
+  const wakes = morningFromBed !== null
+    ? nightWakes.filter(w => w.fromBedMin < morningFromBed)
+    : nightWakes;
+  // Total awake time = sum of durations (cap each at 4h for safety)
+  const totalAwakeMin = wakes.reduce((s, w) => s + Math.min(w.durationMin, 240), 0);
+  // Night total = from bedtime to morning wake (or "now" if still asleep and no morning wake)
+  const nightTotalMin = morningFromBed !== null ? morningFromBed : null;
+  const totalSleepMin = nightTotalMin !== null ? Math.max(0, nightTotalMin - totalAwakeMin) : null;
+  // Longest stretch: biggest gap between wake end events (or bed→first wake, or last wake+dur → morning)
+  let longestStretchMin = 0;
+  let cursor = 0; // minutes from bedtime
+  wakes.forEach(w => {
+    const stretch = w.fromBedMin - cursor;
+    if (stretch > longestStretchMin) longestStretchMin = stretch;
+    cursor = w.fromBedMin + (w.durationMin || 0);
+  });
+  if (nightTotalMin !== null) {
+    const finalStretch = nightTotalMin - cursor;
+    if (finalStretch > longestStretchMin) longestStretchMin = finalStretch;
+  }
+  // Average resettle time (only count assisted/milk/other wakes with a real duration)
+  const wakesWithDur = wakes.filter(w => w.durationMin > 0);
+  const avgResettleMin = wakesWithDur.length > 0
+    ? Math.round(wakesWithDur.reduce((s, w) => s + w.durationMin, 0) / wakesWithDur.length)
+    : 0;
+  return {
+    bedtimeMins: bedMins,
+    bedtimeStr: bedEntry.time,
+    morningWakeMins: morningMins,
+    morningWakeStr: morningWake ? morningWake.time : null,
+    wakes,                  // array of {time, mins, fromBedMin, durationMin, method}
+    wakeCount: wakes.length,
+    totalAwakeMin,
+    totalSleepMin,
+    nightTotalMin,
+    longestStretchMin,
+    avgResettleMin,
+    stillAsleep: morningMins === null,
+  };
+}
+
+// Aggregate settle methods across a window of days. Returns totals by method
+// with avg duration — used for the 7-day trend view in Insights.
+function analyzeSettleMethods(days, windowDays, selDayKey) {
+  if (!days) return null;
+  const keys = Object.keys(days).sort();
+  const anchor = selDayKey || keys[keys.length - 1];
+  if (!anchor) return null;
+  // Walk backward from anchor for windowDays inclusive
+  const picks = [];
+  const anchorDate = new Date(anchor + "T00:00:00");
+  for (let i = 0; i < windowDays; i++) {
+    const d = new Date(anchorDate);
+    d.setDate(d.getDate() - i);
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    picks.push(k);
+  }
+  const byMethod = {
+    self:     { count: 0, totalMin: 0, avgMin: 0, label: "Self settled", emoji: "🌙" },
+    breast:   { count: 0, totalMin: 0, avgMin: 0, label: "Breast feed",  emoji: "🤱" },
+    milk:     { count: 0, totalMin: 0, avgMin: 0, label: "Milk feed",    emoji: "🍼" },
+    assisted: { count: 0, totalMin: 0, avgMin: 0, label: "Assisted",     emoji: "🫂" },
+    other:    { count: 0, totalMin: 0, avgMin: 0, label: "Other",        emoji: "💭" },
+  };
+  let totalWakes = 0, totalSoothedMin = 0;
+  picks.forEach(k => {
+    const ent = days[k] || [];
+    ent.forEach(e => {
+      if (!e || !e.night || (e.type !== "wake" && e.type !== "feed")) return;
+      const dur = parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0;
+      if (dur <= 0) return;
+      const method = e.selfSettled ? "self"
+        : e.feedType === "breast" ? "breast"
+        : e.assistedType === "milk" || e.feedType === "milk" || e.feedType === "bottle" || (e.amount && e.amount > 0) ? "milk"
+        : e.assistedType === "other" ? "other"
+        : "assisted";
+      byMethod[method].count++;
+      byMethod[method].totalMin += dur;
+      totalWakes++;
+      totalSoothedMin += dur;
+    });
+  });
+  Object.values(byMethod).forEach(m => {
+    m.avgMin = m.count > 0 ? Math.round(m.totalMin / m.count) : 0;
+  });
+  // Find fastest and slowest non-zero methods
+  const active = Object.entries(byMethod).filter(([_, v]) => v.count > 0);
+  let fastestMethod = null, slowestMethod = null;
+  if (active.length >= 2) {
+    active.sort((a, b) => a[1].avgMin - b[1].avgMin);
+    fastestMethod = { key: active[0][0], ...active[0][1] };
+    slowestMethod = { key: active[active.length - 1][0], ...active[active.length - 1][1] };
+  }
+  return {
+    byMethod,
+    totalWakes,
+    totalSoothedMin,
+    fastestMethod,
+    slowestMethod,
+    days: picks.length,
+    hasData: totalWakes >= 2,
+  };
+}
+
+// Classify last night's pattern into a diagnosis with a specific action.
+// Uses wake timing + duration + recent context to distinguish:
+//   - undertired: wakes in first 90 min after bed, hard to resettle
+//   - overtired:  wakes 3-5am cluster, hard to resettle
+//   - habit:      wakes near 90min cycle marks, quick resettle
+//   - hunger:     wakes at irregular times, milk always works fast
+//   - normal:     wakes spread evenly, short durations
+function diagnoseNightPattern(lastNight, recent7) {
+  if (!lastNight) return null;
+  const { wakes, bedtimeMins, wakeCount, longestStretchMin, avgResettleMin } = lastNight;
+  if (!wakes || wakes.length === 0) {
+    return {
+      type: "great_night",
+      emoji: "🌟",
+      title: "Dream night",
+      detail: "No wakes logged last night. Longest stretch: " + (longestStretchMin > 60 ? Math.floor(longestStretchMin / 60) + "h " + (longestStretchMin % 60) + "m" : longestStretchMin + "m") + ".",
+      action: "Whatever you did yesterday worked. Try to repeat the same nap timing and bedtime routine tonight.",
+      confidence: "high"
+    };
+  }
+  // Undertired: wake within 90 min of bedtime, hard to resettle (>15 min)
+  const earlyHardWakes = wakes.filter(w => w.fromBedMin <= 90 && w.durationMin >= 15);
+  if (earlyHardWakes.length >= 1) {
+    return {
+      type: "undertired",
+      emoji: "⏰",
+      title: "Looks undertired",
+      detail: "Baby woke within 90 min of bedtime and took " + earlyHardWakes[0].durationMin + " min to resettle. Classic 'not enough sleep pressure' sign.",
+      action: "Try pushing bedtime 15 min LATER tonight, or cap the last nap by 15-30 min. More daytime awake = more pressure for night sleep.",
+      confidence: earlyHardWakes.length >= 2 ? "high" : "medium"
+    };
+  }
+  // Overtired: cluster of wakes in the 3-5am window, hard to resettle
+  const dawnWakes = wakes.filter(w => {
+    const absTime = (bedtimeMins + w.fromBedMin) % (24 * 60);
+    return absTime >= 3 * 60 && absTime < 5 * 60 && w.durationMin >= 15;
+  });
+  if (dawnWakes.length >= 2 || (dawnWakes.length >= 1 && wakeCount >= 3)) {
+    return {
+      type: "overtired",
+      emoji: "😫",
+      title: "Looks overtired",
+      detail: "Multiple hard wakes in the 3-5am window. That's the cortisol spike — baby's body released stress hormones because they were overtired before bed.",
+      action: "Try bedtime 15-20 min EARLIER tonight. Overtired babies resettle better earlier, not later. Counter-intuitive but backed by data.",
+      confidence: dawnWakes.length >= 2 ? "high" : "medium"
+    };
+  }
+  // Habit waking: wakes near 90-min cycle boundaries, SHORT resettle (<10 min)
+  const cycleWakes = wakes.filter(w => {
+    const cycleMod = w.fromBedMin % 90;
+    return (cycleMod <= 15 || cycleMod >= 75) && w.durationMin <= 10;
+  });
+  if (cycleWakes.length >= 2 && avgResettleMin <= 10) {
+    return {
+      type: "habit",
+      emoji: "🔁",
+      title: "Cycle-linked wakes",
+      detail: "Wakes clustered near 90-minute sleep cycle boundaries, all resettled quickly (avg " + avgResettleMin + "m). Baby is stirring between cycles — totally normal.",
+      action: "Keep doing what you're doing. Quick resettles mean baby is learning to link cycles. This phase typically resolves on its own.",
+      confidence: "high"
+    };
+  }
+  // Hunger: milk fed wakes, quick resettle, young baby
+  const milkWakes = wakes.filter(w => (w.method === "milk" || w.method === "breast") && w.durationMin <= 20);
+  if (milkWakes.length >= 2 && milkWakes.length === wakes.length) {
+    return {
+      type: "hunger",
+      emoji: "🍼",
+      title: "Feed-driven wakes",
+      detail: "Every wake last night settled quickly with milk/breast. Genuine hunger wakes typically settle in under 20 min when fed.",
+      action: "For older babies (>4mo), consider a dream feed at 10-10:30pm to pre-empt the first wake. For younger babies, night feeds are normal and needed.",
+      confidence: "medium"
+    };
+  }
+  // Default: normal
+  return {
+    type: "normal",
+    emoji: "🌙",
+    title: wakeCount <= 2 ? "Normal night" : "Busy but manageable",
+    detail: wakeCount + " wake" + (wakeCount === 1 ? "" : "s") + " totalling " + (lastNight.totalAwakeMin || 0) + " min awake. Longest stretch " + (longestStretchMin > 60 ? Math.floor(longestStretchMin / 60) + "h " + (longestStretchMin % 60) + "m" : longestStretchMin + "m") + ".",
+    action: "Nothing unusual in the pattern. Keep the current routine and look for trends over the week rather than reacting to a single night.",
+    confidence: "low"
+  };
+}
+
+// Generate a weekly digest. Inputs: days, current date string. Returns
+// totals across the last 7 days, best/worst night, and one correlation
+// insight ready to render in the Sunday morning card.
+function generateWeeklyDigest(days, currentDayKey) {
+  if (!days || !currentDayKey) return null;
+  const anchor = new Date(currentDayKey + "T00:00:00");
+  const nights = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(anchor);
+    d.setDate(d.getDate() - i);
+    const dkBed = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const next = new Date(d);
+    next.setDate(next.getDate() + 1);
+    const dkMorn = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+    const night = analyzeLastNight(days, dkBed, dkMorn);
+    if (night) nights.push({ dayKey: dkBed, ...night });
+  }
+  if (nights.length < 2) return null;
+  const totalWakes = nights.reduce((s, n) => s + n.wakeCount, 0);
+  const totalSoothedMin = nights.reduce((s, n) => s + (n.totalAwakeMin || 0), 0);
+  const avgWakes = totalWakes / nights.length;
+  const avgSoothedMin = Math.round(totalSoothedMin / nights.length);
+  // Best/worst by wake count, tiebreak by total soothed
+  const scoreNight = n => n.wakeCount * 100 + (n.totalAwakeMin || 0);
+  const sorted = [...nights].sort((a, b) => scoreNight(a) - scoreNight(b));
+  const bestNight = sorted[0];
+  const hardestNight = sorted[sorted.length - 1];
+  // Correlation: did the hardest night's previous day have a distinctive factor?
+  // Specifically check: last nap ended late (after 3pm)? solids after 4pm? bedtime late?
+  let correlationInsight = null;
+  try {
+    const hardDayKey = hardestNight.dayKey;
+    const hardEnt = days[hardDayKey] || [];
+    const lastNap = hardEnt.filter(e => e && e.type === "nap" && !e.night && e.end)
+      .sort((a, b) => (_nightMins(a.end) || 0) - (_nightMins(b.end) || 0))
+      .pop();
+    if (lastNap) {
+      const lastNapEndMins = _nightMins(lastNap.end);
+      if (lastNapEndMins !== null && lastNapEndMins >= 15 * 60) {
+        correlationInsight = {
+          factor: "Last nap ended at " + lastNap.end,
+          explanation: "Late naps (after 3pm) can eat into sleep pressure and cause more night waking. Try ending the last nap before 3pm tomorrow.",
+          confidence: "medium"
+        };
+      }
+    }
+    if (!correlationInsight) {
+      const lateSolids = hardEnt.filter(e => e && e.type === "feed" && e.feedType === "solids")
+        .some(e => { const m = _nightMins(e.time); return m !== null && m >= 16 * 60; });
+      if (lateSolids) {
+        correlationInsight = {
+          factor: "Solid meal logged after 4pm",
+          explanation: "Late solid meals can disrupt digestion and night sleep. Try moving the last solid meal to before 4pm.",
+          confidence: "low"
+        };
+      }
+    }
+    if (!correlationInsight) {
+      const bedEntry = hardEnt.find(e => e && e.type === "sleep" && !e.night);
+      if (bedEntry) {
+        const bm = _nightMins(bedEntry.time);
+        if (bm !== null && bm >= 19 * 60 + 45) {
+          correlationInsight = {
+            factor: "Late bedtime at " + bedEntry.time,
+            explanation: "Bedtime after 7:45pm often correlates with overtiredness and more night wakes. Try 15 min earlier tomorrow.",
+            confidence: "medium"
+          };
+        }
+      }
+    }
+  } catch (_) {}
+  return {
+    nights,
+    totalWakes,
+    totalSoothedMin,
+    avgWakes: Math.round(avgWakes * 10) / 10,
+    avgSoothedMin,
+    bestNight,
+    hardestNight,
+    correlationInsight,
+  };
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -25693,6 +26128,99 @@ function App(){
               </div>
               </>)}{/* end LOG-ONLY stats grid */}
 
+              {/* ═══ Last Night At A Glance + Night Pattern Diagnosis ═══
+                  Shows after morning wake is logged, so parents see an honest
+                  summary of how the night actually went the moment they wake
+                  up. Uses analyzeLastNight + diagnoseNightPattern helpers. */}
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (()=>{
+                try {
+                  // Only render when morning is reasonable time (before 2pm) and
+                  // a morning wake has been logged today
+                  const _now = new Date();
+                  if (_now.getHours() >= 14) return null;
+                  const _today = todayStr();
+                  const _yest = (()=>{const d=new Date(_today+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+                  const _todayEnt = days[_today] || [];
+                  const _hasMorningWake = _todayEnt.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<=12;})());
+                  if (!_hasMorningWake) return null;
+                  // Find bedtime day: yesterday if bed is there, else today
+                  const _yestEnt = days[_yest] || [];
+                  const _bedDayKey = _yestEnt.some(e=>e.type==="sleep"&&!e.night) ? _yest : _today;
+                  const lastNight = analyzeLastNight(days, _bedDayKey, _today);
+                  if (!lastNight) return null;
+                  // Recent 7 for context (used by diagnosis)
+                  const recent7 = (()=>{
+                    const out = [];
+                    for (let i=1;i<=7;i++) {
+                      const d=new Date(_today+"T00:00:00");d.setDate(d.getDate()-i);
+                      const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                      const next=new Date(d);next.setDate(next.getDate()+1);
+                      const nk=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,"0")}-${String(next.getDate()).padStart(2,"0")}`;
+                      const n = analyzeLastNight(days, dk, nk);
+                      if (n) out.push(n);
+                    }
+                    return out;
+                  })();
+                  const diagnosis = diagnoseNightPattern(lastNight, recent7);
+                  // Once-per-day dismissible
+                  const _dismissKey = "ob_last_night_dismissed_" + _today;
+                  const _dismissed = (()=>{try{return localStorage.getItem(_dismissKey)==="1";}catch{return false;}})();
+                  if (_dismissed) return null;
+                  const _hmStr = (m) => m >= 60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m";
+                  return (
+                    <div style={{marginBottom:12,padding:"14px 16px",borderRadius:16,background:`linear-gradient(135deg,rgba(123,104,238,0.06),rgba(111,168,152,0.04))`,border:`1.5px solid rgba(123,104,238,0.2)`,position:"relative"}}>
+                      <button onClick={()=>{try{localStorage.setItem(_dismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:10,right:10,width:24,height:24,borderRadius:99,border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:13,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                      <div style={{fontSize:10,fontFamily:_fM,color:"#7B68EE",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,fontWeight:700}}>🌙 Last night at a glance</div>
+                      <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:6}}>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{lastNight.totalSleepMin !== null ? _hmStr(lastNight.totalSleepMin) : "—"}</div>
+                        <div style={{fontSize:12,color:C.lt}}>total sleep</div>
+                      </div>
+                      <div style={{fontSize:12,color:C.mid,marginBottom:10,lineHeight:1.5}}>
+                        {lastNight.wakeCount} wake{lastNight.wakeCount===1?"":"s"} · {_hmStr(lastNight.totalAwakeMin)} awake · Longest stretch <strong style={{color:C.deep}}>{_hmStr(lastNight.longestStretchMin)}</strong>
+                      </div>
+                      {/* Timeline visual */}
+                      {lastNight.nightTotalMin && lastNight.nightTotalMin > 0 && (
+                        <div style={{position:"relative",height:20,background:"rgba(123,104,238,0.08)",borderRadius:6,overflow:"hidden",marginBottom:10,border:"1px solid rgba(123,104,238,0.15)"}}>
+                          {lastNight.wakes.map((w,i)=>{
+                            const _leftPct = (w.fromBedMin / lastNight.nightTotalMin) * 100;
+                            const _widthPct = Math.max(1.5, ((w.durationMin || 5) / lastNight.nightTotalMin) * 100);
+                            return (
+                              <div key={i} title={`${w.time} · ${w.durationMin}m (${w.method})`}
+                                style={{position:"absolute",left:_leftPct+"%",top:0,bottom:0,width:_widthPct+"%",background:"rgba(212,168,85,0.7)",borderLeft:"1px solid rgba(212,168,85,0.9)"}}/>
+                            );
+                          })}
+                          <div style={{position:"absolute",left:4,top:3,fontSize:9,color:"rgba(44,31,26,0.55)",fontFamily:_fM}}>🌙 {lastNight.bedtimeStr ? fmt12(lastNight.bedtimeStr) : ""}</div>
+                          <div style={{position:"absolute",right:4,top:3,fontSize:9,color:"rgba(44,31,26,0.55)",fontFamily:_fM}}>☀️ {lastNight.morningWakeStr ? fmt12(lastNight.morningWakeStr) : ""}</div>
+                        </div>
+                      )}
+                      {/* Diagnosis */}
+                      {diagnosis && (
+                        <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg)",border:`1px solid ${diagnosis.type==="undertired"||diagnosis.type==="overtired"?C.gold+"44":"rgba(123,104,238,0.2)"}`,marginBottom:lastNight.avgResettleMin>0?8:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                            <span style={{fontSize:16}}>{diagnosis.emoji}</span>
+                            <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{diagnosis.title}</span>
+                            {diagnosis.confidence==="high" && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700}}>HIGH CONFIDENCE</span>}
+                          </div>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{diagnosis.detail}</div>
+                          <div style={{fontSize:11,color:"#7B68EE",fontWeight:600,lineHeight:1.5}}>💡 {diagnosis.action}</div>
+                        </div>
+                      )}
+                      {lastNight.avgResettleMin > 0 && (
+                        <div style={{fontSize:10,color:C.lt,fontStyle:"italic",lineHeight:1.4}}>
+                          ⏱ Avg resettle: {lastNight.avgResettleMin}m
+                          {lastNight.avgResettleMin <= 10 ? " — excellent cycle linking, you're doing great" :
+                           lastNight.avgResettleMin <= 20 ? " — solid resettles" :
+                           " — on the longer side, consider earlier bedtime tomorrow"}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } catch(e) {
+                  console.warn("[OBubba] Last Night card error:", e);
+                  return null;
+                }
+              })()}
+
               {/* ═══ Today's Plan. PLAN-ONLY sub-screen ═══ */}
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="plan" && (<>
 
@@ -26240,42 +26768,33 @@ function App(){
               })()}
 
 
-              {/* ═══ Milk vs Solids. personal-rhythm aware ═══
-                  Shown for bottle moms, combo moms, AND even breast-only
-                  moms (if they have any ml data logged) so the solid meals
-                  tracker is visible to everyone during weaning. */}
+              {/* ═══ Feeding vs Solids. breast/bottle/combo aware ═══
+                  Shows for weaning-age babies regardless of feeding mode.
+                  Breastfed moms see time + feed count instead of ml, with
+                  age-appropriate targets. Bottle moms see ml. Combo shows
+                  both honestly. No breastfed mom ever sees 0ml as a metric. */}
               {age && (weaningStarted || (weaning||[]).length > 0 || ((age.predictiveWeeks??age.totalWeeks)) >= 22) && (()=>{
-                // Detect feeding mode from last 14 days of data
-                let _bottleCount = 0, _breastCount = 0;
-                try {
-                  const _dKeys = Object.keys(days).sort().slice(-14);
-                  _dKeys.forEach(_dk => {
-                    const _arr = days[_dk] || [];
-                    _arr.forEach(e => {
-                      if (e.type === "feed" && !e.night) {
-                        if (e.feedType === "breast") _breastCount++;
-                        else if (e.feedType === "bottle" || e.feedType === "milk" || (e.amount && e.amount > 0 && e.feedType !== "solids" && e.feedType !== "pump")) _bottleCount++;
-                      }
-                    });
-                  });
-                } catch(_) {}
-                let _flagBreast = false;
-                try { _flagBreast = localStorage.getItem("_hasBreast") === "1"; } catch(_) {}
-                // Show the milk card if there's ANY bottle data OR the baby is
-                // in the weaning window (for solid meals tracking). Breast-only
-                // moms with solids still need to see the solid meal counter.
-                const _hasBottleData = _bottleCount >= 1;
-                const _inWeaningWindow = ((age.predictiveWeeks??age.totalWeeks)) >= 22;
-                if (!_hasBottleData && !_inWeaningWindow) return null;
                 const _aw2 = (age.predictiveWeeks??age.totalWeeks);
                 const _wr = getWeaningRatio ? getWeaningRatio(_aw2, days[selDay]||[], days, weaningStarted) : null;
                 if (!_wr || !_wr.showSolids) return null;
-
-                // Today's primary number: milk volume
-                const _milk = _wr.totalMilkMl || 0;
-                // Compare against personal target if available, else NHS target
-                const _compareTo = _wr.personalTarget || _wr.milkTarget;
-                const _pct = _compareTo > 0 ? Math.min(120, Math.round((_milk / _compareTo) * 100)) : 0;
+                // Detect feeding mode from today first, fall back to 7-day history
+                let _flagBreast = false;
+                try { _flagBreast = localStorage.getItem("_hasBreast") === "1"; } catch(_) {}
+                const _intake = formatFeedingIntake(days[selDay]||[], _flagBreast);
+                // Use history as a tiebreaker for the empty-today case
+                let _historicBreast = 0, _historicBottle = 0;
+                try {
+                  const _dKeys = Object.keys(days||{}).sort().slice(-7);
+                  _dKeys.forEach(_dk => {
+                    (days[_dk]||[]).forEach(e => {
+                      if (e.type !== "feed" || e.night) return;
+                      if (e.feedType === "breast") _historicBreast++;
+                      else if (e.feedType !== "solids" && e.feedType !== "pump" && ((parseFloat(e.amount)||0) > 0 || e.feedType === "bottle" || e.feedType === "milk")) _historicBottle++;
+                    });
+                  });
+                } catch(_) {}
+                const _isBreastMode = _intake.mode === "breast" || (_intake.mode === "empty" && (_flagBreast || _historicBreast > _historicBottle));
+                const _isComboMode = _intake.mode === "combo";
                 // Status palette
                 const _toneColors = {
                   ok:        { bg: C.mint + "10", border: C.mint + "40", bar: C.mint,    accent: C.mint },
@@ -26284,15 +26803,37 @@ function App(){
                   high:      { bg: C.ter  + "10", border: C.ter  + "40", bar: C.ter,     accent: C.ter  },
                 };
                 const _t = _toneColors[_wr.statusTone] || _toneColors.ok;
+                // Progress bar values — adapt to mode
+                const _milk = _wr.totalMilkMl || 0;
+                const _compareTo = _wr.personalTarget || _wr.milkTarget;
+                const _mlPct = _compareTo > 0 ? Math.min(120, Math.round((_milk / _compareTo) * 100)) : 0;
+                const _breastTimeTarget = _wr.breastTimeTargetMin || [60, 120];
+                const _breastPct = _breastTimeTarget[1] > 0 ? Math.min(120, Math.round((_wr.breastMinToday / _breastTimeTarget[1]) * 100)) : 0;
 
                 return (
                   <div style={{marginBottom:10,padding:"14px 16px",borderRadius:16,background:_t.bg,border:`1.5px solid ${_t.border}`}}>
-                    {/* Header: stage + today's big milk number */}
+                    {/* Header: stage + today's big feeding number (mode-aware) */}
                     <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10,gap:10}}>
                       <div style={{flex:1}}>
-                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>🍼 Milk today</div>
-                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{_milk}<span style={{fontSize:13,color:C.lt,fontWeight:500,marginLeft:3}}>ml</span></div>
-                        <div style={{fontSize:10,color:C.lt,marginTop:2}}>{_wr.milkFeedCount} feed{_wr.milkFeedCount===1?"":"s"} · {_wr.stageLabel}</div>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>
+                          {_isBreastMode ? "🤱 Breast today" : _isComboMode ? "🤱🍼 Feeds today" : "🍼 Milk today"}
+                        </div>
+                        {_isBreastMode ? (
+                          <>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{_wr.breastMinToday >= 60 ? Math.floor(_wr.breastMinToday/60)+"h "+(_wr.breastMinToday%60)+"m" : _wr.breastMinToday+"m"}</div>
+                            <div style={{fontSize:10,color:C.lt,marginTop:2}}>{_wr.breastCountToday} feed{_wr.breastCountToday===1?"":"s"} · {_wr.stageLabel}</div>
+                          </>
+                        ) : _isComboMode ? (
+                          <>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,lineHeight:1.1}}>{_intake.big} <span style={{fontSize:14,color:C.lt,fontWeight:500}}>{_intake.unit}</span></div>
+                            <div style={{fontSize:10,color:C.lt,marginTop:2}}>{_intake.detail} · {_wr.stageLabel}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{_milk}<span style={{fontSize:13,color:C.lt,fontWeight:500,marginLeft:3}}>ml</span></div>
+                            <div style={{fontSize:10,color:C.lt,marginTop:2}}>{_wr.milkFeedCount} feed{_wr.milkFeedCount===1?"":"s"} · {_wr.stageLabel}</div>
+                          </>
+                        )}
                       </div>
                       <div style={{textAlign:"right"}}>
                         <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>🥕 Solids</div>
@@ -26301,14 +26842,25 @@ function App(){
                       </div>
                     </div>
 
-                    {/* Progress bar vs personal/NHS target */}
-                    {_compareTo > 0 && _milk > 0 && (
+                    {/* Progress bar — breastfed vs bottle targets */}
+                    {_isBreastMode && _wr.breastMinToday > 0 && (
                       <div style={{marginBottom:8}}>
                         <div style={{height:8,borderRadius:99,background:"var(--card-bg)",overflow:"hidden",marginBottom:4,border:"1px solid var(--card-border)"}}>
-                          <div style={{width:Math.min(100,_pct)+"%",height:"100%",background:_t.bar,transition:"width 0.4s"}}/>
+                          <div style={{width:Math.min(100,_breastPct)+"%",height:"100%",background:_t.bar,transition:"width 0.4s"}}/>
                         </div>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.lt}}>
-                          <span>{_pct}% of {_wr.personalTarget ? "your usual" : "NHS target"}</span>
+                          <span>{_wr.breastCountToday} / {_wr.breastFeedCountTarget[0]}–{_wr.breastFeedCountTarget[1]} feeds</span>
+                          <span>target {_breastTimeTarget[0]}–{_breastTimeTarget[1]}m total</span>
+                        </div>
+                      </div>
+                    )}
+                    {!_isBreastMode && _compareTo > 0 && _milk > 0 && (
+                      <div style={{marginBottom:8}}>
+                        <div style={{height:8,borderRadius:99,background:"var(--card-bg)",overflow:"hidden",marginBottom:4,border:"1px solid var(--card-border)"}}>
+                          <div style={{width:Math.min(100,_mlPct)+"%",height:"100%",background:_t.bar,transition:"width 0.4s"}}/>
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.lt}}>
+                          <span>{_mlPct}% of {_wr.personalTarget ? "your usual" : "NHS target"}</span>
                           <span>{_compareTo}ml {_wr.personalTarget ? "(personal)" : "(NHS)"}</span>
                         </div>
                       </div>
@@ -26349,25 +26901,44 @@ function App(){
                     )}
 
                     {/* Still learning */}
-                    {!_wr.solidDayAvg && !_wr.milkOnlyDayAvg && (
+                    {!_wr.solidDayAvg && !_wr.milkOnlyDayAvg && !_isBreastMode && (
                       <div style={{fontSize:10,color:C.lt,marginBottom:8,fontStyle:"italic",lineHeight:1.4}}>
                         💡 Log a few more days and I'll start showing {babyName||"your baby"}'s personal solid-day vs milk-only patterns right here.
                       </div>
                     )}
 
-                    {/* NHS minimum + guidance collapsible */}
+                    {/* Guidance collapsible. Adapts to feeding mode */}
                     <details style={{marginTop:4}}>
-                      <summary style={{fontSize:10,color:C.lt,cursor:_cP,listStyle:"none",userSelect:"none"}}>ℹ️ NHS guidance for {_wr.months}mo · {_wr.ratioLabel}</summary>
+                      <summary style={{fontSize:10,color:C.lt,cursor:_cP,listStyle:"none",userSelect:"none"}}>
+                        ℹ️ {_isBreastMode ? "Breastfeeding guidance" : "NHS guidance"} for {_wr.months}mo · {_wr.ratioLabel}
+                      </summary>
                       <div style={{fontSize:11,color:C.mid,marginTop:6,lineHeight:1.5,paddingLeft:2}}>
-                        <div style={{marginBottom:4}}><strong>NHS minimum:</strong> {_wr.milkMin}ml milk/day{_wr.months < 12 ? " (until 12 months)" : ""}</div>
-                        <div>{_wr.guidance}</div>
+                        {_isBreastMode ? (
+                          <>
+                            <div style={{marginBottom:4}}><strong>Target feeds:</strong> {_wr.breastFeedCountTarget[0]}–{_wr.breastFeedCountTarget[1]} breast feeds/day{_wr.months < 12 ? " (on demand)" : ""}</div>
+                            <div style={{marginBottom:4}}><strong>Typical time:</strong> ~{_wr.breastTimeTargetMin[0]}–{_wr.breastTimeTargetMin[1]} min/day total</div>
+                            <div style={{marginBottom:4,fontStyle:"italic"}}>Breastfeeding can't be measured in ml because babies pause, comfort nurse, and feed at variable rates. Frequency and duration are the honest signals. Follow baby's cues.</div>
+                            <div>{_wr.guidance}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{marginBottom:4}}><strong>NHS minimum:</strong> {_wr.milkMin}ml milk/day{_wr.months < 12 ? " (until 12 months)" : ""}</div>
+                            <div>{_wr.guidance}</div>
+                          </>
+                        )}
                       </div>
                     </details>
 
-                    {/* Hard NHS alert if below floor */}
-                    {_wr.nhsAlert && (
+                    {/* Hard NHS alert if below floor — only for bottle moms */}
+                    {!_isBreastMode && _wr.nhsAlert && (
                       <div style={{marginTop:8,padding:"6px 10px",borderRadius:8,background:C.ter+"15",border:`1px solid ${C.ter}30`,fontSize:11,color:C.ter,fontWeight:600}}>
                         ⚠️ {_wr.nhsAlert}
+                      </div>
+                    )}
+                    {/* Low-feed alert for breastfed moms */}
+                    {_isBreastMode && _wr.breastCountToday > 0 && _wr.breastCountToday < _wr.breastFeedCountTarget[0] && (
+                      <div style={{marginTop:8,padding:"6px 10px",borderRadius:8,background:C.gold+"15",border:`1px solid ${C.gold}30`,fontSize:11,color:C.gold,fontWeight:600}}>
+                        ⚠️ Below typical range ({_wr.breastFeedCountTarget[0]}–{_wr.breastFeedCountTarget[1]} feeds/day for {_wr.months}mo). Offer the breast on cues — supply follows demand.
                       </div>
                     )}
                   </div>
