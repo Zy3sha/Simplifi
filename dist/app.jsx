@@ -3231,7 +3231,10 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
               </button>
             </div>
           </div>
-          <div style={{fontSize:12,color:C.lt,marginBottom:8}}>Share this code with a co-parent. they enter it under "Link a child" below. Change it anytime to stop sharing.</div>
+          <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Share this code with a co-parent. they enter it under "Link a child" below. Change it anytime to stop sharing.</div>
+          <div style={{fontSize:11,color:C.mint,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.2)",borderRadius:8,padding:"8px 10px",marginBottom:8,lineHeight:1.5}}>
+            <strong style={{color:C.mid}}>🔒 Per-child sharing.</strong> Whoever uses this code will see <strong style={{color:C.deep}}>{child.name||"this child"}</strong> only. They will not see any other children on your account. Perfect for blended families and co-parents who each have other children.
+          </div>
 
           {/* ── Regenerate code (one tap) ── */}
           {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
