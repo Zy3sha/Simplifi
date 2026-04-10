@@ -3791,6 +3791,7 @@ function App(){
   });
   const[showAdjustSchedule,setShowAdjustSchedule]=useState(false);
   const[adjForm,setAdjForm]=useState({wakeTime:"",bedTime:"",duration:"today"});
+  const[scheduleAdjustmentNotice,setScheduleAdjustmentNotice]=useState(null); // {adjustments:[], wake, bed, duration}
   const[showAddPin,setShowAddPin]=useState(false);
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
@@ -20213,25 +20214,62 @@ function App(){
   function applyScheduleAdjustment(wakeStr, bedStr, duration) {
     if (!age) return;
     const ww = getWakeWindow(age.totalWeeks);
+    const _ageLabel = fmtAge ? fmtAge(age) : (age.months ? age.months+"mo" : age.totalWeeks+"w");
     let wakeMins = null, bedMins = null;
+    // Keep what the parent asked for so we can compare against the clamped value
+    let wakeRequested = null, bedRequested = null;
+    const adjustments = []; // list of human-readable messages about what we changed
+
     if (wakeStr) {
       const [h,m] = wakeStr.split(":").map(Number);
-      wakeMins = clampWake(h*60+m);
+      wakeRequested = h*60+m;
+      wakeMins = clampWake(wakeRequested);
+      if (wakeMins !== wakeRequested) {
+        if (wakeRequested < 5*60) {
+          adjustments.push("🌅 5:00am is the earliest healthy wake time — we set wake to 5:00am instead of " + _fmt12Mins(wakeRequested) + ".");
+        } else if (wakeRequested > 9*60+30) {
+          adjustments.push("🌅 9:30am is the latest healthy wake time (any later and the day's naps won't fit) — we set wake to 9:30am instead of " + _fmt12Mins(wakeRequested) + ".");
+        }
+      }
     }
     if (bedStr) {
       const [h,m] = bedStr.split(":").map(Number);
-      bedMins = clampBedtime(h*60+m);
+      bedRequested = h*60+m;
+      bedMins = clampBedtime(bedRequested);
+      if (bedMins !== bedRequested) {
+        // Describe whether we pulled it earlier or pushed it later
+        const _w = age.totalWeeks;
+        const _ceilingLabel =
+          (!_w || _w < 6)  ? "10:00pm"
+          : _w < 13        ? "9:00pm"
+          : _w < 26        ? "8:00pm"
+          : _w < 39        ? "8:00pm"
+          : _w < 52        ? "8:30pm"
+          : "8:30pm";
+        if (bedRequested > bedMins) {
+          adjustments.push("🌙 " + _ceilingLabel + " is the latest recommended bedtime for a " + _ageLabel + " — late bedtimes are linked to overtiredness and more night wakes. We set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
+        } else if (bedRequested < bedMins) {
+          adjustments.push("🌙 Bedtime earlier than " + _fmt12Mins(bedMins) + " is too early for a " + _ageLabel + " — baby wouldn't have enough sleep pressure built up. We set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
+        }
+      }
     }
-    // Validate: bed - wake must allow enough awake time for all naps + wake windows
+    // Feasibility: bed - wake must allow enough awake time for all naps + wake windows
     if (wakeMins && bedMins) {
       const totalDay = bedMins - wakeMins;
       const profile = getAgeNapProfile(age.totalWeeks);
       const minNeeded = profile.expectedNaps * 30 + (profile.expectedNaps + 1) * ww.min;
       if (totalDay < minNeeded) {
-        // Expand to minimum
+        const _origBed = bedMins;
         bedMins = clampBedtime(wakeMins + minNeeded);
+        if (bedMins !== _origBed) {
+          adjustments.push("⏱️ Your wake and bedtime didn't leave room for " + profile.expectedNaps + " nap" + (profile.expectedNaps===1?"":"s") + " plus age-appropriate wake windows. We pushed bedtime to " + _fmt12Mins(bedMins) + " so the day fits.");
+        } else {
+          // clampBedtime refused to go further. warn parent
+          adjustments.push("⚠️ With a " + _fmt12Mins(wakeMins) + " wake, fitting " + profile.expectedNaps + " nap" + (profile.expectedNaps===1?"":"s") + " before the healthy bedtime ceiling will be tight. You might see shorter wake windows or a dropped nap.");
+        }
       }
     }
+
     const override = {
       wake: wakeMins,
       bed: bedMins,
@@ -20241,6 +20279,29 @@ function App(){
     };
     setScheduleOverride(override);
     try{localStorage.setItem("sched_override_v1", JSON.stringify(override));}catch{}
+
+    // Tell the parent what actually got applied and why
+    if (adjustments.length) {
+      setScheduleAdjustmentNotice({
+        adjustments,
+        wake: wakeMins,
+        bed: bedMins,
+        duration
+      });
+    } else {
+      try {
+        showToast("✓ Schedule applied" + (duration === "permanent" ? " for every day" : " for today"), 2500, 1);
+      } catch(_) {}
+    }
+  }
+
+  // Helper: "487" → "8:07am"
+  function _fmt12Mins(mins) {
+    if (mins == null || isNaN(mins)) return "";
+    const h = Math.floor(mins/60), m = mins%60;
+    const ap = h >= 12 ? "pm" : "am";
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return h12 + ":" + String(m).padStart(2,"0") + ap;
   }
 
   function clearScheduleOverride() {
@@ -35818,6 +35879,49 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 Reset to automatic
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Schedule Adjustment Notice ═══ */}
+      {scheduleAdjustmentNotice && (
+        <div style={{position:"fixed",inset:0,zIndex:9991,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setScheduleAdjustmentNotice(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:24,padding:"22px 22px 20px",maxWidth:400,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 10px 40px rgba(0,0,0,0.15)"}}>
+            <div style={{fontSize:32,textAlign:"center",marginBottom:8}}>⚙️</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,textAlign:"center",color:C.deep,marginBottom:6}}>Schedule applied with a few tweaks</div>
+            <div style={{fontSize:12,color:C.lt,textAlign:"center",marginBottom:14,lineHeight:1.5}}>
+              We've saved your schedule, but adjusted a couple of things to keep {babyName||"baby"} in a healthy sleep zone:
+            </div>
+
+            {/* Final times */}
+            <div style={{background:"var(--card-bg-alt)",border:`1.5px solid ${C.sky}33`,borderRadius:14,padding:"12px 14px",marginBottom:14,display:"flex",justifyContent:"space-around",textAlign:"center"}}>
+              <div>
+                <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>☀️ Wake</div>
+                <div style={{fontSize:16,fontWeight:700,color:C.gold}}>{scheduleAdjustmentNotice.wake ? _fmt12Mins(scheduleAdjustmentNotice.wake) : "—"}</div>
+              </div>
+              <div style={{width:1,background:C.blush}}/>
+              <div>
+                <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>🌙 Bed</div>
+                <div style={{fontSize:16,fontWeight:700,color:C.sky}}>{scheduleAdjustmentNotice.bed ? _fmt12Mins(scheduleAdjustmentNotice.bed) : "—"}</div>
+              </div>
+            </div>
+
+            {/* Each adjustment explained */}
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              {scheduleAdjustmentNotice.adjustments.map((msg,i)=>(
+                <div key={i} style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:12,padding:"10px 12px",fontSize:12,color:C.mid,lineHeight:1.5}}>
+                  {msg}
+                </div>
+              ))}
+            </div>
+
+            <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:14,lineHeight:1.5,fontStyle:"italic"}}>
+              These guardrails follow NHS sleep guidance and paediatric sleep research. You can always fine-tune later.
+            </div>
+
+            <button onClick={()=>setScheduleAdjustmentNotice(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.sky},${C.mint})`,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"0 4px 16px rgba(111,168,152,0.25)"}}>
+              Got it, thanks
+            </button>
           </div>
         </div>
       )}
