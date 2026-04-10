@@ -4749,11 +4749,21 @@ function App(){
       setBedRoutineCompletedAt(null);
     }
   }, [bedRoutineCompletedAt, days, bedTimerDay]);
-  // Auto-stop stale bed timer: if today has a morning wake, bed timer from last night should be cleared
+  // Auto-stop stale bed timer: if bedTimerDay is from YESTERDAY (or earlier)
+  // and today has a morning wake, the overnight bed timer is stale — clear it.
+  // CRITICAL: only fire when bedTimerDay !== today. If bedTimerDay === today,
+  // the user logged bedtime TODAY (e.g. 6pm) AFTER today's morning wake (e.g.
+  // 7am) — that's a completely normal sequence and should NOT auto-stop the
+  // bed timer. Previously this effect was wiping the bed timer every time the
+  // user tapped "Baby awake" because pauseBedTimer adds a new wake entry to
+  // today's data, triggering this useEffect, which then saw today's earlier
+  // morning wake and nuked the bed timer mid-pause.
   useEffect(()=>{
     if (!bedTimerDay) return;
     try {
       const _todayK = new Date().toISOString().split("T")[0];
+      // ★ Skip entirely if bedTimerDay is today — that's a fresh bedtime, not a stale one.
+      if (bedTimerDay === _todayK) return;
       const _todayEnt = days[_todayK] || [];
       const _hasWake = _todayEnt.some(e => e.type === "wake" && !e.night);
       if (_hasWake) {
