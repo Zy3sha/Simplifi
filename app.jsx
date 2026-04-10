@@ -3921,6 +3921,63 @@ function App(){
     }catch{return false;}
   },[days]);
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
+  // ═══ CARER INFO RESURRECTION ═══
+  // Mirror carer info to children[activeChildId].carerInfo so it rides along
+  // with the children IndexedDB backup, then if localStorage is wiped by an
+  // app update we can resurrect from there on next launch.
+  const carerInfoResurrectedRef = React.useRef(false);
+  useEffect(()=>{
+    if (!resolvedActiveId) return;
+    // Mirror current carer info onto the child record
+    const _ci = {
+      emergencyContacts: emergencyContacts || [],
+      carerNotes: carerNotes || "",
+      carerComfort: carerComfort || "",
+      savedMeds: savedMeds || []
+    };
+    // Only write if something is actually filled in (avoid overwriting good data with empty)
+    const _hasAny = (_ci.emergencyContacts.length > 0) || !!_ci.carerNotes || !!_ci.carerComfort || (_ci.savedMeds.length > 0);
+    if (!_hasAny) return;
+    setChildren(prev => {
+      const existing = prev[resolvedActiveId];
+      if (!existing) return prev;
+      // Skip if nothing changed
+      const prevCi = existing.carerInfo || {};
+      if (JSON.stringify(prevCi) === JSON.stringify(_ci)) return prev;
+      return {...prev, [resolvedActiveId]: {...existing, carerInfo: _ci}};
+    });
+  }, [emergencyContacts, carerNotes, carerComfort, savedMeds, resolvedActiveId]);
+  // Resurrect carer info on mount if localStorage is empty but children data has it
+  useEffect(()=>{
+    if (carerInfoResurrectedRef.current) return;
+    if (!resolvedActiveId || !children[resolvedActiveId]) return;
+    const child = children[resolvedActiveId];
+    const savedCi = child.carerInfo;
+    if (!savedCi) { carerInfoResurrectedRef.current = true; return; }
+    // Check if live state is empty — only restore if we'd be overwriting nothing
+    const _liveHasAny = (emergencyContacts && emergencyContacts.length > 0) || !!carerNotes || !!carerComfort || (savedMeds && savedMeds.length > 0);
+    if (_liveHasAny) { carerInfoResurrectedRef.current = true; return; }
+    // Restore from child record
+    if (Array.isArray(savedCi.emergencyContacts) && savedCi.emergencyContacts.length > 0) {
+      setEmergencyContacts(savedCi.emergencyContacts);
+      try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(savedCi.emergencyContacts)); }catch{}
+    }
+    if (savedCi.carerNotes) {
+      setCarerNotes(savedCi.carerNotes);
+      try{ localStorage.setItem("carer_notes_v1", savedCi.carerNotes); }catch{}
+    }
+    if (savedCi.carerComfort) {
+      setCarerComfort(savedCi.carerComfort);
+      try{ localStorage.setItem("carer_comfort_v1", savedCi.carerComfort); }catch{}
+    }
+    if (Array.isArray(savedCi.savedMeds) && savedCi.savedMeds.length > 0) {
+      setSavedMeds(savedCi.savedMeds);
+      try{ localStorage.setItem("saved_meds_v1", JSON.stringify(savedCi.savedMeds)); }catch{}
+    }
+    console.log("[OBubba] Carer info resurrected from child record");
+    try { showToast("🫂 Carer info restored", 2000, 1); } catch {}
+    carerInfoResurrectedRef.current = true;
+  }, [children, resolvedActiveId]);
   const[notifPermission,setNotifPermission]=useState("default");
   useEffect(()=>{
     (async()=>{
@@ -5243,13 +5300,40 @@ function App(){
         if(d.carerInfo) {
           try {
             const ci = JSON.parse(d.carerInfo);
+            // Emergency contacts: return same ref when no new items (prevents sync loop)
             if(Array.isArray(ci.emergencyContacts) && ci.emergencyContacts.length > 0) {
-              setEmergencyContacts(ci.emergencyContacts);
+              setEmergencyContacts(prev => {
+                const ids = new Set((prev||[]).map(c => c.id || (c.name+"|"+c.phone)));
+                const newOnes = ci.emergencyContacts.filter(c => !ids.has(c.id || (c.name+"|"+c.phone)));
+                if (!newOnes.length && prev && prev.length >= ci.emergencyContacts.length) return prev;
+                const merged = [...(prev||[]), ...newOnes];
+                try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(merged)); }catch{}
+                return merged;
+              });
             }
-            if(ci.carerNotes) setCarerNotes(ci.carerNotes);
-            if(ci.carerComfort) setCarerComfort(ci.carerComfort);
+            if(ci.carerNotes) {
+              setCarerNotes(prev => {
+                if (prev === ci.carerNotes) return prev;
+                try{ localStorage.setItem("carer_notes_v1", ci.carerNotes); }catch{}
+                return ci.carerNotes;
+              });
+            }
+            if(ci.carerComfort) {
+              setCarerComfort(prev => {
+                if (prev === ci.carerComfort) return prev;
+                try{ localStorage.setItem("carer_comfort_v1", ci.carerComfort); }catch{}
+                return ci.carerComfort;
+              });
+            }
             if(Array.isArray(ci.savedMeds) && ci.savedMeds.length > 0) {
-              setSavedMeds(ci.savedMeds);
+              setSavedMeds(prev => {
+                const ids = new Set((prev||[]).map(m => m.id || m.name));
+                const newOnes = ci.savedMeds.filter(m => !ids.has(m.id || m.name));
+                if (!newOnes.length && prev && prev.length >= ci.savedMeds.length) return prev;
+                const merged = [...(prev||[]), ...newOnes];
+                try{ localStorage.setItem("saved_meds_v1", JSON.stringify(merged)); }catch{}
+                return merged;
+              });
             }
           } catch(_) {}
         }
