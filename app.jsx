@@ -2976,6 +2976,13 @@ function SharedAlbumViewer({albumCode}){
 // `parse` transforms the stored string→value; `serialize` transforms value→string.
 // The default handlers cover strings, numbers, and booleans without extra config.
 function usePersistedState(key, defaultValue, parse, serialize) {
+  // ── Value is an object or array? Auto-JSON-serialize/parse it. ──
+  // Previously this helper called String(value) for anything non-boolean
+  // and non-number, which turned arrays into "[object Object],[object Object]"
+  // garbage and caused crashes on next load when someone called .reduce or
+  // .map on the reloaded value. Now we detect complex types and round-trip
+  // them through JSON automatically.
+  const _isComplexType = (v) => v !== null && typeof v === "object";
   const [value, setValue] = React.useState(()=>{
     try {
       const raw = localStorage.getItem(key);
@@ -2983,13 +2990,34 @@ function usePersistedState(key, defaultValue, parse, serialize) {
       if (parse) return parse(raw);
       if (typeof defaultValue === "boolean") return raw === "1" || raw === "true";
       if (typeof defaultValue === "number") { const n = Number(raw); return isNaN(n) ? defaultValue : n; }
+      if (_isComplexType(defaultValue)) {
+        // Default is object/array. try to JSON.parse raw.
+        try { return JSON.parse(raw); } catch { return defaultValue; }
+      }
+      // Default is null. sniff the raw value. If it starts with { or [
+      // treat as JSON, otherwise return as string.
+      if (defaultValue === null) {
+        const _r = raw.trim();
+        if (_r.startsWith("{") || _r.startsWith("[")) {
+          try { return JSON.parse(_r); } catch { /* fall through */ }
+        }
+        // Heuristic: '[object Object],...' corrupted legacy value → reset
+        if (_r.indexOf("[object Object]") !== -1) {
+          try { localStorage.removeItem(key); } catch {}
+          return defaultValue;
+        }
+      }
       return raw;
     } catch { return defaultValue; }
   });
   React.useEffect(()=>{
     try {
       if (value === null || value === undefined) { localStorage.removeItem(key); return; }
-      const s = serialize ? serialize(value) : typeof value === "boolean" ? (value ? "1" : "0") : String(value);
+      let s;
+      if (serialize) s = serialize(value);
+      else if (typeof value === "boolean") s = value ? "1" : "0";
+      else if (_isComplexType(value)) s = JSON.stringify(value);
+      else s = String(value);
       localStorage.setItem(key, s);
     } catch {}
   }, [key, value]);
@@ -34410,10 +34438,13 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           {emoji:"📖",title:"Story or song",duration:5,note:"One short book or a lullaby. Same one every night builds association."},
           {emoji:"🌙",title:"Into bed",duration:2,note:"Kiss, say goodnight, put down drowsy but awake. Leave the room."},
         ];
-        const _steps = customRoutine || _defaultSteps;
+        // Defensive: customRoutine might be a corrupted shape from an older
+        // app version (object instead of array, or malformed JSON). If it's
+        // not an array, fall back to the defaults.
+        const _steps = (Array.isArray(customRoutine) && customRoutine.length > 0) ? customRoutine : _defaultSteps;
         const _step = _steps[bedRoutineStep] || _steps[0];
         const _elapsed = bedRoutineStart ? Math.floor((Date.now() - bedRoutineStart) / 60000) : 0;
-        const _totalMins = _steps.reduce((s, st) => s + st.duration, 0);
+        const _totalMins = _steps.reduce((s, st) => s + ((st && st.duration) || 0), 0);
         const _targetBedStr = (()=>{
           try { const td = tickDataRef.current||{}; if(td.bedMins) return fmt12(minsToTime(td.bedMins)); } catch {}
           return null;
