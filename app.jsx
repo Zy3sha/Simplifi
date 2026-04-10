@@ -1441,13 +1441,15 @@ function _nightMins(t) {
   return h * 60 + m;
 }
 
-// Safe "gap in minutes" between two HH:MM strings, wrapping cross-midnight.
-function _nightGap(fromT, toT) {
-  const a = _nightMins(fromT), b = _nightMins(toT);
-  if (a === null || b === null) return 0;
-  let d = b - a;
-  if (d < 0) d += 24 * 60;
-  return d;
+// Classify a night wake/feed entry into a settle method bucket.
+// Shared by analyzeLastNight + analyzeSettleMethods.
+function classifySettleMethod(e) {
+  if (!e) return "assisted";
+  if (e.selfSettled) return "self";
+  if (e.feedType === "breast") return "breast";
+  if (e.assistedType === "milk" || e.feedType === "milk" || e.feedType === "bottle" || (e.amount && e.amount > 0)) return "milk";
+  if (e.assistedType === "other") return "other";
+  return "assisted";
 }
 
 // Analyze a single night given the night's entries (from bedtime through
@@ -1482,11 +1484,7 @@ function analyzeLastNight(days, bedtimeDayKey, morningDayKey) {
       if (m === null) return null;
       const fromBed = m >= bedMins ? m - bedMins : (24 * 60 - bedMins) + m;
       const durationMin = parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0;
-      const method = e.selfSettled ? "self"
-        : e.feedType === "breast" ? "breast"
-        : e.assistedType === "milk" || e.feedType === "milk" || e.feedType === "bottle" || (e.amount && e.amount > 0) ? "milk"
-        : e.assistedType === "other" ? "other"
-        : "assisted";
+      const method = classifySettleMethod(e);
       return { time: e.time, mins: m, fromBedMin: fromBed, durationMin, method, raw: e };
     })
     .filter(Boolean)
@@ -1566,11 +1564,7 @@ function analyzeSettleMethods(days, windowDays, selDayKey) {
       if (!e || !e.night || (e.type !== "wake" && e.type !== "feed")) return;
       const dur = parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0;
       if (dur <= 0) return;
-      const method = e.selfSettled ? "self"
-        : e.feedType === "breast" ? "breast"
-        : e.assistedType === "milk" || e.feedType === "milk" || e.feedType === "bottle" || (e.amount && e.amount > 0) ? "milk"
-        : e.assistedType === "other" ? "other"
-        : "assisted";
+      const method = classifySettleMethod(e);
       byMethod[method].count++;
       byMethod[method].totalMin += dur;
       totalWakes++;
@@ -1606,7 +1600,7 @@ function analyzeSettleMethods(days, windowDays, selDayKey) {
 //   - habit:      wakes near 90min cycle marks, quick resettle
 //   - hunger:     wakes at irregular times, milk always works fast
 //   - normal:     wakes spread evenly, short durations
-function diagnoseNightPattern(lastNight, recent7) {
+function diagnoseNightPattern(lastNight) {
   if (!lastNight) return null;
   const { wakes, bedtimeMins, wakeCount, longestStretchMin, avgResettleMin } = lastNight;
   if (!wakes || wakes.length === 0) {
@@ -1684,10 +1678,12 @@ function diagnoseNightPattern(lastNight, recent7) {
   };
 }
 
-// Generate a weekly digest. Inputs: days, current date string. Returns
-// totals across the last 7 days, best/worst night, and one correlation
-// insight ready to render in the Sunday morning card.
-function generateWeeklyDigest(days, currentDayKey) {
+// Build a 7-night review for the Sunday digest card. Totals, best/worst
+// night, and one correlation insight (late nap, late solids, late bedtime
+// → harder night). Named buildNightDigest to avoid collision with the
+// App-scoped generateWeeklyDigest share-card builder which takes no args
+// and reads days from closure.
+function buildNightDigest(days, currentDayKey) {
   if (!days || !currentDayKey) return null;
   const anchor = new Date(currentDayKey + "T00:00:00");
   const nights = [];
@@ -4879,7 +4875,6 @@ function App(){
   // (wall-clock time the baby went back to sleep) so the form can
   // auto-recalculate duration soothed when the parent corrects the wake time.
   const nwResumeAnchorRef = React.useRef(null); // mins since midnight
-  const nwOriginalWakeRef = React.useRef(null); // mins since midnight
   const[showWakePrompt,setShowWakePrompt]=useState(false);
   const[nightSummaryText,setNightSummaryText]=useState(null);
   const[morningMsg,setMorningMsg]=useState(null);
@@ -16181,14 +16176,11 @@ function App(){
           // Cross-midnight: if resume goes past 24h, wrap
           if (_resume >= 24*60) _resume -= 24*60;
           nwResumeAnchorRef.current = _resume;
-          nwOriginalWakeRef.current = _origMins;
         } else {
           nwResumeAnchorRef.current = null;
-          nwOriginalWakeRef.current = null;
         }
       } catch(_) {
         nwResumeAnchorRef.current = null;
-        nwOriginalWakeRef.current = null;
       }
       setNwForm({
         time: entry.time||nowTime(),
@@ -21626,6 +21618,33 @@ function App(){
   const _feedIntelligenceMemo = React.useMemo(() => { try { return feedIntelligence(); } catch { return null; } }, [days, selDay, age, babyName, FU]);
   const _dayScoreMemo = React.useMemo(() => dayScore(undefined, _feedCardMemo), [days, selDay, age, _feedCardMemo]);
   const _feedScoreMemo = React.useMemo(() => feedScore(_feedCardMemo), [_feedCardMemo, days, selDay]);
+  // ── Night intelligence memos ──
+  // These used to live inside render IIFEs and re-ran every tick (every 1s
+  // via partnerTick). Now cached at App level keyed on days+selDay.
+  // analyzeLastNight is called twice — once for the current night, once
+  // for the previous night's diagnosis context. Previously the Last Night
+  // card ran analyzeLastNight 8× per render (1 current + 7 dead recent7).
+  const _lastNightMemo = React.useMemo(() => {
+    try {
+      const _t = todayStr();
+      const _y = prevCalDay(_t);
+      const _yEnt = days[_y] || [];
+      const _bedDayKey = _yEnt.some(e=>e.type==="sleep"&&!e.night) ? _y : _t;
+      return analyzeLastNight(days, _bedDayKey, _t);
+    } catch { return null; }
+  }, [days, selDay]);
+  const _nightDiagnosisMemo = React.useMemo(() => {
+    try { return diagnoseNightPattern(_lastNightMemo); } catch { return null; }
+  }, [_lastNightMemo]);
+  const _settleMethodsMemo = React.useMemo(() => {
+    try { return analyzeSettleMethods(days, 7, selDay); } catch { return null; }
+  }, [days, selDay]);
+  const _weeklyDigestMemo = React.useMemo(() => {
+    // Only compute on Sundays so we don't burn cycles the other 6 days.
+    const _d = new Date();
+    if (_d.getDay() !== 0) return null;
+    try { return buildNightDigest(days, todayStr()); } catch { return null; }
+  }, [days, selDay]);
   // Fire observations for bottle-fed babies: catch-up warnings AND positive wins.
   React.useEffect(() => {
     try {
@@ -26202,7 +26221,7 @@ function App(){
                   const _today = todayStr();
                   const _dismissKey = "ob_weekly_digest_dismissed_" + _today;
                   if ((()=>{try{return localStorage.getItem(_dismissKey)==="1";}catch{return false;}})()) return null;
-                  const _digest = generateWeeklyDigest(days, _today);
+                  const _digest = _weeklyDigestMemo;
                   if (!_digest || _digest.nights.length < 3) return null;
                   const _hmStr = m => m >= 60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m";
                   const _dayName = dk => {
@@ -26268,29 +26287,12 @@ function App(){
                   const _now = new Date();
                   if (_now.getHours() >= 14) return null;
                   const _today = todayStr();
-                  const _yest = (()=>{const d=new Date(_today+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
                   const _todayEnt = days[_today] || [];
                   const _hasMorningWake = _todayEnt.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<=12;})());
                   if (!_hasMorningWake) return null;
-                  // Find bedtime day: yesterday if bed is there, else today
-                  const _yestEnt = days[_yest] || [];
-                  const _bedDayKey = _yestEnt.some(e=>e.type==="sleep"&&!e.night) ? _yest : _today;
-                  const lastNight = analyzeLastNight(days, _bedDayKey, _today);
+                  const lastNight = _lastNightMemo;
                   if (!lastNight) return null;
-                  // Recent 7 for context (used by diagnosis)
-                  const recent7 = (()=>{
-                    const out = [];
-                    for (let i=1;i<=7;i++) {
-                      const d=new Date(_today+"T00:00:00");d.setDate(d.getDate()-i);
-                      const dk=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-                      const next=new Date(d);next.setDate(next.getDate()+1);
-                      const nk=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,"0")}-${String(next.getDate()).padStart(2,"0")}`;
-                      const n = analyzeLastNight(days, dk, nk);
-                      if (n) out.push(n);
-                    }
-                    return out;
-                  })();
-                  const diagnosis = diagnoseNightPattern(lastNight, recent7);
+                  const diagnosis = _nightDiagnosisMemo;
                   // Once-per-day dismissible
                   const _dismissKey = "ob_last_night_dismissed_" + _today;
                   const _dismissed = (()=>{try{return localStorage.getItem(_dismissKey)==="1";}catch{return false;}})();
@@ -27924,7 +27926,7 @@ function App(){
                   Honest breakdown of which settle methods work fastest
                   across the last 7 nights. Non-judgmental — just data. */}
               {(()=>{
-                const _sm = analyzeSettleMethods(days, 7, selDay);
+                const _sm = _settleMethodsMemo;
                 if (!_sm || !_sm.hasData) return null;
                 const _maxAvg = Math.max(...Object.values(_sm.byMethod).map(m => m.avgMin));
                 const _activeMethods = Object.entries(_sm.byMethod).filter(([_,v]) => v.count > 0);
@@ -36350,10 +36352,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {showNightWake&&(()=>{
               return(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;nwOriginalWakeRef.current=null;}}}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;}}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
-              <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;nwOriginalWakeRef.current=null;}} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+              <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;}} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 {nightEditId?"Edit":"Log"} Night Wake</div>
