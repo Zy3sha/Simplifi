@@ -27649,7 +27649,8 @@ function App(){
             const borderColor = catColors[m.cat] || C.blush;
             const catIcon  = m.cat==="social"?"💛":m.cat==="language"?"💬":m.cat==="motor"?"🌿":"🔆";
             const exerciseTip = getMilestoneExercise(m);
-            const touchStartRef = React.useRef(null);
+            // NOTE: no hooks here — this is a plain function called inside .map(),
+            // hook counts must stay constant across renders. State lives at parent.
             // Read tip-open state from parent-level Set (survives re-renders)
             const tipOpen = msTipsOpen.has(m.id);
             const setTipOpen = (nextOrFn) => {
@@ -27675,15 +27676,13 @@ function App(){
                   transition:"all 0.15s",
                 }}>
                   <div
-                    onPointerDown={e=>{touchStartRef.current={x:e.clientX,y:e.clientY};}}
-                    onPointerUp={e=>{
-                      // Only allow tapping to MARK as done. Done milestones are never
-                      // accidentally un-marked via tap. use the ✕ button instead.
-                      if(!touchStartRef.current || isFuture || done) return;
-                      const dx=Math.abs(e.clientX-touchStartRef.current.x);
-                      const dy=Math.abs(e.clientY-touchStartRef.current.y);
-                      touchStartRef.current=null;
-                      if(dx>8||dy>8) return;
+                    onClick={e=>{
+                      // Only allow tapping to MARK as done. Done milestones are
+                      // never accidentally un-marked via tap. use the ✕ button instead.
+                      if(isFuture || done) return;
+                      // Don't trigger if user clicked inside the "Try this to help" button
+                      // (that handler calls stopPropagation, but belt-and-braces)
+                      if(e.target && e.target.closest && e.target.closest('[data-tip-toggle]')) return;
                       setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
                       showMascot("celebration", `🎉 ${m.label}. milestone reached!`, 2500);
                       setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2800);
@@ -27740,9 +27739,8 @@ function App(){
                     <div style={{marginTop:8,marginLeft:47}}>
                       <button
                         type="button"
+                        data-tip-toggle="1"
                         onClick={e=>{e.stopPropagation();haptic();setTipOpen(v=>!v);}}
-                        onPointerDown={e=>e.stopPropagation()}
-                        onPointerUp={e=>e.stopPropagation()}
                         style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:600,color:"#9878d0",cursor:_cP,display:"flex",alignItems:"center",gap:4,fontFamily:_fM}}>
                         <span>💡</span> <span>Try this to help</span> <span style={{fontSize:9,color:C.lt,transform:tipOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s",display:"inline-block"}}>▼</span>
                       </button>
