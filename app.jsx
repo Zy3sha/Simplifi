@@ -5554,6 +5554,16 @@ function App(){
       }
     } catch(e) { /* analytics never break the app */ }
   }
+  // Track screen views on tab change
+  useEffect(()=>{
+    try { trackEvent("screen_view", { screen_name: tab, platform: (window.Capacitor?.getPlatform?.()||"web") }); } catch {}
+  }, [tab]);
+  // Track sub-screen views within Day tab
+  useEffect(()=>{
+    if (tab === "day" && daySubScreen) {
+      try { trackEvent("feature_used", { feature: daySubScreen, platform: (window.Capacitor?.getPlatform?.()||"web") }); } catch {}
+    }
+  }, [daySubScreen, tab]);
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
   async function verifyLogin(username, pin) {
@@ -16276,6 +16286,17 @@ function App(){
     setLastAction({type, entryId, day:_targetDay, timestamp:Date.now()});
     clearTimeout(undoTimeoutRef.current);
     undoTimeoutRef.current = setTimeout(()=>setLastAction(null), 15000);
+    // Retention & usage signals
+    try {
+      if (type === "wake") {
+        if (data.night) trackEvent("night_wake_logged", {});
+        else trackEvent("morning_wake_logged", {});
+      }
+      if (!localStorage.getItem("ob_first_entry_tracked")) {
+        localStorage.setItem("ob_first_entry_tracked", "1");
+        trackEvent("first_entry_logged", { type: type });
+      }
+    } catch {}
     setLogPanel(null);
     haptic("medium")
     const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
@@ -16513,6 +16534,17 @@ function App(){
         return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
       });
       trackEvent("entry_logged", {type: eType});
+      // Retention signals: night vs morning wake, first entry ever
+      try {
+        if (eType === "wake") {
+          if (e.night) trackEvent("night_wake_logged", {});
+          else trackEvent("morning_wake_logged", {});
+        }
+        if (!localStorage.getItem("ob_first_entry_tracked")) {
+          localStorage.setItem("ob_first_entry_tracked", "1");
+          trackEvent("first_entry_logged", { type: eType });
+        }
+      } catch {}
 
       // Write activity timestamp for Cloud Function reminders
       if (window._fb && window._fbUid && (eType === "feed" || (eType === "wake" && !e.night))) {
@@ -17180,6 +17212,7 @@ function App(){
 
   function startNap(){
     if (napOn) return;
+    try { trackEvent("timer_started", { type: "nap" }); } catch {}
     // Save current prediction for accuracy tracking
     try { lastPredRef.current = tickDataRef.current.pred; } catch { lastPredRef.current = null; }
     const t=nowTime();
@@ -17908,6 +17941,7 @@ function App(){
   function logBedtimeNow(){
     const already = !!findBedtime(days[selDay]||[]);
     if (already) return;
+    try { trackEvent("timer_started", { type: "bed" }); } catch {}
     const bedTime = nowTime();
     // If a nap timer is running when bedtime is logged, remove the incomplete nap entry
     // (bedtime replaces it. the nap was actually baby falling asleep for the night)
@@ -18003,6 +18037,7 @@ function App(){
   }
   function startBreastTimer(side){
     if(!breastStartTime){
+      try { trackEvent("timer_started", { type: "breast", side: side }); } catch {}
       const t=nowTime();
       setBreastStartTime(t);
       try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));}catch{}
@@ -18117,6 +18152,7 @@ function App(){
     const [eh,em]=end.split(":").map(Number);
     let durMins = (eh*60+em) - (sh*60+sm);
     if (durMins < 0) durMins += 24*60;
+    try { trackEvent("timer_stopped", { type: "nap", duration_mins: durMins }); } catch {}
     const h = new Date().getHours();
     const isNightTime = h >= 19 || h < 6;
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
@@ -21715,6 +21751,7 @@ function App(){
         try{ localStorage.setItem("_hasBreast","1"); }catch{}
       }
       setOnboarded(true);
+      try { trackEvent("onboarding_completed", { feed_type: obFeedType || "unknown" }); } catch {}
       setTab("day");
       setSelDay(_obToday);
       // Show quick-start prompt after a short delay. lets user seed yesterday's data
@@ -29995,8 +30032,8 @@ function App(){
               <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight belong to yesterday's bedtime. This is what sleep consultants use.\n\n\u{1F55B} Midnight. Simple calendar days. 1am entries show on today. Some parents find this more intuitive."}/>
             </div>
             <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:"1px solid "+C.blush,overflow:"hidden",marginTop:8,marginBottom:8}}>
-              <button onClick={()=>{setDayBoundary("wake");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
-              <button onClick={()=>{setDayBoundary("midnight");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
+              <button onClick={()=>{setDayBoundary("wake");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"wake"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
+              <button onClick={()=>{setDayBoundary("midnight");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"midnight"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
             </div>
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
               {dayBoundary==="wake"
