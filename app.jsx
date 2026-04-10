@@ -7597,6 +7597,8 @@ function App(){
       const t = (e.time||"00:00").split(":").map(Number);
       const d = new Date(e._dk + "T00:00:00");
       d.setHours(t[0], t[1], 0, 0);
+      // Cross-midnight: night entry with AM time belongs to next calendar day
+      if (e.night && t[0] < 12) d.setDate(d.getDate() + 1);
       return Math.max(0, Math.round((_nowMs - d.getTime()) / 60000));
     };
     const _lastFeed = _allPoolFeeds.length > 0 ? _allPoolFeeds.reduce((best, e) => _wallGap(e) < _wallGap(best) ? e : best) : null;
@@ -7964,9 +7966,23 @@ function App(){
                   </button>
                 ))}
               </div>
-              <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:0,night:true,nightLocked:true,note:"Night feed (quick)"});resumeBedTimer();showToast("🍼 Feed logged + back to sleep",1200,1);}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                {"\u{1F37C}"} Feed + back to sleep
-              </button>
+              {(()=>{
+                const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
+                const _icon = _isBreast ? "🤱" : "🍼";
+                const _label = _isBreast ? "Breast feed + back to sleep" : "Feed + back to sleep";
+                return (
+                  <button onClick={()=>{
+                    haptic(20);
+                    // Pass "milk" directly to resumeBedTimer. It will update the
+                    // existing pending wake entry into a feed (no duplicate entry).
+                    setBedWakeSettle("milk");
+                    resumeBedTimer("milk");
+                    showToast(_icon+" Feed logged + back to sleep",1200,1);
+                  }} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
+                    {_icon} {_label}
+                  </button>
+                );
+              })()}
               <button onClick={resumeBedTimer} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
                 {"\u{1F319}"} Baby's settled. back to sleep
               </button>
@@ -13998,11 +14014,26 @@ function App(){
     const _topHelp = Object.entries(_recentHelps).sort((a, b) => b[1] - a[1])[0];
 
     // Quick reason from crying analysis. search selDay AND today's actual date
+    // Tag each entry with its source day key so wall-clock gap works cross-midnight
     const _prevDk = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
     const _calNow = todayStr();
-    const _searchDays = [..._today, ...(days[_prevDk]||[]), ...(_calNow !== selDay ? (days[_calNow]||[]) : [])];
-    const _lastFeed = _searchDays.filter(e => e.time && (e.type==="feed" || (e.amount||0)>0 || e.assistedType==="milk" || e.feedType==="milk")).sort((a,b)=>{let ta=timeVal(a),tb=timeVal(b);if(a.night&&ta<720)ta+=1440;if(b.night&&tb<720)tb+=1440;return ta-tb;}).pop();
+    const _tagDk = (arr, dk) => (arr||[]).map(e=>({...e,_dk:e._dk||dk}));
+    const _searchDays = [..._tagDk(_today, selDay), ..._tagDk(days[_prevDk]||[], _prevDk), ...(_calNow !== selDay ? _tagDk(days[_calNow]||[], _calNow) : [])];
+    // Pick latest feed by actual wall-clock time
+    // Cross-midnight: a night entry stored on Thursday with time 02:54am is actually
+    // Friday 02:54am. Use the entry's night flag + AM time to roll forward a day.
     const _nowMs = Date.now();
+    const _wallMs = (e) => {
+      const _dk = e._dk || selDay;
+      const t = (e.time||"00:00").split(":").map(Number);
+      const d = new Date(_dk+"T00:00:00");
+      d.setHours(t[0], t[1], 0, 0);
+      // If this is a night entry with an AM time (< noon), it belongs to the next calendar day
+      if (e.night && t[0] < 12) d.setDate(d.getDate() + 1);
+      return d.getTime();
+    };
+    const _feedCandidates = _searchDays.filter(e => e.time && (e.type==="feed" || (e.amount||0)>0 || e.assistedType==="milk" || e.feedType==="milk"));
+    const _lastFeed = _feedCandidates.length ? _feedCandidates.reduce((best,e)=>_wallMs(e)>_wallMs(best)?e:best) : null;
     const _nowM = new Date().getHours() * 60 + new Date().getMinutes();
     let _feedGap = 999;
     if (_lastFeed) {
@@ -14010,6 +14041,8 @@ function App(){
       const ft = (_lastFeed.time||"00:00").split(":").map(Number);
       const feedDate = new Date(fdk + "T00:00:00");
       feedDate.setHours(ft[0], ft[1], 0, 0);
+      // Cross-midnight: night entry with AM time belongs to next calendar day
+      if (_lastFeed.night && ft[0] < 12) feedDate.setDate(feedDate.getDate() + 1);
       _feedGap = Math.max(0, Math.round((_nowMs - feedDate.getTime()) / 60000));
     }
     const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 210 : 270;
@@ -16937,7 +16970,7 @@ function App(){
     } catch {}
     showToast("🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
   }
-  function resumeBedTimer(){
+  function resumeBedTimer(overrideSettleMethod){
     if (!bedTimerDay || !bedPaused) return;
     haptic();
     const pauseStart = bedPauseStart || Date.now();
@@ -16955,7 +16988,7 @@ function App(){
     setBedPausedAtSec(0);
     try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Update the night wake entry (logged on pause) with duration and settle method
-    const settleMethod = bedWakeSettle || "assisted";
+    const settleMethod = overrideSettleMethod || bedWakeSettle || "assisted";
     const noteStr = pauseDurMin < 1 ? "Brief wake"
       : settleMethod === "self" ? "Self settled ("+pauseDurMin+"min)"
       : settleMethod === "milk" ? "Night feed ("+pauseDurMin+"min)"
@@ -16967,15 +17000,18 @@ function App(){
       const settleTime = new Date(pauseEnd);
       const settleH = String(settleTime.getHours()).padStart(2,"0");
       const settleM = String(settleTime.getMinutes()).padStart(2,"0");
+      // Respect breastfeeding preference: breastfed moms log as breast, not milk
+      const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
       setDays(d => {
         const _targetDay = bedTimerDay || todayStr();
         const entries = d[_targetDay] || [];
         return {...d, [_targetDay]: entries.map(e => e.id === _pendingId ? {
           ...e,
           type: settleMethod === "milk" ? "feed" : "wake",
+          feedType: settleMethod === "milk" ? (_isBreast ? "breast" : "milk") : undefined,
           selfSettled: settleMethod === "self",
           assisted: settleMethod !== "self",
-          assistedType: settleMethod === "milk" ? "milk" : (settleMethod === "other" ? "other" : undefined),
+          assistedType: settleMethod === "milk" ? (_isBreast ? "breast" : "milk") : (settleMethod === "other" ? "other" : undefined),
           note: noteStr + ". logged via bed timer",
           wakeDuration: pauseDurMin,
           settleTime: settleH+":"+settleM,
@@ -27528,6 +27564,7 @@ function App(){
             const catIcon  = m.cat==="social"?"💛":m.cat==="language"?"💬":m.cat==="motor"?"🌿":"🔆";
             const exerciseTip = getMilestoneExercise(m);
             const touchStartRef = React.useRef(null);
+            const [tipOpen, setTipOpen] = React.useState(false);
             // Age range text
             const wkToMo = (w) => { const mo = Math.round(w / 4.33); return mo < 1 ? "< 1 mo" : mo + " mo"; };
             const ageRangeText = wkToMo(m.weeks[0]) + " – " + wkToMo(m.weeks[2]);
@@ -27603,14 +27640,27 @@ function App(){
                       )}
                     </div>
                   </div>
-                  {/* Exercise tip. uses <details> to avoid useState in .map() */}
+                  {/* Exercise tip — controlled React state so parent clicks don't close it */}
                   {exerciseTip && (
-                    <details style={{marginTop:8,marginLeft:47}}>
-                      <summary style={{fontSize:11,fontWeight:600,color:"#9878d0",cursor:_cP,listStyle:"none",WebkitAppearance:"none",display:"flex",alignItems:"center",gap:4}}>
-                        <span>💡</span> <span>Try this to help</span> <span style={{fontSize:9,color:C.lt}}>▼</span>
-                      </summary>
-                      <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"8px 11px",marginTop:6,fontSize:12,color:"#9070c0",lineHeight:1.55}}>{exerciseTip}</div>
-                    </details>
+                    <div style={{marginTop:8,marginLeft:47}}>
+                      <button
+                        type="button"
+                        onClick={e=>{e.stopPropagation();haptic();setTipOpen(v=>!v);}}
+                        onPointerDown={e=>e.stopPropagation()}
+                        onPointerUp={e=>e.stopPropagation()}
+                        style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:600,color:"#9878d0",cursor:_cP,display:"flex",alignItems:"center",gap:4,fontFamily:_fM}}>
+                        <span>💡</span> <span>Try this to help</span> <span style={{fontSize:9,color:C.lt,transform:tipOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s",display:"inline-block"}}>▼</span>
+                      </button>
+                      {tipOpen && (
+                        <div
+                          onPointerDown={e=>e.stopPropagation()}
+                          onPointerUp={e=>e.stopPropagation()}
+                          onClick={e=>e.stopPropagation()}
+                          style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"8px 11px",marginTop:6,fontSize:12,color:"#9070c0",lineHeight:1.55}}>
+                          {exerciseTip}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -31809,21 +31859,66 @@ function App(){
               <div style={{fontSize:12,fontWeight:700,color:"#7b68ee",marginBottom:12,letterSpacing:"0.04em",textTransform:"uppercase"}}>
                 {showWellbeing.label==="Need support" ? "🫂 Start here. one call" : "💬 Talk to someone"}
               </div>
-              {(_isUS ? [
-                {name:"Postpartum Support International",num:"1-800-944-4773",hours:"Helpline + text support",primary:true},
-                {name:"988 Suicide & Crisis Lifeline",num:"988",hours:"24/7. call or text",primary:false},
-                {name:"SAMHSA Helpline",num:"1-800-662-4357",hours:"24/7, free, confidential",primary:false},
-              ] : _isAU ? [
-                {name:"PANDA",num:"1300 726 306",hours:"Mon–Fri 9am–7:30pm AEST",primary:true},
-                {name:"Beyond Blue",num:"1300 22 4636",hours:"24/7",primary:false},
-                {name:"Lifeline",num:"13 11 14",hours:"24/7",primary:false},
-              ] : [
-                {name:"PANDAS Foundation",num:"0808 196 1776",hours:"Mon–Fri 11am–10pm. free, confidential",primary:true},
-                {name:"Samaritans",num:"116 123",hours:"Free, 24/7. any reason, any time",primary:false},
-                {name:"NHS Talking Therapies",num:"nhs.uk/talking-therapies",hours:"Self-refer online. no GP needed",primary:false},
-              ]).map((r,i)=>(
-                <a key={i} href={r.num.match(/^[0-9]/) ? "tel:"+r.num.replace(/[^0-9]/g,"") : "https://www.nhs.uk/mental-health/talking-therapies-medicine-treatments/talking-therapies-and-counselling/nhs-talking-therapies/"}
-                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderTop:i?`1px solid rgba(123,104,238,0.1)`:"none",textDecoration:"none",cursor:"pointer"}}>
+              {(()=>{
+                // Country detection (matches the main support modal)
+                const _loc = (navigator.language||"en-gb").toLowerCase();
+                const _tz = (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch{return "";}})();
+                const _isZA = _loc.includes("en-za") || _tz.includes("Africa/Johannesburg");
+                const _isIN = _loc.includes("en-in") || _loc.includes("hi") || _tz.includes("Asia/Kolkata");
+                const _isSG = _loc.includes("en-sg") || _tz.includes("Asia/Singapore");
+                const _isDE = _loc.includes("de") || _tz.includes("Europe/Berlin");
+                const _isFR = (_loc.includes("fr") && !_isCA) || _tz.includes("Europe/Paris");
+                const _isES = _loc.includes("es") || _tz.includes("Europe/Madrid");
+                const _isNL = _loc.includes("nl") || _tz.includes("Europe/Amsterdam");
+                return (_isUS ? [
+                  {name:"Postpartum Support International",num:"1-800-944-4773",hours:"Helpline + text support",primary:true},
+                  {name:"988 Suicide & Crisis Lifeline",num:"988",hours:"24/7. call or text",primary:false},
+                  {name:"SAMHSA Helpline",num:"1-800-662-4357",hours:"24/7, free, confidential",primary:false},
+                ] : _isAU ? [
+                  {name:"PANDA",num:"1300 726 306",hours:"Mon–Fri 9am–7:30pm AEST",primary:true},
+                  {name:"Beyond Blue",num:"1300 22 4636",hours:"24/7",primary:false},
+                  {name:"Lifeline",num:"13 11 14",hours:"24/7",primary:false},
+                ] : _isCA ? [
+                  {name:"Pacific Postpartum Support Society",num:"604-255-7999",hours:"Mon–Fri. Perinatal support",primary:true},
+                  {name:"Talk Suicide Canada",num:"1-833-456-4566",hours:"24/7. Free. Call or text",primary:false},
+                  {name:"Kids Help Phone",num:"1-800-668-6868",hours:"24/7. For parents too",primary:false},
+                ] : _isNZ ? [
+                  {name:"PlunketLine",num:"0800 933 922",hours:"24/7. Free parent support",primary:true},
+                  {name:"Lifeline NZ",num:"0800 543 354",hours:"24/7",primary:false},
+                  {name:"1737 Need to Talk",num:"1737",hours:"Free call or text. 24/7",primary:false},
+                ] : _isIE ? [
+                  {name:"Parentline Ireland",num:"1890 927 277",hours:"Mon–Thu 10am–9pm",primary:true},
+                  {name:"Samaritans Ireland",num:"116 123",hours:"24/7. Free",primary:false},
+                  {name:"Aware",num:"1800 804 848",hours:"Mon–Sun 10am–10pm",primary:false},
+                ] : _isZA ? [
+                  {name:"SADAG Helpline",num:"0800 567 567",hours:"Depression & anxiety. 24/7",primary:true},
+                  {name:"Lifeline South Africa",num:"0861 322 322",hours:"24/7",primary:false},
+                ] : _isIN ? [
+                  {name:"Vandrevala Foundation",num:"1860 266 2345",hours:"24/7. Free. Multilingual",primary:true},
+                  {name:"iCall",num:"9152987821",hours:"Mon–Sat 8am–10pm",primary:false},
+                ] : _isSG ? [
+                  {name:"Samaritans of Singapore",num:"1800 221 4444",hours:"24/7",primary:true},
+                  {name:"Singapore Association for Mental Health",num:"1800 283 7019",hours:"Mon–Fri 9am–6pm",primary:false},
+                ] : _isDE ? [
+                  {name:"Telefonseelsorge",num:"0800 111 0111",hours:"24/7. Kostenlos",primary:true},
+                  {name:"Elterntelefon",num:"0800 111 0550",hours:"Mo–Fr 9–17 Uhr",primary:false},
+                ] : _isFR ? [
+                  {name:"SOS Amitié",num:"09 72 39 40 50",hours:"24/7. Gratuit",primary:true},
+                  {name:"Fil Santé Jeunes",num:"0800 235 236",hours:"Tous les jours 9h–23h",primary:false},
+                ] : _isES ? [
+                  {name:"Teléfono de la Esperanza",num:"717 003 717",hours:"24/7. Gratuito",primary:true},
+                  {name:"Teléfono contra el Suicidio",num:"024",hours:"24/7. Gratuito",primary:false},
+                ] : _isNL ? [
+                  {name:"113 Zelfmoordpreventie",num:"0900 0113",hours:"24/7",primary:true},
+                  {name:"Ouders van Nu",num:"030 291 6800",hours:"Ouderlijn",primary:false},
+                ] : [
+                  {name:"PANDAS Foundation",num:"0808 196 1776",hours:"Mon–Fri 11am–10pm. free, confidential",primary:true},
+                  {name:"Samaritans",num:"116 123",hours:"Free, 24/7. any reason, any time",primary:false},
+                  {name:"NHS 111",num:"111",hours:"Health advice when it's not 999",primary:false},
+                ]);
+              })().map((r,i)=>(
+                <div key={i} onClick={()=>{haptic();try{const _url=r.num.match(/^[0-9]/) ? "tel:"+r.num.replace(/[^0-9]/g,"") : "https://www.nhs.uk/mental-health/talking-therapies-medicine-treatments/talking-therapies-and-counselling/nhs-talking-therapies/";window.open(_url,"_system");}catch{}}}
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderTop:i?`1px solid rgba(123,104,238,0.1)`:"none",cursor:"pointer"}}>
                   <div style={_S.flex1}>
                     <div style={{fontSize:14,fontWeight:r.primary?700:600,color:r.primary?C.deep:C.mid}}>{r.name}</div>
                     <div style={{fontSize:11,color:C.lt,marginTop:2}}>{r.hours}</div>
@@ -31831,7 +31926,7 @@ function App(){
                   <div style={{padding:"6px 12px",borderRadius:99,background:r.primary?"rgba(123,104,238,0.15)":"var(--card-bg-alt)",fontSize:13,fontWeight:700,color:r.primary?"#7b68ee":C.lt,whiteSpace:"nowrap",marginLeft:8}}>
                     {r.num.match(/^[\d-]/) ? `📞 ${r.num}` : "🌐 Visit"}
                   </div>
-                </a>
+                </div>
               ))}
             </div>
 
@@ -32801,16 +32896,42 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
             )}
 
-            {/* Support resources */}
-            <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(155,184,168,0.08)",border:"1px solid rgba(155,184,168,0.15)",marginBottom:16,textAlign:"left"}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.mint,marginBottom:6}}>If you need someone to talk to</div>
-              <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
-                📞 Sands (stillbirth & neonatal death): <a href="tel:08081643332" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>0808 164 3332</a><br/>
-                📞 The Lullaby Trust bereavement: <a href="tel:08088026868" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>0808 802 6868</a><br/>
-                📞 Samaritans: <a href="tel:116123" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>116 123</a> (24/7)<br/>
-                <span style={{fontSize:11,fontStyle:"italic",color:C.lt}}>You don't have to carry this alone.</span>
-              </div>
-            </div>
+            {/* Support resources — country-specific bereavement helplines */}
+            {(()=>{
+              const _bLines = _isUS ? [
+                {label:"Postpartum Support International",phone:"1-800-944-4773",dial:"18009444773"},
+                {label:"First Candle (SIDS bereavement)",phone:"1-800-221-7437",dial:"18002217437"},
+                {label:"988 Suicide & Crisis Lifeline",phone:"988",dial:"988"},
+              ] : _isAU ? [
+                {label:"Red Nose Grief & Loss",phone:"1300 308 307",dial:"1300308307"},
+                {label:"SANDS Australia",phone:"1300 072 637",dial:"1300072637"},
+                {label:"Lifeline",phone:"13 11 14",dial:"131114"},
+              ] : _isCA ? [
+                {label:"Talk Suicide Canada",phone:"1-833-456-4566",dial:"18334564566"},
+                {label:"Pregnancy & Infant Loss Network",phone:"1-888-303-7222",dial:"18883037222"},
+              ] : _isNZ ? [
+                {label:"Sands NZ (baby loss)",phone:"09 636 9835",dial:"096369835"},
+                {label:"1737 Need to Talk",phone:"1737",dial:"1737"},
+              ] : _isIE ? [
+                {label:"A Little Lifetime Foundation",phone:"01 872 6996",dial:"018726996"},
+                {label:"Samaritans Ireland",phone:"116 123",dial:"116123"},
+              ] : [
+                {label:"Sands (stillbirth & neonatal death)",phone:"0808 164 3332",dial:"08081643332"},
+                {label:"The Lullaby Trust bereavement",phone:"0808 802 6868",dial:"08088026868"},
+                {label:"Samaritans",phone:"116 123",dial:"116123"},
+              ];
+              return (
+                <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(155,184,168,0.08)",border:"1px solid rgba(155,184,168,0.15)",marginBottom:16,textAlign:"left"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.mint,marginBottom:6}}>If you need someone to talk to</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
+                    {_bLines.map((b,bi)=>(
+                      <span key={bi}>📞 {b.label}: <span onClick={()=>{haptic();try{window.open("tel:"+b.dial,"_system");}catch{}}} style={{color:C.ter,fontWeight:600,cursor:"pointer"}}>{b.phone}</span><br/></span>
+                    ))}
+                    <span style={{fontSize:11,fontStyle:"italic",color:C.lt}}>You don't have to carry this alone.</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>unarchiveChild(showMemorial)} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
@@ -33125,14 +33246,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 {name:"NSPCC",phone:"0808-800-5000",note:"If you're worried about hurting your child"},
               ];
               return _lines.map((l,i)=>(
-                <a key={i} href={"tel:"+l.phone.replace(/[^0-9+]/g,"")} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:14,border:"1.5px solid rgba(123,104,238,0.2)",background:"rgba(123,104,238,0.04)",marginBottom:8,textDecoration:"none",color:C.deep,cursor:"pointer"}}>
+                <div key={i} onClick={()=>{try{window.open("tel:"+l.phone.replace(/[^0-9+]/g,""),"_system");}catch{}haptic();}} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:14,border:"1.5px solid rgba(123,104,238,0.2)",background:"rgba(123,104,238,0.04)",marginBottom:8,color:C.deep,cursor:"pointer"}}>
                   <span style={{fontSize:22}}>📞</span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700}}>{l.name}</div>
                     <div style={{fontSize:12,color:C.lt}}>{l.note}</div>
                   </div>
                   <div style={{fontSize:15,fontWeight:700,color:"#7B68EE",fontFamily:"ui-monospace,monospace"}}>{l.phone}</div>
-                </a>
+                </div>
               ));
             })()}
 
