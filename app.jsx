@@ -4375,16 +4375,9 @@ function App(){
       else localStorage.removeItem("ob_bed_routine_done_ms");
     } catch {}
   }, [bedRoutineCompletedAt]);
-  // Auto-expire the "routine done" flag when bedtime gets logged or 2h pass.
-  // Runs after render so we never call setState during render.
-  React.useEffect(() => {
-    if (!bedRoutineCompletedAt) return;
-    const _tdays = days[todayStr()] || [];
-    const _hasBed = _tdays.some(e => e.type === "sleep" && !e.night && !e.nightLocked);
-    if (_hasBed || bedTimerDay || (Date.now() - bedRoutineCompletedAt) > 2*60*60*1000) {
-      setBedRoutineCompletedAt(null);
-    }
-  }, [bedRoutineCompletedAt, days, bedTimerDay]);
+  // NOTE: the auto-expire effect for bedRoutineCompletedAt lives further
+  // down in this file (after bedTimerDay is declared) to avoid a temporal
+  // dead zone ReferenceError.
   const[showEditRoutine,setShowEditRoutine]=useState(false);
   const[customRoutine,setCustomRoutine]=usePersistedState("ob_bed_routine_v1", null); // null = use defaults
   const[gentleMode,setGentleMode]=useState(()=>{try{return localStorage.getItem("ob_gentle_mode")==="1";}catch{return false;}});
@@ -4632,6 +4625,18 @@ function App(){
   const bedPauseStartRef = useRef(null);
   const bedTotalPausedSecRef = useRef(0);
   useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;bedTotalPausedSecRef.current=bedTotalPausedSec;},[bedPaused,bedPauseStart,bedTotalPausedSec]);
+  // Auto-expire the "routine done" flag when bedtime gets logged or 2h pass.
+  // Lives HERE (not up with the bedRoutineCompletedAt state) because it
+  // reads bedTimerDay which is declared above at line ~4616. Putting this
+  // effect earlier caused a temporal-dead-zone ReferenceError at boot.
+  React.useEffect(() => {
+    if (!bedRoutineCompletedAt) return;
+    const _tdays = days[todayStr()] || [];
+    const _hasBed = _tdays.some(e => e.type === "sleep" && !e.night && !e.nightLocked);
+    if (_hasBed || bedTimerDay || (Date.now() - bedRoutineCompletedAt) > 2*60*60*1000) {
+      setBedRoutineCompletedAt(null);
+    }
+  }, [bedRoutineCompletedAt, days, bedTimerDay]);
   // Auto-stop stale bed timer: if today has a morning wake, bed timer from last night should be cleared
   useEffect(()=>{
     if (!bedTimerDay) return;
