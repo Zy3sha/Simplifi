@@ -13463,7 +13463,47 @@ function App(){
     const totalMl   = allMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
     const dayMl     = dayMilkFeeds.reduce((s,f)  => s+(f.amount||0), 0);
     const nightMl   = nightMilkFeeds.reduce((s,f)=> s+(f.amount||0), 0);
-    if (!totalMl) return null;
+    // ── Breastfeeding-first insight ──
+    // If there's NO ml but there IS breast data, build a parallel insight
+    // for breastfeeding moms instead of returning null. Previously the whole
+    // feed card vanished for exclusively breastfed moms — they got nothing.
+    if (!totalMl) {
+      const _allBreastToday = allToday.filter(e => e.type === "feed" && e.feedType === "breast" && !e.night);
+      const _breastMinToday = _allBreastToday.reduce((s,f) => s + (parseInt(f.breastL)||0) + (parseInt(f.breastR)||0), 0);
+      const _breastCountToday = _allBreastToday.length;
+      if (_breastCountToday === 0) return null;
+      // Age-based feed count targets (from WHO / ABM / LLL literature)
+      const _months = w / 4.33;
+      const _breastTarget =
+        _months < 1 ? [8, 12]
+        : _months < 3 ? [7, 10]
+        : _months < 6 ? [5, 8]
+        : _months < 9 ? [4, 6]
+        : _months < 12 ? [3, 5]
+        : [2, 4];
+      let _bfStatus, _bfColor, _bfIcon, _bfMsg;
+      if (_breastCountToday >= _breastTarget[0]) {
+        _bfStatus = "ok"; _bfColor = C.mint; _bfIcon = "✓";
+        _bfMsg = `✓ Feeding looks steady. ${_breastCountToday} breast feed${_breastCountToday===1?"":"s"} totalling ${hm(_breastMinToday)} today.`;
+      } else if (_breastCountToday >= Math.max(1, _breastTarget[0] - 1)) {
+        _bfStatus = "attention"; _bfColor = C.gold; _bfIcon = "ℹ️";
+        _bfMsg = `${_breastCountToday} breast feed${_breastCountToday===1?"":"s"} today (${hm(_breastMinToday)} total). A bit below the typical ${_breastTarget[0]}–${_breastTarget[1]}/day for ${Math.round(_months*10)/10}mo. Offer on cues — supply follows demand.`;
+      } else {
+        _bfStatus = "low"; _bfColor = C.ter; _bfIcon = "⏳";
+        _bfMsg = `${_breastCountToday} breast feed${_breastCountToday===1?"":"s"} so far. Typical range is ${_breastTarget[0]}–${_breastTarget[1]}/day for ${Math.round(_months*10)/10}mo. Offer the breast freely — frequency protects your supply.`;
+      }
+      return {
+        isBreastfeedingOnly: true,
+        status: _bfStatus,
+        color: _bfColor,
+        icon: _bfIcon,
+        statusMsg: _bfMsg,
+        breastMinToday: _breastMinToday,
+        breastCountToday: _breastCountToday,
+        breastTarget: _breastTarget,
+        nhsNote: "Breastfed babies feed on demand. Frequency and wet nappies are better indicators than volume. Any amount of breastfeeding reduces the risk of SIDS (Lullaby Trust). Follow baby's cues — you're doing everything right.",
+      };
+    }
     let totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin, targetFeeds, nhsNote;
     if (w < 4) {
       totalMin=400; totalMax=700; totalTarget=550; dayTarget=400; dayMin=280;
@@ -28612,6 +28652,52 @@ function App(){
               {(()=>{
                 const fc = _feedCardMemo;
                 if (!fc) return null;
+                // ── Breastfeeding-first card ──
+                // When feedCard() returned the breastfeeding-only shape, render a
+                // parallel card with time + count instead of ml. Breastfed moms
+                // see a proper feeding insight instead of the ml-heavy bottle card.
+                if (fc.isBreastfeedingOnly) {
+                  const _bPct = fc.breastTarget && fc.breastTarget[0] > 0
+                    ? Math.min(100, Math.round((fc.breastCountToday / fc.breastTarget[0]) * 100))
+                    : 0;
+                  const _bColor = _bPct >= 100 ? C.mint : _bPct >= 70 ? C.gold : C.ter;
+                  return (
+                    <div>
+                      <div className="glass-card" style={{padding:"20px 18px",marginBottom:12,textAlign:"center"}}>
+                        <div style={{position:"relative",width:100,height:100,margin:"0 auto 12px"}}>
+                          <svg width="100" height="100" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke={C.blush} strokeWidth="8"/>
+                            <circle cx="50" cy="50" r="42" fill="none" stroke={_bColor} strokeWidth="8"
+                              strokeDasharray={`${_bPct*2.64} 264`} strokeDashoffset="0"
+                              strokeLinecap="round" transform="rotate(-90 50 50)" style={{transition:"stroke-dasharray 0.8s ease"}}/>
+                          </svg>
+                          <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                            <div style={{fontSize:24,fontWeight:700,color:_bColor,lineHeight:1}}>{fc.breastCountToday}</div>
+                            <div style={{fontSize:9,color:C.lt,fontFamily:_fM}}>FEEDS</div>
+                          </div>
+                        </div>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>
+                          🤱 Breastfeeding today · {hm(fc.breastMinToday)}
+                        </div>
+                        <div style={{fontSize:12,color:C.lt}}>
+                          Target: {fc.breastTarget[0]}–{fc.breastTarget[1]} feeds/day
+                          <HelpBtn title="Breastfeeding on demand" body="Breast milk volume can't be measured directly — babies feed at different rates, pause, and comfort nurse. Frequency (feed count) and total time are the honest signals, along with wet nappies and weight gain. Follow baby's cues. You're doing everything right."/>
+                        </div>
+                      </div>
+
+                      {/* Status message */}
+                      <div className="glass-card" style={_S.card}>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-solid)",borderRadius:10,padding:"11px 13px"}}>
+                          <span style={{fontSize:14,flexShrink:0}}>{fc.icon}</span>
+                          <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{fc.statusMsg}</div>
+                        </div>
+                        <div style={{fontSize:12,color:C.lt,marginTop:10,paddingTop:10,borderTop:`1px solid ${_bColor}20`,lineHeight:1.5}}>
+                          ℹ️ {fc.nhsNote}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 const _fs = _feedScoreMemo;
                 const _pct = _fs ? _fs.score : (fc.totalTarget > 0 ? Math.min(100, Math.round((fc.totalMl / fc.totalTarget) * 100)) : 0);
                 const _scoreColor = scoreColor(_pct);
