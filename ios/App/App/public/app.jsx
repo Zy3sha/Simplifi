@@ -36885,6 +36885,47 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const _removeExtra = (idx) => {
           setShoppingDraft(d => ({...d, extras: d.extras.filter((_,i) => i !== idx)}));
         };
+        // Parse a comma-separated ingredients string into individual shopping
+        // list items. "1 head broccoli (florets), 100g frozen peas" becomes
+        // [{name:"1 head broccoli (florets)"}, {name:"100g frozen peas"}].
+        // Returns new shopping-list item objects ready to push into extras.
+        const _parseIngredients = (ingredientsStr, recipeName) => {
+          if (!ingredientsStr) return [];
+          return ingredientsStr
+            .split(/,(?![^(]*\))/) // split on commas NOT inside parentheses
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(name => ({ name, recipe: recipeName, bought: false }));
+        };
+        // Add a whole recipe's ingredients to the extras list.
+        // Deduplicates against existing extras by name (case-insensitive) so
+        // picking the same recipe twice doesn't double-list everything.
+        const _addRecipeIngredients = (recipe) => {
+          setShoppingDraft(d => {
+            const existing = d.extras || [];
+            const existingNames = new Set(existing.map(e => (e.name||"").toLowerCase().trim()));
+            const newItems = _parseIngredients(recipe.ingredients, recipe.name)
+              .filter(it => !existingNames.has(it.name.toLowerCase()));
+            if (newItems.length === 0) {
+              try { showToast("All " + recipe.name + " ingredients already in your list", 2000, 1); } catch(_) {}
+              return d;
+            }
+            try { showToast("✓ Added " + newItems.length + " ingredient" + (newItems.length===1?"":"s") + " for " + recipe.name, 2500, 1); } catch(_) {}
+            return { ...d, extras: [...existing, ...newItems] };
+          });
+        };
+        // Recipes suitable for baby's current weaning stage.
+        // Stage 1 = First Tastes (~6mo), stage 2 = expanding (~7mo+).
+        const _currentStage = (weaning||[]).length >= 8 ? 2 : 1;
+        const _availableRecipes = (typeof WEANING_RECIPES !== "undefined" && Array.isArray(WEANING_RECIPES))
+          ? WEANING_RECIPES.filter(r => r.stage <= _currentStage)
+          : [];
+        // Check if recipe's ingredients are already in extras (all of them)
+        const _recipeInPlan = (recipe) => {
+          const existing = (shoppingDraft.extras || []).map(e => (e.name||"").toLowerCase().trim());
+          const parsed = _parseIngredients(recipe.ingredients, recipe.name);
+          return parsed.length > 0 && parsed.every(p => existing.includes(p.name.toLowerCase()));
+        };
         return (
           <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowShoppingListModal(false);setShoppingDraft(null);}}>
             <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
@@ -36948,6 +36989,34 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         <input type="text" placeholder="e.g. with cumin + butter" value={f.recipe||""} onChange={e=>_updateRecipe(f.food, e.target.value)} style={{flex:1,padding:"4px 8px",border:`1px solid ${C.blush}`,borderRadius:6,fontSize:11,fontFamily:_fI,background:"var(--card-bg-alt)",color:C.deep,minWidth:0}}/>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ═══ Pick a recipe → auto-add ingredients ═══ */}
+              {_availableRecipes.length > 0 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>🧑‍🍳 Add a recipe</div>
+                  <div style={{fontSize:11,color:C.lt,marginBottom:8,lineHeight:1.4}}>Tap a recipe to add all its ingredients to your shopping list. You can still edit or remove each ingredient below.</div>
+                  <div style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:6,marginLeft:-2,marginRight:-2,paddingLeft:2,paddingRight:2,WebkitOverflowScrolling:"touch"}}>
+                    {_availableRecipes.map((recipe, rIdx) => {
+                      const _already = _recipeInPlan(recipe);
+                      return (
+                        <button key={rIdx} onClick={()=>{haptic();_addRecipeIngredients(recipe);}} style={{flexShrink:0,minWidth:140,maxWidth:180,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${_already?C.mint:C.blush}`,background:_already?`${C.mint}08`:"var(--card-bg)",cursor:_cP,textAlign:"left",display:"flex",flexDirection:"column",gap:4,fontFamily:_fI}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:18}}>{recipe.emoji}</span>
+                            <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2,flex:1}}>{recipe.name}</div>
+                            {_already && <span style={{color:C.mint,fontWeight:700,fontSize:13}}>✓</span>}
+                          </div>
+                          <div style={{fontSize:10,color:C.lt,lineHeight:1.3}}>
+                            {_parseIngredients(recipe.ingredients, recipe.name).length} ingredient{_parseIngredients(recipe.ingredients).length===1?"":"s"}
+                            {recipe.iron && " · iron-rich"}
+                            {recipe.allergens && recipe.allergens.length > 0 && " · allergen"}
+                          </div>
+                          <div style={{fontSize:9,color:C.lt,lineHeight:1.35,marginTop:2,whiteSpace:"normal",wordBreak:"break-word"}}>{recipe.ingredients}</div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
