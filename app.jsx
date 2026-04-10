@@ -1242,6 +1242,90 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
   };
 }
 
+// ═══ Shared First Tastes food catalogue ═══
+// Single source of truth for the weaning food pool. Used by:
+//   1. The First Tastes suggestion section in the weaning hub
+//   2. The Weekly Shopping List pre-populate flow
+// Every entry has: food, emoji, cat, phase, iron, allergenId (optional)
+const FIRST_TASTES_CATALOGUE = [
+  // Phase 1 (first 2 weeks): veg only
+  {food:"Steamed carrot",      emoji:"🥕",cat:"veg",    phase:1,iron:false},
+  {food:"Steamed broccoli",    emoji:"🥦",cat:"veg",    phase:1,iron:false},
+  {food:"Courgette",           emoji:"🥒",cat:"veg",    phase:1,iron:false},
+  {food:"Sweet potato",        emoji:"🍠",cat:"veg",    phase:1,iron:false},
+  {food:"Mashed avocado",      emoji:"🥑",cat:"veg",    phase:1,iron:false},
+  {food:"Steamed peas",        emoji:"🟢",cat:"veg",    phase:1,iron:true},
+  // Phase 2 (weeks 2-4): + fruit, grains, iron-rich
+  {food:"Banana",              emoji:"🍌",cat:"fruit",  phase:2,iron:false},
+  {food:"Porridge fingers",    emoji:"🥣",cat:"grain",  phase:2,iron:true},
+  {food:"Steamed apple",       emoji:"🍎",cat:"fruit",  phase:2,iron:false},
+  {food:"Toast fingers",       emoji:"🍞",cat:"grain",  phase:2,iron:false},
+  {food:"Red lentil puree",    emoji:"🫘",cat:"protein",phase:2,iron:true},
+  {food:"Beef mince",          emoji:"🥩",cat:"protein",phase:2,iron:true},
+  {food:"Chicken thigh",       emoji:"🍗",cat:"protein",phase:2,iron:true},
+  // Phase 3 (4+ weeks): allergens + expanding
+  {food:"Scrambled egg",       emoji:"🥚",cat:"allergen",phase:3,iron:false,allergenId:"eggs"},
+  {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen",phase:3,iron:false,allergenId:"peanuts",morningOnly:true},
+  {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy", phase:3,iron:false,allergenId:"milk"},
+  {food:"Soft cooked salmon",  emoji:"🐟",cat:"protein",phase:3,iron:false,allergenId:"fish"},
+  {food:"Lentil dhal",         emoji:"🍲",cat:"protein",phase:3,iron:true},
+  {food:"Cheese sticks",       emoji:"🧀",cat:"dairy",  phase:3,iron:false,allergenId:"milk"},
+  {food:"Tahini (sesame)",     emoji:"🫙",cat:"allergen",phase:3,iron:false,allergenId:"sesame",morningOnly:true},
+];
+
+// ═══ Get next N weaning food suggestions ═══
+// This is what the shopping list needs to match: the EXACT foods the
+// suggestion engine will serve up over the next N days, honoring:
+//   - Phase gating based on how far into weaning baby is
+//   - Already-tried filtering (strip prep words: "steamed" vs "mashed")
+//   - Allergen interleaving (every 3rd suggestion)
+//   - Category rotation (avoid same category 3 days in a row)
+// Returns an ordered array of food objects.
+function getNextWeaningSuggestions(weaningLog, weeksSinceWeanStart, count) {
+  const _weaningDays = (weaningLog||[]).length;
+  const _effectiveWks = Math.max(weeksSinceWeanStart || 0, Math.floor(_weaningDays / 3));
+  // Phase 1: first 5 days. Phase 2: 5-8 days. Phase 3: 8+ days.
+  const _phaseMax = _weaningDays >= 8 ? 3 : _weaningDays >= 5 ? 2 : 1;
+  const _available = FIRST_TASTES_CATALOGUE.filter(f => f.phase <= _phaseMax);
+  // Strip prep words so "steamed carrot" and "mashed carrot" match
+  const _prepRx = /^(steamed|mashed|soft cooked|cooked|plain full-fat|fortified|baby|soft|raw|warm|fresh|grated|chopped|pureed|slow cooked)\s+/;
+  const _stripPrep = (s) => (s||"").toLowerCase().replace(_prepRx, "").trim();
+  const _triedFoods = (weaningLog||[]).map(w => (w.food||"").toLowerCase());
+  const _isTried = (f) => {
+    const _fNoun = _stripPrep(f.food);
+    if (!_fNoun) return false;
+    return _triedFoods.some(t => {
+      const _tNoun = _stripPrep(t);
+      if (!_tNoun) return false;
+      return _tNoun === _fNoun || _tNoun === f.food.toLowerCase() || t === f.food.toLowerCase();
+    });
+  };
+  const _notTried = _available.filter(f => !_isTried(f));
+  // Interleave: [non-allergen, non-allergen, ALLERGEN, ...] — every 3rd slot
+  // is an allergen to maintain allergen introduction cadence
+  const _untriedAllergens   = _notTried.filter(f => f.cat === "allergen");
+  const _untriedNonAllergen = _notTried.filter(f => f.cat !== "allergen");
+  const _interleaved = [];
+  let _ai = 0, _vi = 0;
+  while (_vi < _untriedNonAllergen.length || _ai < _untriedAllergens.length) {
+    if (_vi < _untriedNonAllergen.length) _interleaved.push(_untriedNonAllergen[_vi++]);
+    if (_vi < _untriedNonAllergen.length) _interleaved.push(_untriedNonAllergen[_vi++]);
+    if (_ai < _untriedAllergens.length) _interleaved.push(_untriedAllergens[_ai++]);
+  }
+  const _pool = _interleaved.length > 0 ? _interleaved : (_notTried.length > 0 ? _notTried : _available);
+  // Category rotation: don't pick the same category more than twice in a row
+  const _out = [];
+  const _poolCopy = [..._pool];
+  while (_out.length < count && _poolCopy.length > 0) {
+    // Prefer a food whose category isn't the same as the last 2
+    const _lastTwo = _out.slice(-2).map(f => f.cat);
+    let _pickIdx = _poolCopy.findIndex(f => !_lastTwo.every(c => c === f.cat));
+    if (_pickIdx < 0) _pickIdx = 0; // fall back: just take the next one
+    _out.push(_poolCopy.splice(_pickIdx, 1)[0]);
+  }
+  return _out;
+}
+
 // ══════════════════════════════════════════════════════════════════
 // WEANING JOURNEY. comprehensive data for the full weaning experience
 // ══════════════════════════════════════════════════════════════════
@@ -30184,36 +30268,27 @@ function App(){
                     </div>
                   );
                 }
-                // No plan. show the "Plan next 7 days" call-to-action
+                // No plan. show the "Plan next 7 days" call-to-action.
+                // The draft is pre-populated with EXACTLY the foods the
+                // suggestion engine will serve up over the next 7 days — same
+                // phase filter, same tried filter, same allergen interleave,
+                // same category rotation as First Tastes.
+                const _weeksSinceWean = Math.max(0, ((age&&age.totalWeeks)||26) - 26);
+                const _upcoming7 = getNextWeaningSuggestions(weaning, _weeksSinceWean, 7);
+                // Preview first 4 so parents see what's coming before they tap.
+                const _preview = _upcoming7.slice(0, 4).map(f => f.emoji).join(" ");
                 return (
                   <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px dashed ${C.mint}44`,background:`${C.mint}04`,cursor:_cP}} onClick={()=>{
                     haptic();
-                    // Build next-7 draft from the first 7 items of _available we'd suggest
-                    // (simple heuristic: use untried foods, rotating categories)
-                    const _allFoodsLocal = [
-                      {food:"Steamed carrot",emoji:"🥕",cat:"veg",recipe:""},
-                      {food:"Steamed broccoli",emoji:"🥦",cat:"veg",recipe:""},
-                      {food:"Courgette",emoji:"🥒",cat:"veg",recipe:""},
-                      {food:"Sweet potato",emoji:"🍠",cat:"veg",recipe:""},
-                      {food:"Mashed avocado",emoji:"🥑",cat:"veg",recipe:""},
-                      {food:"Steamed peas",emoji:"🟢",cat:"veg",recipe:""},
-                      {food:"Banana",emoji:"🍌",cat:"fruit",recipe:""},
-                      {food:"Porridge fingers",emoji:"🥣",cat:"grain",recipe:""},
-                      {food:"Steamed apple",emoji:"🍎",cat:"fruit",recipe:""},
-                      {food:"Toast fingers",emoji:"🍞",cat:"grain",recipe:""},
-                      {food:"Red lentil puree",emoji:"🫘",cat:"protein",recipe:""},
-                      {food:"Beef mince",emoji:"🥩",cat:"protein",recipe:""},
-                      {food:"Chicken thigh",emoji:"🍗",cat:"protein",recipe:""},
-                      {food:"Scrambled egg",emoji:"🥚",cat:"allergen",recipe:""},
-                      {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen",recipe:""},
-                      {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy",recipe:""},
-                      {food:"Soft cooked salmon",emoji:"🐟",cat:"protein",recipe:""},
-                      {food:"Lentil dhal",emoji:"🍲",cat:"protein",recipe:""},
-                      {food:"Cheese sticks",emoji:"🧀",cat:"dairy",recipe:""},
-                    ];
-                    const _triedLocal = (weaning||[]).map(w => (w.food||"").toLowerCase());
-                    const _notTriedLocal = _allFoodsLocal.filter(f => !_triedLocal.some(t => t.includes(f.food.toLowerCase().split(" ")[0])));
-                    const _next7 = (_notTriedLocal.length ? _notTriedLocal : _allFoodsLocal).slice(0,7).map(f => ({...f, bought:false}));
+                    // Build draft from the next-7 suggestions (exact same ones
+                    // that First Tastes will surface day by day).
+                    const _next7 = _upcoming7.map(f => ({
+                      food: f.food,
+                      emoji: f.emoji,
+                      cat: f.cat,
+                      recipe: "",
+                      bought: false
+                    }));
                     setShoppingDraft({
                       weekStart: todayStr(),
                       foods: _next7,
@@ -30225,7 +30300,8 @@ function App(){
                       <div style={{fontSize:32}}>🛒</div>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Plan next 7 days of foods</div>
-                        <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:2}}>Pick from upcoming suggestions, add recipes, then share the shopping list. We'll follow your plan for daily picks.</div>
+                        <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:2}}>These are the exact foods {babyName||"baby"} will be offered this week. Tap to review, add recipes, and share the shopping list.</div>
+                        {_preview && <div style={{fontSize:18,marginTop:6,letterSpacing:3}}>{_preview}{_upcoming7.length > 4 ? " …" : ""}</div>}
                       </div>
                       <div style={{fontSize:16,color:C.mint}}>›</div>
                     </div>
@@ -36843,28 +36919,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
       {/* ═══ Weekly Shopping List Modal ═══ */}
       {showShoppingListModal && shoppingDraft && (()=>{
-        const _allFoodsModal = [
-          {food:"Steamed carrot",emoji:"🥕",cat:"veg"},
-          {food:"Steamed broccoli",emoji:"🥦",cat:"veg"},
-          {food:"Courgette",emoji:"🥒",cat:"veg"},
-          {food:"Sweet potato",emoji:"🍠",cat:"veg"},
-          {food:"Mashed avocado",emoji:"🥑",cat:"veg"},
-          {food:"Steamed peas",emoji:"🟢",cat:"veg"},
-          {food:"Banana",emoji:"🍌",cat:"fruit"},
-          {food:"Porridge fingers",emoji:"🥣",cat:"grain"},
-          {food:"Steamed apple",emoji:"🍎",cat:"fruit"},
-          {food:"Toast fingers",emoji:"🍞",cat:"grain"},
-          {food:"Red lentil puree",emoji:"🫘",cat:"protein"},
-          {food:"Beef mince",emoji:"🥩",cat:"protein"},
-          {food:"Chicken thigh",emoji:"🍗",cat:"protein"},
-          {food:"Scrambled egg",emoji:"🥚",cat:"allergen"},
-          {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen"},
-          {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy"},
-          {food:"Soft cooked salmon",emoji:"🐟",cat:"protein"},
-          {food:"Lentil dhal",emoji:"🍲",cat:"protein"},
-          {food:"Cheese sticks",emoji:"🧀",cat:"dairy"},
-          {food:"Tahini (sesame)",emoji:"🫙",cat:"allergen"},
-        ];
+        // Single source of truth: pull foods from the shared FIRST_TASTES_CATALOGUE.
+        // Filter by phase gate so Oliver (early First Tastes) doesn't see
+        // allergens that are blocked for him yet.
+        const _modalWeaningDays = (weaning||[]).length;
+        const _modalPhaseMax = _modalWeaningDays >= 8 ? 3 : _modalWeaningDays >= 5 ? 2 : 1;
+        const _allFoodsModal = FIRST_TASTES_CATALOGUE.filter(f => f.phase <= _modalPhaseMax);
         const _inPlan = (food) => (shoppingDraft.foods||[]).some(f => f.food === food);
         const _toggleFoodInPlan = (f) => {
           setShoppingDraft(d => {
