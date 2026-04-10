@@ -7232,9 +7232,14 @@ function App(){
           // displayed time = cumulative sleep since bedtime (visibly keeps ticking up).
           var _bedMs = _hhmToMs(_bedEntry.time);
           var _pausedSec = (typeof bedTotalPausedSecRef !== "undefined" && bedTotalPausedSecRef && bedTotalPausedSecRef.current) ? bedTotalPausedSecRef.current : 0;
+          // Chronometer counts from virtual start (bedtime + total awake-secs) so the
+          // displayed elapsed = cumulative SLEEP, not wall time.
           timerStartMs = _bedMs + (_pausedSec * 1000);
-          var _vd = new Date(timerStartMs);
-          timerStartTime = String(_vd.getHours()).padStart(2,"0")+":"+String(_vd.getMinutes()).padStart(2,"0");
+          // BUT the "since X" label shown on widget/LA must stay as the REAL bedtime.
+          // Previously we overwrote this with the virtual start's HH:MM, which produced
+          // nonsense labels like "since 5:17am" after several night wakes. Keep the
+          // user-visible label anchored to the actual bed entry time.
+          timerStartTime = String(_bedEntry.time);
         }
       }
       try {
@@ -25059,9 +25064,21 @@ function App(){
                 );
               })()}
 
-              {/* Tomorrow's schedule. premium teaser */}
-              {STORE_READY && hasAccess() && todayPlanOpen && Object.keys(days).length >= 5 && (
-                <button onClick={()=>triggerPaywall("tomorrow")} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
+              {/* Tomorrow's schedule. navigates to Insights > Tomorrow's Predicted Rhythm */}
+              {hasAccess() && todayPlanOpen && Object.keys(days).length >= 5 && (
+                <button onClick={()=>{
+                  haptic();
+                  setTab("insights");
+                  // Defer scroll until the insights tab has rendered
+                  setTimeout(()=>{
+                    try {
+                      const _el = document.getElementById("tomorrow-rhythm-anchor");
+                      if (_el && typeof _el.scrollIntoView === "function") {
+                        _el.scrollIntoView({behavior:"smooth", block:"start"});
+                      }
+                    } catch(_) {}
+                  }, 250);
+                }} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
                   📋 Plan ahead. see tomorrow's predicted schedule →
                 </button>
               )}
@@ -26467,7 +26484,7 @@ function App(){
                 if (!sched) return null;
                 const isRhythmAdj = flex && flex.source === "rhythm-adjusted";
                 return (
-                  <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px",marginBottom:12}}>
+                  <div id="tomorrow-rhythm-anchor" style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px",marginBottom:12,scrollMarginTop:80}}>
                     <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div>
                     <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:10}}>
                       {`NHS guidance + ${babyName||"baby"}'s sleep patterns`}
@@ -35467,6 +35484,28 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
               Enter a time {babyName||"baby"} needs to be awake or asleep, and we'll build the optimal day around it.
+            </div>
+
+            {/* Adjusted schedule. set target wake + bedtime */}
+            <button onClick={()=>{
+              haptic();
+              setAdjForm({wakeTime:scheduleOverride&&scheduleOverride.wake?(String(Math.floor(scheduleOverride.wake/60)).padStart(2,"0")+":"+String(scheduleOverride.wake%60).padStart(2,"0")):"",bedTime:scheduleOverride&&scheduleOverride.bed?(String(Math.floor(scheduleOverride.bed/60)).padStart(2,"0")+":"+String(scheduleOverride.bed%60).padStart(2,"0")):"",duration:scheduleOverride&&scheduleOverride.permanent?"permanent":"today"});
+              setShowScheduleMaker(false);
+              setShowAdjustSchedule(true);
+            }} style={{width:"100%",padding:"12px 14px",marginBottom:14,borderRadius:12,border:`1.5px solid ${C.sky}40`,background:`linear-gradient(135deg,${C.sky}10,${C.mint}06)`,color:C.sky,fontSize:13,fontWeight:700,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>⚙️</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:2}}>Set preferred wake & bedtime</div>
+                <div style={{fontSize:11,color:C.lt,fontWeight:500,lineHeight:1.4}}>Guide {babyName||"baby"} toward a healthier rhythm. Naps adjust automatically within NHS-safe wake windows.</div>
+                {scheduleOverride && <div style={{fontSize:10,color:C.gold,marginTop:4,fontWeight:600}}>⚙️ Currently active{scheduleOverride.permanent?" (every day)":" (today only)"}</div>}
+              </div>
+              <span style={{fontSize:14,color:C.sky}}>›</span>
+            </button>
+
+            <div style={{display:"flex",alignItems:"center",gap:8,margin:"4px 0 14px"}}>
+              <div style={{flex:1,height:1,background:C.blush}}/>
+              <span style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1}}>or build around an event</span>
+              <div style={{flex:1,height:1,background:C.blush}}/>
             </div>
 
             <Inp label="What's happening?" type="text" placeholder="e.g. Baby class, Doctor visit, Car journey" value={smEvent.label} onChange={e=>setSmEvent(f=>({...f,label:e.target.value}))}/>

@@ -547,7 +547,8 @@ function _renderHtml() {
   </div>` : "";
   const _pinnedHtml = _otherPinned.length ? `<div class="parent-note" style="background:rgba(232,87,74,0.06);border-color:rgba(232,87,74,0.25)"><div class="pn-label" style="color:#c04040">⚠️ Important</div>${_otherPinned.map(n=>`<div style="margin-bottom:4px">${escapeHtml(n.text||"")}</div>`).join("")}</div>` : "";
   const _notesHtml = familyContext.carerNotes ? `<div class="parent-note"><div class="pn-label">📋 Notes from parents</div>${escapeHtml(familyContext.carerNotes)}</div>` : "";
-  const _comfortHtml = familyContext.carerComfort ? `<div class="parent-note"><div class="pn-label">🧸 Comfort & routine</div>${escapeHtml(familyContext.carerComfort)}</div>` : "";
+  // Note: carerComfort is already rendered in the Soothing Playbook card above — no duplicate here.
+  const _comfortHtml = "";
   // Contacts → tel: buttons
   const _contactsHtml = (familyContext.emergencyContacts||[]).filter(c=>c && c.phone && String(c.phone).trim()).map(c => `
     <a class="call-btn" href="tel:${encodeURIComponent(c.phone)}">
@@ -588,16 +589,18 @@ function _renderHtml() {
       const entries = _t.entries || [];
       const nowM = _nowMins;
       const bedEntry = entries.find(e=>e.type==="sleep"&&!e.night);
-      // Active nap: end is missing, equals start, OR end is within last 5 min (timer updates end every 30s)
+      // Active nap: explicit _active flag (authoritative), missing/equal end,
+      // OR end within last 12 min. Carer page updates every few minutes over network,
+      // so generous window prevents "just woke up" flicker while baby is still sleeping.
       const activeNap = entries.find(e=>{
-        if(e.type!=="nap"||!e.start) return false;
+        if(e.type!=="nap"||!e.start||e.night) return false;
+        if(e._active===true) return true;
         if(!e.end||e.start===e.end) return true;
-        // Check if end time is very recent (nap timer updates end every 30s)
         const [eh,em]=(e.end||"").split(":").map(Number);
         if(isNaN(eh)) return false;
         const endMins = eh*60+em;
         const diff = nowM - endMins;
-        return diff >= 0 && diff <= 5; // within last 5 minutes = still active
+        return diff >= 0 && diff <= 12;
       });
       const lastCompletedNap = (_t.naps||[]).filter(n=>n.end&&n.start!==n.end).pop();
       const wakeEntry = entries.find(e=>e.type==="wake"&&!e.night);
@@ -611,28 +614,37 @@ function _renderHtml() {
       } else if (activeNap) {
         const [sh,sm]=(activeNap.start||"").split(":").map(Number);
         const napElapsed = isNaN(sh)?0:nowM-(sh*60+sm);
-        statusIcon="😴"; statusText=_name+" is napping ("+napElapsed+"min)"; statusColor="#8B7EC8"; statusBg="rgba(139,126,200,0.08)";
+        statusIcon="😴"; statusText=_name+" is napping ("+fmtAgo(napElapsed)+")"; statusColor="#8B7EC8"; statusBg="rgba(139,126,200,0.08)";
+        // Age-aware "long nap" threshold. Naps under 4mo cap around 90m; 4-8mo the
+        // longest nap is typically 1.5-2h; older babies can happily do 2-2.5h naps.
+        // Never warn before the threshold — 1h is NORMAL not long.
+        const _longNapMin = _weeks == null ? 150
+          : _weeks < 17 ? 90      // <4mo: 90m
+          : _weeks < 35 ? 135     // 4-8mo: 2h 15m
+          : _weeks < 52 ? 150     // 8-12mo: 2h 30m
+          : 180;                  // 12mo+: 3h
         if (napElapsed < 20) nextAction = "Let "+_name+" sleep. Don't check on them unless crying — even small noises during light sleep are normal.";
-        else if (napElapsed < 45) nextAction = _name+" is sleeping well. Start getting a bottle ready — they'll be hungry when they wake.";
-        else nextAction = "Long nap! Consider gently waking "+_name+" if it's been over an hour — very long naps can push bedtime late.";
+        else if (napElapsed < 60) nextAction = _name+" is sleeping well. Start getting a bottle ready — they'll be hungry when they wake.";
+        else if (napElapsed < _longNapMin) nextAction = _name+" is having a good restorative nap. Keep the room dark and quiet.";
+        else nextAction = "That's a long one! If "+_name+" is still asleep after "+Math.round(_longNapMin/30)*30+" minutes, you could gently wake them — very long naps can push bedtime late.";
       } else if (_lastFeedAgo !== null && _lastFeedAgo < 30) {
-        statusIcon="🍼"; statusText=_name+" was just fed ("+_lastFeedAgo+"min ago)"; statusColor="#C07088"; statusBg="rgba(192,112,136,0.08)";
+        statusIcon="🍼"; statusText=_name+" was just fed ("+fmtAgo(_lastFeedAgo)+" ago)"; statusColor="#C07088"; statusBg="rgba(192,112,136,0.08)";
         nextAction = "Keep "+_name+" upright for 15-20 min after feeding (reduces spit-up). Then some play time on a mat or your lap.";
       } else if (_lastNapAgo !== null && _lastNapAgo < 15) {
         statusIcon="🌤️"; statusText=_name+" just woke up"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
-        nextAction = "Offer a feed if it's been "+(_lastFeedAgo!==null?_lastFeedAgo+"min":"a while")+" since the last one. "+_name+" will be alert and ready to play for the next "+((_ww?_ww.label:"1-2h")||"1-2h")+".";
+        nextAction = "Offer a feed if it's been "+(_lastFeedAgo!==null?fmtAgo(_lastFeedAgo):"a while")+" since the last one. "+_name+" will be alert and ready to play for the next "+((_ww?_ww.label:"1-2h")||"1-2h")+".";
       } else if (wakeEntry && _ww) {
         const wakeM = parseInt(wakeEntry.time.split(":")[0])*60+parseInt(wakeEntry.time.split(":")[1]);
         const lastSleepEnd = lastCompletedNap ? parseInt(lastCompletedNap.end.split(":")[0])*60+parseInt(lastCompletedNap.end.split(":")[1]) : wakeM;
         const awakeMin = nowM - lastSleepEnd;
         if (awakeMin >= _ww.max) {
-          statusIcon="😫"; statusText=_name+" is getting overtired ("+awakeMin+"min awake)"; statusColor="#E8937A"; statusBg="rgba(232,147,122,0.08)";
+          statusIcon="😫"; statusText=_name+" is getting overtired ("+fmtAgo(awakeMin)+" awake)"; statusColor="#E8937A"; statusBg="rgba(232,147,122,0.08)";
           nextAction = "Try settling "+_name+" for a nap now. Dark room, gentle rocking or shushing. If they fight it for 15+ minutes, try a pram walk or car ride.";
         } else if (awakeMin >= _ww.min) {
-          statusIcon="🥱"; statusText=_name+" is getting sleepy ("+awakeMin+"min awake)"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
+          statusIcon="🥱"; statusText=_name+" is getting sleepy ("+fmtAgo(awakeMin)+" awake)"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
           nextAction = "Watch for sleepy cues: yawning, eye rubbing, looking away. Start the nap routine — dark room, sleeping bag, white noise.";
         } else {
-          statusText = _name+" is awake and happy ("+awakeMin+"min)";
+          statusText = _name+" is awake and happy ("+fmtAgo(awakeMin)+")";
           const minsToNap = _ww.min - awakeMin;
           nextAction = "Play time! "+_name+" has about "+minsToNap+" minutes before they'll start getting sleepy."+((_nextFeedStr && _lastFeedAgo > 90)?" Feed coming up around "+_nextFeedStr+".":"");
         }
