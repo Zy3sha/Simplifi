@@ -4421,6 +4421,12 @@ function App(){
         }
       }
     } catch {}
+    // Force widget/home-screen reload so it picks up the new timer state immediately
+    try {
+      setTimeout(()=>{
+        try { window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{}); } catch {}
+      }, 800);
+    } catch {}
     try { showToast("😴 Timer restored",2000,1); } catch {}
     timerResurrectedRef.current = true;
   }, [days, napOn, babyName]);
@@ -4465,8 +4471,34 @@ function App(){
     console.log("[OBubba] Resurrecting bed timer. day:", _foundDay, "bedtime:", _bedEntry.time);
     setBedTimerDay(_foundDay);
     try { localStorage.setItem("bed_timer_day", _foundDay); } catch {}
+    // Restart the bed Live Activity (Dynamic Island + lock screen) via the
+    // cumulative sleep model: virtualStart = bedtime + totalPausedSec. LA
+    // counts up from there.
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) {
+        const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+        if (_la) {
+          const _pausedSec = parseInt(localStorage.getItem("bed_total_paused_sec"))||0;
+          const _virtualStart = _bedDate.getTime() + (_pausedSec * 1000);
+          _la.stopPrediction?.().catch(()=>{});
+          setTimeout(()=>{
+            _la.stop?.().catch(()=>{});
+            setTimeout(()=>{
+              _la.start?.({type:'sleep',babyName:babyName||'Baby',startTime:_virtualStart}).catch(()=>{});
+            },200);
+          },100);
+        }
+      }
+    } catch {}
+    // Force widget/home-screen reload
+    try {
+      setTimeout(()=>{
+        try { window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{}); } catch {}
+      }, 800);
+    } catch {}
+    try { showToast("🌙 Bedtime timer restored",2000,1); } catch {}
     bedTimerResurrectedRef.current = true;
-  }, [days, bedTimerDay]);
+  }, [days, bedTimerDay, babyName]);
 
   // ── Per-child timer isolation: save/restore timer state on child switch ──
   const prevChildIdRef = useRef(resolvedActiveId);
