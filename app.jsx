@@ -23396,26 +23396,23 @@ function App(){
               const _routineDoneFresh = bedRoutineCompletedAt
                 && !bedEntry && !bedTimerDay
                 && (Date.now() - bedRoutineCompletedAt) < 2*60*60*1000;
-              // STATE 1: routine just finished, waiting for bedtime log
+              // STATE 1: routine just finished, waiting for bedtime log.
+              // Tapping the pill starts the bedtime timer IMMEDIATELY with
+              // the current time (via logBedtimeNow), exactly like tapping
+              // the Bed Now button. No log panel, no form. one tap = done.
               if (_routineDoneFresh) {
                 return (
                   <button onClick={()=>{
-                    haptic();
-                    // Open the main Bed logger. Mirrors the Bed button in
-                    // the quick-log row. If openLogPanel is available use it,
-                    // otherwise fall back to starting the bed timer directly.
-                    try {
-                      if (typeof openLogPanel === "function") { openLogPanel("sleep"); return; }
-                    } catch(_) {}
-                    try {
-                      if (typeof startBed === "function") { startBed(); return; }
-                    } catch(_) {}
-                    // Last resort: set the log panel directly.
-                    try { setLogPanel("sleep"); } catch(_) {}
+                    haptic("medium");
+                    try { logBedtimeNow(); } catch(e) { console.warn("[OBubba] logBedtimeNow from routine pill failed", e); }
+                    // Clear the routine-done flag so the pill immediately
+                    // flips to the live bedtime elapsed timer.
+                    try { setBedRoutineCompletedAt(null); } catch(_) {}
+                    showToast("🌙 Bedtime started. sleep well 💛", 2500, 1);
                   }}
                     style={{background:"linear-gradient(135deg,rgba(123,104,238,0.25),rgba(123,104,238,0.12))",border:"1.5px solid rgba(123,104,238,0.45)",borderRadius:99,padding:"7px 14px",display:"flex",alignItems:"center",gap:6,cursor:_cP,boxShadow:"0 2px 10px rgba(123,104,238,0.2)",animation:"candlePulse 3s ease-in-out infinite"}}>
                     <span style={{fontSize:14}}>🌙</span>
-                    <span style={{fontSize:12,fontWeight:800,color:"#7B68EE"}}>Log bedtime now</span>
+                    <span style={{fontSize:12,fontWeight:800,color:"#7B68EE"}}>Start bedtime now</span>
                     <span style={{fontSize:10,color:"rgba(123,104,238,0.7)",fontWeight:600}}>routine ✓</span>
                   </button>
                 );
@@ -34542,9 +34539,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   setShowBedRoutine(false);
                   setBedRoutineStep(0);
                   setBedRoutineStart(null);
-                  // Flip the hero pill from 'Start routine' to 'Log bedtime now'.
+                  // Flip the hero pill from 'Start routine' to 'Start bedtime now'.
+                  // One tap on that pill will start the bedtime timer.
                   setBedRoutineCompletedAt(Date.now());
-                  showToast("🌙 Routine complete. tap 🌙 to log bedtime 💛", 3000, 1);
+                  showToast("🌙 Routine complete. tap 🌙 to start bedtime timer 💛", 3000, 1);
                 }} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
                   Done. goodnight 🌙
                 </button>
