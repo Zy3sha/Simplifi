@@ -1045,47 +1045,200 @@ function daysSinceAllergen(weaningLog, allergenId) {
 
 // ── Weaning: milk-to-solid ratio by age (NHS/WHO guidance) ──
 // Returns age-appropriate targets and current status
-function getWeaningRatio(ageWeeks, dayEntries) {
-  if (!ageWeeks || ageWeeks < 22) return null; // Not relevant before ~5.5mo
+// ═══ Milk vs Solids intelligence ═══
+// Returns personalised milk targets that KNOW whether today is a solid-trial
+// day or a milk-only day. Parents doing First Tastes (like Oliver at 5.5mo
+// with 1 solid meal a day) naturally drink less milk on solid days. Comparing
+// today's intake to a flat NHS "600ml minimum" is confusing and causes
+// needless worry. We compare today to:
+//   1. NHS age-appropriate floor (the safety net)
+//   2. BABY's personal average on solid days (the "is this normal for US?" answer)
+//   3. BABY's personal average on milk-only days (the baseline comparison)
+function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
+  // Some callers pass an age object by mistake. Normalise to a number.
+  if (ageWeeks && typeof ageWeeks === "object") {
+    ageWeeks = ageWeeks.predictiveWeeks ?? ageWeeks.totalWeeks ?? null;
+  }
+  if (typeof ageWeeks !== "number" || !ageWeeks || ageWeeks < 20) return null;
   const months = ageWeeks / 4.33;
 
-  // NHS/WHO milk-to-solid guidance by age
-  let milkMin, milkTarget, solidMeals, ratioLabel, guidance;
-  if (months < 6)       { milkMin=500; milkTarget=600; solidMeals=0; ratioLabel="100% milk"; guidance="Milk is all baby needs right now. NHS recommends starting solids from around 6 months."; }
-  else if (months < 7)  { milkMin=500; milkTarget=600; solidMeals=1; ratioLabel="~90% milk / 10% solids"; guidance="Just starting. offer tastes alongside full milk feeds. Solids complement, never replace milk."; }
-  else if (months < 8)  { milkMin=500; milkTarget=550; solidMeals=2; ratioLabel="~75% milk / 25% solids"; guidance="Building up to 2 meals. Milk stays the primary nutrition source."; }
-  else if (months < 10) { milkMin=500; milkTarget=550; solidMeals=3; ratioLabel="~60% milk / 40% solids"; guidance="3 meals a day alongside milk. Variety matters more than quantity right now."; }
-  else if (months < 12) { milkMin=400; milkTarget=500; solidMeals=3; ratioLabel="~45% milk / 55% solids"; guidance="Solids becoming a bigger part of the diet. Keep milk at 400-500ml minimum."; }
-  else                  { milkMin=300; milkTarget=400; solidMeals=3; ratioLabel="~30% milk / 70% solids"; guidance="Food should now be the main source of nutrition. 300-400ml milk supports calcium needs."; }
+  // Has baby actually started solids? (any solid feed logged ever)
+  const _daysList = allDays && typeof allDays === "object" ? Object.values(allDays) : [];
+  const _hasEverHadSolids = weaningStartedFlag || _daysList.some(arr =>
+    Array.isArray(arr) && arr.some(e => e && e.type === "feed" && e.feedType === "solids")
+  );
 
-  if (!dayEntries || !dayEntries.length) return { ageWeeks, months, milkMin, milkTarget, solidMeals, ratioLabel, guidance, showSolids: months >= 5.5 };
+  // NHS/WHO milk-to-solid guidance by age. milkMin is the NHS FLOOR, not
+  // a target. milkTarget is the typical intake on a NO-solid day.
+  let milkMin, milkTarget, solidMeals, ratioLabel, guidance, stageLabel;
+  if (months < 6) {
+    milkMin = 500; milkTarget = 600; solidMeals = 0;
+    ratioLabel = "100% milk";
+    stageLabel = "Milk only";
+    guidance = _hasEverHadSolids
+      ? "Early First Tastes phase. Solids are just exploration. milk is still " + Math.round(100) + "% of nutrition. Expect milk to drop slightly on solid-trial days as baby fills up on the tastes, but it should bounce back."
+      : "Milk is all baby needs right now. NHS recommends starting solids from around 6 months when baby shows readiness signs.";
+  } else if (months < 7) {
+    milkMin = 500; milkTarget = 600; solidMeals = 1;
+    ratioLabel = "~90% milk / 10% solids";
+    stageLabel = "First Tastes";
+    guidance = "Solids are practice, not nutrition. Offer tastes AFTER a full milk feed so baby isn't too hungry or too full. Milk intake may dip 50-100ml on trial days. that's normal.";
+  } else if (months < 8) {
+    milkMin = 500; milkTarget = 550; solidMeals = 2;
+    ratioLabel = "~75% milk / 25% solids";
+    stageLabel = "Building meals";
+    guidance = "Moving to 2 meals. Milk stays the primary source but expect a natural dip as baby explores textures and flavours.";
+  } else if (months < 10) {
+    milkMin = 500; milkTarget = 550; solidMeals = 3;
+    ratioLabel = "~60% milk / 40% solids";
+    stageLabel = "Three meals";
+    guidance = "3 meals a day alongside milk. Variety matters more than quantity. don't force finishing.";
+  } else if (months < 12) {
+    milkMin = 400; milkTarget = 500; solidMeals = 3;
+    ratioLabel = "~45% milk / 55% solids";
+    stageLabel = "Solid-led";
+    guidance = "Solids becoming a bigger part of the diet. Keep milk at 400-500ml minimum.";
+  } else {
+    milkMin = 300; milkTarget = 400; solidMeals = 3;
+    ratioLabel = "~30% milk / 70% solids";
+    stageLabel = "Food first";
+    guidance = "Food is now the main source of nutrition. 300-400ml milk supports calcium needs.";
+  }
 
-  // Calculate today's actuals
-  const milkFeeds = dayEntries.filter(e => e.type === "feed" && e.feedType !== "solids" && !e.night);
-  const solidFeeds = dayEntries.filter(e => e.type === "feed" && e.feedType === "solids" && !e.night);
+  // Today's actuals
+  const todayEntries = dayEntries || [];
+  const milkFeeds = todayEntries.filter(e => e.type === "feed" && e.feedType !== "solids" && !e.night);
+  const solidFeeds = todayEntries.filter(e => e.type === "feed" && e.feedType === "solids" && !e.night);
   const totalMilkMl = milkFeeds.reduce((s, f) => s + (f.amount || 0), 0);
   const solidCount = solidFeeds.length;
+  const hasSolidsToday = solidCount > 0;
 
-  // Status assessment
-  let milkStatus = "ok", solidStatus = "ok", alert = null;
-  if (totalMilkMl > 0 && totalMilkMl < milkMin && months < 12) {
-    milkStatus = "low";
-    alert = "Milk intake (" + totalMilkMl + "ml) is below the NHS minimum of " + milkMin + "ml. Solids should complement milk, not replace it before 12 months.";
-  } else if (totalMilkMl > 0 && totalMilkMl > 700 && months >= 12) {
-    milkStatus = "high";
-    alert = "Milk intake (" + totalMilkMl + "ml) is higher than recommended after 12 months. Ensure solids are the main nutrition source.";
+  // ── PERSONAL AVERAGES from recent days ──
+  // Split last 14 days into "solid days" and "milk-only days" and compute
+  // the median milk intake on each type. This gives us a "what's normal for
+  // YOU" benchmark instead of a flat NHS target that doesn't account for
+  // baby's personal patterns.
+  let solidDayAvg = null, milkOnlyDayAvg = null, solidDayCount = 0, milkOnlyDayCount = 0;
+  let solidDaySamples = [], milkOnlySamples = [];
+  try {
+    if (allDays && typeof allDays === "object") {
+      const _dayKeys = Object.keys(allDays).sort().slice(-14);
+      _dayKeys.forEach(_dk => {
+        const _arr = allDays[_dk] || [];
+        if (!Array.isArray(_arr) || _arr.length === 0) return;
+        const _dayMilk = _arr.filter(e => e.type === "feed" && e.feedType !== "solids" && !e.night);
+        const _daySolids = _arr.filter(e => e.type === "feed" && e.feedType === "solids" && !e.night);
+        const _dayTotal = _dayMilk.reduce((s, f) => s + (f.amount || 0), 0);
+        if (_dayTotal < 100) return; // day probably incomplete
+        if (_daySolids.length > 0) {
+          solidDaySamples.push(_dayTotal);
+        } else {
+          milkOnlySamples.push(_dayTotal);
+        }
+      });
+      solidDayCount = solidDaySamples.length;
+      milkOnlyDayCount = milkOnlySamples.length;
+      if (solidDaySamples.length >= 2) {
+        solidDaySamples.sort((a, b) => a - b);
+        solidDayAvg = solidDaySamples[Math.floor(solidDaySamples.length / 2)];
+      }
+      if (milkOnlySamples.length >= 2) {
+        milkOnlySamples.sort((a, b) => a - b);
+        milkOnlyDayAvg = milkOnlySamples[Math.floor(milkOnlySamples.length / 2)];
+      }
+    }
+  } catch (_) {}
+
+  // ── "Is today normal?" status ──
+  // Pick the relevant personal baseline. If today has solids AND we have
+  // solid-day samples, compare against that. Otherwise compare against
+  // milk-only samples OR the NHS target.
+  let personalTarget = null;
+  let personalLabel = null;
+  let statusTone = "ok"; // ok | attention | low | high
+  let statusMsg = null;
+
+  if (hasSolidsToday && solidDayAvg) {
+    personalTarget = solidDayAvg;
+    personalLabel = "your typical solid-day milk intake";
+  } else if (!hasSolidsToday && milkOnlyDayAvg) {
+    personalTarget = milkOnlyDayAvg;
+    personalLabel = "your typical milk-only day";
+  } else if (milkOnlyDayAvg) {
+    personalTarget = milkOnlyDayAvg;
+    personalLabel = "your typical daily intake";
   }
-  if (months >= 8 && solidCount === 0) {
-    solidStatus = "low";
-    if (!alert) alert = "No solid meals logged today. NHS recommends " + solidMeals + " meals by " + Math.round(months) + " months.";
+
+  if (totalMilkMl === 0) {
+    statusMsg = "No milk logged yet today.";
+    statusTone = "ok";
+  } else if (personalTarget) {
+    const _ratio = totalMilkMl / personalTarget;
+    if (_ratio >= 0.85 && _ratio <= 1.15) {
+      statusTone = "ok";
+      statusMsg = "✓ Right on track with " + (hasSolidsToday ? "a typical solid-trial day" : "your baseline") + ".";
+    } else if (_ratio > 1.15) {
+      statusTone = "ok";
+      statusMsg = "✓ A bit higher than usual today. great intake.";
+    } else if (_ratio >= 0.7) {
+      statusTone = "attention";
+      statusMsg = hasSolidsToday
+        ? "Slightly below your solid-day average. normal if baby filled up on tastes. watch for sleepy or hungry cues."
+        : "A bit below your usual. offer the next feed on demand, don't wait by the clock.";
+    } else {
+      statusTone = "low";
+      statusMsg = hasSolidsToday
+        ? "Well below your solid-day average. if baby had a big solid meal, this is expected. Otherwise, encourage the next milk feed."
+        : "Well below usual. offer a feed soon and watch nappy output.";
+    }
+  } else {
+    // No personal baseline yet — fall back to NHS guidance
+    if (totalMilkMl < milkMin && months < 12 && totalMilkMl > 0) {
+      statusTone = "attention";
+      statusMsg = "Below NHS minimum (" + milkMin + "ml). Keep offering milk on demand — log a few more days so I can learn " + "your baby" + "'s personal rhythm.";
+    } else if (totalMilkMl > 0) {
+      statusTone = "ok";
+      statusMsg = "Tracking nicely. Log a few more days so I can compare to your personal average.";
+    }
+  }
+
+  // NHS floor alert (always shown if crossed)
+  let nhsAlert = null;
+  if (totalMilkMl > 0 && totalMilkMl < milkMin && months < 12) {
+    nhsAlert = "Below NHS minimum " + milkMin + "ml for " + Math.round(months*10)/10 + "mo";
+  }
+  if (totalMilkMl > 700 && months >= 12) {
+    nhsAlert = "Above " + (months >= 12 ? "recommended post-12mo max" : "typical max");
   }
 
   return {
-    ageWeeks, months: Math.round(months * 10) / 10,
-    milkMin, milkTarget, solidMeals, ratioLabel, guidance,
-    totalMilkMl, solidCount, milkFeeds: milkFeeds.length,
-    milkStatus, solidStatus, alert,
-    showSolids: months >= 5.5
+    ageWeeks,
+    months: Math.round(months * 10) / 10,
+    stageLabel,
+    ratioLabel,
+    guidance,
+    // NHS safety floor
+    milkMin,
+    milkTarget,
+    solidMeals,
+    // Today's actuals
+    totalMilkMl,
+    solidCount,
+    milkFeedCount: milkFeeds.length,
+    hasSolidsToday,
+    hasEverHadSolids: _hasEverHadSolids,
+    // Personal rhythm
+    solidDayAvg,
+    milkOnlyDayAvg,
+    solidDayCount,
+    milkOnlyDayCount,
+    personalTarget,
+    personalLabel,
+    // Status
+    statusTone,
+    statusMsg,
+    nhsAlert,
+    showSolids: months >= 5.0 || _hasEverHadSolids,
   };
 }
 
@@ -25673,23 +25826,111 @@ function App(){
                 );
               })()}
 
-              {/* Milk:Solids ratio on Plan tab */}
-              {age && (weaningStarted || (weaning||[]).length > 0 || ((age.predictiveWeeks??age.totalWeeks)) >= 26) && (()=>{
+              {/* ═══ Milk vs Solids. personal-rhythm aware ═══ */}
+              {age && (weaningStarted || (weaning||[]).length > 0 || ((age.predictiveWeeks??age.totalWeeks)) >= 22) && (()=>{
                 const _aw2 = (age.predictiveWeeks??age.totalWeeks);
-                const _wr = getWeaningRatio ? getWeaningRatio(_aw2, days[selDay]||[]) : null;
+                const _wr = getWeaningRatio ? getWeaningRatio(_aw2, days[selDay]||[], days, weaningStarted) : null;
                 if (!_wr || !_wr.showSolids) return null;
-                const milkPct = _wr.months < 6 ? 100 : _wr.months < 7 ? 90 : _wr.months < 8 ? 75 : _wr.months < 10 ? 60 : _wr.months < 12 ? 45 : 30;
+
+                // Today's primary number: milk volume
+                const _milk = _wr.totalMilkMl || 0;
+                // Compare against personal target if available, else NHS target
+                const _compareTo = _wr.personalTarget || _wr.milkTarget;
+                const _pct = _compareTo > 0 ? Math.min(120, Math.round((_milk / _compareTo) * 100)) : 0;
+                // Status palette
+                const _toneColors = {
+                  ok:        { bg: C.mint + "10", border: C.mint + "40", bar: C.mint,    accent: C.mint },
+                  attention: { bg: C.gold + "10", border: C.gold + "40", bar: C.gold,    accent: C.gold },
+                  low:       { bg: C.ter  + "10", border: C.ter  + "40", bar: C.ter,     accent: C.ter  },
+                  high:      { bg: C.ter  + "10", border: C.ter  + "40", bar: C.ter,     accent: C.ter  },
+                };
+                const _t = _toneColors[_wr.statusTone] || _toneColors.ok;
+
                 return (
-                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:"var(--card-bg-alt)",border:`1px solid var(--card-border)`}}>
-                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>🍼🥕 Milk vs Solids</div>
-                    <div style={{display:"flex",height:20,borderRadius:99,overflow:"hidden",marginBottom:6,border:"1px solid var(--card-border)"}}>
-                      <div style={{width:milkPct+"%",background:"linear-gradient(90deg,#C07088,#d88a9a)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"white"}}>🍼 {milkPct}%</div>
-                      <div style={{width:(100-milkPct)+"%",background:"linear-gradient(90deg,#6FA898,#8BC4A8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:"white"}}>{100-milkPct > 15 ? "🥕 "+(100-milkPct)+"%" : ""}</div>
+                  <div style={{marginBottom:10,padding:"14px 16px",borderRadius:16,background:_t.bg,border:`1.5px solid ${_t.border}`}}>
+                    {/* Header: stage + today's big milk number */}
+                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10,gap:10}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>🍼 Milk today</div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{_milk}<span style={{fontSize:13,color:C.lt,fontWeight:500,marginLeft:3}}>ml</span></div>
+                        <div style={{fontSize:10,color:C.lt,marginTop:2}}>{_wr.milkFeedCount} feed{_wr.milkFeedCount===1?"":"s"} · {_wr.stageLabel}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>🥕 Solids</div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{_wr.solidCount}<span style={{fontSize:13,color:C.lt,fontWeight:500,marginLeft:3}}>meal{_wr.solidCount===1?"":"s"}</span></div>
+                        {_wr.solidMeals > 0 && <div style={{fontSize:10,color:C.lt,marginTop:2}}>target: {_wr.solidMeals}/day</div>}
+                      </div>
                     </div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.mid}}>
-                      <span>Milk: {_wr.totalMilkMl||0}ml / {_wr.milkTarget}ml</span>
-                      <span>Solids: {_wr.solidCount||0} / {_wr.solidMeals} meals</span>
-                    </div>
+
+                    {/* Progress bar vs personal/NHS target */}
+                    {_compareTo > 0 && _milk > 0 && (
+                      <div style={{marginBottom:8}}>
+                        <div style={{height:8,borderRadius:99,background:"var(--card-bg)",overflow:"hidden",marginBottom:4,border:"1px solid var(--card-border)"}}>
+                          <div style={{width:Math.min(100,_pct)+"%",height:"100%",background:_t.bar,transition:"width 0.4s"}}/>
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.lt}}>
+                          <span>{_pct}% of {_wr.personalTarget ? "your usual" : "NHS target"}</span>
+                          <span>{_compareTo}ml {_wr.personalTarget ? "(personal)" : "(NHS)"}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Status message — the "is this normal?" answer */}
+                    {_wr.statusMsg && (
+                      <div style={{fontSize:12,color:_t.accent,fontWeight:600,marginBottom:8,lineHeight:1.4}}>{_wr.statusMsg}</div>
+                    )}
+
+                    {/* Personal-rhythm breakdown. what's normal for US */}
+                    {(_wr.solidDayAvg || _wr.milkOnlyDayAvg) && (
+                      <div style={{padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)",marginBottom:8}}>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>📊 What's normal for {babyName||"baby"}</div>
+                        {_wr.solidDayAvg && (
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
+                            <span style={{color:C.mid}}>🥕 On solid-trial days</span>
+                            <span style={{color:C.deep,fontWeight:700}}>~{_wr.solidDayAvg}ml <span style={{fontSize:9,color:C.lt,fontWeight:500}}>({_wr.solidDayCount} days)</span></span>
+                          </div>
+                        )}
+                        {_wr.milkOnlyDayAvg && (
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
+                            <span style={{color:C.mid}}>🍼 On milk-only days</span>
+                            <span style={{color:C.deep,fontWeight:700}}>~{_wr.milkOnlyDayAvg}ml <span style={{fontSize:9,color:C.lt,fontWeight:500}}>({_wr.milkOnlyDayCount} days)</span></span>
+                          </div>
+                        )}
+                        {_wr.solidDayAvg && _wr.milkOnlyDayAvg && (
+                          <div style={{fontSize:10,color:C.lt,marginTop:4,fontStyle:"italic",lineHeight:1.4}}>
+                            On average {babyName||"baby"} drinks {Math.max(0, _wr.milkOnlyDayAvg - _wr.solidDayAvg)}ml less when having solids. this is totally normal — solids fill little tummies.
+                          </div>
+                        )}
+                        {(_wr.solidDayAvg && !_wr.milkOnlyDayAvg) || (!_wr.solidDayAvg && _wr.milkOnlyDayAvg) ? (
+                          <div style={{fontSize:10,color:C.lt,marginTop:4,fontStyle:"italic",lineHeight:1.4}}>
+                            Log a few more days so I can show both patterns side by side.
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* Still learning */}
+                    {!_wr.solidDayAvg && !_wr.milkOnlyDayAvg && (
+                      <div style={{fontSize:10,color:C.lt,marginBottom:8,fontStyle:"italic",lineHeight:1.4}}>
+                        💡 Log a few more days and I'll start showing {babyName||"your baby"}'s personal solid-day vs milk-only patterns right here.
+                      </div>
+                    )}
+
+                    {/* NHS minimum + guidance collapsible */}
+                    <details style={{marginTop:4}}>
+                      <summary style={{fontSize:10,color:C.lt,cursor:_cP,listStyle:"none",userSelect:"none"}}>ℹ️ NHS guidance for {_wr.months}mo · {_wr.ratioLabel}</summary>
+                      <div style={{fontSize:11,color:C.mid,marginTop:6,lineHeight:1.5,paddingLeft:2}}>
+                        <div style={{marginBottom:4}}><strong>NHS minimum:</strong> {_wr.milkMin}ml milk/day{_wr.months < 12 ? " (until 12 months)" : ""}</div>
+                        <div>{_wr.guidance}</div>
+                      </div>
+                    </details>
+
+                    {/* Hard NHS alert if below floor */}
+                    {_wr.nhsAlert && (
+                      <div style={{marginTop:8,padding:"6px 10px",borderRadius:8,background:C.ter+"15",border:`1px solid ${C.ter}30`,fontSize:11,color:C.ter,fontWeight:600}}>
+                        ⚠️ {_wr.nhsAlert}
+                      </div>
+                    )}
                   </div>
                 );
               })()}
