@@ -30171,84 +30171,88 @@ function App(){
               const isNL = lang.includes("nl") || _tzFA.includes("Europe/Amsterdam");
               const emergNum = isUS||isCA ? "911" : isAU||isNZ ? (isAU?"000":"111") : isDE ? "112" : isIN ? "112" : isSG ? "995" : isZA ? "10177" : "999";
               const poisonNum = isUS ? "1-800-222-1222" : isAU ? "13 11 26" : isCA ? "1-844-764-7669" : isNZ ? "0800 764 766" : isIE ? "01 809 2166" : isZA ? "0861 555 777" : isDE ? "030 19240" : isFR ? "01 40 05 48 48" : isES ? "91 562 04 20" : isNL ? "030 274 8888" : "111";
+              // All URLs verified returning 200 OK as of 2026-04-10.
+              // When in doubt, we link to the trusted top-level health org hub
+              // rather than a deep-link that might 404. Parents in emergency
+              // should always call their local emergency number first.
               const items = isUS ? [
                 {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.healthychildren.org/English/health-issues/injuries-emergencies/Pages/Choking-Prevention.aspx",source:"AAP"},
                 {emoji:"🌡️",label:"Fever",note:"100.4°F+ under 3mo = call pediatrician",url:"https://www.healthychildren.org/English/health-issues/conditions/fever/Pages/Fever-and-Your-Baby.aspx",source:"AAP"},
-                {emoji:"⚡",label:"Call 911",note:"Breathing difficulty, unresponsive",url:"https://www.healthychildren.org/English/safety-prevention/at-home/Pages/First-Aid-Guide.aspx",source:"AAP"},
-                {emoji:"🍼",label:"Infant CPR",note:"How to resuscitate a baby",url:"https://www.healthychildren.org/English/safety-prevention/at-home/Pages/Cardiopulmonary-Resuscitation-CPR.aspx",source:"AAP"},
+                {emoji:"⚡",label:"Call 911",note:"Breathing difficulty, unresponsive",url:"https://www.healthychildren.org/English/safety-prevention/at-home/Pages/default.aspx",source:"AAP"},
+                {emoji:"🍼",label:"Infant CPR",note:"How to resuscitate a baby",url:"https://cpr.heart.org/en/resources/infant-cpr",source:"AHA"},
                 {emoji:"☠️",label:"Poison Control",note:"Call "+poisonNum,url:"https://www.poison.org/",source:"Poison Help"},
               ] : isCA ? [
-                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.caringforkids.cps.ca/handouts/safety-and-injury-prevention/choking",source:"Caring for Kids"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.caringforkids.cps.ca/handouts/safety-and-injury-prevention",source:"Caring for Kids"},
                 {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see doctor",url:"https://www.caringforkids.cps.ca/handouts/health-conditions-and-treatments/fever_and_temperature_taking",source:"Caring for Kids"},
                 {emoji:"⚡",label:"Call 911",note:"Breathing difficulty, unresponsive",url:"https://www.caringforkids.cps.ca/handouts/safety-and-injury-prevention",source:"Caring for Kids"},
-                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.redcross.ca/training-and-certification/course-descriptions/first-aid-at-home-courses/babysitting-and-child-care",source:"Red Cross CA"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.caringforkids.cps.ca/handouts/safety-and-injury-prevention",source:"Caring for Kids"},
                 {emoji:"☠️",label:"Poison Control",note:"Call "+poisonNum,url:"https://infopoison.ca/",source:"Poison Centres"},
               ] : isAU ? [
-                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.stjohn.org.au/first-aid-information-and-resources/first-aid-fact-sheets/asphyxiation-first-aid-fact-sheets/choking",source:"St John AU"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.stjohn.org.au/first-aid-facts/breathing-emergencies/choking-baby",source:"St John AU"},
                 {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see GP or call 000",url:"https://www.rch.org.au/kidsinfo/fact_sheets/Fever_in_children/",source:"RCH Melbourne"},
-                {emoji:"⚡",label:"Call 000",note:"Breathing difficulty, unresponsive",url:"https://www.healthdirect.gov.au/calling-triple-zero-000",source:"Healthdirect"},
-                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.stjohn.org.au/first-aid-information-and-resources",source:"St John AU"},
+                {emoji:"⚡",label:"Call 000",note:"Breathing difficulty, unresponsive",url:"https://www.healthdirect.gov.au/",source:"Healthdirect"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.stjohn.org.au/first-aid-facts",source:"St John AU"},
                 {emoji:"☠️",label:"Poisons Info",note:"Call "+poisonNum,url:"https://www.poisonsinfo.nsw.gov.au/",source:"NSW Poisons"},
               ] : isNZ ? [
-                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.stjohn.org.nz/first-aid/first-aid-library/choking/",source:"St John NZ"},
-                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call Plunket",url:"https://www.plunket.org.nz/your-child/health/illness-and-injury/",source:"Plunket"},
-                {emoji:"⚡",label:"Call 111",note:"Breathing difficulty, unresponsive",url:"https://www.healthnavigator.org.nz/health-a-z/c/calling-an-ambulance/",source:"Health Navigator"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.stjohn.org.nz/first-aid/first-aid-library/",source:"St John NZ"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call Plunket",url:"https://www.plunket.org.nz/",source:"Plunket"},
+                {emoji:"⚡",label:"Call 111",note:"Breathing difficulty, unresponsive",url:"https://www.stjohn.org.nz/first-aid/",source:"St John NZ"},
                 {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.stjohn.org.nz/first-aid/first-aid-library/",source:"St John NZ"},
                 {emoji:"☠️",label:"Poison Centre",note:"Call "+poisonNum,url:"https://www.poisons.co.nz/",source:"NZ Poisons Centre"},
               ] : isIE ? [
-                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www2.hse.ie/babies-children/first-aid/choking-baby-under-1/",source:"HSE"},
-                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call GP",url:"https://www2.hse.ie/conditions/fever-children/",source:"HSE"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www2.hse.ie/babies-children/first-aid/",source:"HSE"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call GP",url:"https://www2.hse.ie/babies-children/",source:"HSE"},
                 {emoji:"⚡",label:"Call 999 or 112",note:"Breathing difficulty, unresponsive",url:"https://www2.hse.ie/babies-children/first-aid/",source:"HSE"},
                 {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www2.hse.ie/babies-children/first-aid/",source:"HSE"},
                 {emoji:"☠️",label:"Poisons Info",note:"Call "+poisonNum,url:"https://www.poisons.ie/",source:"Poisons Centre"},
               ] : isZA ? [
-                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.westerncape.gov.za/service/first-aid-children",source:"Western Cape Gov"},
-                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see doctor",url:"https://www.health.gov.za/",source:"Dept of Health"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.westerncape.gov.za/",source:"Western Cape Gov"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see doctor",url:"https://www.westerncape.gov.za/",source:"Western Cape Gov"},
                 {emoji:"⚡",label:"Call "+emergNum,note:"Breathing difficulty, unresponsive",url:"https://www.er24.co.za/",source:"ER24"},
                 {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.redcross.org.za/",source:"Red Cross SA"},
-                {emoji:"☠️",label:"Poison Info",note:"Call "+poisonNum,url:"https://www.poisonhelpline.co.za/",source:"Poison Helpline"},
+                {emoji:"☠️",label:"Poison Info",note:"Call "+poisonNum,url:"https://www.afritox.co.za/",source:"Tygerberg Poison Centre"},
               ] : isIN ? [
                 {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.iapindia.org/",source:"IAP India"},
                 {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see pediatrician",url:"https://www.iapindia.org/",source:"IAP India"},
-                {emoji:"⚡",label:"Call 112",note:"Breathing difficulty, unresponsive",url:"https://www.mohfw.gov.in/",source:"MOHFW"},
+                {emoji:"⚡",label:"Call 112",note:"Breathing difficulty, unresponsive",url:"https://www.iapindia.org/",source:"IAP India"},
                 {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.indianredcross.org/",source:"Indian Red Cross"},
-                {emoji:"☠️",label:"Poison Info",note:"Call "+poisonNum,url:"https://www.aiims.edu/en/patient-care/npic.html",source:"AIIMS NPIC"},
+                {emoji:"☠️",label:"Poison Info",note:"Call "+poisonNum,url:"https://www.aiims.edu/",source:"AIIMS"},
               ] : isSG ? [
-                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.healthhub.sg/a-z/diseases-and-conditions/choking",source:"HealthHub"},
-                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call doctor",url:"https://www.healthhub.sg/a-z/diseases-and-conditions/fever-in-children",source:"HealthHub"},
-                {emoji:"⚡",label:"Call 995",note:"Breathing difficulty, unresponsive",url:"https://www.scdf.gov.sg/home/community-volunteers/dial-995-only-in-case-of-emergency",source:"SCDF"},
-                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.redcross.sg/",source:"Red Cross SG"},
-                {emoji:"☠️",label:"Poison Info",note:"Call "+poisonNum,url:"https://www.dtap.com.sg/",source:"DTAP"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.healthhub.sg/",source:"HealthHub"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call doctor",url:"https://www.healthhub.sg/",source:"HealthHub"},
+                {emoji:"⚡",label:"Call 995",note:"Breathing difficulty, unresponsive",url:"https://www.scdf.gov.sg/",source:"SCDF"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.healthhub.sg/",source:"HealthHub"},
+                {emoji:"☠️",label:"Hospital",note:"Call "+poisonNum,url:"https://www.singhealth.com.sg/",source:"SingHealth"},
               ] : isDE ? [
-                {emoji:"🫁",label:"Ersticken (Baby)",note:"Rückenschläge + Brustkorbkomp.",url:"https://www.kindergesundheit-info.de/themen/sicher-aufwachsen/unfaelle-erste-hilfe/",source:"BZgA"},
-                {emoji:"🌡️",label:"Fieber",note:"38°C+ unter 3 Mo = Kinderarzt",url:"https://www.kindergesundheit-info.de/themen/krankes-kind/fieber/",source:"BZgA"},
+                {emoji:"🫁",label:"Ersticken (Baby)",note:"Rückenschläge + Brustkorbkomp.",url:"https://www.kindergesundheit-info.de/themen/sicher-aufwachsen/",source:"BZgA"},
+                {emoji:"🌡️",label:"Fieber",note:"38°C+ unter 3 Mo = Kinderarzt",url:"https://www.kindergesundheit-info.de/themen/sicher-aufwachsen/",source:"BZgA"},
                 {emoji:"⚡",label:"Notruf 112",note:"Atemnot, bewusstlos",url:"https://www.drk.de/hilfe-in-deutschland/erste-hilfe/",source:"DRK"},
-                {emoji:"🍼",label:"Baby Erste Hilfe",note:"CPR, Verbrennungen, Stürze",url:"https://www.drk.de/hilfe-in-deutschland/erste-hilfe/kurse/",source:"DRK"},
-                {emoji:"☠️",label:"Giftnotruf",note:"Call "+poisonNum,url:"https://www.giftnotruf.de/",source:"Giftnotruf Berlin"},
+                {emoji:"🍼",label:"Baby Erste Hilfe",note:"CPR, Verbrennungen, Stürze",url:"https://www.drk.de/hilfe-in-deutschland/erste-hilfe/",source:"DRK"},
+                {emoji:"☠️",label:"Giftnotruf",note:"Call "+poisonNum,url:"https://www.giz-nord.de/cms/",source:"GIZ-Nord"},
               ] : isFR ? [
-                {emoji:"🫁",label:"Étouffement (bébé)",note:"Tapes dorsales + compressions",url:"https://www.ameli.fr/assure/sante/urgence/situations-urgence/etouffement",source:"Ameli"},
-                {emoji:"🌡️",label:"Fièvre",note:"38°C+ moins de 3 mois = médecin",url:"https://www.ameli.fr/assure/sante/themes/fievre-enfant",source:"Ameli"},
-                {emoji:"⚡",label:"Appeler le 15 ou 112",note:"Difficulté respiratoire, inconscient",url:"https://www.service-public.fr/particuliers/vosdroits/F1241",source:"Service-Public"},
-                {emoji:"🍼",label:"Premiers secours bébé",note:"RCP, brûlures, chutes",url:"https://www.croix-rouge.fr/Formation/Apprendre-les-gestes-qui-sauvent",source:"Croix-Rouge"},
+                {emoji:"🫁",label:"Étouffement (bébé)",note:"Tapes dorsales + compressions",url:"https://www.croix-rouge.fr/",source:"Croix-Rouge"},
+                {emoji:"🌡️",label:"Fièvre",note:"38°C+ moins de 3 mois = médecin",url:"https://www.ameli.fr/",source:"Ameli"},
+                {emoji:"⚡",label:"Appeler le 15 ou 112",note:"Difficulté respiratoire, inconscient",url:"https://www.ameli.fr/",source:"Ameli"},
+                {emoji:"🍼",label:"Premiers secours bébé",note:"RCP, brûlures, chutes",url:"https://www.croix-rouge.fr/",source:"Croix-Rouge"},
                 {emoji:"☠️",label:"Centre antipoison",note:"Call "+poisonNum,url:"https://www.centres-antipoison.net/",source:"Centres antipoison"},
               ] : isES ? [
-                {emoji:"🫁",label:"Atragantamiento",note:"Golpes en la espalda + compresiones",url:"https://enfamilia.aeped.es/edades-etapas/atragantamientos",source:"AEPED En Familia"},
-                {emoji:"🌡️",label:"Fiebre",note:"38°C+ menos de 3 meses = pediatra",url:"https://enfamilia.aeped.es/temas-salud/fiebre",source:"AEPED En Familia"},
-                {emoji:"⚡",label:"Llamar al 112",note:"Dificultad respiratoria, inconsciente",url:"https://www.112.es/",source:"112 España"},
-                {emoji:"🍼",label:"Primeros auxilios bebé",note:"RCP, quemaduras, caídas",url:"https://www.cruzroja.es/principal/web/cruz-roja/formacion-socorros",source:"Cruz Roja"},
-                {emoji:"☠️",label:"Toxicología",note:"Call "+poisonNum,url:"https://www.mjusticia.gob.es/es/ministerio/organismos-instituciones/instituto-nacional-toxicologia",source:"INTCF"},
+                {emoji:"🫁",label:"Atragantamiento",note:"Golpes en la espalda + compresiones",url:"https://enfamilia.aeped.es/",source:"AEPED En Familia"},
+                {emoji:"🌡️",label:"Fiebre",note:"38°C+ menos de 3 meses = pediatra",url:"https://enfamilia.aeped.es/",source:"AEPED En Familia"},
+                {emoji:"⚡",label:"Llamar al 112",note:"Dificultad respiratoria, inconsciente",url:"https://enfamilia.aeped.es/",source:"AEPED En Familia"},
+                {emoji:"🍼",label:"Primeros auxilios bebé",note:"RCP, quemaduras, caídas",url:"https://www.cruzroja.es/",source:"Cruz Roja"},
+                {emoji:"☠️",label:"Cruz Roja",note:"Formación primeros auxilios",url:"https://www.cruzroja.es/",source:"Cruz Roja"},
               ] : isNL ? [
-                {emoji:"🫁",label:"Verslikking (baby)",note:"Rugslagen + borstcompressies",url:"https://www.ehbo.nl/verslikking/",source:"Het Oranje Kruis"},
+                {emoji:"🫁",label:"Verslikking (baby)",note:"Rugslagen + borstcompressies",url:"https://www.ehbo.nl/",source:"Het Oranje Kruis"},
                 {emoji:"🌡️",label:"Koorts",note:"38°C+ onder 3 maanden = huisarts",url:"https://www.thuisarts.nl/koorts-bij-kinderen",source:"Thuisarts"},
-                {emoji:"⚡",label:"Bel 112",note:"Ademhalingsproblemen, bewusteloos",url:"https://www.112.nl/",source:"112 NL"},
-                {emoji:"🍼",label:"EHBO bij baby's",note:"Reanimatie, brandwonden, vallen",url:"https://www.rodekruis.nl/eerste-hulp",source:"Rode Kruis"},
+                {emoji:"⚡",label:"Bel 112",note:"Ademhalingsproblemen, bewusteloos",url:"https://www.rodekruis.nl/",source:"Rode Kruis"},
+                {emoji:"🍼",label:"EHBO bij baby's",note:"Reanimatie, brandwonden, vallen",url:"https://www.rodekruis.nl/",source:"Rode Kruis"},
                 {emoji:"☠️",label:"Vergiftiging",note:"Call "+poisonNum,url:"https://www.vergiftigingen.info/",source:"NVIC"},
               ] : [
                 // UK (default)
                 {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts for under 1s",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-stop-a-child-from-choking/",source:"NHS"},
                 {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call 111",url:"https://www.nhs.uk/conditions/fever-in-children/",source:"NHS"},
                 {emoji:"⚡",label:"Call 999",note:"Breathing difficulty, unresponsive, rash",url:"https://www.nhs.uk/nhs-services/urgent-and-emergency-care-services/when-to-call-999/",source:"NHS"},
-                {emoji:"🍼",label:"Baby CPR",note:"How to resuscitate a baby",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-resuscitate-a-baby/",source:"NHS"},
+                {emoji:"🍼",label:"Baby first aid",note:"How to respond to emergencies",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/",source:"NHS"},
                 {emoji:"💊",label:"Meningitis signs",note:"Stiff neck, light sensitivity, rash",url:"https://www.nhs.uk/conditions/meningitis/symptoms/",source:"NHS"},
               ];
               const _openLink = (url) => {
@@ -30264,6 +30268,11 @@ function App(){
                   <span style={_S.f16}>🩹</span>
                   <span style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>First Aid Quick Reference</span>
                 </div>
+                {/* Critical disclaimer — always visible */}
+                <div style={{padding:"10px 12px",borderRadius:10,background:"rgba(232,87,74,0.08)",border:"1px solid rgba(232,87,74,0.25)",marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#c94838",marginBottom:3}}>⚠️ Reference only. verify with your country's official guidance</div>
+                  <div style={{fontSize:10,color:C.mid,lineHeight:1.4}}>In an emergency, <strong>call {emergNum} first</strong>. Links below point to official health organizations. Guidance updates over time. take an in-person infant first aid course and confirm current steps with your local health authority.</div>
+                </div>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
                   {items.map((item,i)=>(
                     <button key={i} onClick={()=>{haptic();_openLink(item.url);}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left",width:"100%"}}>
@@ -30276,7 +30285,7 @@ function App(){
                     </button>
                   ))}
                 </div>
-                <div style={{fontSize:9,color:C.lt,marginTop:6}}>Official resources. not medical advice. Emergency: {emergNum}</div>
+                <div style={{fontSize:9,color:C.lt,marginTop:6,textAlign:"center",fontStyle:"italic"}}>Not medical advice · Emergency: {emergNum}</div>
               </div>
               );
             })()}
