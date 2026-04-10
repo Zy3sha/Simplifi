@@ -17700,6 +17700,40 @@ function App(){
   }
 
   function handleSmartWake(){
+    // ── Active bed timer? PAUSE it first. ──
+    // When baby is asleep and the bed timer is ticking, tapping ☀️ Wake
+    // should pause the timer (which logs a pending night wake and waits
+    // for "Back to sleep" with a soothed duration). Previously this
+    // short-circuited straight into the night-wake modal or logged a
+    // fresh wake entry, breaking the pause/resume flow entirely.
+    // Recover bedTimerDay from localStorage if state is null but timer is running.
+    let _btdForWake = bedTimerDay;
+    if (!_btdForWake) {
+      try { _btdForWake = localStorage.getItem("bed_timer_day") || null; } catch(_) {}
+    }
+    if (_btdForWake && !bedPaused) {
+      // Only pause if we're within the night window — don't pause when
+      // the user is tapping "Wake" in the morning to end the night.
+      // Heuristic: if it's past a reasonable morning wake threshold
+      // (after 5am) AND the bed started yesterday, treat it as end-of-night
+      // (morning wake). Otherwise treat as mid-night wake → pause.
+      const _nowH = new Date().getHours();
+      const _nowMinsW = new Date().getHours()*60 + new Date().getMinutes();
+      // Check: is there already a bedtime logged on today (different from
+      // the bedtime day)? If _btdForWake is yesterday and it's past 5am,
+      // user is ending the night → fall through to morning-wake path.
+      const _calT = todayStr();
+      const _isEndOfNight = _btdForWake !== _calT && _nowH >= 5 && _nowH < 12;
+      if (!_isEndOfNight) {
+        // True mid-night wake. Pause the bed timer — it'll log a pending
+        // wake entry, show the "Back to sleep" controls, and let user
+        // log how long they soothed before resuming.
+        pauseBedTimer();
+        return;
+      }
+      // End of night: fall through to handleSmartWake's normal morning
+      // logic below, which will clear bedTimerDay + log a morning wake.
+    }
     // Always ensure we're on today's date when logging a morning wake
     const _calToday = todayStr();
     if (selDay !== _calToday) setSelDay(_calToday);
