@@ -3921,6 +3921,49 @@ function App(){
     }catch{return false;}
   },[days]);
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
+  // One-shot on mount: backfill stable IDs for contacts that don't have them
+  // and remove any duplicates that slipped in from earlier additive-merge bug.
+  const carerDedupeRef = React.useRef(false);
+  React.useEffect(()=>{
+    if (carerDedupeRef.current) return;
+    if (!emergencyContacts && !savedMeds) return;
+    carerDedupeRef.current = true;
+    // Emergency contacts: stamp IDs + dedupe by id OR name+phone
+    try {
+      const seen = new Set();
+      let changed = false;
+      const deduped = (emergencyContacts||[]).reduce((acc, c) => {
+        if (!c) { changed = true; return acc; }
+        const ensured = c.id ? c : (changed = true, {...c, id: uid()});
+        const key = ensured.id;
+        const nameKey = ((c.name||"").trim().toLowerCase()+"|"+(c.phone||"").trim());
+        // Drop if same id already seen, or same name+phone already seen (legacy duplicate)
+        if (seen.has(key) || (nameKey !== "|" && seen.has(nameKey))) {
+          changed = true;
+          return acc;
+        }
+        seen.add(key);
+        if (nameKey !== "|") seen.add(nameKey);
+        acc.push(ensured);
+        return acc;
+      }, []);
+      if (changed) setEmergencyContacts(deduped);
+    } catch {}
+    // Saved meds: dedupe by id OR name+dose
+    try {
+      const seen2 = new Set();
+      let changed2 = false;
+      const dedupedMeds = (savedMeds||[]).reduce((acc, m) => {
+        if (!m || !m.name) { changed2 = true; return acc; }
+        const key = m.id || ((m.name||"").trim().toLowerCase()+"|"+(m.dose||"").trim());
+        if (seen2.has(key)) { changed2 = true; return acc; }
+        seen2.add(key);
+        acc.push(m);
+        return acc;
+      }, []);
+      if (changed2) setSavedMeds(dedupedMeds);
+    } catch {}
+  }, [emergencyContacts, savedMeds]);
   // ═══ CARER INFO RESURRECTION ═══
   // Mirror carer info to children[activeChildId].carerInfo so it rides along
   // with the children IndexedDB backup, then if localStorage is wiped by an
@@ -5343,41 +5386,56 @@ function App(){
         }
         // Restore carer card data from cloud (survives reinstall)
         if(d.carerInfo) {
+          // NOTE: we only reach this code if writeToken/updatedBy checks above
+          // confirmed this snapshot came from ANOTHER device, not ourselves.
+          // Cloud is authoritative → REPLACE, don't merge (merging caused
+          // duplicates on edits/deletes since additive merges never removed).
           try {
             const ci = JSON.parse(d.carerInfo);
-            // Emergency contacts: return same ref when no new items (prevents sync loop)
-            if(Array.isArray(ci.emergencyContacts) && ci.emergencyContacts.length > 0) {
+            if(Array.isArray(ci.emergencyContacts)) {
+              // Dedupe incoming (belt & braces) — unique by id, fallback name+phone
+              const seen = new Set();
+              const unique = ci.emergencyContacts.filter(c => {
+                if (!c || (!c.name && !c.phone)) return false;
+                const k = c.id || ((c.name||"")+"|"+(c.phone||""));
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+              });
               setEmergencyContacts(prev => {
-                const ids = new Set((prev||[]).map(c => c.id || (c.name+"|"+c.phone)));
-                const newOnes = ci.emergencyContacts.filter(c => !ids.has(c.id || (c.name+"|"+c.phone)));
-                if (!newOnes.length && prev && prev.length >= ci.emergencyContacts.length) return prev;
-                const merged = [...(prev||[]), ...newOnes];
-                try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(merged)); }catch{}
-                return merged;
+                // Same-ref guard: only update if actually different
+                if (JSON.stringify(prev) === JSON.stringify(unique)) return prev;
+                try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(unique)); }catch{}
+                return unique;
               });
             }
-            if(ci.carerNotes) {
+            if(typeof ci.carerNotes === "string") {
               setCarerNotes(prev => {
                 if (prev === ci.carerNotes) return prev;
                 try{ localStorage.setItem("carer_notes_v1", ci.carerNotes); }catch{}
                 return ci.carerNotes;
               });
             }
-            if(ci.carerComfort) {
+            if(typeof ci.carerComfort === "string") {
               setCarerComfort(prev => {
                 if (prev === ci.carerComfort) return prev;
                 try{ localStorage.setItem("carer_comfort_v1", ci.carerComfort); }catch{}
                 return ci.carerComfort;
               });
             }
-            if(Array.isArray(ci.savedMeds) && ci.savedMeds.length > 0) {
+            if(Array.isArray(ci.savedMeds)) {
+              const seen2 = new Set();
+              const uniqueMeds = ci.savedMeds.filter(m => {
+                if (!m || !m.name) return false;
+                const k = m.id || ((m.name||"").toLowerCase()+"|"+(m.dose||""));
+                if (seen2.has(k)) return false;
+                seen2.add(k);
+                return true;
+              });
               setSavedMeds(prev => {
-                const ids = new Set((prev||[]).map(m => m.id || m.name));
-                const newOnes = ci.savedMeds.filter(m => !ids.has(m.id || m.name));
-                if (!newOnes.length && prev && prev.length >= ci.savedMeds.length) return prev;
-                const merged = [...(prev||[]), ...newOnes];
-                try{ localStorage.setItem("saved_meds_v1", JSON.stringify(merged)); }catch{}
-                return merged;
+                if (JSON.stringify(prev) === JSON.stringify(uniqueMeds)) return prev;
+                try{ localStorage.setItem("saved_meds_v1", JSON.stringify(uniqueMeds)); }catch{}
+                return uniqueMeds;
               });
             }
           } catch(_) {}
@@ -5784,12 +5842,25 @@ function App(){
       }
 
       // Restore carer card data from cloud (emergency contacts, notes, comfort items)
+      // Dedupe while restoring — older cloud data may have accumulated duplicates
+      // from the previous additive-merge bug
       if(d.carerInfo) {
         try {
           const ci = JSON.parse(d.carerInfo);
           if(Array.isArray(ci.emergencyContacts) && ci.emergencyContacts.length > 0) {
-            setEmergencyContacts(ci.emergencyContacts);
-            try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(ci.emergencyContacts)); }catch{}
+            const seen = new Set();
+            const unique = ci.emergencyContacts.filter(c => {
+              if (!c) return false;
+              const k1 = c.id;
+              const k2 = ((c.name||"").trim().toLowerCase()+"|"+(c.phone||"").trim());
+              if (k1 && seen.has(k1)) return false;
+              if (k2 !== "|" && seen.has(k2)) return false;
+              if (k1) seen.add(k1);
+              if (k2 !== "|") seen.add(k2);
+              return true;
+            }).map(c => c.id ? c : {...c, id: uid()});
+            setEmergencyContacts(unique);
+            try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(unique)); }catch{}
           }
           if(ci.carerNotes) {
             setCarerNotes(ci.carerNotes);
@@ -5800,8 +5871,16 @@ function App(){
             try{ localStorage.setItem("carer_comfort_v1", ci.carerComfort); }catch{}
           }
           if(Array.isArray(ci.savedMeds) && ci.savedMeds.length > 0) {
-            setSavedMeds(ci.savedMeds);
-            try{ localStorage.setItem("saved_meds_v1", JSON.stringify(ci.savedMeds)); }catch{}
+            const seen2 = new Set();
+            const uniqueMeds = ci.savedMeds.filter(m => {
+              if (!m || !m.name) return false;
+              const k = m.id || ((m.name||"").trim().toLowerCase()+"|"+(m.dose||"").trim());
+              if (seen2.has(k)) return false;
+              seen2.add(k);
+              return true;
+            });
+            setSavedMeds(uniqueMeds);
+            try{ localStorage.setItem("saved_meds_v1", JSON.stringify(uniqueMeds)); }catch{}
           }
         } catch(_) {}
       }
@@ -33936,7 +34015,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     style={{minWidth:0,padding:"9px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB,gridColumn:"1 / 4"}}/>
                 </div>
               ))}
-              <button onClick={()=>setEmergencyContacts(prev=>[...prev,{name:"",phone:"",relation:""}])}
+              <button onClick={()=>setEmergencyContacts(prev=>[...prev,{id:uid(),name:"",phone:"",relation:""}])}
                 style={{width:"100%",padding:"8px",borderRadius:10,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
                 + Add contact
               </button>
