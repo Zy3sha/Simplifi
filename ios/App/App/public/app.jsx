@@ -18205,10 +18205,12 @@ function App(){
     // Auto-resume nap if it was paused by the breast timer
     try{if(localStorage.getItem("nap_paused_by_breast")==="1"){localStorage.removeItem("nap_paused_by_breast");resumeNap();}}catch{}
     if (_nightMode) {
-      // Night mode: write to bedTimerDay, remove the pending wake placeholder
+      // Night mode routing respects dayBoundary:
+      // - "wake" (morning wake = day boundary): write to bedTimerDay (Thursday)
+      // - "midnight" (calendar day boundary): write to selDay/today (Friday)
       const _pendingId = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
       setDays(d=>{
-        const _tgt = bedTimerDay || todayStr();
+        const _tgt = (dayBoundary === "wake") ? (bedTimerDay || todayStr()) : selDay;
         const existing = (d[_tgt]||[]).filter(e => !_pendingId || e.id !== _pendingId);
         return {...d, [_tgt]: [...existing, entry]};
       });
