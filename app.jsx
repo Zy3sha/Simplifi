@@ -133,29 +133,62 @@ const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${da
 // A day has meaningful data if it has at least 2 non-auto entries (wake + something)
 const dayHasData = (entries) => { if(!entries || !entries.length) return false; const real = entries.filter(e => !e.auto); return real.length >= 2; };
 // ═══ Smart Hydration Count ═══
-// A wet nappy after a long sleep stretch counts as more than 1 (baby was hydrated overnight).
-// Also provides age-adjusted targets.
-function smartHydration(dayEntries, ageWeeks) {
-  if (!dayEntries || !dayEntries.length) return { count: 0, target: 6, label: "0 of 6+" };
-  const wetNappies = dayEntries.filter(e => { if(e.type!=="poop") return false; const p=(e.poopType||"").toLowerCase(); return p.includes("wet")||p==="both"; });
+// A wet nappy after a long sleep stretch counts as more than 1 (baby was hydrated
+// overnight, one big wet nappy = multiple daytime wets).
+// Optional third arg: yesterday's last wet nappy entry, so the first-of-the-day
+// nappy uses a REAL cross-midnight gap instead of a flat 12h assumption.
+function smartHydration(dayEntries, ageWeeks, prevDayLastWetNappy) {
+  const _safeMinsOf = (e) => {
+    if (!e || !e.time) return null;
+    const [h,m] = e.time.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h*60 + m;
+  };
+  if (!dayEntries || !dayEntries.length) {
+    const _months0 = (ageWeeks || 0) / 4.33;
+    const _target0 = _months0 < 6 ? 6 : _months0 < 12 ? 5 : 4;
+    return { count: 0, raw: 0, target: _target0, ok: false, label: "0 of " + _target0 + "+" };
+  }
+  // Sort wetNappies chronologically so indexOf / prev-item lookups are correct
+  // even if dayEntries is in insertion order.
+  const wetNappies = dayEntries
+    .filter(e => { if(e.type!=="poop") return false; const p=(e.poopType||"").toLowerCase(); return p.includes("wet")||p==="both"; })
+    .slice()
+    .sort((a,b) => (_safeMinsOf(a)||0) - (_safeMinsOf(b)||0));
+
+  // Cross-day first-nappy gap: if caller supplied yesterday's last wet nappy,
+  // compute the ACTUAL overnight gap (e.g. 8:30pm → 8:30am = 720 min). Without
+  // it, we fall back to the old 720m assumption for the first morning nappy.
+  const _prevMinsRaw = _safeMinsOf(prevDayLastWetNappy);
+  const _prevCrossGap = (_prevMinsRaw !== null)
+    // Yesterday's nappy was at _prevMinsRaw (0..1439). Today's time - yesterday's
+    // time + 1440 minutes (one day) gives the elapsed minutes.
+    ? (nMinsToday) => (nMinsToday + 1440 - _prevMinsRaw)
+    : null;
+
   let smartCount = 0;
-  wetNappies.forEach(n => {
-    const nMins = n.time ? (parseInt(n.time.split(":")[0])*60+parseInt(n.time.split(":")[1])) : 0;
-    // Find the previous sleep/nap that ended before this nappy
-    const prevSleeps = dayEntries.filter(e => (e.type==="nap"||e.type==="sleep") && e.end).map(e => {
-      const [eh,em] = (e.end||"00:00").split(":").map(Number); return eh*60+em;
-    }).filter(m => m <= nMins + 15); // within 15 min of nappy = post-sleep nappy
-    // Also check: is this the first nappy of the day (morning nappy after overnight)?
-    const isFirstNappy = wetNappies.indexOf(n) === 0;
-    const isAfterLongSleep = prevSleeps.length > 0;
-    // Check gap since previous nappy
-    const nIdx = wetNappies.indexOf(n);
-    const prevNappy = nIdx > 0 ? wetNappies[nIdx-1] : null;
-    const gap = prevNappy && prevNappy.time ? nMins - (parseInt(prevNappy.time.split(":")[0])*60+parseInt(prevNappy.time.split(":")[1])) : (isFirstNappy ? 720 : 0); // first nappy: assume 12h overnight gap
-    // Smart counting: gap 6-10h = counts as 2, gap 10+h = counts as 3
-    if (gap >= 600) smartCount += 3; // 10+ hours (overnight)
-    else if (gap >= 360) smartCount += 2; // 6-10 hours (long nap or early overnight)
-    else smartCount += 1; // normal daytime change
+  wetNappies.forEach((n, nIdx) => {
+    const nMins = _safeMinsOf(n);
+    if (nMins === null) { smartCount += 1; return; }
+    const isFirstNappy = nIdx === 0;
+    // Gap to previous wet nappy
+    let gap;
+    if (nIdx > 0) {
+      const prev = wetNappies[nIdx-1];
+      const pm = _safeMinsOf(prev);
+      gap = pm !== null ? (nMins - pm) : 0;
+      // Cross-midnight: if somehow prev has a later HH:MM than current (night
+      // entry), treat it as crossing midnight and add a day.
+      if (gap < 0) gap += 1440;
+    } else if (_prevCrossGap) {
+      gap = _prevCrossGap(nMins);
+    } else {
+      gap = isFirstNappy ? 720 : 0; // legacy 12h overnight assumption
+    }
+    // Smart counting bands. 10+h = 3x, 6-10h = 2x, else 1x.
+    if (gap >= 600)      smartCount += 3;
+    else if (gap >= 360) smartCount += 2;
+    else                 smartCount += 1;
   });
   // Age-adjusted target
   const months = (ageWeeks || 0) / 4.33;
@@ -4190,6 +4223,22 @@ function App(){
   const[teethingForm,setTeethingForm]=useState({teeth:[],date:"",symptoms:[],note:""});
   const[showWeaningForm,setShowWeaningForm]=useState(false);
   const[weaningForm,setWeaningForm]=useState({food:"",date:"",reaction:"neutral",note:"",liked:null});
+  // Weekly shopping list for weaning foods. User plans next N days of foods
+  // and can add recipe ingredients. Once saved, the "today/tomorrow" food
+  // suggestion algorithm prefers items from the active plan.
+  const[weeklyShoppingList,setWeeklyShoppingList]=useState(()=>{
+    try { const v = localStorage.getItem("ob_weekly_shopping_v1"); return v ? JSON.parse(v) : null; }
+    catch { return null; }
+  });
+  React.useEffect(()=>{
+    try {
+      if (weeklyShoppingList) localStorage.setItem("ob_weekly_shopping_v1", JSON.stringify(weeklyShoppingList));
+      else localStorage.removeItem("ob_weekly_shopping_v1");
+    } catch {}
+  }, [weeklyShoppingList]);
+  const[showShoppingListModal,setShowShoppingListModal]=useState(false);
+  const[shoppingDraft,setShoppingDraft]=useState(null); // {weekStart, foods:[{food,emoji,cat,recipe,bought}], extras:[{name,qty}]}
+  const[weanNudge,setWeanNudge]=useState(0); // bump to force weaning suggestion re-render
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
@@ -11233,7 +11282,15 @@ function App(){
     // Feed alerts handled by the Last Feed card. no duplicate banner needed
 
     // Check hydration (smart counting: post-sleep nappies count as 2-3)
-    const _hydration = smartHydration(today, w);
+    // Pass yesterday's last wet nappy so the first morning change uses a real
+    // cross-midnight gap, not the flat 12h default.
+    const _yPrevStr = (()=>{ try { const d=new Date(selDay+"T00:00:00"); d.setDate(d.getDate()-1); return localDateStr(d); } catch { return null; } })();
+    const _yPrevEnt = _yPrevStr ? (days[_yPrevStr]||[]) : [];
+    const _yPrevLastWet = (()=>{
+      const _prevWets = _yPrevEnt.filter(e => e.type === "poop" && ((e.poopType||"").toLowerCase().includes("wet") || e.poopType === "both") && e.time).sort((a,b)=>timeVal(a)-timeVal(b));
+      return _prevWets.length ? _prevWets[_prevWets.length-1] : null;
+    })();
+    const _hydration = smartHydration(today, w, _yPrevLastWet);
     const h = new Date().getHours();
     if (h >= 14 && !_hydration.ok) return { emoji: "💧", text: `${_hydration.raw} wet nappies today (${_hydration.count} hydration score). aim for ${_hydration.target}+ for adequate hydration.`, priority: "med", why: `Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). ${_hydration.raw} changes = ${_hydration.count} hydration score vs ${_hydration.target}+ target for ${fmtAge(age)}.` };
 
@@ -25500,23 +25557,38 @@ function App(){
                 );
               })()}
 
-              {/* Hydration meter on Plan tab */}
+              {/* Hydration meter on Plan tab. Uses smartHydration so a heavy
+                  morning nappy after a 10h+ overnight counts as 2-3 (the baby was
+                  hydrated overnight, one big wet = multiple daytime wets). */}
               {(()=>{
                 const _ent = days[selDay] || [];
-                const _wet = _ent.filter(e => e.type === "poop" && ((e.poopType||"").includes("wet") || e.poopType === "both")).length;
-                if (_wet >= 6) return null; // target met, no need to show
+                // Cross-day prev-nappy lookup: when today has 0 or 1 wet nappies,
+                // pull yesterday's last wet nappy so smartHydration can compute a
+                // real cross-midnight gap instead of assuming a flat 12h default.
+                const _prevDayStr = (()=>{ try { const d=new Date(selDay+"T00:00:00"); d.setDate(d.getDate()-1); return localDateStr(d); } catch { return null; } })();
+                const _prevDayEnt = _prevDayStr ? (days[_prevDayStr]||[]) : [];
+                const _prevLastWet = (()=>{
+                  const _prevWets = _prevDayEnt.filter(e => e.type === "poop" && ((e.poopType||"").toLowerCase().includes("wet") || e.poopType === "both") && e.time).sort((a,b)=>timeVal(a)-timeVal(b));
+                  return _prevWets.length ? _prevWets[_prevWets.length-1] : null;
+                })();
+                const _smart = smartHydration(_ent, age ? age.totalWeeks : null, _prevLastWet);
+                const _wetCount = _smart.count;    // hydration score (overnight counts as 2-3)
+                const _wetRaw = _smart.raw;        // literal count of wet entries
+                const _target = _smart.target;
+                if (_wetCount >= _target) return null; // target met, no need to show
+                const _bonusActive = _wetCount > _wetRaw; // overnight bonus applied
                 return (
-                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:_wet<4?"rgba(192,112,136,0.06)":"rgba(111,168,152,0.06)",border:`1px solid ${_wet<4?"rgba(192,112,136,0.15)":"rgba(111,168,152,0.15)"}`}}>
+                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:_wetCount<Math.ceil(_target*0.65)?"rgba(192,112,136,0.06)":"rgba(111,168,152,0.06)",border:`1px solid ${_wetCount<Math.ceil(_target*0.65)?"rgba(192,112,136,0.15)":"rgba(111,168,152,0.15)"}`}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                       <span style={{fontSize:18}}>💧</span>
-                      <div>
-                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_wet}/6 wet nappies</div>
-                        <div style={{fontSize:10,color:C.lt}}>Aim for 6+ in 24h for adequate hydration</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_wetCount}/{_target} hydration{_bonusActive?` (${_wetRaw} change${_wetRaw===1?"":"s"})`:""}</div>
+                        <div style={{fontSize:10,color:C.lt}}>{_bonusActive?"Overnight nappy counts as extra. baby was hydrated during sleep.":"Aim for "+_target+"+ wet nappies in 24h for adequate hydration"}</div>
                       </div>
                     </div>
                     <div style={{display:"flex",gap:4}}>
-                      {[1,2,3,4,5,6].map(n=>(
-                        <div key={n} style={{flex:1,height:6,borderRadius:99,background:n<=_wet?C.mint+"80":C.blush}}/>
+                      {Array.from({length:_target},(_,i)=>i+1).map(n=>(
+                        <div key={n} style={{flex:1,height:6,borderRadius:99,background:n<=_wetCount?C.mint+"80":C.blush}}/>
                       ))}
                     </div>
                   </div>
@@ -29097,7 +29169,24 @@ function App(){
                 // STABLE suggestions: persist today/tomorrow picks to localStorage so they
                 // don't shift when user logs a food. Rolls forward at midnight.
                 const _triedFoods = (weaning||[]).map(w => (w.food||"").toLowerCase());
-                const _isTried = (f) => _triedFoods.some(t => t.includes(f.food.toLowerCase().split(" ")[0]));
+                // Match tried foods by distinctive food noun, not first word.
+                // Previously .split(" ")[0] took "steamed" for both "Steamed carrot"
+                // and "Steamed broccoli", so logging ONE steamed food marked ALL of
+                // them as tried and broke Try Later (rotation had nothing untried).
+                const _prepRx = /^(steamed|mashed|soft cooked|cooked|plain full-fat|fortified|baby|soft|raw|warm|fresh|grated|chopped|pureed|slow cooked)\s+/;
+                const _stripPrep = (s) => (s||"").toLowerCase().replace(_prepRx, "").trim();
+                const _isTried = (f) => {
+                  const _fNoun = _stripPrep(f.food);
+                  if (!_fNoun) return false;
+                  return _triedFoods.some(t => {
+                    const _tNoun = _stripPrep(t);
+                    if (!_tNoun) return false;
+                    // Exact noun match, or either noun contains the other
+                    // (e.g. "banana" matches "mashed banana", "avocado" matches
+                    // "mashed avocado"). This is much tighter than first-word matching.
+                    return _tNoun === _fNoun || _tNoun === f.food.toLowerCase() || t === f.food.toLowerCase();
+                  });
+                };
                 const _notTried = _available.filter(f => !_isTried(f));
                 // Ensure allergens appear regularly: every 3rd-4th suggestion should be an allergen (if any untried)
                 const _untriedAllergens = _notTried.filter(f => f.cat === "allergen");
@@ -29110,7 +29199,25 @@ function App(){
                   if (_vi < _untriedNonAllergen.length) _interleaved.push(_untriedNonAllergen[_vi++]);
                   if (_ai < _untriedAllergens.length) _interleaved.push(_untriedAllergens[_ai++]);
                 }
-                const _pool = _interleaved.length > 0 ? _interleaved : (_notTried.length > 0 ? _notTried : _available);
+                let _pool = _interleaved.length > 0 ? _interleaved : (_notTried.length > 0 ? _notTried : _available);
+                // ── Shopping list override ──
+                // If user has an active weekly shopping list, push its untried foods
+                // to the front of the pool so today's/tomorrow's suggestion comes
+                // straight from what they've already planned and bought ingredients for.
+                if (weeklyShoppingList && Array.isArray(weeklyShoppingList.foods) && weeklyShoppingList.foods.length) {
+                  const _planNames = weeklyShoppingList.foods
+                    .filter(f => f && f.food)
+                    .map(f => f.food.toLowerCase());
+                  // Only honor the plan if its weekStart is within the last 10 days
+                  // (past or future), otherwise it's stale.
+                  const _planStart = weeklyShoppingList.weekStart ? new Date(weeklyShoppingList.weekStart+"T00:00:00") : null;
+                  const _planFresh = !_planStart || Math.abs(Date.now() - _planStart.getTime()) < 10*86400000;
+                  if (_planFresh) {
+                    const _plannedUntried = _pool.filter(f => _planNames.includes(f.food.toLowerCase()) && !_isTried(f));
+                    const _rest = _pool.filter(f => !_planNames.includes(f.food.toLowerCase()));
+                    if (_plannedUntried.length) _pool = [..._plannedUntried, ..._rest];
+                  }
+                }
                 const _findByName = (name) => _available.find(f=>f.food===name) || _pool.find(f=>f.food===name);
                 const _today = todayStr();
                 const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
@@ -29293,18 +29400,28 @@ function App(){
                       </button>
                       <button onClick={()=>{
                         haptic();
-                        // Push current food to back of queue, advance to next
+                        // Push current food to back of queue, advance to next.
+                        // Today becomes the OLD tomorrow; tomorrow becomes the
+                        // next distinct food in _pool (excluding today, tomorrow,
+                        // AND the just-skipped food so we don't loop right back).
                         try {
                           const _skipped = JSON.parse(localStorage.getItem("ob_wean_skipped_v1")||"{}");
                           _skipped[_ft.food] = { count: (_skipped[_ft.food]?.count||0)+1, date: todayStr() };
                           localStorage.setItem("ob_wean_skipped_v1", JSON.stringify(_skipped));
-                          // Replace today's suggestion with tomorrow's, pick new tomorrow
-                          const _newTmr = _pool.find(f=>f.food!==_tmr.food&&f.food!==_ft.food) || _pool[0];
+                          // Find a genuinely new tomorrow. exclude current today, current
+                          // tomorrow, AND the just-skipped item.
+                          const _skippedFood = _ft.food;
+                          let _newTmr = _pool.find(f => f.food !== _tmr.food && f.food !== _skippedFood);
+                          // Edge case: if pool is tiny (<3 items) there may not be a fresh pick.
+                          // Fall back to any food in _available that isn't today/skipped.
+                          if (!_newTmr) _newTmr = _available.find(f => f.food !== _tmr.food && f.food !== _skippedFood);
+                          if (!_newTmr) _newTmr = _tmr; // last resort: keep the old tomorrow
                           localStorage.setItem("ob_wean_suggestions_v1", JSON.stringify({date:todayStr(), today:_tmr.food, tomorrow:_newTmr.food}));
-                          showToast("⏭ " + _ft.food + " skipped. we'll suggest it again in a few days", 2500, 1);
-                          // Force re-render by touching weaning state
-                          setWeaning(w=>[...w]);
-                        } catch {}
+                          showToast("⏭ " + _skippedFood + " skipped. next: " + _tmr.food, 2500, 1);
+                          // Force re-render: bump a nudge state (more reliable than
+                          // mutating weaning, which goes through a nested setChildren).
+                          setWeanNudge(n => n + 1);
+                        } catch(ex){ console.warn("[OBubba] try later failed", ex); }
                       }}
                         style={{padding:"8px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
                         ⏭ Try later
@@ -29375,6 +29492,165 @@ function App(){
                         </div>
                       );
                     })()}
+                  </div>
+                );
+              })()}
+
+              {/* ═══ Weekly Shopping Planner ═══ */}
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning"||daySubScreen==="weaning_journey") && (()=>{
+                // Compute the next 7 suggestions from the same algorithm First Tastes uses
+                // (we don't have access to _pool from here, so we rebuild from weaning).
+                // Active plan check
+                const _hasPlan = weeklyShoppingList && Array.isArray(weeklyShoppingList.foods) && weeklyShoppingList.foods.length;
+                if (_hasPlan) {
+                  // Show the saved plan card with grouping + actions
+                  const _grouped = (()=>{
+                    const g = {};
+                    (weeklyShoppingList.foods||[]).forEach(f => { const k = f.cat || "other"; (g[k] = g[k]||[]).push(f); });
+                    (weeklyShoppingList.extras||[]).forEach(f => { (g.extras = g.extras||[]).push(f); });
+                    return g;
+                  })();
+                  const _catLabels = { veg:"🥕 Vegetables", fruit:"🍎 Fruit", grain:"🌾 Grains", protein:"🍗 Protein", dairy:"🥛 Dairy", allergen:"⚠️ Allergens", other:"🍽 Other", extras:"🛒 Extras & recipes" };
+                  const _totalItems = (weeklyShoppingList.foods||[]).length + (weeklyShoppingList.extras||[]).length;
+                  const _bought = (weeklyShoppingList.foods||[]).filter(f=>f.bought).length + (weeklyShoppingList.extras||[]).filter(f=>f.bought).length;
+                  const _allBought = _totalItems > 0 && _bought === _totalItems;
+                  const _weekStartLabel = weeklyShoppingList.weekStart ? fmtLong(weeklyShoppingList.weekStart) : "this week";
+                  const _toggleBought = (listKey, idx) => {
+                    setWeeklyShoppingList(prev => {
+                      if (!prev) return prev;
+                      const next = {...prev, [listKey]: [...(prev[listKey]||[])]};
+                      if (next[listKey][idx]) next[listKey][idx] = {...next[listKey][idx], bought: !next[listKey][idx].bought};
+                      return next;
+                    });
+                  };
+                  const _shareText = (()=>{
+                    const lines = ["🛒 Bubba Shopping List · week of " + _weekStartLabel, ""];
+                    Object.entries(_grouped).forEach(([cat, items]) => {
+                      lines.push(_catLabels[cat] || cat);
+                      items.forEach(it => {
+                        const _name = it.food || it.name || "";
+                        const _recipe = it.recipe ? ` (${it.recipe})` : "";
+                        lines.push("  • " + _name + _recipe);
+                      });
+                      lines.push("");
+                    });
+                    lines.push("Made with OBubba 💛");
+                    return lines.join("\n");
+                  })();
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.mint}33`,background:`linear-gradient(135deg,${C.mint}06,${C.sky}03)`}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                        <div>
+                          <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em"}}>🛒 This week's shopping</div>
+                          <div style={{fontSize:11,color:C.lt,marginTop:2}}>Week of {_weekStartLabel} · {_bought}/{_totalItems} bought</div>
+                        </div>
+                        <button onClick={()=>{
+                          haptic();
+                          // Open modal with the existing plan for editing
+                          setShoppingDraft({
+                            weekStart: weeklyShoppingList.weekStart || todayStr(),
+                            foods: [...(weeklyShoppingList.foods||[])],
+                            extras: [...(weeklyShoppingList.extras||[])]
+                          });
+                          setShowShoppingListModal(true);
+                        }} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.mint}44`,background:"var(--card-bg)",color:C.mint,fontSize:11,fontWeight:700,cursor:_cP}}>
+                          ✏️ Edit
+                        </button>
+                      </div>
+                      {/* Grouped items */}
+                      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:10}}>
+                        {Object.entries(_grouped).map(([cat, items]) => (
+                          <div key={cat}>
+                            <div style={{fontSize:10,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{_catLabels[cat] || cat}</div>
+                            {items.map((it, i) => {
+                              const _listKey = cat === "extras" ? "extras" : "foods";
+                              const _realIdx = _listKey === "extras"
+                                ? (weeklyShoppingList.extras||[]).indexOf(it)
+                                : (weeklyShoppingList.foods||[]).indexOf(it);
+                              return (
+                                <div key={i} onClick={()=>{haptic(8); _toggleBought(_listKey, _realIdx);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:8,background:it.bought?"var(--card-bg-alt)":"transparent",cursor:_cP,opacity:it.bought?0.55:1}}>
+                                  <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${it.bought?C.mint:C.blush}`,background:it.bought?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:11,color:"white"}}>{it.bought?"✓":""}</div>
+                                  <span style={{fontSize:14}}>{it.emoji || "🛒"}</span>
+                                  <div style={{flex:1,fontSize:13,color:C.deep,textDecoration:it.bought?"line-through":"none"}}>
+                                    {it.food || it.name}
+                                    {it.recipe && <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:1}}>+ {it.recipe}</div>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                      {_allBought && (
+                        <div style={{padding:"8px 12px",borderRadius:12,background:C.mint+"12",border:`1px solid ${C.mint}33`,fontSize:11,color:C.mint,textAlign:"center",fontWeight:600,marginBottom:10}}>
+                          ✨ All bought! Ready for the week.
+                        </div>
+                      )}
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>{
+                          haptic();
+                          try {
+                            if (navigator.share) navigator.share({title:"Bubba Shopping List", text:_shareText});
+                            else navigator.clipboard.writeText(_shareText).then(()=>showToast("✓ Copied to clipboard",2000,1));
+                          } catch { try{navigator.clipboard.writeText(_shareText);showToast("✓ Copied",2000,1);}catch{} }
+                        }} style={{flex:1,padding:"8px",borderRadius:99,border:`1px solid ${C.mint}44`,background:"var(--card-bg)",color:C.mint,fontSize:11,fontWeight:700,cursor:_cP}}>
+                          📤 Share list
+                        </button>
+                        <button onClick={()=>{
+                          haptic();
+                          if (confirm("Clear this week's shopping list?")) setWeeklyShoppingList(null);
+                        }} style={{padding:"8px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:11,fontWeight:600,cursor:_cP}}>
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                // No plan. show the "Plan next 7 days" call-to-action
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px dashed ${C.mint}44`,background:`${C.mint}04`,cursor:_cP}} onClick={()=>{
+                    haptic();
+                    // Build next-7 draft from the first 7 items of _available we'd suggest
+                    // (simple heuristic: use untried foods, rotating categories)
+                    const _allFoodsLocal = [
+                      {food:"Steamed carrot",emoji:"🥕",cat:"veg",recipe:""},
+                      {food:"Steamed broccoli",emoji:"🥦",cat:"veg",recipe:""},
+                      {food:"Courgette",emoji:"🥒",cat:"veg",recipe:""},
+                      {food:"Sweet potato",emoji:"🍠",cat:"veg",recipe:""},
+                      {food:"Mashed avocado",emoji:"🥑",cat:"veg",recipe:""},
+                      {food:"Steamed peas",emoji:"🟢",cat:"veg",recipe:""},
+                      {food:"Banana",emoji:"🍌",cat:"fruit",recipe:""},
+                      {food:"Porridge fingers",emoji:"🥣",cat:"grain",recipe:""},
+                      {food:"Steamed apple",emoji:"🍎",cat:"fruit",recipe:""},
+                      {food:"Toast fingers",emoji:"🍞",cat:"grain",recipe:""},
+                      {food:"Red lentil puree",emoji:"🫘",cat:"protein",recipe:""},
+                      {food:"Beef mince",emoji:"🥩",cat:"protein",recipe:""},
+                      {food:"Chicken thigh",emoji:"🍗",cat:"protein",recipe:""},
+                      {food:"Scrambled egg",emoji:"🥚",cat:"allergen",recipe:""},
+                      {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen",recipe:""},
+                      {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy",recipe:""},
+                      {food:"Soft cooked salmon",emoji:"🐟",cat:"protein",recipe:""},
+                      {food:"Lentil dhal",emoji:"🍲",cat:"protein",recipe:""},
+                      {food:"Cheese sticks",emoji:"🧀",cat:"dairy",recipe:""},
+                    ];
+                    const _triedLocal = (weaning||[]).map(w => (w.food||"").toLowerCase());
+                    const _notTriedLocal = _allFoodsLocal.filter(f => !_triedLocal.some(t => t.includes(f.food.toLowerCase().split(" ")[0])));
+                    const _next7 = (_notTriedLocal.length ? _notTriedLocal : _allFoodsLocal).slice(0,7).map(f => ({...f, bought:false}));
+                    setShoppingDraft({
+                      weekStart: todayStr(),
+                      foods: _next7,
+                      extras: []
+                    });
+                    setShowShoppingListModal(true);
+                  }}>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{fontSize:32}}>🛒</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Plan next 7 days of foods</div>
+                        <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:2}}>Pick from upcoming suggestions, add recipes, then share the shopping list. We'll follow your plan for daily picks.</div>
+                      </div>
+                      <div style={{fontSize:16,color:C.mint}}>›</div>
+                    </div>
                   </div>
                 );
               })()}
@@ -33589,6 +33865,43 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           try { const td = tickDataRef.current||{}; if(td.bedMins) return fmt12(minsToTime(td.bedMins)); } catch {}
           return null;
         })();
+        // ── Nightly sleep tip ── rotates deterministically by day-of-year so
+        // each evening the parent sees a different genuinely-helpful sleep tip.
+        const _sleepTips = [
+          { emoji: "🎵", title: "Build a sleep-association cue", body: "Pick one song, white noise track, or lullaby and play it EVERY bedtime and nap. Over weeks, baby's brain will link the sound to sleep. Power of repetition — consistency matters more than the specific sound." },
+          { emoji: "💡", title: "Dim lights 30 minutes before bed", body: "Bright light suppresses melatonin for up to an hour. Turn off overhead lights, use a warm lamp or red nightlight. This alone can shave 15–20 min off how long it takes baby to settle." },
+          { emoji: "🌡️", title: "Room temperature: 16–20°C", body: "Babies sleep best slightly cool. Too warm is linked to more wakes AND is a SIDS risk factor. A thermometer in the room (not on baby) is the simplest check." },
+          { emoji: "😴", title: "Drowsy but awake — the golden rule", body: "Put baby down when they're relaxed and heavy but still awake. This lets them practise falling asleep on their own, which means they can re-settle at 2am without needing you. Biggest single factor for independent sleep." },
+          { emoji: "🔇", title: "White noise the whole night", body: "If you use white noise at bedtime, leave it on ALL night at a low volume (~50dB). Babies stir between sleep cycles — if the sound they fell asleep to is gone, they wake up fully. Keep it constant." },
+          { emoji: "🍼", title: "Final feed before the bath, not after", body: "Feeding LAST creates a feed-to-sleep association that's hard to unwind. Try feeding earlier in the routine (before bath or story), so baby learns to fall asleep without the breast or bottle." },
+          { emoji: "🌒", title: "Blackout is worth the money", body: "Even a tiny amount of light can suppress melatonin. Blackout curtains or blinds (or foil on windows as a hack) make a real difference for both falling asleep and early-morning wakes." },
+          { emoji: "📖", title: "Same story, every night", body: "It might feel boring for you, but repetition is how babies learn 'this means sleep is coming'. Pick one short book or rhyme and stick with it for months. Novelty = stimulation; repetition = calm." },
+          { emoji: "🫂", title: "Keep the routine short", body: "A long routine (>30 min) often means baby gets a second wind. 15–20 minutes total is enough. The goal is wind-down, not entertainment." },
+          { emoji: "⏰", title: "Consistent bedtime window", body: "Aim for the same bedtime within ±15 minutes every night, even weekends. Baby's circadian rhythm rewards predictability. Drifting later on weekends is a common cause of Monday-night fussiness." },
+          { emoji: "🤱", title: "Full feed, not a snack", body: "Babies who 'snack' before bed wake hungry in 2–3 hours. Make the final feed the biggest feed — unhurried, both sides if breastfeeding, or a full bottle. A full tummy = longer first sleep stretch." },
+          { emoji: "🌙", title: "No eye contact after lights out", body: "Once you've said goodnight, avoid eye contact and speech. Eye contact activates baby's social brain, which fights sleep. If baby stirs, a gentle hand on the chest is enough." },
+          { emoji: "💤", title: "The 5-minute wait", body: "When baby fusses in the middle of the night, pause for 5 minutes before going in. Many babies self-settle. Rushing in can turn a micro-wake into a full wake-up because you've started a social interaction." },
+          { emoji: "🧸", title: "Sleep cues not clock", body: "Watch for yawning, eye-rubbing, staring-off. These are the 10-minute warning before the 'sleep window' closes. Catching it early means baby settles in 5 min; missing it means 30 min of overtired crying." },
+          { emoji: "🛏️", title: "Same bed, same room", body: "Babies sleep best in the same place every night. Moving between cot, co-sleeper, and travel cot disrupts sleep quality. Consistency of the sleep environment is a top predictor of longer stretches." },
+          { emoji: "🚿", title: "Warm bath drops core temp", body: "A warm bath 30–45 min before bed raises baby's skin temp then drops core temp as they cool. That core-temperature drop is a biological sleep trigger. This is why baths are so powerful." },
+          { emoji: "👕", title: "Sleeping bag = cues", body: "A sleeping bag (TOG 2.5 in winter, 1.0 in summer) acts as a sleep association — baby learns 'bag on = time to sleep'. Bonus: no loose blankets, which is the safest sleep setup." },
+          { emoji: "🎧", title: "Your voice is powerful", body: "If you sing or hum the same tune while settling, your voice becomes the cue. Works even when you're not in the room — a recording of you humming is genuinely effective for some babies." },
+          { emoji: "🌅", title: "Sunlight in the morning", body: "Getting baby outside (or near a bright window) within an hour of waking sets their circadian clock. This is the single biggest thing you can do for better night sleep — and it's free." },
+          { emoji: "🕯️", title: "Red light for night feeds", body: "If you need to feed or change during the night, use a red-spectrum nightlight. Red doesn't suppress melatonin the way white or blue does, so baby stays sleepy and goes back down easier." },
+          { emoji: "🧘", title: "Your calm = their calm", body: "Babies mirror your nervous system. If bedtime is making you tense, they feel it and resist sleep. Three slow breaths before you start the routine. This isn't fluffy — it's real." },
+          { emoji: "🔁", title: "Wake windows, not the clock", body: "Forget '7pm bedtime fits all'. Watch the wake window from the last nap. If baby woke at 5:30pm and their window is 2h, bedtime is 7:30pm tonight. Flexible, responsive, biology-led." },
+          { emoji: "🥣", title: "Late nap < 4pm", body: "A nap that runs past 4pm eats into sleep pressure, making bedtime harder. If baby is asleep at 4pm, it's okay to gently wake them — the tradeoff is worth it for an easier settle." },
+          { emoji: "🫖", title: "Avoid the 'rescue nap'", body: "If baby is exhausted at 5pm, resist putting them down 'just for 20 minutes'. A catnap after 4pm almost always pushes bedtime past 9pm. Better to push through with calm activity." },
+          { emoji: "📱", title: "No screens in the hour before bed", body: "Blue light suppresses melatonin for up to an hour. This goes for baby (no screen time) AND for you in the same room — a bright phone near a baby delays their sleep too." },
+          { emoji: "🌿", title: "Lavender oil — the research", body: "Small studies show lavender-scented bath or diffuser can reduce crying and improve sleep quality. Not a miracle, but it's a cheap, low-risk addition. Use a tiny amount, well-ventilated room." },
+          { emoji: "⏳", title: "Don't rush the cry", body: "Babies often make noises — grunting, fussing, even brief cries — BETWEEN sleep cycles without fully waking. If you wait 2 minutes before rushing in, many will drift back on their own." },
+          { emoji: "🌡️", title: "Check the back of the neck", body: "To tell if baby is warm enough, feel the back of their neck (not hands or feet, which always run cool). Should feel warm but not sweaty. This is the single best temperature check." },
+          { emoji: "🎨", title: "Keep the nursery boring", body: "Bright colours and busy mobiles stimulate the brain. For the sleep space, less is more: one muted colour, one mobile MAX, no toys in the cot. Save the stimulation for daytime." },
+          { emoji: "🕊️", title: "One parent, one routine", body: "If both parents do the routine differently, baby gets confused signals. Agree on the exact sequence and stick to it — this speeds up learning. Your shared consistency is the superpower." },
+        ];
+        const _doyTip = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+        const _tipIdx = _doyTip % _sleepTips.length;
+        const _nightTip = _sleepTips[_tipIdx];
         return (
         <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(44,31,26,0.8)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowBedRoutine(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto"}}>
@@ -33604,6 +33917,21 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               {_steps.map((st, i) => (
                 <div key={i} style={{flex:1,height:4,borderRadius:99,background:i < bedRoutineStep ? C.mint : i === bedRoutineStep ? C.ter : C.blush,transition:"background 0.3s"}}/>
               ))}
+            </div>
+
+            {/* Tonight's sleep tip (rotates nightly by day-of-year) */}
+            <div style={{padding:"12px 14px",borderRadius:14,background:`linear-gradient(135deg,rgba(155,139,184,0.08),rgba(111,168,152,0.04))`,border:"1px solid rgba(155,139,184,0.2)",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                <span style={{fontSize:11,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.05em"}}>💡 Tonight's tip</span>
+                <span style={{fontSize:9,color:C.lt}}>· one new idea per night</span>
+              </div>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{_nightTip.emoji}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_nightTip.title}</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{_nightTip.body}</div>
+                </div>
+              </div>
             </div>
 
             {/* Current step */}
@@ -35928,6 +36256,159 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           </div>
         </div>
       )}
+
+      {/* ═══ Weekly Shopping List Modal ═══ */}
+      {showShoppingListModal && shoppingDraft && (()=>{
+        const _allFoodsModal = [
+          {food:"Steamed carrot",emoji:"🥕",cat:"veg"},
+          {food:"Steamed broccoli",emoji:"🥦",cat:"veg"},
+          {food:"Courgette",emoji:"🥒",cat:"veg"},
+          {food:"Sweet potato",emoji:"🍠",cat:"veg"},
+          {food:"Mashed avocado",emoji:"🥑",cat:"veg"},
+          {food:"Steamed peas",emoji:"🟢",cat:"veg"},
+          {food:"Banana",emoji:"🍌",cat:"fruit"},
+          {food:"Porridge fingers",emoji:"🥣",cat:"grain"},
+          {food:"Steamed apple",emoji:"🍎",cat:"fruit"},
+          {food:"Toast fingers",emoji:"🍞",cat:"grain"},
+          {food:"Red lentil puree",emoji:"🫘",cat:"protein"},
+          {food:"Beef mince",emoji:"🥩",cat:"protein"},
+          {food:"Chicken thigh",emoji:"🍗",cat:"protein"},
+          {food:"Scrambled egg",emoji:"🥚",cat:"allergen"},
+          {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen"},
+          {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy"},
+          {food:"Soft cooked salmon",emoji:"🐟",cat:"protein"},
+          {food:"Lentil dhal",emoji:"🍲",cat:"protein"},
+          {food:"Cheese sticks",emoji:"🧀",cat:"dairy"},
+          {food:"Tahini (sesame)",emoji:"🫙",cat:"allergen"},
+        ];
+        const _inPlan = (food) => (shoppingDraft.foods||[]).some(f => f.food === food);
+        const _toggleFoodInPlan = (f) => {
+          setShoppingDraft(d => {
+            const exists = (d.foods||[]).some(x => x.food === f.food);
+            if (exists) return {...d, foods: d.foods.filter(x => x.food !== f.food)};
+            return {...d, foods: [...(d.foods||[]), {...f, bought:false, recipe:""}]};
+          });
+        };
+        const _updateRecipe = (foodName, recipe) => {
+          setShoppingDraft(d => ({...d, foods: d.foods.map(f => f.food === foodName ? {...f, recipe} : f)}));
+        };
+        const _addExtra = () => {
+          setShoppingDraft(d => ({...d, extras: [...(d.extras||[]), {name:"", recipe:"", bought:false}]}));
+        };
+        const _updateExtra = (idx, field, value) => {
+          setShoppingDraft(d => ({...d, extras: d.extras.map((x,i) => i===idx ? {...x, [field]: value} : x)}));
+        };
+        const _removeExtra = (idx) => {
+          setShoppingDraft(d => ({...d, extras: d.extras.filter((_,i) => i !== idx)}));
+        };
+        return (
+          <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowShoppingListModal(false);setShoppingDraft(null);}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+              <button onClick={()=>{setShowShoppingListModal(false);setShoppingDraft(null);}} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",zIndex:10,touchAction:"manipulation"}}>✕</button>
+              <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🛒 Weekly shopping plan</div>
+              <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
+                Pick the foods you want to try next. We'll follow your list for daily suggestions — no more wondering "what's next".
+              </div>
+
+              {/* Week starting date */}
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Week starting</label>
+                <input type="date" value={shoppingDraft.weekStart||""} onChange={e=>setShoppingDraft(d=>({...d,weekStart:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fM}}/>
+              </div>
+
+              {/* Selected foods summary */}
+              <div style={{background:`${C.mint}08`,border:`1px solid ${C.mint}33`,borderRadius:12,padding:"10px 12px",marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>✓ In your list ({(shoppingDraft.foods||[]).length})</div>
+                {(shoppingDraft.foods||[]).length === 0 ? (
+                  <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>No foods picked yet. Tap a food below to add it.</div>
+                ) : (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>
+                    {shoppingDraft.foods.map((f,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",background:"var(--card-bg)",borderRadius:99,border:`1px solid ${C.mint}33`,fontSize:11}}>
+                        <span>{f.emoji}</span>
+                        <span style={{color:C.deep,fontWeight:600}}>{f.food}</span>
+                        <button onClick={()=>_toggleFoodInPlan(f)} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"0 2px"}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Available foods to add */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Upcoming foods. tap to add</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  {_allFoodsModal.map((f,i) => {
+                    const _picked = _inPlan(f.food);
+                    return (
+                      <button key={i} onClick={()=>_toggleFoodInPlan(f)} style={{display:"flex",alignItems:"center",gap:6,padding:"10px 10px",borderRadius:10,border:`1.5px solid ${_picked?C.mint:C.blush}`,background:_picked?`${C.mint}10`:"var(--card-bg)",color:C.deep,fontSize:12,fontWeight:_picked?700:500,cursor:_cP,textAlign:"left",fontFamily:_fI,transition:"all 0.15s"}}>
+                        <span style={{fontSize:18,flexShrink:0}}>{f.emoji}</span>
+                        <span style={{flex:1,lineHeight:1.2}}>{f.food}</span>
+                        {_picked && <span style={{color:C.mint,fontWeight:700,fontSize:14}}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Recipe notes per food */}
+              {(shoppingDraft.foods||[]).length > 0 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Recipe notes (optional)</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {shoppingDraft.foods.map((f,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:`1px solid ${C.blush}`}}>
+                        <span style={{fontSize:16,flexShrink:0}}>{f.emoji}</span>
+                        <div style={{fontSize:11,fontWeight:700,color:C.deep,minWidth:80,flexShrink:0}}>{f.food}</div>
+                        <input type="text" placeholder="e.g. with cumin + butter" value={f.recipe||""} onChange={e=>_updateRecipe(f.food, e.target.value)} style={{flex:1,padding:"4px 8px",border:`1px solid ${C.blush}`,borderRadius:6,fontSize:11,fontFamily:_fI,background:"var(--card-bg-alt)",color:C.deep,minWidth:0}}/>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Extras: custom pantry items, recipes */}
+              <div style={{marginBottom:16}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Extras & recipe ingredients</div>
+                  <button onClick={_addExtra} style={{padding:"4px 10px",borderRadius:99,border:`1px solid ${C.mint}44`,background:"var(--card-bg)",color:C.mint,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>+ Add item</button>
+                </div>
+                {(shoppingDraft.extras||[]).length === 0 ? (
+                  <div style={{fontSize:11,color:C.lt,fontStyle:"italic",padding:"8px 0"}}>Add recipe ingredients, pantry staples, or anything else you need.</div>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {shoppingDraft.extras.map((ex,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:`1px solid ${C.blush}`}}>
+                        <input type="text" placeholder="Item name (e.g. olive oil)" value={ex.name||""} onChange={e=>_updateExtra(i,"name",e.target.value)} style={{flex:1,padding:"4px 8px",border:`1px solid ${C.blush}`,borderRadius:6,fontSize:12,fontFamily:_fI,background:"var(--card-bg-alt)",color:C.deep,minWidth:0}}/>
+                        <button onClick={()=>_removeExtra(i)} style={{background:"none",border:"none",color:C.lt,fontSize:16,cursor:_cP,padding:"0 4px"}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <PBtn onClick={()=>{
+                haptic();
+                // Validate
+                const _cleaned = {
+                  ...shoppingDraft,
+                  foods: (shoppingDraft.foods||[]).filter(f => f && f.food),
+                  extras: (shoppingDraft.extras||[]).filter(e => e && (e.name||"").trim())
+                };
+                if (_cleaned.foods.length === 0 && _cleaned.extras.length === 0) {
+                  showToast("Add at least one food to save your list", 2500, 1);
+                  return;
+                }
+                setWeeklyShoppingList(_cleaned);
+                setShowShoppingListModal(false);
+                setShoppingDraft(null);
+                showToast("✓ Shopping list saved. suggestions will follow your plan", 3000, 1);
+              }}>💾 Save shopping list</PBtn>
+            </div>
+          </div>
+        );
+      })()}
 
             {/* ═══ Photo Viewer Overlay ═══ */}
       {viewPhoto && (
