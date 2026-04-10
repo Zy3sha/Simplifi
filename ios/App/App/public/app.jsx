@@ -19052,12 +19052,10 @@ function App(){
         return _newToken;
       } catch { return backupCode||""; }
     })();
-    // Cache-bust param. GitHub Pages caches HTML for up to 10 min and doesn't
-    // let us set custom response headers. Appending a fresh hour-bucket ensures
-    // carers always fetch the latest care.html on each share (they hit a new URL
-    // at worst once per hour, which is well within acceptable refresh cadence).
-    const _cacheBust = Math.floor(Date.now() / (60*60*1000));
-    const carerPortalUrl = `https://obubba.com/care.html?code=${encodeURIComponent(_carerToken)}&child=${encodeURIComponent(resolvedActiveId||"")}&v=${_cacheBust}`;
+    // Carer portal is now on Firebase Hosting with real Cache-Control:
+    // no-cache headers, so stale HTML isn't possible. No cache-bust
+    // query param needed.
+    const carerPortalUrl = `https://obubba-d9ccc.web.app/care.html?code=${encodeURIComponent(_carerToken)}&child=${encodeURIComponent(resolvedActiveId||"")}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
 
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
@@ -34135,8 +34133,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <button onClick={e=>{
               e.stopPropagation();haptic();
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
-              const _cacheBust2 = Math.floor(Date.now() / (60*60*1000));
-              const _url = "https://obubba.com/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"")+"&v="+_cacheBust2;
+              const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
               if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
               else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}

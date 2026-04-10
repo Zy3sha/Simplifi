@@ -27,3 +27,4 @@ ios/App/App/.claude/
 # Android signing
 android/key.properties
 android/app/obubba-release.jks
+.firebase/

@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<title>Bubba Care</title>
+<meta name="theme-color" content="#FFFCF9"/>
+<!-- Carer portal is live-updating. Prevent stale HTML from being served
+     by CDN/browser cache so bug fixes and UI changes reach carers on
+     their next visit without a hard refresh. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #FFFCF9; font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif; color: #4A3B35; min-height: 100vh; }
+  body { padding: max(20px, env(safe-area-inset-top, 20px)) 16px max(20px, env(safe-area-inset-bottom, 20px)); max-width: 560px; margin: 0 auto; }
+  .header { text-align: center; margin-bottom: 18px; }
+  .logo { font-family: "Playfair Display", Georgia, serif; font-weight: 700; font-size: 26px; letter-spacing: 0.08em; color: #4A3B35; }
+  .sub { font-size: 13px; color: #7A5C52; margin-top: 2px; }
+  .card { background: #FFFDFA; border: 1.5px solid #E8DED3; border-radius: 20px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 16px rgba(74,59,53,0.04); }
+  .caring-banner { background: rgba(155,184,168,0.1); border: 1px solid rgba(155,184,168,0.4); border-radius: 14px; padding: 12px 16px; margin-bottom: 16px; text-align: center; }
+  .caring-banner .title { font-size: 16px; font-weight: 700; color: #4A3B35; margin-bottom: 2px; }
+  .caring-banner .text { font-size: 13px; color: #6A8A7A; }
+  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .action-btn { padding: 22px 12px; border-radius: 20px; border: 2px solid #E8DED3; background: #FFFDFA; cursor: pointer; font-size: 18px; font-weight: 700; color: #4A3B35; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 110px; font-family: inherit; transition: transform 0.1s, background 0.15s, border-color 0.15s; }
+  .action-btn:active { transform: scale(0.97); background: #F8F1EA; }
+  .action-btn .icon { font-size: 36px; }
+  .action-btn.active { background: rgba(155,184,168,0.15); border-color: #9BB8A8; }
+  .section-label { font-size: 14px; font-weight: 700; color: #7A5C52; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .entry { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #FBF5F0; border: 1px solid #E8DED3; margin-bottom: 6px; font-size: 14px; }
+  .entry .emoji { font-size: 18px; }
+  .entry .label { flex: 1; font-weight: 600; color: #4A3B35; }
+  .entry .time { font-size: 12px; color: #7A5C52; font-family: ui-monospace, monospace; }
+  .sheet { position: fixed; inset: 0; background: rgba(44,31,26,0.5); z-index: 100; display: flex; align-items: flex-end; }
+  .sheet-inner { background: #FFFCF9; border-radius: 28px 28px 0 0; padding: 24px 20px max(24px, env(safe-area-inset-bottom,24px)); width: 100%; max-width: 560px; margin: 0 auto; }
+  .sheet-handle { width: 40px; height: 4px; background: #E8DED3; border-radius: 99px; margin: 0 auto 18px; }
+  .sheet-title { font-family: "Playfair Display", Georgia, serif; font-size: 22px; font-weight: 700; color: #4A3B35; text-align: center; margin-bottom: 14px; }
+  .amount-display { font-size: 54px; font-weight: 700; color: #C07088; text-align: center; font-family: ui-monospace, monospace; margin-bottom: 10px; }
+  .amount-display .unit { font-size: 20px; color: #A89A90; font-weight: 600; margin-left: 4px; }
+  .amount-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .amt-btn { padding: 14px; border-radius: 14px; border: 2px solid #E8DED3; background: #FFFDFA; font-size: 18px; font-weight: 700; color: #4A3B35; cursor: pointer; font-family: inherit; }
+  .amt-btn.plus { border-color: #C07088; color: #C07088; background: rgba(192,112,136,0.06); }
+  .amt-btn:active { transform: scale(0.96); }
+  .opt-btn { width: 100%; padding: 18px; border-radius: 14px; border: 2px solid #E8DED3; background: #FFFDFA; font-size: 18px; font-weight: 700; color: #4A3B35; cursor: pointer; font-family: inherit; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .opt-btn .emoji { font-size: 24px; }
+  .save-btn { width: 100%; padding: 18px; border-radius: 99px; border: none; background: linear-gradient(135deg,#C07088,#a85a44); color: white; font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit; box-shadow: 0 4px 14px rgba(192,112,136,0.25); }
+  .cancel-btn { width: 100%; padding: 12px; border-radius: 99px; border: none; background: transparent; color: #A89A90; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #4A3B35; color: #FAF6F0; padding: 12px 18px; border-radius: 99px; font-size: 14px; font-weight: 600; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.2s; }
+  .toast.show { opacity: 1; }
+  .error-screen { padding: 40px 24px; text-align: center; }
+  .error-screen .icon { font-size: 48px; margin-bottom: 16px; }
+  .error-screen h2 { font-family: "Playfair Display", serif; font-size: 22px; color: #4A3B35; margin-bottom: 8px; }
+  .error-screen p { font-size: 14px; color: #7A5C52; line-height: 1.6; }
+  .loading { padding: 60px 20px; text-align: center; color: #7A5C52; }
+  .parent-note { background: rgba(212,168,133,0.08); border: 1px solid rgba(212,168,133,0.3); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; color: #4A3B35; line-height: 1.55; }
+  .parent-note .pn-label { font-size: 10px; font-weight: 700; color: #A88848; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .call-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 13px 16px; border-radius: 14px; border: 1.5px solid #9BB8A8; background: rgba(155,184,168,0.08); color: #4A3B35; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; text-decoration: none; margin-bottom: 6px; }
+  .call-btn .emoji { font-size: 20px; }
+  .call-btn .name { flex: 1; text-align: left; }
+  .call-btn .arrow { color: #9BB8A8; font-size: 18px; }
+  .reassurance-item { padding: 12px 14px; border-radius: 12px; background: #FBF5F0; border: 1px solid #E8DED3; margin-bottom: 8px; }
+  .reassurance-item .q { font-size: 14px; font-weight: 700; color: #4A3B35; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .reassurance-item .a { font-size: 13px; color: #6A584E; line-height: 1.55; }
+  details.reassurance-item summary { list-style: none; cursor: pointer; -webkit-user-select: none; user-select: none; }
+  details.reassurance-item summary::-webkit-details-marker { display: none; }
+  details.reassurance-item[open] summary { margin-bottom: 6px; }
+  details.reassurance-item summary::after { content: "▼"; margin-left: auto; font-size: 10px; color: #A89A90; transition: transform 0.2s; }
+  details.reassurance-item[open] summary::after { transform: rotate(180deg); }
+  details.reassurance-item summary .q { display: flex; align-items: center; gap: 6px; width: 100%; margin-bottom: 0; }
+  details.reassurance-item summary .q::after { content: "▼"; margin-left: auto; font-size: 10px; color: #A89A90; transition: transform 0.2s; }
+  details.reassurance-item[open] summary .q::after { transform: rotate(180deg); }
+  /* Floating call button */
+  .fab-call { position: fixed; bottom: max(24px, env(safe-area-inset-bottom, 24px)); right: 20px; width: 56px; height: 56px; border-radius: 50%; background: #9BB8A8; color: white; font-size: 24px; border: none; cursor: pointer; box-shadow: 0 6px 20px rgba(155,184,168,0.4); z-index: 90; display: flex; align-items: center; justify-content: center; }
+  .fab-call:active { transform: scale(0.92); }
+  /* Dark mode */
+  @media (prefers-color-scheme: dark) {
+    html, body { background: #1C1820; color: #E8DDE0; }
+    .card { background: #252028; border-color: #3A2E35; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+    .header .logo { color: #E8DDE0; }
+    .header .sub { color: #A898AC; }
+    .caring-banner { background: rgba(155,184,168,0.1); border-color: rgba(155,184,168,0.25); }
+    .caring-banner .title { color: #E8DDE0; }
+    .action-btn { background: #2A2430; border-color: #3A2E35; color: #E8DDE0; }
+    .action-btn:active { background: #352E3A; }
+    .action-btn.active { background: rgba(155,184,168,0.15); }
+    .entry { background: #2A2430; border-color: #3A2E35; }
+    .entry .label { color: #E8DDE0; }
+    .entry .time { color: #A898AC; }
+    .section-label { color: #A898AC; }
+    .parent-note { background: rgba(212,168,133,0.06); border-color: rgba(212,168,133,0.2); color: #E8DDE0; }
+    .reassurance-item { background: #2A2430; border-color: #3A2E35; }
+    .reassurance-item .q { color: #E8DDE0; }
+    .reassurance-item .a { color: #C8B8C0; }
+    .sheet-inner { background: #1C1820; }
+    .sheet-handle { background: #3A2E35; }
+    .opt-btn { background: #2A2430; border-color: #3A2E35; color: #E8DDE0; }
+    .save-btn { background: linear-gradient(135deg,#C07088,#a85a44); }
+    .amt-btn { background: #2A2430; border-color: #3A2E35; color: #E8DDE0; }
+    .call-btn { background: rgba(155,184,168,0.08); border-color: rgba(155,184,168,0.3); color: #E8DDE0; }
+    .toast { background: #E8DDE0; color: #1C1820; }
+  }
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">Loading…</div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, orderBy, limit, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCdHzmheQRbtzP_JI1FuWcZLeW8yVja5-0",
+  authDomain: "obubba-d9ccc.firebaseapp.com",
+  projectId: "obubba-d9ccc",
+  storageBucket: "obubba-d9ccc.firebasestorage.app",
+  messagingSenderId: "1091432133381",
+  appId: "1:1091432133381:web:1cd4d0ce7397affeae7d6c"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Parse URL params
+const params = new URLSearchParams(window.location.search);
+const rawCode = (params.get("code") || "").toUpperCase().trim();
+const childId = (params.get("child") || "").trim();
+
+// resolvedCode will be set to the actual backup code (BK...) after CT token lookup
+let code = rawCode;
+
+const $app = document.getElementById("app");
+
+if (!rawCode || rawCode.length < 4) {
+  $app.innerHTML = `
+    <div class="error-screen">
+      <div class="icon">🔑</div>
+      <h2>Invalid care link</h2>
+      <p>This link is missing the access code. Please ask the parent to share a fresh link via the OBubba app.</p>
+    </div>`;
+} else {
+  // Sign in anonymously, load context, then render
+  signInAnonymously(auth).then(async () => {
+    // If code is a CT token, look up the real backup code from carer_tokens collection
+    if (rawCode.startsWith("CT")) {
+      try {
+        const _tokenDoc = await getDoc(doc(db, "carer_tokens", rawCode));
+        if (_tokenDoc.exists() && _tokenDoc.data().backupCode) {
+          code = _tokenDoc.data().backupCode;
+        }
+      } catch(e) { console.warn("CT token lookup failed", e); }
+    }
+    await loadFamilyContext();
+    renderApp();
+    // Subscribe AFTER initial render so first paint is instant, then
+    // keep it live for all subsequent parent-side writes.
+    subscribeFamilyContext();
+  }).catch((err) => {
+    console.error("Auth failed", err);
+    $app.innerHTML = `
+      <div class="error-screen">
+        <div class="icon">📡</div>
+        <h2>Can't connect</h2>
+        <p>We couldn't reach OBubba's servers. Please check your internet and try again.</p>
+      </div>`;
+  });
+}
+
+function nowTime() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+}
+function fmt12(t) {
+  const [h,m] = (t||"").split(":").map(Number);
+  if(isNaN(h)) return t;
+  const ap = h >= 12 ? "pm" : "am";
+  const h12 = (h % 12) || 12;
+  return h12 + ":" + String(m).padStart(2,"0") + ap;
+}
+function agoMin(t) {
+  if(!t) return null;
+  const [h,m] = t.split(":").map(Number);
+  const now = new Date();
+  let d = (now.getHours()*60 + now.getMinutes()) - (h*60+m);
+  if(d < 0) d += 1440;
+  return d;
+}
+function fmtAgo(mins) {
+  if(mins === null) return "—";
+  if(mins < 1) return "just now";
+  if(mins < 60) return mins + "m ago";
+  const h = Math.floor(mins/60), m = mins%60;
+  return h + "h " + (m>0 ? m + "m " : "") + "ago";
+}
+
+let sheet = null;
+let recentEntries = [];
+let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, babyPhoto: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [] };
+let _childrenCache = null; // used to recompute stats when carer entries arrive
+
+function todayStrLocal() {
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+
+function getWakeWindow(weeks) {
+  // Age-based wake window (NHS/AASM guidance)
+  if (weeks < 4) return { min:45, max:60, label:"45–60 min" };
+  if (weeks < 8) return { min:60, max:90, label:"1–1.5h" };
+  if (weeks < 13) return { min:60, max:105, label:"1–1h 45m" };
+  if (weeks < 17) return { min:90, max:120, label:"1.5–2h" };
+  if (weeks < 26) return { min:120, max:150, label:"2–2.5h" };
+  if (weeks < 39) return { min:150, max:180, label:"2.5–3h" };
+  if (weeks < 52) return { min:180, max:210, label:"3–3.5h" };
+  return { min:210, max:240, label:"3.5–4h" };
+}
+
+function computeTodayStats(children, childId, extraEntries) {
+  // Pick first child by default; use childId if provided
+  const ch = childId ? (children.find(c=>c.id===childId) || children[0]) : children[0];
+  if (!ch) return null;
+  const today = todayStrLocal();
+  const baseEntries = (ch.days && ch.days[today]) || [];
+  // Merge in any extra entries (pending carer_logs entries from Firestore) that haven't been
+  // accepted by the parent yet, so the carer portal reflects real-time state.
+  const entries = Array.isArray(extraEntries) ? baseEntries.concat(extraEntries) : baseEntries;
+  const feeds = entries.filter(e => e.type === "feed" && !e.night);
+  const naps = entries.filter(e => e.type === "nap" && !e.night);
+  const poops = entries.filter(e => e.type === "poop");
+  const lastFeed = feeds.length ? feeds[feeds.length-1] : null;
+  const lastNap = naps.length ? naps[naps.length-1] : null;
+  const lastPoop = poops.length ? poops[poops.length-1] : null;
+  const wetCount = poops.filter(p => { const _pt=(p.poopType||"wet").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
+  const dirtyCount = poops.filter(p => (p.poopType||"").includes("dirty")||(p.poopType||"").includes("mixed")||(p.poopType||"").includes("yellow")||(p.poopType||"").includes("green")||(p.poopType||"").includes("brown")).length;
+  const totalMl = feeds.reduce((s,f)=>s+(f.amount||0),0);
+  // Avg per feed (from today + recent)
+  const recentFeeds = Object.values(ch.days||{}).flat().filter(e=>e&&e.type==="feed"&&!e.night&&e.amount>0).slice(-20);
+  const avgMl = recentFeeds.length ? Math.round(recentFeeds.reduce((s,f)=>s+f.amount,0)/recentFeeds.length) : 0;
+  const avgFeedsPerDay = (()=>{const days=ch.days||{};const counts=Object.values(days).slice(-7).map(d=>(d||[]).filter(e=>e.type==="feed").length).filter(n=>n>0);return counts.length?Math.round(counts.reduce((a,b)=>a+b,0)/counts.length):0;})();
+  return { today, entries, lastFeed, lastNap, lastPoop, wetCount, dirtyCount, nappyCount: poops.length, totalMl, avgMl, avgFeedsPerDay, naps };
+}
+
+// Parses a families/{code} doc snapshot into familyContext.
+// Pulled into its own function so both the initial load and the live
+// subscription use the same code path.
+function _applyFamilyDoc(data) {
+  if (!data) return;
+  // Extract children → name, dob, photo, today stats
+  try {
+    const children = JSON.parse(data.children || "[]");
+    const arr = Array.isArray(children) ? children : Object.values(children);
+    if (arr.length > 0) {
+      const ch = arr[0];
+      familyContext.babyName = ch.name || "baby";
+      familyContext.babyDob = ch.dob || null;
+      if (ch.dob) {
+        const dobDate = new Date(ch.dob + "T00:00:00");
+        const weeks = Math.floor((Date.now() - dobDate.getTime()) / (7*24*3600*1000));
+        familyContext.ageWeeks = weeks;
+      }
+      _childrenCache = arr;
+      // Use URL childId if present; otherwise pick the baby matching the stored profile
+      familyContext.today = computeTodayStats(arr, childId) || {};
+      // Also update name/age from the resolved child (in case URL specified a specific one)
+      const _resolvedCh = childId ? (arr.find(c=>c.id===childId) || arr[0]) : arr[0];
+      if (_resolvedCh) {
+        familyContext.babyName = _resolvedCh.name || "baby";
+        familyContext.babyDob = _resolvedCh.dob || null;
+        familyContext.babyPhoto = _resolvedCh.photo || null;
+        if (_resolvedCh.dob) {
+          const _dobDate = new Date(_resolvedCh.dob + "T00:00:00");
+          familyContext.ageWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
+        }
+      }
+    }
+  } catch (e) { console.warn("Children parse", e); }
+  // Parse shared data for pinned notes
+  try {
+    const sd = JSON.parse(data.sharedData || "{}");
+    familyContext.pinnedNotes = Array.isArray(sd.pinnedNotes) ? sd.pinnedNotes.filter(n=>n&&n.pinned) : [];
+  } catch {}
+  // Parse carer info
+  try {
+    const ci = JSON.parse(data.carerInfo || "{}");
+    familyContext.carerNotes = ci.carerNotes || "";
+    familyContext.carerComfort = ci.carerComfort || "";
+    familyContext.emergencyContacts = Array.isArray(ci.emergencyContacts) ? ci.emergencyContacts : [];
+  } catch {}
+  // Stamp the sync time so we can show "live · updated just now"
+  familyContext._lastSyncedAt = Date.now();
+}
+
+// One-shot initial load — resolves when the first snapshot arrives so
+// renderApp() has data to work with on first render.
+async function loadFamilyContext() {
+  try {
+    const famDoc = await getDoc(doc(db, "families", code));
+    if (famDoc.exists()) _applyFamilyDoc(famDoc.data());
+  } catch (e) { console.warn("Family context initial load failed", e); }
+}
+
+// Live subscription — after initial load, keeps familyContext fresh
+// whenever the parent app writes to families/{code}. Without this, the
+// portal showed whatever snapshot was current at page load and went
+// silent until the carer hard-refreshed.
+let _familyUnsub = null;
+function subscribeFamilyContext() {
+  if (_familyUnsub) return; // already subscribed
+  try {
+    _familyUnsub = onSnapshot(doc(db, "families", code), (snap) => {
+      if (!snap.exists()) return;
+      _applyFamilyDoc(snap.data());
+      // Re-merge any pending carer entries and re-render so the UI
+      // reflects the latest parent-side state in real time.
+      try { _mergeCarerEntries(); } catch(_) {}
+      try { _renderHtml(); } catch(_) {}
+      try { if (typeof updateRecentList === "function") updateRecentList(); } catch(_) {}
+    }, (err) => {
+      console.warn("Family context subscription failed", err);
+    });
+  } catch (e) { console.warn("subscribeFamilyContext error", e); }
+}
+
+function showToast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("show"), 10);
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 300); }, 2200);
+}
+
+async function logEntry(entry) {
+  try {
+    const colRef = collection(db, "carer_logs", code, "entries");
+    await addDoc(colRef, {
+      ...entry,
+      time: entry.time || nowTime(),
+      loggedAt: new Date().toISOString(),
+      loggedBy: "carer"
+    });
+    showToast("✓ Saved · parents will see this");
+    closeSheet();
+  } catch (e) {
+    console.error("Log failed", e);
+    showToast("Couldn't save — try again");
+  }
+}
+
+function closeSheet() {
+  if(sheet) { sheet.remove(); sheet = null; }
+}
+
+function openSheet(type) {
+  closeSheet();
+  sheet = document.createElement("div");
+  sheet.className = "sheet";
+  sheet.onclick = (e) => { if(e.target === sheet) closeSheet(); };
+  let inner = "";
+
+  if (type === "feed") {
+    let ml = 120;
+    inner = `
+      <div class="sheet-inner">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">🍼 Log a Feed</div>
+        <div class="amount-display"><span id="ml-val">${ml}</span><span class="unit">ml</span></div>
+        <div class="amount-btns">
+          <button class="amt-btn" data-delta="-30">−30</button>
+          <button class="amt-btn" data-delta="-10">−10</button>
+          <button class="amt-btn" data-set="0">Clear</button>
+          <button class="amt-btn plus" data-delta="10">+10</button>
+          <button class="amt-btn plus" data-delta="30">+30</button>
+          <button class="amt-btn plus" data-delta="60">+60</button>
+        </div>
+        <button class="save-btn" id="save">Save Feed ✓</button>
+        <button class="cancel-btn" id="cancel">Cancel</button>
+      </div>`;
+    sheet.innerHTML = inner;
+    document.body.appendChild(sheet);
+    const valEl = sheet.querySelector("#ml-val");
+    sheet.querySelectorAll(".amt-btn").forEach(b => {
+      b.onclick = () => {
+        if(b.dataset.delta) ml = Math.max(0, Math.min(300, ml + parseInt(b.dataset.delta)));
+        if(b.dataset.set !== undefined) ml = parseInt(b.dataset.set);
+        valEl.textContent = ml;
+      };
+    });
+    sheet.querySelector("#save").onclick = () => logEntry({type:"feed", feedType:"bottle", amount:ml, note:"Logged by caregiver"});
+    sheet.querySelector("#cancel").onclick = closeSheet;
+  } else if (type === "nappy") {
+    inner = `
+      <div class="sheet-inner">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">💩 Log a Nappy</div>
+        <button class="opt-btn" data-kind="wet"><span class="emoji">💧</span>Wet</button>
+        <button class="opt-btn" data-kind="dirty"><span class="emoji">💩</span>Dirty</button>
+        <button class="opt-btn" data-kind="wet + dirty"><span class="emoji">💧💩</span>Wet + Dirty</button>
+        <button class="cancel-btn" id="cancel">Cancel</button>
+      </div>`;
+    sheet.innerHTML = inner;
+    document.body.appendChild(sheet);
+    sheet.querySelectorAll(".opt-btn").forEach(b => {
+      b.onclick = () => logEntry({type:"poop", poopType:b.dataset.kind, note:"Logged by caregiver"});
+    });
+    sheet.querySelector("#cancel").onclick = closeSheet;
+  } else if (type === "nap-start") {
+    logEntry({type:"nap", start:nowTime(), end:nowTime(), note:"Logged by caregiver"});
+  } else if (type === "wake") {
+    logEntry({type:"wake", note:"Logged by caregiver"});
+  }
+}
+
+function _mergeCarerEntries() {
+  // Merges today's pending carer_logs entries into familyContext.today so predictions reflect
+  // freshly-logged events immediately (before parent has accepted them).
+  try {
+    if (!_childrenCache) return;
+    const _todayStr = todayStrLocal();
+    const _todayPending = recentEntries.filter(e => {
+      const t = e.loggedAt || e.time || "";
+      if (typeof t === "string" && t.length >= 10) return t.slice(0,10) === _todayStr;
+      return true;
+    }).map(e => ({
+      type: e.type,
+      time: e.time || (e.loggedAt ? e.loggedAt.slice(11,16) : nowTime()),
+      amount: e.amount || 0,
+      feedType: e.feedType || "",
+      poopType: e.poopType || "",
+      start: e.start || "",
+      end: e.end || "",
+      night: !!e.night
+    }));
+    familyContext.today = computeTodayStats(_childrenCache, childId, _todayPending) || {};
+  } catch(e) { console.warn("merge carer entries failed", e); }
+}
+
+function renderApp() {
+  // Listen to recent entries — real-time so carer sees their own logs reflected immediately
+  const colRef = collection(db, "carer_logs", code, "entries");
+  const q = query(colRef, orderBy("loggedAt", "desc"), limit(25));
+  onSnapshot(q, (snap) => {
+    recentEntries = [];
+    snap.forEach(d => recentEntries.push({id:d.id, ...d.data()}));
+    // Recompute today stats with pending entries merged, then re-render everything
+    _mergeCarerEntries();
+    _renderHtml();
+    updateRecentList();
+  });
+  _renderHtml();
+}
+
+function _renderHtml() {
+  const _name = familyContext.babyName;
+  const _weeks = familyContext.ageWeeks;
+  const _ageStr = _weeks==null ? "" : _weeks<13 ? `${_weeks}w` : _weeks<52 ? `${Math.floor(_weeks/4.3)}mo` : `${Math.floor(_weeks/52)}y`;
+  const _t = familyContext.today || {};
+  const _guidelineWW = _weeks!=null ? getWakeWindow(_weeks) : null;
+  // Compute PERSONAL wake window from baby's actual recent patterns (overrides guideline if enough data)
+  let _ww = _guidelineWW;
+  let _wwIsPersonal = false;
+  try {
+    if (_childrenCache) {
+      const _ch = childId ? (_childrenCache.find(c=>c.id===childId)||_childrenCache[0]) : _childrenCache[0];
+      if (_ch && _ch.days) {
+        const _dks = Object.keys(_ch.days).sort().slice(-7);
+        const _gaps = [];
+        _dks.forEach(dk => {
+          const _de = (_ch.days[dk]||[]).filter(e=>!e.night).sort((a,b)=>{
+            const [ah,am]=(a.time||a.start||"00:00").split(":").map(Number);
+            const [bh,bm]=(b.time||b.start||"00:00").split(":").map(Number);
+            return (ah*60+am)-(bh*60+bm);
+          });
+          const _wake = _de.find(e=>e.type==="wake");
+          const _naps = _de.filter(e=>e.type==="nap"&&e.start&&e.end);
+          if (_wake && _naps.length) {
+            // Gap from wake to first nap
+            const [wh,wm]=_wake.time.split(":").map(Number);
+            const [nh,nm]=_naps[0].start.split(":").map(Number);
+            const g1 = (nh*60+nm)-(wh*60+wm);
+            if (g1 > 30 && g1 < 360) _gaps.push(g1);
+          }
+          // Gaps between consecutive naps
+          for (let i=0; i<_naps.length-1; i++) {
+            const [eh,em]=_naps[i].end.split(":").map(Number);
+            const [sh,sm]=_naps[i+1].start.split(":").map(Number);
+            const g = (sh*60+sm)-(eh*60+em);
+            if (g > 30 && g < 360) _gaps.push(g);
+          }
+        });
+        if (_gaps.length >= 5) {
+          _gaps.sort((a,b)=>a-b);
+          const _p25 = _gaps[Math.floor(_gaps.length*0.25)];
+          const _p75 = _gaps[Math.floor(_gaps.length*0.75)];
+          const _avg = Math.round(_gaps.reduce((a,b)=>a+b,0)/_gaps.length);
+          const _minWW = Math.round((_p25+_avg)/2/5)*5; // round to nearest 5min
+          const _maxWW = Math.round((_p75+_avg)/2/5)*5;
+          if (_minWW > 30 && _maxWW > _minWW) {
+            const _fmtWW = (m)=> m>=60 ? (m%60===0?Math.floor(m/60)+"h":Math.floor(m/60)+"h "+m%60+"m") : m+"m";
+            _ww = { min:_minWW, max:_maxWW, label:_fmtWW(_minWW)+"–"+_fmtWW(_maxWW) };
+            _wwIsPersonal = true;
+          }
+        }
+      }
+    }
+  } catch(e) { /* fall back to guideline */ }
+  // Compute predictions — current wall-clock for "past" filtering
+  const _nowD = new Date();
+  const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
+  const _bedtimeMins = 19*60; // 7pm — typical bedtime cutoff
+  const _nightCutoff = 20*60; // 8pm — after this, baby is winding down; no more feed/nap suggestions
+  const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
+  const _lastFeedTimeMins = _t.lastFeed ? (parseInt(_t.lastFeed.time.split(":")[0])*60 + parseInt(_t.lastFeed.time.split(":")[1])) : null;
+  // Feed interval: 3h for babies under 6mo, 3.5h from 6mo
+  const _feedInterval = _weeks==null ? 180 : (_weeks<26 ? 180 : 210);
+  let _nextFeedMins = _lastFeedTimeMins!=null ? (_lastFeedTimeMins + _feedInterval) : null;
+  let _nextFeedStr = null;
+  // Only show if we're still in the active day (before night cutoff)
+  if (_nextFeedMins != null && _nowMins <= _nightCutoff) {
+    // Roll forward past-time predictions until they're in the future
+    let _guard = 0;
+    while (_nextFeedMins < _nowMins - 10 && _guard++ < 12) {
+      _nextFeedMins += _feedInterval;
+    }
+    // Only show if the rolled-forward time is still before night cutoff
+    if (_nextFeedMins <= _nightCutoff && _nextFeedMins < 1440) {
+      _nextFeedStr = fmt12(String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")+":"+String(_nextFeedMins%60).padStart(2,"0"));
+    }
+  }
+  // Last nap end → next nap window
+  let _napWindowStr = null;
+  if (_t.lastNap && _ww && _nowMins <= _nightCutoff) {
+    const [eh,em] = (_t.lastNap.end||"").split(":").map(Number);
+    if(!isNaN(eh)) {
+      const endMins = eh*60+em;
+      const minStart = endMins + _ww.min;
+      const maxStart = endMins + _ww.max;
+      // Hide if already past OR if it would start at/after typical bedtime
+      const _alreadyPast = maxStart <= _nowMins;
+      const _afterBedtime = minStart >= _bedtimeMins;
+      if (minStart < 1440 && !_alreadyPast && !_afterBedtime) {
+        const _fmt = (m)=>fmt12(String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0"));
+        _napWindowStr = `${_fmt(minStart)} – ${_fmt(maxStart)}`;
+      }
+    }
+  }
+  const _lastNapAgo = _t.lastNap && _t.lastNap.end ? agoMin(_t.lastNap.end) : null;
+  const _lastNappyAgo = _t.lastPoop ? agoMin(_t.lastPoop.time) : null;
+  // Build rich context cards
+  const _babyStatsHtml = `<div class="card" style="background:linear-gradient(135deg,rgba(212,168,133,0.06),rgba(155,184,168,0.04))">
+    <div class="section-label" style="margin-bottom:10px">👶 ${escapeHtml(_name)}${_ageStr?" · "+_ageStr:""}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:${_napWindowStr||_nextFeedStr?10:0}px">
+      <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
+        <div style="font-size:20px;margin-bottom:2px">🍼</div>
+        <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Last feed</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastFeed ? fmtAgo(_lastFeedAgo) : "—"}</div>
+        ${_t.lastFeed&&_t.lastFeed.amount ? `<div style="font-size:14px;color:#6A584E;margin-top:1px">${_t.lastFeed.amount}ml</div>` : ""}
+      </div>
+      <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
+        <div style="font-size:20px;margin-bottom:2px">💤</div>
+        <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Last nap</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastNap ? fmtAgo(_lastNapAgo) : "—"}</div>
+      </div>
+      <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
+        <div style="font-size:20px;margin-bottom:2px">💩</div>
+        <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Nappies</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.nappyCount||0} today</div>
+        ${_t.wetCount ? `<div style="font-size:14px;color:#6A584E;margin-top:1px">${_t.wetCount} wet</div>` : ""}
+      </div>
+    </div>
+    ${(_nextFeedStr || _napWindowStr) ? `<div style="padding:10px 12px;background:rgba(192,112,136,0.06);border:1px solid rgba(192,112,136,0.15);border-radius:12px;font-size:12px;color:#6A584E;line-height:1.7">
+      <div style="font-size:10px;color:#A88848;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:6px">Coming up</div>
+      ${_nextFeedStr ? `<div>🍼 Next feed around <strong style="color:#4A3B35">${_nextFeedStr}</strong>${_t.avgMl?` (~${_t.avgMl}ml typical)`:""}</div>` : ""}
+      ${_napWindowStr ? `<div>💤 Next nap window <strong style="color:#4A3B35">${_napWindowStr}</strong>${_ww?` · wake window ${_ww.label}`:""}</div>` : ""}
+    </div>` : ""}
+    ${_t.avgFeedsPerDay ? `<div style="font-size:14px;color:#A89A90;margin-top:8px;text-align:center">${escapeHtml(_name)} usually has ~${_t.avgFeedsPerDay} feeds/day${_t.avgMl?", ~"+_t.avgMl+"ml each":""}</div>` : ""}
+  </div>`;
+  // Build parent context (only show cards that have content)
+  // Allergy/medical pinned notes — sticky, can't-miss banner
+  const _allergyNotes = (familyContext.pinnedNotes||[]).filter(n=>n&&n.text&&(n.text.toLowerCase().includes("allerg")||n.text.toLowerCase().includes("dairy")||n.text.toLowerCase().includes("egg")||n.text.toLowerCase().includes("nut")||n.text.toLowerCase().includes("milk allerg")||n.text.toLowerCase().includes("intoleran")));
+  const _otherPinned = (familyContext.pinnedNotes||[]).filter(n=>!_allergyNotes.includes(n));
+  const _allergyBanner = _allergyNotes.length ? `<div style="position:sticky;top:0;z-index:50;background:#c04040;color:white;padding:10px 16px;border-radius:12px;margin-bottom:12px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(192,64,64,0.3)">
+    <div style="font-size:14px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.9;margin-bottom:4px">⚠️ ALLERGY ALERT</div>
+    ${_allergyNotes.map(n=>`<div>${escapeHtml(n.text||"")}</div>`).join("")}
+  </div>` : "";
+  const _pinnedHtml = _otherPinned.length ? `<div class="parent-note" style="background:rgba(232,87,74,0.06);border-color:rgba(232,87,74,0.25)"><div class="pn-label" style="color:#c04040">⚠️ Important</div>${_otherPinned.map(n=>`<div style="margin-bottom:4px">${escapeHtml(n.text||"")}</div>`).join("")}</div>` : "";
+  const _notesHtml = familyContext.carerNotes ? `<div class="parent-note"><div class="pn-label">📋 Notes from parents</div>${escapeHtml(familyContext.carerNotes)}</div>` : "";
+  // Note: carerComfort is already rendered in the Soothing Playbook card above — no duplicate here.
+  const _comfortHtml = "";
+  // Contacts → tel: buttons
+  const _contactsHtml = (familyContext.emergencyContacts||[]).filter(c=>c && c.phone && String(c.phone).trim()).map(c => `
+    <a class="call-btn" href="tel:${encodeURIComponent(c.phone)}">
+      <span class="emoji">📞</span>
+      <span class="name">${escapeHtml(c.name || "Call")}${c.relation?" <span style='font-size:14px;color:#A89A90;font-weight:500'>· "+escapeHtml(c.relation)+"</span>":""}</span>
+      <span class="arrow">›</span>
+    </a>`).join("");
+
+  // ── Build care guide sections (matches the preview content) ──
+  const _wakeEntry = (_t.entries||[]).find(e=>e.type==="wake"&&!e.night);
+  const _lastNapStr = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? `${fmt12(_t.lastNap.start)} – ${fmt12(_t.lastNap.end)}` : null;
+  const _lastNapDur = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? (()=>{const [sh,sm]=_t.lastNap.start.split(":").map(Number);const [eh2,em2]=_t.lastNap.end.split(":").map(Number);let d2=(eh2*60+em2)-(sh*60+sm);if(d2<0)d2+=1440;return d2;})() : null;
+  const _locale = (navigator.language||"en-GB").toLowerCase();
+  const _isUS = _locale.includes("en-us");
+  const _isAU = _locale.includes("en-au");
+  const _emergNum = _isUS ? "911" : _isAU ? "000" : "999";
+  const _nonEmerg = _isUS ? "Poison Control: 1-800-222-1222" : _isAU ? "13 HEALTH (13 43 25 84)" : "NHS 111";
+  const _hvTitle = _isUS ? "pediatrician" : _isAU ? "child health nurse or GP" : "health visitor or GP";
+  const _photoHtml = familyContext.babyPhoto ? `<div style="text-align:center;margin-bottom:12px"><img src="${familyContext.babyPhoto}" alt="${escapeHtml(_name)}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #E8DED3;box-shadow:0 4px 12px rgba(0,0,0,0.1)"/></div>` : "";
+
+  $app.innerHTML = `
+    <div class="header">
+      <div class="logo">OBUBBA</div>
+      <div class="sub">Care</div>
+    </div>
+    ${_photoHtml}
+    <div class="caring-banner">
+      <div class="title">Caring for ${escapeHtml(_name)} 💛</div>
+      <div class="text">Tap a button to log. Parents see everything in real time.</div>
+      <div class="text" style="margin-top:4px;font-style:italic;opacity:0.7">Don't worry, you can't break anything here. Just tap and go. 💛</div>
+      <div class="text" style="margin-top:4px;font-size:11px;opacity:0.5">Not in English? Your browser can translate this page automatically. 🌍</div>
+    </div>
+    ${_allergyBanner}
+    ${_pinnedHtml}
+
+    ${/* ── LIVE STATUS + NEXT ACTION ── */""}
+    ${(()=>{
+      const entries = _t.entries || [];
+      const nowM = _nowMins;
+      const bedEntry = entries.find(e=>e.type==="sleep"&&!e.night);
+      // Active nap: explicit _active flag (authoritative), missing/equal end,
+      // OR end within last 12 min. Carer page updates every few minutes over network,
+      // so generous window prevents "just woke up" flicker while baby is still sleeping.
+      const activeNap = entries.find(e=>{
+        if(e.type!=="nap"||!e.start||e.night) return false;
+        if(e._active===true) return true;
+        if(!e.end||e.start===e.end) return true;
+        const [eh,em]=(e.end||"").split(":").map(Number);
+        if(isNaN(eh)) return false;
+        const endMins = eh*60+em;
+        const diff = nowM - endMins;
+        return diff >= 0 && diff <= 12;
+      });
+      const lastCompletedNap = (_t.naps||[]).filter(n=>n.end&&n.start!==n.end).pop();
+      const wakeEntry = entries.find(e=>e.type==="wake"&&!e.night);
+      let statusIcon="☀️", statusText=_name+" is awake", statusColor="#6A8A7A", statusBg="rgba(155,184,168,0.1)";
+      let nextAction = "";
+
+      if (bedEntry && nowM >= 18*60) {
+        // Baby is sleeping for the night
+        statusIcon="🌙"; statusText=_name+" is sleeping for the night"; statusColor="#7B68EE"; statusBg="rgba(123,104,238,0.08)";
+        nextAction = "If "+_name+" wakes, keep it dark and quiet. Brief feed if needed, then straight back down. No play, no lights.";
+      } else if (activeNap) {
+        const [sh,sm]=(activeNap.start||"").split(":").map(Number);
+        const napElapsed = isNaN(sh)?0:nowM-(sh*60+sm);
+        statusIcon="😴"; statusText=_name+" is napping ("+fmtAgo(napElapsed)+")"; statusColor="#8B7EC8"; statusBg="rgba(139,126,200,0.08)";
+        // Age-aware "long nap" threshold. Naps under 4mo cap around 90m; 4-8mo the
+        // longest nap is typically 1.5-2h; older babies can happily do 2-2.5h naps.
+        // Never warn before the threshold — 1h is NORMAL not long.
+        const _longNapMin = _weeks == null ? 150
+          : _weeks < 17 ? 90      // <4mo: 90m
+          : _weeks < 35 ? 135     // 4-8mo: 2h 15m
+          : _weeks < 52 ? 150     // 8-12mo: 2h 30m
+          : 180;                  // 12mo+: 3h
+        if (napElapsed < 20) nextAction = "Let "+_name+" sleep. Don't check on them unless crying — even small noises during light sleep are normal.";
+        else if (napElapsed < 60) nextAction = _name+" is sleeping well. Start getting a bottle ready — they'll be hungry when they wake.";
+        else if (napElapsed < _longNapMin) nextAction = _name+" is having a good restorative nap. Keep the room dark and quiet.";
+        else nextAction = "That's a long one! If "+_name+" is still asleep after "+Math.round(_longNapMin/30)*30+" minutes, you could gently wake them — very long naps can push bedtime late.";
+      } else if (_lastFeedAgo !== null && _lastFeedAgo < 30) {
+        statusIcon="🍼"; statusText=_name+" was just fed ("+fmtAgo(_lastFeedAgo)+" ago)"; statusColor="#C07088"; statusBg="rgba(192,112,136,0.08)";
+        nextAction = "Keep "+_name+" upright for 15-20 min after feeding (reduces spit-up). Then some play time on a mat or your lap.";
+      } else if (_lastNapAgo !== null && _lastNapAgo < 15) {
+        statusIcon="🌤️"; statusText=_name+" just woke up"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
+        nextAction = "Offer a feed if it's been "+(_lastFeedAgo!==null?fmtAgo(_lastFeedAgo):"a while")+" since the last one. "+_name+" will be alert and ready to play for the next "+((_ww?_ww.label:"1-2h")||"1-2h")+".";
+      } else if (wakeEntry && _ww) {
+        const wakeM = parseInt(wakeEntry.time.split(":")[0])*60+parseInt(wakeEntry.time.split(":")[1]);
+        const lastSleepEnd = lastCompletedNap ? parseInt(lastCompletedNap.end.split(":")[0])*60+parseInt(lastCompletedNap.end.split(":")[1]) : wakeM;
+        const awakeMin = nowM - lastSleepEnd;
+        if (awakeMin >= _ww.max) {
+          statusIcon="😫"; statusText=_name+" is getting overtired ("+fmtAgo(awakeMin)+" awake)"; statusColor="#E8937A"; statusBg="rgba(232,147,122,0.08)";
+          nextAction = "Try settling "+_name+" for a nap now. Dark room, gentle rocking or shushing. If they fight it for 15+ minutes, try a pram walk or car ride.";
+        } else if (awakeMin >= _ww.min) {
+          statusIcon="🥱"; statusText=_name+" is getting sleepy ("+fmtAgo(awakeMin)+" awake)"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
+          nextAction = "Watch for sleepy cues: yawning, eye rubbing, looking away. Start the nap routine — dark room, sleeping bag, white noise.";
+        } else {
+          statusText = _name+" is awake and happy ("+fmtAgo(awakeMin)+")";
+          const minsToNap = _ww.min - awakeMin;
+          nextAction = "Play time! "+_name+" has about "+minsToNap+" minutes before they'll start getting sleepy."+((_nextFeedStr && _lastFeedAgo > 90)?" Feed coming up around "+_nextFeedStr+".":"");
+        }
+      }
+
+      return `<div class="card" style="background:${statusBg};border-color:${statusColor}30;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${statusColor};opacity:0.6"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${nextAction?8:0}px">
+          <span style="font-size:28px">${statusIcon}</span>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#4A3B35">${statusText}</div>
+            <div style="font-size:14px;color:#A89A90;margin-top:2px">Live · updates automatically</div>
+          </div>
+        </div>
+        ${nextAction?`<div style="padding:10px 12px;background:rgba(255,255,255,0.6);border-radius:12px;font-size:13px;color:#4A3B35;line-height:1.6">
+          <div style="font-size:10px;font-weight:700;color:${statusColor};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">👉 What to do now</div>
+          ${nextAction}
+        </div>`:""}
+      </div>`;
+    })()}
+
+    ${/* ── SOOTHING PLAYBOOK ── */""}
+    ${familyContext.carerComfort ? `<div class="card" style="border-color:rgba(139,126,200,0.3)">
+      <div class="section-label" style="color:#8B7EC8;margin-bottom:8px">🧸 ${escapeHtml(_name)}'s Soothing Playbook</div>
+      <div style="font-size:13px;color:#4A3B35;line-height:1.7;white-space:pre-line">${escapeHtml(familyContext.carerComfort)}</div>
+      <div style="font-size:10px;color:#A89A90;margin-top:8px;font-style:italic">Written by ${escapeHtml(_name)}'s parents — these are what work specifically for ${escapeHtml(_name)}.</div>
+    </div>` : `<div class="card" style="border-color:rgba(212,168,85,0.3)">
+      <div class="section-label" style="color:#D4A855;margin-bottom:6px">🧸 Soothing Playbook</div>
+      <div style="font-size:13px;color:#6A584E;line-height:1.6">Parents haven't added soothing techniques yet. If ${escapeHtml(_name)} is upset, try: gentle rocking, shushing, offering a dummy, or a walk in the pram.</div>
+    </div>`}
+
+    <div class="card">
+      <div class="btn-grid">
+        <button class="action-btn" data-action="feed">
+          <span class="icon">🍼</span>
+          <span>Log Feed</span>
+        </button>
+        <button class="action-btn" data-action="nap-start">
+          <span class="icon">😴</span>
+          <span>Nap Started</span>
+        </button>
+        <button class="action-btn" data-action="nappy">
+          <span class="icon">💩</span>
+          <span>Log Nappy</span>
+        </button>
+        <button class="action-btn" data-action="wake">
+          <span class="icon">☀️</span>
+          <span>Baby Woke</span>
+        </button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#A89A90;text-align:center;margin-bottom:14px">Entries go to parents for review 💛</div>
+
+    ${_babyStatsHtml}
+    ${_notesHtml}
+    ${_comfortHtml}
+
+    <!-- ═══ DETAILED CARE GUIDE (collapsible) ═══ -->
+    <details style="margin-bottom:14px">
+      <summary style="padding:14px 16px;border-radius:14px;background:#FFFDFA;border:1.5px solid #E8DED3;cursor:pointer;font-size:15px;font-weight:700;color:#4A3B35;list-style:none;display:flex;align-items:center;justify-content:space-between;-webkit-user-select:none">
+        <span>📖 Full Care Guide</span>
+        <span style="font-size:12px;color:#A89A90">tap to expand ▼</span>
+      </summary>
+
+    <div class="card" style="background:#FFF8F2;border:1px solid #F0D0C8;margin-top:10px">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">🍼 Feeding</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
+        ${_t.avgMl ? `<div style="color:#A898AC">Typical amount</div><div style="font-weight:600">~${_t.avgMl}ml per feed</div>` : ""}
+        ${_t.avgFeedsPerDay ? `<div style="color:#A898AC">Typical frequency</div><div style="font-weight:600">~${_t.avgFeedsPerDay} feeds/day</div>` : ""}
+        ${_t.lastFeed ? `<div style="color:#A898AC">Last feed</div><div style="font-weight:600">${fmt12(_t.lastFeed.time)}${_t.lastFeed.amount?" — "+_t.lastFeed.amount+"ml":""}</div>` : ""}
+        ${_nextFeedStr ? `<div style="color:#A898AC">Next feed around</div><div style="font-weight:600">~${_nextFeedStr}</div>` : ""}
+      </div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">💡 <strong>Feed every ${_weeks&&_weeks<8?"2–3":"3–4"} hours</strong> — or sooner if ${escapeHtml(_name)} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Follow ${escapeHtml(_name)}'s lead.</div>
+    </div>
+
+    <!-- ═══ NAPPIES SECTION ═══ -->
+    <div class="card" style="background:#FFF8F2;border:1px solid #F0D0C8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">👶 Nappies</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
+        <div style="color:#A898AC">Today's nappies</div><div style="font-weight:600">${_t.nappyCount||0} (${_t.wetCount||0} wet)</div>
+        ${_t.lastPoop ? `<div style="color:#A898AC">Last nappy</div><div style="font-weight:600">${fmt12(_t.lastPoop.time)} — ${_t.lastPoop.poopType||"wet"}</div>` : ""}
+        <div style="color:#A898AC">Hydration target</div><div style="font-weight:600">${_t.wetCount||0}/6 wet nappies</div>
+      </div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.5">NHS guidance: 6+ wet nappies in 24h indicates adequate hydration. Check nappy every 2-3 hours.</div>
+    </div>
+
+    <!-- ═══ SLEEP & ROUTINE ═══ -->
+    <div class="card" style="background:#F0FFF4;border:1px solid #D0E8D8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">😴 Sleep & Routine</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
+        ${_wakeEntry ? `<div style="color:#A898AC">Woke up today</div><div style="font-weight:600">${fmt12(_wakeEntry.time)}</div>` : ""}
+        ${_ww ? `<div style="color:#A898AC">Wake window</div><div style="font-weight:600">${_ww.label} between sleeps${_wwIsPersonal?" <span style='font-size:10px;color:#6fa898'>✓ personal</span>":""}</div>` : ""}
+        ${_lastNapStr ? `<div style="color:#A898AC">Last nap</div><div style="font-weight:600">${_lastNapStr}${_lastNapDur?" ("+_lastNapDur+"m)":""}</div>` : ""}
+      </div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${escapeHtml(_name)} down when you see these signs — don't wait until they're overtired.</div>
+    </div>
+
+    <!-- ═══ SAFE SLEEP ESSENTIALS ═══ -->
+    <div class="card" style="background:#F0FFF4;border:1px solid #D0E8D8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:6px">🛏️ Safe Sleep Essentials</div>
+      <div style="font-size:14px;font-style:italic;color:#6fa898;margin-bottom:10px">Based on The Lullaby Trust safer sleep guidance</div>
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
+        ✅ Always on their <strong>back</strong> — for every sleep, day and night<br>
+        ✅ <strong>Clear cot</strong> — firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
+        ✅ <strong>Same room as you</strong> — stay in the room while ${escapeHtml(_name)} sleeps<br>
+        ✅ <strong>Room temperature 16–20°C</strong> — feel chest or back of neck to check<br>
+        ✅ <strong>Don't cover their head</strong> — no hats indoors<br>
+        ✅ <strong>Feet to foot</strong> — feet at the bottom of the cot<br>
+        ❌ <strong>Never</strong> on a sofa or armchair — even if you're holding them<br>
+        ❌ <strong>Never</strong> in a car seat for prolonged sleep — only for travel
+      </div>
+    </div>
+
+    <!-- ═══ IF BABY CRIES ═══ -->
+    <div class="card" style="background:#FFF8F2;border:1px solid #F0D0C8">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">💝 If ${escapeHtml(_name)} Cries</div>
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
+        1. <strong>Check basics</strong> — hungry? nappy? too hot/cold?<br>
+        2. <strong>Tired?</strong> — check wake window above. Dim lights, quiet voice<br>
+        3. <strong>Wind</strong> — try burping over shoulder or gentle bicycle legs<br>
+        4. <strong>Comfort</strong> — gentle rocking, skin-to-skin, white noise<br>
+        5. <strong>Still unsettled?</strong> — contact parent. It's OK to put ${escapeHtml(_name)} down safely and take a breath
+      </div>
+    </div>
+
+    <!-- ═══ IF YOU'RE OVERWHELMED ═══ -->
+    <div class="card" style="background:#F5F0F8;border:1px solid #D4C4E0">
+      <div style="font-size:15px;font-weight:700;color:#8868A0;margin-bottom:10px">💜 If you're feeling overwhelmed</div>
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.7">
+        Crying is hard to sit with. If you feel yourself getting tense, frustrated, or tearful — that's a signal, not a failure.
+        <br><br>
+        <strong>It's always OK to:</strong><br>
+        • Place ${escapeHtml(_name)} down safely in their cot on their back<br>
+        • Walk away for a minute or two — make a cup of tea, take a few breaths<br>
+        • Come back when you feel steadier. ${escapeHtml(_name)} is safe in the cot.
+        <br><br>
+        <strong style="color:#8868A0">Never shake a baby.</strong> Putting baby down and stepping away is always the right choice if you need a moment.
+      </div>
+    </div>
+
+    <!-- ═══ EMERGENCY & CONTACTS ═══ -->
+    <div class="card" style="background:#f8f0f0;border:2px solid #E8B4C0">
+      <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">📞 Emergency & Contacts</div>
+      ${_contactsHtml ? `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f0d0d0">${_contactsHtml}</div>` : ""}
+      <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
+        <strong>Emergency:</strong> <span style="color:#e8574a;font-weight:700">${_emergNum}</span><br>
+        <strong>Non-emergency:</strong> ${_nonEmerg}<br>
+        <strong>If concerned:</strong> Contact ${_hvTitle}
+      </div>
+      <div style="font-size:14px;color:#A898AC;margin-top:8px;line-height:1.5">If ${escapeHtml(_name)} is unresponsive, has difficulty breathing, has a high temperature (38°C+ in under 3 months), a rash that doesn't fade under pressure, or you're worried — please call ${_emergNum}.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">If you're worried — read first, call if you need to</div>
+
+      <details class="reassurance-item">
+        <summary><div class="q">😴 Baby only napped 10-20 mins — is that OK?</div></summary>
+        <div class="a">Completely normal. Babies cycle through light → deep → light sleep every 30-45 min, and often wake between cycles and can't resettle alone. Try: pat their bottom rhythmically, shush softly, dim the room. If still unsettled after 10 min, take them out for a cuddle — you can try again in 30 min.</div>
+      </details>
+
+      <details class="reassurance-item">
+        <summary><div class="q">😢 Baby is crying and I don't know why</div></summary>
+        <div class="a">Run through the checklist calmly: <strong>H</strong>ungry? <strong>T</strong>ired? <strong>U</strong>ncomfortable nappy? <strong>N</strong>eeds a cuddle? <strong>T</strong>oo hot/cold? (HUNT). Try them in order. Sometimes babies just need to be held close and moved gently — your calm is what they need most. Crying is their only voice, not a sign you're doing anything wrong.</div>
+      </details>
+
+      <details class="reassurance-item">
+        <summary><div class="q">🍼 Baby refused the bottle</div></summary>
+        <div class="a">Not unusual, especially with a new person offering. Try: different position (hold the way ${escapeHtml(_name)} usually sits for feeds), check milk temperature (body temp, drip on wrist), take a break and try again in 10-15 min. Don't force it — ${escapeHtml(_name)} will eat when they're hungry enough.</div>
+      </details>
+
+      <details class="reassurance-item">
+        <summary><div class="q">🤢 Baby spit up after a feed</div></summary>
+        <div class="a">Normal. Most babies spit up small amounts — the valve at the top of their tummy is still developing. Concerning if: it's forceful (flies across the room), green/yellow, or ${escapeHtml(_name)} seems in pain. Otherwise just wipe & carry on. Sit baby upright for 10-15 min after feeds to help.</div>
+      </details>
+
+      <details class="reassurance-item">
+        <summary><div class="q">😵 Baby seems overtired + can't settle</div></summary>
+        <div class="a">Overtired babies fight sleep. Signs: frantic crying, arching back, rubbing face. Create calm: dim lights, white noise, hold close, rhythmic patting or gentle rocking. Avoid stimulation. It can take 10-20 min for an overtired baby to release. Keep trying — you're doing the right thing.</div>
+      </details>
+
+      <details class="reassurance-item">
+        <summary><div class="q">🚨 When to call parents straight away</div></summary>
+        <div class="a">Call if: baby has a temperature (check forehead — if hot), refuses ALL feeds for 4+ hours, is very unusually lethargic or floppy, has a rash that doesn't fade when pressed, breathing seems fast or laboured, or anything feels genuinely wrong. Trust your gut — parents would rather you call.</div>
+      </details>
+    </div>
+    </details>
+    ${_contactsHtml ? `<div class="card">
+      <div class="section-label">Call parents anytime 💛</div>
+      ${_contactsHtml}
+    </div>` : ""}
+    <div class="card">
+      <div class="section-label">Recent entries</div>
+      <div id="recent-list"><div style="font-size:13px;color:#A89A90;text-align:center;padding:8px">Nothing logged yet</div></div>
+    </div>
+    ${/* Floating call button */""}
+    ${(familyContext.emergencyContacts||[]).filter(c=>c&&c.phone).length ? `<a class="fab-call" href="tel:${encodeURIComponent((familyContext.emergencyContacts.find(c=>c&&c.phone)||{}).phone||"")}" title="Call parent">📞</a>` : ""}
+    `;
+
+  document.querySelectorAll(".action-btn").forEach(b => {
+    b.onclick = () => openSheet(b.dataset.action);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function updateRecentList() {
+  const list = document.getElementById("recent-list");
+  if (!list) return;
+  if (recentEntries.length === 0) {
+    list.innerHTML = `<div style="font-size:13px;color:#A89A90;text-align:center;padding:8px">Nothing logged yet</div>`;
+    return;
+  }
+  const icons = { feed: "🍼", poop: "💩", nap: "😴", wake: "☀️" };
+  const labels = { feed: "Feed", poop: "Nappy", nap: "Nap", wake: "Wake" };
+  list.innerHTML = recentEntries.map(e => {
+    const t = e.time || (e.loggedAt || "").slice(11,16);
+    const detail = e.type === "feed" && e.amount ? ` · ${e.amount}ml` : e.type === "poop" && e.poopType ? ` · ${e.poopType}` : "";
+    return `<div class="entry">
+      <span class="emoji">${icons[e.type]||"📝"}</span>
+      <span class="label">${labels[e.type]||e.type}${detail}</span>
+      <span class="time">${fmt12(t)}</span>
+    </div>`;
+  }).join("");
+}
+</script>
+</body>
+</html>
