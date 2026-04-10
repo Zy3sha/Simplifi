@@ -22676,7 +22676,9 @@ function App(){
                 );
               }
               // Read countdown from nextEvent — computed once in tick engine
-              const countdown = _ne2 ? _ne2.countdown : null;
+              // nextEvent.countdown is in MINUTES; fmtCountdown expects SECONDS
+              const countdownMins = _ne2 ? _ne2.countdown : null;
+              const countdown = countdownMins !== null ? countdownMins * 60 : null;
               if(countdown === null) return null;
               const isNeutral = !isBed && napCountdown === -1;
               const isNapNow = !isBed && !isNeutral && napCountdown !== null && napCountdown <= 0;
