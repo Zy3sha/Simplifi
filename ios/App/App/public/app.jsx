@@ -4362,6 +4362,29 @@ function App(){
   const[showBedRoutine,setShowBedRoutine]=useState(false);
   const[bedRoutineStep,setBedRoutineStep]=useState(0);
   const[bedRoutineStart,setBedRoutineStart]=useState(null);
+  // Stamp (epoch ms) of when the bedtime routine was marked Done but bedtime
+  // hasn't been logged yet. Used to flip the hero pill from "Start routine"
+  // to "Log bedtime now" until the user either logs Bed or 2h pass without
+  // action (in which case the flag auto-expires on next render).
+  const[bedRoutineCompletedAt,setBedRoutineCompletedAt]=useState(()=>{
+    try { const v = parseInt(localStorage.getItem("ob_bed_routine_done_ms")); return !isNaN(v) && v > 0 ? v : null; } catch { return null; }
+  });
+  React.useEffect(()=>{
+    try {
+      if (bedRoutineCompletedAt) localStorage.setItem("ob_bed_routine_done_ms", String(bedRoutineCompletedAt));
+      else localStorage.removeItem("ob_bed_routine_done_ms");
+    } catch {}
+  }, [bedRoutineCompletedAt]);
+  // Auto-expire the "routine done" flag when bedtime gets logged or 2h pass.
+  // Runs after render so we never call setState during render.
+  React.useEffect(() => {
+    if (!bedRoutineCompletedAt) return;
+    const _tdays = days[todayStr()] || [];
+    const _hasBed = _tdays.some(e => e.type === "sleep" && !e.night && !e.nightLocked);
+    if (_hasBed || bedTimerDay || (Date.now() - bedRoutineCompletedAt) > 2*60*60*1000) {
+      setBedRoutineCompletedAt(null);
+    }
+  }, [bedRoutineCompletedAt, days, bedTimerDay]);
   const[showEditRoutine,setShowEditRoutine]=useState(false);
   const[customRoutine,setCustomRoutine]=usePersistedState("ob_bed_routine_v1", null); // null = use defaults
   const[gentleMode,setGentleMode]=useState(()=>{try{return localStorage.getItem("ob_gentle_mode")==="1";}catch{return false;}});
@@ -23323,8 +23346,48 @@ function App(){
               const nightEndWake = todayBedEntry
                 ? (nextDayMorningWake || null)
                 : morningWake;
-              // Bedtime routine prompt: only when naps are complete + 30 min before predicted bedtime
+              // Bedtime routine prompt / post-routine "Log bedtime now" pill.
+              // Three states:
+              //   1. Routine just completed (within 2h) and bedtime not yet logged
+              //      → show a prominent "🌙 Log bedtime now" pill that taps
+              //        straight into the Bed logger. This is the fix for the
+              //        bug where finishing the routine left the pill stuck on
+              //        "Start routine 16m to bed".
+              //   2. Naps complete + within 30 min of predicted bedtime, no
+              //      routine started yet → show "Start routine" pill.
+              //   3. Otherwise → fall through to other pills.
               const _tdPill = tickDataRef.current || {};
+              // Render-time freshness check: the useEffect above handles the
+              // state update on a timer, but we double-check here so the pill
+              // doesn't flash the wrong state during a React commit.
+              const _routineDoneFresh = bedRoutineCompletedAt
+                && !bedEntry && !bedTimerDay
+                && (Date.now() - bedRoutineCompletedAt) < 2*60*60*1000;
+              // STATE 1: routine just finished, waiting for bedtime log
+              if (_routineDoneFresh) {
+                return (
+                  <button onClick={()=>{
+                    haptic();
+                    // Open the main Bed logger. Mirrors the Bed button in
+                    // the quick-log row. If openLogPanel is available use it,
+                    // otherwise fall back to starting the bed timer directly.
+                    try {
+                      if (typeof openLogPanel === "function") { openLogPanel("sleep"); return; }
+                    } catch(_) {}
+                    try {
+                      if (typeof startBed === "function") { startBed(); return; }
+                    } catch(_) {}
+                    // Last resort: set the log panel directly.
+                    try { setLogPanel("sleep"); } catch(_) {}
+                  }}
+                    style={{background:"linear-gradient(135deg,rgba(123,104,238,0.25),rgba(123,104,238,0.12))",border:"1.5px solid rgba(123,104,238,0.45)",borderRadius:99,padding:"7px 14px",display:"flex",alignItems:"center",gap:6,cursor:_cP,boxShadow:"0 2px 10px rgba(123,104,238,0.2)",animation:"candlePulse 3s ease-in-out infinite"}}>
+                    <span style={{fontSize:14}}>🌙</span>
+                    <span style={{fontSize:12,fontWeight:800,color:"#7B68EE"}}>Log bedtime now</span>
+                    <span style={{fontSize:10,color:"rgba(123,104,238,0.7)",fontWeight:600}}>routine ✓</span>
+                  </button>
+                );
+              }
+              // STATE 2: routine available, show the starter pill
               if (!bedEntry && !bedTimerDay && _tdPill.napsComplete) {
                 try {
                   const _bp = _tdPill.bed || null;
@@ -34443,7 +34506,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   setShowBedRoutine(false);
                   setBedRoutineStep(0);
                   setBedRoutineStart(null);
-                  showToast("🌙 Routine complete. tap Bed to log bedtime 💛", 3000, 1);
+                  // Flip the hero pill from 'Start routine' to 'Log bedtime now'.
+                  setBedRoutineCompletedAt(Date.now());
+                  showToast("🌙 Routine complete. tap 🌙 to log bedtime 💛", 3000, 1);
                 }} style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
                   Done. goodnight 🌙
                 </button>
