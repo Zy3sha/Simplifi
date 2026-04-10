@@ -3949,6 +3949,10 @@ function App(){
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(true);
   const[msShowAchieved,setMsShowAchieved]=useState(false);
+  // Tracks which milestone "Try this to help" tips are open (by milestone id).
+  // Lives at parent level so it survives re-renders — MilestoneRow is redefined
+  // on every parent render, so component-local useState would reset every tick.
+  const[msTipsOpen,setMsTipsOpen]=useState(()=>new Set());
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
   const[insightFilter,setInsightFilter]=useState(null);
   const[devFilter,setDevFilter]=useState(null);
@@ -27631,7 +27635,12 @@ function App(){
             return (MILESTONE_EXERCISES[m.id] || [])[0] || null;
           };
 
-          const MilestoneRow = ({m}) => {
+          // Note: this is a plain function returning JSX, NOT a React component.
+          // Defining a component inside a render closure makes React treat it as
+          // a new component type on every re-render, which unmounts and remounts
+          // the whole subtree (flicker + state loss). A plain function that
+          // returns JSX reconciles normally against the virtual DOM.
+          const renderMilestoneRow = (m) => {
             const done     = !!(milestones[m.id]?.date);
             const isNow    = ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[2];
             const isPast   = !isNow && ageWeeks > m.weeks[2];
@@ -27641,7 +27650,16 @@ function App(){
             const catIcon  = m.cat==="social"?"💛":m.cat==="language"?"💬":m.cat==="motor"?"🌿":"🔆";
             const exerciseTip = getMilestoneExercise(m);
             const touchStartRef = React.useRef(null);
-            const [tipOpen, setTipOpen] = React.useState(false);
+            // Read tip-open state from parent-level Set (survives re-renders)
+            const tipOpen = msTipsOpen.has(m.id);
+            const setTipOpen = (nextOrFn) => {
+              setMsTipsOpen(prev => {
+                const next = new Set(prev);
+                const willOpen = typeof nextOrFn === "function" ? nextOrFn(next.has(m.id)) : nextOrFn;
+                if (willOpen) next.add(m.id); else next.delete(m.id);
+                return next;
+              });
+            };
             // Age range text
             const wkToMo = (w) => { const mo = Math.round(w / 4.33); return mo < 1 ? "< 1 mo" : mo + " mo"; };
             const ageRangeText = wkToMo(m.weeks[0]) + " – " + wkToMo(m.weeks[2]);
@@ -27746,7 +27764,8 @@ function App(){
 
           // (unused filtered lists removed in redesign)
 
-          const Accordion = ({label, count, open, toggle, accent, children, helpText}) => (
+          // Plain function returning JSX (not a component) — see note above renderMilestoneRow
+          const renderAccordion = ({label, count, open, toggle, accent, children, helpText}) => (
             <div style={{marginBottom:8}}>
               <button onClick={toggle} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:open?"#fdf4f0":C.warm,border:`1px solid ${open?C.blush:"var(--card-border)"}`,borderRadius:open?"12px 12px 0 0":12,cursor:_cP,fontFamily:_fI}}>
                 <div style={_S.flexCenter8}>
@@ -29702,41 +29721,37 @@ function App(){
                       <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>· Tap to mark achieved</span>
                       <HelpBtn title="On Track" body="Milestones your baby is at the typical age for right now. Every baby develops differently. these are just averages."/>
                     </div>
-                    {onTrackMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
+                    {onTrackMs.map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)}
                   </div>
                 )}
 
                 {/* ── Coming Soon milestones ── */}
-                {comingSoonMs.length > 0 && (
-                  <Accordion label="Coming Soon" count={comingSoonMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent={"#9878d0"}
-                    helpText="Milestones in baby's developmental window but a bit ahead of the typical age. They may start showing these soon.">
-                    {comingSoonMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {comingSoonMs.length > 0 && renderAccordion({
+                  label:"Coming Soon", count:comingSoonMs.length, open:msShowUpcoming, toggle:()=>setMsShowUpcoming(v=>!v), accent:"#9878d0",
+                  helpText:"Milestones in baby's developmental window but a bit ahead of the typical age. They may start showing these soon.",
+                  children: comingSoonMs.map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* ── Keep Practising. past typical but still in window ── */}
-                {keepPractisingMs.length > 0 && (
-                  <Accordion label="Keep Practising" count={keepPractisingMs.length} open={msShowPastMs} toggle={()=>setMsShowPastMs(v=>!v)} accent={C.gold}
-                    helpText="Past the typical age but still within the normal developmental window. No need to worry. every baby has their own timeline.">
-                    {keepPractisingMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {keepPractisingMs.length > 0 && renderAccordion({
+                  label:"Keep Practising", count:keepPractisingMs.length, open:msShowPastMs, toggle:()=>setMsShowPastMs(v=>!v), accent:C.gold,
+                  helpText:"Past the typical age but still within the normal developmental window. No need to worry. every baby has their own timeline.",
+                  children: keepPractisingMs.map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* ── Achieved. collapsed ── */}
-                {pastMs.length > 0 && (
-                  <Accordion label="Achieved" count={pastMs.length} open={msShowAchieved} toggle={()=>setMsShowAchieved(v=>!v)} accent={C.mint}
-                    helpText="All milestones your baby has achieved. Newest first.">
-                    {[...pastMs].sort((a,b)=>{const da=milestones[a.id]?.date||"";const db=milestones[b.id]?.date||"";return db.localeCompare(da);}).map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {pastMs.length > 0 && renderAccordion({
+                  label:"Achieved", count:pastMs.length, open:msShowAchieved, toggle:()=>setMsShowAchieved(v=>!v), accent:C.mint,
+                  helpText:"All milestones your baby has achieved. Newest first.",
+                  children: [...pastMs].sort((a,b)=>{const da=milestones[a.id]?.date||"";const db=milestones[b.id]?.date||"";return db.localeCompare(da);}).map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* Upcoming milestones. not yet in window but coming soon */}
-                {upcomingMs.length > 0 && (
-                  <Accordion label="Coming Up Next" count={upcomingMs.length} open={true} toggle={()=>{}} accent={C.lt}
-                    helpText={"Milestones to look forward to in the next few weeks."}>
-                    {upcomingMs.sort((a,b)=>a.weeks[0]-b.weeks[0]).map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {upcomingMs.length > 0 && renderAccordion({
+                  label:"Coming Up Next", count:upcomingMs.length, open:true, toggle:()=>{}, accent:C.lt,
+                  helpText:"Milestones to look forward to in the next few weeks.",
+                  children: upcomingMs.sort((a,b)=>a.weeks[0]-b.weeks[0]).map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* Empty state */}
                 {onTrackMs.length === 0 && comingSoonMs.length === 0 && keepPractisingMs.length === 0 && upcomingMs.length === 0 && pastMs.length === 0 && (
