@@ -3717,6 +3717,8 @@ function App(){
               } else if(entry.type==='sleep') {
                 quickAddLog("sleep", {type:"sleep", time, night:false, note:"via Siri"});
                 showToast("🌙 Bedtime logged via Siri ✓", 3000, 1);
+                // Siri-logged bedtime also gets the post-bedtime flow
+                if (typeof _postBedtimeFlow === "function") _postBedtimeFlow();
               } else if(entry.type==='poop') {
                 const _pType = entry.poopType||"wet";
                 const _pColour = entry.poopColour||"";
@@ -17827,6 +17829,25 @@ function App(){
     const finalTotal = finalL+finalR || total;
     quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:finalL,pumpR:finalR,amount:finalTotal,pumpDuration:parseInt(f.pumpDuration)||0,note:f.note||""});
   }
+  // Shared post-bedtime flow. Called from every bedtime-logging path so the
+  // "You Time" modal, analytics, and any future post-bedtime celebration logic
+  // lives in one place. Guarded by a once-per-day localStorage key so the
+  // modal only fires for the FIRST bedtime log of the day. Historical backfill
+  // (catch-up, quickstart) should NOT call this because the modal is for the
+  // moment of putting baby down tonight.
+  function _postBedtimeFlow(){
+    try {
+      const _ytKey = "ob_youtime_shown_" + todayStr();
+      if (!localStorage.getItem(_ytKey)) {
+        localStorage.setItem(_ytKey, "1");
+        try { trackEvent("timer_started", { type: "bed" }); } catch {}
+        setTimeout(()=>setShowYouTime(true), 3000);
+      }
+    } catch {
+      setTimeout(()=>setShowYouTime(true), 3000);
+    }
+  }
+
   function saveLogSleep(){
     const f=logForm;
     if(f.sleepType==="nap"){
@@ -17848,18 +17869,7 @@ function App(){
           }, 300);
         }
       }
-      // "You Time" popup. baby is down, now it's your turn. Guarded so the
-      // same bedtime-log only triggers it once even if the user edits or
-      // re-saves. Keyed by today's date.
-      try {
-        const _ytKey = "ob_youtime_shown_" + todayStr();
-        if (!localStorage.getItem(_ytKey)) {
-          localStorage.setItem(_ytKey, "1");
-          setTimeout(()=>setShowYouTime(true), 3000);
-        }
-      } catch {
-        setTimeout(()=>setShowYouTime(true), 3000);
-      }
+      _postBedtimeFlow();
     }
   }
   function saveEntry(){
@@ -17974,6 +17984,12 @@ function App(){
       const _eParts = formTime.split(":").map(Number);
       const _eDate = new Date(); _eDate.setHours(_eParts[0], _eParts[1], 0, 0);
       _laStart({type:'sleep',babyName:babyName||'Baby',startTime:_eDate.getTime()});
+    }
+    // Fresh bedtime entry via edit form (not an edit of an existing one, and
+    // for today, not a historical backfill). Trigger the shared post-bedtime
+    // flow so You Time fires no matter which entry point the parent used.
+    if (eType === "sleep" && !e.night && !editEntry && selDay === todayStr() && !_wakeEntry) {
+      _postBedtimeFlow();
     }
     setModal(null);setEditEntry(null);
   }
@@ -19518,18 +19534,7 @@ function App(){
         if (insights.length) showMascot("celebration", "✨ "+insights[0], 5000);
       } catch {}
     }, 800);
-    // "You Time" popup. baby is down, now it's your turn 💛
-    // Guarded so only one You Time fires per calendar day even if bedtime
-    // is re-logged or edited.
-    try {
-      const _ytKey = "ob_youtime_shown_" + todayStr();
-      if (!localStorage.getItem(_ytKey)) {
-        localStorage.setItem(_ytKey, "1");
-        setTimeout(()=>setShowYouTime(true), 3000);
-      }
-    } catch {
-      setTimeout(()=>setShowYouTime(true), 3000);
-    }
+    _postBedtimeFlow();
   }
   function startBreastTimer(side){
     if(!breastStartTime){
