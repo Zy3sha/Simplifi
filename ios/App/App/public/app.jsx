@@ -25320,6 +25320,22 @@ function App(){
                   // ═══ SINGLE SOURCE: if predictNextNap() returned null, no more naps ═══
                   const _planBudgetExceeded = !tickDataRef.current.pred || (tickDataRef.current||{}).napsComplete;
 
+                  // Target bedtime for today. prefer tickDataRef.bedMins (which
+                  // honors scheduleOverride + personal pattern), then scheduleOverride,
+                  // then age ceiling. This is what we measure nap fit against —
+                  // NOT the age ceiling, which was the root cause of the
+                  // "Nap 3 6:00-6:50, Bedtime 6:30" overlap bug.
+                  const _ageBedCeiling = clampBedtime(24*60, w);
+                  const _todayTargetBed = (()=>{
+                    const t = (tickDataRef.current || {}).bedMins;
+                    if (typeof t === "number" && t > 0) return t;
+                    if (scheduleOverride && scheduleOverride.bed) return scheduleOverride.bed;
+                    return _ageBedCeiling;
+                  })();
+                  // The cap we compare nap placements against. Naps must end at
+                  // least minBedWW before this.
+                  const _napFitCeiling = Math.min(_todayTargetBed, _ageBedCeiling);
+
                   // Step 1: Place expected naps
                   while (napIdx < expectedTotal && !_planBudgetExceeded) {
                     let napStart;
@@ -25336,20 +25352,24 @@ function App(){
 
                     // Determine nap duration. try full, then shorter, then bridge
                     const isLast = napIdx === expectedTotal - 1;
-                    const maxBed = clampBedtime(24*60, w);
                     const minBedWW = w < 30 ? 60 : 90;
                     let napDur = avgNapDur;
                     let napLabel = `~${hm(avgNapDur)} based on recent avg`;
                     let isBridge = false;
 
+                    // Sanity check: if napStart is already past the bedtime cap
+                    // minus minBedWW, we can't fit this nap at all. Drop it.
+                    if (napStart + minBedWW > _napFitCeiling) break;
+
                     // For last nap: try full duration, then shorter, then bridge (15-25min max)
                     // Research: bridge naps should be 15-20min. any longer and baby enters
-                    // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones)
+                    // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones).
+                    // Fit check uses today's target bedtime, NOT the age ceiling.
                     if (isLast) {
                       const durations = [avgNapDur, Math.round(avgNapDur * 0.7), 25, 20, 15];
                       let fits = false;
                       for (const tryDur of durations) {
-                        if (napStart + tryDur + minBedWW <= maxBed) {
+                        if (napStart + tryDur + minBedWW <= _napFitCeiling) {
                           napDur = tryDur;
                           fits = true;
                           if (tryDur <= 25) {
@@ -25363,8 +25383,13 @@ function App(){
                       }
                       if (!fits) break; // truly no room. skip this nap
                     } else {
-                      // Non-last nap: break if nap start is past reasonable time
-                      if (napStart > clampBedtime(24*60, w) - ww.min) break;
+                      // Non-last nap: check only THIS nap fits + one minBedWW.
+                      // Don't pre-reserve room for all remaining naps — that
+                      // heuristic was too conservative and rejected 3-nap plans
+                      // that would naturally degrade to 2 naps as the day runs
+                      // out (7mo, 12mo). The loop stops naturally when there's
+                      // no more room.
+                      if (napStart + avgNapDur + minBedWW > _napFitCeiling) break;
                     }
 
                     const napEnd = napStart + napDur;
@@ -25373,7 +25398,8 @@ function App(){
                       label: isBridge ? "Bridge nap" : `Nap ${napIdx+1}`,
                       time: `${fmt12(mtp(napStart))} \u2013 ${fmt12(mtp(napEnd))}`,
                       sub: napLabel,
-                      predicted: true, mins: napStart, bridge: isBridge
+                      predicted: true, mins: napStart, bridge: isBridge,
+                      predictedDur: napDur
                     });
                     hasPredictions = true;
                     cursor = napEnd;
@@ -25408,10 +25434,44 @@ function App(){
                   }
 
                   // ═══ SINGLE SOURCE: use tickDataRef.bedMins so Plan matches COMING UP ═══
+                  // BUT: only override if the tickData bedtime is actually AFTER the
+                  // last projected nap end + a safe wake window. Otherwise we'd show
+                  // "Nap 3 6:00pm–6:50pm, Bedtime 6:30pm" — a nap ending AFTER bedtime.
+                  // When that happens, either the tickData is stale, the parent has
+                  // a scheduleOverride pulling bedtime earlier than today's nap
+                  // pattern can accommodate, or the last nap was compressed but
+                  // cursor moved past the override bedtime.
                   const _tickBedMins = (tickDataRef.current || {}).bedMins;
                   if (_tickBedMins && typeof _tickBedMins === "number") {
-                    bedM = _tickBedMins;
-                    bedTime = mtp(bedM);
+                    // `cursor` at this point = end time of the last placed nap (or wake if no naps)
+                    const _minBedWW = w < 30 ? 60 : 90; // min wake window before bed
+                    if (_tickBedMins >= cursor + _minBedWW) {
+                      bedM = _tickBedMins;
+                      bedTime = mtp(bedM);
+                    } else {
+                      // Tick bedtime conflicts with the projected last nap. Two options:
+                      //   1. If the last placed nap was the expected last one, drop it
+                      //      and go with the earlier bedtime (protect bedtime).
+                      //   2. Otherwise push bedtime to cursor + minBedWW so it's after
+                      //      the nap (protect the planned nap).
+                      // Sleep consultant consensus: protect bedtime. So we remove the
+                      // conflicting last nap from `items` and snap bedtime to tick value.
+                      const _lastNapIdx = items.length - 1;
+                      const _lastNap = items[_lastNapIdx];
+                      if (_lastNap && (_lastNap.predicted || _lastNap.bridge) && _lastNap.label && (_lastNap.label.startsWith("Nap") || _lastNap.label.includes("Bridge"))) {
+                        // Drop the last predicted nap — it doesn't fit before bedtime
+                        items.splice(_lastNapIdx, 1);
+                        napIdx = Math.max(0, napIdx - 1);
+                        projectedNapMins = Math.max(0, projectedNapMins - (_lastNap.predictedDur || 0));
+                        bedM = _tickBedMins;
+                        bedTime = mtp(bedM);
+                      } else {
+                        // Can't drop (last item isn't a predicted nap). Push bedtime
+                        // after the cursor so we don't show an impossible overlap.
+                        bedM = cursor + _minBedWW;
+                        bedTime = mtp(bedM);
+                      }
+                    }
                   }
 
                   // Bedtime display

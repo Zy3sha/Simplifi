@@ -11,7 +11,9 @@
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android",
     "cap:build:ios": "npm run build && npx cap sync ios",
-    "cap:build:android": "npm run build && npx cap sync android"
+    "cap:build:android": "npm run build && npx cap sync android",
+    "test:sleep": "node test/sleep-engine-audit.js",
+    "test": "npm run test:sleep"
   },
   "dependencies": {
     "@capacitor/core": "^6.1.0",
