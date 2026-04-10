@@ -188,7 +188,7 @@ function agoMin(t) {
   return d;
 }
 function fmtAgo(mins) {
-  if(mins === null) return "—";
+  if(mins === null) return "--";
   if(mins < 1) return "just now";
   if(mins < 60) return mins + "m ago";
   const h = Math.floor(mins/60), m = mins%60;
@@ -292,7 +292,7 @@ function _applyFamilyDoc(data) {
   familyContext._lastSyncedAt = Date.now();
 }
 
-// One-shot initial load — resolves when the first snapshot arrives so
+// One-shot initial load, resolves when the first snapshot arrives so
 // renderApp() has data to work with on first render.
 async function loadFamilyContext() {
   try {
@@ -301,7 +301,7 @@ async function loadFamilyContext() {
   } catch (e) { console.warn("Family context initial load failed", e); }
 }
 
-// Live subscription — after initial load, keeps familyContext fresh
+// Live subscription, after initial load, keeps familyContext fresh
 // whenever the parent app writes to families/{code}. Without this, the
 // portal showed whatever snapshot was current at page load and went
 // silent until the carer hard-refreshed.
@@ -345,7 +345,7 @@ async function logEntry(entry) {
     closeSheet();
   } catch (e) {
     console.error("Log failed", e);
-    showToast("Couldn't save — try again");
+    showToast("Couldn't save, try again");
   }
 }
 
@@ -438,7 +438,7 @@ function _mergeCarerEntries() {
 }
 
 function renderApp() {
-  // Listen to recent entries — real-time so carer sees their own logs reflected immediately
+  // Listen to recent entries, real-time so carer sees their own logs reflected immediately
   const colRef = collection(db, "carer_logs", code, "entries");
   const q = query(colRef, orderBy("loggedAt", "desc"), limit(25));
   onSnapshot(q, (snap) => {
@@ -506,11 +506,11 @@ function _renderHtml() {
       }
     }
   } catch(e) { /* fall back to guideline */ }
-  // Compute predictions — current wall-clock for "past" filtering
+  // Compute predictions, current wall-clock for "past" filtering
   const _nowD = new Date();
   const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
-  const _bedtimeMins = 19*60; // 7pm — typical bedtime cutoff
-  const _nightCutoff = 20*60; // 8pm — after this, baby is winding down; no more feed/nap suggestions
+  const _bedtimeMins = 19*60; // 7pm, typical bedtime cutoff
+  const _nightCutoff = 20*60; // 8pm, after this, baby is winding down; no more feed/nap suggestions
   const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
   const _lastFeedTimeMins = _t.lastFeed ? (parseInt(_t.lastFeed.time.split(":")[0])*60 + parseInt(_t.lastFeed.time.split(":")[1])) : null;
   // Feed interval: 3h for babies under 6mo, 3.5h from 6mo
@@ -555,13 +555,13 @@ function _renderHtml() {
       <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
         <div style="font-size:20px;margin-bottom:2px">🍼</div>
         <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Last feed</div>
-        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastFeed ? fmtAgo(_lastFeedAgo) : "—"}</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastFeed ? fmtAgo(_lastFeedAgo) : "--"}</div>
         ${_t.lastFeed&&_t.lastFeed.amount ? `<div style="font-size:14px;color:#6A584E;margin-top:1px">${_t.lastFeed.amount}ml</div>` : ""}
       </div>
       <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
         <div style="font-size:20px;margin-bottom:2px">💤</div>
         <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Last nap</div>
-        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastNap ? fmtAgo(_lastNapAgo) : "—"}</div>
+        <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastNap ? fmtAgo(_lastNapAgo) : "--"}</div>
       </div>
       <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
         <div style="font-size:20px;margin-bottom:2px">💩</div>
@@ -578,7 +578,7 @@ function _renderHtml() {
     ${_t.avgFeedsPerDay ? `<div style="font-size:14px;color:#A89A90;margin-top:8px;text-align:center">${escapeHtml(_name)} usually has ~${_t.avgFeedsPerDay} feeds/day${_t.avgMl?", ~"+_t.avgMl+"ml each":""}</div>` : ""}
   </div>`;
   // Build parent context (only show cards that have content)
-  // Allergy/medical pinned notes — sticky, can't-miss banner
+  // Allergy/medical pinned notes, sticky, can't-miss banner
   const _allergyNotes = (familyContext.pinnedNotes||[]).filter(n=>n&&n.text&&(n.text.toLowerCase().includes("allerg")||n.text.toLowerCase().includes("dairy")||n.text.toLowerCase().includes("egg")||n.text.toLowerCase().includes("nut")||n.text.toLowerCase().includes("milk allerg")||n.text.toLowerCase().includes("intoleran")));
   const _otherPinned = (familyContext.pinnedNotes||[]).filter(n=>!_allergyNotes.includes(n));
   const _allergyBanner = _allergyNotes.length ? `<div style="position:sticky;top:0;z-index:50;background:#c04040;color:white;padding:10px 16px;border-radius:12px;margin-bottom:12px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(192,64,64,0.3)">
@@ -587,7 +587,7 @@ function _renderHtml() {
   </div>` : "";
   const _pinnedHtml = _otherPinned.length ? `<div class="parent-note" style="background:rgba(232,87,74,0.06);border-color:rgba(232,87,74,0.25)"><div class="pn-label" style="color:#c04040">⚠️ Important</div>${_otherPinned.map(n=>`<div style="margin-bottom:4px">${escapeHtml(n.text||"")}</div>`).join("")}</div>` : "";
   const _notesHtml = familyContext.carerNotes ? `<div class="parent-note"><div class="pn-label">📋 Notes from parents</div>${escapeHtml(familyContext.carerNotes)}</div>` : "";
-  // Note: carerComfort is already rendered in the Soothing Playbook card above — no duplicate here.
+  // Note: carerComfort is already rendered in the Soothing Playbook card above, no duplicate here.
   const _comfortHtml = "";
   // Contacts → tel: buttons
   const _contactsHtml = (familyContext.emergencyContacts||[]).filter(c=>c && c.phone && String(c.phone).trim()).map(c => `
@@ -657,16 +657,16 @@ function _renderHtml() {
         statusIcon="😴"; statusText=_name+" is napping ("+fmtAgo(napElapsed)+")"; statusColor="#8B7EC8"; statusBg="rgba(139,126,200,0.08)";
         // Age-aware "long nap" threshold. Naps under 4mo cap around 90m; 4-8mo the
         // longest nap is typically 1.5-2h; older babies can happily do 2-2.5h naps.
-        // Never warn before the threshold — 1h is NORMAL not long.
+        // Never warn before the threshold, 1h is NORMAL not long.
         const _longNapMin = _weeks == null ? 150
           : _weeks < 17 ? 90      // <4mo: 90m
           : _weeks < 35 ? 135     // 4-8mo: 2h 15m
           : _weeks < 52 ? 150     // 8-12mo: 2h 30m
           : 180;                  // 12mo+: 3h
-        if (napElapsed < 20) nextAction = "Let "+_name+" sleep. Don't check on them unless crying — even small noises during light sleep are normal.";
-        else if (napElapsed < 60) nextAction = _name+" is sleeping well. Start getting a bottle ready — they'll be hungry when they wake.";
+        if (napElapsed < 20) nextAction = "Let "+_name+" sleep. Don't check on them unless crying, even small noises during light sleep are normal.";
+        else if (napElapsed < 60) nextAction = _name+" is sleeping well. Start getting a bottle ready, they'll be hungry when they wake.";
         else if (napElapsed < _longNapMin) nextAction = _name+" is having a good restorative nap. Keep the room dark and quiet.";
-        else nextAction = "That's a long one! If "+_name+" is still asleep after "+Math.round(_longNapMin/30)*30+" minutes, you could gently wake them — very long naps can push bedtime late.";
+        else nextAction = "That's a long one! If "+_name+" is still asleep after "+Math.round(_longNapMin/30)*30+" minutes, you could gently wake them, very long naps can push bedtime late.";
       } else if (_lastFeedAgo !== null && _lastFeedAgo < 30) {
         statusIcon="🍼"; statusText=_name+" was just fed ("+fmtAgo(_lastFeedAgo)+" ago)"; statusColor="#C07088"; statusBg="rgba(192,112,136,0.08)";
         nextAction = "Keep "+_name+" upright for 15-20 min after feeding (reduces spit-up). Then some play time on a mat or your lap.";
@@ -682,7 +682,7 @@ function _renderHtml() {
           nextAction = "Try settling "+_name+" for a nap now. Dark room, gentle rocking or shushing. If they fight it for 15+ minutes, try a pram walk or car ride.";
         } else if (awakeMin >= _ww.min) {
           statusIcon="🥱"; statusText=_name+" is getting sleepy ("+fmtAgo(awakeMin)+" awake)"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
-          nextAction = "Watch for sleepy cues: yawning, eye rubbing, looking away. Start the nap routine — dark room, sleeping bag, white noise.";
+          nextAction = "Watch for sleepy cues: yawning, eye rubbing, looking away. Start the nap routine, dark room, sleeping bag, white noise.";
         } else {
           statusText = _name+" is awake and happy ("+fmtAgo(awakeMin)+")";
           const minsToNap = _ww.min - awakeMin;
@@ -710,7 +710,7 @@ function _renderHtml() {
     ${familyContext.carerComfort ? `<div class="card" style="border-color:rgba(139,126,200,0.3)">
       <div class="section-label" style="color:#8B7EC8;margin-bottom:8px">🧸 ${escapeHtml(_name)}'s Soothing Playbook</div>
       <div style="font-size:13px;color:#4A3B35;line-height:1.7;white-space:pre-line">${escapeHtml(familyContext.carerComfort)}</div>
-      <div style="font-size:10px;color:#A89A90;margin-top:8px;font-style:italic">Written by ${escapeHtml(_name)}'s parents — these are what work specifically for ${escapeHtml(_name)}.</div>
+      <div style="font-size:10px;color:#A89A90;margin-top:8px;font-style:italic">Written by ${escapeHtml(_name)}'s parents, these are what work specifically for ${escapeHtml(_name)}.</div>
     </div>` : `<div class="card" style="border-color:rgba(212,168,85,0.3)">
       <div class="section-label" style="color:#D4A855;margin-bottom:6px">🧸 Soothing Playbook</div>
       <div style="font-size:13px;color:#6A584E;line-height:1.6">Parents haven't added soothing techniques yet. If ${escapeHtml(_name)} is upset, try: gentle rocking, shushing, offering a dummy, or a walk in the pram.</div>
@@ -754,10 +754,10 @@ function _renderHtml() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
         ${_t.avgMl ? `<div style="color:#A898AC">Typical amount</div><div style="font-weight:600">~${_t.avgMl}ml per feed</div>` : ""}
         ${_t.avgFeedsPerDay ? `<div style="color:#A898AC">Typical frequency</div><div style="font-weight:600">~${_t.avgFeedsPerDay} feeds/day</div>` : ""}
-        ${_t.lastFeed ? `<div style="color:#A898AC">Last feed</div><div style="font-weight:600">${fmt12(_t.lastFeed.time)}${_t.lastFeed.amount?" — "+_t.lastFeed.amount+"ml":""}</div>` : ""}
+        ${_t.lastFeed ? `<div style="color:#A898AC">Last feed</div><div style="font-weight:600">${fmt12(_t.lastFeed.time)}${_t.lastFeed.amount?", "+_t.lastFeed.amount+"ml":""}</div>` : ""}
         ${_nextFeedStr ? `<div style="color:#A898AC">Next feed around</div><div style="font-weight:600">~${_nextFeedStr}</div>` : ""}
       </div>
-      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">💡 <strong>Feed every ${_weeks&&_weeks<8?"2–3":"3–4"} hours</strong> — or sooner if ${escapeHtml(_name)} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Follow ${escapeHtml(_name)}'s lead.</div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">💡 <strong>Feed every ${_weeks&&_weeks<8?"2–3":"3–4"} hours</strong>, or sooner if ${escapeHtml(_name)} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Follow ${escapeHtml(_name)}'s lead.</div>
     </div>
 
     <!-- ═══ NAPPIES SECTION ═══ -->
@@ -765,7 +765,7 @@ function _renderHtml() {
       <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">👶 Nappies</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
         <div style="color:#A898AC">Today's nappies</div><div style="font-weight:600">${_t.nappyCount||0} (${_t.wetCount||0} wet)</div>
-        ${_t.lastPoop ? `<div style="color:#A898AC">Last nappy</div><div style="font-weight:600">${fmt12(_t.lastPoop.time)} — ${_t.lastPoop.poopType||"wet"}</div>` : ""}
+        ${_t.lastPoop ? `<div style="color:#A898AC">Last nappy</div><div style="font-weight:600">${fmt12(_t.lastPoop.time)}, ${_t.lastPoop.poopType||"wet"}</div>` : ""}
         <div style="color:#A898AC">Hydration target</div><div style="font-weight:600">${_t.wetCount||0}/6 wet nappies</div>
       </div>
       <div style="font-size:12px;color:#7A6B7E;line-height:1.5">NHS guidance: 6+ wet nappies in 24h indicates adequate hydration. Check nappy every 2-3 hours.</div>
@@ -779,7 +779,7 @@ function _renderHtml() {
         ${_ww ? `<div style="color:#A898AC">Wake window</div><div style="font-weight:600">${_ww.label} between sleeps${_wwIsPersonal?" <span style='font-size:10px;color:#6fa898'>✓ personal</span>":""}</div>` : ""}
         ${_lastNapStr ? `<div style="color:#A898AC">Last nap</div><div style="font-weight:600">${_lastNapStr}${_lastNapDur?" ("+_lastNapDur+"m)":""}</div>` : ""}
       </div>
-      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${escapeHtml(_name)} down when you see these signs — don't wait until they're overtired.</div>
+      <div style="font-size:12px;color:#7A6B7E;line-height:1.6">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${escapeHtml(_name)} down when you see these signs, don't wait until they're overtired.</div>
     </div>
 
     <!-- ═══ SAFE SLEEP ESSENTIALS ═══ -->
@@ -787,14 +787,14 @@ function _renderHtml() {
       <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:6px">🛏️ Safe Sleep Essentials</div>
       <div style="font-size:14px;font-style:italic;color:#6fa898;margin-bottom:10px">Based on The Lullaby Trust safer sleep guidance</div>
       <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
-        ✅ Always on their <strong>back</strong> — for every sleep, day and night<br>
-        ✅ <strong>Clear cot</strong> — firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
-        ✅ <strong>Same room as you</strong> — stay in the room while ${escapeHtml(_name)} sleeps<br>
-        ✅ <strong>Room temperature 16–20°C</strong> — feel chest or back of neck to check<br>
-        ✅ <strong>Don't cover their head</strong> — no hats indoors<br>
-        ✅ <strong>Feet to foot</strong> — feet at the bottom of the cot<br>
-        ❌ <strong>Never</strong> on a sofa or armchair — even if you're holding them<br>
-        ❌ <strong>Never</strong> in a car seat for prolonged sleep — only for travel
+        ✅ Always on their <strong>back</strong>, for every sleep, day and night<br>
+        ✅ <strong>Clear cot</strong>, firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
+        ✅ <strong>Same room as you</strong>, stay in the room while ${escapeHtml(_name)} sleeps<br>
+        ✅ <strong>Room temperature 16–20°C</strong>, feel chest or back of neck to check<br>
+        ✅ <strong>Don't cover their head</strong>, no hats indoors<br>
+        ✅ <strong>Feet to foot</strong>, feet at the bottom of the cot<br>
+        ❌ <strong>Never</strong> on a sofa or armchair, even if you're holding them<br>
+        ❌ <strong>Never</strong> in a car seat for prolonged sleep, only for travel
       </div>
     </div>
 
@@ -802,11 +802,11 @@ function _renderHtml() {
     <div class="card" style="background:#FFF8F2;border:1px solid #F0D0C8">
       <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">💝 If ${escapeHtml(_name)} Cries</div>
       <div style="font-size:13px;color:#5B4F5F;line-height:1.8">
-        1. <strong>Check basics</strong> — hungry? nappy? too hot/cold?<br>
-        2. <strong>Tired?</strong> — check wake window above. Dim lights, quiet voice<br>
-        3. <strong>Wind</strong> — try burping over shoulder or gentle bicycle legs<br>
-        4. <strong>Comfort</strong> — gentle rocking, skin-to-skin, white noise<br>
-        5. <strong>Still unsettled?</strong> — contact parent. It's OK to put ${escapeHtml(_name)} down safely and take a breath
+        1. <strong>Check basics</strong>, hungry? nappy? too hot/cold?<br>
+        2. <strong>Tired?</strong>, check wake window above. Dim lights, quiet voice<br>
+        3. <strong>Wind</strong>, try burping over shoulder or gentle bicycle legs<br>
+        4. <strong>Comfort</strong>, gentle rocking, skin-to-skin, white noise<br>
+        5. <strong>Still unsettled?</strong>, contact parent. It's OK to put ${escapeHtml(_name)} down safely and take a breath
       </div>
     </div>
 
@@ -814,11 +814,11 @@ function _renderHtml() {
     <div class="card" style="background:#F5F0F8;border:1px solid #D4C4E0">
       <div style="font-size:15px;font-weight:700;color:#8868A0;margin-bottom:10px">💜 If you're feeling overwhelmed</div>
       <div style="font-size:13px;color:#5B4F5F;line-height:1.7">
-        Crying is hard to sit with. If you feel yourself getting tense, frustrated, or tearful — that's a signal, not a failure.
+        Crying is hard to sit with. If you feel yourself getting tense, frustrated, or tearful, that's a signal, not a failure.
         <br><br>
         <strong>It's always OK to:</strong><br>
         • Place ${escapeHtml(_name)} down safely in their cot on their back<br>
-        • Walk away for a minute or two — make a cup of tea, take a few breaths<br>
+        • Walk away for a minute or two, make a cup of tea, take a few breaths<br>
         • Come back when you feel steadier. ${escapeHtml(_name)} is safe in the cot.
         <br><br>
         <strong style="color:#8868A0">Never shake a baby.</strong> Putting baby down and stepping away is always the right choice if you need a moment.
@@ -834,40 +834,40 @@ function _renderHtml() {
         <strong>Non-emergency:</strong> ${_nonEmerg}<br>
         <strong>If concerned:</strong> Contact ${_hvTitle}
       </div>
-      <div style="font-size:14px;color:#A898AC;margin-top:8px;line-height:1.5">If ${escapeHtml(_name)} is unresponsive, has difficulty breathing, has a high temperature (38°C+ in under 3 months), a rash that doesn't fade under pressure, or you're worried — please call ${_emergNum}.</div>
+      <div style="font-size:14px;color:#A898AC;margin-top:8px;line-height:1.5">If ${escapeHtml(_name)} is unresponsive, has difficulty breathing, has a high temperature (38°C+ in under 3 months), a rash that doesn't fade under pressure, or you're worried, please call ${_emergNum}.</div>
     </div>
 
     <div class="card">
-      <div class="section-label">If you're worried — read first, call if you need to</div>
+      <div class="section-label">If you're worried, read first, call if you need to</div>
 
       <details class="reassurance-item">
-        <summary><div class="q">😴 Baby only napped 10-20 mins — is that OK?</div></summary>
-        <div class="a">Completely normal. Babies cycle through light → deep → light sleep every 30-45 min, and often wake between cycles and can't resettle alone. Try: pat their bottom rhythmically, shush softly, dim the room. If still unsettled after 10 min, take them out for a cuddle — you can try again in 30 min.</div>
+        <summary><div class="q">😴 Baby only napped 10-20 mins, is that OK?</div></summary>
+        <div class="a">Completely normal. Babies cycle through light → deep → light sleep every 30-45 min, and often wake between cycles and can't resettle alone. Try: pat their bottom rhythmically, shush softly, dim the room. If still unsettled after 10 min, take them out for a cuddle, you can try again in 30 min.</div>
       </details>
 
       <details class="reassurance-item">
         <summary><div class="q">😢 Baby is crying and I don't know why</div></summary>
-        <div class="a">Run through the checklist calmly: <strong>H</strong>ungry? <strong>T</strong>ired? <strong>U</strong>ncomfortable nappy? <strong>N</strong>eeds a cuddle? <strong>T</strong>oo hot/cold? (HUNT). Try them in order. Sometimes babies just need to be held close and moved gently — your calm is what they need most. Crying is their only voice, not a sign you're doing anything wrong.</div>
+        <div class="a">Run through the checklist calmly: <strong>H</strong>ungry? <strong>T</strong>ired? <strong>U</strong>ncomfortable nappy? <strong>N</strong>eeds a cuddle? <strong>T</strong>oo hot/cold? (HUNT). Try them in order. Sometimes babies just need to be held close and moved gently, your calm is what they need most. Crying is their only voice, not a sign you're doing anything wrong.</div>
       </details>
 
       <details class="reassurance-item">
         <summary><div class="q">🍼 Baby refused the bottle</div></summary>
-        <div class="a">Not unusual, especially with a new person offering. Try: different position (hold the way ${escapeHtml(_name)} usually sits for feeds), check milk temperature (body temp, drip on wrist), take a break and try again in 10-15 min. Don't force it — ${escapeHtml(_name)} will eat when they're hungry enough.</div>
+        <div class="a">Not unusual, especially with a new person offering. Try: different position (hold the way ${escapeHtml(_name)} usually sits for feeds), check milk temperature (body temp, drip on wrist), take a break and try again in 10-15 min. Don't force it, ${escapeHtml(_name)} will eat when they're hungry enough.</div>
       </details>
 
       <details class="reassurance-item">
         <summary><div class="q">🤢 Baby spit up after a feed</div></summary>
-        <div class="a">Normal. Most babies spit up small amounts — the valve at the top of their tummy is still developing. Concerning if: it's forceful (flies across the room), green/yellow, or ${escapeHtml(_name)} seems in pain. Otherwise just wipe & carry on. Sit baby upright for 10-15 min after feeds to help.</div>
+        <div class="a">Normal. Most babies spit up small amounts, the valve at the top of their tummy is still developing. Concerning if: it's forceful (flies across the room), green/yellow, or ${escapeHtml(_name)} seems in pain. Otherwise just wipe & carry on. Sit baby upright for 10-15 min after feeds to help.</div>
       </details>
 
       <details class="reassurance-item">
         <summary><div class="q">😵 Baby seems overtired + can't settle</div></summary>
-        <div class="a">Overtired babies fight sleep. Signs: frantic crying, arching back, rubbing face. Create calm: dim lights, white noise, hold close, rhythmic patting or gentle rocking. Avoid stimulation. It can take 10-20 min for an overtired baby to release. Keep trying — you're doing the right thing.</div>
+        <div class="a">Overtired babies fight sleep. Signs: frantic crying, arching back, rubbing face. Create calm: dim lights, white noise, hold close, rhythmic patting or gentle rocking. Avoid stimulation. It can take 10-20 min for an overtired baby to release. Keep trying, you're doing the right thing.</div>
       </details>
 
       <details class="reassurance-item">
         <summary><div class="q">🚨 When to call parents straight away</div></summary>
-        <div class="a">Call if: baby has a temperature (check forehead — if hot), refuses ALL feeds for 4+ hours, is very unusually lethargic or floppy, has a rash that doesn't fade when pressed, breathing seems fast or laboured, or anything feels genuinely wrong. Trust your gut — parents would rather you call.</div>
+        <div class="a">Call if: baby has a temperature (check forehead, if hot), refuses ALL feeds for 4+ hours, is very unusually lethargic or floppy, has a rash that doesn't fade when pressed, breathing seems fast or laboured, or anything feels genuinely wrong. Trust your gut, parents would rather you call.</div>
       </details>
     </div>
     </details>
