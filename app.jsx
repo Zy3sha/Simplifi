@@ -4434,6 +4434,11 @@ function App(){
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
   const[nightEditId,setNightEditId]=useState(null);
+  // When editing a night wake, these refs remember the resume anchor
+  // (wall-clock time the baby went back to sleep) so the form can
+  // auto-recalculate duration soothed when the parent corrects the wake time.
+  const nwResumeAnchorRef = React.useRef(null); // mins since midnight
+  const nwOriginalWakeRef = React.useRef(null); // mins since midnight
   const[showWakePrompt,setShowWakePrompt]=useState(false);
   const[nightSummaryText,setNightSummaryText]=useState(null);
   const[morningMsg,setMorningMsg]=useState(null);
@@ -15678,6 +15683,32 @@ function App(){
   function openEdit(entry){
     // Night entries open in the night wake form
     if(entry.night && (entry.type==="wake" || entry.type==="feed")){
+      // Stamp the implied "resume time" = originalWakeTime + originalDuration.
+      // When the user edits the wake time, we'll preserve this resume anchor
+      // and recompute duration = resume - newWakeTime. Lets a parent fix a
+      // wake-time typo without manually recalculating how long they soothed.
+      try {
+        const _origMins = (()=>{
+          if (!entry.time) return null;
+          const [h,m] = entry.time.split(":").map(Number);
+          if (isNaN(h)||isNaN(m)) return null;
+          return h*60+m;
+        })();
+        const _origDur = parseInt(entry.assistedDuration || entry.settleDuration || 0) || 0;
+        if (_origMins !== null) {
+          let _resume = _origMins + _origDur;
+          // Cross-midnight: if resume goes past 24h, wrap
+          if (_resume >= 24*60) _resume -= 24*60;
+          nwResumeAnchorRef.current = _resume;
+          nwOriginalWakeRef.current = _origMins;
+        } else {
+          nwResumeAnchorRef.current = null;
+          nwOriginalWakeRef.current = null;
+        }
+      } catch(_) {
+        nwResumeAnchorRef.current = null;
+        nwOriginalWakeRef.current = null;
+      }
       setNwForm({
         time: entry.time||nowTime(),
         ml: entry.amount ? String(mlToDisplay(entry.amount,fluidUnit)) : "",
@@ -35523,16 +35554,54 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {showNightWake&&(()=>{
               return(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);}}}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;nwOriginalWakeRef.current=null;}}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
-              <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{setShowNightWake(false);setNightEditId(null);}} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+              <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;nwOriginalWakeRef.current=null;}} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 {nightEditId?"Edit":"Log"} Night Wake</div>
 
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Wake time</div>
-            <TimeInput value={nwForm.time} onChange={t=>setNwForm(f=>({...f,time:t}))} style={_S.mb16} inputStyle={{fontSize:18,padding:"12px 14px",borderRadius:14,color:C.deep,fontFamily:_fM,textAlign:"center"}}/>
+            <TimeInput value={nwForm.time} onChange={t=>{
+              // Auto-recompute duration soothed when editing wake time.
+              // Preserves the implied "resume time" = originalWake + originalDuration
+              // so moving the wake earlier lengthens the soothed duration,
+              // and moving it later shortens it. Parent spotted this: changed
+              // wake from 8:20pm to 7pm (button hadn't worked) but duration
+              // stayed 22min — should have become 1h 42m.
+              setNwForm(f => {
+                const _newF = {...f, time: t};
+                try {
+                  if (nightEditId && nwResumeAnchorRef.current !== null && t) {
+                    const [_nh,_nm] = t.split(":").map(Number);
+                    if (!isNaN(_nh) && !isNaN(_nm)) {
+                      const _newMins = _nh*60 + _nm;
+                      let _resume = nwResumeAnchorRef.current;
+                      // Handle cross-midnight: if wake > resume, add 24h to resume
+                      let _diff = _resume - _newMins;
+                      if (_diff < 0) _diff += 24*60;
+                      // Sanity: cap at 6 hours (unrealistic soothing beyond that)
+                      if (_diff >= 0 && _diff <= 360) {
+                        // Update whichever duration field is in use
+                        if (f.assisted || f.assistedDuration) _newF.assistedDuration = String(_diff);
+                        if (f.selfSettled || f.settleDuration) _newF.settleDuration = String(_diff);
+                        // If neither flag set yet but there was a stored duration, still recompute assisted
+                        if (!f.assisted && !f.selfSettled && !f.assistedDuration && !f.settleDuration) {
+                          // No duration yet. don't force one.
+                        }
+                      }
+                    }
+                  }
+                } catch(_) {}
+                return _newF;
+              });
+            }} style={_S.mb16} inputStyle={{fontSize:18,padding:"12px 14px",borderRadius:14,color:C.deep,fontFamily:_fM,textAlign:"center"}}/>
+            {nightEditId && nwResumeAnchorRef.current !== null && (
+              <div style={{fontSize:11,color:C.lt,marginTop:-10,marginBottom:12,fontStyle:"italic",lineHeight:1.4}}>
+                💡 Change the wake time and the duration soothed will recalculate automatically (keeps the moment baby went back to sleep fixed).
+              </div>
+            )}
 
             {/* Soothing options */}
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Soothing</div>
