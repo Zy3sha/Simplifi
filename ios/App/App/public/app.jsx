@@ -1068,41 +1068,47 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     Array.isArray(arr) && arr.some(e => e && e.type === "feed" && e.feedType === "solids")
   );
 
-  // NHS/WHO milk-to-solid guidance by age. milkMin is the NHS FLOOR, not
-  // a target. milkTarget is the typical intake on a NO-solid day.
+  // NHS/WHO/ABM/LLL milk-to-solid guidance by age. Grounded in:
+  //   - NHS Start4Life: milk remains main drink until 12mo
+  //   - WHO: continued breastfeeding up to 2y+ alongside solids
+  //   - AAP 2022: breastfeeding "up to 2 years or beyond"
+  //   - ABM / La Leche League: "food before one is just for fun"
+  // milkMin is the NHS FLOOR (bottle-fed). milkTarget is the typical intake
+  // on a no-solid day. For breastfeeding moms, use breastFeedCountTarget
+  // and breastTimeTargetMin instead — exposed further down.
   let milkMin, milkTarget, solidMeals, ratioLabel, guidance, stageLabel;
   if (months < 6) {
     milkMin = 500; milkTarget = 600; solidMeals = 0;
     ratioLabel = "100% milk";
     stageLabel = "Milk only";
     guidance = _hasEverHadSolids
-      ? "Early First Tastes phase. Solids are just exploration. milk is still " + Math.round(100) + "% of nutrition. Expect milk to drop slightly on solid-trial days as baby fills up on the tastes, but it should bounce back."
-      : "Milk is all baby needs right now. NHS recommends starting solids from around 6 months when baby shows readiness signs.";
+      ? "Early First Tastes phase. Solids are exploration only — milk is still 100% of nutrition. NHS and WHO both say exclusive milk until around 6 months. Expect baby's interest in milk to stay strong."
+      : "Milk is all baby needs right now. NHS and WHO recommend exclusive milk feeding (breast or formula) until around 6 months, when baby shows readiness signs (sitting, hand-eye coordination, no tongue thrust).";
   } else if (months < 7) {
     milkMin = 500; milkTarget = 600; solidMeals = 1;
     ratioLabel = "~90% milk / 10% solids";
     stageLabel = "First Tastes";
-    guidance = "Solids are practice, not nutrition. Offer tastes AFTER a full milk feed so baby isn't too hungry or too full. Milk intake may dip 50-100ml on trial days. that's normal.";
+    guidance = "\"Food before one is just for fun.\" Solids are practice — taste, texture, hand-eye coordination. Milk (breast or formula) is still ~90% of nutrition. Offer tastes AFTER a full milk feed so baby isn't too hungry or too full. A small dip in milk on solid-trial days is normal.";
   } else if (months < 8) {
     milkMin = 500; milkTarget = 550; solidMeals = 2;
-    ratioLabel = "~75% milk / 25% solids";
+    ratioLabel = "~80% milk / 20% solids";
     stageLabel = "Building meals";
-    guidance = "Moving to 2 meals. Milk stays the primary source but expect a natural dip as baby explores textures and flavours.";
+    guidance = "WHO guidance: 2–3 meals/day + breastfeeds on demand. Milk remains the primary source of calories, iron and fat. Solids introduce variety but shouldn't displace milk. Don't drop breast feeds — offer them freely.";
   } else if (months < 10) {
     milkMin = 500; milkTarget = 550; solidMeals = 3;
-    ratioLabel = "~60% milk / 40% solids";
+    ratioLabel = "~65% milk / 35% solids";
     stageLabel = "Three meals";
-    guidance = "3 meals a day alongside milk. Variety matters more than quantity. don't force finishing.";
+    guidance = "WHO: 3–4 meals/day + 1–2 snacks + breastfeeds on demand. Variety matters more than quantity. Milk is still primary — most breastfed babies this age still have 5–7 breast feeds/day. Follow baby's cues, not the clock.";
   } else if (months < 12) {
     milkMin = 400; milkTarget = 500; solidMeals = 3;
-    ratioLabel = "~45% milk / 55% solids";
-    stageLabel = "Solid-led";
-    guidance = "Solids becoming a bigger part of the diet. Keep milk at 400-500ml minimum.";
+    ratioLabel = "~55% milk / 45% solids";
+    stageLabel = "Balanced";
+    guidance = "Solids becoming a bigger part of the diet, but NHS still says milk is the main drink until 12 months. For bottle: 400–500ml minimum. For breast: 4–6 feeds/day is typical. Don't rush to drop feeds.";
   } else {
     milkMin = 300; milkTarget = 400; solidMeals = 3;
-    ratioLabel = "~30% milk / 70% solids";
-    stageLabel = "Food first";
-    guidance = "Food is now the main source of nutrition. 300-400ml milk supports calcium needs.";
+    ratioLabel = "~40% milk / 60% solids";
+    stageLabel = "Toddler";
+    guidance = "After 12 months, food becomes the main source of nutrition. Cow's milk (or continued breastfeeding) supports calcium and fat needs. WHO and AAP both recommend continued breastfeeding up to 2 years or beyond — no rush to wean unless mum and baby are ready.";
   }
 
   // Today's actuals
@@ -27790,6 +27796,56 @@ function App(){
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
               {(insightFilter==="sleep") && <div>
+
+              {/* ═══ SETTLE METHOD 7-DAY TREND ═══
+                  Honest breakdown of which settle methods work fastest
+                  across the last 7 nights. Non-judgmental — just data. */}
+              {(()=>{
+                const _sm = analyzeSettleMethods(days, 7, selDay);
+                if (!_sm || !_sm.hasData) return null;
+                const _maxAvg = Math.max(...Object.values(_sm.byMethod).map(m => m.avgMin));
+                const _activeMethods = Object.entries(_sm.byMethod).filter(([_,v]) => v.count > 0);
+                return (
+                  <div style={{marginBottom:14,padding:"14px 16px",borderRadius:16,background:"var(--card-bg)",border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div>
+                        <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>📊 Settle methods · last 7 days</div>
+                        <div style={{fontSize:11,color:C.lt,marginTop:2}}>{_sm.totalWakes} wake{_sm.totalWakes===1?"":"s"} · {hm(_sm.totalSoothedMin)} total soothing</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+                      {_activeMethods.map(([key, m]) => {
+                        const _widthPct = _maxAvg > 0 ? Math.max(10, (m.avgMin / _maxAvg) * 100) : 0;
+                        const _color = key === "self" ? C.mint : key === "breast" ? C.ter : key === "milk" ? C.gold : key === "assisted" ? "#8B7EC8" : C.lt;
+                        return (
+                          <div key={key} style={{display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:14,width:22,textAlign:"center"}}>{m.emoji}</span>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
+                                <span style={{color:C.deep,fontWeight:600}}>{m.label}</span>
+                                <span style={{color:C.lt,fontFamily:_fM}}>{m.avgMin}m avg · {m.count}×</span>
+                              </div>
+                              <div style={{height:6,borderRadius:99,background:"var(--card-bg-alt)",overflow:"hidden"}}>
+                                <div style={{width:_widthPct+"%",height:"100%",background:_color,transition:"width 0.4s"}}/>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {_sm.fastestMethod && _sm.slowestMethod && _sm.fastestMethod.key !== _sm.slowestMethod.key && (
+                      <div style={{fontSize:11,color:C.mid,lineHeight:1.5,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+                        💡 {_sm.fastestMethod.label} resettles take <strong>{_sm.fastestMethod.avgMin}m</strong> on average — that's <strong>{Math.max(1,_sm.slowestMethod.avgMin - _sm.fastestMethod.avgMin)}m faster</strong> than {_sm.slowestMethod.label.toLowerCase()}. When baby CAN self-settle or settle quickly, they want to.
+                      </div>
+                    )}
+                    {_sm.totalWakes < 5 && (
+                      <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:6,lineHeight:1.4}}>
+                        Still learning — keep logging night wakes via Baby Awake to build a richer picture.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* ═══ SLEEP SCORE + LAST NIGHT SUMMARY ═══ */}
               {(()=>{
