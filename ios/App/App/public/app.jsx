@@ -4300,7 +4300,37 @@ function App(){
     return true;
   }catch{return false;}});
   const[napStartT,setNapStartT]=useState(()=>{try{return localStorage.getItem("nap_startT")||null;}catch{return null;}});
+  // napStartMs = authoritative epoch-ms start time for active nap.
+  // Stamped with Date.now() when the nap begins, so widget, Live Activity,
+  // and the app all read the same number — no HH:MM reconstruction drift.
+  const[napStartMs,setNapStartMs]=useState(()=>{
+    try {
+      const v = parseInt(localStorage.getItem("nap_startMs"));
+      if (!isNaN(v) && v > 1000000000000) return v;
+    } catch {}
+    return null;
+  });
   const[napEntryId,setNapEntryId]=useState(()=>{try{return localStorage.getItem("nap_entry_id")||null;}catch{return null;}});
+  // Keep napStartMs in sync with napStartT — clears when timer stops, stamps if missing when timer starts
+  React.useEffect(()=>{
+    if (!napStartT) {
+      if (napStartMs !== null) setNapStartMs(null);
+      try{ localStorage.removeItem("nap_startMs"); }catch{}
+      return;
+    }
+    // napStartT is set but napStartMs is missing (e.g. cleared elsewhere or old state shape)
+    if (napStartMs === null) {
+      // Reconstruct from HH:MM relative to today (best effort)
+      try {
+        const [_sh,_sm] = napStartT.split(":").map(Number);
+        const d = new Date(); d.setHours(_sh, _sm, 0, 0);
+        if (d > new Date()) d.setDate(d.getDate() - 1);
+        const _ms = d.getTime();
+        setNapStartMs(_ms);
+        try{ localStorage.setItem("nap_startMs", String(_ms)); }catch{}
+      } catch {}
+    }
+  }, [napStartT, napStartMs]);
   // Track which calendar day the bedtime was logged on. used to route night wakes to the correct day
   const[bedTimerDay,setBedTimerDay]=useState(()=>{try{return localStorage.getItem("bed_timer_day")||null;}catch{return null;}});
   const[bedPaused,setBedPaused]=useState(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}});
@@ -4355,11 +4385,16 @@ function App(){
       // Orphan state recovery: napOn=true but no startT means desync. reset timer
       if(on && !startT){
         console.warn("OBubba: timer orphan state detected (napOn=1 but no startT). resetting");
-        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
         return 0;
       }
       if(on && startT){
-
+        // Prefer authoritative napStartMs for accurate elapsed (no HH:MM reconstruction drift)
+        const _storedMs = parseInt(localStorage.getItem("nap_startMs"));
+        if (!isNaN(_storedMs) && _storedMs > 1000000000000) {
+          const elapsedFromMs = Math.floor((Date.now() - _storedMs) / 1000);
+          if (elapsedFromMs >= 0 && elapsedFromMs < 23*3600) return elapsedFromMs;
+        }
         const now=new Date();
         const [sh,sm]=startT.split(":").map(Number);
         // Use stored nap_start_day to build correct start date (survives midnight crossing)
@@ -4434,9 +4469,17 @@ function App(){
     );
     if (!_active) { timerResurrectedRef.current = true; return; }
     // Sanity: must be within the last 4 hours
-    const [_rsh,_rsm] = _active.start.split(":").map(Number);
-    const _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
-    const _elapsedMs = Date.now() - _startDate.getTime();
+    // Prefer the authoritative startMs stored on the entry (precise) over HH:MM reconstruction
+    let _entryStartMs = (typeof _active.startMs === "number" && _active.startMs > 1000000000000) ? _active.startMs : null;
+    let _startDate;
+    if (_entryStartMs) {
+      _startDate = new Date(_entryStartMs);
+    } else {
+      const [_rsh,_rsm] = _active.start.split(":").map(Number);
+      _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      _entryStartMs = _startDate.getTime();
+    }
+    const _elapsedMs = Date.now() - _entryStartMs;
     if (_elapsedMs < 0 || _elapsedMs > 4*3600*1000) {
       // Stale: mark the entry as ended now to clean up
       console.warn("OBubba: found stale active nap entry, auto-closing");
@@ -4451,12 +4494,14 @@ function App(){
     console.log("[OBubba] Resurrecting nap timer from data entry:", _active.id, "started", _active.start);
     const _elapsedSec = Math.max(0, Math.floor(_elapsedMs/1000));
     setNapStartT(_active.start);
+    setNapStartMs(_entryStartMs);
     setNapSec(_elapsedSec);
     setNapEntryId(_active.id);
     setNapOn(true);
     setTimerMode("activeSleep");
     try {
       localStorage.setItem("nap_startT", _active.start);
+      localStorage.setItem("nap_startMs", String(_entryStartMs));
       localStorage.setItem("nap_on", "1");
       localStorage.setItem("nap_sec", String(_elapsedSec));
       localStorage.setItem("nap_entry_id", _active.id);
@@ -7080,7 +7125,13 @@ function App(){
 
       // Determine active timer
       var activeTimer = null, timerStartTime = null, timerStartMs = null, activeSide = null;
-      if (napOn && napStartT) { activeTimer = "nap"; timerStartTime = napStartT; timerStartMs = _hhmToMs(napStartT); }
+      if (napOn && napStartT) {
+        activeTimer = "nap";
+        timerStartTime = napStartT;
+        // Prefer the authoritative epoch-ms (stamped with Date.now() when nap began).
+        // Falls back to _hhmToMs reconstruction only if napStartMs isn't set (old state).
+        timerStartMs = napStartMs || _hhmToMs(napStartT);
+      }
       // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only
       var _bedDayEntries = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : rd;
       var _bedEntry = findBedtime(_bedDayEntries) || findBedtime(rd);
@@ -7194,7 +7245,7 @@ function App(){
         window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(widgetData) }).catch(function(){});
       }
     } catch(e) { console.warn("Widget data update failed:", e); }
-  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
+  }, [resolvedDay, age, napOn, napStartT, napStartMs, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
 
   // ── Hoisted for use by predictNextNap/bedtimePrediction inside the tick useMemo below ──
   const entries = days[selDay] || [];
@@ -17541,16 +17592,26 @@ function App(){
     try { trackEvent("timer_started", { type: "nap" }); } catch {}
     // Save current prediction for accuracy tracking
     try { lastPredRef.current = tickDataRef.current.pred; } catch { lastPredRef.current = null; }
+    // Stamp the authoritative epoch-ms start time. Widget, Live Activity, and
+    // elapsed calculations all read this single source. No HH:MM reconstruction drift.
+    const _nowMs = Date.now();
     const t=nowTime();
     const entryId=uid();
-    // Log nap entry immediately with start time (end will be filled when timer stops)
+    // Log nap entry immediately with start time + authoritative epoch (end will be filled when timer stops)
     setDays(d=>{
-      const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,end:t,duration:0,night:false,note:"",_active:true,isBridge:!!bridgeNapScheduled}];
+      const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,startMs:_nowMs,end:t,duration:0,night:false,note:"",_active:true,isBridge:!!bridgeNapScheduled}];
       const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
       return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
     });
-    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",new Date().toISOString().split("T")[0]);}catch{}
-    setNapStartT(t);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
+    try{
+      localStorage.setItem("nap_startT",t);
+      localStorage.setItem("nap_startMs",String(_nowMs));
+      localStorage.setItem("nap_on","1");
+      localStorage.setItem("nap_sec","0");
+      localStorage.setItem("nap_entry_id",entryId);
+      localStorage.setItem("nap_start_day",new Date().toISOString().split("T")[0]);
+    }catch{}
+    setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
     // Start Live Activity on iOS (Dynamic Island + Lock Screen timer)
     // Update existing LA (or create if none). never stop+restart to avoid expanded banner
