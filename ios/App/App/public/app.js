@@ -782,7 +782,18 @@ const wakeEntry=findMorningWake(todayEntries);let lastAwakeMins=wakeEntry?timeVa
 const morningWakeMins=wakeEntry?timeVal(wakeEntry):null;const bedtimeFloor=clampBedtime(0,ageWeeks);let _planPred=null;try{_planPred=predictNextNap?predictNextNap():null;}catch(e){console.error('[OBubba] predictNextNap crashed:',e.message,e.stack?.split('\n').slice(0,3).join(' | '));}// Debug: log why napsComplete is set
 if(!_planPred&&napsDone<3)console.warn('[OBubba] predictNextNap returned null with only',napsDone,'naps done. expectedNaps:',expectedNaps,'totalNapMins:',totalNapMins);// napsComplete: true when nap count met AND prediction engine agrees (returns null).
 // Also true if nap prediction is 30+ min overdue and baby isn't sleeping — skip to bed.
-const _nowMinsTC=new Date().getHours()*60+new Date().getMinutes();const _napOverdue=_planPred&&typeof _planPred.napStart_min==="number"&&!napOn&&_nowMinsTC-_planPred.napStart_min>30;let napsComplete=napsDone>=expectedNaps&&!_planPred||_napOverdue;const nextNapMins=_planPred&&typeof _planPred.napStart_min==="number"?Math.round(_planPred.napStart_min):null;// Fragmented nap detection from data (used for observations, not overriding Plan)
+const _nowMinsTC=new Date().getHours()*60+new Date().getMinutes();const _napOverdue=_planPred&&typeof _planPred.napStart_min==="number"&&!napOn&&_nowMinsTC-_planPred.napStart_min>30;let napsComplete=napsDone>=expectedNaps&&!_planPred||_napOverdue;const nextNapMins=_planPred&&typeof _planPred.napStart_min==="number"?Math.round(_planPred.napStart_min):null;// ── Bedtime-conflict gate for the nap prediction ──
+// predictNextNap() computes "when baby's body will be sleepy next" based on
+// wake windows. It doesn't know about today's target bedtime. If the
+// predicted nap would start too close to bedtime (ending during or past
+// it), treat this as "no more naps today, switch to bedtime". Without
+// this, Today's Plan would correctly drop the conflicting nap while the
+// countdown pill and "Upcoming events" bullet stayed pointing at the old
+// prediction — the bug the user saw.
+let _napBedConflict=false;try{if(_planPred&&typeof _planPred.napStart_min==="number"){// Target bedtime: bedtimePrediction() result OR scheduleOverride OR age ceiling
+let _targetBedForCheck=null;try{const _bpCheck=bedtimePrediction?bedtimePrediction():null;if(_bpCheck&&_bpCheck.time){const[_bhCheck,_bmCheck]=_bpCheck.time.split(":").map(Number);_targetBedForCheck=_bhCheck*60+_bmCheck;}}catch(_){}if(_targetBedForCheck==null&&scheduleOverride&&scheduleOverride.bed){_targetBedForCheck=scheduleOverride.bed;}if(_targetBedForCheck==null)_targetBedForCheck=clampBedtime(24*60,ageWeeks);const _estNapDur=napProfile&&napProfile.idealNapDurMin?napProfile.idealNapDurMin:60;const _minBedWWCheck=ageWeeks<30?60:90;// Conflict if: predicted nap start + min nap dur + minBedWW > target bedtime
+// In other words, even a minimum-length nap wouldn't fit before bedtime.
+if(_planPred.napStart_min+_estNapDur+_minBedWWCheck>_targetBedForCheck){_napBedConflict=true;}}}catch(_){}if(_napBedConflict){_planPred=null;napsComplete=true;}// Fragmented nap detection from data (used for observations, not overriding Plan)
 const _shortNapCount=completedNaps.filter(n=>minDiff(n.start,n.end)<20).length;const _isFragmented=_shortNapCount>=3&&totalNapMins<napProfile.idealTotalMin;// Bridge nap: detected from predictNextNap result or nap count
 let bridgeNapNeeded=_planPred&&_planPred.isBridge||!napsComplete&&napsDone>=expectedNaps;// Bedtime prediction: use bedtimePrediction() (same as Plan)
 let bedMins=null;try{const bp=bedtimePrediction?bedtimePrediction():null;if(bp&&bp.time){const[bh,bm]=bp.time.split(":").map(Number);bedMins=bh*60+bm;}}catch(e){console.error('[OBubba] bedtimePrediction crashed:',e.message);}// Fallback: last awake + age wake window, clamped
@@ -2630,23 +2641,26 @@ const _planBudgetExceeded=!tickDataRef.current.pred||(tickDataRef.current||{}).n
 // "Nap 3 6:00-6:50, Bedtime 6:30" overlap bug.
 const _ageBedCeiling=clampBedtime(24*60,w);const _todayTargetBed=(()=>{const t=(tickDataRef.current||{}).bedMins;if(typeof t==="number"&&t>0)return t;if(scheduleOverride&&scheduleOverride.bed)return scheduleOverride.bed;return _ageBedCeiling;})();// The cap we compare nap placements against. Naps must end at
 // least minBedWW before this.
-const _napFitCeiling=Math.min(_todayTargetBed,_ageBedCeiling);// Step 1: Place expected naps
+const _napFitCeiling=Math.min(_todayTargetBed,_ageBedCeiling);// Safety: clamp avgNapDur so a rogue personal average can't
+// produce a 5-hour nap. Defensive — if user's data somehow
+// has absurd values, we still produce a sane schedule.
+const _safeAvgNapDur=clampNapDuration(avgNapDur||napProfile.idealNapDurMin,w);// Step 1: Place expected naps
 while(napIdx<expectedTotal&&!_planBudgetExceeded){let napStart;// First predicted nap: use cached prediction (matches nap pill)
 if(isFirstPredicted&&!napOn){const pred2=tickDataRef.current.pred;napStart=pred2&&typeof pred2.napStart_min==="number"&&!isNaN(pred2.napStart_min)?pred2.napStart_min:cursor+clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);isFirstPredicted=false;}else{napStart=cursor+clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);}// Determine nap duration. try full, then shorter, then bridge
-const isLast=napIdx===expectedTotal-1;const minBedWW=w<30?60:90;let napDur=avgNapDur;let napLabel=`~${hm(avgNapDur)} based on recent avg`;let isBridge=false;// Sanity check: if napStart is already past the bedtime cap
+const isLast=napIdx===expectedTotal-1;const minBedWW=w<30?60:90;let napDur=_safeAvgNapDur;let napLabel=`~${hm(_safeAvgNapDur)} based on recent avg`;let isBridge=false;// Sanity check: if napStart is already past the bedtime cap
 // minus minBedWW, we can't fit this nap at all. Drop it.
 if(napStart+minBedWW>_napFitCeiling)break;// For last nap: try full duration, then shorter, then bridge (15-25min max)
 // Research: bridge naps should be 15-20min. any longer and baby enters
 // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones).
 // Fit check uses today's target bedtime, NOT the age ceiling.
-if(isLast){const durations=[avgNapDur,Math.round(avgNapDur*0.7),25,20,15];let fits=false;for(const tryDur of durations){if(napStart+tryDur+minBedWW<=_napFitCeiling){napDur=tryDur;fits=true;if(tryDur<=25){isBridge=true;napLabel=`~${tryDur}m bridge nap to reach bedtime`;}else if(tryDur<avgNapDur){napLabel=`~${hm(tryDur)} shorter nap (late wake today)`;}break;}}if(!fits)break;// truly no room. skip this nap
+if(isLast){const durations=[_safeAvgNapDur,Math.round(_safeAvgNapDur*0.7),25,20,15];let fits=false;for(const tryDur of durations){if(napStart+tryDur+minBedWW<=_napFitCeiling){napDur=tryDur;fits=true;if(tryDur<=25){isBridge=true;napLabel=`~${tryDur}m bridge nap to reach bedtime`;}else if(tryDur<_safeAvgNapDur){napLabel=`~${hm(tryDur)} shorter nap (late wake today)`;}break;}}if(!fits)break;// truly no room. skip this nap
 }else{// Non-last nap: check only THIS nap fits + one minBedWW.
 // Don't pre-reserve room for all remaining naps — that
 // heuristic was too conservative and rejected 3-nap plans
 // that would naturally degrade to 2 naps as the day runs
 // out (7mo, 12mo). The loop stops naturally when there's
 // no more room.
-if(napStart+avgNapDur+minBedWW>_napFitCeiling)break;}const napEnd=napStart+napDur;items.push({icon:isBridge?"\u{1F309}":"\u23F1\uFE0F",label:isBridge?"Bridge nap":`Nap ${napIdx+1}`,time:`${fmt12(mtp(napStart))} \u2013 ${fmt12(mtp(napEnd))}`,sub:napLabel,predicted:true,mins:napStart,bridge:isBridge,predictedDur:napDur});hasPredictions=true;cursor=napEnd;projectedNapMins+=napDur;napIdx++;}// Step 2: Calculate bedtime from last nap end
+if(napStart+_safeAvgNapDur+minBedWW>_napFitCeiling)break;}const napEnd=napStart+napDur;items.push({icon:isBridge?"\u{1F309}":"\u23F1\uFE0F",label:isBridge?"Bridge nap":`Nap ${napIdx+1}`,time:`${fmt12(mtp(napStart))} \u2013 ${fmt12(mtp(napEnd))}`,sub:napLabel,predicted:true,mins:napStart,bridge:isBridge,predictedDur:napDur});hasPredictions=true;cursor=napEnd;projectedNapMins+=napDur;napIdx++;}// Step 2: Calculate bedtime from last nap end
 const bedWW=clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);let bedM=clampBedtime(cursor+bedWW,w);let bedTime=mtp(bedM);// Step 3: If gap to bedtime still too long, add bridge nap
 const gapToBed=bedM-cursor;if(gapToBed>ww.max+15&&napIdx>=expectedTotal){const bridgeStart=cursor+Math.round(ww.min*0.8);const bridgeDur=20;const bridgeEnd=bridgeStart+bridgeDur;if(bridgeEnd+60<bedM){items.push({icon:"\u{1F309}",label:"Bridge nap",time:`${fmt12(mtp(bridgeStart))} \u2013 ${fmt12(mtp(bridgeEnd))}`,sub:"~20m \u2014 bridge nap to reach bedtime comfortably",predicted:true,bridge:true,mins:bridgeStart});hasPredictions=true;cursor=bridgeEnd;// Recalculate bedtime from bridge end
 bedM=clampBedtime(cursor+Math.round((ww.min+ww.max)/2),w);bedTime=mtp(bedM);}}// ═══ SINGLE SOURCE: use tickDataRef.bedMins so Plan matches COMING UP ═══

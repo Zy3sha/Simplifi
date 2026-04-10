@@ -7466,6 +7466,44 @@ function App(){
     let napsComplete = (napsDone >= expectedNaps && !_planPred) || _napOverdue;
     const nextNapMins = _planPred && typeof _planPred.napStart_min === "number" ? Math.round(_planPred.napStart_min) : null;
 
+    // ── Bedtime-conflict gate for the nap prediction ──
+    // predictNextNap() computes "when baby's body will be sleepy next" based on
+    // wake windows. It doesn't know about today's target bedtime. If the
+    // predicted nap would start too close to bedtime (ending during or past
+    // it), treat this as "no more naps today, switch to bedtime". Without
+    // this, Today's Plan would correctly drop the conflicting nap while the
+    // countdown pill and "Upcoming events" bullet stayed pointing at the old
+    // prediction — the bug the user saw.
+    let _napBedConflict = false;
+    try {
+      if (_planPred && typeof _planPred.napStart_min === "number") {
+        // Target bedtime: bedtimePrediction() result OR scheduleOverride OR age ceiling
+        let _targetBedForCheck = null;
+        try {
+          const _bpCheck = bedtimePrediction ? bedtimePrediction() : null;
+          if (_bpCheck && _bpCheck.time) {
+            const [_bhCheck,_bmCheck] = _bpCheck.time.split(":").map(Number);
+            _targetBedForCheck = _bhCheck*60+_bmCheck;
+          }
+        } catch(_) {}
+        if (_targetBedForCheck == null && scheduleOverride && scheduleOverride.bed) {
+          _targetBedForCheck = scheduleOverride.bed;
+        }
+        if (_targetBedForCheck == null) _targetBedForCheck = clampBedtime(24*60, ageWeeks);
+        const _estNapDur = napProfile && napProfile.idealNapDurMin ? napProfile.idealNapDurMin : 60;
+        const _minBedWWCheck = ageWeeks < 30 ? 60 : 90;
+        // Conflict if: predicted nap start + min nap dur + minBedWW > target bedtime
+        // In other words, even a minimum-length nap wouldn't fit before bedtime.
+        if (_planPred.napStart_min + _estNapDur + _minBedWWCheck > _targetBedForCheck) {
+          _napBedConflict = true;
+        }
+      }
+    } catch(_) {}
+    if (_napBedConflict) {
+      _planPred = null;
+      napsComplete = true;
+    }
+
     // Fragmented nap detection from data (used for observations, not overriding Plan)
     const _shortNapCount = completedNaps.filter(n => minDiff(n.start, n.end) < 20).length;
     const _isFragmented = _shortNapCount >= 3 && totalNapMins < napProfile.idealTotalMin;
@@ -25335,6 +25373,10 @@ function App(){
                   // The cap we compare nap placements against. Naps must end at
                   // least minBedWW before this.
                   const _napFitCeiling = Math.min(_todayTargetBed, _ageBedCeiling);
+                  // Safety: clamp avgNapDur so a rogue personal average can't
+                  // produce a 5-hour nap. Defensive — if user's data somehow
+                  // has absurd values, we still produce a sane schedule.
+                  const _safeAvgNapDur = clampNapDuration(avgNapDur || napProfile.idealNapDurMin, w);
 
                   // Step 1: Place expected naps
                   while (napIdx < expectedTotal && !_planBudgetExceeded) {
@@ -25353,8 +25395,8 @@ function App(){
                     // Determine nap duration. try full, then shorter, then bridge
                     const isLast = napIdx === expectedTotal - 1;
                     const minBedWW = w < 30 ? 60 : 90;
-                    let napDur = avgNapDur;
-                    let napLabel = `~${hm(avgNapDur)} based on recent avg`;
+                    let napDur = _safeAvgNapDur;
+                    let napLabel = `~${hm(_safeAvgNapDur)} based on recent avg`;
                     let isBridge = false;
 
                     // Sanity check: if napStart is already past the bedtime cap
@@ -25366,7 +25408,7 @@ function App(){
                     // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones).
                     // Fit check uses today's target bedtime, NOT the age ceiling.
                     if (isLast) {
-                      const durations = [avgNapDur, Math.round(avgNapDur * 0.7), 25, 20, 15];
+                      const durations = [_safeAvgNapDur, Math.round(_safeAvgNapDur * 0.7), 25, 20, 15];
                       let fits = false;
                       for (const tryDur of durations) {
                         if (napStart + tryDur + minBedWW <= _napFitCeiling) {
@@ -25375,7 +25417,7 @@ function App(){
                           if (tryDur <= 25) {
                             isBridge = true;
                             napLabel = `~${tryDur}m bridge nap to reach bedtime`;
-                          } else if (tryDur < avgNapDur) {
+                          } else if (tryDur < _safeAvgNapDur) {
                             napLabel = `~${hm(tryDur)} shorter nap (late wake today)`;
                           }
                           break;
@@ -25389,7 +25431,7 @@ function App(){
                       // that would naturally degrade to 2 naps as the day runs
                       // out (7mo, 12mo). The loop stops naturally when there's
                       // no more room.
-                      if (napStart + avgNapDur + minBedWW > _napFitCeiling) break;
+                      if (napStart + _safeAvgNapDur + minBedWW > _napFitCeiling) break;
                     }
 
                     const napEnd = napStart + napDur;
