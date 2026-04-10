@@ -20244,12 +20244,18 @@ function App(){
 
     function weekStats(keys) {
       let tFeeds=0, tMl=0, tNaps=0, tNapMins=0, tNightWakes=0, beds=[], wakes=[], stretches=[];
+      let _tBreastMin=0, _tBreastCount=0;
       keys.forEach(d => {
         const entries = days[d]||[];
         const dayE = entries.filter(e=>!e.night);
         const feeds = dayE.filter(e=>e.type==="feed");
         tFeeds += feeds.length;
         tMl += feeds.reduce((s,f)=>s+(f.amount||0),0);
+        // Track breast minutes separately so the weekly digest can render
+        // a proper 'breastfeeding time' line for breast moms instead of
+        // showing '0ml/day'.
+        _tBreastMin += feeds.reduce((s,f)=>s+(f.feedType==="breast"?((parseInt(f.breastL)||0)+(parseInt(f.breastR)||0)):0),0);
+        _tBreastCount += feeds.filter(f=>f.feedType==="breast").length;
         const napList = dayE.filter(e=>e.type==="nap");
         tNaps += napList.length;
         tNapMins += napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
@@ -20273,6 +20279,8 @@ function App(){
       const n=keys.length;
       return {
         avgFeeds:Math.round(tFeeds/n*10)/10, avgMl:Math.round(tMl/n),
+        avgBreastMin: Math.round(_tBreastMin/n),
+        avgBreastCount: Math.round(_tBreastCount/n*10)/10,
         avgNaps:Math.round(tNaps/n*10)/10, avgNapMins:Math.round(tNapMins/n),
         avgNightWakes:Math.round(tNightWakes/n*10)/10,
         avgBed:beds.length?Math.round(beds.reduce((a,b)=>a+b,0)/beds.length):null,
@@ -20305,7 +20313,10 @@ function App(){
       if(cur.longestStretch && prev.longestStretch && cur.longestStretch > prev.longestStretch + 15) wins.push("Longest sleep stretch improved to " + hm(cur.longestStretch));
       if(cur.bedConsistency !== null && prev.bedConsistency !== null && cur.bedConsistency < prev.bedConsistency) wins.push("Bedtime consistency improving");
       if(cur.avgNapMins > prev.avgNapMins + 10) wins.push("Naps getting longer. " + hm(cur.avgNapMins) + " avg");
-      if(cur.avgMl > prev.avgMl + 20) wins.push("Daily intake up to " + fmtVol(cur.avgMl, FU));
+      if (cur.avgMl > 0 && prev.avgMl > 0 && cur.avgMl > prev.avgMl + 20) wins.push("Daily intake up to " + fmtVol(cur.avgMl, FU));
+      // Breastfed wins — honest signals, not ml
+      if (cur.avgBreastMin > 0 && prev.avgBreastMin > 0 && cur.avgBreastMin > prev.avgBreastMin + 10) wins.push("Breast feeding time up to " + hm(cur.avgBreastMin) + "/day");
+      if (cur.avgBreastCount > 0 && prev.avgBreastCount > 0 && cur.avgBreastCount >= prev.avgBreastCount - 0.3 && cur.avgBreastCount >= 4) wins.push("Steady breastfeeding rhythm. " + cur.avgBreastCount + " feeds/day");
     }
     if(cur.longestStretch && cur.longestStretch >= 300) wins.push("Longest stretch: " + hm(cur.longestStretch) + " of unbroken sleep");
     if(cur.bedConsistency !== null && cur.bedConsistency < 20) wins.push("Rock-solid bedtime consistency (±" + cur.bedConsistency + " min)");
@@ -20357,7 +20368,12 @@ function App(){
         ageStr ? `Age: ${ageStr}` : "",
         `Sleep Quality: ${sleepQ}/100`,
         "",
-        `🍼 Feeds: ${cur.avgFeeds}/day avg (${fmtVol(cur.avgMl,FU)}/day)`,
+        // Feeding line adapts to mode. Breastfed moms never see "0ml/day".
+        (cur.avgBreastCount > 0 && cur.avgMl > 0)
+          ? `🤱🍼 Feeds: ${cur.avgFeeds}/day avg (${cur.avgBreastCount} breast + ${fmtVol(cur.avgMl, FU)}/day bottle)`
+          : cur.avgBreastCount > 0
+          ? `🤱 Breast: ${cur.avgBreastCount}/day avg (${hm(cur.avgBreastMin)} total/day)`
+          : `🍼 Feeds: ${cur.avgFeeds}/day avg (${fmtVol(cur.avgMl,FU)}/day)`,
         `😴 Naps: ${cur.avgNaps}/day avg (${hm(cur.avgNapMins)}/day)`,
         `🌙 Avg bedtime: ${mtp(cur.avgBed)}`,
         `☀️ Avg wake: ${mtp(cur.avgWake)}`,
@@ -26133,6 +26149,73 @@ function App(){
                 ))}
               </div>
               </>)}{/* end LOG-ONLY stats grid */}
+
+              {/* ═══ Weekly Night Digest (Sunday morning card) ═══
+                  Once per week, Sunday morning only, shows a 7-night
+                  summary with best/worst night + a correlation insight
+                  (e.g. "Thursday's hardest night had a late last nap"). */}
+              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (()=>{
+                try {
+                  const _now = new Date();
+                  // Sunday only (day 0) + morning (before 2pm)
+                  if (_now.getDay() !== 0 || _now.getHours() >= 14) return null;
+                  const _today = todayStr();
+                  const _dismissKey = "ob_weekly_digest_dismissed_" + _today;
+                  if ((()=>{try{return localStorage.getItem(_dismissKey)==="1";}catch{return false;}})()) return null;
+                  const _digest = generateWeeklyDigest(days, _today);
+                  if (!_digest || _digest.nights.length < 3) return null;
+                  const _hmStr = m => m >= 60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m";
+                  const _dayName = dk => {
+                    try { return new Date(dk+"T12:00:00").toLocaleDateString(undefined,{weekday:"short"}); }
+                    catch { return dk; }
+                  };
+                  return (
+                    <div style={{marginBottom:12,padding:"16px 18px",borderRadius:16,background:`linear-gradient(135deg,${C.sky}10,${C.mint}06)`,border:`1.5px solid ${C.sky}33`,position:"relative"}}>
+                      <button onClick={()=>{try{localStorage.setItem(_dismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:10,right:10,width:24,height:24,borderRadius:99,border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:13,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                      <div style={{fontSize:10,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,fontWeight:700}}>📊 Your week in nights</div>
+                      <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8,lineHeight:1.2}}>{_digest.nights.length}-night review</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                        <div style={{padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                          <div style={{fontSize:9,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Total wakes</div>
+                          <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_digest.totalWakes}</div>
+                          <div style={{fontSize:9,color:C.lt}}>avg {_digest.avgWakes}/night</div>
+                        </div>
+                        <div style={{padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                          <div style={{fontSize:9,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Total soothing</div>
+                          <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_hmStr(_digest.totalSoothedMin)}</div>
+                          <div style={{fontSize:9,color:C.lt}}>avg {_digest.avgSoothedMin}m/night</div>
+                        </div>
+                      </div>
+                      {_digest.bestNight && (
+                        <div style={{padding:"10px 12px",borderRadius:10,background:C.mint+"10",border:`1px solid ${C.mint}33`,marginBottom:6}}>
+                          <div style={{fontSize:11,fontWeight:700,color:C.mint,marginBottom:2}}>⭐ Best night · {_dayName(_digest.bestNight.dayKey)}</div>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>
+                            {_digest.bestNight.wakeCount} wake{_digest.bestNight.wakeCount===1?"":"s"} ({_digest.bestNight.totalAwakeMin}m awake) · Longest stretch {_hmStr(_digest.bestNight.longestStretchMin)}
+                          </div>
+                        </div>
+                      )}
+                      {_digest.hardestNight && _digest.hardestNight !== _digest.bestNight && (
+                        <div style={{padding:"10px 12px",borderRadius:10,background:C.gold+"10",border:`1px solid ${C.gold}33`,marginBottom:6}}>
+                          <div style={{fontSize:11,fontWeight:700,color:C.gold,marginBottom:2}}>💛 Hardest night · {_dayName(_digest.hardestNight.dayKey)}</div>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>
+                            {_digest.hardestNight.wakeCount} wake{_digest.hardestNight.wakeCount===1?"":"s"} ({_digest.hardestNight.totalAwakeMin}m awake). You showed up. that's what matters.
+                          </div>
+                        </div>
+                      )}
+                      {_digest.correlationInsight && (
+                        <div style={{padding:"10px 12px",borderRadius:10,background:"rgba(139,126,200,0.06)",border:"1px solid rgba(139,126,200,0.2)",marginBottom:4}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#8B7EC8",marginBottom:2}}>💡 One thing to try this week</div>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:3}}><strong>{_digest.correlationInsight.factor}</strong></div>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5}}>{_digest.correlationInsight.explanation}</div>
+                        </div>
+                      )}
+                      <div style={{fontSize:10,color:C.lt,textAlign:"center",marginTop:8,fontStyle:"italic"}}>
+                        Fresh start Monday. You're doing amazingly 💛
+                      </div>
+                    </div>
+                  );
+                } catch(e) { console.warn("[OBubba] Weekly Digest error:", e); return null; }
+              })()}
 
               {/* ═══ Last Night At A Glance + Night Pattern Diagnosis ═══
                   Shows after morning wake is logged, so parents see an honest
