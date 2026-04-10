@@ -12115,18 +12115,8 @@ function App(){
 
     // Feed alerts handled by the Last Feed card. no duplicate banner needed
 
-    // Check hydration (smart counting: post-sleep nappies count as 2-3)
-    // Pass yesterday's last wet nappy so the first morning change uses a real
-    // cross-midnight gap, not the flat 12h default.
-    const _yPrevStr = (()=>{ try { const d=new Date(selDay+"T00:00:00"); d.setDate(d.getDate()-1); return localDateStr(d); } catch { return null; } })();
-    const _yPrevEnt = _yPrevStr ? (days[_yPrevStr]||[]) : [];
-    const _yPrevLastWet = (()=>{
-      const _prevWets = _yPrevEnt.filter(e => e.type === "poop" && ((e.poopType||"").toLowerCase().includes("wet") || e.poopType === "both") && e.time).sort((a,b)=>timeVal(a)-timeVal(b));
-      return _prevWets.length ? _prevWets[_prevWets.length-1] : null;
-    })();
-    const _hydration = smartHydration(today, w, _yPrevLastWet);
-    const h = new Date().getHours();
-    if (h >= 14 && !_hydration.ok) return { emoji: "💧", text: `${_hydration.raw} wet nappies today (${_hydration.count} hydration score). aim for ${_hydration.target}+ for adequate hydration.`, priority: "med", why: `Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). ${_hydration.raw} changes = ${_hydration.count} hydration score vs ${_hydration.target}+ target for ${fmtAge(age)}.` };
+    // Hydration card lives on the Plan tab only — see the hydration block
+    // rendered in the plan-only gate. Kept off Today to avoid duplication.
 
     // Check bedtime approaching. two-stage alert
     const bed = tickDataRef.current.bed;
