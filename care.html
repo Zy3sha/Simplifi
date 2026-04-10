@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <title>Bubba Care</title>
 <meta name="theme-color" content="#FFFCF9"/>
+<!-- Carer portal is live-updating. Prevent stale HTML from being served
+     by CDN/browser cache so bug fixes and UI changes reach carers on
+     their next visit without a hard refresh. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { background: #FFFCF9; font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif; color: #4A3B35; min-height: 100vh; }
@@ -148,6 +154,9 @@ if (!rawCode || rawCode.length < 4) {
     }
     await loadFamilyContext();
     renderApp();
+    // Subscribe AFTER initial render so first paint is instant, then
+    // keep it live for all subsequent parent-side writes.
+    subscribeFamilyContext();
   }).catch((err) => {
     console.error("Auth failed", err);
     $app.innerHTML = `
@@ -233,54 +242,85 @@ function computeTodayStats(children, childId, extraEntries) {
   return { today, entries, lastFeed, lastNap, lastPoop, wetCount, dirtyCount, nappyCount: poops.length, totalMl, avgMl, avgFeedsPerDay, naps };
 }
 
+// Parses a families/{code} doc snapshot into familyContext.
+// Pulled into its own function so both the initial load and the live
+// subscription use the same code path.
+function _applyFamilyDoc(data) {
+  if (!data) return;
+  // Extract children → name, dob, photo, today stats
+  try {
+    const children = JSON.parse(data.children || "[]");
+    const arr = Array.isArray(children) ? children : Object.values(children);
+    if (arr.length > 0) {
+      const ch = arr[0];
+      familyContext.babyName = ch.name || "baby";
+      familyContext.babyDob = ch.dob || null;
+      if (ch.dob) {
+        const dobDate = new Date(ch.dob + "T00:00:00");
+        const weeks = Math.floor((Date.now() - dobDate.getTime()) / (7*24*3600*1000));
+        familyContext.ageWeeks = weeks;
+      }
+      _childrenCache = arr;
+      // Use URL childId if present; otherwise pick the baby matching the stored profile
+      familyContext.today = computeTodayStats(arr, childId) || {};
+      // Also update name/age from the resolved child (in case URL specified a specific one)
+      const _resolvedCh = childId ? (arr.find(c=>c.id===childId) || arr[0]) : arr[0];
+      if (_resolvedCh) {
+        familyContext.babyName = _resolvedCh.name || "baby";
+        familyContext.babyDob = _resolvedCh.dob || null;
+        familyContext.babyPhoto = _resolvedCh.photo || null;
+        if (_resolvedCh.dob) {
+          const _dobDate = new Date(_resolvedCh.dob + "T00:00:00");
+          familyContext.ageWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
+        }
+      }
+    }
+  } catch (e) { console.warn("Children parse", e); }
+  // Parse shared data for pinned notes
+  try {
+    const sd = JSON.parse(data.sharedData || "{}");
+    familyContext.pinnedNotes = Array.isArray(sd.pinnedNotes) ? sd.pinnedNotes.filter(n=>n&&n.pinned) : [];
+  } catch {}
+  // Parse carer info
+  try {
+    const ci = JSON.parse(data.carerInfo || "{}");
+    familyContext.carerNotes = ci.carerNotes || "";
+    familyContext.carerComfort = ci.carerComfort || "";
+    familyContext.emergencyContacts = Array.isArray(ci.emergencyContacts) ? ci.emergencyContacts : [];
+  } catch {}
+  // Stamp the sync time so we can show "live · updated just now"
+  familyContext._lastSyncedAt = Date.now();
+}
+
+// One-shot initial load — resolves when the first snapshot arrives so
+// renderApp() has data to work with on first render.
 async function loadFamilyContext() {
   try {
     const famDoc = await getDoc(doc(db, "families", code));
-    if (famDoc.exists()) {
-      const data = famDoc.data();
-      // Extract baby name + DOB
-      try {
-        const children = JSON.parse(data.children || "[]");
-        const arr = Array.isArray(children) ? children : Object.values(children);
-        if (arr.length > 0) {
-          const ch = arr[0];
-          familyContext.babyName = ch.name || "baby";
-          familyContext.babyDob = ch.dob || null;
-          if (ch.dob) {
-            const dobDate = new Date(ch.dob + "T00:00:00");
-            const weeks = Math.floor((Date.now() - dobDate.getTime()) / (7*24*3600*1000));
-            familyContext.ageWeeks = weeks;
-          }
-          _childrenCache = arr;
-          // Use URL childId if present; otherwise pick the baby matching the stored profile
-          familyContext.today = computeTodayStats(arr, childId) || {};
-          // Also update name/age from the resolved child (in case URL specified a specific one)
-          const _resolvedCh = childId ? (arr.find(c=>c.id===childId) || arr[0]) : arr[0];
-          if (_resolvedCh) {
-            familyContext.babyName = _resolvedCh.name || "baby";
-            familyContext.babyDob = _resolvedCh.dob || null;
-            familyContext.babyPhoto = _resolvedCh.photo || null;
-            if (_resolvedCh.dob) {
-              const _dobDate = new Date(_resolvedCh.dob + "T00:00:00");
-              familyContext.ageWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
-            }
-          }
-        }
-      } catch (e) { console.warn("Children parse", e); }
-      // Parse shared data for pinned notes
-      try {
-        const sd = JSON.parse(data.sharedData || "{}");
-        familyContext.pinnedNotes = Array.isArray(sd.pinnedNotes) ? sd.pinnedNotes.filter(n=>n&&n.pinned) : [];
-      } catch {}
-      // Parse carer info
-      try {
-        const ci = JSON.parse(data.carerInfo || "{}");
-        familyContext.carerNotes = ci.carerNotes || "";
-        familyContext.carerComfort = ci.carerComfort || "";
-        familyContext.emergencyContacts = Array.isArray(ci.emergencyContacts) ? ci.emergencyContacts : [];
-      } catch {}
-    }
-  } catch (e) { console.warn("Family context load failed", e); }
+    if (famDoc.exists()) _applyFamilyDoc(famDoc.data());
+  } catch (e) { console.warn("Family context initial load failed", e); }
+}
+
+// Live subscription — after initial load, keeps familyContext fresh
+// whenever the parent app writes to families/{code}. Without this, the
+// portal showed whatever snapshot was current at page load and went
+// silent until the carer hard-refreshed.
+let _familyUnsub = null;
+function subscribeFamilyContext() {
+  if (_familyUnsub) return; // already subscribed
+  try {
+    _familyUnsub = onSnapshot(doc(db, "families", code), (snap) => {
+      if (!snap.exists()) return;
+      _applyFamilyDoc(snap.data());
+      // Re-merge any pending carer entries and re-render so the UI
+      // reflects the latest parent-side state in real time.
+      try { _mergeCarerEntries(); } catch(_) {}
+      try { _renderHtml(); } catch(_) {}
+      try { if (typeof updateRecentList === "function") updateRecentList(); } catch(_) {}
+    }, (err) => {
+      console.warn("Family context subscription failed", err);
+    });
+  } catch (e) { console.warn("subscribeFamilyContext error", e); }
 }
 
 function showToast(msg) {
