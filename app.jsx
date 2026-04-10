@@ -17848,6 +17848,18 @@ function App(){
           }, 300);
         }
       }
+      // "You Time" popup. baby is down, now it's your turn. Guarded so the
+      // same bedtime-log only triggers it once even if the user edits or
+      // re-saves. Keyed by today's date.
+      try {
+        const _ytKey = "ob_youtime_shown_" + todayStr();
+        if (!localStorage.getItem(_ytKey)) {
+          localStorage.setItem(_ytKey, "1");
+          setTimeout(()=>setShowYouTime(true), 3000);
+        }
+      } catch {
+        setTimeout(()=>setShowYouTime(true), 3000);
+      }
     }
   }
   function saveEntry(){
@@ -19507,7 +19519,17 @@ function App(){
       } catch {}
     }, 800);
     // "You Time" popup. baby is down, now it's your turn 💛
-    setTimeout(()=>setShowYouTime(true), 3000);
+    // Guarded so only one You Time fires per calendar day even if bedtime
+    // is re-logged or edited.
+    try {
+      const _ytKey = "ob_youtime_shown_" + todayStr();
+      if (!localStorage.getItem(_ytKey)) {
+        localStorage.setItem(_ytKey, "1");
+        setTimeout(()=>setShowYouTime(true), 3000);
+      }
+    } catch {
+      setTimeout(()=>setShowYouTime(true), 3000);
+    }
   }
   function startBreastTimer(side){
     if(!breastStartTime){
