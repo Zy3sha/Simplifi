@@ -24030,7 +24030,43 @@ function App(){
                   {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
                   {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?null:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
                   {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
-                  {emoji:"☀️",label:"Wake",action:()=>handleSmartWake()},
+                  {emoji:"☀️",label:(()=>{
+                    // If bed timer is actively running, this button becomes "Awake"
+                    // and directly pauses the timer instead of going through
+                    // handleSmartWake (which can be tricked by fallback-mode state).
+                    try {
+                      const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
+                      if (_btd && !bedPaused) return "Awake";
+                    } catch(_) {}
+                    return "Wake";
+                  })(),action:()=>{
+                    // Direct pause short-circuit. If we can detect an active
+                    // bed timer at all (state, localStorage, OR data), jump
+                    // straight to pauseBedTimer without going through
+                    // handleSmartWake's morning-vs-night branching.
+                    try {
+                      let _btd = bedTimerDay;
+                      if (!_btd) { try { _btd = localStorage.getItem("bed_timer_day"); } catch(_) {} }
+                      if (!_btd) {
+                        const _ct = todayStr();
+                        const _pd = (()=>{const d=new Date(_ct+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+                        if (findBedtime(days[_ct]||[]) && new Date().getHours() >= 17) _btd = _ct;
+                        else if (findBedtime(days[_pd]||[]) && !hasMorningWake(days[_ct]||[])) _btd = _pd;
+                      }
+                      const _nowH = new Date().getHours();
+                      const _calT = todayStr();
+                      const _endOfNight = _btd && _btd !== _calT && _nowH >= 5 && _nowH < 12;
+                      if (_btd && !bedPaused && !_endOfNight) {
+                        // Active bed timer, not morning wake. PAUSE directly.
+                        if (!bedTimerDay) { try { setBedTimerDay(_btd); localStorage.setItem("bed_timer_day", _btd); } catch(_) {} }
+                        haptic("medium");
+                        pauseBedTimer();
+                        return;
+                      }
+                    } catch(e) { console.warn("[OBubba] direct pause short-circuit failed", e); }
+                    // Otherwise fall through to the normal wake handler
+                    handleSmartWake();
+                  }},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
                   {emoji:"🎵",label:soundPlaying?"Playing":"Sounds",action:()=>{haptic();setShowSoundMachine(true);}},
                   ...(ageWeeks >= 26 ? [{emoji:"🥕",label:"Meal",action:()=>{haptic();setShowMealPicker(true);}}] : []),
@@ -26075,8 +26111,199 @@ function App(){
                 );
               })()}
 
-              {/* ═══ Milk vs Solids. personal-rhythm aware ═══ */}
+              {/* ═══ Adaptive Feeding Mode Detection ═══
+                  Detects based on data whether mom is breast-only, bottle-only,
+                  or combo, and gates the feeding cards accordingly:
+                    - Breast-only → show breast card only (hide ml)
+                    - Bottle-only → show milk-ml card only (hide breast)
+                    - Combo → show BOTH cards */}
+              {(()=>{ return null; })()}
+
+              {/* ═══ Breastfeeding totals. Left + Right today ═══
+                  Shown for breast-only OR combo moms. Hidden for bottle-only. */}
+              {(()=>{
+                // Detect mode from last 14 days of actual logged data.
+                // Threshold: a feeding style counts if ≥ 2 feeds of that type in 14 days.
+                let _hasBreastFeeds = 0, _hasBottleFeeds = 0;
+                try {
+                  const _dKeys = Object.keys(days).sort().slice(-14);
+                  _dKeys.forEach(_dk => {
+                    const _arr = days[_dk] || [];
+                    _arr.forEach(e => {
+                      if (e.type === "feed" && !e.night) {
+                        if (e.feedType === "breast") _hasBreastFeeds++;
+                        else if (e.feedType === "bottle" || e.feedType === "milk" || (e.amount && e.amount > 0 && e.feedType !== "solids" && e.feedType !== "pump")) _hasBottleFeeds++;
+                      }
+                    });
+                  });
+                } catch(_) {}
+                // Also respect the explicit flag set in onboarding
+                let _flagBreast = false;
+                try { _flagBreast = localStorage.getItem("_hasBreast") === "1"; } catch(_) {}
+                // Breast mode: flag set OR data shows ≥2 breast feeds
+                const _isBreast = _flagBreast || _hasBreastFeeds >= 2;
+                // Bottle mode: data shows ≥2 bottle feeds
+                const _isBottle = _hasBottleFeeds >= 2;
+                // Hide breast card for bottle-only moms
+                if (!_isBreast) return null;
+                const _ent = days[selDay] || [];
+                const _todayBreastFeeds = _ent.filter(e => e.type === "feed" && e.feedType === "breast" && !e.night);
+                const _todayNightBreast = _ent.filter(e => e.type === "feed" && e.feedType === "breast" && e.night);
+                // Sum L and R minutes (both day and night shown separately below)
+                const _sumSide = (arr, side) => arr.reduce((s, f) => s + (parseInt(f["breast" + side]) || 0), 0);
+                const _dayL = _sumSide(_todayBreastFeeds, "L");
+                const _dayR = _sumSide(_todayBreastFeeds, "R");
+                const _dayTotal = _dayL + _dayR;
+                const _nightL = _sumSide(_todayNightBreast, "L");
+                const _nightR = _sumSide(_todayNightBreast, "R");
+                const _nightTotal = _nightL + _nightR;
+                const _grandTotal = _dayTotal + _nightTotal;
+                const _dayFeedCount = _todayBreastFeeds.length;
+                const _nightFeedCount = _todayNightBreast.length;
+
+                // 7-day personal avg (excluding today)
+                let _avg7 = null, _avgSideBias = null;
+                try {
+                  const _past7 = (()=>{
+                    const out = [];
+                    for (let i = 1; i <= 7; i++) {
+                      const d = new Date(selDay + "T00:00:00");
+                      d.setDate(d.getDate() - i);
+                      const k = localDateStr(d);
+                      const arr = days[k] || [];
+                      const _bf = arr.filter(e => e.type === "feed" && e.feedType === "breast");
+                      if (_bf.length === 0) continue;
+                      const L = _sumSide(_bf, "L");
+                      const R = _sumSide(_bf, "R");
+                      if (L + R === 0) continue;
+                      out.push({ L, R, total: L + R });
+                    }
+                    return out;
+                  })();
+                  if (_past7.length >= 2) {
+                    _avg7 = Math.round(_past7.reduce((s, d) => s + d.total, 0) / _past7.length);
+                    // Side bias: does mom typically favor L or R?
+                    const _avgL = _past7.reduce((s, d) => s + d.L, 0) / _past7.length;
+                    const _avgR = _past7.reduce((s, d) => s + d.R, 0) / _past7.length;
+                    const _bias = _avgL - _avgR;
+                    if (Math.abs(_bias) > 10) _avgSideBias = _bias > 0 ? "L" : "R";
+                  }
+                } catch(_) {}
+
+                // Hide entirely if today is empty AND we have no history
+                if (_grandTotal === 0 && !_avg7) return null;
+
+                // Status tone based on today vs avg
+                let _statusMsg = null, _tone = "ok";
+                if (_avg7) {
+                  const _ratio = _grandTotal / _avg7;
+                  if (_grandTotal === 0) { _statusMsg = "No breast feeds logged today yet."; _tone = "info"; }
+                  else if (_ratio >= 0.85 && _ratio <= 1.2) { _statusMsg = "✓ Right on track with your usual."; _tone = "ok"; }
+                  else if (_ratio > 1.2) { _statusMsg = "A bit more feeding than usual — growth spurt or cluster day."; _tone = "ok"; }
+                  else if (_ratio >= 0.6) { _statusMsg = "A little less than your usual. not necessarily a concern, just worth noting."; _tone = "attention"; }
+                  else { _statusMsg = "Quite a bit below your usual. offer the breast freely — supply follows demand."; _tone = "attention"; }
+                }
+                const _toneColors = {
+                  ok: { bg: C.mint + "08", border: C.mint + "33", accent: C.mint },
+                  attention: { bg: C.gold + "08", border: C.gold + "33", accent: C.gold },
+                  info: { bg: "var(--card-bg-alt)", border: "var(--card-border)", accent: C.lt },
+                };
+                const _t = _toneColors[_tone] || _toneColors.ok;
+
+                // L vs R balance bar
+                const _lPct = _grandTotal > 0 ? (_dayL + _nightL) / _grandTotal * 100 : 50;
+                const _rPct = _grandTotal > 0 ? 100 - _lPct : 50;
+                const _imbalanced = Math.abs(_lPct - 50) > 20;
+
+                return (
+                  <div style={{marginBottom:10,padding:"14px 16px",borderRadius:16,background:_t.bg,border:`1.5px solid ${_t.border}`}}>
+                    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10,gap:10}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>🤱 Breastfeeding today</div>
+                        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{hm(_grandTotal)}</div>
+                        <div style={{fontSize:10,color:C.lt,marginTop:2}}>{_dayFeedCount + _nightFeedCount} feed{(_dayFeedCount + _nightFeedCount)===1?"":"s"}{_nightFeedCount > 0 ? ` · ${_nightFeedCount} overnight` : ""}</div>
+                      </div>
+                      {_avg7 !== null && (
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>7-day avg</div>
+                          <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:C.mid,lineHeight:1}}>{hm(_avg7)}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* L vs R split bars */}
+                    {_grandTotal > 0 && (
+                      <div style={{marginBottom:8}}>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.lt,marginBottom:3}}>
+                          <span style={{fontWeight:700,color:C.deep}}>◀ Left {hm(_dayL + _nightL)}</span>
+                          <span style={{fontWeight:700,color:C.deep}}>Right {hm(_dayR + _nightR)} ▶</span>
+                        </div>
+                        <div style={{display:"flex",height:8,borderRadius:99,overflow:"hidden",border:"1px solid var(--card-border)"}}>
+                          <div style={{width:_lPct+"%",background:`linear-gradient(90deg,#C07088,#d88a9a)`,transition:"width 0.4s"}}/>
+                          <div style={{width:_rPct+"%",background:`linear-gradient(90deg,#8bc4a8,#6FA898)`,transition:"width 0.4s"}}/>
+                        </div>
+                        {_imbalanced && (
+                          <div style={{fontSize:10,color:C.gold,marginTop:4,fontStyle:"italic",lineHeight:1.4}}>
+                            💡 {_lPct > _rPct ? "Left" : "Right"} side has done more today. try starting the next feed on the {_lPct > _rPct ? "right" : "left"} to balance supply.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Day vs night breakdown if night feeds exist */}
+                    {_nightTotal > 0 && (
+                      <div style={{display:"flex",gap:6,marginBottom:8}}>
+                        <div style={{flex:1,padding:"6px 10px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                          <div style={{fontSize:9,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>☀️ Day</div>
+                          <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{hm(_dayTotal)}</div>
+                        </div>
+                        <div style={{flex:1,padding:"6px 10px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                          <div style={{fontSize:9,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>🌙 Night</div>
+                          <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{hm(_nightTotal)}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Status message */}
+                    {_statusMsg && (
+                      <div style={{fontSize:12,color:_t.accent,fontWeight:600,lineHeight:1.4}}>{_statusMsg}</div>
+                    )}
+
+                    {/* Side bias insight (from historic avg) */}
+                    {_avgSideBias && _grandTotal > 0 && (
+                      <div style={{fontSize:10,color:C.lt,marginTop:6,fontStyle:"italic",lineHeight:1.4}}>
+                        📊 Over the last 7 days you typically favour the {_avgSideBias === "L" ? "left" : "right"} side. completely normal — most moms have a preferred side.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ═══ Milk vs Solids. personal-rhythm aware ═══
+                  Shown for bottle-only OR combo moms. Hidden for breast-only
+                  because the milk ml number is always 0 for breast feeds
+                  (breast feeds store L/R minutes, not volume). The separate
+                  breastfeeding card above handles breast moms. */}
               {age && (weaningStarted || (weaning||[]).length > 0 || ((age.predictiveWeeks??age.totalWeeks)) >= 22) && (()=>{
+                // Detect feeding mode from last 14 days of data
+                let _bottleCount = 0, _breastCount = 0;
+                try {
+                  const _dKeys = Object.keys(days).sort().slice(-14);
+                  _dKeys.forEach(_dk => {
+                    const _arr = days[_dk] || [];
+                    _arr.forEach(e => {
+                      if (e.type === "feed" && !e.night) {
+                        if (e.feedType === "breast") _breastCount++;
+                        else if (e.feedType === "bottle" || e.feedType === "milk" || (e.amount && e.amount > 0 && e.feedType !== "solids" && e.feedType !== "pump")) _bottleCount++;
+                      }
+                    });
+                  });
+                } catch(_) {}
+                let _flagBreast = false;
+                try { _flagBreast = localStorage.getItem("_hasBreast") === "1"; } catch(_) {}
+                const _isBreastOnly = (_flagBreast || _breastCount >= 2) && _bottleCount < 2;
+                // Hide for breast-only moms (the breast card covers them)
+                if (_isBreastOnly) return null;
                 const _aw2 = (age.predictiveWeeks??age.totalWeeks);
                 const _wr = getWeaningRatio ? getWeaningRatio(_aw2, days[selDay]||[], days, weaningStarted) : null;
                 if (!_wr || !_wr.showSolids) return null;
