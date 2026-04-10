@@ -5165,21 +5165,31 @@ function App(){
     : {primary:isDark?"rgba(35,50,45,0.8)":"#e4f2ec",secondary:isDark?"rgba(45,65,55,0.8)":"#d0e8de",grad:isDark?"linear-gradient(135deg,rgba(35,50,45,0.9),rgba(45,65,55,0.9))":"linear-gradient(135deg,#e4f2ec,#d0e8de)"};
   const[growthForm,setGrowthForm]=useState({date:todayStr(),kg:""});
   const[onboarded,setOnboarded]=useState(()=>{
-    try{
-      const done = localStorage.getItem("onboarded_v2");
+    // ── STRICT onboarded check ──
+    // A user is only considered onboarded if they have at least one child
+    // with an ACTUAL NAME. Previously the flag alone was enough, which
+    // meant any code path that set onboarded_v2 (partial signup, crashed
+    // onboarding, Firestore sync of an empty shell, old installs) would
+    // drop the user into a 'random empty account' — blank app shell, no
+    // welcome page, no data. The fix: the name is the source of truth.
+    try {
       const saved = localStorage.getItem("children_v1");
-      if(done) return true;
-
+      // Primary check: does any child in the store have a non-empty name?
+      if (saved) {
+        try {
+          const ch = JSON.parse(saved);
+          const hasNamedChild = Object.values(ch).some(c => c && typeof c.name === "string" && c.name.trim().length > 0);
+          if (hasNamedChild) return true;
+        } catch(_) {}
+      }
+      // Legacy keys: bn_v2 (old baby name) + dob_v1 together count as onboarded
       const hasName = localStorage.getItem("bn_v2");
       const hasDob = localStorage.getItem("dob_v1");
-      if(hasName && hasDob) return true;
-
-      if(saved) {
-        const ch = JSON.parse(saved);
-        return Object.values(ch).some(c => c.name);
-      }
+      if (hasName && hasName.trim() && hasDob) return true;
+      // Any other signal (onboarded_v2 flag alone, empty children shell,
+      // sync artifacts) is NOT enough. Force the welcome page.
       return false;
-    }catch{return false;}
+    } catch { return false; }
   });
   const[obStep,setObStep]=useState(0);
   const[obName,setObName]=useState("");
@@ -25562,58 +25572,77 @@ function App(){
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {(()=>{
                   // ── Adaptive feeding tile ──
-                  // Bottle-only: ml total (original).
-                  // Breast-only: total breast time today (L+R in h/m).
-                  // Combo: breast time + bottle ml below as unit line.
+                  // Rule: the tile describes TODAY's feeds, not historic mode.
+                  // Only show 'Breast + Bottle' if BOTH types were logged today.
+                  // Previously this looked at 14 days of history, which meant
+                  // one old bottle feed from weeks ago wrongly flipped a
+                  // breast-only day into combo mode. Fixed: today drives the
+                  // label, history only influences the empty fallback.
+                  let _todayBreast = 0, _todayBottle = 0;
                   let _todayBreastMin = 0, _todayBottleMl = 0;
-                  let _recentBreast = 0, _recentBottle = 0;
                   try {
                     (dayE||[]).forEach(e => {
                       if (e.type !== "feed" || e.night) return;
                       if (e.feedType === "breast") {
+                        _todayBreast++;
                         _todayBreastMin += (parseInt(e.breastL)||0) + (parseInt(e.breastR)||0);
                       } else if (e.feedType !== "solids" && e.feedType !== "pump") {
-                        _todayBottleMl += (parseFloat(e.amount)||0);
+                        const _ml = parseFloat(e.amount)||0;
+                        if (_ml > 0 || e.feedType === "bottle" || e.feedType === "milk") {
+                          _todayBottle++;
+                          _todayBottleMl += _ml;
+                        }
                       }
                     });
-                    const _dKeys = Object.keys(days||{}).sort().slice(-14);
+                  } catch(_) {}
+                  // Fallback mode detection ONLY used when today has no feeds yet
+                  let _flagBreast = false;
+                  try { _flagBreast = localStorage.getItem("_hasBreast") === "1"; } catch(_) {}
+                  let _historicBreast = 0, _historicBottle = 0;
+                  try {
+                    const _dKeys = Object.keys(days||{}).sort().slice(-7);
                     _dKeys.forEach(_dk => {
                       (days[_dk]||[]).forEach(e => {
                         if (e.type !== "feed" || e.night) return;
-                        if (e.feedType === "breast") _recentBreast++;
-                        else if (e.feedType !== "solids" && e.feedType !== "pump" && (e.feedType || e.amount)) _recentBottle++;
+                        if (e.feedType === "breast") _historicBreast++;
+                        else if (e.feedType !== "solids" && e.feedType !== "pump" && ((parseFloat(e.amount)||0) > 0 || e.feedType === "bottle" || e.feedType === "milk")) _historicBottle++;
                       });
                     });
                   } catch(_) {}
-                  let _flagBreast = false;
-                  try { _flagBreast = localStorage.getItem("_hasBreast") === "1"; } catch(_) {}
-                  const _isBreast = _flagBreast || _recentBreast >= 1;
-                  const _isBottle = _recentBottle >= 1 || (totalMlWithNight && totalMlWithNight > 0);
 
                   let _feedTile;
-                  if (_isBreast && _isBottle) {
-                    // COMBO — show breast time prominently, ml on the unit line
-                    const _ml = _todayBottleMl > 0 ? mlToDisplay(_todayBottleMl, FU) : 0;
+                  if (_todayBreast > 0 && _todayBottle > 0) {
+                    // TRUE COMBO — both types logged today
+                    const _ml = mlToDisplay(_todayBottleMl, FU);
                     _feedTile = {
-                      big: _todayBreastMin > 0 ? hm(_todayBreastMin) : "—",
-                      unit: _todayBottleMl > 0 ? `+ ${_ml}${volLabel(FU)}` : "🤱 breast",
+                      big: hm(_todayBreastMin),
+                      unit: `+ ${_ml}${volLabel(FU)}`,
                       label: "Breast + Bottle",
                       color: C.ter, bg: "var(--card-bg)"
                     };
-                  } else if (_isBreast) {
-                    // BREAST-ONLY — total feeding time today
+                  } else if (_todayBreast > 0) {
+                    // Only breast feeds today → breast time label regardless of history
                     _feedTile = {
-                      big: _todayBreastMin > 0 ? hm(_todayBreastMin) : "—",
+                      big: hm(_todayBreastMin),
                       unit: "🤱 total",
                       label: "Breast Time",
                       color: C.ter, bg: "var(--card-bg)"
                     };
-                  } else {
-                    // BOTTLE / SOLIDS — original ml behavior
+                  } else if (_todayBottle > 0 || (totalMlWithNight && totalMlWithNight > 0)) {
+                    // Only bottle feeds today → ml label
                     _feedTile = {
-                      big: totalMlWithNight ? mlToDisplay(totalMlWithNight, FU) : dayE.filter(e=>e.type==="feed"&&e.feedType==="solids").length,
-                      unit: totalMlWithNight ? volLabel(FU) : "meals",
-                      label: totalMlWithNight ? "Total Milk" : "Solids",
+                      big: mlToDisplay(totalMlWithNight || _todayBottleMl, FU),
+                      unit: volLabel(FU),
+                      label: "Total Milk",
+                      color: C.ter, bg: "var(--card-bg)"
+                    };
+                  } else {
+                    // No feeds today yet — pick the empty label from history/flag
+                    const _fallbackIsBreast = _flagBreast || _historicBreast > _historicBottle;
+                    _feedTile = {
+                      big: "—",
+                      unit: _fallbackIsBreast ? "🤱" : (volLabel(FU)||"ml"),
+                      label: _fallbackIsBreast ? "Breast Time" : "Total Milk",
                       color: C.ter, bg: "var(--card-bg)"
                     };
                   }
