@@ -9417,7 +9417,12 @@ function App(){
     );
    } catch(err) {
     console.error("HeroCard error:", err?.message || err, err?.stack);
-    const _greetFallback = _h >= 12 ? "All good ☀️" : "Good morning! ☀️";
+    // Declare _h locally in the catch scope. Previously this referenced the
+    // _h from the try block, which is out of scope in the catch — when the
+    // hero card threw, the catch handler ALSO threw with 'Can't find
+    // variable: _h', cascading to the app-wide error boundary (PWA crash).
+    const _hFallback = new Date().getHours();
+    const _greetFallback = _hFallback >= 12 ? "All good ☀️" : "Good morning! ☀️";
     return (
       <div className="glass-card" style={{padding:"18px 16px",marginBottom:12}}>
         <div style={_S.flexCenter10}>
