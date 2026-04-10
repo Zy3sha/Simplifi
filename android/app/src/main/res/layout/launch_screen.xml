@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch screen used by @capacitor/splash-screen plugin.
+     Matches the SplashScreen config in capacitor.config.ts:
+       androidSplashResourceName: 'splash'
+       androidScaleType: 'CENTER_CROP'
+       backgroundColor: '#F0DDD6'
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F0DDD6">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/splash"
+        android:contentDescription="@string/app_name" />
+
+</RelativeLayout>

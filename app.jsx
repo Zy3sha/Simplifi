@@ -3589,22 +3589,41 @@ function App(){
   });
 
   const[selDay,setSelDay]=useState(()=>{
-    // Always start on calendar today. The hero card handles cross-midnight
-    // display for both dayBoundary modes (wake and midnight).
-    try {
-      const child = children[activeChildId] || children[Object.keys(children)[0]];
-      const d = (child && child.days) || {};
-      const key = todayStr();
-      // Today first, then fall back to latest day with entries
-      if (key && d[key] && d[key].length) return key;
-      // Fall back to the latest calendar day that has any entries
-      const sorted = Object.keys(d).filter(k => d[k] && d[k].length).sort();
-      if (sorted.length) return sorted[sorted.length - 1];
-    } catch {}
+    // ALWAYS start on calendar today for returning users. Previously we fell
+    // back to "the latest day that has entries" when today was empty, which
+    // meant a returning user who had been inactive for a few days landed on
+    // an OLD day instead of today — and combined with the render gate below,
+    // they saw a "No day selected" screen. Today is the right anchor: the
+    // hero card handles cross-midnight display, and the day view has its
+    // own empty-state card for a fresh day with no entries yet.
     return todayStr();
   });
   const selDayRef = useRef(selDay);
   useEffect(()=>{selDayRef.current=selDay;},[selDay]);
+  // When the app becomes visible again (user returns after hours/days of
+  // inactivity or a phone sleep), snap selDay back to today if the calendar
+  // date has changed. Without this, a user who left the app open on Monday
+  // and reopened on Friday would still be viewing Monday and see a stale
+  // day or the "no day selected" fallback.
+  useEffect(() => {
+    const _maybeSnapToToday = () => {
+      if (document.visibilityState !== "visible") return;
+      const _actualToday = todayStr();
+      // Only snap forward. Never clobber the user if they've deliberately
+      // navigated to a past day to catch up on logging.
+      if (selDayRef.current && selDayRef.current < _actualToday) {
+        setSelDay(_actualToday);
+      }
+    };
+    document.addEventListener("visibilitychange", _maybeSnapToToday);
+    window.addEventListener("focus", _maybeSnapToToday);
+    window.addEventListener("pageshow", _maybeSnapToToday);
+    return () => {
+      document.removeEventListener("visibilitychange", _maybeSnapToToday);
+      window.removeEventListener("focus", _maybeSnapToToday);
+      window.removeEventListener("pageshow", _maybeSnapToToday);
+    };
+  }, []);
   const[tab,setTab]=useState("day");
   // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
   const[daySubScreen,setDaySubScreen]=useState(null);
@@ -8875,8 +8894,17 @@ function App(){
         </div>
         <div style={{fontSize:12,color:C.mid,paddingLeft:16,marginBottom:_nextEvent?6:8}}>{_timing}</div>
 
-        {/* NEXT */}
-        {_nextEvent && (()=>{
+        {/* NEXT — dedup: if _timing already describes the upcoming nap
+            ("Nap N around HH:MM") OR the upcoming bedtime ("Bedtime at/around X"),
+            skip the _nextEvent bullet to avoid showing the same event twice. */}
+        {(()=>{
+          if (!_nextEvent) return null;
+          const _t = String(_timing || "");
+          const _napDup = _nextEvent.icon === "😴" && / Nap \d+ around /i.test(_t);
+          const _bedDup = _nextEvent.icon === "🌙" && /Bedtime (at|around)/i.test(_t);
+          if (_napDup || _bedDup) return null;
+          return true;
+        })() && (()=>{
           // Confidence indicator based on days of usable data
           const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
           const _confLevel = _daysLogged < 3 ? {label:"NHS guideline",color:C.lt,icon:"📋"}
@@ -23356,13 +23384,20 @@ function App(){
 
       <div style={{padding:tab==="settings"?"0 14px 90px":"16px 14px 90px",maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
-          !selDay||!days[selDay]?(
+          // Only show the "No day selected" fallback when selDay itself is
+          // missing (which should basically never happen — useState initialises
+          // to today). An empty days[selDay] is NOT "no day selected" — that's
+          // a fresh day with nothing logged yet, and the day view has its own
+          // proper empty-state card inside.
+          !selDay?(
             <div style={{textAlign:"center",padding:"40px 20px",color:C.lt}}>
               <img src="obubba-thinking.png" alt="" style={{width:120,height:120,objectFit:"contain",marginBottom:12,opacity:0.8,filter:"drop-shadow(0 8px 20px rgba(217,207,243,0.25))"}}/>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.mid,marginBottom:8}}>No day selected</div>
-              <div style={{fontSize:15,fontFamily:_fM}}>Tap + Date to get started</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.mid,marginBottom:8}}>Loading today…</div>
+              <button onClick={()=>{haptic();setSelDay(todayStr());}} style={{marginTop:12,padding:"10px 20px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
+                Open today
+              </button>
             </div>
-          ):( 
+          ):(
             <div>
               {/* ═══ HERO CARD. only on dashboard, not sub-screens ═══ */}
               {!daySubScreen && renderHeroCard()}

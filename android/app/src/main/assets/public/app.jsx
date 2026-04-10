@@ -133,29 +133,62 @@ const fmtDate = d => { if(!d)return""; const[y,mo,day]=d.split("-"); return`${da
 // A day has meaningful data if it has at least 2 non-auto entries (wake + something)
 const dayHasData = (entries) => { if(!entries || !entries.length) return false; const real = entries.filter(e => !e.auto); return real.length >= 2; };
 // ═══ Smart Hydration Count ═══
-// A wet nappy after a long sleep stretch counts as more than 1 (baby was hydrated overnight).
-// Also provides age-adjusted targets.
-function smartHydration(dayEntries, ageWeeks) {
-  if (!dayEntries || !dayEntries.length) return { count: 0, target: 6, label: "0 of 6+" };
-  const wetNappies = dayEntries.filter(e => { if(e.type!=="poop") return false; const p=(e.poopType||"").toLowerCase(); return p.includes("wet")||p==="both"; });
+// A wet nappy after a long sleep stretch counts as more than 1 (baby was hydrated
+// overnight, one big wet nappy = multiple daytime wets).
+// Optional third arg: yesterday's last wet nappy entry, so the first-of-the-day
+// nappy uses a REAL cross-midnight gap instead of a flat 12h assumption.
+function smartHydration(dayEntries, ageWeeks, prevDayLastWetNappy) {
+  const _safeMinsOf = (e) => {
+    if (!e || !e.time) return null;
+    const [h,m] = e.time.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h*60 + m;
+  };
+  if (!dayEntries || !dayEntries.length) {
+    const _months0 = (ageWeeks || 0) / 4.33;
+    const _target0 = _months0 < 6 ? 6 : _months0 < 12 ? 5 : 4;
+    return { count: 0, raw: 0, target: _target0, ok: false, label: "0 of " + _target0 + "+" };
+  }
+  // Sort wetNappies chronologically so indexOf / prev-item lookups are correct
+  // even if dayEntries is in insertion order.
+  const wetNappies = dayEntries
+    .filter(e => { if(e.type!=="poop") return false; const p=(e.poopType||"").toLowerCase(); return p.includes("wet")||p==="both"; })
+    .slice()
+    .sort((a,b) => (_safeMinsOf(a)||0) - (_safeMinsOf(b)||0));
+
+  // Cross-day first-nappy gap: if caller supplied yesterday's last wet nappy,
+  // compute the ACTUAL overnight gap (e.g. 8:30pm → 8:30am = 720 min). Without
+  // it, we fall back to the old 720m assumption for the first morning nappy.
+  const _prevMinsRaw = _safeMinsOf(prevDayLastWetNappy);
+  const _prevCrossGap = (_prevMinsRaw !== null)
+    // Yesterday's nappy was at _prevMinsRaw (0..1439). Today's time - yesterday's
+    // time + 1440 minutes (one day) gives the elapsed minutes.
+    ? (nMinsToday) => (nMinsToday + 1440 - _prevMinsRaw)
+    : null;
+
   let smartCount = 0;
-  wetNappies.forEach(n => {
-    const nMins = n.time ? (parseInt(n.time.split(":")[0])*60+parseInt(n.time.split(":")[1])) : 0;
-    // Find the previous sleep/nap that ended before this nappy
-    const prevSleeps = dayEntries.filter(e => (e.type==="nap"||e.type==="sleep") && e.end).map(e => {
-      const [eh,em] = (e.end||"00:00").split(":").map(Number); return eh*60+em;
-    }).filter(m => m <= nMins + 15); // within 15 min of nappy = post-sleep nappy
-    // Also check: is this the first nappy of the day (morning nappy after overnight)?
-    const isFirstNappy = wetNappies.indexOf(n) === 0;
-    const isAfterLongSleep = prevSleeps.length > 0;
-    // Check gap since previous nappy
-    const nIdx = wetNappies.indexOf(n);
-    const prevNappy = nIdx > 0 ? wetNappies[nIdx-1] : null;
-    const gap = prevNappy && prevNappy.time ? nMins - (parseInt(prevNappy.time.split(":")[0])*60+parseInt(prevNappy.time.split(":")[1])) : (isFirstNappy ? 720 : 0); // first nappy: assume 12h overnight gap
-    // Smart counting: gap 6-10h = counts as 2, gap 10+h = counts as 3
-    if (gap >= 600) smartCount += 3; // 10+ hours (overnight)
-    else if (gap >= 360) smartCount += 2; // 6-10 hours (long nap or early overnight)
-    else smartCount += 1; // normal daytime change
+  wetNappies.forEach((n, nIdx) => {
+    const nMins = _safeMinsOf(n);
+    if (nMins === null) { smartCount += 1; return; }
+    const isFirstNappy = nIdx === 0;
+    // Gap to previous wet nappy
+    let gap;
+    if (nIdx > 0) {
+      const prev = wetNappies[nIdx-1];
+      const pm = _safeMinsOf(prev);
+      gap = pm !== null ? (nMins - pm) : 0;
+      // Cross-midnight: if somehow prev has a later HH:MM than current (night
+      // entry), treat it as crossing midnight and add a day.
+      if (gap < 0) gap += 1440;
+    } else if (_prevCrossGap) {
+      gap = _prevCrossGap(nMins);
+    } else {
+      gap = isFirstNappy ? 720 : 0; // legacy 12h overnight assumption
+    }
+    // Smart counting bands. 10+h = 3x, 6-10h = 2x, else 1x.
+    if (gap >= 600)      smartCount += 3;
+    else if (gap >= 360) smartCount += 2;
+    else                 smartCount += 1;
   });
   // Age-adjusted target
   const months = (ageWeeks || 0) / 4.33;
@@ -3556,22 +3589,41 @@ function App(){
   });
 
   const[selDay,setSelDay]=useState(()=>{
-    // Start on the current OBubba day. today if it has data,
-    // otherwise the most recent day with entries
-    try {
-      const child = children[activeChildId] || children[Object.keys(children)[0]];
-      const d = (child && child.days) || {};
-      // Today first, then fall back to latest day with entries
-      const key = todayStr();
-      if (key && d[key] && d[key].length) return key;
-      // Fall back to the latest calendar day that has any entries
-      const sorted = Object.keys(d).filter(k => d[k] && d[k].length).sort();
-      if (sorted.length) return sorted[sorted.length - 1];
-    } catch {}
+    // ALWAYS start on calendar today for returning users. Previously we fell
+    // back to "the latest day that has entries" when today was empty, which
+    // meant a returning user who had been inactive for a few days landed on
+    // an OLD day instead of today — and combined with the render gate below,
+    // they saw a "No day selected" screen. Today is the right anchor: the
+    // hero card handles cross-midnight display, and the day view has its
+    // own empty-state card for a fresh day with no entries yet.
     return todayStr();
   });
   const selDayRef = useRef(selDay);
   useEffect(()=>{selDayRef.current=selDay;},[selDay]);
+  // When the app becomes visible again (user returns after hours/days of
+  // inactivity or a phone sleep), snap selDay back to today if the calendar
+  // date has changed. Without this, a user who left the app open on Monday
+  // and reopened on Friday would still be viewing Monday and see a stale
+  // day or the "no day selected" fallback.
+  useEffect(() => {
+    const _maybeSnapToToday = () => {
+      if (document.visibilityState !== "visible") return;
+      const _actualToday = todayStr();
+      // Only snap forward. Never clobber the user if they've deliberately
+      // navigated to a past day to catch up on logging.
+      if (selDayRef.current && selDayRef.current < _actualToday) {
+        setSelDay(_actualToday);
+      }
+    };
+    document.addEventListener("visibilitychange", _maybeSnapToToday);
+    window.addEventListener("focus", _maybeSnapToToday);
+    window.addEventListener("pageshow", _maybeSnapToToday);
+    return () => {
+      document.removeEventListener("visibilitychange", _maybeSnapToToday);
+      window.removeEventListener("focus", _maybeSnapToToday);
+      window.removeEventListener("pageshow", _maybeSnapToToday);
+    };
+  }, []);
   const[tab,setTab]=useState("day");
   // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
   const[daySubScreen,setDaySubScreen]=useState(null);
@@ -3791,6 +3843,7 @@ function App(){
   });
   const[showAdjustSchedule,setShowAdjustSchedule]=useState(false);
   const[adjForm,setAdjForm]=useState({wakeTime:"",bedTime:"",duration:"today"});
+  const[scheduleAdjustmentNotice,setScheduleAdjustmentNotice]=useState(null); // {adjustments:[], wake, bed, duration}
   const[showAddPin,setShowAddPin]=useState(false);
   const[showAddReminder,setShowAddReminder]=useState(false);
   const[sharePreview,setSharePreview]=useState(null); // {title, milestone, dataUrl}
@@ -3921,6 +3974,106 @@ function App(){
     }catch{return false;}
   },[days]);
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
+  // One-shot on mount: backfill stable IDs for contacts that don't have them
+  // and remove any duplicates that slipped in from earlier additive-merge bug.
+  const carerDedupeRef = React.useRef(false);
+  React.useEffect(()=>{
+    if (carerDedupeRef.current) return;
+    if (!emergencyContacts && !savedMeds) return;
+    carerDedupeRef.current = true;
+    // Emergency contacts: stamp IDs + dedupe by id OR name+phone
+    try {
+      const seen = new Set();
+      let changed = false;
+      const deduped = (emergencyContacts||[]).reduce((acc, c) => {
+        if (!c) { changed = true; return acc; }
+        const ensured = c.id ? c : (changed = true, {...c, id: uid()});
+        const key = ensured.id;
+        const nameKey = ((c.name||"").trim().toLowerCase()+"|"+(c.phone||"").trim());
+        // Drop if same id already seen, or same name+phone already seen (legacy duplicate)
+        if (seen.has(key) || (nameKey !== "|" && seen.has(nameKey))) {
+          changed = true;
+          return acc;
+        }
+        seen.add(key);
+        if (nameKey !== "|") seen.add(nameKey);
+        acc.push(ensured);
+        return acc;
+      }, []);
+      if (changed) setEmergencyContacts(deduped);
+    } catch {}
+    // Saved meds: dedupe by id OR name+dose
+    try {
+      const seen2 = new Set();
+      let changed2 = false;
+      const dedupedMeds = (savedMeds||[]).reduce((acc, m) => {
+        if (!m || !m.name) { changed2 = true; return acc; }
+        const key = m.id || ((m.name||"").trim().toLowerCase()+"|"+(m.dose||"").trim());
+        if (seen2.has(key)) { changed2 = true; return acc; }
+        seen2.add(key);
+        acc.push(m);
+        return acc;
+      }, []);
+      if (changed2) setSavedMeds(dedupedMeds);
+    } catch {}
+  }, [emergencyContacts, savedMeds]);
+  // ═══ CARER INFO RESURRECTION ═══
+  // Mirror carer info to children[activeChildId].carerInfo so it rides along
+  // with the children IndexedDB backup, then if localStorage is wiped by an
+  // app update we can resurrect from there on next launch.
+  const carerInfoResurrectedRef = React.useRef(false);
+  useEffect(()=>{
+    if (!resolvedActiveId) return;
+    // Mirror current carer info onto the child record
+    const _ci = {
+      emergencyContacts: emergencyContacts || [],
+      carerNotes: carerNotes || "",
+      carerComfort: carerComfort || "",
+      savedMeds: savedMeds || []
+    };
+    // Only write if something is actually filled in (avoid overwriting good data with empty)
+    const _hasAny = (_ci.emergencyContacts.length > 0) || !!_ci.carerNotes || !!_ci.carerComfort || (_ci.savedMeds.length > 0);
+    if (!_hasAny) return;
+    setChildren(prev => {
+      const existing = prev[resolvedActiveId];
+      if (!existing) return prev;
+      // Skip if nothing changed
+      const prevCi = existing.carerInfo || {};
+      if (JSON.stringify(prevCi) === JSON.stringify(_ci)) return prev;
+      return {...prev, [resolvedActiveId]: {...existing, carerInfo: _ci}};
+    });
+  }, [emergencyContacts, carerNotes, carerComfort, savedMeds, resolvedActiveId]);
+  // Resurrect carer info on mount if localStorage is empty but children data has it
+  useEffect(()=>{
+    if (carerInfoResurrectedRef.current) return;
+    if (!resolvedActiveId || !children[resolvedActiveId]) return;
+    const child = children[resolvedActiveId];
+    const savedCi = child.carerInfo;
+    if (!savedCi) { carerInfoResurrectedRef.current = true; return; }
+    // Check if live state is empty — only restore if we'd be overwriting nothing
+    const _liveHasAny = (emergencyContacts && emergencyContacts.length > 0) || !!carerNotes || !!carerComfort || (savedMeds && savedMeds.length > 0);
+    if (_liveHasAny) { carerInfoResurrectedRef.current = true; return; }
+    // Restore from child record
+    if (Array.isArray(savedCi.emergencyContacts) && savedCi.emergencyContacts.length > 0) {
+      setEmergencyContacts(savedCi.emergencyContacts);
+      try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(savedCi.emergencyContacts)); }catch{}
+    }
+    if (savedCi.carerNotes) {
+      setCarerNotes(savedCi.carerNotes);
+      try{ localStorage.setItem("carer_notes_v1", savedCi.carerNotes); }catch{}
+    }
+    if (savedCi.carerComfort) {
+      setCarerComfort(savedCi.carerComfort);
+      try{ localStorage.setItem("carer_comfort_v1", savedCi.carerComfort); }catch{}
+    }
+    if (Array.isArray(savedCi.savedMeds) && savedCi.savedMeds.length > 0) {
+      setSavedMeds(savedCi.savedMeds);
+      try{ localStorage.setItem("saved_meds_v1", JSON.stringify(savedCi.savedMeds)); }catch{}
+    }
+    console.log("[OBubba] Carer info resurrected from child record");
+    try { showToast("🫂 Carer info restored", 2000, 1); } catch {}
+    carerInfoResurrectedRef.current = true;
+  }, [children, resolvedActiveId]);
   const[notifPermission,setNotifPermission]=useState("default");
   useEffect(()=>{
     (async()=>{
@@ -3949,6 +4102,10 @@ function App(){
   const[msShowPastMs,setMsShowPastMs]=useState(false);
   const[msShowUpcoming,setMsShowUpcoming]=useState(true);
   const[msShowAchieved,setMsShowAchieved]=useState(false);
+  // Tracks which milestone "Try this to help" tips are open (by milestone id).
+  // Lives at parent level so it survives re-renders — MilestoneRow is redefined
+  // on every parent render, so component-local useState would reset every tick.
+  const[msTipsOpen,setMsTipsOpen]=useState(()=>new Set());
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
   const[insightFilter,setInsightFilter]=useState(null);
   const[devFilter,setDevFilter]=useState(null);
@@ -4085,6 +4242,22 @@ function App(){
   const[teethingForm,setTeethingForm]=useState({teeth:[],date:"",symptoms:[],note:""});
   const[showWeaningForm,setShowWeaningForm]=useState(false);
   const[weaningForm,setWeaningForm]=useState({food:"",date:"",reaction:"neutral",note:"",liked:null});
+  // Weekly shopping list for weaning foods. User plans next N days of foods
+  // and can add recipe ingredients. Once saved, the "today/tomorrow" food
+  // suggestion algorithm prefers items from the active plan.
+  const[weeklyShoppingList,setWeeklyShoppingList]=useState(()=>{
+    try { const v = localStorage.getItem("ob_weekly_shopping_v1"); return v ? JSON.parse(v) : null; }
+    catch { return null; }
+  });
+  React.useEffect(()=>{
+    try {
+      if (weeklyShoppingList) localStorage.setItem("ob_weekly_shopping_v1", JSON.stringify(weeklyShoppingList));
+      else localStorage.removeItem("ob_weekly_shopping_v1");
+    } catch {}
+  }, [weeklyShoppingList]);
+  const[showShoppingListModal,setShowShoppingListModal]=useState(false);
+  const[shoppingDraft,setShoppingDraft]=useState(null); // {weekStart, foods:[{food,emoji,cat,recipe,bought}], extras:[{name,qty}]}
+  const[weanNudge,setWeanNudge]=useState(0); // bump to force weaning suggestion re-render
   const[showWakeEditPrompt,setShowWakeEditPrompt]=useState(false);
   const[wakeEditEntry,setWakeEditEntry]=useState(null);
   const[showCarerCard,setShowCarerCard]=useState(false);
@@ -4239,7 +4412,37 @@ function App(){
     return true;
   }catch{return false;}});
   const[napStartT,setNapStartT]=useState(()=>{try{return localStorage.getItem("nap_startT")||null;}catch{return null;}});
+  // napStartMs = authoritative epoch-ms start time for active nap.
+  // Stamped with Date.now() when the nap begins, so widget, Live Activity,
+  // and the app all read the same number — no HH:MM reconstruction drift.
+  const[napStartMs,setNapStartMs]=useState(()=>{
+    try {
+      const v = parseInt(localStorage.getItem("nap_startMs"));
+      if (!isNaN(v) && v > 1000000000000) return v;
+    } catch {}
+    return null;
+  });
   const[napEntryId,setNapEntryId]=useState(()=>{try{return localStorage.getItem("nap_entry_id")||null;}catch{return null;}});
+  // Keep napStartMs in sync with napStartT — clears when timer stops, stamps if missing when timer starts
+  React.useEffect(()=>{
+    if (!napStartT) {
+      if (napStartMs !== null) setNapStartMs(null);
+      try{ localStorage.removeItem("nap_startMs"); }catch{}
+      return;
+    }
+    // napStartT is set but napStartMs is missing (e.g. cleared elsewhere or old state shape)
+    if (napStartMs === null) {
+      // Reconstruct from HH:MM relative to today (best effort)
+      try {
+        const [_sh,_sm] = napStartT.split(":").map(Number);
+        const d = new Date(); d.setHours(_sh, _sm, 0, 0);
+        if (d > new Date()) d.setDate(d.getDate() - 1);
+        const _ms = d.getTime();
+        setNapStartMs(_ms);
+        try{ localStorage.setItem("nap_startMs", String(_ms)); }catch{}
+      } catch {}
+    }
+  }, [napStartT, napStartMs]);
   // Track which calendar day the bedtime was logged on. used to route night wakes to the correct day
   const[bedTimerDay,setBedTimerDay]=useState(()=>{try{return localStorage.getItem("bed_timer_day")||null;}catch{return null;}});
   const[bedPaused,setBedPaused]=useState(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}});
@@ -4294,11 +4497,16 @@ function App(){
       // Orphan state recovery: napOn=true but no startT means desync. reset timer
       if(on && !startT){
         console.warn("OBubba: timer orphan state detected (napOn=1 but no startT). resetting");
-        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
         return 0;
       }
       if(on && startT){
-
+        // Prefer authoritative napStartMs for accurate elapsed (no HH:MM reconstruction drift)
+        const _storedMs = parseInt(localStorage.getItem("nap_startMs"));
+        if (!isNaN(_storedMs) && _storedMs > 1000000000000) {
+          const elapsedFromMs = Math.floor((Date.now() - _storedMs) / 1000);
+          if (elapsedFromMs >= 0 && elapsedFromMs < 23*3600) return elapsedFromMs;
+        }
         const now=new Date();
         const [sh,sm]=startT.split(":").map(Number);
         // Use stored nap_start_day to build correct start date (survives midnight crossing)
@@ -4352,6 +4560,159 @@ function App(){
       return _tm;
     } catch { return "prediction"; }
   });
+
+  // ═══ TIMER RESURRECTION ═══
+  // If an active nap entry exists in the data (end===start OR _active flag) but
+  // napOn is false — usually because localStorage was cleared by an app update —
+  // restore the timer state from the entry itself. This ensures timers survive
+  // app updates even when native storage gets wiped.
+  const timerResurrectedRef = React.useRef(false);
+  React.useEffect(()=>{
+    if (timerResurrectedRef.current) return;
+    if (napOn) { timerResurrectedRef.current = true; return; }
+    // Wait until children data is loaded (don't fire on empty initial state)
+    const _todayKey = todayStr();
+    const _todayEntries = (days[_todayKey]||[]);
+    if (_todayEntries.length === 0) return;
+    // Find an active nap entry (no proper end time)
+    const _active = _todayEntries.find(e =>
+      e.type === "nap" && !e.night && e.start &&
+      (e._active === true || !e.end || e.end === e.start)
+    );
+    if (!_active) { timerResurrectedRef.current = true; return; }
+    // Sanity: must be within the last 4 hours
+    // Prefer the authoritative startMs stored on the entry (precise) over HH:MM reconstruction
+    let _entryStartMs = (typeof _active.startMs === "number" && _active.startMs > 1000000000000) ? _active.startMs : null;
+    let _startDate;
+    if (_entryStartMs) {
+      _startDate = new Date(_entryStartMs);
+    } else {
+      const [_rsh,_rsm] = _active.start.split(":").map(Number);
+      _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      _entryStartMs = _startDate.getTime();
+    }
+    const _elapsedMs = Date.now() - _entryStartMs;
+    if (_elapsedMs < 0 || _elapsedMs > 4*3600*1000) {
+      // Stale: mark the entry as ended now to clean up
+      console.warn("OBubba: found stale active nap entry, auto-closing");
+      setDays(d=>{
+        const arr = d[_todayKey]||[];
+        return {...d, [_todayKey]: arr.map(e => e.id === _active.id ? {...e, end: e.start, _active: false} : e)};
+      });
+      timerResurrectedRef.current = true;
+      return;
+    }
+    // Resurrect!
+    console.log("[OBubba] Resurrecting nap timer from data entry:", _active.id, "started", _active.start);
+    const _elapsedSec = Math.max(0, Math.floor(_elapsedMs/1000));
+    setNapStartT(_active.start);
+    setNapStartMs(_entryStartMs);
+    setNapSec(_elapsedSec);
+    setNapEntryId(_active.id);
+    setNapOn(true);
+    setTimerMode("activeSleep");
+    try {
+      localStorage.setItem("nap_startT", _active.start);
+      localStorage.setItem("nap_startMs", String(_entryStartMs));
+      localStorage.setItem("nap_on", "1");
+      localStorage.setItem("nap_sec", String(_elapsedSec));
+      localStorage.setItem("nap_entry_id", _active.id);
+      localStorage.setItem("nap_start_day", _todayKey);
+      localStorage.setItem("timer_mode_v1", "activeSleep");
+    } catch {}
+    // Restart Live Activity (inlined — _startLA isn't defined at this point in the file)
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) {
+        const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+        if (_la) {
+          _la.stopPrediction?.().catch(()=>{});
+          setTimeout(()=>{
+            _la.stop?.().catch(()=>{});
+            setTimeout(()=>{
+              _la.start?.({type:'sleep',babyName:babyName||'Baby',startTime:_startDate.getTime(),nextNap:"Nap"}).catch(()=>{});
+            },200);
+          },100);
+        }
+      }
+    } catch {}
+    // Force widget/home-screen reload so it picks up the new timer state immediately
+    try {
+      setTimeout(()=>{
+        try { window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{}); } catch {}
+      }, 800);
+    } catch {}
+    try { showToast("😴 Timer restored",2000,1); } catch {}
+    timerResurrectedRef.current = true;
+  }, [days, napOn, babyName]);
+
+  // ═══ BED TIMER RESURRECTION ═══
+  // If a bedtime entry exists and there's no morning wake on today, but bedTimerDay
+  // state is null, restore it from the data. Ensures the bedtime timer survives
+  // app updates that wipe localStorage.
+  const bedTimerResurrectedRef = React.useRef(false);
+  React.useEffect(()=>{
+    if (bedTimerResurrectedRef.current) return;
+    if (bedTimerDay) { bedTimerResurrectedRef.current = true; return; }
+    // Wait for data to load
+    if (Object.keys(days).length === 0) return;
+    const _todayKey = todayStr();
+    const _yestKey = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+    // Check today first, then yesterday (cross-midnight)
+    let _foundDay = null;
+    let _bedEntry = null;
+    for (const _k of [_todayKey, _yestKey]) {
+      const _be = (days[_k]||[]).find(e => e.type === "sleep" && !e.night);
+      if (_be) {
+        // Check if there's already a morning wake after it (night is over)
+        const _laterWake = (days[_todayKey]||[]).find(e => e.type === "wake" && !e.night && (()=>{
+          const h = parseInt((e.time||"12:00").split(":")[0]); return h >= 5 && h <= 12;
+        })());
+        if (_laterWake) continue;
+        _foundDay = _k;
+        _bedEntry = _be;
+        break;
+      }
+    }
+    if (!_foundDay || !_bedEntry) { bedTimerResurrectedRef.current = true; return; }
+    // Sanity: bedtime must be within last 16 hours
+    const [_bh,_bm] = _bedEntry.time.split(":").map(Number);
+    const _bedDate = new Date(_foundDay + "T00:00:00"); _bedDate.setHours(_bh,_bm,0,0);
+    const _elapsedH = (Date.now() - _bedDate.getTime()) / (1000*3600);
+    if (_elapsedH < 0 || _elapsedH > 16) {
+      bedTimerResurrectedRef.current = true;
+      return;
+    }
+    console.log("[OBubba] Resurrecting bed timer. day:", _foundDay, "bedtime:", _bedEntry.time);
+    setBedTimerDay(_foundDay);
+    try { localStorage.setItem("bed_timer_day", _foundDay); } catch {}
+    // Restart the bed Live Activity (Dynamic Island + lock screen) via the
+    // cumulative sleep model: virtualStart = bedtime + totalPausedSec. LA
+    // counts up from there.
+    try {
+      if (window.Capacitor?.isNativePlatform?.()) {
+        const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+        if (_la) {
+          const _pausedSec = parseInt(localStorage.getItem("bed_total_paused_sec"))||0;
+          const _virtualStart = _bedDate.getTime() + (_pausedSec * 1000);
+          _la.stopPrediction?.().catch(()=>{});
+          setTimeout(()=>{
+            _la.stop?.().catch(()=>{});
+            setTimeout(()=>{
+              _la.start?.({type:'sleep',babyName:babyName||'Baby',startTime:_virtualStart}).catch(()=>{});
+            },200);
+          },100);
+        }
+      }
+    } catch {}
+    // Force widget/home-screen reload
+    try {
+      setTimeout(()=>{
+        try { window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{}); } catch {}
+      }, 800);
+    } catch {}
+    try { showToast("🌙 Bedtime timer restored",2000,1); } catch {}
+    bedTimerResurrectedRef.current = true;
+  }, [days, bedTimerDay, babyName]);
 
   // ── Per-child timer isolation: save/restore timer state on child switch ──
   const prevChildIdRef = useRef(resolvedActiveId);
@@ -4850,11 +5211,26 @@ function App(){
     return ()=>{ clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+  // Global throttle: prevent sync storms by enforcing minimum interval between cloud pushes
+  const _lastPushTs = useRef(0);
+  const _pushQueued = useRef(null);
+  const PUSH_MIN_INTERVAL = 10000; // 10 seconds minimum between pushes
+
   const pushToCloud = React.useCallback(async(code, allChildren) => {
     if(!window._fb || !code || window._deletingAccount) return;
     // Safety: never push blank/empty state to cloud (would wipe real data)
     const _hasData = Object.values(allChildren).some(c => c.name || Object.values(c.days||{}).some(d => d && d.length > 0));
     if(!_hasData) return;
+    // Throttle: if we pushed recently, queue it for later
+    const _now = Date.now();
+    const _elapsed = _now - _lastPushTs.current;
+    if (_elapsed < PUSH_MIN_INTERVAL) {
+      // Queue a push for when the interval expires (only keep latest)
+      clearTimeout(_pushQueued.current);
+      _pushQueued.current = setTimeout(() => pushToCloud(code, allChildren), PUSH_MIN_INTERVAL - _elapsed + 100);
+      return;
+    }
+    _lastPushTs.current = _now;
     const {db, doc, setDoc, serverTimestamp} = window._fb;
 
     if(!window._fbUid) {
@@ -5043,27 +5419,26 @@ function App(){
             if(Array.isArray(sd.appointments) && sd.appointments.length > 0) {
               setAppointments(prev => {
                 const ids = new Set(prev.map(a=>a.id));
-                const merged = [...prev];
-                let added = false;
-                sd.appointments.forEach(a => { if(!ids.has(a.id)) { merged.push(a); added = true; } });
-                if(added) setNotesOpen(true);
-                return merged;
+                const newOnes = sd.appointments.filter(a => !ids.has(a.id));
+                if(!newOnes.length) return prev; // CRITICAL: return same ref to prevent re-render loop
+                setNotesOpen(true);
+                return [...prev, ...newOnes];
               });
             }
             if(Array.isArray(sd.reminders) && sd.reminders.length > 0) {
               setReminders(prev => {
                 const ids = new Set(prev.map(r=>r.id));
-                const merged = [...prev];
-                sd.reminders.forEach(r => { if(!ids.has(r.id)) merged.push(r); });
-                return merged;
+                const newOnes = sd.reminders.filter(r => !ids.has(r.id));
+                if(!newOnes.length) return prev; // same ref = no re-render
+                return [...prev, ...newOnes];
               });
             }
             if(Array.isArray(sd.pinnedNotes) && sd.pinnedNotes.length > 0) {
               setPinnedNotes(prev => {
                 const ids = new Set(prev.map(n=>n.id));
-                const merged = [...prev];
-                sd.pinnedNotes.forEach(n => { if(!ids.has(n.id)) merged.push(n); });
-                return merged;
+                const newOnes = sd.pinnedNotes.filter(n => !ids.has(n.id));
+                if(!newOnes.length) return prev; // same ref = no re-render
+                return [...prev, ...newOnes];
               });
             }
             // Restore letters from cloud
@@ -5080,15 +5455,57 @@ function App(){
         }
         // Restore carer card data from cloud (survives reinstall)
         if(d.carerInfo) {
+          // NOTE: we only reach this code if writeToken/updatedBy checks above
+          // confirmed this snapshot came from ANOTHER device, not ourselves.
+          // Cloud is authoritative → REPLACE, don't merge (merging caused
+          // duplicates on edits/deletes since additive merges never removed).
           try {
             const ci = JSON.parse(d.carerInfo);
-            if(Array.isArray(ci.emergencyContacts) && ci.emergencyContacts.length > 0) {
-              setEmergencyContacts(ci.emergencyContacts);
+            if(Array.isArray(ci.emergencyContacts)) {
+              // Dedupe incoming (belt & braces) — unique by id, fallback name+phone
+              const seen = new Set();
+              const unique = ci.emergencyContacts.filter(c => {
+                if (!c || (!c.name && !c.phone)) return false;
+                const k = c.id || ((c.name||"")+"|"+(c.phone||""));
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+              });
+              setEmergencyContacts(prev => {
+                // Same-ref guard: only update if actually different
+                if (JSON.stringify(prev) === JSON.stringify(unique)) return prev;
+                try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(unique)); }catch{}
+                return unique;
+              });
             }
-            if(ci.carerNotes) setCarerNotes(ci.carerNotes);
-            if(ci.carerComfort) setCarerComfort(ci.carerComfort);
-            if(Array.isArray(ci.savedMeds) && ci.savedMeds.length > 0) {
-              setSavedMeds(ci.savedMeds);
+            if(typeof ci.carerNotes === "string") {
+              setCarerNotes(prev => {
+                if (prev === ci.carerNotes) return prev;
+                try{ localStorage.setItem("carer_notes_v1", ci.carerNotes); }catch{}
+                return ci.carerNotes;
+              });
+            }
+            if(typeof ci.carerComfort === "string") {
+              setCarerComfort(prev => {
+                if (prev === ci.carerComfort) return prev;
+                try{ localStorage.setItem("carer_comfort_v1", ci.carerComfort); }catch{}
+                return ci.carerComfort;
+              });
+            }
+            if(Array.isArray(ci.savedMeds)) {
+              const seen2 = new Set();
+              const uniqueMeds = ci.savedMeds.filter(m => {
+                if (!m || !m.name) return false;
+                const k = m.id || ((m.name||"").toLowerCase()+"|"+(m.dose||""));
+                if (seen2.has(k)) return false;
+                seen2.add(k);
+                return true;
+              });
+              setSavedMeds(prev => {
+                if (JSON.stringify(prev) === JSON.stringify(uniqueMeds)) return prev;
+                try{ localStorage.setItem("saved_meds_v1", JSON.stringify(uniqueMeds)); }catch{}
+                return uniqueMeds;
+              });
             }
           } catch(_) {}
         }
@@ -5494,12 +5911,25 @@ function App(){
       }
 
       // Restore carer card data from cloud (emergency contacts, notes, comfort items)
+      // Dedupe while restoring — older cloud data may have accumulated duplicates
+      // from the previous additive-merge bug
       if(d.carerInfo) {
         try {
           const ci = JSON.parse(d.carerInfo);
           if(Array.isArray(ci.emergencyContacts) && ci.emergencyContacts.length > 0) {
-            setEmergencyContacts(ci.emergencyContacts);
-            try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(ci.emergencyContacts)); }catch{}
+            const seen = new Set();
+            const unique = ci.emergencyContacts.filter(c => {
+              if (!c) return false;
+              const k1 = c.id;
+              const k2 = ((c.name||"").trim().toLowerCase()+"|"+(c.phone||"").trim());
+              if (k1 && seen.has(k1)) return false;
+              if (k2 !== "|" && seen.has(k2)) return false;
+              if (k1) seen.add(k1);
+              if (k2 !== "|") seen.add(k2);
+              return true;
+            }).map(c => c.id ? c : {...c, id: uid()});
+            setEmergencyContacts(unique);
+            try{ localStorage.setItem("emergency_contacts_v1", JSON.stringify(unique)); }catch{}
           }
           if(ci.carerNotes) {
             setCarerNotes(ci.carerNotes);
@@ -5510,8 +5940,16 @@ function App(){
             try{ localStorage.setItem("carer_comfort_v1", ci.carerComfort); }catch{}
           }
           if(Array.isArray(ci.savedMeds) && ci.savedMeds.length > 0) {
-            setSavedMeds(ci.savedMeds);
-            try{ localStorage.setItem("saved_meds_v1", JSON.stringify(ci.savedMeds)); }catch{}
+            const seen2 = new Set();
+            const uniqueMeds = ci.savedMeds.filter(m => {
+              if (!m || !m.name) return false;
+              const k = m.id || ((m.name||"").trim().toLowerCase()+"|"+(m.dose||"").trim());
+              if (seen2.has(k)) return false;
+              seen2.add(k);
+              return true;
+            });
+            setSavedMeds(uniqueMeds);
+            try{ localStorage.setItem("saved_meds_v1", JSON.stringify(uniqueMeds)); }catch{}
           }
         } catch(_) {}
       }
@@ -5540,6 +5978,16 @@ function App(){
       }
     } catch(e) { /* analytics never break the app */ }
   }
+  // Track screen views on tab change
+  useEffect(()=>{
+    try { trackEvent("screen_view", { screen_name: tab, platform: (window.Capacitor?.getPlatform?.()||"web") }); } catch {}
+  }, [tab]);
+  // Track sub-screen views within Day tab
+  useEffect(()=>{
+    if (tab === "day" && daySubScreen) {
+      try { trackEvent("feature_used", { feature: daySubScreen, platform: (window.Capacitor?.getPlatform?.()||"web") }); } catch {}
+    }
+  }, [daySubScreen, tab]);
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
   async function verifyLogin(username, pin) {
@@ -6825,7 +7273,13 @@ function App(){
 
       // Determine active timer
       var activeTimer = null, timerStartTime = null, timerStartMs = null, activeSide = null;
-      if (napOn && napStartT) { activeTimer = "nap"; timerStartTime = napStartT; timerStartMs = _hhmToMs(napStartT); }
+      if (napOn && napStartT) {
+        activeTimer = "nap";
+        timerStartTime = napStartT;
+        // Prefer the authoritative epoch-ms (stamped with Date.now() when nap began).
+        // Falls back to _hhmToMs reconstruction only if napStartMs isn't set (old state).
+        timerStartMs = napStartMs || _hhmToMs(napStartT);
+      }
       // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only
       var _bedDayEntries = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : rd;
       var _bedEntry = findBedtime(_bedDayEntries) || findBedtime(rd);
@@ -6847,9 +7301,14 @@ function App(){
           // displayed time = cumulative sleep since bedtime (visibly keeps ticking up).
           var _bedMs = _hhmToMs(_bedEntry.time);
           var _pausedSec = (typeof bedTotalPausedSecRef !== "undefined" && bedTotalPausedSecRef && bedTotalPausedSecRef.current) ? bedTotalPausedSecRef.current : 0;
+          // Chronometer counts from virtual start (bedtime + total awake-secs) so the
+          // displayed elapsed = cumulative SLEEP, not wall time.
           timerStartMs = _bedMs + (_pausedSec * 1000);
-          var _vd = new Date(timerStartMs);
-          timerStartTime = String(_vd.getHours()).padStart(2,"0")+":"+String(_vd.getMinutes()).padStart(2,"0");
+          // BUT the "since X" label shown on widget/LA must stay as the REAL bedtime.
+          // Previously we overwrote this with the virtual start's HH:MM, which produced
+          // nonsense labels like "since 5:17am" after several night wakes. Keep the
+          // user-visible label anchored to the actual bed entry time.
+          timerStartTime = String(_bedEntry.time);
         }
       }
       try {
@@ -6939,7 +7398,7 @@ function App(){
         window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(widgetData) }).catch(function(){});
       }
     } catch(e) { console.warn("Widget data update failed:", e); }
-  }, [resolvedDay, age, napOn, napStartT, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
+  }, [resolvedDay, age, napOn, napStartT, napStartMs, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
 
   // ── Hoisted for use by predictNextNap/bedtimePrediction inside the tick useMemo below ──
   const entries = days[selDay] || [];
@@ -6972,7 +7431,15 @@ function App(){
     // Bedtime entry check. any sleep entry marked night:false is the bedtime
     // (logBedtimeNow and saveLogSleep always set night:false; night wakes use type:"wake")
     // No hour restriction. user may re-log in the morning to fix previous night's timer
-    const bedEntry = todayEntries.find(e=>e.type==="sleep"&&!e.night);
+    let bedEntry = todayEntries.find(e=>e.type==="sleep"&&!e.night);
+    // Cross-midnight: if viewing a day without bedtime but yesterday has one AND today has no morning wake,
+    // use yesterday's bedtime (this makes the timer tick on both Thursday and Friday views)
+    if (!bedEntry) {
+      const _yestKey = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+      const _yestBed = (days[_yestKey]||[]).find(e=>e.type==="sleep"&&!e.night);
+      const _todayHasWake = todayEntries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<=12;})());
+      if (_yestBed && !_todayHasWake) bedEntry = _yestBed;
+    }
     const hasBedtime = !!bedEntry;
     const bedEntryTime = bedEntry ? bedEntry.time : null;
     // Find last awake start: latest of (wake time, last nap end)
@@ -7351,9 +7818,12 @@ function App(){
         if (!_la) return;
         // Check localStorage + entry data. covers timer desync after rebuild/update
         const _hasActiveNapLA = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
+        // Data-driven bed timer check: bedTimerDay state OR localStorage OR yesterday has bedtime + today no wake
+        const _bedTimerActive = !!bedTimerDay || !!localStorage.getItem("bed_timer_day")
+          || (!!findBedtime(days[(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})()]||[]) && !hasMorningWake(days[todayStr()]||[]));
         const _anyTimer = localStorage.getItem("nap_on") === "1"
           || localStorage.getItem("breast_active") === "1"
-          || !!bedTimerDay
+          || _bedTimerActive
           || _hasActiveNapLA;
         if (_anyTimer) {
           if (_predLAState !== "") { _la.stopPrediction?.().catch(()=>{}); _predLAState = ""; }
@@ -7432,16 +7902,28 @@ function App(){
 
     // ══════════════════════════════════════════════════════
     // GUARD: Hero card is real-time only. show on the "active" day
-    // In OBubba, the day doesn't change at midnight. it changes when morning wake is logged
-    // So hero shows if selDay is calendar today OR if selDay is yesterday and today has no morning wake yet
+    // When dayBoundary==="wake": the OBubba day doesn't change at midnight.
+    // It changes when morning wake is logged. So hero shows if:
+    // - selDay is calendar today, OR
+    // - selDay is yesterday and today has no morning wake yet, OR
+    // - selDay is the bedTimerDay (bed timer active, regardless of calendar date)
     // ══════════════════════════════════════════════════════
     const _calToday = todayStr();
     const _calYesterday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
-    const _isActiveDay = selDay === _calToday || (selDay === _calYesterday && !hasMorningWake(days[_calToday]||[]));
+    const _activeBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    // Check if yesterday has a bedtime and today has no morning wake (data-driven, not state-driven)
+    const _yesterdayHasBed = !!findBedtime(days[_calYesterday]||[]);
+    const _todayNoWake = !hasMorningWake(days[_calToday]||[]);
+    const _isActiveDay = selDay === _calToday
+      || (selDay === _calYesterday && _todayNoWake)
+      || (dayBoundary === "wake" && _activeBTD && selDay === _activeBTD)
+      || (dayBoundary === "wake" && _yesterdayHasBed && _todayNoWake && selDay === _calYesterday);
     if (!_isActiveDay) return null;
 
     // ══════════════════════════════════════════════════════
     // LAYER 1: Unified data. computed once, used everywhere
+    // When viewing bedTimerDay (cross-midnight), merge bedtime-day entries
+    // with any early-morning entries logged on calendar today
     // ══════════════════════════════════════════════════════
     const _name = babyName || "Baby";
     const _now = new Date();
@@ -7558,6 +8040,8 @@ function App(){
       const t = (e.time||"00:00").split(":").map(Number);
       const d = new Date(e._dk + "T00:00:00");
       d.setHours(t[0], t[1], 0, 0);
+      // Cross-midnight: night entry with AM time belongs to next calendar day
+      if (e.night && t[0] < 12) d.setDate(d.getDate() + 1);
       return Math.max(0, Math.round((_nowMs - d.getTime()) / 60000));
     };
     const _lastFeed = _allPoolFeeds.length > 0 ? _allPoolFeeds.reduce((best, e) => _wallGap(e) < _wallGap(best) ? e : best) : null;
@@ -7864,8 +8348,24 @@ function App(){
     }
 
     // ── PRIORITY 1: Night mode. starts the moment bedtime is logged ──
-    if (_hasBed) {
-      const _bedEntry = findBedtime(_todayEntries);
+    // Cross-midnight: check actual data, not just bedTimerDay state (which can be null/stale)
+    // If today has no bedtime and no morning wake, check yesterday (and bedTimerDay) for a bedtime
+    let _crossMidnightBedEntry = null;
+    if (!_hasBed && !_hasMorningWake) {
+      // Check bedTimerDay first, then yesterday, then day before (covers timezone edge cases)
+      const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
+      const _candidateDays = [_btd, _calYesterday, _prevDayStr].filter(Boolean);
+      // Deduplicate
+      const _seen = new Set();
+      for (const _cd of _candidateDays) {
+        if (_seen.has(_cd)) continue;
+        _seen.add(_cd);
+        const _be = findBedtime(days[_cd]||[]);
+        if (_be) { _crossMidnightBedEntry = _be; break; }
+      }
+    }
+    if (_hasBed || _crossMidnightBedEntry) {
+      const _bedEntry = findBedtime(_todayEntries) || _crossMidnightBedEntry;
       const _timeStr = nightElapsed !== null && nightElapsed > 0
         ? "Sleeping since " + (_bedEntry ? fmt12(_bedEntry.time) : "") + " · " + Math.floor(nightElapsed/3600) + "h " + Math.floor((nightElapsed%3600)/60) + "m"
         : "Sleeping for the night";
@@ -7877,15 +8377,9 @@ function App(){
             <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{bedPaused ? "Baby is awake 🌙" : "Sleeping peacefully 🌙"}</span>
           </div>
           <div style={{fontSize:14,color:C.mid,marginBottom:6}}>{_timeStr}</div>
-          {/* Last feed during the night */}
-          {(()=>{
-            const _allFeeds = _todayEntries.filter(e => e.type === "feed").sort((a,b) => timeVal(b) - timeVal(a));
-            const _lastFeed = _allFeeds[0];
-            if (!_lastFeed) return null;
-            const _feedMins = timeVal(_lastFeed);
-            const _nowMins2 = new Date().getHours() * 60 + new Date().getMinutes();
-            let _feedAgo = _nowMins2 - _feedMins;
-            if (_feedAgo < 0) _feedAgo += 1440;
+          {/* Last feed during the night — use cross-day wall-clock calculation (works after midnight) */}
+          {_lastFeed && (()=>{
+            const _feedAgo = _feedGapM;
             const _feedStr = fmt12(_lastFeed.time || "");
             const _amtStr = _lastFeed.amount ? " · " + _lastFeed.amount + "ml" : _lastFeed.feedType === "breast" ? " · breast" : "";
             const _agoStr = _feedAgo < 60 ? _feedAgo + "m ago" : Math.floor(_feedAgo / 60) + "h " + (_feedAgo % 60) + "m ago";
@@ -7915,24 +8409,80 @@ function App(){
                   </button>
                 ))}
               </div>
-              <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:0,night:true,nightLocked:true,note:"Night feed (quick)"});resumeBedTimer();showToast("🍼 Feed logged + back to sleep",1200,1);}} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                {"\u{1F37C}"} Feed + back to sleep
-              </button>
+              {(()=>{
+                const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
+                const _icon = _isBreast ? "🤱" : "🍼";
+                // For breastfeeding moms: show L/R timer buttons (live timer) OR quick log
+                // For bottle: just the quick log
+                if (_isBreast) {
+                  // If breast timer is running during this night pause, show live elapsed
+                  if (breastActive) {
+                    const _total = breastSec.L + breastSec.R;
+                    const _mm = Math.floor(_total/60), _ss = _total%60;
+                    return (
+                      <div style={{marginBottom:6}}>
+                        <div style={{textAlign:"center",padding:"8px 0",background:"rgba(123,104,238,0.06)",borderRadius:12,marginBottom:6,border:"1px solid rgba(123,104,238,0.2)"}}>
+                          <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>{breastSide==="L"?"🤱 Left side":"🤱 Right side"}</div>
+                          <div style={{fontSize:22,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{String(_mm).padStart(2,"0")}:{String(_ss).padStart(2,"0")}</div>
+                        </div>
+                        <div style={{display:"flex",gap:6,marginBottom:6}}>
+                          <button onClick={()=>{haptic();startBreastTimer(breastSide==="L"?"R":"L");}} style={{flex:1,padding:"10px",borderRadius:10,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.04)",color:C.deep,fontSize:12,fontWeight:600,cursor:_cP}}>
+                            Switch to {breastSide==="L"?"Right":"Left"}
+                          </button>
+                          <button onClick={()=>{
+                            haptic(20);
+                            // Save breast feed, then update the pending wake entry to reflect it + resume bed timer
+                            saveBreastFeed();
+                            setBedWakeSettle("milk");
+                            setTimeout(()=>{ resumeBedTimer("milk"); showToast("🤱 Breast feed + back to sleep",1500,1); }, 50);
+                          }} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:12,fontWeight:700,cursor:_cP}}>
+                            Done + back to sleep
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  // Not timing: show Start L/Start R buttons + quick log
+                  return (
+                    <div style={{marginBottom:6}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5,textAlign:"center"}}>🤱 Time the feed</div>
+                      <div style={{display:"flex",gap:6,marginBottom:6}}>
+                        <button onClick={()=>{haptic();startBreastTimer("L");}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:700,cursor:_cP}}>
+                          ◀ Start Left
+                        </button>
+                        <button onClick={()=>{haptic();startBreastTimer("R");}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:700,cursor:_cP}}>
+                          Start Right ▶
+                        </button>
+                      </div>
+                      <button onClick={()=>{
+                        haptic(20);
+                        setBedWakeSettle("milk");
+                        resumeBedTimer("milk");
+                        showToast("🤱 Quick feed logged + back to sleep",1200,1);
+                      }} style={{width:"100%",padding:"10px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.25)",background:"rgba(212,168,85,0.04)",color:C.lt,fontSize:11,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
+                        Or: quick log without timing →
+                      </button>
+                    </div>
+                  );
+                }
+                // Bottle feed: single button
+                return (
+                  <button onClick={()=>{
+                    haptic(20);
+                    setBedWakeSettle("milk");
+                    resumeBedTimer("milk");
+                    showToast("🍼 Feed logged + back to sleep",1200,1);
+                  }} style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
+                    🍼 Feed + back to sleep
+                  </button>
+                );
+              })()}
               <button onClick={resumeBedTimer} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
                 {"\u{1F319}"} Baby's settled. back to sleep
               </button>
             </div>
           ) : (
             <div>
-              {/* Quick-log buttons for 3am simplicity */}
-              <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:0,night:true,nightLocked:true,note:"Night feed (quick)"});showToast("🍼 Night feed logged at "+fmt12(t),1200,1);}} style={{flex:1,padding:"14px 10px",borderRadius:14,border:"none",background:"linear-gradient(135deg,rgba(212,168,85,0.12),rgba(212,168,85,0.06))",color:C.deep,fontSize:14,fontWeight:700,cursor:_cP}}>
-                  {"\u{1F37C}"} Quick feed
-                </button>
-                <button onClick={()=>{haptic(20);const t=nowTime();quickAddLog("wake",{type:"wake",time:t,night:true,nightLocked:true,selfSettled:false,note:"Night wake (quick)"});showToast("🌙 Night wake logged at "+fmt12(t),1200,1);}} style={{flex:1,padding:"14px 10px",borderRadius:14,border:"none",background:"linear-gradient(135deg,rgba(123,104,238,0.12),rgba(123,104,238,0.06))",color:C.deep,fontSize:14,fontWeight:700,cursor:_cP}}>
-                  {"\u{1F319}"} Quick wake
-                </button>
-              </div>
               <div style={_S.flexRowGap8}>
                 <button onClick={pauseBedTimer} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
                   {"\u23F8\uFE0F"} Baby awake
@@ -8344,8 +8894,17 @@ function App(){
         </div>
         <div style={{fontSize:12,color:C.mid,paddingLeft:16,marginBottom:_nextEvent?6:8}}>{_timing}</div>
 
-        {/* NEXT */}
-        {_nextEvent && (()=>{
+        {/* NEXT — dedup: if _timing already describes the upcoming nap
+            ("Nap N around HH:MM") OR the upcoming bedtime ("Bedtime at/around X"),
+            skip the _nextEvent bullet to avoid showing the same event twice. */}
+        {(()=>{
+          if (!_nextEvent) return null;
+          const _t = String(_timing || "");
+          const _napDup = _nextEvent.icon === "😴" && / Nap \d+ around /i.test(_t);
+          const _bedDup = _nextEvent.icon === "🌙" && /Bedtime (at|around)/i.test(_t);
+          if (_napDup || _bedDup) return null;
+          return true;
+        })() && (()=>{
           // Confidence indicator based on days of usable data
           const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
           const _confLevel = _daysLogged < 3 ? {label:"NHS guideline",color:C.lt,icon:"📋"}
@@ -10751,7 +11310,15 @@ function App(){
     // Feed alerts handled by the Last Feed card. no duplicate banner needed
 
     // Check hydration (smart counting: post-sleep nappies count as 2-3)
-    const _hydration = smartHydration(today, w);
+    // Pass yesterday's last wet nappy so the first morning change uses a real
+    // cross-midnight gap, not the flat 12h default.
+    const _yPrevStr = (()=>{ try { const d=new Date(selDay+"T00:00:00"); d.setDate(d.getDate()-1); return localDateStr(d); } catch { return null; } })();
+    const _yPrevEnt = _yPrevStr ? (days[_yPrevStr]||[]) : [];
+    const _yPrevLastWet = (()=>{
+      const _prevWets = _yPrevEnt.filter(e => e.type === "poop" && ((e.poopType||"").toLowerCase().includes("wet") || e.poopType === "both") && e.time).sort((a,b)=>timeVal(a)-timeVal(b));
+      return _prevWets.length ? _prevWets[_prevWets.length-1] : null;
+    })();
+    const _hydration = smartHydration(today, w, _yPrevLastWet);
     const h = new Date().getHours();
     if (h >= 14 && !_hydration.ok) return { emoji: "💧", text: `${_hydration.raw} wet nappies today (${_hydration.count} hydration score). aim for ${_hydration.target}+ for adequate hydration.`, priority: "med", why: `Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). ${_hydration.raw} changes = ${_hydration.count} hydration score vs ${_hydration.target}+ target for ${fmtAge(age)}.` };
 
@@ -13958,11 +14525,26 @@ function App(){
     const _topHelp = Object.entries(_recentHelps).sort((a, b) => b[1] - a[1])[0];
 
     // Quick reason from crying analysis. search selDay AND today's actual date
+    // Tag each entry with its source day key so wall-clock gap works cross-midnight
     const _prevDk = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
     const _calNow = todayStr();
-    const _searchDays = [..._today, ...(days[_prevDk]||[]), ...(_calNow !== selDay ? (days[_calNow]||[]) : [])];
-    const _lastFeed = _searchDays.filter(e => e.time && (e.type==="feed" || (e.amount||0)>0 || e.assistedType==="milk" || e.feedType==="milk")).sort((a,b)=>{let ta=timeVal(a),tb=timeVal(b);if(a.night&&ta<720)ta+=1440;if(b.night&&tb<720)tb+=1440;return ta-tb;}).pop();
+    const _tagDk = (arr, dk) => (arr||[]).map(e=>({...e,_dk:e._dk||dk}));
+    const _searchDays = [..._tagDk(_today, selDay), ..._tagDk(days[_prevDk]||[], _prevDk), ...(_calNow !== selDay ? _tagDk(days[_calNow]||[], _calNow) : [])];
+    // Pick latest feed by actual wall-clock time
+    // Cross-midnight: a night entry stored on Thursday with time 02:54am is actually
+    // Friday 02:54am. Use the entry's night flag + AM time to roll forward a day.
     const _nowMs = Date.now();
+    const _wallMs = (e) => {
+      const _dk = e._dk || selDay;
+      const t = (e.time||"00:00").split(":").map(Number);
+      const d = new Date(_dk+"T00:00:00");
+      d.setHours(t[0], t[1], 0, 0);
+      // If this is a night entry with an AM time (< noon), it belongs to the next calendar day
+      if (e.night && t[0] < 12) d.setDate(d.getDate() + 1);
+      return d.getTime();
+    };
+    const _feedCandidates = _searchDays.filter(e => e.time && (e.type==="feed" || (e.amount||0)>0 || e.assistedType==="milk" || e.feedType==="milk"));
+    const _lastFeed = _feedCandidates.length ? _feedCandidates.reduce((best,e)=>_wallMs(e)>_wallMs(best)?e:best) : null;
     const _nowM = new Date().getHours() * 60 + new Date().getMinutes();
     let _feedGap = 999;
     if (_lastFeed) {
@@ -13970,6 +14552,8 @@ function App(){
       const ft = (_lastFeed.time||"00:00").split(":").map(Number);
       const feedDate = new Date(fdk + "T00:00:00");
       feedDate.setHours(ft[0], ft[1], 0, 0);
+      // Cross-midnight: night entry with AM time belongs to next calendar day
+      if (_lastFeed.night && ft[0] < 12) feedDate.setDate(feedDate.getDate() + 1);
       _feedGap = Math.max(0, Math.round((_nowMs - feedDate.getTime()) / 60000));
     }
     const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 210 : 270;
@@ -16246,6 +16830,17 @@ function App(){
     setLastAction({type, entryId, day:_targetDay, timestamp:Date.now()});
     clearTimeout(undoTimeoutRef.current);
     undoTimeoutRef.current = setTimeout(()=>setLastAction(null), 15000);
+    // Retention & usage signals
+    try {
+      if (type === "wake") {
+        if (data.night) trackEvent("night_wake_logged", {});
+        else trackEvent("morning_wake_logged", {});
+      }
+      if (!localStorage.getItem("ob_first_entry_tracked")) {
+        localStorage.setItem("ob_first_entry_tracked", "1");
+        trackEvent("first_entry_logged", { type: type });
+      }
+    } catch {}
     setLogPanel(null);
     haptic("medium")
     const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
@@ -16483,6 +17078,17 @@ function App(){
         return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
       });
       trackEvent("entry_logged", {type: eType});
+      // Retention signals: night vs morning wake, first entry ever
+      try {
+        if (eType === "wake") {
+          if (e.night) trackEvent("night_wake_logged", {});
+          else trackEvent("morning_wake_logged", {});
+        }
+        if (!localStorage.getItem("ob_first_entry_tracked")) {
+          localStorage.setItem("ob_first_entry_tracked", "1");
+          trackEvent("first_entry_logged", { type: eType });
+        }
+      } catch {}
 
       // Write activity timestamp for Cloud Function reminders
       if (window._fb && window._fbUid && (eType === "feed" || (eType === "wake" && !e.night))) {
@@ -16831,7 +17437,15 @@ function App(){
     if (!bedTimerDay) {
       try { const _lsBTD = localStorage.getItem("bed_timer_day"); if(_lsBTD) setBedTimerDay(_lsBTD); } catch {}
     }
-    const _effectiveBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    let _effectiveBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
+    // Last resort: find the bedtime entry day from data (hero card shows night mode but bedTimerDay was cleared)
+    if (!_effectiveBTD) {
+      const _today = todayStr();
+      const _prevDay = (()=>{const d=new Date(_today+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+      if (findBedtime(days[_today]||[])) { _effectiveBTD = _today; }
+      else if (findBedtime(days[_prevDay]||[])) { _effectiveBTD = _prevDay; }
+      if (_effectiveBTD) { setBedTimerDay(_effectiveBTD); try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{} }
+    }
     if (!_effectiveBTD || bedPaused) return;
     haptic();
     // Freeze display at current elapsed seconds
@@ -16867,7 +17481,7 @@ function App(){
     } catch {}
     showToast("🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
   }
-  function resumeBedTimer(){
+  function resumeBedTimer(overrideSettleMethod){
     if (!bedTimerDay || !bedPaused) return;
     haptic();
     const pauseStart = bedPauseStart || Date.now();
@@ -16885,7 +17499,7 @@ function App(){
     setBedPausedAtSec(0);
     try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Update the night wake entry (logged on pause) with duration and settle method
-    const settleMethod = bedWakeSettle || "assisted";
+    const settleMethod = overrideSettleMethod || bedWakeSettle || "assisted";
     const noteStr = pauseDurMin < 1 ? "Brief wake"
       : settleMethod === "self" ? "Self settled ("+pauseDurMin+"min)"
       : settleMethod === "milk" ? "Night feed ("+pauseDurMin+"min)"
@@ -16897,15 +17511,18 @@ function App(){
       const settleTime = new Date(pauseEnd);
       const settleH = String(settleTime.getHours()).padStart(2,"0");
       const settleM = String(settleTime.getMinutes()).padStart(2,"0");
+      // Respect breastfeeding preference: breastfed moms log as breast, not milk
+      const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
       setDays(d => {
         const _targetDay = bedTimerDay || todayStr();
         const entries = d[_targetDay] || [];
         return {...d, [_targetDay]: entries.map(e => e.id === _pendingId ? {
           ...e,
           type: settleMethod === "milk" ? "feed" : "wake",
+          feedType: settleMethod === "milk" ? (_isBreast ? "breast" : "milk") : undefined,
           selfSettled: settleMethod === "self",
           assisted: settleMethod !== "self",
-          assistedType: settleMethod === "milk" ? "milk" : (settleMethod === "other" ? "other" : undefined),
+          assistedType: settleMethod === "milk" ? (_isBreast ? "breast" : "milk") : (settleMethod === "other" ? "other" : undefined),
           note: noteStr + ". logged via bed timer",
           wakeDuration: pauseDurMin,
           settleTime: settleH+":"+settleM,
@@ -17142,18 +17759,29 @@ function App(){
 
   function startNap(){
     if (napOn) return;
+    try { trackEvent("timer_started", { type: "nap" }); } catch {}
     // Save current prediction for accuracy tracking
     try { lastPredRef.current = tickDataRef.current.pred; } catch { lastPredRef.current = null; }
+    // Stamp the authoritative epoch-ms start time. Widget, Live Activity, and
+    // elapsed calculations all read this single source. No HH:MM reconstruction drift.
+    const _nowMs = Date.now();
     const t=nowTime();
     const entryId=uid();
-    // Log nap entry immediately with start time (end will be filled when timer stops)
+    // Log nap entry immediately with start time + authoritative epoch (end will be filled when timer stops)
     setDays(d=>{
-      const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,end:t,duration:0,night:false,note:"",_active:true,isBridge:!!bridgeNapScheduled}];
+      const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,startMs:_nowMs,end:t,duration:0,night:false,note:"",_active:true,isBridge:!!bridgeNapScheduled}];
       const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
       return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
     });
-    try{localStorage.setItem("nap_startT",t);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",new Date().toISOString().split("T")[0]);}catch{}
-    setNapStartT(t);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
+    try{
+      localStorage.setItem("nap_startT",t);
+      localStorage.setItem("nap_startMs",String(_nowMs));
+      localStorage.setItem("nap_on","1");
+      localStorage.setItem("nap_sec","0");
+      localStorage.setItem("nap_entry_id",entryId);
+      localStorage.setItem("nap_start_day",new Date().toISOString().split("T")[0]);
+    }catch{}
+    setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
     // Start Live Activity on iOS (Dynamic Island + Lock Screen timer)
     // Update existing LA (or create if none). never stop+restart to avoid expanded banner
@@ -17870,6 +18498,7 @@ function App(){
   function logBedtimeNow(){
     const already = !!findBedtime(days[selDay]||[]);
     if (already) return;
+    try { trackEvent("timer_started", { type: "bed" }); } catch {}
     const bedTime = nowTime();
     // If a nap timer is running when bedtime is logged, remove the incomplete nap entry
     // (bedtime replaces it. the nap was actually baby falling asleep for the night)
@@ -17965,6 +18594,7 @@ function App(){
   }
   function startBreastTimer(side){
     if(!breastStartTime){
+      try { trackEvent("timer_started", { type: "breast", side: side }); } catch {}
       const t=nowTime();
       setBreastStartTime(t);
       try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));}catch{}
@@ -18024,7 +18654,10 @@ function App(){
     // Allow saving even with 0 seconds. logs as breastfeed at start time
     const lMins=breastSec.L > 0 ? Math.max(1, Math.round(breastSec.L/60)) : 0;
     const rMins=breastSec.R > 0 ? Math.max(1, Math.round(breastSec.R/60)) : 0;
-    const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:false,note:""};
+    // If bed timer is paused (night wake in progress), this is a night feed:
+    // route to bedTimerDay, mark night, and remove the pending placeholder wake entry
+    const _nightMode = bedPausedRef.current && !!bedTimerDay;
+    const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:_nightMode,nightLocked:_nightMode,note:_nightMode?"Night breast feed":""};
 
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
     try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
@@ -18033,7 +18666,20 @@ function App(){
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     // Auto-resume nap if it was paused by the breast timer
     try{if(localStorage.getItem("nap_paused_by_breast")==="1"){localStorage.removeItem("nap_paused_by_breast");resumeNap();}}catch{}
-    setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
+    if (_nightMode) {
+      // Night mode routing respects dayBoundary:
+      // - "wake" (morning wake = day boundary): write to bedTimerDay (Thursday)
+      // - "midnight" (calendar day boundary): write to selDay/today (Friday)
+      const _pendingId = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
+      setDays(d=>{
+        const _tgt = (dayBoundary === "wake") ? (bedTimerDay || todayStr()) : selDay;
+        const existing = (d[_tgt]||[]).filter(e => !_pendingId || e.id !== _pendingId);
+        return {...d, [_tgt]: [...existing, entry]};
+      });
+      try{localStorage.removeItem("bed_wake_entry_id");}catch{}
+    } else {
+      setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
+    }
     trackEvent("entry_logged",{type:"breast_feed"});
     haptic("medium")
     showToast("🤱 Feed Logged ✓",1200,1);
@@ -18079,6 +18725,7 @@ function App(){
     const [eh,em]=end.split(":").map(Number);
     let durMins = (eh*60+em) - (sh*60+sm);
     if (durMins < 0) durMins += 24*60;
+    try { trackEvent("timer_stopped", { type: "nap", duration_mins: durMins }); } catch {}
     const h = new Date().getHours();
     const isNightTime = h >= 19 || h < 6;
     const hasBedtime = (days[selDay]||[]).some(e => e.type==="sleep" && !e.night);
@@ -18490,7 +19137,10 @@ function App(){
         return _newToken;
       } catch { return backupCode||""; }
     })();
-    const carerPortalUrl = `https://obubba.com/care.html?code=${encodeURIComponent(_carerToken)}&child=${encodeURIComponent(resolvedActiveId||"")}`;
+    // Carer portal is now on Firebase Hosting with real Cache-Control:
+    // no-cache headers, so stale HTML isn't possible. No cache-bust
+    // query param needed.
+    const carerPortalUrl = `https://obubba-d9ccc.web.app/care.html?code=${encodeURIComponent(_carerToken)}&child=${encodeURIComponent(resolvedActiveId||"")}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
 
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
@@ -19652,25 +20302,62 @@ function App(){
   function applyScheduleAdjustment(wakeStr, bedStr, duration) {
     if (!age) return;
     const ww = getWakeWindow(age.totalWeeks);
+    const _ageLabel = fmtAge ? fmtAge(age) : (age.months ? age.months+"mo" : age.totalWeeks+"w");
     let wakeMins = null, bedMins = null;
+    // Keep what the parent asked for so we can compare against the clamped value
+    let wakeRequested = null, bedRequested = null;
+    const adjustments = []; // list of human-readable messages about what we changed
+
     if (wakeStr) {
       const [h,m] = wakeStr.split(":").map(Number);
-      wakeMins = clampWake(h*60+m);
+      wakeRequested = h*60+m;
+      wakeMins = clampWake(wakeRequested);
+      if (wakeMins !== wakeRequested) {
+        if (wakeRequested < 5*60) {
+          adjustments.push("🌅 5:00am is the earliest healthy wake time — we set wake to 5:00am instead of " + _fmt12Mins(wakeRequested) + ".");
+        } else if (wakeRequested > 9*60+30) {
+          adjustments.push("🌅 9:30am is the latest healthy wake time (any later and the day's naps won't fit) — we set wake to 9:30am instead of " + _fmt12Mins(wakeRequested) + ".");
+        }
+      }
     }
     if (bedStr) {
       const [h,m] = bedStr.split(":").map(Number);
-      bedMins = clampBedtime(h*60+m);
+      bedRequested = h*60+m;
+      bedMins = clampBedtime(bedRequested);
+      if (bedMins !== bedRequested) {
+        // Describe whether we pulled it earlier or pushed it later
+        const _w = age.totalWeeks;
+        const _ceilingLabel =
+          (!_w || _w < 6)  ? "10:00pm"
+          : _w < 13        ? "9:00pm"
+          : _w < 26        ? "8:00pm"
+          : _w < 39        ? "8:00pm"
+          : _w < 52        ? "8:30pm"
+          : "8:30pm";
+        if (bedRequested > bedMins) {
+          adjustments.push("🌙 " + _ceilingLabel + " is the latest recommended bedtime for a " + _ageLabel + " — late bedtimes are linked to overtiredness and more night wakes. We set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
+        } else if (bedRequested < bedMins) {
+          adjustments.push("🌙 Bedtime earlier than " + _fmt12Mins(bedMins) + " is too early for a " + _ageLabel + " — baby wouldn't have enough sleep pressure built up. We set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
+        }
+      }
     }
-    // Validate: bed - wake must allow enough awake time for all naps + wake windows
+    // Feasibility: bed - wake must allow enough awake time for all naps + wake windows
     if (wakeMins && bedMins) {
       const totalDay = bedMins - wakeMins;
       const profile = getAgeNapProfile(age.totalWeeks);
       const minNeeded = profile.expectedNaps * 30 + (profile.expectedNaps + 1) * ww.min;
       if (totalDay < minNeeded) {
-        // Expand to minimum
+        const _origBed = bedMins;
         bedMins = clampBedtime(wakeMins + minNeeded);
+        if (bedMins !== _origBed) {
+          adjustments.push("⏱️ Your wake and bedtime didn't leave room for " + profile.expectedNaps + " nap" + (profile.expectedNaps===1?"":"s") + " plus age-appropriate wake windows. We pushed bedtime to " + _fmt12Mins(bedMins) + " so the day fits.");
+        } else {
+          // clampBedtime refused to go further. warn parent
+          adjustments.push("⚠️ With a " + _fmt12Mins(wakeMins) + " wake, fitting " + profile.expectedNaps + " nap" + (profile.expectedNaps===1?"":"s") + " before the healthy bedtime ceiling will be tight. You might see shorter wake windows or a dropped nap.");
+        }
       }
     }
+
     const override = {
       wake: wakeMins,
       bed: bedMins,
@@ -19680,6 +20367,29 @@ function App(){
     };
     setScheduleOverride(override);
     try{localStorage.setItem("sched_override_v1", JSON.stringify(override));}catch{}
+
+    // Tell the parent what actually got applied and why
+    if (adjustments.length) {
+      setScheduleAdjustmentNotice({
+        adjustments,
+        wake: wakeMins,
+        bed: bedMins,
+        duration
+      });
+    } else {
+      try {
+        showToast("✓ Schedule applied" + (duration === "permanent" ? " for every day" : " for today"), 2500, 1);
+      } catch(_) {}
+    }
+  }
+
+  // Helper: "487" → "8:07am"
+  function _fmt12Mins(mins) {
+    if (mins == null || isNaN(mins)) return "";
+    const h = Math.floor(mins/60), m = mins%60;
+    const ap = h >= 12 ? "pm" : "am";
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return h12 + ":" + String(m).padStart(2,"0") + ap;
   }
 
   function clearScheduleOverride() {
@@ -21677,6 +22387,7 @@ function App(){
         try{ localStorage.setItem("_hasBreast","1"); }catch{}
       }
       setOnboarded(true);
+      try { trackEvent("onboarding_completed", { feed_type: obFeedType || "unknown" }); } catch {}
       setTab("day");
       setSelDay(_obToday);
       // Show quick-start prompt after a short delay. lets user seed yesterday's data
@@ -22557,7 +23268,9 @@ function App(){
                 );
               }
               // Read countdown from nextEvent — computed once in tick engine
-              const countdown = _ne2 ? _ne2.countdown : null;
+              // nextEvent.countdown is in MINUTES; fmtCountdown expects SECONDS
+              const countdownMins = _ne2 ? _ne2.countdown : null;
+              const countdown = countdownMins !== null ? countdownMins * 60 : null;
               if(countdown === null) return null;
               const isNeutral = !isBed && napCountdown === -1;
               const isNapNow = !isBed && !isNeutral && napCountdown !== null && napCountdown <= 0;
@@ -22671,13 +23384,20 @@ function App(){
 
       <div style={{padding:tab==="settings"?"0 14px 90px":"16px 14px 90px",maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
-          !selDay||!days[selDay]?(
+          // Only show the "No day selected" fallback when selDay itself is
+          // missing (which should basically never happen — useState initialises
+          // to today). An empty days[selDay] is NOT "no day selected" — that's
+          // a fresh day with nothing logged yet, and the day view has its own
+          // proper empty-state card inside.
+          !selDay?(
             <div style={{textAlign:"center",padding:"40px 20px",color:C.lt}}>
               <img src="obubba-thinking.png" alt="" style={{width:120,height:120,objectFit:"contain",marginBottom:12,opacity:0.8,filter:"drop-shadow(0 8px 20px rgba(217,207,243,0.25))"}}/>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.mid,marginBottom:8}}>No day selected</div>
-              <div style={{fontSize:15,fontFamily:_fM}}>Tap + Date to get started</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,color:C.mid,marginBottom:8}}>Loading today…</div>
+              <button onClick={()=>{haptic();setSelDay(todayStr());}} style={{marginTop:12,padding:"10px 20px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
+                Open today
+              </button>
             </div>
-          ):( 
+          ):(
             <div>
               {/* ═══ HERO CARD. only on dashboard, not sub-screens ═══ */}
               {!daySubScreen && renderHeroCard()}
@@ -24500,9 +25220,21 @@ function App(){
                 );
               })()}
 
-              {/* Tomorrow's schedule. premium teaser */}
-              {STORE_READY && hasAccess() && todayPlanOpen && Object.keys(days).length >= 5 && (
-                <button onClick={()=>triggerPaywall("tomorrow")} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
+              {/* Tomorrow's schedule. navigates to Insights > Tomorrow's Predicted Rhythm */}
+              {hasAccess() && todayPlanOpen && Object.keys(days).length >= 5 && (
+                <button onClick={()=>{
+                  haptic();
+                  setTab("insights");
+                  // Defer scroll until the insights tab has rendered
+                  setTimeout(()=>{
+                    try {
+                      const _el = document.getElementById("tomorrow-rhythm-anchor");
+                      if (_el && typeof _el.scrollIntoView === "function") {
+                        _el.scrollIntoView({behavior:"smooth", block:"start"});
+                      }
+                    } catch(_) {}
+                  }, 250);
+                }} style={{width:"100%",padding:"10px 14px",marginBottom:8,borderRadius:12,border:"1px solid "+C.ter+"30",background:C.ter+"06",color:C.ter,fontSize:12,fontWeight:600,cursor:_cP,textAlign:"left"}}>
                   📋 Plan ahead. see tomorrow's predicted schedule →
                 </button>
               )}
@@ -24860,23 +25592,38 @@ function App(){
                 );
               })()}
 
-              {/* Hydration meter on Plan tab */}
+              {/* Hydration meter on Plan tab. Uses smartHydration so a heavy
+                  morning nappy after a 10h+ overnight counts as 2-3 (the baby was
+                  hydrated overnight, one big wet = multiple daytime wets). */}
               {(()=>{
                 const _ent = days[selDay] || [];
-                const _wet = _ent.filter(e => e.type === "poop" && ((e.poopType||"").includes("wet") || e.poopType === "both")).length;
-                if (_wet >= 6) return null; // target met, no need to show
+                // Cross-day prev-nappy lookup: when today has 0 or 1 wet nappies,
+                // pull yesterday's last wet nappy so smartHydration can compute a
+                // real cross-midnight gap instead of assuming a flat 12h default.
+                const _prevDayStr = (()=>{ try { const d=new Date(selDay+"T00:00:00"); d.setDate(d.getDate()-1); return localDateStr(d); } catch { return null; } })();
+                const _prevDayEnt = _prevDayStr ? (days[_prevDayStr]||[]) : [];
+                const _prevLastWet = (()=>{
+                  const _prevWets = _prevDayEnt.filter(e => e.type === "poop" && ((e.poopType||"").toLowerCase().includes("wet") || e.poopType === "both") && e.time).sort((a,b)=>timeVal(a)-timeVal(b));
+                  return _prevWets.length ? _prevWets[_prevWets.length-1] : null;
+                })();
+                const _smart = smartHydration(_ent, age ? age.totalWeeks : null, _prevLastWet);
+                const _wetCount = _smart.count;    // hydration score (overnight counts as 2-3)
+                const _wetRaw = _smart.raw;        // literal count of wet entries
+                const _target = _smart.target;
+                if (_wetCount >= _target) return null; // target met, no need to show
+                const _bonusActive = _wetCount > _wetRaw; // overnight bonus applied
                 return (
-                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:_wet<4?"rgba(192,112,136,0.06)":"rgba(111,168,152,0.06)",border:`1px solid ${_wet<4?"rgba(192,112,136,0.15)":"rgba(111,168,152,0.15)"}`}}>
+                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:_wetCount<Math.ceil(_target*0.65)?"rgba(192,112,136,0.06)":"rgba(111,168,152,0.06)",border:`1px solid ${_wetCount<Math.ceil(_target*0.65)?"rgba(192,112,136,0.15)":"rgba(111,168,152,0.15)"}`}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                       <span style={{fontSize:18}}>💧</span>
-                      <div>
-                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_wet}/6 wet nappies</div>
-                        <div style={{fontSize:10,color:C.lt}}>Aim for 6+ in 24h for adequate hydration</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_wetCount}/{_target} hydration{_bonusActive?` (${_wetRaw} change${_wetRaw===1?"":"s"})`:""}</div>
+                        <div style={{fontSize:10,color:C.lt}}>{_bonusActive?"Overnight nappy counts as extra. baby was hydrated during sleep.":"Aim for "+_target+"+ wet nappies in 24h for adequate hydration"}</div>
                       </div>
                     </div>
                     <div style={{display:"flex",gap:4}}>
-                      {[1,2,3,4,5,6].map(n=>(
-                        <div key={n} style={{flex:1,height:6,borderRadius:99,background:n<=_wet?C.mint+"80":C.blush}}/>
+                      {Array.from({length:_target},(_,i)=>i+1).map(n=>(
+                        <div key={n} style={{flex:1,height:6,borderRadius:99,background:n<=_wetCount?C.mint+"80":C.blush}}/>
                       ))}
                     </div>
                   </div>
@@ -25908,7 +26655,7 @@ function App(){
                 if (!sched) return null;
                 const isRhythmAdj = flex && flex.source === "rhythm-adjusted";
                 return (
-                  <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px",marginBottom:12}}>
+                  <div id="tomorrow-rhythm-anchor" style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px",marginBottom:12,scrollMarginTop:80}}>
                     <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div>
                     <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:10}}>
                       {`NHS guidance + ${babyName||"baby"}'s sleep patterns`}
@@ -27443,7 +28190,12 @@ function App(){
             return (MILESTONE_EXERCISES[m.id] || [])[0] || null;
           };
 
-          const MilestoneRow = ({m}) => {
+          // Note: this is a plain function returning JSX, NOT a React component.
+          // Defining a component inside a render closure makes React treat it as
+          // a new component type on every re-render, which unmounts and remounts
+          // the whole subtree (flicker + state loss). A plain function that
+          // returns JSX reconciles normally against the virtual DOM.
+          const renderMilestoneRow = (m) => {
             const done     = !!(milestones[m.id]?.date);
             const isNow    = ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[2];
             const isPast   = !isNow && ageWeeks > m.weeks[2];
@@ -27452,7 +28204,18 @@ function App(){
             const borderColor = catColors[m.cat] || C.blush;
             const catIcon  = m.cat==="social"?"💛":m.cat==="language"?"💬":m.cat==="motor"?"🌿":"🔆";
             const exerciseTip = getMilestoneExercise(m);
-            const touchStartRef = React.useRef(null);
+            // NOTE: no hooks here — this is a plain function called inside .map(),
+            // hook counts must stay constant across renders. State lives at parent.
+            // Read tip-open state from parent-level Set (survives re-renders)
+            const tipOpen = msTipsOpen.has(m.id);
+            const setTipOpen = (nextOrFn) => {
+              setMsTipsOpen(prev => {
+                const next = new Set(prev);
+                const willOpen = typeof nextOrFn === "function" ? nextOrFn(next.has(m.id)) : nextOrFn;
+                if (willOpen) next.add(m.id); else next.delete(m.id);
+                return next;
+              });
+            };
             // Age range text
             const wkToMo = (w) => { const mo = Math.round(w / 4.33); return mo < 1 ? "< 1 mo" : mo + " mo"; };
             const ageRangeText = wkToMo(m.weeks[0]) + " – " + wkToMo(m.weeks[2]);
@@ -27468,15 +28231,13 @@ function App(){
                   transition:"all 0.15s",
                 }}>
                   <div
-                    onPointerDown={e=>{touchStartRef.current={x:e.clientX,y:e.clientY};}}
-                    onPointerUp={e=>{
-                      // Only allow tapping to MARK as done. Done milestones are never
-                      // accidentally un-marked via tap. use the ✕ button instead.
-                      if(!touchStartRef.current || isFuture || done) return;
-                      const dx=Math.abs(e.clientX-touchStartRef.current.x);
-                      const dy=Math.abs(e.clientY-touchStartRef.current.y);
-                      touchStartRef.current=null;
-                      if(dx>8||dy>8) return;
+                    onClick={e=>{
+                      // Only allow tapping to MARK as done. Done milestones are
+                      // never accidentally un-marked via tap. use the ✕ button instead.
+                      if(isFuture || done) return;
+                      // Don't trigger if user clicked inside the "Try this to help" button
+                      // (that handler calls stopPropagation, but belt-and-braces)
+                      if(e.target && e.target.closest && e.target.closest('[data-tip-toggle]')) return;
                       setMilestones(ms=>({...ms,[m.id]:{date:todayStr()}}));
                       showMascot("celebration", `🎉 ${m.label}. milestone reached!`, 2500);
                       setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2800);
@@ -27528,14 +28289,26 @@ function App(){
                       )}
                     </div>
                   </div>
-                  {/* Exercise tip. uses <details> to avoid useState in .map() */}
+                  {/* Exercise tip — controlled React state so parent clicks don't close it */}
                   {exerciseTip && (
-                    <details style={{marginTop:8,marginLeft:47}}>
-                      <summary style={{fontSize:11,fontWeight:600,color:"#9878d0",cursor:_cP,listStyle:"none",WebkitAppearance:"none",display:"flex",alignItems:"center",gap:4}}>
-                        <span>💡</span> <span>Try this to help</span> <span style={{fontSize:9,color:C.lt}}>▼</span>
-                      </summary>
-                      <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"8px 11px",marginTop:6,fontSize:12,color:"#9070c0",lineHeight:1.55}}>{exerciseTip}</div>
-                    </details>
+                    <div style={{marginTop:8,marginLeft:47}}>
+                      <button
+                        type="button"
+                        data-tip-toggle="1"
+                        onClick={e=>{e.stopPropagation();haptic();setTipOpen(v=>!v);}}
+                        style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:600,color:"#9878d0",cursor:_cP,display:"flex",alignItems:"center",gap:4,fontFamily:_fM}}>
+                        <span>💡</span> <span>Try this to help</span> <span style={{fontSize:9,color:C.lt,transform:tipOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s",display:"inline-block"}}>▼</span>
+                      </button>
+                      {tipOpen && (
+                        <div
+                          onPointerDown={e=>e.stopPropagation()}
+                          onPointerUp={e=>e.stopPropagation()}
+                          onClick={e=>e.stopPropagation()}
+                          style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"8px 11px",marginTop:6,fontSize:12,color:"#9070c0",lineHeight:1.55}}>
+                          {exerciseTip}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -27544,7 +28317,8 @@ function App(){
 
           // (unused filtered lists removed in redesign)
 
-          const Accordion = ({label, count, open, toggle, accent, children, helpText}) => (
+          // Plain function returning JSX (not a component) — see note above renderMilestoneRow
+          const renderAccordion = ({label, count, open, toggle, accent, children, helpText}) => (
             <div style={{marginBottom:8}}>
               <button onClick={toggle} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:open?"#fdf4f0":C.warm,border:`1px solid ${open?C.blush:"var(--card-border)"}`,borderRadius:open?"12px 12px 0 0":12,cursor:_cP,fontFamily:_fI}}>
                 <div style={_S.flexCenter8}>
@@ -28430,7 +29204,24 @@ function App(){
                 // STABLE suggestions: persist today/tomorrow picks to localStorage so they
                 // don't shift when user logs a food. Rolls forward at midnight.
                 const _triedFoods = (weaning||[]).map(w => (w.food||"").toLowerCase());
-                const _isTried = (f) => _triedFoods.some(t => t.includes(f.food.toLowerCase().split(" ")[0]));
+                // Match tried foods by distinctive food noun, not first word.
+                // Previously .split(" ")[0] took "steamed" for both "Steamed carrot"
+                // and "Steamed broccoli", so logging ONE steamed food marked ALL of
+                // them as tried and broke Try Later (rotation had nothing untried).
+                const _prepRx = /^(steamed|mashed|soft cooked|cooked|plain full-fat|fortified|baby|soft|raw|warm|fresh|grated|chopped|pureed|slow cooked)\s+/;
+                const _stripPrep = (s) => (s||"").toLowerCase().replace(_prepRx, "").trim();
+                const _isTried = (f) => {
+                  const _fNoun = _stripPrep(f.food);
+                  if (!_fNoun) return false;
+                  return _triedFoods.some(t => {
+                    const _tNoun = _stripPrep(t);
+                    if (!_tNoun) return false;
+                    // Exact noun match, or either noun contains the other
+                    // (e.g. "banana" matches "mashed banana", "avocado" matches
+                    // "mashed avocado"). This is much tighter than first-word matching.
+                    return _tNoun === _fNoun || _tNoun === f.food.toLowerCase() || t === f.food.toLowerCase();
+                  });
+                };
                 const _notTried = _available.filter(f => !_isTried(f));
                 // Ensure allergens appear regularly: every 3rd-4th suggestion should be an allergen (if any untried)
                 const _untriedAllergens = _notTried.filter(f => f.cat === "allergen");
@@ -28443,7 +29234,25 @@ function App(){
                   if (_vi < _untriedNonAllergen.length) _interleaved.push(_untriedNonAllergen[_vi++]);
                   if (_ai < _untriedAllergens.length) _interleaved.push(_untriedAllergens[_ai++]);
                 }
-                const _pool = _interleaved.length > 0 ? _interleaved : (_notTried.length > 0 ? _notTried : _available);
+                let _pool = _interleaved.length > 0 ? _interleaved : (_notTried.length > 0 ? _notTried : _available);
+                // ── Shopping list override ──
+                // If user has an active weekly shopping list, push its untried foods
+                // to the front of the pool so today's/tomorrow's suggestion comes
+                // straight from what they've already planned and bought ingredients for.
+                if (weeklyShoppingList && Array.isArray(weeklyShoppingList.foods) && weeklyShoppingList.foods.length) {
+                  const _planNames = weeklyShoppingList.foods
+                    .filter(f => f && f.food)
+                    .map(f => f.food.toLowerCase());
+                  // Only honor the plan if its weekStart is within the last 10 days
+                  // (past or future), otherwise it's stale.
+                  const _planStart = weeklyShoppingList.weekStart ? new Date(weeklyShoppingList.weekStart+"T00:00:00") : null;
+                  const _planFresh = !_planStart || Math.abs(Date.now() - _planStart.getTime()) < 10*86400000;
+                  if (_planFresh) {
+                    const _plannedUntried = _pool.filter(f => _planNames.includes(f.food.toLowerCase()) && !_isTried(f));
+                    const _rest = _pool.filter(f => !_planNames.includes(f.food.toLowerCase()));
+                    if (_plannedUntried.length) _pool = [..._plannedUntried, ..._rest];
+                  }
+                }
                 const _findByName = (name) => _available.find(f=>f.food===name) || _pool.find(f=>f.food===name);
                 const _today = todayStr();
                 const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
@@ -28626,18 +29435,28 @@ function App(){
                       </button>
                       <button onClick={()=>{
                         haptic();
-                        // Push current food to back of queue, advance to next
+                        // Push current food to back of queue, advance to next.
+                        // Today becomes the OLD tomorrow; tomorrow becomes the
+                        // next distinct food in _pool (excluding today, tomorrow,
+                        // AND the just-skipped food so we don't loop right back).
                         try {
                           const _skipped = JSON.parse(localStorage.getItem("ob_wean_skipped_v1")||"{}");
                           _skipped[_ft.food] = { count: (_skipped[_ft.food]?.count||0)+1, date: todayStr() };
                           localStorage.setItem("ob_wean_skipped_v1", JSON.stringify(_skipped));
-                          // Replace today's suggestion with tomorrow's, pick new tomorrow
-                          const _newTmr = _pool.find(f=>f.food!==_tmr.food&&f.food!==_ft.food) || _pool[0];
+                          // Find a genuinely new tomorrow. exclude current today, current
+                          // tomorrow, AND the just-skipped item.
+                          const _skippedFood = _ft.food;
+                          let _newTmr = _pool.find(f => f.food !== _tmr.food && f.food !== _skippedFood);
+                          // Edge case: if pool is tiny (<3 items) there may not be a fresh pick.
+                          // Fall back to any food in _available that isn't today/skipped.
+                          if (!_newTmr) _newTmr = _available.find(f => f.food !== _tmr.food && f.food !== _skippedFood);
+                          if (!_newTmr) _newTmr = _tmr; // last resort: keep the old tomorrow
                           localStorage.setItem("ob_wean_suggestions_v1", JSON.stringify({date:todayStr(), today:_tmr.food, tomorrow:_newTmr.food}));
-                          showToast("⏭ " + _ft.food + " skipped. we'll suggest it again in a few days", 2500, 1);
-                          // Force re-render by touching weaning state
-                          setWeaning(w=>[...w]);
-                        } catch {}
+                          showToast("⏭ " + _skippedFood + " skipped. next: " + _tmr.food, 2500, 1);
+                          // Force re-render: bump a nudge state (more reliable than
+                          // mutating weaning, which goes through a nested setChildren).
+                          setWeanNudge(n => n + 1);
+                        } catch(ex){ console.warn("[OBubba] try later failed", ex); }
                       }}
                         style={{padding:"8px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
                         ⏭ Try later
@@ -28708,6 +29527,165 @@ function App(){
                         </div>
                       );
                     })()}
+                  </div>
+                );
+              })()}
+
+              {/* ═══ Weekly Shopping Planner ═══ */}
+              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning"||daySubScreen==="weaning_journey") && (()=>{
+                // Compute the next 7 suggestions from the same algorithm First Tastes uses
+                // (we don't have access to _pool from here, so we rebuild from weaning).
+                // Active plan check
+                const _hasPlan = weeklyShoppingList && Array.isArray(weeklyShoppingList.foods) && weeklyShoppingList.foods.length;
+                if (_hasPlan) {
+                  // Show the saved plan card with grouping + actions
+                  const _grouped = (()=>{
+                    const g = {};
+                    (weeklyShoppingList.foods||[]).forEach(f => { const k = f.cat || "other"; (g[k] = g[k]||[]).push(f); });
+                    (weeklyShoppingList.extras||[]).forEach(f => { (g.extras = g.extras||[]).push(f); });
+                    return g;
+                  })();
+                  const _catLabels = { veg:"🥕 Vegetables", fruit:"🍎 Fruit", grain:"🌾 Grains", protein:"🍗 Protein", dairy:"🥛 Dairy", allergen:"⚠️ Allergens", other:"🍽 Other", extras:"🛒 Extras & recipes" };
+                  const _totalItems = (weeklyShoppingList.foods||[]).length + (weeklyShoppingList.extras||[]).length;
+                  const _bought = (weeklyShoppingList.foods||[]).filter(f=>f.bought).length + (weeklyShoppingList.extras||[]).filter(f=>f.bought).length;
+                  const _allBought = _totalItems > 0 && _bought === _totalItems;
+                  const _weekStartLabel = weeklyShoppingList.weekStart ? fmtLong(weeklyShoppingList.weekStart) : "this week";
+                  const _toggleBought = (listKey, idx) => {
+                    setWeeklyShoppingList(prev => {
+                      if (!prev) return prev;
+                      const next = {...prev, [listKey]: [...(prev[listKey]||[])]};
+                      if (next[listKey][idx]) next[listKey][idx] = {...next[listKey][idx], bought: !next[listKey][idx].bought};
+                      return next;
+                    });
+                  };
+                  const _shareText = (()=>{
+                    const lines = ["🛒 Bubba Shopping List · week of " + _weekStartLabel, ""];
+                    Object.entries(_grouped).forEach(([cat, items]) => {
+                      lines.push(_catLabels[cat] || cat);
+                      items.forEach(it => {
+                        const _name = it.food || it.name || "";
+                        const _recipe = it.recipe ? ` (${it.recipe})` : "";
+                        lines.push("  • " + _name + _recipe);
+                      });
+                      lines.push("");
+                    });
+                    lines.push("Made with OBubba 💛");
+                    return lines.join("\n");
+                  })();
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.mint}33`,background:`linear-gradient(135deg,${C.mint}06,${C.sky}03)`}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                        <div>
+                          <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em"}}>🛒 This week's shopping</div>
+                          <div style={{fontSize:11,color:C.lt,marginTop:2}}>Week of {_weekStartLabel} · {_bought}/{_totalItems} bought</div>
+                        </div>
+                        <button onClick={()=>{
+                          haptic();
+                          // Open modal with the existing plan for editing
+                          setShoppingDraft({
+                            weekStart: weeklyShoppingList.weekStart || todayStr(),
+                            foods: [...(weeklyShoppingList.foods||[])],
+                            extras: [...(weeklyShoppingList.extras||[])]
+                          });
+                          setShowShoppingListModal(true);
+                        }} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.mint}44`,background:"var(--card-bg)",color:C.mint,fontSize:11,fontWeight:700,cursor:_cP}}>
+                          ✏️ Edit
+                        </button>
+                      </div>
+                      {/* Grouped items */}
+                      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:10}}>
+                        {Object.entries(_grouped).map(([cat, items]) => (
+                          <div key={cat}>
+                            <div style={{fontSize:10,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{_catLabels[cat] || cat}</div>
+                            {items.map((it, i) => {
+                              const _listKey = cat === "extras" ? "extras" : "foods";
+                              const _realIdx = _listKey === "extras"
+                                ? (weeklyShoppingList.extras||[]).indexOf(it)
+                                : (weeklyShoppingList.foods||[]).indexOf(it);
+                              return (
+                                <div key={i} onClick={()=>{haptic(8); _toggleBought(_listKey, _realIdx);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:8,background:it.bought?"var(--card-bg-alt)":"transparent",cursor:_cP,opacity:it.bought?0.55:1}}>
+                                  <div style={{width:18,height:18,borderRadius:4,border:`1.5px solid ${it.bought?C.mint:C.blush}`,background:it.bought?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:11,color:"white"}}>{it.bought?"✓":""}</div>
+                                  <span style={{fontSize:14}}>{it.emoji || "🛒"}</span>
+                                  <div style={{flex:1,fontSize:13,color:C.deep,textDecoration:it.bought?"line-through":"none"}}>
+                                    {it.food || it.name}
+                                    {it.recipe && <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:1}}>+ {it.recipe}</div>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                      {_allBought && (
+                        <div style={{padding:"8px 12px",borderRadius:12,background:C.mint+"12",border:`1px solid ${C.mint}33`,fontSize:11,color:C.mint,textAlign:"center",fontWeight:600,marginBottom:10}}>
+                          ✨ All bought! Ready for the week.
+                        </div>
+                      )}
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>{
+                          haptic();
+                          try {
+                            if (navigator.share) navigator.share({title:"Bubba Shopping List", text:_shareText});
+                            else navigator.clipboard.writeText(_shareText).then(()=>showToast("✓ Copied to clipboard",2000,1));
+                          } catch { try{navigator.clipboard.writeText(_shareText);showToast("✓ Copied",2000,1);}catch{} }
+                        }} style={{flex:1,padding:"8px",borderRadius:99,border:`1px solid ${C.mint}44`,background:"var(--card-bg)",color:C.mint,fontSize:11,fontWeight:700,cursor:_cP}}>
+                          📤 Share list
+                        </button>
+                        <button onClick={()=>{
+                          haptic();
+                          if (confirm("Clear this week's shopping list?")) setWeeklyShoppingList(null);
+                        }} style={{padding:"8px 14px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:11,fontWeight:600,cursor:_cP}}>
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                // No plan. show the "Plan next 7 days" call-to-action
+                return (
+                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px dashed ${C.mint}44`,background:`${C.mint}04`,cursor:_cP}} onClick={()=>{
+                    haptic();
+                    // Build next-7 draft from the first 7 items of _available we'd suggest
+                    // (simple heuristic: use untried foods, rotating categories)
+                    const _allFoodsLocal = [
+                      {food:"Steamed carrot",emoji:"🥕",cat:"veg",recipe:""},
+                      {food:"Steamed broccoli",emoji:"🥦",cat:"veg",recipe:""},
+                      {food:"Courgette",emoji:"🥒",cat:"veg",recipe:""},
+                      {food:"Sweet potato",emoji:"🍠",cat:"veg",recipe:""},
+                      {food:"Mashed avocado",emoji:"🥑",cat:"veg",recipe:""},
+                      {food:"Steamed peas",emoji:"🟢",cat:"veg",recipe:""},
+                      {food:"Banana",emoji:"🍌",cat:"fruit",recipe:""},
+                      {food:"Porridge fingers",emoji:"🥣",cat:"grain",recipe:""},
+                      {food:"Steamed apple",emoji:"🍎",cat:"fruit",recipe:""},
+                      {food:"Toast fingers",emoji:"🍞",cat:"grain",recipe:""},
+                      {food:"Red lentil puree",emoji:"🫘",cat:"protein",recipe:""},
+                      {food:"Beef mince",emoji:"🥩",cat:"protein",recipe:""},
+                      {food:"Chicken thigh",emoji:"🍗",cat:"protein",recipe:""},
+                      {food:"Scrambled egg",emoji:"🥚",cat:"allergen",recipe:""},
+                      {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen",recipe:""},
+                      {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy",recipe:""},
+                      {food:"Soft cooked salmon",emoji:"🐟",cat:"protein",recipe:""},
+                      {food:"Lentil dhal",emoji:"🍲",cat:"protein",recipe:""},
+                      {food:"Cheese sticks",emoji:"🧀",cat:"dairy",recipe:""},
+                    ];
+                    const _triedLocal = (weaning||[]).map(w => (w.food||"").toLowerCase());
+                    const _notTriedLocal = _allFoodsLocal.filter(f => !_triedLocal.some(t => t.includes(f.food.toLowerCase().split(" ")[0])));
+                    const _next7 = (_notTriedLocal.length ? _notTriedLocal : _allFoodsLocal).slice(0,7).map(f => ({...f, bought:false}));
+                    setShoppingDraft({
+                      weekStart: todayStr(),
+                      foods: _next7,
+                      extras: []
+                    });
+                    setShowShoppingListModal(true);
+                  }}>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{fontSize:32}}>🛒</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Plan next 7 days of foods</div>
+                        <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:2}}>Pick from upcoming suggestions, add recipes, then share the shopping list. We'll follow your plan for daily picks.</div>
+                      </div>
+                      <div style={{fontSize:16,color:C.mint}}>›</div>
+                    </div>
                   </div>
                 );
               })()}
@@ -29500,41 +30478,37 @@ function App(){
                       <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>· Tap to mark achieved</span>
                       <HelpBtn title="On Track" body="Milestones your baby is at the typical age for right now. Every baby develops differently. these are just averages."/>
                     </div>
-                    {onTrackMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
+                    {onTrackMs.map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)}
                   </div>
                 )}
 
                 {/* ── Coming Soon milestones ── */}
-                {comingSoonMs.length > 0 && (
-                  <Accordion label="Coming Soon" count={comingSoonMs.length} open={msShowUpcoming} toggle={()=>setMsShowUpcoming(v=>!v)} accent={"#9878d0"}
-                    helpText="Milestones in baby's developmental window but a bit ahead of the typical age. They may start showing these soon.">
-                    {comingSoonMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {comingSoonMs.length > 0 && renderAccordion({
+                  label:"Coming Soon", count:comingSoonMs.length, open:msShowUpcoming, toggle:()=>setMsShowUpcoming(v=>!v), accent:"#9878d0",
+                  helpText:"Milestones in baby's developmental window but a bit ahead of the typical age. They may start showing these soon.",
+                  children: comingSoonMs.map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* ── Keep Practising. past typical but still in window ── */}
-                {keepPractisingMs.length > 0 && (
-                  <Accordion label="Keep Practising" count={keepPractisingMs.length} open={msShowPastMs} toggle={()=>setMsShowPastMs(v=>!v)} accent={C.gold}
-                    helpText="Past the typical age but still within the normal developmental window. No need to worry. every baby has their own timeline.">
-                    {keepPractisingMs.map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {keepPractisingMs.length > 0 && renderAccordion({
+                  label:"Keep Practising", count:keepPractisingMs.length, open:msShowPastMs, toggle:()=>setMsShowPastMs(v=>!v), accent:C.gold,
+                  helpText:"Past the typical age but still within the normal developmental window. No need to worry. every baby has their own timeline.",
+                  children: keepPractisingMs.map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* ── Achieved. collapsed ── */}
-                {pastMs.length > 0 && (
-                  <Accordion label="Achieved" count={pastMs.length} open={msShowAchieved} toggle={()=>setMsShowAchieved(v=>!v)} accent={C.mint}
-                    helpText="All milestones your baby has achieved. Newest first.">
-                    {[...pastMs].sort((a,b)=>{const da=milestones[a.id]?.date||"";const db=milestones[b.id]?.date||"";return db.localeCompare(da);}).map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {pastMs.length > 0 && renderAccordion({
+                  label:"Achieved", count:pastMs.length, open:msShowAchieved, toggle:()=>setMsShowAchieved(v=>!v), accent:C.mint,
+                  helpText:"All milestones your baby has achieved. Newest first.",
+                  children: [...pastMs].sort((a,b)=>{const da=milestones[a.id]?.date||"";const db=milestones[b.id]?.date||"";return db.localeCompare(da);}).map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* Upcoming milestones. not yet in window but coming soon */}
-                {upcomingMs.length > 0 && (
-                  <Accordion label="Coming Up Next" count={upcomingMs.length} open={true} toggle={()=>{}} accent={C.lt}
-                    helpText={"Milestones to look forward to in the next few weeks."}>
-                    {upcomingMs.sort((a,b)=>a.weeks[0]-b.weeks[0]).map(m => <MilestoneRow key={m.id} m={m}/>)}
-                  </Accordion>
-                )}
+                {upcomingMs.length > 0 && renderAccordion({
+                  label:"Coming Up Next", count:upcomingMs.length, open:true, toggle:()=>{}, accent:C.lt,
+                  helpText:"Milestones to look forward to in the next few weeks.",
+                  children: upcomingMs.sort((a,b)=>a.weeks[0]-b.weeks[0]).map(m => <React.Fragment key={m.id}>{renderMilestoneRow(m)}</React.Fragment>)
+                })}
 
                 {/* Empty state */}
                 {onTrackMs.length === 0 && comingSoonMs.length === 0 && keepPractisingMs.length === 0 && upcomingMs.length === 0 && pastMs.length === 0 && (
@@ -29957,8 +30931,8 @@ function App(){
               <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight belong to yesterday's bedtime. This is what sleep consultants use.\n\n\u{1F55B} Midnight. Simple calendar days. 1am entries show on today. Some parents find this more intuitive."}/>
             </div>
             <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:"1px solid "+C.blush,overflow:"hidden",marginTop:8,marginBottom:8}}>
-              <button onClick={()=>{setDayBoundary("wake");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
-              <button onClick={()=>{setDayBoundary("midnight");haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
+              <button onClick={()=>{setDayBoundary("wake");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"wake"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
+              <button onClick={()=>{setDayBoundary("midnight");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"midnight"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
             </div>
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
               {dayBoundary==="wake"
@@ -30023,39 +30997,126 @@ function App(){
           {/* ═══ 6. FIRST AID QUICK REFERENCE ═══ */}
             {(()=>{
               const lang = (navigator.language||"").toLowerCase();
+              const _tzFA = (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch{return "";}})();
               const isUS = lang.startsWith("en-us");
               const isAU = lang.startsWith("en-au");
-              const isUK = !isUS && !isAU;
-              const emergNum = isUS ? "911" : isAU ? "000" : "999";
-              const poisonNum = isUS ? "1-800-222-1222" : isAU ? "13 11 26" : "111";
+              const isCA = lang.startsWith("en-ca") || lang.startsWith("fr-ca");
+              const isNZ = lang.startsWith("en-nz");
+              const isIE = lang.startsWith("en-ie") || lang === "ga";
+              const isZA = lang.includes("en-za") || _tzFA.includes("Africa/Johannesburg");
+              const isIN = lang.includes("en-in") || lang.includes("hi") || _tzFA.includes("Asia/Kolkata");
+              const isSG = lang.includes("en-sg") || _tzFA.includes("Asia/Singapore");
+              const isDE = lang.includes("de") || _tzFA.includes("Europe/Berlin");
+              const isFR = (lang.includes("fr") && !isCA) || _tzFA.includes("Europe/Paris");
+              const isES = lang.includes("es") || _tzFA.includes("Europe/Madrid");
+              const isNL = lang.includes("nl") || _tzFA.includes("Europe/Amsterdam");
+              const emergNum = isUS||isCA ? "911" : isAU||isNZ ? (isAU?"000":"111") : isDE ? "112" : isIN ? "112" : isSG ? "995" : isZA ? "10177" : "999";
+              const poisonNum = isUS ? "1-800-222-1222" : isAU ? "13 11 26" : isCA ? "1-844-764-7669" : isNZ ? "0800 764 766" : isIE ? "01 809 2166" : isZA ? "0861 555 777" : isDE ? "030 19240" : isFR ? "01 40 05 48 48" : isES ? "91 562 04 20" : isNL ? "030 274 8888" : "111";
+              // All URLs verified returning 200 OK as of 2026-04-10.
+              // When in doubt, we link to the trusted top-level health org hub
+              // rather than a deep-link that might 404. Parents in emergency
+              // should always call their local emergency number first.
               const items = isUS ? [
-                {emoji:"🫁",label:"Choking",note:"Back blows + chest thrusts",url:"https://www.redcross.org/get-help/how-to-prepare-for-emergencies/types-of-emergencies/choking.html",source:"Red Cross"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.healthychildren.org/English/health-issues/injuries-emergencies/Pages/Choking-Prevention.aspx",source:"AAP"},
                 {emoji:"🌡️",label:"Fever",note:"100.4°F+ under 3mo = call pediatrician",url:"https://www.healthychildren.org/English/health-issues/conditions/fever/Pages/Fever-and-Your-Baby.aspx",source:"AAP"},
-                {emoji:"⚡",label:"Call "+emergNum,note:"Breathing difficulty, unresponsive",url:"https://www.redcross.org/get-help/how-to-prepare-for-emergencies/types-of-emergencies.html",source:"Red Cross"},
-                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls, poisoning",url:"https://www.healthychildren.org/English/safety-prevention/at-home/Pages/First-Aid-Guide.aspx",source:"AAP"},
-                {emoji:"☠️",label:"Poison control",note:"Call "+poisonNum,url:"https://www.poison.org/",source:"AAPCC"},
+                {emoji:"⚡",label:"Call 911",note:"Breathing difficulty, unresponsive",url:"https://www.healthychildren.org/English/safety-prevention/at-home/Pages/default.aspx",source:"AAP"},
+                {emoji:"🍼",label:"Infant CPR",note:"How to resuscitate a baby",url:"https://cpr.heart.org/en/resources/infant-cpr",source:"AHA"},
+                {emoji:"☠️",label:"Poison Control",note:"Call "+poisonNum,url:"https://www.poison.org/",source:"Poison Help"},
+              ] : isCA ? [
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.caringforkids.cps.ca/handouts/safety-and-injury-prevention",source:"Caring for Kids"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see doctor",url:"https://www.caringforkids.cps.ca/handouts/health-conditions-and-treatments/fever_and_temperature_taking",source:"Caring for Kids"},
+                {emoji:"⚡",label:"Call 911",note:"Breathing difficulty, unresponsive",url:"https://www.caringforkids.cps.ca/handouts/safety-and-injury-prevention",source:"Caring for Kids"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.caringforkids.cps.ca/handouts/safety-and-injury-prevention",source:"Caring for Kids"},
+                {emoji:"☠️",label:"Poison Control",note:"Call "+poisonNum,url:"https://infopoison.ca/",source:"Poison Centres"},
               ] : isAU ? [
-                {emoji:"🫁",label:"Choking",note:"Back blows + chest thrusts",url:"https://www.stjohn.org.au/first-aid-facts/breathing-emergencies/choking-baby",source:"St John AU"},
-                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call GP or 000",url:"https://www.rch.org.au/kidsinfo/fact_sheets/Fever_in_children/",source:"RCH"},
-                {emoji:"⚡",label:"Call "+emergNum,note:"Breathing difficulty, unresponsive",url:"https://www.healthdirect.gov.au/when-to-call-000",source:"Healthdirect"},
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.stjohn.org.au/first-aid-facts/breathing-emergencies/choking-baby",source:"St John AU"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see GP or call 000",url:"https://www.rch.org.au/kidsinfo/fact_sheets/Fever_in_children/",source:"RCH Melbourne"},
+                {emoji:"⚡",label:"Call 000",note:"Breathing difficulty, unresponsive",url:"https://www.healthdirect.gov.au/",source:"Healthdirect"},
                 {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.stjohn.org.au/first-aid-facts",source:"St John AU"},
-                {emoji:"☠️",label:"Poison info",note:"Call "+poisonNum,url:"https://www.poisonsinfo.nsw.gov.au/",source:"NSW Poisons"},
+                {emoji:"☠️",label:"Poisons Info",note:"Call "+poisonNum,url:"https://www.poisonsinfo.nsw.gov.au/",source:"NSW Poisons"},
+              ] : isNZ ? [
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.stjohn.org.nz/first-aid/first-aid-library/",source:"St John NZ"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call Plunket",url:"https://www.plunket.org.nz/",source:"Plunket"},
+                {emoji:"⚡",label:"Call 111",note:"Breathing difficulty, unresponsive",url:"https://www.stjohn.org.nz/first-aid/",source:"St John NZ"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.stjohn.org.nz/first-aid/first-aid-library/",source:"St John NZ"},
+                {emoji:"☠️",label:"Poison Centre",note:"Call "+poisonNum,url:"https://www.poisons.co.nz/",source:"NZ Poisons Centre"},
+              ] : isIE ? [
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www2.hse.ie/babies-children/first-aid/",source:"HSE"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call GP",url:"https://www2.hse.ie/babies-children/",source:"HSE"},
+                {emoji:"⚡",label:"Call 999 or 112",note:"Breathing difficulty, unresponsive",url:"https://www2.hse.ie/babies-children/first-aid/",source:"HSE"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www2.hse.ie/babies-children/first-aid/",source:"HSE"},
+                {emoji:"☠️",label:"Poisons Info",note:"Call "+poisonNum,url:"https://www.poisons.ie/",source:"Poisons Centre"},
+              ] : isZA ? [
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.westerncape.gov.za/",source:"Western Cape Gov"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see doctor",url:"https://www.westerncape.gov.za/",source:"Western Cape Gov"},
+                {emoji:"⚡",label:"Call "+emergNum,note:"Breathing difficulty, unresponsive",url:"https://www.er24.co.za/",source:"ER24"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.redcross.org.za/",source:"Red Cross SA"},
+                {emoji:"☠️",label:"Poison Info",note:"Call "+poisonNum,url:"https://www.afritox.co.za/",source:"Tygerberg Poison Centre"},
+              ] : isIN ? [
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.iapindia.org/",source:"IAP India"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = see pediatrician",url:"https://www.iapindia.org/",source:"IAP India"},
+                {emoji:"⚡",label:"Call 112",note:"Breathing difficulty, unresponsive",url:"https://www.iapindia.org/",source:"IAP India"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.indianredcross.org/",source:"Indian Red Cross"},
+                {emoji:"☠️",label:"Poison Info",note:"Call "+poisonNum,url:"https://www.aiims.edu/",source:"AIIMS"},
+              ] : isSG ? [
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts",url:"https://www.healthhub.sg/",source:"HealthHub"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call doctor",url:"https://www.healthhub.sg/",source:"HealthHub"},
+                {emoji:"⚡",label:"Call 995",note:"Breathing difficulty, unresponsive",url:"https://www.scdf.gov.sg/",source:"SCDF"},
+                {emoji:"🍼",label:"Baby first aid",note:"CPR, burns, falls",url:"https://www.healthhub.sg/",source:"HealthHub"},
+                {emoji:"☠️",label:"Hospital",note:"Call "+poisonNum,url:"https://www.singhealth.com.sg/",source:"SingHealth"},
+              ] : isDE ? [
+                {emoji:"🫁",label:"Ersticken (Baby)",note:"Rückenschläge + Brustkorbkomp.",url:"https://www.kindergesundheit-info.de/themen/sicher-aufwachsen/",source:"BZgA"},
+                {emoji:"🌡️",label:"Fieber",note:"38°C+ unter 3 Mo = Kinderarzt",url:"https://www.kindergesundheit-info.de/themen/sicher-aufwachsen/",source:"BZgA"},
+                {emoji:"⚡",label:"Notruf 112",note:"Atemnot, bewusstlos",url:"https://www.drk.de/hilfe-in-deutschland/erste-hilfe/",source:"DRK"},
+                {emoji:"🍼",label:"Baby Erste Hilfe",note:"CPR, Verbrennungen, Stürze",url:"https://www.drk.de/hilfe-in-deutschland/erste-hilfe/",source:"DRK"},
+                {emoji:"☠️",label:"Giftnotruf",note:"Call "+poisonNum,url:"https://www.giz-nord.de/cms/",source:"GIZ-Nord"},
+              ] : isFR ? [
+                {emoji:"🫁",label:"Étouffement (bébé)",note:"Tapes dorsales + compressions",url:"https://www.croix-rouge.fr/",source:"Croix-Rouge"},
+                {emoji:"🌡️",label:"Fièvre",note:"38°C+ moins de 3 mois = médecin",url:"https://www.ameli.fr/",source:"Ameli"},
+                {emoji:"⚡",label:"Appeler le 15 ou 112",note:"Difficulté respiratoire, inconscient",url:"https://www.ameli.fr/",source:"Ameli"},
+                {emoji:"🍼",label:"Premiers secours bébé",note:"RCP, brûlures, chutes",url:"https://www.croix-rouge.fr/",source:"Croix-Rouge"},
+                {emoji:"☠️",label:"Centre antipoison",note:"Call "+poisonNum,url:"https://www.centres-antipoison.net/",source:"Centres antipoison"},
+              ] : isES ? [
+                {emoji:"🫁",label:"Atragantamiento",note:"Golpes en la espalda + compresiones",url:"https://enfamilia.aeped.es/",source:"AEPED En Familia"},
+                {emoji:"🌡️",label:"Fiebre",note:"38°C+ menos de 3 meses = pediatra",url:"https://enfamilia.aeped.es/",source:"AEPED En Familia"},
+                {emoji:"⚡",label:"Llamar al 112",note:"Dificultad respiratoria, inconsciente",url:"https://enfamilia.aeped.es/",source:"AEPED En Familia"},
+                {emoji:"🍼",label:"Primeros auxilios bebé",note:"RCP, quemaduras, caídas",url:"https://www.cruzroja.es/",source:"Cruz Roja"},
+                {emoji:"☠️",label:"Cruz Roja",note:"Formación primeros auxilios",url:"https://www.cruzroja.es/",source:"Cruz Roja"},
+              ] : isNL ? [
+                {emoji:"🫁",label:"Verslikking (baby)",note:"Rugslagen + borstcompressies",url:"https://www.ehbo.nl/",source:"Het Oranje Kruis"},
+                {emoji:"🌡️",label:"Koorts",note:"38°C+ onder 3 maanden = huisarts",url:"https://www.thuisarts.nl/koorts-bij-kinderen",source:"Thuisarts"},
+                {emoji:"⚡",label:"Bel 112",note:"Ademhalingsproblemen, bewusteloos",url:"https://www.rodekruis.nl/",source:"Rode Kruis"},
+                {emoji:"🍼",label:"EHBO bij baby's",note:"Reanimatie, brandwonden, vallen",url:"https://www.rodekruis.nl/",source:"Rode Kruis"},
+                {emoji:"☠️",label:"Vergiftiging",note:"Call "+poisonNum,url:"https://www.vergiftigingen.info/",source:"NVIC"},
               ] : [
-                {emoji:"🫁",label:"Choking",note:"Back blows + chest thrusts for under 1s",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-stop-a-child-from-choking/",source:"NHS"},
-                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call 111",url:"https://www.nhs.uk/symptoms/fever-in-children/",source:"NHS"},
-                {emoji:"⚡",label:"Call "+emergNum,note:"Breathing difficulty, unresponsive, rash",url:"https://www.nhs.uk/nhs-services/urgent-and-emergency-care-services/when-to-call-999/",source:"NHS"},
-                {emoji:"🍼",label:"Baby CPR",note:"How to resuscitate a baby",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-resuscitate-a-child/",source:"NHS"},
+                // UK (default)
+                {emoji:"🫁",label:"Choking (baby)",note:"Back blows + chest thrusts for under 1s",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-stop-a-child-from-choking/",source:"NHS"},
+                {emoji:"🌡️",label:"Fever",note:"38°C+ under 3mo = call 111",url:"https://www.nhs.uk/conditions/fever-in-children/",source:"NHS"},
+                {emoji:"⚡",label:"Call 999",note:"Breathing difficulty, unresponsive, rash",url:"https://www.nhs.uk/nhs-services/urgent-and-emergency-care-services/when-to-call-999/",source:"NHS"},
+                {emoji:"🍼",label:"Baby first aid",note:"How to respond to emergencies",url:"https://www.nhs.uk/baby/first-aid-and-safety/first-aid/",source:"NHS"},
                 {emoji:"💊",label:"Meningitis signs",note:"Stiff neck, light sensitivity, rash",url:"https://www.nhs.uk/conditions/meningitis/symptoms/",source:"NHS"},
               ];
+              const _openLink = (url) => {
+                try {
+                  // Capacitor iOS/Android: "_system" opens in Safari/Chrome, not the in-app webview
+                  // Web PWA: "_blank" opens new tab
+                  window.open(url, window._isNative ? "_system" : "_blank");
+                } catch(_) {}
+              };
               return (
               <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid rgba(232,87,74,0.15)`}}>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
                   <span style={_S.f16}>🩹</span>
                   <span style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>First Aid Quick Reference</span>
                 </div>
+                {/* Critical disclaimer — always visible */}
+                <div style={{padding:"10px 12px",borderRadius:10,background:"rgba(232,87,74,0.08)",border:"1px solid rgba(232,87,74,0.25)",marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#c94838",marginBottom:3}}>⚠️ Reference only. verify with your country's official guidance</div>
+                  <div style={{fontSize:10,color:C.mid,lineHeight:1.4}}>In an emergency, <strong>call {emergNum} first</strong>. Links below point to official health organizations. Guidance updates over time. take an in-person infant first aid course and confirm current steps with your local health authority.</div>
+                </div>
                 <div style={{display:"flex",flexDirection:"column",gap:4}}>
                   {items.map((item,i)=>(
-                    <button key={i} onClick={()=>{if(window._isNative){window.location.href=item.url;}else{try{window.open(item.url,"_blank");}catch{}}}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left",width:"100%"}}>
+                    <button key={i} onClick={()=>{haptic();_openLink(item.url);}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left",width:"100%"}}>
                       <span style={_S.f14}>{item.emoji}</span>
                       <div style={_S.flex1}>
                         <div style={{fontSize:12,fontWeight:600,color:C.deep}}>{item.label}</div>
@@ -30065,7 +31126,7 @@ function App(){
                     </button>
                   ))}
                 </div>
-                <div style={{fontSize:9,color:C.lt,marginTop:6}}>Official resources. not medical advice. Emergency: {emergNum}</div>
+                <div style={{fontSize:9,color:C.lt,marginTop:6,textAlign:"center",fontStyle:"italic"}}>Not medical advice · Emergency: {emergNum}</div>
               </div>
               );
             })()}
@@ -31734,21 +32795,66 @@ function App(){
               <div style={{fontSize:12,fontWeight:700,color:"#7b68ee",marginBottom:12,letterSpacing:"0.04em",textTransform:"uppercase"}}>
                 {showWellbeing.label==="Need support" ? "🫂 Start here. one call" : "💬 Talk to someone"}
               </div>
-              {(_isUS ? [
-                {name:"Postpartum Support International",num:"1-800-944-4773",hours:"Helpline + text support",primary:true},
-                {name:"988 Suicide & Crisis Lifeline",num:"988",hours:"24/7. call or text",primary:false},
-                {name:"SAMHSA Helpline",num:"1-800-662-4357",hours:"24/7, free, confidential",primary:false},
-              ] : _isAU ? [
-                {name:"PANDA",num:"1300 726 306",hours:"Mon–Fri 9am–7:30pm AEST",primary:true},
-                {name:"Beyond Blue",num:"1300 22 4636",hours:"24/7",primary:false},
-                {name:"Lifeline",num:"13 11 14",hours:"24/7",primary:false},
-              ] : [
-                {name:"PANDAS Foundation",num:"0808 196 1776",hours:"Mon–Fri 11am–10pm. free, confidential",primary:true},
-                {name:"Samaritans",num:"116 123",hours:"Free, 24/7. any reason, any time",primary:false},
-                {name:"NHS Talking Therapies",num:"nhs.uk/talking-therapies",hours:"Self-refer online. no GP needed",primary:false},
-              ]).map((r,i)=>(
-                <a key={i} href={r.num.match(/^[0-9]/) ? "tel:"+r.num.replace(/[^0-9]/g,"") : "https://www.nhs.uk/mental-health/talking-therapies-medicine-treatments/talking-therapies-and-counselling/nhs-talking-therapies/"}
-                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderTop:i?`1px solid rgba(123,104,238,0.1)`:"none",textDecoration:"none",cursor:"pointer"}}>
+              {(()=>{
+                // Country detection (matches the main support modal)
+                const _loc = (navigator.language||"en-gb").toLowerCase();
+                const _tz = (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch{return "";}})();
+                const _isZA = _loc.includes("en-za") || _tz.includes("Africa/Johannesburg");
+                const _isIN = _loc.includes("en-in") || _loc.includes("hi") || _tz.includes("Asia/Kolkata");
+                const _isSG = _loc.includes("en-sg") || _tz.includes("Asia/Singapore");
+                const _isDE = _loc.includes("de") || _tz.includes("Europe/Berlin");
+                const _isFR = (_loc.includes("fr") && !_isCA) || _tz.includes("Europe/Paris");
+                const _isES = _loc.includes("es") || _tz.includes("Europe/Madrid");
+                const _isNL = _loc.includes("nl") || _tz.includes("Europe/Amsterdam");
+                return (_isUS ? [
+                  {name:"Postpartum Support International",num:"1-800-944-4773",hours:"Helpline + text support",primary:true},
+                  {name:"988 Suicide & Crisis Lifeline",num:"988",hours:"24/7. call or text",primary:false},
+                  {name:"SAMHSA Helpline",num:"1-800-662-4357",hours:"24/7, free, confidential",primary:false},
+                ] : _isAU ? [
+                  {name:"PANDA",num:"1300 726 306",hours:"Mon–Fri 9am–7:30pm AEST",primary:true},
+                  {name:"Beyond Blue",num:"1300 22 4636",hours:"24/7",primary:false},
+                  {name:"Lifeline",num:"13 11 14",hours:"24/7",primary:false},
+                ] : _isCA ? [
+                  {name:"Pacific Postpartum Support Society",num:"604-255-7999",hours:"Mon–Fri. Perinatal support",primary:true},
+                  {name:"Talk Suicide Canada",num:"1-833-456-4566",hours:"24/7. Free. Call or text",primary:false},
+                  {name:"Kids Help Phone",num:"1-800-668-6868",hours:"24/7. For parents too",primary:false},
+                ] : _isNZ ? [
+                  {name:"PlunketLine",num:"0800 933 922",hours:"24/7. Free parent support",primary:true},
+                  {name:"Lifeline NZ",num:"0800 543 354",hours:"24/7",primary:false},
+                  {name:"1737 Need to Talk",num:"1737",hours:"Free call or text. 24/7",primary:false},
+                ] : _isIE ? [
+                  {name:"Parentline Ireland",num:"1890 927 277",hours:"Mon–Thu 10am–9pm",primary:true},
+                  {name:"Samaritans Ireland",num:"116 123",hours:"24/7. Free",primary:false},
+                  {name:"Aware",num:"1800 804 848",hours:"Mon–Sun 10am–10pm",primary:false},
+                ] : _isZA ? [
+                  {name:"SADAG Helpline",num:"0800 567 567",hours:"Depression & anxiety. 24/7",primary:true},
+                  {name:"Lifeline South Africa",num:"0861 322 322",hours:"24/7",primary:false},
+                ] : _isIN ? [
+                  {name:"Vandrevala Foundation",num:"1860 266 2345",hours:"24/7. Free. Multilingual",primary:true},
+                  {name:"iCall",num:"9152987821",hours:"Mon–Sat 8am–10pm",primary:false},
+                ] : _isSG ? [
+                  {name:"Samaritans of Singapore",num:"1800 221 4444",hours:"24/7",primary:true},
+                  {name:"Singapore Association for Mental Health",num:"1800 283 7019",hours:"Mon–Fri 9am–6pm",primary:false},
+                ] : _isDE ? [
+                  {name:"Telefonseelsorge",num:"0800 111 0111",hours:"24/7. Kostenlos",primary:true},
+                  {name:"Elterntelefon",num:"0800 111 0550",hours:"Mo–Fr 9–17 Uhr",primary:false},
+                ] : _isFR ? [
+                  {name:"SOS Amitié",num:"09 72 39 40 50",hours:"24/7. Gratuit",primary:true},
+                  {name:"Fil Santé Jeunes",num:"0800 235 236",hours:"Tous les jours 9h–23h",primary:false},
+                ] : _isES ? [
+                  {name:"Teléfono de la Esperanza",num:"717 003 717",hours:"24/7. Gratuito",primary:true},
+                  {name:"Teléfono contra el Suicidio",num:"024",hours:"24/7. Gratuito",primary:false},
+                ] : _isNL ? [
+                  {name:"113 Zelfmoordpreventie",num:"0900 0113",hours:"24/7",primary:true},
+                  {name:"Ouders van Nu",num:"030 291 6800",hours:"Ouderlijn",primary:false},
+                ] : [
+                  {name:"PANDAS Foundation",num:"0808 196 1776",hours:"Mon–Fri 11am–10pm. free, confidential",primary:true},
+                  {name:"Samaritans",num:"116 123",hours:"Free, 24/7. any reason, any time",primary:false},
+                  {name:"NHS 111",num:"111",hours:"Health advice when it's not 999",primary:false},
+                ]);
+              })().map((r,i)=>(
+                <div key={i} onClick={()=>{haptic();try{const _url=r.num.match(/^[0-9]/) ? "tel:"+r.num.replace(/[^0-9]/g,"") : "https://www.nhs.uk/mental-health/talking-therapies-medicine-treatments/talking-therapies-and-counselling/nhs-talking-therapies/";window.open(_url,"_system");}catch{}}}
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderTop:i?`1px solid rgba(123,104,238,0.1)`:"none",cursor:"pointer"}}>
                   <div style={_S.flex1}>
                     <div style={{fontSize:14,fontWeight:r.primary?700:600,color:r.primary?C.deep:C.mid}}>{r.name}</div>
                     <div style={{fontSize:11,color:C.lt,marginTop:2}}>{r.hours}</div>
@@ -31756,7 +32862,7 @@ function App(){
                   <div style={{padding:"6px 12px",borderRadius:99,background:r.primary?"rgba(123,104,238,0.15)":"var(--card-bg-alt)",fontSize:13,fontWeight:700,color:r.primary?"#7b68ee":C.lt,whiteSpace:"nowrap",marginLeft:8}}>
                     {r.num.match(/^[\d-]/) ? `📞 ${r.num}` : "🌐 Visit"}
                   </div>
-                </a>
+                </div>
               ))}
             </div>
 
@@ -32726,16 +33832,42 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
             )}
 
-            {/* Support resources */}
-            <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(155,184,168,0.08)",border:"1px solid rgba(155,184,168,0.15)",marginBottom:16,textAlign:"left"}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.mint,marginBottom:6}}>If you need someone to talk to</div>
-              <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
-                📞 Sands (stillbirth & neonatal death): <a href="tel:08081643332" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>0808 164 3332</a><br/>
-                📞 The Lullaby Trust bereavement: <a href="tel:08088026868" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>0808 802 6868</a><br/>
-                📞 Samaritans: <a href="tel:116123" style={{color:C.ter,textDecoration:"none",fontWeight:600}}>116 123</a> (24/7)<br/>
-                <span style={{fontSize:11,fontStyle:"italic",color:C.lt}}>You don't have to carry this alone.</span>
-              </div>
-            </div>
+            {/* Support resources — country-specific bereavement helplines */}
+            {(()=>{
+              const _bLines = _isUS ? [
+                {label:"Postpartum Support International",phone:"1-800-944-4773",dial:"18009444773"},
+                {label:"First Candle (SIDS bereavement)",phone:"1-800-221-7437",dial:"18002217437"},
+                {label:"988 Suicide & Crisis Lifeline",phone:"988",dial:"988"},
+              ] : _isAU ? [
+                {label:"Red Nose Grief & Loss",phone:"1300 308 307",dial:"1300308307"},
+                {label:"SANDS Australia",phone:"1300 072 637",dial:"1300072637"},
+                {label:"Lifeline",phone:"13 11 14",dial:"131114"},
+              ] : _isCA ? [
+                {label:"Talk Suicide Canada",phone:"1-833-456-4566",dial:"18334564566"},
+                {label:"Pregnancy & Infant Loss Network",phone:"1-888-303-7222",dial:"18883037222"},
+              ] : _isNZ ? [
+                {label:"Sands NZ (baby loss)",phone:"09 636 9835",dial:"096369835"},
+                {label:"1737 Need to Talk",phone:"1737",dial:"1737"},
+              ] : _isIE ? [
+                {label:"A Little Lifetime Foundation",phone:"01 872 6996",dial:"018726996"},
+                {label:"Samaritans Ireland",phone:"116 123",dial:"116123"},
+              ] : [
+                {label:"Sands (stillbirth & neonatal death)",phone:"0808 164 3332",dial:"08081643332"},
+                {label:"The Lullaby Trust bereavement",phone:"0808 802 6868",dial:"08088026868"},
+                {label:"Samaritans",phone:"116 123",dial:"116123"},
+              ];
+              return (
+                <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(155,184,168,0.08)",border:"1px solid rgba(155,184,168,0.15)",marginBottom:16,textAlign:"left"}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.mint,marginBottom:6}}>If you need someone to talk to</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
+                    {_bLines.map((b,bi)=>(
+                      <span key={bi}>📞 {b.label}: <span onClick={()=>{haptic();try{window.open("tel:"+b.dial,"_system");}catch{}}} style={{color:C.ter,fontWeight:600,cursor:"pointer"}}>{b.phone}</span><br/></span>
+                    ))}
+                    <span style={{fontSize:11,fontStyle:"italic",color:C.lt}}>You don't have to carry this alone.</span>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>unarchiveChild(showMemorial)} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
@@ -32768,6 +33900,43 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           try { const td = tickDataRef.current||{}; if(td.bedMins) return fmt12(minsToTime(td.bedMins)); } catch {}
           return null;
         })();
+        // ── Nightly sleep tip ── rotates deterministically by day-of-year so
+        // each evening the parent sees a different genuinely-helpful sleep tip.
+        const _sleepTips = [
+          { emoji: "🎵", title: "Build a sleep-association cue", body: "Pick one song, white noise track, or lullaby and play it EVERY bedtime and nap. Over weeks, baby's brain will link the sound to sleep. Power of repetition — consistency matters more than the specific sound." },
+          { emoji: "💡", title: "Dim lights 30 minutes before bed", body: "Bright light suppresses melatonin for up to an hour. Turn off overhead lights, use a warm lamp or red nightlight. This alone can shave 15–20 min off how long it takes baby to settle." },
+          { emoji: "🌡️", title: "Room temperature: 16–20°C", body: "Babies sleep best slightly cool. Too warm is linked to more wakes AND is a SIDS risk factor. A thermometer in the room (not on baby) is the simplest check." },
+          { emoji: "😴", title: "Drowsy but awake — the golden rule", body: "Put baby down when they're relaxed and heavy but still awake. This lets them practise falling asleep on their own, which means they can re-settle at 2am without needing you. Biggest single factor for independent sleep." },
+          { emoji: "🔇", title: "White noise the whole night", body: "If you use white noise at bedtime, leave it on ALL night at a low volume (~50dB). Babies stir between sleep cycles — if the sound they fell asleep to is gone, they wake up fully. Keep it constant." },
+          { emoji: "🍼", title: "Final feed before the bath, not after", body: "Feeding LAST creates a feed-to-sleep association that's hard to unwind. Try feeding earlier in the routine (before bath or story), so baby learns to fall asleep without the breast or bottle." },
+          { emoji: "🌒", title: "Blackout is worth the money", body: "Even a tiny amount of light can suppress melatonin. Blackout curtains or blinds (or foil on windows as a hack) make a real difference for both falling asleep and early-morning wakes." },
+          { emoji: "📖", title: "Same story, every night", body: "It might feel boring for you, but repetition is how babies learn 'this means sleep is coming'. Pick one short book or rhyme and stick with it for months. Novelty = stimulation; repetition = calm." },
+          { emoji: "🫂", title: "Keep the routine short", body: "A long routine (>30 min) often means baby gets a second wind. 15–20 minutes total is enough. The goal is wind-down, not entertainment." },
+          { emoji: "⏰", title: "Consistent bedtime window", body: "Aim for the same bedtime within ±15 minutes every night, even weekends. Baby's circadian rhythm rewards predictability. Drifting later on weekends is a common cause of Monday-night fussiness." },
+          { emoji: "🤱", title: "Full feed, not a snack", body: "Babies who 'snack' before bed wake hungry in 2–3 hours. Make the final feed the biggest feed — unhurried, both sides if breastfeeding, or a full bottle. A full tummy = longer first sleep stretch." },
+          { emoji: "🌙", title: "No eye contact after lights out", body: "Once you've said goodnight, avoid eye contact and speech. Eye contact activates baby's social brain, which fights sleep. If baby stirs, a gentle hand on the chest is enough." },
+          { emoji: "💤", title: "The 5-minute wait", body: "When baby fusses in the middle of the night, pause for 5 minutes before going in. Many babies self-settle. Rushing in can turn a micro-wake into a full wake-up because you've started a social interaction." },
+          { emoji: "🧸", title: "Sleep cues not clock", body: "Watch for yawning, eye-rubbing, staring-off. These are the 10-minute warning before the 'sleep window' closes. Catching it early means baby settles in 5 min; missing it means 30 min of overtired crying." },
+          { emoji: "🛏️", title: "Same bed, same room", body: "Babies sleep best in the same place every night. Moving between cot, co-sleeper, and travel cot disrupts sleep quality. Consistency of the sleep environment is a top predictor of longer stretches." },
+          { emoji: "🚿", title: "Warm bath drops core temp", body: "A warm bath 30–45 min before bed raises baby's skin temp then drops core temp as they cool. That core-temperature drop is a biological sleep trigger. This is why baths are so powerful." },
+          { emoji: "👕", title: "Sleeping bag = cues", body: "A sleeping bag (TOG 2.5 in winter, 1.0 in summer) acts as a sleep association — baby learns 'bag on = time to sleep'. Bonus: no loose blankets, which is the safest sleep setup." },
+          { emoji: "🎧", title: "Your voice is powerful", body: "If you sing or hum the same tune while settling, your voice becomes the cue. Works even when you're not in the room — a recording of you humming is genuinely effective for some babies." },
+          { emoji: "🌅", title: "Sunlight in the morning", body: "Getting baby outside (or near a bright window) within an hour of waking sets their circadian clock. This is the single biggest thing you can do for better night sleep — and it's free." },
+          { emoji: "🕯️", title: "Red light for night feeds", body: "If you need to feed or change during the night, use a red-spectrum nightlight. Red doesn't suppress melatonin the way white or blue does, so baby stays sleepy and goes back down easier." },
+          { emoji: "🧘", title: "Your calm = their calm", body: "Babies mirror your nervous system. If bedtime is making you tense, they feel it and resist sleep. Three slow breaths before you start the routine. This isn't fluffy — it's real." },
+          { emoji: "🔁", title: "Wake windows, not the clock", body: "Forget '7pm bedtime fits all'. Watch the wake window from the last nap. If baby woke at 5:30pm and their window is 2h, bedtime is 7:30pm tonight. Flexible, responsive, biology-led." },
+          { emoji: "🥣", title: "Late nap < 4pm", body: "A nap that runs past 4pm eats into sleep pressure, making bedtime harder. If baby is asleep at 4pm, it's okay to gently wake them — the tradeoff is worth it for an easier settle." },
+          { emoji: "🫖", title: "Avoid the 'rescue nap'", body: "If baby is exhausted at 5pm, resist putting them down 'just for 20 minutes'. A catnap after 4pm almost always pushes bedtime past 9pm. Better to push through with calm activity." },
+          { emoji: "📱", title: "No screens in the hour before bed", body: "Blue light suppresses melatonin for up to an hour. This goes for baby (no screen time) AND for you in the same room — a bright phone near a baby delays their sleep too." },
+          { emoji: "🌿", title: "Lavender oil — the research", body: "Small studies show lavender-scented bath or diffuser can reduce crying and improve sleep quality. Not a miracle, but it's a cheap, low-risk addition. Use a tiny amount, well-ventilated room." },
+          { emoji: "⏳", title: "Don't rush the cry", body: "Babies often make noises — grunting, fussing, even brief cries — BETWEEN sleep cycles without fully waking. If you wait 2 minutes before rushing in, many will drift back on their own." },
+          { emoji: "🌡️", title: "Check the back of the neck", body: "To tell if baby is warm enough, feel the back of their neck (not hands or feet, which always run cool). Should feel warm but not sweaty. This is the single best temperature check." },
+          { emoji: "🎨", title: "Keep the nursery boring", body: "Bright colours and busy mobiles stimulate the brain. For the sleep space, less is more: one muted colour, one mobile MAX, no toys in the cot. Save the stimulation for daytime." },
+          { emoji: "🕊️", title: "One parent, one routine", body: "If both parents do the routine differently, baby gets confused signals. Agree on the exact sequence and stick to it — this speeds up learning. Your shared consistency is the superpower." },
+        ];
+        const _doyTip = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+        const _tipIdx = _doyTip % _sleepTips.length;
+        const _nightTip = _sleepTips[_tipIdx];
         return (
         <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(44,31,26,0.8)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowBedRoutine(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto"}}>
@@ -32783,6 +33952,21 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               {_steps.map((st, i) => (
                 <div key={i} style={{flex:1,height:4,borderRadius:99,background:i < bedRoutineStep ? C.mint : i === bedRoutineStep ? C.ter : C.blush,transition:"background 0.3s"}}/>
               ))}
+            </div>
+
+            {/* Tonight's sleep tip (rotates nightly by day-of-year) */}
+            <div style={{padding:"12px 14px",borderRadius:14,background:`linear-gradient(135deg,rgba(155,139,184,0.08),rgba(111,168,152,0.04))`,border:"1px solid rgba(155,139,184,0.2)",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                <span style={{fontSize:11,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.05em"}}>💡 Tonight's tip</span>
+                <span style={{fontSize:9,color:C.lt}}>· one new idea per night</span>
+              </div>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{_nightTip.emoji}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_nightTip.title}</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{_nightTip.body}</div>
+                </div>
+              </div>
             </div>
 
             {/* Current step */}
@@ -33050,14 +34234,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 {name:"NSPCC",phone:"0808-800-5000",note:"If you're worried about hurting your child"},
               ];
               return _lines.map((l,i)=>(
-                <a key={i} href={"tel:"+l.phone.replace(/[^0-9+]/g,"")} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:14,border:"1.5px solid rgba(123,104,238,0.2)",background:"rgba(123,104,238,0.04)",marginBottom:8,textDecoration:"none",color:C.deep,cursor:"pointer"}}>
+                <div key={i} onClick={()=>{try{window.open("tel:"+l.phone.replace(/[^0-9+]/g,""),"_system");}catch{}haptic();}} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:14,border:"1.5px solid rgba(123,104,238,0.2)",background:"rgba(123,104,238,0.04)",marginBottom:8,color:C.deep,cursor:"pointer"}}>
                   <span style={{fontSize:22}}>📞</span>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700}}>{l.name}</div>
                     <div style={{fontSize:12,color:C.lt}}>{l.note}</div>
                   </div>
                   <div style={{fontSize:15,fontWeight:700,color:"#7B68EE",fontFamily:"ui-monospace,monospace"}}>{l.phone}</div>
-                </a>
+                </div>
               ));
             })()}
 
@@ -33275,7 +34459,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     style={{minWidth:0,padding:"9px 10px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB,gridColumn:"1 / 4"}}/>
                 </div>
               ))}
-              <button onClick={()=>setEmergencyContacts(prev=>[...prev,{name:"",phone:"",relation:""}])}
+              <button onClick={()=>setEmergencyContacts(prev=>[...prev,{id:uid(),name:"",phone:"",relation:""}])}
                 style={{width:"100%",padding:"8px",borderRadius:10,border:`1.5px dashed ${C.blush}`,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
                 + Add contact
               </button>
@@ -33312,7 +34496,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <button onClick={e=>{
               e.stopPropagation();haptic();
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
-              const _url = "https://obubba.com/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
+              const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
               if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
               else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
@@ -33683,9 +34867,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               if(nwForm.settleDuration) entry.settleDuration = parseInt(nwForm.settleDuration);
               if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
-                // Night wakes from the manual form save to selDay —
-                // the user explicitly navigated to this day and pressed "+ add"
-                const targetDay = selDay;
+                // Night wakes respect dayBoundary: in wake mode, route to bedTimerDay
+                const _todayCal = todayStr();
+                const targetDay = (dayBoundary === "wake" && bedTimerDay && bedTimerDay !== _todayCal && selDay === _todayCal)
+                  ? bedTimerDay : selDay;
                 const existing = d[targetDay]||[];
                 const filtered = nightEditId ? existing.filter(x=>x.id!==nightEditId) : existing;
                 const combined = [...filtered, entry];
@@ -34728,6 +35913,28 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               Enter a time {babyName||"baby"} needs to be awake or asleep, and we'll build the optimal day around it.
             </div>
 
+            {/* Adjusted schedule. set target wake + bedtime */}
+            <button onClick={()=>{
+              haptic();
+              setAdjForm({wakeTime:scheduleOverride&&scheduleOverride.wake?(String(Math.floor(scheduleOverride.wake/60)).padStart(2,"0")+":"+String(scheduleOverride.wake%60).padStart(2,"0")):"",bedTime:scheduleOverride&&scheduleOverride.bed?(String(Math.floor(scheduleOverride.bed/60)).padStart(2,"0")+":"+String(scheduleOverride.bed%60).padStart(2,"0")):"",duration:scheduleOverride&&scheduleOverride.permanent?"permanent":"today"});
+              setShowScheduleMaker(false);
+              setShowAdjustSchedule(true);
+            }} style={{width:"100%",padding:"12px 14px",marginBottom:14,borderRadius:12,border:`1.5px solid ${C.sky}40`,background:`linear-gradient(135deg,${C.sky}10,${C.mint}06)`,color:C.sky,fontSize:13,fontWeight:700,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>⚙️</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:2}}>Set preferred wake & bedtime</div>
+                <div style={{fontSize:11,color:C.lt,fontWeight:500,lineHeight:1.4}}>Guide {babyName||"baby"} toward a healthier rhythm. Naps adjust automatically within NHS-safe wake windows.</div>
+                {scheduleOverride && <div style={{fontSize:10,color:C.gold,marginTop:4,fontWeight:600}}>⚙️ Currently active{scheduleOverride.permanent?" (every day)":" (today only)"}</div>}
+              </div>
+              <span style={{fontSize:14,color:C.sky}}>›</span>
+            </button>
+
+            <div style={{display:"flex",alignItems:"center",gap:8,margin:"4px 0 14px"}}>
+              <div style={{flex:1,height:1,background:C.blush}}/>
+              <span style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1}}>or build around an event</span>
+              <div style={{flex:1,height:1,background:C.blush}}/>
+            </div>
+
             <Inp label="What's happening?" type="text" placeholder="e.g. Baby class, Doctor visit, Car journey" value={smEvent.label} onChange={e=>setSmEvent(f=>({...f,label:e.target.value}))}/>
 
             {/* Awake or Asleep toggle */}
@@ -35041,6 +36248,202 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           </div>
         </div>
       )}
+
+      {/* ═══ Schedule Adjustment Notice ═══ */}
+      {scheduleAdjustmentNotice && (
+        <div style={{position:"fixed",inset:0,zIndex:9991,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setScheduleAdjustmentNotice(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:24,padding:"22px 22px 20px",maxWidth:400,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 10px 40px rgba(0,0,0,0.15)"}}>
+            <div style={{fontSize:32,textAlign:"center",marginBottom:8}}>⚙️</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,textAlign:"center",color:C.deep,marginBottom:6}}>Schedule applied with a few tweaks</div>
+            <div style={{fontSize:12,color:C.lt,textAlign:"center",marginBottom:14,lineHeight:1.5}}>
+              We've saved your schedule, but adjusted a couple of things to keep {babyName||"baby"} in a healthy sleep zone:
+            </div>
+
+            {/* Final times */}
+            <div style={{background:"var(--card-bg-alt)",border:`1.5px solid ${C.sky}33`,borderRadius:14,padding:"12px 14px",marginBottom:14,display:"flex",justifyContent:"space-around",textAlign:"center"}}>
+              <div>
+                <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>☀️ Wake</div>
+                <div style={{fontSize:16,fontWeight:700,color:C.gold}}>{scheduleAdjustmentNotice.wake ? _fmt12Mins(scheduleAdjustmentNotice.wake) : "—"}</div>
+              </div>
+              <div style={{width:1,background:C.blush}}/>
+              <div>
+                <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:2}}>🌙 Bed</div>
+                <div style={{fontSize:16,fontWeight:700,color:C.sky}}>{scheduleAdjustmentNotice.bed ? _fmt12Mins(scheduleAdjustmentNotice.bed) : "—"}</div>
+              </div>
+            </div>
+
+            {/* Each adjustment explained */}
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              {scheduleAdjustmentNotice.adjustments.map((msg,i)=>(
+                <div key={i} style={{background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:12,padding:"10px 12px",fontSize:12,color:C.mid,lineHeight:1.5}}>
+                  {msg}
+                </div>
+              ))}
+            </div>
+
+            <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:14,lineHeight:1.5,fontStyle:"italic"}}>
+              These guardrails follow NHS sleep guidance and paediatric sleep research. You can always fine-tune later.
+            </div>
+
+            <button onClick={()=>setScheduleAdjustmentNotice(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.sky},${C.mint})`,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"0 4px 16px rgba(111,168,152,0.25)"}}>
+              Got it, thanks
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Weekly Shopping List Modal ═══ */}
+      {showShoppingListModal && shoppingDraft && (()=>{
+        const _allFoodsModal = [
+          {food:"Steamed carrot",emoji:"🥕",cat:"veg"},
+          {food:"Steamed broccoli",emoji:"🥦",cat:"veg"},
+          {food:"Courgette",emoji:"🥒",cat:"veg"},
+          {food:"Sweet potato",emoji:"🍠",cat:"veg"},
+          {food:"Mashed avocado",emoji:"🥑",cat:"veg"},
+          {food:"Steamed peas",emoji:"🟢",cat:"veg"},
+          {food:"Banana",emoji:"🍌",cat:"fruit"},
+          {food:"Porridge fingers",emoji:"🥣",cat:"grain"},
+          {food:"Steamed apple",emoji:"🍎",cat:"fruit"},
+          {food:"Toast fingers",emoji:"🍞",cat:"grain"},
+          {food:"Red lentil puree",emoji:"🫘",cat:"protein"},
+          {food:"Beef mince",emoji:"🥩",cat:"protein"},
+          {food:"Chicken thigh",emoji:"🍗",cat:"protein"},
+          {food:"Scrambled egg",emoji:"🥚",cat:"allergen"},
+          {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen"},
+          {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy"},
+          {food:"Soft cooked salmon",emoji:"🐟",cat:"protein"},
+          {food:"Lentil dhal",emoji:"🍲",cat:"protein"},
+          {food:"Cheese sticks",emoji:"🧀",cat:"dairy"},
+          {food:"Tahini (sesame)",emoji:"🫙",cat:"allergen"},
+        ];
+        const _inPlan = (food) => (shoppingDraft.foods||[]).some(f => f.food === food);
+        const _toggleFoodInPlan = (f) => {
+          setShoppingDraft(d => {
+            const exists = (d.foods||[]).some(x => x.food === f.food);
+            if (exists) return {...d, foods: d.foods.filter(x => x.food !== f.food)};
+            return {...d, foods: [...(d.foods||[]), {...f, bought:false, recipe:""}]};
+          });
+        };
+        const _updateRecipe = (foodName, recipe) => {
+          setShoppingDraft(d => ({...d, foods: d.foods.map(f => f.food === foodName ? {...f, recipe} : f)}));
+        };
+        const _addExtra = () => {
+          setShoppingDraft(d => ({...d, extras: [...(d.extras||[]), {name:"", recipe:"", bought:false}]}));
+        };
+        const _updateExtra = (idx, field, value) => {
+          setShoppingDraft(d => ({...d, extras: d.extras.map((x,i) => i===idx ? {...x, [field]: value} : x)}));
+        };
+        const _removeExtra = (idx) => {
+          setShoppingDraft(d => ({...d, extras: d.extras.filter((_,i) => i !== idx)}));
+        };
+        return (
+          <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowShoppingListModal(false);setShoppingDraft(null);}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+              <button onClick={()=>{setShowShoppingListModal(false);setShoppingDraft(null);}} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",zIndex:10,touchAction:"manipulation"}}>✕</button>
+              <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,marginBottom:4}}>🛒 Weekly shopping plan</div>
+              <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
+                Pick the foods you want to try next. We'll follow your list for daily suggestions — no more wondering "what's next".
+              </div>
+
+              {/* Week starting date */}
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Week starting</label>
+                <input type="date" value={shoppingDraft.weekStart||""} onChange={e=>setShoppingDraft(d=>({...d,weekStart:e.target.value}))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:14,fontFamily:_fM}}/>
+              </div>
+
+              {/* Selected foods summary */}
+              <div style={{background:`${C.mint}08`,border:`1px solid ${C.mint}33`,borderRadius:12,padding:"10px 12px",marginBottom:14}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>✓ In your list ({(shoppingDraft.foods||[]).length})</div>
+                {(shoppingDraft.foods||[]).length === 0 ? (
+                  <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>No foods picked yet. Tap a food below to add it.</div>
+                ) : (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6}}>
+                    {shoppingDraft.foods.map((f,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 8px",background:"var(--card-bg)",borderRadius:99,border:`1px solid ${C.mint}33`,fontSize:11}}>
+                        <span>{f.emoji}</span>
+                        <span style={{color:C.deep,fontWeight:600}}>{f.food}</span>
+                        <button onClick={()=>_toggleFoodInPlan(f)} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"0 2px"}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Available foods to add */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Upcoming foods. tap to add</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                  {_allFoodsModal.map((f,i) => {
+                    const _picked = _inPlan(f.food);
+                    return (
+                      <button key={i} onClick={()=>_toggleFoodInPlan(f)} style={{display:"flex",alignItems:"center",gap:6,padding:"10px 10px",borderRadius:10,border:`1.5px solid ${_picked?C.mint:C.blush}`,background:_picked?`${C.mint}10`:"var(--card-bg)",color:C.deep,fontSize:12,fontWeight:_picked?700:500,cursor:_cP,textAlign:"left",fontFamily:_fI,transition:"all 0.15s"}}>
+                        <span style={{fontSize:18,flexShrink:0}}>{f.emoji}</span>
+                        <span style={{flex:1,lineHeight:1.2}}>{f.food}</span>
+                        {_picked && <span style={{color:C.mint,fontWeight:700,fontSize:14}}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Recipe notes per food */}
+              {(shoppingDraft.foods||[]).length > 0 && (
+                <div style={{marginBottom:16}}>
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Recipe notes (optional)</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {shoppingDraft.foods.map((f,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:`1px solid ${C.blush}`}}>
+                        <span style={{fontSize:16,flexShrink:0}}>{f.emoji}</span>
+                        <div style={{fontSize:11,fontWeight:700,color:C.deep,minWidth:80,flexShrink:0}}>{f.food}</div>
+                        <input type="text" placeholder="e.g. with cumin + butter" value={f.recipe||""} onChange={e=>_updateRecipe(f.food, e.target.value)} style={{flex:1,padding:"4px 8px",border:`1px solid ${C.blush}`,borderRadius:6,fontSize:11,fontFamily:_fI,background:"var(--card-bg-alt)",color:C.deep,minWidth:0}}/>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Extras: custom pantry items, recipes */}
+              <div style={{marginBottom:16}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Extras & recipe ingredients</div>
+                  <button onClick={_addExtra} style={{padding:"4px 10px",borderRadius:99,border:`1px solid ${C.mint}44`,background:"var(--card-bg)",color:C.mint,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>+ Add item</button>
+                </div>
+                {(shoppingDraft.extras||[]).length === 0 ? (
+                  <div style={{fontSize:11,color:C.lt,fontStyle:"italic",padding:"8px 0"}}>Add recipe ingredients, pantry staples, or anything else you need.</div>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {shoppingDraft.extras.map((ex,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:`1px solid ${C.blush}`}}>
+                        <input type="text" placeholder="Item name (e.g. olive oil)" value={ex.name||""} onChange={e=>_updateExtra(i,"name",e.target.value)} style={{flex:1,padding:"4px 8px",border:`1px solid ${C.blush}`,borderRadius:6,fontSize:12,fontFamily:_fI,background:"var(--card-bg-alt)",color:C.deep,minWidth:0}}/>
+                        <button onClick={()=>_removeExtra(i)} style={{background:"none",border:"none",color:C.lt,fontSize:16,cursor:_cP,padding:"0 4px"}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <PBtn onClick={()=>{
+                haptic();
+                // Validate
+                const _cleaned = {
+                  ...shoppingDraft,
+                  foods: (shoppingDraft.foods||[]).filter(f => f && f.food),
+                  extras: (shoppingDraft.extras||[]).filter(e => e && (e.name||"").trim())
+                };
+                if (_cleaned.foods.length === 0 && _cleaned.extras.length === 0) {
+                  showToast("Add at least one food to save your list", 2500, 1);
+                  return;
+                }
+                setWeeklyShoppingList(_cleaned);
+                setShowShoppingListModal(false);
+                setShoppingDraft(null);
+                showToast("✓ Shopping list saved. suggestions will follow your plan", 3000, 1);
+              }}>💾 Save shopping list</PBtn>
+            </div>
+          </div>
+        );
+      })()}
 
             {/* ═══ Photo Viewer Overlay ═══ */}
       {viewPhoto && (
