@@ -27076,14 +27076,10 @@ function App(){
                 );
               })()}
 
-              {/* Hydration meter on Plan tab. Uses smartHydration so a heavy
-                  morning nappy after a 10h+ overnight counts as 2-3 (the baby was
-                  hydrated overnight, one big wet = multiple daytime wets). */}
+              {/* Hydration card on Plan tab. Same "Why?" expander style as the
+                  Today-tab priority action card for visual consistency. */}
               {(()=>{
                 const _ent = days[selDay] || [];
-                // Cross-day prev-nappy lookup: when today has 0 or 1 wet nappies,
-                // pull yesterday's last wet nappy so smartHydration can compute a
-                // real cross-midnight gap instead of assuming a flat 12h default.
                 const _prevDayStr = (()=>{ try { const d=new Date(selDay+"T00:00:00"); d.setDate(d.getDate()-1); return localDateStr(d); } catch { return null; } })();
                 const _prevDayEnt = _prevDayStr ? (days[_prevDayStr]||[]) : [];
                 const _prevLastWet = (()=>{
@@ -27091,24 +27087,17 @@ function App(){
                   return _prevWets.length ? _prevWets[_prevWets.length-1] : null;
                 })();
                 const _smart = smartHydration(_ent, age ? age.totalWeeks : null, _prevLastWet);
-                const _wetCount = _smart.count;    // hydration score (overnight counts as 2-3)
-                const _wetRaw = _smart.raw;        // literal count of wet entries
-                const _target = _smart.target;
-                if (_wetCount >= _target) return null; // target met, no need to show
-                const _bonusActive = _wetCount > _wetRaw; // overnight bonus applied
+                if (_smart.count >= _smart.target) return null;
                 return (
-                  <div style={{marginBottom:10,padding:"10px 14px",borderRadius:14,background:_wetCount<Math.ceil(_target*0.65)?"rgba(192,112,136,0.06)":"rgba(111,168,152,0.06)",border:`1px solid ${_wetCount<Math.ceil(_target*0.65)?"rgba(192,112,136,0.15)":"rgba(111,168,152,0.15)"}`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                      <span style={{fontSize:18}}>💧</span>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_wetCount}/{_target} hydration{_bonusActive?` (${_wetRaw} change${_wetRaw===1?"":"s"})`:""}</div>
-                        <div style={{fontSize:10,color:C.lt}}>{_bonusActive?"Overnight nappy counts as extra. baby was hydrated during sleep.":"Aim for "+_target+"+ wet nappies in 24h for adequate hydration"}</div>
-                      </div>
+                  <div style={{background:"rgba(111,168,152,0.08)",border:`1.5px solid ${C.mint}40`,borderRadius:16,padding:"12px 14px",marginBottom:12}}>
+                    <div style={_S.flexCenter10}>
+                      <span style={{fontSize:22}}>💧</span>
+                      <div style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5,fontWeight:500}}>{_smart.raw} wet {_smart.raw===1?"nappy":"nappies"} today ({_smart.count} hydration score). aim for {_smart.target}+ for adequate hydration.</div>
                     </div>
-                    <div style={{display:"flex",gap:4}}>
-                      {Array.from({length:_target},(_,i)=>i+1).map(n=>(
-                        <div key={n} style={{flex:1,height:6,borderRadius:99,background:n<=_wetCount?C.mint+"80":C.blush}}/>
-                      ))}
+                    <div style={{marginTop:6,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+                      <div style={{fontSize:10,color:"var(--text-mid)",fontFamily:_fI,lineHeight:1.6}}>
+                        <span style={{fontWeight:600,color:"var(--text-deep)"}}>Why? </span>Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). {_smart.raw} change{_smart.raw===1?"":"s"} = {_smart.count} hydration score vs {_smart.target}+ target for {fmtAge(age)}.
+                      </div>
                     </div>
                   </div>
                 );
