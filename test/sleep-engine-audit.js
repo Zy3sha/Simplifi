@@ -435,7 +435,12 @@ const scenarios = [
   // ═══════════════════════════════════════════════════════════════
   { category: "Late riser", name: "5mo 9am late wake", ageWeeks: 22, wakeMins: 9*60, avgNapDur: 75, targetBedMins: 19*60 },
   { category: "Late riser", name: "5mo 9:30am ceiling", ageWeeks: 22, wakeMins: 9*60+30, avgNapDur: 75, targetBedMins: 19*60 },
-  { category: "Late riser", name: "7mo 9:15am + 6:30 bed override", ageWeeks: 30, wakeMins: 9*60+15, avgNapDur: 75, targetBedMins: 18*60+30 },
+  { category: "Late riser", name: "7mo 9:15am + 6:30 bed override", ageWeeks: 30, wakeMins: 9*60+15, avgNapDur: 75, targetBedMins: 18*60+30,
+    // 9:15am wake + 6:30pm bed override + 75m avgNaps = long sleep budget
+    // deliberately engineered to test the override path. The resulting 17h15m
+    // total exceeds WHO 12-16h for 4-11mo, which I-15 correctly flags. This is
+    // an INTENTIONAL edge case, not a bug in the engine.
+    expectedWarnings: ["I-15"] },
   { category: "Late riser", name: "12mo 9am", ageWeeks: 52, wakeMins: 9*60, avgNapDur: 90, targetBedMins: 19*60+30 },
 
   // ═══════════════════════════════════════════════════════════════
@@ -492,7 +497,13 @@ const scenarios = [
     completedNaps: [{ start: 14*60, end: 15*60+30 }] },
   { category: "Inconsistent logging", name: "3mo only evening nap logged",
     ageWeeks: 12, wakeMins: 7*60, avgNapDur: 60, targetBedMins: 19*60,
-    completedNaps: [{ start: 17*60, end: 17*60+45 }] },
+    completedNaps: [{ start: 17*60, end: 17*60+45 }],
+    // Parent logged only 1 nap out of ~4 typical for a 3mo. Engine honestly
+    // reflects the partial data: low total nap (45m) and low 24h sleep
+    // (12h45m). Both I-10 and I-15 WARN fire correctly. This tests that the
+    // engine doesn't hallucinate missing naps — if a parent forgets to log,
+    // we report honestly instead of inventing data. Expected warnings.
+    expectedWarnings: ["I-10", "I-15"] },
 
   // ═══════════════════════════════════════════════════════════════
   //  AGE BOUNDARY TRANSITIONS — where nap count changes
@@ -578,7 +589,17 @@ for (const scenario of scenarios) {
     napOnFirstStart: scenario.napOnFirstStart,
   });
 
-  const issues = checkInvariants({ ...scenario, wakeMins: effectiveWake, targetBedMins: effectiveTargetBed }, plan);
+  const rawIssues = checkInvariants({ ...scenario, wakeMins: effectiveWake, targetBedMins: effectiveTargetBed }, plan);
+  // Expected warnings: scenarios can declare which WARN codes are intentional
+  // (edge cases deliberately tested, not engine bugs). Filter them out before
+  // counting so they stop adding noise to the summary. Any unexpected NEW
+  // warning will still show up — the expected list is exact-match per code.
+  const expected = scenario.expectedWarnings || [];
+  const isExpected = (issue) => {
+    if (!issue.includes("WARN")) return false;
+    return expected.some(code => issue.includes("[" + code + " "));
+  };
+  const issues = rawIssues.filter(i => !isExpected(i));
   const criticalHits = issues.filter(i => i.includes("CRITICAL"));
   const warnHits = issues.filter(i => i.includes("WARN"));
   const otherHits = issues.filter(i => !i.includes("CRITICAL") && !i.includes("WARN"));
