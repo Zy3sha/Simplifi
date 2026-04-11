@@ -2486,6 +2486,107 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// TONIGHT'S FOCUS — forward-looking coach
+// ═══════════════════════════════════════════════════════════════════════
+// diagnoseNightPattern() looks BACKWARD at what happened last night and
+// what OBubba already did. This helper looks FORWARD at what the parent
+// can try TONIGHT to improve it. The two are complementary: one is
+// diagnosis, this is the coaching plan. Merges into the Last Night
+// card as a third section ("Tonight's focus").
+//
+// Inputs:
+//   nightDiagnosis  = output of diagnoseNightPattern for last night
+//   todayEntries    = days[todayStr()]
+//   ageWeeks
+//
+// Returns: {title, steps[], why} or null
+function getTonightsFocus(nightDiagnosis, todayEntries, ageWeeks) {
+  if (!nightDiagnosis) return null;
+  const _t = nightDiagnosis.type;
+
+  // Undertired last night → stretch wake windows today, push bedtime later
+  if (_t === "undertired") {
+    return {
+      title: "Tonight: more sleep pressure",
+      steps: [
+        "Stretch the last wake window by 15 min over what felt right today",
+        "Bath + cuddle over active play in the last hour before bed",
+        "Dim lights 30 min before bed, phones out of sight",
+        "Put baby down awake. not drowsy, awake"
+      ],
+      why: "Last night baby woke within 90 min of bedtime — classic sign there wasn't enough sleep drive to stay down. More wake time builds more pressure."
+    };
+  }
+
+  // Overtired last night → earlier bedtime, calm day
+  if (_t === "overtired") {
+    return {
+      title: "Tonight: earlier bed, calmer day",
+      steps: [
+        "Bedtime 15 min earlier than yesterday",
+        "Cap the last nap at its usual end. no extending",
+        "Nothing stimulating after 5pm (no bouncy play, no visitors if avoidable)",
+        "Start the wind-down routine 15 min earlier too"
+      ],
+      why: "Cluster of hard wakes between 3–5am is the classic cortisol spike of an overtired baby. Counter-intuitively, earlier bed fixes this, not later."
+    };
+  }
+
+  // Cycle-linked wakes → the phase is passing, just ride it out
+  if (_t === "habit") {
+    return {
+      title: "Tonight: keep the rhythm",
+      steps: [
+        "Same bedtime as last night",
+        "If baby stirs between cycles, wait 2 full minutes before going in",
+        "Minimal lights, minimal talking if you do go in",
+        "No feed unless baby is genuinely hungry (> 20 min since last feed was a hunger wake)"
+      ],
+      why: "Baby is stirring at cycle boundaries and resettling quickly. That IS the skill developing. Going in too fast can short-circuit the learning."
+    };
+  }
+
+  // Hunger-driven → feed carefully, consider dream feed
+  if (_t === "hunger") {
+    return {
+      title: "Tonight: feed with purpose",
+      steps: [
+        "Offer a full end-of-day feed at bedtime",
+        ageWeeks >= 16 ? "Consider a dream feed around 22:00 to pre-empt the first wake" : "Feed on cue through the night",
+        "Don't try to cut night feeds yet if baby is still gaining weight",
+        "Burp well after each feed"
+      ],
+      why: "Every wake settled quickly with milk — that's genuine hunger. Night feeds are developmentally normal at this age, don't force the drop."
+    };
+  }
+
+  // Dream night → maintain the rhythm
+  if (_t === "great_night") {
+    return {
+      title: "Tonight: do exactly what you did last night",
+      steps: [
+        "Same bedtime",
+        "Same wind-down sequence",
+        "Same room temperature and lighting",
+        "Don't overthink it. it worked"
+      ],
+      why: "Last night had no wakes. The rhythm is right. The surest way to lose a good night is to change something thinking you can do better."
+    };
+  }
+
+  // Default / normal / cause unclear
+  return {
+    title: "Tonight: stay the course",
+    steps: [
+      "Same bedtime rhythm as last night",
+      "Watch for the first tired cue and don't push past it",
+      "If baby stirs, wait a minute before going in"
+    ],
+    why: "Nothing stood out as fixable in last night's data. One rough night isn't a pattern. Watch for trends across the week."
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // NIGHT AUTOPILOT: adjustments derived from last night's diagnosis
 // ═══════════════════════════════════════════════════════════════════════
 // OBubba's philosophy: we do the work, then tell the parent what we did.
@@ -28878,6 +28979,41 @@ function App(){
                           )}
                         </div>
                         );
+                      })()}
+                      {/* ── PREMIUM: Tonight's Focus forward-looking coach ──
+                          Takes the night diagnosis and produces a concrete
+                          plan the parent can execute tonight. Different
+                          from actionTaken (backward: what OBubba did)
+                          because this is forward: what YOU should try. */}
+                      {diagnosis && (()=>{
+                        try {
+                          const _tf = getTonightsFocus(diagnosis, days[todayStr()]||[], age?.totalWeeks||0);
+                          if (!_tf) return null;
+                          const _unlockedTF = (typeof hasAccess === "function") ? hasAccess() : false;
+                          return (
+                            <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:"1px solid rgba(111,168,152,0.2)",marginBottom:lastNight.avgResettleMin>0?8:0}}>
+                              <div style={{fontSize:10,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
+                                <span>🎯 Tonight's focus</span>
+                                {!_unlockedTF && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                              </div>
+                              <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:_unlockedTF?6:4}}>{_tf.title}</div>
+                              {_unlockedTF ? (
+                                <>
+                                  {_tf.steps.map((s,i)=>(
+                                    <div key={i} style={{fontSize:11,color:C.mid,lineHeight:1.5,paddingLeft:14,position:"relative",marginBottom:3}}>
+                                      <span style={{position:"absolute",left:0,color:C.mint}}>✓</span>{s}
+                                    </div>
+                                  ))}
+                                  <div style={{fontSize:10,color:C.lt,lineHeight:1.5,marginTop:6,fontStyle:"italic",paddingTop:6,borderTop:"1px dashed rgba(111,168,152,0.25)"}}>{_tf.why}</div>
+                                </>
+                              ) : (
+                                <button onClick={()=>triggerPaywall("tonights_focus")} style={{marginTop:2,padding:"6px 12px",borderRadius:99,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                                  Unlock tonight's plan
+                                </button>
+                              )}
+                            </div>
+                          );
+                        } catch { return null; }
                       })()}
                       {lastNight.avgResettleMin > 0 && (
                         <div style={{fontSize:10,color:C.lt,fontStyle:"italic",lineHeight:1.4}}>
