@@ -3335,12 +3335,29 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
             <button onClick={()=>{showConfirm("Generate a new code? This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
               {loading?"Generating...":"Regenerate code"}
             </button>
-            <button onClick={()=>unlinkChild(cid)} style={{fontSize:12,color:"#e8574a",background:_bN,border:_bN,cursor:_cP,padding:0,fontFamily:_fI,textDecoration:"underline"}}>
-              Remove from my app
-            </button>
           </div>
         </>
       )}
+      {/* ── Remove from my app (always visible, including unshared children) ──
+          Previously this was only rendered inside the `isShared` block, so a
+          child that had been severed from sync (isActive:false) but whose
+          local record lingered became impossible to remove via the UI —
+          exactly the Oliver-ghost zombie scenario. Now it sits OUTSIDE the
+          shared gate so every child card can be removed regardless of sync
+          state. Uses showConfirm because this deletes all local data for the
+          child and adds them to the persistent ob_removed_child_ids blacklist. */}
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:isShared?6:8,paddingTop:isShared?6:0,borderTop:isShared?`1px solid ${C.blush}`:"none"}}>
+        <button onClick={()=>{
+          showConfirm(
+            "Remove "+(child.name||"this child")+" from my app?",
+            "This will delete all local data for "+(child.name||"this child")+" and stop any syncing. This cannot be undone from here — you'd need the sync code to re-add them.",
+            ()=>{ unlinkChild(cid); showToast("✓ "+(child.name||"Child")+" removed",1500,1); },
+            "Yes, remove"
+          );
+        }} style={{fontSize:12,color:"#e8574a",background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.25)",cursor:_cP,padding:"5px 12px",borderRadius:99,fontFamily:_fI,fontWeight:600}}>
+          🗑 Remove from my app
+        </button>
+      </div>
     </div>
   );
 }
