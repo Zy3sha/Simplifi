@@ -22557,12 +22557,21 @@ function App(){
       const _pendingId = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
       setDays(d=>{
         const _tgt = (dayBoundary === "wake") ? (bedTimerDay || todayStr()) : selDay;
-        const existing = (d[_tgt]||[]).filter(e => !_pendingId || e.id !== _pendingId);
+        // Filter the pending placeholder AND any existing entry with
+        // the new entry's id (rapid-double-tap dedup).
+        const existing = (d[_tgt]||[]).filter(e =>
+          (!_pendingId || e.id !== _pendingId) && e.id !== entry.id
+        );
         return {...d, [_tgt]: [...existing, entry]};
       });
       try{localStorage.removeItem("bed_wake_entry_id");}catch{}
     } else {
-      setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=prevDayStr(selDay);return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
+      setDays(d=>{
+        const existing = (d[selDay]||[]).filter(e => e.id !== entry.id);
+        const updated=[...existing, entry];
+        const _pd=prevDayStr(selDay);
+        return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+      });
     }
     trackEvent("entry_logged",{type:"breast_feed"});
     haptic("medium")
