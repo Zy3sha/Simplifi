@@ -5533,6 +5533,11 @@ function App(){
             const m = (s||"").match(/(\d+):(\d+)([LR])/i);
             if (!m) return null;
             const mins = parseInt(m[1])*60 + parseInt(m[2]);
+            // Cap at 60 minutes — no single breast feed lasts more than
+            // an hour on one side. Anything above is a typo or a
+            // "first LL of day until last RR of day" total that
+            // doesn't belong on a single feed entry.
+            if (mins > 60) return null;
             return {side: m[3].toUpperCase(), mins};
           };
           const sc = parseBreast(startCond);
@@ -5664,7 +5669,24 @@ function App(){
         if (!startDate || !startTime) { skipped++; continue; }
         if (/feed|bottle|nurs|breast/i.test(activity)) {
           const isBreast = /nurs|breast/i.test(activity);
-          addEntry(startDate, {type:"feed", time:startTime, feedType:isBreast?"breast":"milk", amount:parseFloat(details)||0, note:notes});
+          // Parse volume from details field. Baby Connect may include
+          // units inline ("5 oz", "150 ml"). Detect the unit so an oz
+          // export imported while the user is on ml doesn't produce a
+          // 5ml entry (or vice versa). If no unit present, assume ml
+          // (most export apps default to metric for export).
+          let _amount = 0;
+          const _num = parseFloat(details);
+          if (!isNaN(_num) && _num > 0) {
+            const _hasOz = /\boz\b|fl\.?\s*oz|fluid/i.test(details);
+            const _hasMl = /\bml\b|millilit/i.test(details);
+            if (_hasOz || (!_hasMl && _num < 12)) {
+              // Small number + oz hint = convert oz to ml
+              _amount = Math.round(_num * 29.5735);
+            } else {
+              _amount = Math.round(_num);
+            }
+          }
+          addEntry(startDate, {type:"feed", time:startTime, feedType:isBreast?"breast":"milk", amount:_amount, note:notes});
         } else if (/diaper|nappy/i.test(activity)) {
           const pt = /dirty|bm|bowel|poo/i.test(activity+" "+details) ? "dirty"
             : /mixed|both/i.test(activity+" "+details) ? "both"
@@ -5741,7 +5763,21 @@ function App(){
         if (!dateStr || !timeStr) { skipped++; continue; }
         if (/feed|bottle|nurs|breast/i.test(cat)) {
           const isBreast = /nurs|breast/i.test(cat);
-          addEntry(dateStr, {type:"feed", time:timeStr, feedType:isBreast?"breast":"milk", amount:parseFloat(quantity)||0, note:notes});
+          // Same unit detection as Baby Connect — Sprout's Quantity
+          // column may include unit inline. Detect oz vs ml to avoid
+          // silent 30x volume errors across unit systems.
+          let _amount = 0;
+          const _num = parseFloat(quantity);
+          if (!isNaN(_num) && _num > 0) {
+            const _hasOz = /\boz\b|fl\.?\s*oz|fluid/i.test(quantity);
+            const _hasMl = /\bml\b|millilit/i.test(quantity);
+            if (_hasOz || (!_hasMl && _num < 12)) {
+              _amount = Math.round(_num * 29.5735);
+            } else {
+              _amount = Math.round(_num);
+            }
+          }
+          addEntry(dateStr, {type:"feed", time:timeStr, feedType:isBreast?"breast":"milk", amount:_amount, note:notes});
         } else if (/diaper|nappy/i.test(cat)) {
           const pt = /dirty|bm|poo/i.test(cat) ? "dirty" : /mixed|both/i.test(cat) ? "both" : "wet";
           addEntry(dateStr, {type:"poop", time:timeStr, poopType:pt, note:notes});
@@ -31515,7 +31551,25 @@ function App(){
                   // Started — show today's day plan
                   const _start = new Date(_sc.startDate + "T00:00:00");
                   const _now = new Date();
-                  const _dayNum = Math.min(14, Math.max(1, Math.floor((_now - _start) / (24*60*60*1000)) + 1));
+                  const _daysElapsed = Math.floor((_now - _start) / (24*60*60*1000));
+                  // 14-day plan is complete after day 14 has passed.
+                  // Show a "complete" card with a restart option instead of
+                  // pinning Day 14 forever.
+                  if (_daysElapsed >= 14) {
+                    return (
+                      <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(111,168,152,0.08),rgba(155,184,168,0.04))", border:"1.5px solid rgba(111,168,152,0.3)"}}>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>🎉 14-day plan complete</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>You finished the {({gradual:"Gradual",no_cry:"No-cry",chair:"Chair shuffle",parent_led:"Parent-led"}[_sc.style])||_sc.style} plan. If the new rhythm has stuck, keep doing what's working. If things are still rocky, start another 14-day run with a different style.</div>
+                        <button onClick={()=>{
+                          try{localStorage.removeItem("ob_sleep_coach_v1");}catch{}
+                          setForceRender(c=>c+1);
+                        }} style={{width:"100%",padding:"10px",borderRadius:99,border:"1px solid "+C.blush,background:"var(--card-bg)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP}}>
+                          Pick a new style
+                        </button>
+                      </div>
+                    );
+                  }
+                  const _dayNum = Math.min(14, Math.max(1, _daysElapsed + 1));
                   const _plan = buildSleepCoachDay(_sc.style, (age.predictiveWeeks??age.totalWeeks), _dayNum, _nightDiagnosisMemo);
                   if (!_plan) return null;
                   const _styleLabel = {gradual:"Gradual check-ins", no_cry:"No-cry / gentle", chair:"Chair shuffle", parent_led:"Parent-led rhythm"}[_sc.style] || _sc.style;
