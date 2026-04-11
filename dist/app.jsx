@@ -5118,6 +5118,162 @@ function App(){
         }
       }
     }
+    // ── BABY CONNECT FORMAT ──
+    // Headers: "Activity","Start","End","Details","Child","Notes"
+    // Activity values: "Feeding (Bottle)", "Feeding (Nursing Left/Right)",
+    //                  "Sleeping", "Diaper (Wet)", "Diaper (Dirty)", etc.
+    else if (headerCols.includes("activity") && (headerCols.includes("start") || headerCols.includes("start time"))) {
+      const _iA = headerCols.indexOf("activity");
+      const _iS = headerCols.indexOf("start") >= 0 ? headerCols.indexOf("start") : headerCols.indexOf("start time");
+      const _iE = headerCols.indexOf("end") >= 0 ? headerCols.indexOf("end") : headerCols.indexOf("end time");
+      const _iD = headerCols.indexOf("details") >= 0 ? headerCols.indexOf("details") : headerCols.indexOf("detail");
+      const _iN = headerCols.indexOf("notes") >= 0 ? headerCols.indexOf("notes") : headerCols.indexOf("note");
+      const _sleepRowsBC = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const cols = parseCSVRow(lines[i]);
+        const activity = (cols[_iA]||"").toLowerCase();
+        const startRaw = (cols[_iS]||"").trim();
+        const endRaw = _iE >= 0 ? (cols[_iE]||"").trim() : "";
+        const details = _iD >= 0 ? (cols[_iD]||"").trim() : "";
+        const notes = _iN >= 0 ? (cols[_iN]||"").trim() : "";
+        const startDate = normDate(startRaw);
+        const startTime = extractTime(startRaw);
+        const endDate = normDate(endRaw) || startDate;
+        const endTime = extractTime(endRaw) || startTime;
+        if (!startDate || !startTime) { skipped++; continue; }
+        if (/feed|bottle|nurs|breast/i.test(activity)) {
+          const isBreast = /nurs|breast/i.test(activity);
+          addEntry(startDate, {type:"feed", time:startTime, feedType:isBreast?"breast":"milk", amount:parseFloat(details)||0, note:notes});
+        } else if (/diaper|nappy/i.test(activity)) {
+          const pt = /dirty|bm|bowel|poo/i.test(activity+" "+details) ? "dirty"
+            : /mixed|both/i.test(activity+" "+details) ? "both"
+            : "wet";
+          addEntry(startDate, {type:"poop", time:startTime, poopType:pt, note:notes});
+        } else if (/sleep|nap/i.test(activity)) {
+          // Route into the sleep-chaining pipeline for consolidation
+          _sleepRowsBC.push({startDate, startTime, endDate, endTime, notes});
+        } else if (/solid|meal|food/i.test(activity)) {
+          addEntry(startDate, {type:"feed", time:startTime, feedType:"solids", amount:0, note:details||notes});
+        } else {
+          skipped++;
+        }
+      }
+      // Apply the same night-chain consolidation logic to Baby Connect
+      // sleep rows. See the Huckleberry branch above for the full
+      // commentary — this is the same algorithm applied to a different
+      // column shape.
+      if (_sleepRowsBC.length > 0) {
+        _sleepRowsBC.sort((a,b) => toAbsMs(a.startDate,a.startTime) - toAbsMs(b.startDate,b.startTime));
+        const _CHAIN_MAX = 90;
+        const _chains = [];
+        let _cur = null;
+        for (const row of _sleepRowsBC) {
+          if (!_cur) { _cur = [row]; continue; }
+          const prev = _cur[_cur.length-1];
+          const gap = Math.round((toAbsMs(row.startDate,row.startTime) - toAbsMs(prev.endDate,prev.endTime))/60000);
+          if (gap >= 0 && gap <= _CHAIN_MAX) _cur.push(row);
+          else { _chains.push(_cur); _cur = [row]; }
+        }
+        if (_cur) _chains.push(_cur);
+        for (const chain of _chains) {
+          const first = chain[0];
+          const last = chain[chain.length-1];
+          const fh = parseInt(first.startTime.split(":")[0]);
+          const isNight = fh >= 17 || fh <= 10;
+          if (isNight) {
+            addEntry(first.startDate, {type:"sleep", time:first.startTime, night:false, note:first.notes||""});
+            for (let i = 1; i < chain.length; i++) {
+              const p = chain[i-1], n = chain[i];
+              const g = Math.round((toAbsMs(n.startDate,n.startTime) - toAbsMs(p.endDate,p.endTime))/60000);
+              if (g > 0) addEntry(p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Baby Connect ("+g+"min soothed)"});
+            }
+            const lh = parseInt(last.endTime.split(":")[0]);
+            if (lh >= 4 && lh <= 12) addEntry(last.endDate, {type:"wake", time:last.endTime, night:false, note:"Imported from Baby Connect"});
+          } else {
+            for (const row of chain) addEntry(row.startDate, {type:"nap", start:row.startTime, end:row.endTime, note:row.notes||""});
+          }
+        }
+      }
+    }
+    // ── SPROUT BABY FORMAT ──
+    // Headers: "Date","Time","Category","Subcategory","Duration","Quantity","Notes"
+    else if (headerCols.includes("category") && headerCols.includes("subcategory")) {
+      const _iDate = headerCols.indexOf("date");
+      const _iTime = headerCols.indexOf("time");
+      const _iCat = headerCols.indexOf("category");
+      const _iSub = headerCols.indexOf("subcategory");
+      const _iDur = headerCols.indexOf("duration");
+      const _iQty = headerCols.indexOf("quantity");
+      const _iNot = headerCols.indexOf("notes");
+      const _sleepRowsSB = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const cols = parseCSVRow(lines[i]);
+        const date = (cols[_iDate]||"").trim();
+        const time = (cols[_iTime]||"").trim();
+        const cat = ((cols[_iCat]||"")+" "+(cols[_iSub]||"")).toLowerCase();
+        const duration = (cols[_iDur]||"").trim();
+        const quantity = (cols[_iQty]||"").trim();
+        const notes = _iNot >= 0 ? (cols[_iNot]||"").trim() : "";
+        const dateStr = normDate(date);
+        const timeStr = extractTime(time);
+        if (!dateStr || !timeStr) { skipped++; continue; }
+        if (/feed|bottle|nurs|breast/i.test(cat)) {
+          const isBreast = /nurs|breast/i.test(cat);
+          addEntry(dateStr, {type:"feed", time:timeStr, feedType:isBreast?"breast":"milk", amount:parseFloat(quantity)||0, note:notes});
+        } else if (/diaper|nappy/i.test(cat)) {
+          const pt = /dirty|bm|poo/i.test(cat) ? "dirty" : /mixed|both/i.test(cat) ? "both" : "wet";
+          addEntry(dateStr, {type:"poop", time:timeStr, poopType:pt, note:notes});
+        } else if (/sleep|nap/i.test(cat)) {
+          // Sprout gives duration in minutes; compute end time
+          const durMin = parseInt(duration)||0;
+          const [sh,sm] = timeStr.split(":").map(Number);
+          const endMin = sh*60 + sm + durMin;
+          const eh = Math.floor(endMin/60) % 24;
+          const em = endMin % 60;
+          const endTime = String(eh).padStart(2,"0")+":"+String(em).padStart(2,"0");
+          _sleepRowsSB.push({startDate:dateStr, startTime:timeStr, endDate:dateStr, endTime, notes});
+        } else if (/solid|meal|food/i.test(cat)) {
+          addEntry(dateStr, {type:"feed", time:timeStr, feedType:"solids", amount:0, note:notes});
+        } else {
+          skipped++;
+        }
+      }
+      // Same chain consolidation
+      if (_sleepRowsSB.length > 0) {
+        _sleepRowsSB.sort((a,b) => toAbsMs(a.startDate,a.startTime) - toAbsMs(b.startDate,b.startTime));
+        const _CHAIN_MAX = 90;
+        const _chains = [];
+        let _cur = null;
+        for (const row of _sleepRowsSB) {
+          if (!_cur) { _cur = [row]; continue; }
+          const prev = _cur[_cur.length-1];
+          const gap = Math.round((toAbsMs(row.startDate,row.startTime) - toAbsMs(prev.endDate,prev.endTime))/60000);
+          if (gap >= 0 && gap <= _CHAIN_MAX) _cur.push(row);
+          else { _chains.push(_cur); _cur = [row]; }
+        }
+        if (_cur) _chains.push(_cur);
+        for (const chain of _chains) {
+          const first = chain[0];
+          const last = chain[chain.length-1];
+          const fh = parseInt(first.startTime.split(":")[0]);
+          const isNight = fh >= 17 || fh <= 10;
+          if (isNight) {
+            addEntry(first.startDate, {type:"sleep", time:first.startTime, night:false, note:first.notes||""});
+            for (let i = 1; i < chain.length; i++) {
+              const p = chain[i-1], n = chain[i];
+              const g = Math.round((toAbsMs(n.startDate,n.startTime) - toAbsMs(p.endDate,p.endTime))/60000);
+              if (g > 0) addEntry(p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Sprout ("+g+"min soothed)"});
+            }
+            const lh = parseInt(last.endTime.split(":")[0]);
+            if (lh >= 4 && lh <= 12) addEntry(last.endDate, {type:"wake", time:last.endTime, night:false, note:"Imported from Sprout"});
+          } else {
+            for (const row of chain) addEntry(row.startDate, {type:"nap", start:row.startTime, end:row.endTime, note:row.notes||""});
+          }
+        }
+      }
+    }
     // ── OBUBBA FORMAT ──
     else if (header.includes("date") && header.includes("type")) {
       for (let i = 1; i < lines.length; i++) {
@@ -39318,10 +39474,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   }}/>
                 </label>
                 <div style={{marginTop:12,fontSize:12,color:C.lt,lineHeight:1.7}}>
-                  <strong>✅ Supported apps:</strong><br/>
-                  🫐 Huckleberry · OBubba · Glow Baby<br/>
-                  <strong>Partial support:</strong><br/>
-                  Baby Connect · Sprout Baby<br/>
+                  <strong>✅ Fully supported:</strong><br/>
+                  🫐 Huckleberry · OBubba · Baby Connect · Sprout Baby · Glow Baby<br/>
                   <strong>❌ Not supported yet:</strong><br/>
                   Baby Tracker (nighp) exports a zip. import each .csv inside separately
                 </div>
