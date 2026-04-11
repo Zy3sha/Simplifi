@@ -1254,14 +1254,20 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     }
   }
 
-  // NHS floor alert (always shown if crossed)
+  // NHS floor alert removed. Previously this fired whenever the day's
+  // bottle-milk total was below the NHS "minimum" figure, which was wrong
+  // for three reasons:
+  //   1. Combi-fed babies have breast feeds tracked in minutes, not ml, so
+  //      the comparison silently excluded ~6 feeds worth of milk and
+  //      accused healthy babies of underfeeding.
+  //   2. The alert had no time-of-day gate, so it fired at 11am when the
+  //      day had barely started and the running total was naturally low.
+  //   3. NHS guidance is a RANGE (around 500-600ml for 6mo), not a hard
+  //      floor. Framing it as a "minimum" created unnecessary anxiety.
+  // Real underfeeding signals live elsewhere (hydration counter, growth
+  // chart, weight tracking) and look at sustained patterns, not a single
+  // partial day's bottle total.
   let nhsAlert = null;
-  if (totalMilkMl > 0 && totalMilkMl < milkMin && months < 12) {
-    nhsAlert = "Below NHS minimum " + milkMin + "ml for " + Math.round(months*10)/10 + "mo";
-  }
-  if (totalMilkMl > 700 && months >= 12) {
-    nhsAlert = "Above " + (months >= 12 ? "recommended post-12mo max" : "typical max");
-  }
 
   return {
     ageWeeks,
@@ -18262,16 +18268,16 @@ function App(){
   // (catch-up, quickstart) should NOT call this because the modal is for the
   // moment of putting baby down tonight.
   function _postBedtimeFlow(){
-    try {
-      const _ytKey = "ob_youtime_shown_" + todayStr();
-      if (!localStorage.getItem(_ytKey)) {
-        localStorage.setItem(_ytKey, "1");
-        try { trackEvent("timer_started", { type: "bed" }); } catch {}
-        setTimeout(()=>setShowYouTime(true), 3000);
-      }
-    } catch {
-      setTimeout(()=>setShowYouTime(true), 3000);
-    }
+    // Fire the You Time modal 3 seconds after bedtime is logged.
+    // Previously this was guarded by a once-per-day localStorage key
+    // (ob_youtime_shown_YYYY-MM-DD), but that guard was too aggressive —
+    // if the user logged a test bedtime earlier in the day and deleted it,
+    // or if they re-logged bedtime for any reason, the modal would never
+    // fire for the real bedtime. The modal is dismissible and low-intrusion,
+    // so firing multiple times per day is acceptable and actually helpful
+    // during debugging or editing scenarios.
+    try { trackEvent("timer_started", { type: "bed" }); } catch {}
+    setTimeout(()=>setShowYouTime(true), 3000);
   }
 
   function saveLogSleep(){
@@ -24782,11 +24788,42 @@ function App(){
                   </button>
                 );
               }
-              // Check if bridge nap is forced (wake window would be unsafe)
+              // Check if bridge nap is forced (wake window would be unsafe).
+              // Tapping the pill used to start a nap immediately with zero
+              // context, which left parents confused about WHEN to put baby
+              // down and WHY. Now it opens a confirmation sheet explaining
+              // what a bridge nap is, why the engine thinks one is needed,
+              // when to start it, and how long to cap it. The parent then
+              // confirms or dismisses with full context.
               const _bedPred = tickDataRef.current.bed;
               if (isBed && _bedPred?.forceBridge && !bridgeNapScheduled) {
+                const _bridge = _bedPred.bridgeSuggestion || {};
+                const _bridgeStartTime = _bridge.start || null;
+                const _bridgeDurMin = _bridge.duration || 20;
+                const _bedTime = _bedPred.time ? fmt12(_bedPred.time) : "bedtime";
+                const _bridgeStartLabel = _bridgeStartTime ? fmt12(_bridgeStartTime) : "now";
+                // Build context body for the confirmation sheet.
+                const _bridgeBody =
+                  "A bridge nap is a short, deliberate top-up nap that sits between the last full nap and bedtime. It takes the edge off overtiredness without building too much sleep pressure to bring bedtime forward.\n\n" +
+                  "WHY: " + (babyName||"Baby") + "'s last nap ended too early for the next wake window to safely reach " + _bedTime + ". Without a bridge, the gap is long enough to push past overtired, which usually backfires as hard wakes in the first half of the night.\n\n" +
+                  "WHEN: Put " + (babyName||"baby") + " down at around " + _bridgeStartLabel + " — earlier if the sleepy cues start appearing before that.\n\n" +
+                  "HOW LONG: Cap this nap at " + _bridgeDurMin + " minutes. Any longer and it starts to eat into the pressure needed for a good night. Gently wake if needed.\n\n" +
+                  "The engine will automatically adjust tonight's bedtime around the bridge nap.";
                 return (
-                  <button onClick={()=>{haptic(20);startNap();setBridgeNap(true);showToast("🌉 Bridge nap started",2000,1);}}
+                  <button onClick={()=>{
+                    haptic(20);
+                    showConfirm(
+                      "Bridge nap needed 🌉",
+                      _bridgeBody,
+                      ()=>{
+                        startNap();
+                        setBridgeNap(true);
+                        setConfirmDialog(null);
+                        showToast("🌉 Bridge nap started · cap ~"+_bridgeDurMin+"m",2500,1);
+                      },
+                      "Start bridge nap now"
+                    );
+                  }}
                     style={{background:"rgba(232,87,74,0.12)",border:"1.5px solid rgba(232,87,74,0.4)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:"#c44",animation:"pulse 2s infinite"}}>
                     🌉 Bridge nap needed
                   </button>
@@ -27616,8 +27653,12 @@ function App(){
                 );
               })()}
 
-              {/* Hydration card on Plan tab. Same "Why?" expander style as the
-                  Today-tab priority action card for visual consistency. */}
+              {/* Hydration card on Plan tab. Friendly "Why?" expander copy
+                  from the Today-tab version + visual progress bars showing
+                  each nappy change against the target. Bars were dropped
+                  in commit 2fa3748 when the card was unified with the
+                  Today-tab style — added back here because they're the
+                  fastest visual read for a tired parent glancing at the card. */}
               {(()=>{
                 const _ent = days[selDay] || [];
                 const _prevDayStr = (()=>{ try { const d=new Date(selDay+"T00:00:00"); d.setDate(d.getDate()-1); return localDateStr(d); } catch { return null; } })();
@@ -27628,15 +27669,23 @@ function App(){
                 })();
                 const _smart = smartHydration(_ent, age ? age.totalWeeks : null, _prevLastWet);
                 if (_smart.count >= _smart.target) return null;
+                const _wetCount = _smart.count;
+                const _target = _smart.target;
                 return (
                   <div style={{background:"rgba(111,168,152,0.08)",border:`1.5px solid ${C.mint}40`,borderRadius:16,padding:"12px 14px",marginBottom:12}}>
                     <div style={_S.flexCenter10}>
                       <span style={{fontSize:22}}>💧</span>
-                      <div style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5,fontWeight:500}}>{_smart.raw} wet {_smart.raw===1?"nappy":"nappies"} today ({_smart.count} hydration score). aim for {_smart.target}+ for adequate hydration.</div>
+                      <div style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5,fontWeight:500}}>{_smart.raw} wet {_smart.raw===1?"nappy":"nappies"} today ({_wetCount} hydration score). aim for {_target}+ for adequate hydration.</div>
                     </div>
-                    <div style={{marginTop:6,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+                    {/* Progress bars: one segment per target nappy, filled to _wetCount */}
+                    <div style={{display:"flex",gap:4,marginTop:10}}>
+                      {Array.from({length:_target},(_,i)=>i+1).map(n=>(
+                        <div key={n} style={{flex:1,height:6,borderRadius:99,background:n<=_wetCount?C.mint:C.blush,transition:"background 0.3s"}}/>
+                      ))}
+                    </div>
+                    <div style={{marginTop:8,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
                       <div style={{fontSize:10,color:"var(--text-mid)",fontFamily:_fI,lineHeight:1.6}}>
-                        <span style={{fontWeight:600,color:"var(--text-deep)"}}>Why? </span>Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). {_smart.raw} change{_smart.raw===1?"":"s"} = {_smart.count} hydration score vs {_smart.target}+ target for {fmtAge(age)}.
+                        <span style={{fontWeight:600,color:"var(--text-deep)"}}>Why? </span>Hydration score accounts for overnight nappies (a heavy morning nappy after a long sleep counts as 2-3). {_smart.raw} change{_smart.raw===1?"":"s"} = {_wetCount} hydration score vs {_target}+ target for {fmtAge(age)}.
                       </div>
                     </div>
                   </div>
