@@ -3611,23 +3611,51 @@ function App(){
           break;
         case 'stop_timer':
         case 'toggle_nap': {
-          // Stop whatever timer is currently active: nap, bedtime, or breast
+          // Stop whatever timer is currently active: nap, bedtime, or breast.
+          // DO NOT call endNap() here — this handler lives inside a useEffect
+          // with empty deps so endNap is a stale closure from the initial
+          // render. It sees napOn=false in its captured state and early-returns,
+          // leaving the nap entry with end==start and _active:true. Instead,
+          // read everything from localStorage (live) and update via setDays'
+          // functional updater. React state setters are stable so we can
+          // still call them through the closure to clean up UI state.
           const _napActive = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
           const _breastActive = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
           if(_napActive) {
-            endNap();
-            showToast("😴 Nap stopped via Widget ✓", 3000, 1);
+            try {
+              const _eidStop = localStorage.getItem("nap_entry_id");
+              const _startTStop = localStorage.getItem("nap_startT");
+              const _dayKeyStop = localStorage.getItem("nap_start_day") || todayStr();
+              if (_eidStop && _startTStop) {
+                const [_shS,_smS] = _startTStop.split(":").map(Number);
+                const [_ehS,_emS] = timeNow.split(":").map(Number);
+                let _durS = (_ehS*60+_emS) - (_shS*60+_smS);
+                if (_durS < 0) _durS += 24*60;
+                setDays(d => {
+                  const dayEntries = d[_dayKeyStop] || [];
+                  const updated = dayEntries.map(e =>
+                    e.id === _eidStop ? {...e, end: timeNow, duration: _durS, _active: false} : e
+                  );
+                  return {...d, [_dayKeyStop]: updated};
+                });
+                try { trackEvent("timer_stopped", { type: "nap", duration_mins: _durS, source: "widget" }); } catch {}
+              }
+              setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
+              ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+              if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+              showToast("😴 Nap stopped via Widget ✓", 3000, 1);
+            } catch(e) { console.warn("[OBubba] Widget nap stop failed:", e); }
           } else if(_breastActive) {
             // Stop breast timer. trigger the same flow as tapping stop in-app
             window.dispatchEvent(new CustomEvent('nativeAction',{detail:{action:'end_breast_timer'}}));
             showToast("🤱 Feed stopped via Widget ✓", 3000, 1);
           } else {
-            // No nap or breast active. start a nap
+            // No nap or breast active. start a nap (using LOCAL day key, not UTC).
             const _eid = uid();
-            const _today = now.toISOString().split("T")[0];
+            const _today = todayStr();
             setDays(d=>{
               const updated=[...(d[_today]||[]),{id:_eid,type:"nap",start:timeNow,end:timeNow,duration:0,night:false,note:"via widget",_active:true}];
-              const _pd=(()=>{const dt=new Date(_today+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+              const _pd=(()=>{const dt=new Date(_today+"T12:00:00");dt.setDate(dt.getDate()-1);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
               return{...d,[_today]:autoClassifyNight(updated,d[_pd]||null)};
             });
             try{localStorage.setItem("nap_startT",timeNow);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_start_day",_today);}catch{}
@@ -4373,6 +4401,82 @@ function App(){
       window.removeEventListener("pageshow", _maybeSnapToToday);
     };
   }, []);
+
+  // ═══════════════════════════════════════════════════════════════
+  // ONE-SHOT MIGRATION: bedtimer night wake duration in note → field
+  // ═══════════════════════════════════════════════════════════════
+  // Before this migration landed, resumeBedTimer (the function that
+  // runs when "Back to sleep" is tapped after a bed timer pause)
+  // stuffed the duration soothed into the note string like
+  //   "Assisted (22min). logged via bed timer"
+  // and wrote it to wakeDuration but NOT to assistedDuration.
+  // The Night Wake edit form reads assistedDuration / settleDuration,
+  // so existing users who edit their old entries see "0h 0m" instead
+  // of the real duration.
+  //
+  // This migration runs once per install, parses the "(Nmin)" pattern
+  // out of the note, populates the structured duration field, and
+  // cleans the note so the minute value isn't duplicated.
+  React.useEffect(() => {
+    try {
+      if (localStorage.getItem("ob_migration_bedtimer_duration_v1") === "1") return;
+      const _re = /\((\d+)\s*min\)/;
+      let _touched = 0;
+      setChildren(prev => {
+        if (!prev || typeof prev !== "object") return prev;
+        const next = {};
+        for (const cid of Object.keys(prev)) {
+          const ch = prev[cid];
+          if (!ch || !ch.days) { next[cid] = ch; continue; }
+          const nextDays = {};
+          let _cdTouched = false;
+          for (const dk of Object.keys(ch.days)) {
+            const entries = ch.days[dk] || [];
+            const mapped = entries.map(e => {
+              if (!e || !e.night) return e;
+              if (e.assistedDuration || e.settleDuration) return e;
+              if (!e.note || typeof e.note !== "string") return e;
+              if (e.note.indexOf("logged via bed timer") === -1) return e;
+              const m = e.note.match(_re);
+              if (!m) return e;
+              const mins = parseInt(m[1], 10);
+              if (!mins || isNaN(mins)) return e;
+              // Decide which field to populate based on the note prefix.
+              // "Self settled" → settleDuration. Everything else → assistedDuration.
+              const isSelf = /self\s*settled/i.test(e.note);
+              // Clean the note: drop the "(Nmin)" chunk.
+              const cleanedNote = e.note.replace(_re, "").replace(/\s{2,}/g, " ").replace(/\s+\./g, ".").trim();
+              _touched++;
+              _cdTouched = true;
+              const patch = { ...e, note: cleanedNote };
+              if (isSelf) patch.settleDuration = mins;
+              else patch.assistedDuration = mins;
+              // wakeDuration may already be set by resumeBedTimer, but set it
+              // defensively for entries where it wasn't stored.
+              if (!e.wakeDuration) patch.wakeDuration = mins;
+              return patch;
+            });
+            nextDays[dk] = mapped;
+          }
+          next[cid] = _cdTouched ? { ...ch, days: nextDays } : ch;
+        }
+        return next;
+      });
+      // Mark done regardless of whether any entries were touched — the
+      // migration is idempotent but we still only want it to run once.
+      setTimeout(() => {
+        try {
+          localStorage.setItem("ob_migration_bedtimer_duration_v1", "1");
+          if (_touched > 0) {
+            console.log("[OBubba] Migrated " + _touched + " bed-timer night wake(s): duration now in structured field.");
+          }
+        } catch {}
+      }, 600);
+    } catch (e) {
+      console.warn("[OBubba] Bed-timer duration migration failed:", e);
+    }
+  }, []);
+
   const[tab,setTab]=useState("day");
   // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
   const[daySubScreen,setDaySubScreen]=useState(null);
