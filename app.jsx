@@ -1467,6 +1467,10 @@ function _nightMins(t) {
   if (!t || typeof t !== "string") return null;
   const [h, m] = t.split(":").map(Number);
   if (isNaN(h) || isNaN(m)) return null;
+  // Bounds check: reject impossible clock values (25:99 etc) rather
+  // than returning a plausible-looking 1500-minute value that then
+  // breaks downstream fromBedMin / duration calculations.
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
   return h * 60 + m;
 }
 
@@ -2036,7 +2040,7 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
     if (_nightN >= 3 && _dayN >= 3) {
       const _nightAvg = _nightMl / _nightN;
       const _dayAvg = _dayMl / _dayN;
-      if (_nightAvg > _dayAvg * 1.3 && _nightAvg > 100) {
+      if (!isNaN(_nightAvg) && !isNaN(_dayAvg) && _nightAvg > _dayAvg * 1.3 && _nightAvg > 100) {
         return {
           type: "reverse_cycling",
           emoji: "🔄",
@@ -2290,7 +2294,7 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
   if (_daysSinceBirth !== null && _daysSinceBirth > 14 && Array.isArray(moodCheckins) && moodCheckins.length >= 3) {
     const _recent = moodCheckins.slice(-3);
     const _avgMood = _recent.reduce((s,m)=>s+(typeof m.score === "number" ? m.score : 3),0) / _recent.length;
-    if (_avgMood < 3) {
+    if (!isNaN(_avgMood) && _avgMood < 3) {
       return {
         type: "pnd_flag",
         emoji: "💛",
@@ -2428,13 +2432,22 @@ function runAllAnalysers(ctx) {
     if (ctx.wellbeingDiag && ctx.wellbeingDiag.title && ctx.wellbeingDiag.type !== "positive_trajectory") results.push({source:"wellbeing", ...ctx.wellbeingDiag});
   } catch {}
 
-  // Rank: urgency:high first, then source priority
+  // Rank: urgency:high first, then source priority, then confidence,
+  // then alphabetical type as a final deterministic tiebreaker so ties
+  // never produce different orderings on different renders.
   const sourceRank = { wellbeing: 0, feed: 1, night: 2, nap: 3, weaning: 4 };
+  const confRank = { high: 0, medium: 1, low: 2 };
   results.sort((a,b) => {
     const aU = a.urgency === "high" ? 0 : 1;
     const bU = b.urgency === "high" ? 0 : 1;
     if (aU !== bU) return aU - bU;
-    return (sourceRank[a.source]||5) - (sourceRank[b.source]||5);
+    const aS = sourceRank[a.source] || 5;
+    const bS = sourceRank[b.source] || 5;
+    if (aS !== bS) return aS - bS;
+    const aC = confRank[a.confidence] || 3;
+    const bC = confRank[b.confidence] || 3;
+    if (aC !== bC) return aC - bC;
+    return (a.type || "").localeCompare(b.type || "");
   });
 
   return {
@@ -8200,6 +8213,13 @@ function App(){
   }
 
   const [restoreDone, setRestoreDone] = React.useState(false);
+  // Force-render counter used by dismissible cards (Last Night digest,
+  // weekly digest) that write a dismissed flag to localStorage and need
+  // the parent render to re-run to hide themselves. Was referenced in
+  // four places (29150, 29277, 31409, 31457) without ever being
+  // declared — crashed with ReferenceError the first time a parent
+  // tapped the × button to dismiss a morning card.
+  const [forceRender, setForceRender] = React.useState(0);
 
   const restoreRanRef = React.useRef(false);
 
@@ -11225,7 +11245,7 @@ function App(){
     if (!_nextEvent && _feedGapM < 9000 && _lastFeed) {
       const _feedDelta = _nextFeedMins !== null ? _nextFeedMins - _nowMinsSel : 999;
       const _lastFeedT = fmt12(_lastFeed.time);
-      const _patternH = _avgFeedInterval ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
+      const _patternH = (_avgFeedInterval && !isNaN(_avgFeedInterval)) ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
       const _patternStr = _patternH ? "every ~" + _patternH + "h" : "every ~" + (_feedThreshM/60).toFixed(1).replace(/\.0$/,"") + "h";
       if (_feedDelta <= 0 && _feedGapM > _feedThreshM * 0.9) {
         _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · might be ready for a feed" + (_nextFeedMlStr ? " (maybe " + _nextFeedMlStr + _feedMlContext + ")" : "") };
@@ -11253,7 +11273,7 @@ function App(){
       const _feedDelta = _nextFeedMins - _nowMinsSel;
       if (_feedDelta > 30 && _feedDelta < 240) {
         const _lastFeedT = fmt12(_lastFeed.time);
-        const _patternH = _avgFeedInterval ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
+        const _patternH = (_avgFeedInterval && !isNaN(_avgFeedInterval)) ? (_avgFeedInterval / 60).toFixed(1).replace(/\.0$/,"") : null;
         const _patternStr = _patternH ? "every ~" + _patternH + "h" : "every ~" + (_feedThreshM/60).toFixed(1).replace(/\.0$/,"") + "h";
         _nextEvent = { icon: "🍼", text: _name + " fed at " + _lastFeedT + " · " + _patternStr + " · next around " + _nextFeedStr + (_nextFeedMlStr ? " (try " + _nextFeedMlStr + _feedMlContext + ")" : "") };
       }
@@ -13458,7 +13478,8 @@ function App(){
 
       // Total day sleep deficit adjustment (stacks with last-nap adjustment)
       const totalDayNapMins = todayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-      const napProfile2 = getAgeNapProfile(age.totalWeeks);
+      const _predAgeW = age.predictiveWeeks ?? age.totalWeeks;
+      const napProfile2 = getAgeNapProfile(_predAgeW);
       const dayTarget = Math.round((napProfile2.idealTotalMin + napProfile2.idealTotalMax) / 2);
       const dayDeficit = dayTarget - totalDayNapMins;
       if (dayDeficit > 30) {
@@ -13472,19 +13493,19 @@ function App(){
       const [lh,lm] = lastNap.end.split(":").map(Number);
       const lastNapEndMins = lh*60+lm;
       const absoluteLatestBed = lastNapEndMins + ww.max;
-      const bedtimeFloor = clampBedtime(0, age.totalWeeks);
+      const bedtimeFloor = clampBedtime(0, _predAgeW);
 
       // Bridge nap check
       const needsBridgeNap = bedtimeFloor > absoluteLatestBed;
       if (needsBridgeNap && !bridgeNapScheduled) {
         const bridgeStart = lastNapEndMins + ww.min;
         // Bridge nap duration: age-adaptive (younger babies tolerate longer)
-        const _bridgeDur = age.totalWeeks < 22 ? 25 : age.totalWeeks < 39 ? 20 : 15;
+        const _bridgeDur = _predAgeW < 22 ? 25 : _predAgeW < 39 ? 20 : 15;
         const bridgeEnd = bridgeStart + _bridgeDur;
         // Post-bridge: 60-90 min to bed (bridge doesn't reset full WW)
         const postBridgeWindow = Math.min(ww.min, 90);
         const postBridgeBed = bridgeEnd + postBridgeWindow;
-        const clampedPostBridge = clampBedtime(postBridgeBed, age.totalWeeks);
+        const clampedPostBridge = clampBedtime(postBridgeBed, _predAgeW);
         const hh = Math.floor(clampedPostBridge/60)%24, mm = clampedPostBridge%60;
         return _applyNightShift({
           time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
@@ -18942,6 +18963,10 @@ function App(){
     if (_isNative && _deletedEntry) {
       if (_deletedEntry.type === "sleep" && !_deletedEntry.night) {
         window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+        // Clear the Android lock-screen notification so it doesn't
+        // keep the "bedtime timer running" banner visible after the
+        // entry that started it was deleted.
+        clearTimerNotification();
         setTimerMode("prediction");
         try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
       } else if (_deletedEntry.type === "nap" && napEntryId === id) {
@@ -21171,6 +21196,10 @@ function App(){
         const _la = window.Capacitor?.Plugins?.OBLiveActivity;
         _la?.stop?.().catch(()=>{});
       }
+      // Clear Android lock-screen notification too — the timer is
+      // effectively paused, not running, so the "bed timer running"
+      // banner shouldn't stay up.
+      clearTimerNotification();
     } catch {}
     showToast("🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
   }
@@ -34279,7 +34308,7 @@ function App(){
                       <div style={{fontSize:10,color:C.mid,lineHeight:1.4}}>{_stageNote}</div>
                       {/* Progress dots */}
                       <div style={{display:"flex",gap:3,marginTop:6}}>
-                        {Array.from({length: _stageNum === 3 ? 8 : _stageNum === 2 ? 8 : 5}).map((_,i) => (
+                        {Array.from({length: _stageNum === 3 ? 8 : _stageNum === 2 ? 7 : 5}).map((_,i) => (
                           <div key={i} style={{
                             flex:1,
                             height:3,
@@ -38203,8 +38232,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 const _nightDiag = (()=>{try{return diagnoseNightPattern(_lastNightMemo);}catch{return null;}})();
                 // Feed diagnosis
                 const _feedDiag = diagnoseFeedPattern(_todayArr, _recent14, (age.predictiveWeeks??age.totalWeeks), weights, _wetCount);
-                // Weaning diagnosis
-                const _weaningDiag = age.totalWeeks >= 24
+                // Weaning diagnosis — use corrected age for preemies
+                const _weaningDiag = (age.predictiveWeeks??age.totalWeeks) >= 24
                   ? diagnoseWeaningPattern(weaning||[], (age.predictiveWeeks??age.totalWeeks), _recent14.filter(e=>e.type==="poop"), Object.keys(days).sort().slice(-14))
                   : null;
                 // Wellbeing diagnosis
