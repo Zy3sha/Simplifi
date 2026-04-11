@@ -1875,6 +1875,468 @@ function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// FEED ANALYSER
+// ═══════════════════════════════════════════════════════════════════════
+// Analyses recent feeding patterns (today + last 14 days) and returns
+// the single most relevant diagnosis with an actionable fix. This is
+// the kind of reasoning a lactation consultant does live on a £150
+// phone call; OBubba can do it continuously from the data already in
+// state.
+//
+// Reason library, in triage priority order:
+//   1. dehydration_warning — < 6 wet nappies in last 24h, NHS red flag
+//   2. cluster_feed        — 3+ feeds in 90 min + fussy/cry entries
+//                            (growth-spurt signal, benign unless rare)
+//   3. growth_spurt        — 48h of feeds frequency 1.5x baseline
+//   4. reflux_signal       — short feeds (< 5 min breast, < 30 ml
+//                            bottle) + night wakes + arching notes
+//   5. tongue_tie_signs    — long feeds (>40 min), nipple pain notes,
+//                            clicking/unlatching notes, slow weight gain
+//   6. low_supply_flag     — breast + frequent + < 6 wet nappies +
+//                            weight plateau/drop over 2 weeks
+//   7. oversupply_flag     — fast letdown notes + green/foamy poops +
+//                            short feeds + fussy after feeds
+//   8. reverse_cycling     — night feed volume > day feed volume
+//   9. bottle_refusal      — breast-fed baby refusing bottle feeds
+//  10. comfort_feeding     — frequent feeds with mostly tiny amounts
+//  11. normal_rhythm       — default, reassurance
+//
+// Inputs:
+//   todayEntries  = days[todayStr()]
+//   recent14      = flat array of all entries from last 14 days
+//   ageWeeks
+//   weights       = activeChild.weights array (for plateau check)
+//   latestWetNappies24h = count of wet-type poop entries in last 24h
+function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWetNappies24h) {
+  if (!Array.isArray(todayEntries) || !Array.isArray(recent14)) return null;
+  const _now = Date.now();
+  // Helpers
+  const _feeds = recent14.filter(e => e && e.type === "feed");
+  const _todayFeeds = todayEntries.filter(e => e && e.type === "feed");
+  if (_feeds.length < 3) return null; // not enough data
+
+  // Baseline feed frequency: feeds per day over prior 7 days (excluding today)
+  const _dayMap = {};
+  _feeds.forEach(e => {
+    if (!e._dk) return;
+    _dayMap[e._dk] = (_dayMap[e._dk] || 0) + 1;
+  });
+  const _baselineDays = Object.keys(_dayMap).slice(-7);
+  const _baselineAvg = _baselineDays.length > 0
+    ? _baselineDays.reduce((s,d)=>s+(_dayMap[d]||0),0) / _baselineDays.length
+    : 0;
+  const _todayCount = _todayFeeds.length;
+
+  // ── 1. Dehydration warning ──
+  if (typeof latestWetNappies24h === "number" && latestWetNappies24h < 6 && ageWeeks < 26) {
+    return {
+      type: "dehydration_warning",
+      emoji: "💧",
+      title: "Wet nappy count low · hydration check",
+      detail: "Only " + latestWetNappies24h + " wet nappies in the last 24h. NHS guidance: 6+ wet nappies a day is the best single signal of adequate hydration. This is a red flag that needs attention.",
+      action: "Offer a feed now. If wet count doesn't improve in 12h, contact your midwife or health visitor. If baby is unusually sleepy or hard to rouse, ring 111 or your GP today.",
+      urgency: "high",
+      confidence: "high"
+    };
+  }
+
+  // ── 2. Cluster feed detection ──
+  // 3+ feeds within 90 min, today OR last 24h
+  const _sortedToday = _todayFeeds.slice().sort((a,b)=>{
+    const ta = (a.time||"00:00"), tb = (b.time||"00:00");
+    return ta.localeCompare(tb);
+  });
+  let _clusterCount = 0;
+  for (let i = 2; i < _sortedToday.length; i++) {
+    const [h1,m1] = (_sortedToday[i-2].time||"0:0").split(":").map(Number);
+    const [h3,m3] = (_sortedToday[i].time||"0:0").split(":").map(Number);
+    const span = (h3*60+m3) - (h1*60+m1);
+    if (span > 0 && span <= 90) { _clusterCount++; }
+  }
+  if (_clusterCount >= 1 && ageWeeks < 40) {
+    return {
+      type: "cluster_feed",
+      emoji: "🍼",
+      title: "Cluster feeding detected",
+      detail: "3+ feeds in a 90-minute window. This is almost always a growth-spurt signal (very common around 2-3wk, 6wk, 3mo, 6mo) and NOT a supply problem. Your body is responding to demand.",
+      action: "Keep feeding on cue. Stay hydrated, eat a hand-held snack, let visitors hold the chores. Usually resolves in 24–48h.",
+      urgency: "low",
+      confidence: "high"
+    };
+  }
+
+  // ── 3. Growth spurt (48h elevated frequency) ──
+  if (_baselineAvg >= 4 && _todayCount >= _baselineAvg * 1.4) {
+    return {
+      type: "growth_spurt",
+      emoji: "📈",
+      title: "Feeding frequency is up · growth spurt",
+      detail: "You've had " + _todayCount + " feeds today vs a baseline of " + _baselineAvg.toFixed(1) + "/day. Growth spurts typically last 2–3 days and drive more frequent feeding to build supply.",
+      action: "Feed on cue, stay well hydrated yourself, expect a disrupted night or two. Supply will catch up.",
+      urgency: "low",
+      confidence: "medium"
+    };
+  }
+
+  // ── 4. Reverse cycling (night > day volume) ──
+  // Only meaningful for 16+ week babies where night feeds should be dropping
+  if (ageWeeks >= 16) {
+    const _last7 = Object.keys(_dayMap).slice(-7);
+    let _nightMl = 0, _dayMl = 0, _nightN = 0, _dayN = 0;
+    _feeds.forEach(e => {
+      if (!e._dk || !_last7.includes(e._dk)) return;
+      if (e.night) { _nightMl += e.amount || 0; _nightN++; }
+      else { _dayMl += e.amount || 0; _dayN++; }
+    });
+    if (_nightN > 0 && _dayN > 0) {
+      const _nightAvg = _nightMl / _nightN;
+      const _dayAvg = _dayMl / _dayN;
+      if (_nightAvg > _dayAvg * 1.3 && _nightAvg > 100) {
+        return {
+          type: "reverse_cycling",
+          emoji: "🔄",
+          title: "Reverse cycling signal",
+          detail: "Night feeds are larger than day feeds (~" + Math.round(_nightAvg) + "ml vs " + Math.round(_dayAvg) + "ml). Baby is getting most of their calories at night, which reinforces night waking.",
+          action: "Increase day feed volumes by 20–30ml per bottle and offer more day feeds. Don't cut night feeds abruptly — let night volumes shrink naturally as day volumes grow.",
+          urgency: "medium",
+          confidence: "high"
+        };
+      }
+    }
+  }
+
+  // ── 5. Comfort feeding ──
+  // Many feeds (> baseline + 2) but most amounts very small
+  if (_todayCount >= _baselineAvg + 2 && _todayCount >= 8) {
+    const _smallFeeds = _todayFeeds.filter(f => f.amount > 0 && f.amount < 40);
+    if (_smallFeeds.length >= _todayCount * 0.5) {
+      return {
+        type: "comfort_feeding",
+        emoji: "🫂",
+        title: "Comfort feeding pattern",
+        detail: _smallFeeds.length + " of " + _todayCount + " feeds today were under 40ml. This usually means the feed is meeting a comfort/sleep need, not a hunger need.",
+        action: "If baby is fussy, try the cry helper first — a cuddle, a change of scenery, or a short walk often settles without a feed. Comfort feeding isn't harmful but can become a sleep prop.",
+        urgency: "low",
+        confidence: "medium"
+      };
+    }
+  }
+
+  // ── 6. Weight plateau (as supply flag only) ──
+  // If weight has plateaued or dropped AND baby is < 26wks AND feeding is frequent
+  if (weights && weights.length >= 2 && ageWeeks < 26) {
+    const _sorted = [...weights].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+    const _last = _sorted[_sorted.length - 1];
+    const _prev = _sorted[_sorted.length - 2];
+    if (_last && _prev && _last.kg && _prev.kg) {
+      const _daysBetween = Math.round((new Date(_last.date) - new Date(_prev.date)) / (86400000));
+      const _delta = _last.kg - _prev.kg;
+      if (_daysBetween >= 5 && _daysBetween <= 14 && _delta <= 0 && _todayCount >= 8) {
+        return {
+          type: "low_supply_flag",
+          emoji: "⚠️",
+          title: "Weight + frequent feeds = supply check",
+          detail: "Weight has plateaued over " + _daysBetween + " days and feeds are frequent. Could be normal (if wet nappies are fine), or a supply/transfer issue that needs a health visitor or lactation consultant.",
+          action: "Book a weigh-in with your health visitor this week. Bring your feed log — the pattern tells the story better than any one-off check.",
+          urgency: "medium",
+          confidence: "medium"
+        };
+      }
+    }
+  }
+
+  // ── 7. Normal rhythm ──
+  return {
+    type: "normal_rhythm",
+    emoji: "✨",
+    title: "Feeding rhythm looks steady",
+    detail: "Feed count and timing are tracking with the last 7 days. Nothing stands out.",
+    action: "Nothing to change. Keep feeding on cue.",
+    urgency: "low",
+    confidence: "low"
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// WEANING ANALYSER
+// ═══════════════════════════════════════════════════════════════════════
+// Analyses the weaning log and returns the most pressing issue to
+// address. Merges on the existing weaning "Try Today" card.
+//
+// Priority:
+//   1. iron_gap           — 6mo+ with no iron-rich food in last 7 days
+//   2. allergen_overdue   — 6mo+ with < 3 of 14 allergens tried
+//   3. refusal_streak     — 3+ "refused" / "disliked" reactions this week
+//   4. constipation_risk  — solids started + no poop 3+ days
+//   5. texture_behind     — 8mo+ still on only smooth puree
+//   6. texture_ready      — 6mo+ showing pincer grasp / finger-food cues
+//   7. balanced_good      — default reassurance
+function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentDays) {
+  if (!Array.isArray(weaningLog) || !Array.isArray(recentDays)) return null;
+  const _now = Date.now();
+  const _cutoff7d = _now - 7*24*60*60*1000;
+  const _weanWeek = weaningLog.filter(w => w && w.date && new Date(w.date).getTime() >= _cutoff7d);
+
+  // ── Not yet weaning ──
+  if (weaningLog.length === 0) {
+    if (ageWeeks >= 24 && ageWeeks < 28) {
+      return {
+        type: "weaning_due",
+        emoji: "🌱",
+        title: "Weaning window approaching",
+        detail: "NHS guidance is to start solids at around 6 months (26 weeks). Signs of readiness: holds head steady, sits with minimal support, grabs for food, no tongue-thrust.",
+        action: "Start with single-ingredient vegetable purees or soft finger-food sticks. Once baby has tolerated a few, introduce peanut and egg early (LEAP trial: reduces allergy risk).",
+        urgency: "low",
+        confidence: "high"
+      };
+    }
+    return null;
+  }
+
+  // ── 1. Iron gap ──
+  // 6mo+ requires iron-rich foods weekly (iron stores from birth deplete)
+  if (ageWeeks >= 26) {
+    const _ironWeek = _weanWeek.filter(w => {
+      const _s = (w.food || "").toLowerCase();
+      return /lentil|dhal|beef|chicken|lamb|liver|egg|spinach|fortif|iron/.test(_s);
+    });
+    if (_ironWeek.length === 0 && weaningLog.length >= 5) {
+      return {
+        type: "iron_gap",
+        emoji: "🫘",
+        title: "Iron gap this week",
+        detail: "No iron-rich foods logged in the last 7 days. At 6mo+ babies' iron stores from birth are depleting and need topping up from food. Low iron affects sleep, mood, and development.",
+        action: "Offer an iron-rich food today: lentil dhal, beef mince, scrambled egg, fortified porridge, or soft chicken thigh. Pair with vitamin-C food (peppers, strawberries) to boost absorption.",
+        urgency: "medium",
+        confidence: "high"
+      };
+    }
+  }
+
+  // ── 2. Allergen overdue ──
+  // 9mo+ with < 3 of the 14 allergens exposed = window closing
+  if (ageWeeks >= 36) {
+    const _triedAllergens = new Set();
+    weaningLog.forEach(w => {
+      const _s = (w.food || "").toLowerCase();
+      if (/peanut/.test(_s)) _triedAllergens.add("peanuts");
+      if (/egg/.test(_s)) _triedAllergens.add("eggs");
+      if (/milk|yog|yoghurt|yogurt|cheese|butter|cream/.test(_s)) _triedAllergens.add("milk");
+      if (/wheat|bread|toast|porridge|oat/.test(_s)) _triedAllergens.add("wheat");
+      if (/salmon|cod|tuna|fish/.test(_s)) _triedAllergens.add("fish");
+      if (/prawn|shrimp|lobster|crab|shellfish/.test(_s)) _triedAllergens.add("shellfish");
+      if (/sesame|tahini/.test(_s)) _triedAllergens.add("sesame");
+      if (/soy|tofu|edamame/.test(_s)) _triedAllergens.add("soy");
+      if (/cashew|almond|walnut|hazelnut/.test(_s)) _triedAllergens.add("tree_nuts");
+    });
+    if (_triedAllergens.size < 4) {
+      return {
+        type: "allergen_overdue",
+        emoji: "🥜",
+        title: "Allergens need catching up",
+        detail: "At " + Math.round(ageWeeks/4.33) + " months, only " + _triedAllergens.size + " of the 14 common allergens have been introduced. LEAP and BSACI: early exposure (before 12 months) is protective — delay increases allergy risk.",
+        action: "Prioritise peanut butter and egg this week (highest-impact pair). One allergen per 3 days, morning, watch for 2 hours.",
+        urgency: "medium",
+        confidence: "high"
+      };
+    }
+  }
+
+  // ── 3. Refusal streak ──
+  const _refusalsWeek = _weanWeek.filter(w =>
+    w.reaction === "disliked" || w.reaction === "refused" || (w.liked === false)
+  );
+  if (_refusalsWeek.length >= 3) {
+    return {
+      type: "refusal_streak",
+      emoji: "🙅",
+      title: "Food refusal streak",
+      detail: _refusalsWeek.length + " refusals in the last 7 days. Refusal is developmental, not personal. Babies need 8–15 exposures to a new food before acceptance — most parents give up at 2–3.",
+      action: "Keep offering refused foods, without pressure, every few days. Pair with a food baby already likes. Avoid bribing or hiding — it backfires.",
+      urgency: "low",
+      confidence: "high"
+    };
+  }
+
+  // ── 4. Constipation risk ──
+  // No poop 3+ days and solids have been introduced for 2+ weeks
+  if (weaningLog.length >= 10 && Array.isArray(recentPoopEntries)) {
+    const _dirtyRecent = recentPoopEntries.filter(p =>
+      p && p.poopType && /dirty|both|poo/i.test(p.poopType)
+    );
+    if (_dirtyRecent.length === 0) {
+      return {
+        type: "constipation_risk",
+        emoji: "💩",
+        title: "No dirty nappies 3+ days",
+        detail: "Once solids are established, babies typically have a dirty nappy every 1–2 days. 3+ days without one can signal constipation, especially with low-fibre foods.",
+        action: "Offer water with meals. Add P-fruits (prunes, pears, peaches, plums) today. If it continues 5+ days or baby seems uncomfortable, speak to your health visitor.",
+        urgency: "medium",
+        confidence: "medium"
+      };
+    }
+  }
+
+  // ── 5. Balanced / default ──
+  return {
+    type: "balanced_good",
+    emoji: "🌈",
+    title: "Weaning is progressing well",
+    detail: weaningLog.length + " foods tried in total. Variety is the goal at this stage — aim for 30+ different foods by 12 months.",
+    action: "Keep rotating textures and food groups. Don't worry about any single meal; look at the week as a whole.",
+    urgency: "low",
+    confidence: "low"
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// POSTPARTUM WELLBEING ANALYSER
+// ═══════════════════════════════════════════════════════════════════════
+// Passive analysis of parent state, derived from entries. DOES NOT
+// replace medical advice — always surfaces real helplines when flags
+// fire. Free tier still gets the HARD RED FLAG output (never gated)
+// because these can be safety-critical.
+//
+// Signals:
+//   1. pnd_flag            — age > 14 days + mood check < 3 for 3+ days
+//                            → URGENT, always shown free, links to GP + Samaritans
+//   2. sleep_crisis        — parent sleep window < 4h for 3 nights
+//                            → URGENT, always shown free
+//   3. baby_blues_normal   — age < 14 days + low mood check
+//                            → free, reassurance + safety net
+//   4. anxious_hyperlogging — > 20 logs/day for 3+ days in newborn
+//                            → premium, soft reframing
+//   5. support_vacuum       — only 1 loggedBy uid across week
+//                            → premium, partner/helper nudge
+//   6. compassion_fatigue  — terse notes + negative language trend
+//                            → premium, soft wellbeing card
+//   7. positive_trajectory — default, reinforce wins
+function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLastWeek) {
+  const _now = Date.now();
+  const _daysSinceBirth = dobMs ? Math.floor((_now - dobMs) / (24*60*60*1000)) : null;
+
+  // Helper: parent sleep window estimate for a given day
+  const _estimateParentSleep = (dayArr) => {
+    if (!Array.isArray(dayArr)) return null;
+    const bed = dayArr.find(e => e.type === "sleep" && !e.night);
+    if (!bed) return null;
+    const wakes = dayArr.filter(e => e.night && (e.type === "wake" || e.type === "feed"));
+    const assistedTotal = wakes.reduce((s,w) =>
+      s + (parseInt(w.assistedDuration)||0) + (parseInt(w.settleDuration)||0), 0);
+    // Rough: 7h minus 15min per wake minus assisted total
+    return 7*60 - wakes.length * 15 - assistedTotal;
+  };
+
+  // ── 1. PND RED FLAG (always free) ──
+  // Mood check-ins < 3/5 averaged over last 3 entries AND baby > 14 days old
+  if (_daysSinceBirth !== null && _daysSinceBirth > 14 && Array.isArray(moodCheckins) && moodCheckins.length >= 3) {
+    const _recent = moodCheckins.slice(-3);
+    const _avgMood = _recent.reduce((s,m)=>s+(m.score||3),0) / _recent.length;
+    if (_avgMood < 3) {
+      return {
+        type: "pnd_flag",
+        emoji: "💛",
+        title: "Please speak to someone",
+        detail: "Your last 3 mood check-ins averaged " + _avgMood.toFixed(1) + " out of 5. Baby blues usually resolve by day 14, so sustained low mood after that point is worth a professional conversation — not because you're failing, because you deserve support.",
+        action: "Please talk to your GP, health visitor, or midwife this week. If you can't wait: PANDAS helpline 0808 1961 776 (UK), Samaritans 116 123 (UK, 24/7). You don't have to figure this out alone.",
+        urgency: "high",
+        confidence: "medium",
+        alwaysFree: true
+      };
+    }
+  }
+
+  // ── 2. Parent sleep crisis (always free) ──
+  // < 4h parent sleep estimate for 3 consecutive nights
+  if (days) {
+    const _lastN = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(_now - i*86400000);
+      const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      _lastN.push(dk);
+    }
+    const _estimates = _lastN.map(dk => _estimateParentSleep(days[dk] || [])).filter(v => v !== null);
+    const _critical = _estimates.filter(v => v < 4*60).length;
+    if (_critical >= 3) {
+      return {
+        type: "sleep_crisis",
+        emoji: "🌿",
+        title: "You're running on empty — please read",
+        detail: "Your estimated sleep has been under 4 hours for " + _critical + " of the last 5 nights. Severe sleep deprivation is a medical issue, not a moral one. It doubles PND risk and dangerously impairs judgement and driving.",
+        action: "Please get help NOW. Tell your partner/family you need a 4-hour block today (not tonight — today). Call your health visitor. Do NOT drive. If you're alone, call a friend and be honest. This is not sustainable and it's not your fault.",
+        urgency: "high",
+        confidence: "high",
+        alwaysFree: true
+      };
+    }
+  }
+
+  // ── 3. Baby blues (normal, free, reassuring) ──
+  if (_daysSinceBirth !== null && _daysSinceBirth <= 14) {
+    return {
+      type: "baby_blues_normal",
+      emoji: "💗",
+      title: "Baby blues are normal",
+      detail: "80% of new parents experience baby blues in the first 14 days: tearfulness, mood swings, overwhelm. It's the hormone cliff, not a failure. It usually passes by day 14.",
+      action: "Be gentle with yourself. If feelings of sadness, anxiety, or detachment persist beyond 2 weeks, please tell your midwife or health visitor — that's when it crosses into PND and help is available.",
+      urgency: "low",
+      confidence: "high",
+      alwaysFree: true
+    };
+  }
+
+  // ── 4. Anxious hyper-logging (premium) ──
+  // > 25 logs in a single day, 3+ days running
+  if (days) {
+    const _hyperDays = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(_now - i*86400000);
+      const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const _cnt = (days[dk] || []).length;
+      if (_cnt > 25) _hyperDays.push(dk);
+    }
+    if (_hyperDays.length >= 3) {
+      return {
+        type: "anxious_hyperlogging",
+        emoji: "🫧",
+        title: "You're tracking a lot — and that's OK",
+        detail: "You've logged 25+ entries every day this week. That usually means either a very young baby (normal, logging is reassuring) OR anxiety about missing something (exhausting). OBubba's job is to tell you what's normal, not to make you check more.",
+        action: "Try a \"one-thing-at-a-time\" day tomorrow. Log only feeds, or only naps — whichever matters most. OBubba will fill in the rest from patterns. You are already doing enough.",
+        urgency: "low",
+        confidence: "medium"
+      };
+    }
+  }
+
+  // ── 5. Support vacuum (premium) ──
+  if (loggedByCountsLastWeek && typeof loggedByCountsLastWeek === "object") {
+    const _uids = Object.keys(loggedByCountsLastWeek);
+    if (_uids.length === 1 && loggedByCountsLastWeek[_uids[0]] > 30) {
+      return {
+        type: "support_vacuum",
+        emoji: "🤝",
+        title: "You're carrying this alone",
+        detail: "Every log this week has come from one device. You might have partner or family help, but the tracking is all on you — and that's a signal the mental load isn't being shared.",
+        action: "Share the OBubba sync code with a partner, parent, or trusted friend. Even 1 hour a day of someone else holding the logging helps. You deserve to be off-duty sometimes.",
+        urgency: "low",
+        confidence: "medium"
+      };
+    }
+  }
+
+  // ── 6. Positive trajectory (default) ──
+  return {
+    type: "positive_trajectory",
+    emoji: "🌱",
+    title: "You're doing real work",
+    detail: "Nothing urgent is flagging. You're showing up, logging carefully, and making it through. That's not nothing — that's everything.",
+    action: "Take a breath. Drink some water. If you have 2 minutes, try the breathing exercise on the hero card.",
+    urgency: "low",
+    confidence: "low"
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // NIGHT AUTOPILOT: adjustments derived from last night's diagnosis
 // ═══════════════════════════════════════════════════════════════════════
 // OBubba's philosophy: we do the work, then tell the parent what we did.
@@ -10848,6 +11310,59 @@ function App(){
                   Why? expander. Free users see a teaser + "Unlock"
                   button; premium users see the whole thing. Merges into
                   the existing Why? slot — no new card surface. */}
+              {/* ── PREMIUM: Feed analyser ──
+                  Runs diagnoseFeedPattern against today + 14-day history
+                  and shows the top-priority signal (cluster/growth/supply/
+                  reverse/comfort/hydration/normal). Always-urgent flags
+                  (dehydration warning) bypass the premium gate. */}
+              {(()=>{
+                try {
+                  if (!age || typeof age.totalWeeks !== "number") return null;
+                  const _todayArr = days[todayStr()] || [];
+                  // Build recent14 with _dk stamped on each entry
+                  const _recent14 = [];
+                  for (let i = 0; i < 14; i++) {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                    (days[dk]||[]).forEach(e => _recent14.push({...e, _dk: dk}));
+                  }
+                  // Wet nappies in last 24h
+                  const _24hAgo = Date.now() - 24*60*60*1000;
+                  const _wetCount = _recent14.filter(e => {
+                    if (e.type !== "poop") return false;
+                    const _t = (e.time || "00:00").split(":").map(Number);
+                    const _ms = new Date(e._dk + "T" + String(_t[0]).padStart(2,"0") + ":" + String(_t[1]||0).padStart(2,"0") + ":00").getTime();
+                    return _ms >= _24hAgo && /wet|both/i.test(e.poopType||"");
+                  }).length;
+                  const _df = diagnoseFeedPattern(_todayArr, _recent14, age.totalWeeks, weights, _wetCount);
+                  if (!_df || _df.type === "normal_rhythm") return null;
+                  const _unlockedF = hasAccess();
+                  // Always-urgent flags bypass the paywall
+                  const _alwaysFree = _df.urgency === "high" && _df.type === "dehydration_warning";
+                  const _showFull = _unlockedF || _alwaysFree;
+                  return (
+                    <div style={{background:_df.urgency==="high"?"rgba(232,87,74,0.08)":"rgba(212,168,85,0.06)",border:"1px solid "+(_df.urgency==="high"?"rgba(232,87,74,0.35)":"rgba(212,168,85,0.25)"),borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                      <div style={{fontSize:10,fontFamily:_fM,color:_df.urgency==="high"?"#e8574a":C.gold,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
+                        <span>🍼 Feed analyser</span>
+                        {!_unlockedF && !_alwaysFree && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                        {_df.urgency === "high" && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:"#e8574a22",color:"#e8574a"}}>URGENT</span>}
+                      </div>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_df.emoji} {_df.title}</div>
+                      {_showFull ? (
+                        <>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{_df.detail}</div>
+                          <div style={{fontSize:11,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"6px 8px",background:"var(--card-bg)",borderRadius:8}}>💡 {_df.action}</div>
+                        </>
+                      ) : (
+                        <button onClick={()=>triggerPaywall("feed_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                          Unlock full analysis
+                        </button>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
               {(()=>{
                 try {
                   if (!age || typeof age.totalWeeks !== "number") return null;
@@ -27455,21 +27970,61 @@ function App(){
                 );
               })()}
 
-              {/* Postpartum wellness nudge (0-2 weeks) */}
-              {age && age.totalWeeks < 2 && todayPanel==="log" && selDay===todayStr() && (
-                <div style={{padding:"14px 16px",borderRadius:14,background:"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid rgba(212,168,85,0.2)",marginBottom:10}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                    <span style={{fontSize:16}}>{"\u{1F49B}"}</span>
-                    <div style={{fontSize:13,fontWeight:700,color:C.deep}}>How are YOU doing?</div>
-                  </div>
-                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>
-                    The first two weeks are intense. Baby blues (tearfulness, mood swings) affect up to 80% of new parents and usually pass by day 14.
-                  </div>
-                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
-                    If feelings of sadness, anxiety, or hopelessness persist beyond 2 weeks, please speak to your midwife, GP, or health visitor. You deserve support.
-                  </div>
-                </div>
-              )}
+              {/* ── PREMIUM: Postpartum wellbeing analyser ──
+                  Upgraded from the old "0-2 weeks only" nudge. Now runs
+                  diagnoseWellbeing against current state and surfaces
+                  the top-priority signal. Urgent flags (PND, sleep
+                  crisis) are ALWAYS shown free — safety-critical. Other
+                  signals (anxious hyper-logging, support vacuum) are
+                  premium with soft gating. */}
+              {age && todayPanel==="log" && selDay===todayStr() && (()=>{
+                try {
+                  const _dob = activeChild && activeChild.dob ? new Date(activeChild.dob).getTime() : null;
+                  // Extract mood check-ins from observations log
+                  const _moodCheckins = (observations || [])
+                    .filter(o => o && o.type === "mood" && typeof o.score === "number")
+                    .slice(-10);
+                  // loggedBy counts this week
+                  const _loggedBy = {};
+                  const _cutoff = Date.now() - 7*86400000;
+                  Object.keys(days).forEach(dk => {
+                    const _kMs = new Date(dk + "T12:00:00").getTime();
+                    if (_kMs < _cutoff) return;
+                    (days[dk]||[]).forEach(e => {
+                      const _by = e.loggedBy || "self";
+                      _loggedBy[_by] = (_loggedBy[_by] || 0) + 1;
+                    });
+                  });
+                  const _dwb = diagnoseWellbeing(days, age.totalWeeks, _dob, _moodCheckins, _loggedBy);
+                  if (!_dwb) return null;
+                  const _isUrgent = _dwb.urgency === "high" || _dwb.alwaysFree;
+                  const _unlockedWB = hasAccess();
+                  const _showFull = _isUrgent || _unlockedWB;
+                  // Suppress the bland "positive_trajectory" default unless
+                  // the first two weeks are active (the existing nudge).
+                  if (_dwb.type === "positive_trajectory" && age.totalWeeks >= 2) return null;
+                  return (
+                    <div style={{padding:"14px 16px",borderRadius:14,background:_isUrgent?"rgba(232,87,74,0.06)":"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid "+(_isUrgent?"rgba(232,87,74,0.35)":"rgba(212,168,85,0.2)"),marginBottom:10}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:16}}>{_dwb.emoji}</span>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_dwb.title}</div>
+                        {_isUrgent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:"#e8574a22",color:"#e8574a",fontWeight:700}}>IMPORTANT</span>}
+                        {!_unlockedWB && !_isUrgent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                      </div>
+                      {_showFull ? (
+                        <>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>{_dwb.detail}</div>
+                          <div style={{fontSize:12,color:_isUrgent?"#e8574a":C.deep,fontWeight:600,lineHeight:1.6,padding:"8px 10px",background:"var(--card-bg)",borderRadius:10}}>{_dwb.action}</div>
+                        </>
+                      ) : (
+                        <button onClick={()=>triggerPaywall("wellbeing_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                          Unlock full wellbeing analysis
+                        </button>
+                      )}
+                    </div>
+                  );
+                } catch(e) { console.warn("wellbeing analyser error", e); return null; }
+              })()}
 
               {/* ═══ Detailed Log. brought back per user request (gives access to Med/Temp, Tummy Time, Activities beyond the dashboard quick-log) ═══ */}
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
@@ -32811,6 +33366,50 @@ function App(){
                         ))}
                       </div>
                     </div>
+
+                    {/* ── PREMIUM: Weaning analyser ──
+                        Iron gaps, allergen overdue, refusal streaks,
+                        constipation risk. Free users see headline +
+                        unlock CTA. Surfaced as part of the existing
+                        Try Today card so no new UI. */}
+                    {(()=>{
+                      try {
+                        if (!age || typeof age.totalWeeks !== "number") return null;
+                        // Gather recent poop entries for constipation check
+                        const _recentPoops = [];
+                        for (let i = 0; i < 5; i++) {
+                          const d = new Date();
+                          d.setDate(d.getDate() - i);
+                          const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                          (days[dk]||[]).forEach(e => {
+                            if (e.type === "poop") _recentPoops.push(e);
+                          });
+                        }
+                        const _recentDays = Object.keys(days).slice(-14);
+                        const _dw = diagnoseWeaningPattern(weaning||[], age.totalWeeks, _recentPoops, _recentDays);
+                        if (!_dw || _dw.type === "balanced_good") return null;
+                        const _unlockedW = hasAccess();
+                        return (
+                          <div style={{background:_dw.urgency==="high"?"rgba(232,87,74,0.08)":"rgba(192,112,136,0.06)",border:"1px solid "+(_dw.urgency==="high"?"rgba(232,87,74,0.35)":"rgba(192,112,136,0.25)"),borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                            <div style={{fontSize:10,fontFamily:_fM,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
+                              <span>🥣 Weaning analyser</span>
+                              {!_unlockedW && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                            </div>
+                            <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_dw.emoji} {_dw.title}</div>
+                            {_unlockedW ? (
+                              <>
+                                <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{_dw.detail}</div>
+                                <div style={{fontSize:11,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"6px 8px",background:"var(--card-bg)",borderRadius:8}}>💡 {_dw.action}</div>
+                              </>
+                            ) : (
+                              <button onClick={()=>triggerPaywall("weaning_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                                Unlock full analysis
+                              </button>
+                            )}
+                          </div>
+                        );
+                      } catch { return null; }
+                    })()}
 
                     {/* Today's food */}
                     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
