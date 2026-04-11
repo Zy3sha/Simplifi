@@ -27952,18 +27952,37 @@ function App(){
                           runs once per day (guarded by localStorage key) and
                           writes any bedtime shift, which bedtimePrediction then
                           reads. The card displays actionTaken (past tense,
-                          what OBubba has already done) not advice. */}
+                          what OBubba has already done) not advice.
+                          PREMIUM GATE: free users see headline + confidence
+                          badge only; premium unlocks the detail paragraph
+                          and the "what OBubba did" line. The autopilot
+                          adjustment still runs for everyone so the engine
+                          improves in the background even on free — the
+                          premium value is understanding WHY. */}
                       {diagnosis && (()=>{
                         try { _applyNightAdjustments(diagnosis, todayStr()); } catch {}
+                        const _unlockedN = (typeof hasAccess === "function") ? hasAccess() : false;
                         return (
                         <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg)",border:`1px solid ${diagnosis.type==="undertired"||diagnosis.type==="overtired"?C.gold+"44":"rgba(123,104,238,0.2)"}`,marginBottom:lastNight.avgResettleMin>0?8:0}}>
-                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
                             <span style={{fontSize:16}}>{diagnosis.emoji}</span>
                             <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{diagnosis.title}</span>
                             {diagnosis.confidence==="high" && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700}}>HIGH CONFIDENCE</span>}
+                            {!_unlockedN && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
                           </div>
-                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{diagnosis.detail}</div>
-                          <div style={{fontSize:11,color:"#7B68EE",fontWeight:600,lineHeight:1.5}}>✓ {diagnosis.actionTaken || diagnosis.action || ""}</div>
+                          {_unlockedN ? (
+                            <>
+                              <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{diagnosis.detail}</div>
+                              <div style={{fontSize:11,color:"#7B68EE",fontWeight:600,lineHeight:1.5}}>✓ {diagnosis.actionTaken || diagnosis.action || ""}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:6,fontStyle:"italic"}}>Unlock to see why this happened + the fix OBubba applied for tonight.</div>
+                              <button onClick={()=>triggerPaywall("night_analyser")} style={{padding:"6px 12px",borderRadius:99,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                                Unlock full night analysis
+                              </button>
+                            </>
+                          )}
                         </div>
                         );
                       })()}
