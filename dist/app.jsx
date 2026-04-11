@@ -2636,22 +2636,60 @@ const WHO_LENGTH_LMS_GIRLS = [
   [24,1,86.4767,0.03596]
 ];
 
-function getHeightPercentile(cm, ageMonths, sex) {
-  const table = sex === "girl" ? WHO_LENGTH_LMS_GIRLS : WHO_LENGTH_LMS_BOYS;
-  const mo = Math.min(Math.round(ageMonths), 24);
-  if (mo < 0) return null;
-  const row = table[mo];
-  if (!row) return null;
-  const [, L, M, S] = row;
+// ═══════════════════════════════════════════════════════════════════════
+// WHO PERCENTILE CALCULATION (shared helpers)
+// ═══════════════════════════════════════════════════════════════════════
+// WHO LMS tables have rows at integer month boundaries (0, 1, 2, ..., 24).
+// For a baby at, say, 5.8 months, the truthful percentile lives between
+// the 5mo and 6mo rows. We linearly interpolate L, M, S between the two
+// nearest rows based on the decimal part of age, then compute z-score.
+//
+// Previously both getPercentile and getHeightPercentile snapped to the
+// NEAREST integer month via Math.round. That meant a baby at 5.8mo got
+// a 6mo percentile — AND different call sites computed ageMonths
+// differently (some Math.floor, some Math.round-to-1-decimal), so the
+// SAME weight on the SAME day produced different percentiles in
+// different UI cards. Fixed by interpolating + not rounding at all
+// inside the helper. Call sites must pass decimal months.
+
+function _lmsInterpolated(table, ageMonths) {
+  if (ageMonths == null || isNaN(ageMonths)) return null;
+  const clamped = Math.max(0, Math.min(ageMonths, 24));
+  const lo = Math.floor(clamped);
+  const hi = Math.min(lo + 1, 24);
+  const frac = clamped - lo;
+  const rowLo = table[lo];
+  const rowHi = table[hi];
+  if (!rowLo) return null;
+  if (!rowHi || frac === 0) {
+    const [, L, M, S] = rowLo;
+    return { L, M, S };
+  }
+  // Linear interpolation between adjacent monthly rows.
+  const L = rowLo[1] + (rowHi[1] - rowLo[1]) * frac;
+  const M = rowLo[2] + (rowHi[2] - rowLo[2]) * frac;
+  const S = rowLo[3] + (rowHi[3] - rowLo[3]) * frac;
+  return { L, M, S };
+}
+
+function _pctFromLMS(value, lms) {
+  if (!lms) return null;
+  const { L, M, S } = lms;
   let z;
   if (Math.abs(L) < 0.0001) {
-    z = Math.log(cm / M) / S;
+    z = Math.log(value / M) / S;
   } else {
-    z = (Math.pow(cm / M, L) - 1) / (L * S);
+    z = (Math.pow(value / M, L) - 1) / (L * S);
   }
   z = Math.max(-3.5, Math.min(3.5, z));
   const pct = normalCDF(z) * 100;
   return Math.round(pct * 10) / 10;
+}
+
+function getHeightPercentile(cm, ageMonths, sex) {
+  if (cm == null || isNaN(cm) || ageMonths == null || isNaN(ageMonths) || ageMonths < 0) return null;
+  const table = sex === "girl" ? WHO_LENGTH_LMS_GIRLS : WHO_LENGTH_LMS_BOYS;
+  return _pctFromLMS(cm, _lmsInterpolated(table, ageMonths));
 }
 
 function normalCDF(z) {
@@ -2662,21 +2700,24 @@ function normalCDF(z) {
 }
 
 function getPercentile(kg, ageMonths, sex) {
+  if (kg == null || isNaN(kg) || ageMonths == null || isNaN(ageMonths) || ageMonths < 0) return null;
   const table = sex === "girl" ? WHO_LMS_GIRLS : WHO_LMS_BOYS;
-  const mo = Math.min(Math.round(ageMonths), 24);
-  if (mo < 0) return null;
-  const row = table[mo];
-  if (!row) return null;
-  const [, L, M, S] = row;
-  let z;
-  if (Math.abs(L) < 0.0001) {
-    z = Math.log(kg / M) / S;
-  } else {
-    z = (Math.pow(kg / M, L) - 1) / (L * S);
-  }
-  z = Math.max(-3.5, Math.min(3.5, z));
-  const pct = normalCDF(z) * 100;
-  return Math.round(pct * 10) / 10;
+  return _pctFromLMS(kg, _lmsInterpolated(table, ageMonths));
+}
+
+// Canonical age-in-months calculation. Use this EVERYWHERE we feed
+// age into getPercentile / getHeightPercentile so every call site
+// agrees on what "5mo 3w" means as a decimal.
+// 30.4375 is the average Gregorian month length (365.25 / 12) which
+// matches what the WHO uses for monthly age bucketing.
+function ageMonthsFromDates(fromDob, onDate) {
+  if (!fromDob) return null;
+  const dob = fromDob instanceof Date ? fromDob : new Date(fromDob);
+  const on = onDate ? (onDate instanceof Date ? onDate : new Date(onDate)) : new Date();
+  if (isNaN(dob.getTime()) || isNaN(on.getTime())) return null;
+  const diffMs = on.getTime() - dob.getTime();
+  if (diffMs < 0) return null;
+  return diffMs / (1000 * 60 * 60 * 24 * 30.4375);
 }
 function invNormalCDF(p) {
   if (p<=0) return -3.5; if (p>=1) return 3.5;
@@ -4122,8 +4163,8 @@ function App(){
       const w=weights.find(x=>x.date===d);
       const h=heights.find(x=>x.date===d);
       let wp="",hp="";
-      if(w&&babyDob){const mo=Math.floor((new Date(d)-new Date(babyDob))/(1000*60*60*24*30.44));wp=getPercentile(w.kg,mo,babySex)||"";}
-      if(h&&babyDob){const mo=Math.floor((new Date(d)-new Date(babyDob))/(1000*60*60*24*30.44));hp=getHeightPercentile(h.cm,mo,babySex)||"";}
+      if(w&&babyDob){const mo=ageMonthsFromDates(babyDob,d);wp=(mo!=null?getPercentile(w.kg,mo,babySex):null)||"";}
+      if(h&&babyDob){const mo=ageMonthsFromDates(babyDob,d);hp=(mo!=null?getHeightPercentile(h.cm,mo,babySex):null)||"";}
       rows.push([d,w?kgToDisplay(w.kg,MU):"",h?cmToDisplay(h.cm,MU):"",wp,hp].map(v=>'"'+String(v)+'"'));
     });
     const csv=rows.map(r=>r.join(",")).join("\n");
@@ -19290,7 +19331,7 @@ function App(){
     const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date));
     const latest = sorted[sorted.length - 1];
     if (!latest) return null;
-    const ageMo = babyDob ? Math.floor((new Date(latest.date) - new Date(babyDob)) / (1000 * 60 * 60 * 24 * 30.44)) : null;
+    const ageMo = ageMonthsFromDates(babyDob, latest.date);
     const pct = ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getPercentile(latest.kg, ageMo, babySex) : null;
     const _gfcRecent = getResolvedRecentDays(days, selDay, 7);
     const dailyMl = _gfcRecent.map(rd => rd.entries.filter(e => e.type === "feed").reduce((s, f) => s + (f.amount || 0), 0)).filter(v => v > 0);
@@ -20886,7 +20927,7 @@ function App(){
       const latest = weights[weights.length-1];
       lines.push("═══ GROWTH ═══");
       lines.push(`Latest weight: ${fmtWt(latest.kg,MU)} (${latest.date})`);
-      const pct = age && babyDob ? getPercentile(latest.kg, Math.floor((new Date(latest.date)-new Date(babyDob))/(1000*60*60*24*30.44)), babySex) : null;
+      const pct = age && babyDob ? (()=>{const _mo=ageMonthsFromDates(babyDob,latest.date); return _mo!=null?getPercentile(latest.kg,_mo,babySex):null;})() : null;
       if(pct!==null) lines.push(`WHO percentile: ${ordinal(pct)}`);
       if(heights.length) lines.push(`Latest height: ${fmtHt(heights[heights.length-1].cm,MU)}`);
       lines.push("");
@@ -27972,14 +28013,14 @@ function App(){
           const sortedH = [...heights].sort((a,b)=>a.date.localeCompare(b.date));
           const wWithPct = sortedW.map(w => {
             if(!babyDob) return {...w, pct: null};
-            const ageMo = Math.floor((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44));
-            if(ageMo < 0 || ageMo > 24) return {...w, pct: null};
+            const ageMo = ageMonthsFromDates(babyDob, w.date);
+            if(ageMo == null || ageMo < 0 || ageMo > 24) return {...w, pct: null};
             return {...w, pct: getPercentile(w.kg, ageMo, babySex), ageMo};
           });
           const hWithPct = sortedH.map(h => {
             if(!babyDob) return {...h, pct: null};
-            const ageMo = Math.round(((new Date(h.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10;
-            if(ageMo < 0 || ageMo > 24) return {...h, pct: null};
+            const ageMo = ageMonthsFromDates(babyDob, h.date);
+            if(ageMo == null || ageMo < 0 || ageMo > 24) return {...h, pct: null};
             return {...h, pct: getHeightPercentile(h.cm, ageMo, babySex), ageMo};
           });
           const latestW = wWithPct.filter(w=>w.pct!==null).slice(-1)[0];
@@ -29746,7 +29787,7 @@ function App(){
                         <div style={{marginBottom:heights.length>0?12:0}}>
                           <div style={{fontSize:11,fontWeight:700,color:C.mid,marginBottom:6}}>Weight</div>
                           {[...weights].sort((a,b)=>b.date.localeCompare(a.date)).map((w,i)=>{
-                            const ageMo = babyDob ? Math.round(((new Date(w.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10 : null;
+                            const ageMo = ageMonthsFromDates(babyDob, w.date);
                             const pct = ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getPercentile(w.kg, ageMo, babySex) : null;
                             const prevW = i < weights.length - 1 ? [...weights].sort((a,b)=>b.date.localeCompare(a.date))[i+1] : null;
                             const gain = prevW ? Math.round((w.kg - prevW.kg) * 1000) : null;
@@ -29771,7 +29812,7 @@ function App(){
                         <div>
                           <div style={{fontSize:11,fontWeight:700,color:C.mid,marginBottom:6}}>Height</div>
                           {[...heights].sort((a,b)=>b.date.localeCompare(a.date)).map((h,i)=>{
-                            const ageMo = babyDob ? Math.round(((new Date(h.date) - new Date(babyDob)) / (1000*60*60*24*30.44))*10)/10 : null;
+                            const ageMo = ageMonthsFromDates(babyDob, h.date);
                             const pct = ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getHeightPercentile(h.cm, ageMo, babySex) : null;
                             return (
                               <div key={"h"+i} style={{display:"flex",alignItems:"center",padding:"8px 10px",marginBottom:3,borderRadius:10,background:i===0?"var(--card-bg-alt)":"transparent",border:i===0?`1px solid ${C.blush}`:"none"}}>
