@@ -31247,6 +31247,99 @@ function App(){
 
               {/* ═══ SCHEDULE BUILDER. moved to Today tab dashboard ═══ */}
 
+              {/* ═══ SLEEP COACH. 14-day guided plan, premium ═══ */}
+              {age && age.totalWeeks >= 16 && (()=>{
+                try {
+                  // Persisted sleep-coach state — style + start date + dismissals
+                  const _scRaw = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
+                  const _sc = _scRaw ? (()=>{try{return JSON.parse(_scRaw);}catch{return null;}})() : null;
+                  const _unlockedSC = hasAccess();
+
+                  // Not started yet — style picker
+                  if (!_sc || !_sc.style) {
+                    return (
+                      <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                          <span style={_S.f18}>🗓</span>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach · 14-day plan</div>
+                          {!_unlockedSC && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                        </div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>
+                          The 14-day sleep-coaching plan a consultant charges £300–£800 for. Four evidence-based styles. Pick one and OBubba walks you through it day by day with the reasoning explained.
+                        </div>
+                        {_unlockedSC ? (
+                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                            {[
+                              {id:"gradual", name:"Gradual check-ins", sub:"Ferber-style · extends intervals over 2 weeks"},
+                              {id:"no_cry", name:"No-cry / gentle", sub:"Pantley method · removes sleep associations slowly"},
+                              {id:"chair", name:"Chair shuffle", sub:"Sleep Lady · you stay in the room, move further each night"},
+                              {id:"parent_led", name:"Parent-led rhythm only", sub:"No training · stabilise the environment and wait it out"},
+                            ].map(style => (
+                              <button key={style.id} onClick={()=>{
+                                haptic();
+                                try{localStorage.setItem("ob_sleep_coach_v1", JSON.stringify({style:style.id, startDate: todayStr()}));}catch{}
+                                setForceRender(c=>c+1);
+                              }} style={{padding:"12px 14px",borderRadius:12,border:"1px solid "+C.blush,background:"var(--card-bg)",textAlign:"left",cursor:_cP,fontFamily:_fI}}>
+                                <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{style.name}</div>
+                                <div style={{fontSize:11,color:C.lt,marginTop:2}}>{style.sub}</div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <button onClick={()=>triggerPaywall("sleep_coach")} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                            Unlock Sleep Coach
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  // Started — show today's day plan
+                  const _start = new Date(_sc.startDate + "T00:00:00");
+                  const _now = new Date();
+                  const _dayNum = Math.min(14, Math.max(1, Math.floor((_now - _start) / (24*60*60*1000)) + 1));
+                  const _plan = buildSleepCoachDay(_sc.style, age.totalWeeks, _dayNum, _nightDiagnosisMemo);
+                  if (!_plan) return null;
+                  const _styleLabel = {gradual:"Gradual check-ins", no_cry:"No-cry / gentle", chair:"Chair shuffle", parent_led:"Parent-led rhythm"}[_sc.style] || _sc.style;
+                  return (
+                    <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={_S.f18}>🗓</span>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach · Day {_plan.day}/14</div>
+                        </div>
+                        <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>{_styleLabel}</div>
+                      </div>
+                      {_unlockedSC ? (
+                        <>
+                          <div style={{fontSize:11,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4}}>Today's focus</div>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>{_plan.focus}</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:8,padding:"10px 12px",background:"var(--card-bg)",borderRadius:10}}>{_plan.tactic}</div>
+                          <div style={{fontSize:11,color:C.deep,fontWeight:600,marginBottom:4}}>✓ {_plan.objective}</div>
+                          <div style={{fontSize:10,color:C.lt,lineHeight:1.5,fontStyle:"italic",marginTop:6,paddingTop:6,borderTop:"1px dashed rgba(111,168,152,0.2)"}}>{_plan.why}</div>
+                          {_plan.warnings && _plan.warnings.length > 0 && (
+                            <div style={{marginTop:8,padding:"8px 10px",background:"rgba(212,168,85,0.08)",borderRadius:8,border:"1px solid rgba(212,168,85,0.25)"}}>
+                              {_plan.warnings.map((w,i)=><div key={i} style={{fontSize:10,color:C.gold,lineHeight:1.5}}>⚠ {w}</div>)}
+                            </div>
+                          )}
+                          <button onClick={()=>{
+                            showConfirm("Change sleep coach style?", "You'll start a new 14-day plan from day 1.", ()=>{
+                              try{localStorage.removeItem("ob_sleep_coach_v1");}catch{}
+                              setConfirmDialog(null);
+                              setForceRender(c=>c+1);
+                            }, "Yes, change style");
+                          }} style={{marginTop:8,fontSize:10,color:C.lt,background:"none",border:"none",textDecoration:"underline",cursor:_cP,fontFamily:_fM}}>Change style or restart</button>
+                        </>
+                      ) : (
+                        <button onClick={()=>triggerPaywall("sleep_coach")} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                          Unlock Sleep Coach
+                        </button>
+                      )}
+                    </div>
+                  );
+                } catch(e) { console.warn("sleep coach render error", e); return null; }
+              })()}
+
               {/* ═══ SLEEP INSIGHTS. clean, flat, no collapsible ═══ */}
 
               {/* #1 Pattern Detection. show only the most important one */}
@@ -36925,6 +37018,7 @@ function App(){
           wellbeing_analyser: { title: "How are YOU doing?", body: "OBubba passively tracks your sleep window, mood check-ins, and support signals. When something needs attention, it tells you gently. Safety flags are always free." },
           triage: { title: "One tap. Whole-baby answer.", body: "Tap this when baby is unsettled and you're not sure why. OBubba runs every analyser in parallel — sleep, feed, weaning, wellbeing — and ranks by urgency. The thing a consultant does in a 30-min call, in 0.3 seconds." },
           tonights_focus: { title: "Tonight's plan", body: "Every morning, based on last night's diagnosis, OBubba gives you a concrete 4-step plan for tonight. Not advice. A plan. With the reasoning explained so you know why." },
+          sleep_coach: { title: "Your 14-day sleep coach", body: "Pick a style — gradual, no-cry, chair shuffle, or parent-led — and OBubba walks you through a 14-day plan one day at a time. The same plan a consultant charges £300–£800 for, tailored to " + _bn + "'s age and last night's data." },
         };
         const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium gives you a sleep consultant in your pocket. so you can enjoy your baby instead of worrying." };
         return (
