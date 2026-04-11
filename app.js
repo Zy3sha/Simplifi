@@ -1178,8 +1178,17 @@ const _bedtimeFloor=clampBedtime(0,_w);const _targetBed=_personalBedtime&&_perso
 }}// ── Last feed. ONE wall-clock-aware cross-day calculation ──
 // Pool includes active day + previous 2 days + calendar today (if different from active day)
 // Extended to 2 days back to handle cross-midnight scenarios where bedtime was 2 days ago
-const _tag=(arr,dk)=>arr.map(e=>({...e,_dk:dk}));const _prev2DayStr=prevCalDay(_prevDayStr);const _feedPool=[..._tag(_todayEntries,selDay),..._tag(_prevEntries,_prevDayStr),..._tag(days[_prev2DayStr]||[],_prev2DayStr),...(selDay!==_calToday?_tag(days[_calToday]||[],_calToday):[])];const _isFeed=e=>e.time&&(e.type==="feed"||e.amount&&e.amount>0||e.night&&(e.assistedType==="milk"||e.feedType==="milk"));const _allPoolFeeds=_feedPool.filter(_isFeed);const _nowMs=Date.now();const _wallGap=e=>{const t=(e.time||"00:00").split(":").map(Number);const d=new Date(e._dk+"T00:00:00");d.setHours(t[0],t[1],0,0);// Cross-midnight: night entry with AM time belongs to next calendar day
-if(e.night&&t[0]<12)d.setDate(d.getDate()+1);return Math.max(0,Math.round((_nowMs-d.getTime())/60000));};const _lastFeed=_allPoolFeeds.length>0?_allPoolFeeds.reduce((best,e)=>_wallGap(e)<_wallGap(best)?e:best):null;const _feedGapM=_lastFeed?_wallGap(_lastFeed):9999;// ── Last nappy. same approach ──
+const _tag=(arr,dk)=>arr.map(e=>({...e,_dk:dk}));const _prev2DayStr=prevCalDay(_prevDayStr);const _feedPool=[..._tag(_todayEntries,selDay),..._tag(_prevEntries,_prevDayStr),..._tag(days[_prev2DayStr]||[],_prev2DayStr),...(selDay!==_calToday?_tag(days[_calToday]||[],_calToday):[])];const _isFeed=e=>e.time&&(e.type==="feed"||e.amount&&e.amount>0||e.night&&(e.assistedType==="milk"||e.feedType==="milk"));const _allPoolFeeds=_feedPool.filter(_isFeed);const _nowMs=Date.now();const _wallGap=e=>{const t=(e.time||"00:00").split(":").map(Number);const d=new Date(e._dk+"T00:00:00");d.setHours(t[0],t[1],0,0);// Cross-midnight: a night entry stored under YESTERDAY's bedtime day key
+// with an AM time actually happened in the early hours of TODAY, so we
+// shift the date forward by one day. Only applies when _dk is strictly
+// earlier than today — otherwise we'd push a legitimate early-today
+// night feed (stored directly on today under midnight-mode dayBoundary)
+// into tomorrow, producing a negative gap that Math.max clamps to 0.
+// That was the "Last feed 00:17am (0m ago) at 8:41am" bug.
+if(e.night&&t[0]<12&&e._dk&&e._dk<_calToday){d.setDate(d.getDate()+1);}// Sanity: if the resulting timestamp is still in the future (clock drift,
+// user edited an entry to a future minute, entry stamped with tomorrow's
+// date), treat the gap as "just now" rather than a huge fake positive.
+const gapMin=Math.round((_nowMs-d.getTime())/60000);if(gapMin<0)return 0;return gapMin;};const _lastFeed=_allPoolFeeds.length>0?_allPoolFeeds.reduce((best,e)=>_wallGap(e)<_wallGap(best)?e:best):null;const _feedGapM=_lastFeed?_wallGap(_lastFeed):9999;// ── Last nappy. same approach ──
 const _nappyPool=_feedPool.filter(e=>e.time&&e.type==="poop");const _lastNappy=_nappyPool.length>0?_nappyPool.reduce((best,e)=>_wallGap(e)<_wallGap(best)?e:best):null;const _nappyGapM=_lastNappy?_wallGap(_lastNappy):9999;// ── Today's daytime feeds (for totals) ──
 const _allFeeds=_todayEntries.filter(e=>isBabyFeed(e)&&!e.night);const _totalMl=_allFeeds.reduce((s,f)=>s+(f.amount||0),0);// ── Feed predictions ──
 const _ageThreshM=_w<4?120:_w<8?150:_w<13?180:_w<26?210:_w<39?240:270;let _feedThreshM=_ageThreshM;// Personal rhythm: average feed interval from last 7 completed OBubba days

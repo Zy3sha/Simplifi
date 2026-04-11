@@ -9147,9 +9147,22 @@ function App(){
       const t = (e.time||"00:00").split(":").map(Number);
       const d = new Date(e._dk + "T00:00:00");
       d.setHours(t[0], t[1], 0, 0);
-      // Cross-midnight: night entry with AM time belongs to next calendar day
-      if (e.night && t[0] < 12) d.setDate(d.getDate() + 1);
-      return Math.max(0, Math.round((_nowMs - d.getTime()) / 60000));
+      // Cross-midnight: a night entry stored under YESTERDAY's bedtime day key
+      // with an AM time actually happened in the early hours of TODAY, so we
+      // shift the date forward by one day. Only applies when _dk is strictly
+      // earlier than today — otherwise we'd push a legitimate early-today
+      // night feed (stored directly on today under midnight-mode dayBoundary)
+      // into tomorrow, producing a negative gap that Math.max clamps to 0.
+      // That was the "Last feed 00:17am (0m ago) at 8:41am" bug.
+      if (e.night && t[0] < 12 && e._dk && e._dk < _calToday) {
+        d.setDate(d.getDate() + 1);
+      }
+      // Sanity: if the resulting timestamp is still in the future (clock drift,
+      // user edited an entry to a future minute, entry stamped with tomorrow's
+      // date), treat the gap as "just now" rather than a huge fake positive.
+      const gapMin = Math.round((_nowMs - d.getTime()) / 60000);
+      if (gapMin < 0) return 0;
+      return gapMin;
     };
     const _lastFeed = _allPoolFeeds.length > 0 ? _allPoolFeeds.reduce((best, e) => _wallGap(e) < _wallGap(best) ? e : best) : null;
     const _feedGapM = _lastFeed ? _wallGap(_lastFeed) : 9999;
