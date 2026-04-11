@@ -1609,7 +1609,8 @@ function diagnoseNightPattern(lastNight) {
       emoji: "🌟",
       title: "Dream night",
       detail: "No wakes logged last night. Longest stretch: " + (longestStretchMin > 60 ? Math.floor(longestStretchMin / 60) + "h " + (longestStretchMin % 60) + "m" : longestStretchMin + "m") + ".",
-      action: "Whatever you did yesterday worked. Try to repeat the same nap timing and bedtime routine tonight.",
+      actionTaken: "I've kept tonight's bedtime on the same rhythm that worked last night.",
+      bedtimeShiftMin: 0,
       confidence: "high"
     };
   }
@@ -1621,7 +1622,8 @@ function diagnoseNightPattern(lastNight) {
       emoji: "⏰",
       title: "Looks undertired",
       detail: "Baby woke within 90 min of bedtime and took " + earlyHardWakes[0].durationMin + " min to resettle. Classic 'not enough sleep pressure' sign.",
-      action: "Try pushing bedtime 15 min LATER tonight, or cap the last nap by 15-30 min. More daytime awake = more pressure for night sleep.",
+      actionTaken: "I've pushed tonight's bedtime 15 minutes later so baby builds more sleep pressure before going down. Nothing else for you to change.",
+      bedtimeShiftMin: 15,
       confidence: earlyHardWakes.length >= 2 ? "high" : "medium"
     };
   }
@@ -1636,7 +1638,8 @@ function diagnoseNightPattern(lastNight) {
       emoji: "😫",
       title: "Looks overtired",
       detail: "Multiple hard wakes in the 3-5am window. That's the cortisol spike, baby's body released stress hormones because they were overtired before bed.",
-      action: "Try bedtime 15-20 min EARLIER tonight. Overtired babies resettle better earlier, not later. Counter-intuitive but backed by data.",
+      actionTaken: "I've brought tonight's bedtime forward by 15 minutes. Overtired babies resettle better earlier, counter-intuitive but it works.",
+      bedtimeShiftMin: -15,
       confidence: dawnWakes.length >= 2 ? "high" : "medium"
     };
   }
@@ -1651,7 +1654,8 @@ function diagnoseNightPattern(lastNight) {
       emoji: "🔁",
       title: "Cycle-linked wakes",
       detail: "Wakes clustered near 90-minute sleep cycle boundaries, all resettled quickly (avg " + avgResettleMin + "m). Baby is stirring between cycles, totally normal.",
-      action: "Keep doing what you're doing. Quick resettles mean baby is learning to link cycles. This phase typically resolves on its own.",
+      actionTaken: "I've left the rhythm as-is. Quick resettles mean baby is learning to link cycles, this phase usually resolves on its own.",
+      bedtimeShiftMin: 0,
       confidence: "high"
     };
   }
@@ -1663,7 +1667,8 @@ function diagnoseNightPattern(lastNight) {
       emoji: "🍼",
       title: "Feed-driven wakes",
       detail: "Every wake last night settled quickly with milk/breast. Genuine hunger wakes typically settle in under 20 min when fed.",
-      action: "For older babies (>4mo), consider a dream feed at 10-10:30pm to pre-empt the first wake. For younger babies, night feeds are normal and needed.",
+      actionTaken: "I've kept the rhythm the same. If baby is over 4 months, a dream feed around 10pm can sometimes pre-empt the first wake, but night feeds at this age are normal.",
+      bedtimeShiftMin: 0,
       confidence: "medium"
     };
   }
@@ -1673,9 +1678,50 @@ function diagnoseNightPattern(lastNight) {
     emoji: "🌙",
     title: wakeCount <= 2 ? "Normal night" : "Busy but manageable",
     detail: wakeCount + " wake" + (wakeCount === 1 ? "" : "s") + " totalling " + (lastNight.totalAwakeMin || 0) + " min awake. Longest stretch " + (longestStretchMin > 60 ? Math.floor(longestStretchMin / 60) + "h " + (longestStretchMin % 60) + "m" : longestStretchMin + "m") + ".",
-    action: "Nothing unusual in the pattern. Keep the current routine and look for trends over the week rather than reacting to a single night.",
+    actionTaken: "I've kept tonight's rhythm the same. One night isn't a pattern, I'll watch for trends across the week.",
+    bedtimeShiftMin: 0,
     confidence: "low"
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// NIGHT AUTOPILOT: adjustments derived from last night's diagnosis
+// ═══════════════════════════════════════════════════════════════════════
+// OBubba's philosophy: we do the work, then tell the parent what we did.
+// Instead of telling a tired parent "Try shifting bedtime 15 min later",
+// we shift the predicted bedtime ourselves and the Last Night card
+// explains the adjustment in past tense.
+//
+// Adjustments are written to localStorage under ob_night_adjust_{dayKey}
+// when the Last Night card first renders for a given day. bedtimePrediction
+// reads this key and offsets the predicted time accordingly. Adjustments
+// expire with the day key (only today's adjustment affects today's
+// prediction; yesterday's is historical and ignored).
+
+function _applyNightAdjustments(diagnosis, dayKey) {
+  if (!diagnosis || !dayKey) return;
+  if (typeof localStorage === "undefined") return;
+  try {
+    const k = "ob_night_adjust_" + dayKey;
+    if (localStorage.getItem(k)) return; // already applied for this day
+    const payload = {
+      diagnosisType: diagnosis.type || "unknown",
+      bedtimeShiftMin: diagnosis.bedtimeShiftMin || 0,
+      appliedAt: new Date().toISOString()
+    };
+    localStorage.setItem(k, JSON.stringify(payload));
+  } catch {}
+}
+
+function _getNightAdjustments(dayKey) {
+  if (!dayKey) return { bedtimeShiftMin: 0 };
+  if (typeof localStorage === "undefined") return { bedtimeShiftMin: 0 };
+  try {
+    const raw = localStorage.getItem("ob_night_adjust_" + dayKey);
+    if (!raw) return { bedtimeShiftMin: 0 };
+    const p = JSON.parse(raw);
+    return { bedtimeShiftMin: p.bedtimeShiftMin || 0, diagnosisType: p.diagnosisType };
+  } catch { return { bedtimeShiftMin: 0 }; }
 }
 
 // Build a 7-night review for the Sunday digest card. Totals, best/worst
@@ -10951,6 +10997,35 @@ function App(){
     if (!entries || !Array.isArray(entries)) return null;
     // Newborns 0-4 weeks: no bedtime prediction (sleep is chaotic, no circadian rhythm yet)
     if (age && age.totalWeeks < 4) return null;
+    // ═══ Night autopilot shift ═══
+    // Read any adjustment written by last night's diagnosis (see
+    // _applyNightAdjustments). Applied to every return below so the
+    // bedtime the parent sees is already "what OBubba decided to do"
+    // based on last night's pattern, not the raw prediction.
+    const _nightShift = (()=>{
+      try { return (_getNightAdjustments(selDay) || {}).bedtimeShiftMin || 0; }
+      catch { return 0; }
+    })();
+    const _applyNightShift = (result) => {
+      if (!result || !result.time || !_nightShift) return result;
+      try {
+        const [_bh, _bm] = result.time.split(":").map(Number);
+        let _mins = _bh * 60 + _bm + _nightShift;
+        // Clamp to sane bedtime window (17:00 to 23:30) so an aggressive
+        // adjustment can't push baby past midnight or before 5pm.
+        if (_mins < 17 * 60) _mins = 17 * 60;
+        if (_mins > 23 * 60 + 30) _mins = 23 * 60 + 30;
+        const _hh = Math.floor(_mins / 60) % 24;
+        const _mm = _mins % 60;
+        const _shiftedTime = `${String(_hh).padStart(2,"0")}:${String(_mm).padStart(2,"0")}`;
+        return {
+          ...result,
+          time: _shiftedTime,
+          nightShiftMin: _nightShift,
+          baseTimeBeforeShift: result.time
+        };
+      } catch { return result; }
+    };
     const today = entries;
     const todayNaps = today.filter(e => e.type === "nap" && !e.night && e.start && e.end && minDiff(e.start, e.end) >= 5 && minDiff(e.start, e.end) < 480);
     if (!age) return null;
@@ -11041,14 +11116,14 @@ function App(){
         const postBridgeBed = bridgeEnd + postBridgeWindow;
         const clampedPostBridge = clampBedtime(postBridgeBed, age.totalWeeks);
         const hh = Math.floor(clampedPostBridge/60)%24, mm = clampedPostBridge%60;
-        return {
+        return _applyNightShift({
           time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
           adjustReason: "Bridge nap needed. bedtime would exceed safe wake window without one",
           bedSource: hasAvg?"avg":"age", baseBedMins: avgBedMins, adjustMins,
           needsBridge: true, forceBridge: true,
           bridgeSuggestion: { start: `${String(Math.floor(bridgeStart/60)%24).padStart(2,"0")}:${String(bridgeStart%60).padStart(2,"0")}`, duration: _bridgeDur },
           lastNapEndMins, lastWW: clampedPostBridge - bridgeEnd
-        };
+        });
       }
 
       // Normal exact bedtime. wake window based, with light historical influence
@@ -11098,11 +11173,11 @@ function App(){
       }
 
       const hh = Math.floor(finalMins/60)%24, mm = finalMins%60;
-      return {
+      return _applyNightShift({
         time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
         adjustReason, bedSource: hasAvg?"avg":"age", baseBedMins: baseBed, adjustMins,
         needsBridge: false, lastNapEndMins, lastWW: finalMins - lastNapEndMins, estimated: false
-      };
+      });
     }
 
     // ═══ SKIP-NAP CHECK: Would another nap push bedtime past 8pm? ═══
@@ -11124,7 +11199,7 @@ function App(){
           const _idealBedM = _lastEndM + Math.round((ww.min + ww.max) / 2);
           const _clampedBed = clampBedtime(_idealBedM, age.totalWeeks);
           const _hh = Math.floor(_clampedBed/60)%24, _mm = _clampedBed%60;
-          return {
+          return _applyNightShift({
             time: `${String(_hh).padStart(2,"0")}:${String(_mm).padStart(2,"0")}`,
             adjustReason: "Nap skipped. early bedtime to protect overnight sleep",
             bedSource: hasAvg ? "avg" : "age",
@@ -11135,7 +11210,7 @@ function App(){
             lastWW: _clampedBed - _lastEndM,
             estimated: false,
             napsRemaining: 0
-          };
+          });
         }
       }
     }
@@ -11272,7 +11347,7 @@ function App(){
     }
 
     const hh = Math.floor(projBed/60)%24, mm = projBed%60;
-    return {
+    return _applyNightShift({
       time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
       adjustReason: adjustReason || (napsDone === 0 ? "Based on wake time and age" : `Based on ${napsDone} of ${adjustedExpected} naps`),
       bedSource: hasAvg ? "avg" : "age",
@@ -11283,7 +11358,7 @@ function App(){
       lastWW: projBed - projectedLastNapEnd,
       estimated: true,
       napsRemaining
-    };
+    });
   }
 
   function sleepAdvice() {
@@ -24362,7 +24437,7 @@ function App(){
               const bridgeIcon = _isBridgeTimer ? "🌉" : "";
               const cautionLabel = _isBridgeTimer && napCaution && !napWarn ? "Gently wake" : (napCaution && !napPaused ? "Tap to stop" : "");
               return (
-              <div style={{position:"relative",zIndex:showNapStartEdit?100:1}}>
+              <div style={{position:"relative",zIndex:showNapStartEdit?9999:1}}>
               <div onClick={()=>{haptic();endNap();}} style={{display:"flex",alignItems:"center",gap:5,background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP,animation:napWarn?"pulse 1s infinite":"none"}}>
                 <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"white"}}>{napPaused?"⏸":napWarn?"⏰":napCaution?"⏰":(_isBridgeTimer?"🌉":"😴")} {fmtSec(napSec)}</span>
                 {cautionLabel && !napPaused && <span style={{fontSize:10,color:"rgba(255,255,255,0.8)",fontFamily:_fM}}>{cautionLabel}</span>}
@@ -24374,7 +24449,11 @@ function App(){
                 </button>
               </div>
               {showNapStartEdit && (
-                <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 8px)",left:0,right:0,background:"var(--picker-bg,#FFFCF9)",borderRadius:16,padding:"14px",boxShadow:"0 8px 24px rgba(0,0,0,0.15)",zIndex:150,minWidth:220}}>
+                <>
+                  {/* Backdrop to dismiss on outside tap. Catches clicks that
+                      would otherwise go to the date navigator behind us. */}
+                  <div onClick={()=>setShowNapStartEdit(false)} style={{position:"fixed",inset:0,background:"transparent",zIndex:9998}}/>
+                <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 8px)",left:0,right:0,background:"var(--picker-bg,#FFFCF9)",borderRadius:16,padding:"14px",boxShadow:"0 12px 32px rgba(0,0,0,0.22)",zIndex:9999,minWidth:220,border:"1px solid var(--card-border)"}}>
                   <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Nap started at</div>
                   <input type="time" value={napStartT||""} onChange={e=>{
                     const newT = e.target.value;
@@ -24425,6 +24504,7 @@ function App(){
                   </div>
                   <button onClick={()=>setShowNapStartEdit(false)} style={{width:"100%",marginTop:8,padding:"8px",borderRadius:10,border:_bN,background:C.mint,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>Done</button>
                 </div>
+                </>
               )}
               </div>
               );
@@ -26707,8 +26787,14 @@ function App(){
                           <div style={{position:"absolute",right:4,top:3,fontSize:9,color:"rgba(44,31,26,0.55)",fontFamily:_fM}}>☀️ {lastNight.morningWakeStr ? fmt12(lastNight.morningWakeStr) : ""}</div>
                         </div>
                       )}
-                      {/* Diagnosis */}
-                      {diagnosis && (
+                      {/* Diagnosis + autopilot action. _applyNightAdjustments
+                          runs once per day (guarded by localStorage key) and
+                          writes any bedtime shift, which bedtimePrediction then
+                          reads. The card displays actionTaken (past tense,
+                          what OBubba has already done) not advice. */}
+                      {diagnosis && (()=>{
+                        try { _applyNightAdjustments(diagnosis, todayStr()); } catch {}
+                        return (
                         <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg)",border:`1px solid ${diagnosis.type==="undertired"||diagnosis.type==="overtired"?C.gold+"44":"rgba(123,104,238,0.2)"}`,marginBottom:lastNight.avgResettleMin>0?8:0}}>
                           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                             <span style={{fontSize:16}}>{diagnosis.emoji}</span>
@@ -26716,9 +26802,10 @@ function App(){
                             {diagnosis.confidence==="high" && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700}}>HIGH CONFIDENCE</span>}
                           </div>
                           <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{diagnosis.detail}</div>
-                          <div style={{fontSize:11,color:"#7B68EE",fontWeight:600,lineHeight:1.5}}>💡 {diagnosis.action}</div>
+                          <div style={{fontSize:11,color:"#7B68EE",fontWeight:600,lineHeight:1.5}}>✓ {diagnosis.actionTaken || diagnosis.action || ""}</div>
                         </div>
-                      )}
+                        );
+                      })()}
                       {lastNight.avgResettleMin > 0 && (
                         <div style={{fontSize:10,color:C.lt,fontStyle:"italic",lineHeight:1.4}}>
                           ⏱ Avg resettle: {lastNight.avgResettleMin}m
