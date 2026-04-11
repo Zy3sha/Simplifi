@@ -3693,14 +3693,16 @@ function App(){
                 quickAddLog("feed", {type:"feed", time, feedType:entry.feedType||"bottle", amount:_amt, note:_amt ? `${_amt}ml via Siri` : "via Siri"});
                 showToast(_amt ? `🍼 Feed (${_amt}ml) logged via Siri ✓` : "🍼 Feed logged via Siri ✓", 3000, 1);
               } else if(entry.type==='nap_start') {
-                // Full nap start. mirror startNap() logic so entry is created + persisted
+                // Full nap start. mirror startNap() logic so entry is created + persisted.
+                // Use LOCAL day key (todayStr) not UTC — the UI reads from selDay which
+                // is also local, so UTC-keyed entries were vanishing near midnight.
                 const _napActive = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
                 if(!_napActive) {
                   const _eid = uid();
-                  const _today = new Date().toISOString().split("T")[0];
+                  const _today = todayStr();
                   setDays(d=>{
                     const updated=[...(d[_today]||[]),{id:_eid,type:"nap",start:time,end:time,duration:0,night:false,note:"via widget",_active:true}];
-                    const _pd=(()=>{const dt=new Date(_today+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                    const _pd=(()=>{const dt=new Date(_today+"T12:00:00");dt.setDate(dt.getDate()-1);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
                     return{...d,[_today]:autoClassifyNight(updated,d[_pd]||null)};
                   });
                   try{localStorage.setItem("nap_startT",time);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_start_day",_today);}catch{}
@@ -3713,10 +3715,50 @@ function App(){
                 }
                 showToast(entry.source==='widget' ? "😴 Nap timer started via Widget ✓" : "😴 Nap timer started via Siri ✓", 3000, 1);
               } else if(entry.type==='nap_stop') {
-                // Check localStorage for active nap (closure-safe)
-                const _napActive2 = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
-                if(_napActive2) { endNap(); }
-                showToast("😴 Timer stopped via widget ✓", 3000, 1);
+                // ═══ Closure-safe nap stop ═══
+                // Cannot call endNap() from here — the Siri listener is inside a
+                // useEffect with empty deps, so endNap is a stale closure from the
+                // initial render. It sees napOn=false in its captured state and
+                // early-returns, leaving the entry with end==start and _active=true.
+                //
+                // Fix: read all required state from localStorage (which is live),
+                // compute the duration manually, and update the entry via setDays'
+                // functional updater (which always gets the latest days state).
+                // React setters (setNapOn etc.) are stable across renders, so
+                // calling them through the closure is fine.
+                try {
+                  const _napActive2 = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
+                  if (!_napActive2) { showToast("😴 No active nap to stop", 2500, 0); return; }
+                  const _eid = localStorage.getItem("nap_entry_id");
+                  const _startT = localStorage.getItem("nap_startT");
+                  const _dayKey = localStorage.getItem("nap_start_day") || todayStr();
+                  if (!_eid || !_startT) {
+                    // State-only cleanup — nothing to update in data
+                    ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+                    setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
+                    showToast("😴 Timer stopped (no entry to update)", 2500, 1);
+                    return;
+                  }
+                  // Compute duration from start → now, cross-midnight safe.
+                  const [_sh,_sm] = _startT.split(":").map(Number);
+                  const [_eh,_em] = time.split(":").map(Number);
+                  let _dur = (_eh*60+_em) - (_sh*60+_sm);
+                  if (_dur < 0) _dur += 24*60;
+                  // Update the entry directly on its stored day key.
+                  setDays(d => {
+                    const dayEntries = d[_dayKey] || [];
+                    const updated = dayEntries.map(e =>
+                      e.id === _eid ? {...e, end: time, duration: _dur, _active: false} : e
+                    );
+                    return {...d, [_dayKey]: updated};
+                  });
+                  // Clear all timer state in both React and localStorage.
+                  setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
+                  ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+                  if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+                  try { trackEvent("timer_stopped", { type: "nap", duration_mins: _dur, source: entry.source || "siri" }); } catch {}
+                  showToast("😴 Nap stopped via " + (entry.source === "widget" ? "Widget" : "Siri") + " ✓ (" + _dur + "m)", 3000, 1);
+                } catch(e) { console.warn("[OBubba] Siri nap_stop failed:", e); }
               } else if(entry.type==='sleep') {
                 quickAddLog("sleep", {type:"sleep", time, night:false, note:"via Siri"});
                 showToast("🌙 Bedtime logged via Siri ✓", 3000, 1);
@@ -18494,11 +18536,14 @@ function App(){
     try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Update the night wake entry (logged on pause) with duration and settle method
     const settleMethod = overrideSettleMethod || bedWakeSettle || "assisted";
-    const noteStr = pauseDurMin < 1 ? "Brief wake"
-      : settleMethod === "self" ? "Self settled ("+pauseDurMin+"min)"
-      : settleMethod === "milk" ? "Night feed ("+pauseDurMin+"min)"
-      : settleMethod === "other" ? "Resettled ("+pauseDurMin+"min)"
-      : "Assisted ("+pauseDurMin+"min)";
+    // Short, clean note. The duration lives in the structured field
+    // (assistedDuration / settleDuration) so it shows up in the edit form
+    // and the night wake card directly, not buried in a string.
+    const noteStr = pauseDurMin < 1 ? "Brief wake · logged via bed timer"
+      : settleMethod === "self" ? "Self settled · logged via bed timer"
+      : settleMethod === "milk" ? "Night feed · logged via bed timer"
+      : settleMethod === "other" ? "Resettled · logged via bed timer"
+      : "Assisted · logged via bed timer";
     // Find and update the pending wake entry
     const _pendingId = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
     if (_pendingId) {
@@ -18517,7 +18562,14 @@ function App(){
           selfSettled: settleMethod === "self",
           assisted: settleMethod !== "self",
           assistedType: settleMethod === "milk" ? (_isBreast ? "breast" : "milk") : (settleMethod === "other" ? "other" : undefined),
-          note: noteStr + ". logged via bed timer",
+          note: noteStr,
+          // Write the duration to the structured field the NW edit form and the
+          // Night Wakes card both read directly. Without this, the edit form
+          // showed "0h 0m" for duration soothed because it was only set in the
+          // note string. wakeDuration is kept for backward compat (other
+          // fallback lookups check w.assistedDuration || w.wakeDuration || w.duration).
+          assistedDuration: settleMethod !== "self" ? pauseDurMin : undefined,
+          settleDuration: settleMethod === "self" ? pauseDurMin : undefined,
           wakeDuration: pauseDurMin,
           settleTime: settleH+":"+settleM,
           _pendingSettle: false
