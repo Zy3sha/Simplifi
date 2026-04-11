@@ -28886,6 +28886,63 @@ function App(){
                           <div style={{fontSize:11,color:C.mid,lineHeight:1.5}}>{_digest.correlationInsight.explanation}</div>
                         </div>
                       )}
+
+                      {/* ── CROSS-DOMAIN WEEKLY CHECK-IN ──
+                          On top of the night-focused digest, run the three
+                          other analysers (feed, weaning, wellbeing) against
+                          the last 7 days and surface any that have fired a
+                          non-default signal. This is the one-line "here's
+                          what else we're watching" summary no consultant
+                          can produce. */}
+                      {(()=>{
+                        try {
+                          if (!age || typeof age.totalWeeks !== "number") return null;
+                          const _todayArr = days[todayStr()] || [];
+                          const _recent14 = [];
+                          for (let i = 0; i < 14; i++) {
+                            const d = new Date();
+                            d.setDate(d.getDate() - i);
+                            const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                            (days[dk]||[]).forEach(e => _recent14.push({...e, _dk: dk}));
+                          }
+                          const _24hAgo = Date.now() - 24*60*60*1000;
+                          const _wetCount = _recent14.filter(e => {
+                            if (e.type !== "poop") return false;
+                            const _t = (e.time || "00:00").split(":").map(Number);
+                            const _ms = new Date(e._dk + "T" + String(_t[0]).padStart(2,"0") + ":" + String(_t[1]||0).padStart(2,"0") + ":00").getTime();
+                            return _ms >= _24hAgo && /wet|both/i.test(e.poopType||"");
+                          }).length;
+                          const _fd = diagnoseFeedPattern(_todayArr, _recent14, age.totalWeeks, weights, _wetCount);
+                          const _wd = age.totalWeeks >= 24 ? diagnoseWeaningPattern(weaning||[], age.totalWeeks, _recent14.filter(e=>e.type==="poop"), Object.keys(days).slice(-14)) : null;
+                          const _dob = activeChild && activeChild.dob ? new Date(activeChild.dob).getTime() : null;
+                          const _moodCheckins = (observations||[]).filter(o=>o&&o.type==="mood").slice(-10);
+                          const _loggedBy = {};
+                          const _cutoff7 = Date.now() - 7*86400000;
+                          Object.keys(days).forEach(dk => {
+                            const _kMs = new Date(dk + "T12:00:00").getTime();
+                            if (_kMs < _cutoff7) return;
+                            (days[dk]||[]).forEach(e => { const _by = e.loggedBy || "self"; _loggedBy[_by] = (_loggedBy[_by]||0)+1; });
+                          });
+                          const _wb = diagnoseWellbeing(days, age.totalWeeks, _dob, _moodCheckins, _loggedBy);
+                          const _findings = [];
+                          if (_fd && _fd.type !== "normal_rhythm") _findings.push({src:"feed", d:_fd});
+                          if (_wd && _wd.type !== "balanced_good") _findings.push({src:"weaning", d:_wd});
+                          if (_wb && _wb.type !== "positive_trajectory") _findings.push({src:"wellbeing", d:_wb});
+                          if (_findings.length === 0) return null;
+                          return (
+                            <div style={{marginTop:10,paddingTop:10,borderTop:"1px dashed "+C.blush}}>
+                              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:6}}>Also this week</div>
+                              {_findings.map((f,i)=>(
+                                <div key={i} style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:3,paddingLeft:16,position:"relative"}}>
+                                  <span style={{position:"absolute",left:0}}>{f.d.emoji}</span>
+                                  <strong style={{color:C.deep}}>{f.d.title}</strong>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        } catch { return null; }
+                      })()}
+
                       <div style={{fontSize:10,color:C.lt,textAlign:"center",marginTop:8,fontStyle:"italic"}}>
                         Fresh start Monday. You're doing amazingly 💛
                       </div>
