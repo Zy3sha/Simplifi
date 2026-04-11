@@ -3833,7 +3833,13 @@ function _pctFromLMS(value, lms) {
 
 function getHeightPercentile(cm, ageMonths, sex) {
   if (cm == null || isNaN(cm) || ageMonths == null || isNaN(ageMonths) || ageMonths < 0) return null;
-  const table = sex === "girl" ? WHO_LENGTH_LMS_GIRLS : WHO_LENGTH_LMS_BOYS;
+  // Return null when sex isn't explicitly set to boy or girl, forcing
+  // the UI to prompt the parent rather than using the wrong table.
+  const _s = (sex || "").toString().toLowerCase().trim();
+  let table;
+  if (_s === "girl" || _s === "female" || _s === "f") table = WHO_LENGTH_LMS_GIRLS;
+  else if (_s === "boy" || _s === "male" || _s === "m") table = WHO_LENGTH_LMS_BOYS;
+  else return null;
   return _pctFromLMS(cm, _lmsInterpolated(table, ageMonths));
 }
 
@@ -3846,7 +3852,15 @@ function normalCDF(z) {
 
 function getPercentile(kg, ageMonths, sex) {
   if (kg == null || isNaN(kg) || ageMonths == null || isNaN(ageMonths) || ageMonths < 0) return null;
-  const table = sex === "girl" ? WHO_LMS_GIRLS : WHO_LMS_BOYS;
+  // Accept any common spelling/synonym of the two WHO tables. If the
+  // caller passes "" or "other", return null so the UI can prompt the
+  // parent to set sex rather than silently using the boys table (which
+  // makes girls look consistently below-average).
+  const _s = (sex || "").toString().toLowerCase().trim();
+  let table;
+  if (_s === "girl" || _s === "female" || _s === "f") table = WHO_LMS_GIRLS;
+  else if (_s === "boy" || _s === "male" || _s === "m") table = WHO_LMS_BOYS;
+  else return null;
   return _pctFromLMS(kg, _lmsInterpolated(table, ageMonths));
 }
 
@@ -5410,6 +5424,19 @@ function App(){
       if (!dateStr || !entry.type) { skipped++; return; }
       const d = normDate(dateStr);
       if (!d) { skipped++; return; }
+      // Reject dates before baby was born (ancient imports), more than
+      // 1 day in the future (typo), or before 2020 (unambiguous typo).
+      // These used to pollute the 7-day / 14-day analyser baselines.
+      try {
+        const _t = new Date(d + "T12:00:00").getTime();
+        const _dobMs = (activeChild && activeChild.dob) ? new Date(activeChild.dob + "T00:00:00").getTime() : null;
+        const _2020 = new Date("2020-01-01T00:00:00").getTime();
+        const _tomorrow = Date.now() + 36*60*60*1000;
+        if (isNaN(_t) || _t < _2020 || _t > _tomorrow || (_dobMs && _t < _dobMs - 24*60*60*1000)) {
+          skipped++;
+          return;
+        }
+      } catch {}
       // DEDUP: skip anything we've already logged (either on an earlier
       // import, via manual logging, or earlier in the same CSV).
       const _sig = entrySignature(d, entry);
@@ -6987,9 +7014,25 @@ function App(){
     try {
       const _todayK = todayStr();
       // ★ Skip entirely if bedTimerDay is today, that's a fresh bedtime, not a stale one.
-      if (bedTimerDay === _todayK) return;
+      // EXCEPTION: if the timer is currently paused and the parent
+      // manually logs a morning wake ON the same day, we still need
+      // to auto-close (the night is over even though the bedtime
+      // hadn't rolled past midnight yet — edge case, but real).
+      if (bedTimerDay === _todayK && !bedPaused) return;
       const _todayEnt = days[_todayK] || [];
       const _hasWake = _todayEnt.some(e => e.type === "wake" && !e.night);
+      // When checking same-day auto-close for a paused timer, make
+      // sure the morning-wake entry's time is AFTER the bedtime,
+      // otherwise we'd auto-close a legitimate same-day bedtime that
+      // happens to have had a wake earlier in the day.
+      if (bedTimerDay === _todayK && bedPaused && _hasWake) {
+        const _bed = findBedtime(_todayEnt);
+        if (_bed) {
+          const _bedT = timeVal(_bed);
+          const _wakeAfter = _todayEnt.some(e => e.type === "wake" && !e.night && timeVal(e) > _bedT);
+          if (!_wakeAfter) return; // wake was earlier in the day, not a night-ending wake
+        }
+      }
       if (_hasWake) {
         console.log("[OBubba] Morning wake found. auto-stopping stale bed timer from", bedTimerDay);
         setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
@@ -7001,7 +7044,7 @@ function App(){
         }
       }
     } catch {}
-  },[bedTimerDay, days]);
+  },[bedTimerDay, bedPaused, days]);
   const[napPaused,setNapPaused]=useState(()=>{try{return localStorage.getItem("nap_paused")==="1";}catch{return false;}});
   const[napPausedAtSec,setNapPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("nap_paused_sec"))||0;}catch{return 0;}});
   const[showNapStartEdit,setShowNapStartEdit]=useState(false);
@@ -7296,6 +7339,15 @@ function App(){
         // (On cold start, timer_{childId} might not exist even though nap_on is "1")
         var _lsNapOn = localStorage.getItem("nap_on") === "1";
         var _lsBreastActive = localStorage.getItem("breast_active") === "1";
+        // Clear bed timer state too — without this, a bed timer that
+        // was running for child A would keep rendering on child B's
+        // screen as "night sleep in progress" and count from child A's
+        // bedtime.
+        setBedTimerDay(null);
+        setBedPaused(false);
+        setBedPauseStart(null);
+        setBedPausedAtSec(0);
+        setBedTotalPausedSec(0);
         if (_lsNapOn || _lsBreastActive) {
           // Timer is active via individual keys. reconstruct state from localStorage
           setNapOn(_lsNapOn);
@@ -11329,7 +11381,16 @@ function App(){
             <div>
               <div style={{textAlign:"center",padding:"10px 0",marginBottom:8}}>
                 <div style={{fontSize:13,color:"#D4A855",fontWeight:700,marginBottom:4}}>{"\u{1F319}"} Night wake in progress</div>
-                {bedPauseStart && (()=>{const _wakeMins=Math.max(0,Math.round((Date.now()-bedPauseStart)/60000));return <div style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{_wakeMins<1?"just now":hm(_wakeMins)+" awake"}</div>;})()}
+                {bedPauseStart && (()=>{
+                  const _wakeMins=Math.max(0,Math.round((Date.now()-bedPauseStart)/60000));
+                  // If the pause is more than 4 hours old, it's a stale
+                  // state (user force-killed, app slept, partner sync
+                  // glitch). Show "paused" rather than a misleading
+                  // 12h-awake counter that would imply baby has been
+                  // up the whole time.
+                  if (_wakeMins > 4*60) return <div style={{fontSize:14,color:C.lt,fontStyle:"italic"}}>timer paused · tap "back to sleep" or log morning wake</div>;
+                  return <div style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{_wakeMins<1?"just now":hm(_wakeMins)+" awake"}</div>;
+                })()}
               </div>
               {/* Settle method selection */}
               <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5,textAlign:"center"}}>How did they settle?</div>
