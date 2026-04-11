@@ -199,6 +199,12 @@ function smartHydration(dayEntries, ageWeeks, prevDayLastWetNappy) {
 const fmtLong = d => new Date(d+"T12:00:00").toLocaleDateString(navigator.language||"en-GB",{weekday:"short",day:"numeric",month:"short"});
 const nowTime = () => { const n=new Date(); return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`; };
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+// Yesterday as a LOCAL date key. The old `new Date().toISOString().slice(0,10)`
+// pattern produces a UTC key which is wrong in any timezone that's ahead of
+// UTC during the first few hours of the day (e.g. UTC+12 at 00:30 local
+// returns yesterday's UTC date, not the calendar-yesterday the user sees).
+// Mirrors todayStr() so both helpers stay in the user's local timezone.
+const yesterdayStr = () => { const d=new Date(); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
 // ═══ CENTRAL MORNING WAKE DETECTION ══════════════════════════════════
@@ -5760,7 +5766,7 @@ function App(){
     // Wait for data to load
     if (Object.keys(days).length === 0) return;
     const _todayKey = todayStr();
-    const _yestKey = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+    const _yestKey = yesterdayStr();
     // Check today first, then yesterday (cross-midnight)
     let _foundDay = null;
     let _bedEntry = null;
@@ -9257,7 +9263,7 @@ function App(){
         const _hasActiveNapLA = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
         // Data-driven bed timer check: bedTimerDay state OR localStorage OR yesterday has bedtime + today no wake
         const _bedTimerActive = !!bedTimerDay || !!localStorage.getItem("bed_timer_day")
-          || (!!findBedtime(days[(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})()]||[]) && !hasMorningWake(days[todayStr()]||[]));
+          || (!!findBedtime(days[yesterdayStr()]||[]) && !hasMorningWake(days[todayStr()]||[]));
         const _anyTimer = localStorage.getItem("nap_on") === "1"
           || localStorage.getItem("breast_active") === "1"
           || _bedTimerActive
@@ -9346,7 +9352,7 @@ function App(){
     // - selDay is the bedTimerDay (bed timer active, regardless of calendar date)
     // ══════════════════════════════════════════════════════
     const _calToday = todayStr();
-    const _calYesterday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+    const _calYesterday = yesterdayStr();
     const _activeBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
     // Check if yesterday has a bedtime and today has no morning wake (data-driven, not state-driven)
     const _yesterdayHasBed = !!findBedtime(days[_calYesterday]||[]);
@@ -9486,12 +9492,25 @@ function App(){
       // That was the "Last feed 00:17am (0m ago) at 8:41am" bug.
       if (e.night && t[0] < 12 && e._dk && e._dk < _calToday) {
         d.setDate(d.getDate() + 1);
+        // SECONDARY GUARD: if the +1 day shift pushed us into the future
+        // (clock drift on the device, or an entry from earlier today that
+        // looked like a yesterday-night entry because of odd day-boundary
+        // handling), undo the shift. This was the "Last feed 0m ago" bug
+        // that reappeared on phones with a slightly-fast clock: the night
+        // entry was in the right place, we pushed it a day forward, it
+        // became "in the future", Math.max clamped the gap to 0, and the
+        // hero card confidently announced a feed that happened last night.
+        if (d.getTime() > _nowMs) {
+          d.setDate(d.getDate() - 1);
+        }
       }
       // Sanity: if the resulting timestamp is still in the future (clock drift,
       // user edited an entry to a future minute, entry stamped with tomorrow's
-      // date), treat the gap as "just now" rather than a huge fake positive.
+      // date), return Infinity so this entry loses the "most recent" race
+      // rather than winning it with a spurious 0. Previously returning 0 made
+      // clock-drifted future entries always appear to be the last feed.
       const gapMin = Math.round((_nowMs - d.getTime()) / 60000);
-      if (gapMin < 0) return 0;
+      if (gapMin < 0) return Infinity;
       return gapMin;
     };
     const _lastFeed = _allPoolFeeds.length > 0 ? _allPoolFeeds.reduce((best, e) => _wallGap(e) < _wallGap(best) ? e : best) : null;
@@ -18526,6 +18545,27 @@ function App(){
     const formTime = form.time || nowTime();
     const formStart = form.start || nowTime();
     const formEnd = form.end || nowTime();
+    // GUARD: reject a nap whose end is before its start. Without this,
+    // minDiff would wrap the negative duration to something like 23.5h,
+    // downstream nap filters silently exclude it, and the corrupted
+    // entry hides in state forever (it's not deleted, just invisible,
+    // and cloud sync can pull it back into other devices). Same guard
+    // covers a 0-min nap entered from a typo. The LA bridge nap that
+    // logs start==end with duration:0 is an intentional "active nap"
+    // placeholder and is NOT saved through this form, so this check
+    // doesn't catch those.
+    if (eType === "nap") {
+      const [_sH,_sM] = formStart.split(":").map(Number);
+      const [_eH,_eM] = formEnd.split(":").map(Number);
+      if (isNaN(_sH) || isNaN(_sM) || isNaN(_eH) || isNaN(_eM)) {
+        showToast("Nap times look wrong. please check and try again",3000,2);
+        return;
+      }
+      if (_eH*60+_eM < _sH*60+_sM) {
+        showToast("Nap end time is before start time. please fix",3000,2);
+        return;
+      }
+    }
     if(eType==="feed"){
       if(feedType==="breast"){
         const bL=parseInt(form.breastL)||0, bR=parseInt(form.breastR)||0;
@@ -27352,6 +27392,7 @@ function App(){
 
                   // Find cursor: last known end point
                   let cursor;
+                  let _cursorInferred = false;
                   if (napOn && napStartT) {
                     // During active nap, project from estimated end
                     const [sh,sm] = napStartT.split(":").map(Number);
@@ -27360,8 +27401,19 @@ function App(){
                     const last = completedNaps[completedNaps.length - 1];
                     const [eh,em] = last.end.split(":").map(Number);
                     cursor = eh*60 + em;
-                  } else {
+                  } else if (wake) {
                     cursor = timeVal(wake);
+                  } else {
+                    // No morning wake logged, no naps yet. Previously this
+                    // fell through to timeVal(undefined)===0 and the plan
+                    // confidently placed naps at 2:30am, 4am, 5:30am. The
+                    // 7am fallback matches the "7 to 7" consensus most
+                    // parents and consultants use as their default target
+                    // (Taking Cara Babies, The Sleep Sense Method etc.),
+                    // and it produces a plausible plan without requiring
+                    // the parent to go log a wake before seeing anything.
+                    cursor = 7 * 60;
+                    _cursorInferred = true;
                   }
 
                   // ═══ PROJECT REMAINING NAPS + BEDTIME ═══
@@ -27496,7 +27548,18 @@ function App(){
                   // The bedtime override at line 27152 below would then snap bedM
                   // to the engine's post-bridge time, leaving a visual gap with no
                   // bridge item to fill it.
-                  const _enginePred = tickDataRef.current && tickDataRef.current.bed;
+                  //
+                  // FIRST-RENDER FIX: on a hard refresh or a cold start,
+                  // the tick effect hasn't run yet and `tickDataRef.current.bed`
+                  // is undefined. Without a fresh call, _engineSaysBridge is
+                  // false for the very first render and we fall through to the
+                  // strict local math again. Solution: if the cached engine
+                  // result is missing, compute it inline right here. Safe
+                  // because bedtimePrediction is pure over the current state.
+                  let _enginePred = tickDataRef.current && tickDataRef.current.bed;
+                  if (!_enginePred) {
+                    try { _enginePred = bedtimePrediction(); } catch { _enginePred = null; }
+                  }
                   const _engineSaysBridge = !!(_enginePred && _enginePred.forceBridge);
                   const gapToBed = bedM - cursor;
                   const _localSaysBridge = gapToBed > ww.max + 15;
@@ -27516,8 +27579,11 @@ function App(){
                     }
                     const bridgeEnd = bridgeStart + bridgeDur;
                     // Sanity: bridge has to start after cursor (can't bridge backward)
-                    // and end at least 30 min before bedtime cap.
-                    const _safeStart = Math.max(cursor + 10, bridgeStart);
+                    // and end at least 30 min before bedtime cap. Also cap at
+                    // 23:30 so a very late plan doesn't schedule a "bridge nap"
+                    // at 2am tomorrow on today's timeline.
+                    const _MIDNIGHT_MINUS_30 = 23*60 + 30;
+                    const _safeStart = Math.min(_MIDNIGHT_MINUS_30, Math.max(cursor + 10, bridgeStart));
                     const _safeEnd = _safeStart + bridgeDur;
                     if (_safeEnd + 30 < _ageBedCeiling) {
                       items.push({

@@ -68,7 +68,12 @@ let gap;if(nIdx>0){const prev=wetNappies[nIdx-1];const pm=_safeMinsOf(prev);gap=
 if(gap<0)gap+=1440;}else if(_prevCrossGap){gap=_prevCrossGap(nMins);}else{gap=isFirstNappy?720:0;// legacy 12h overnight assumption
 }// Smart counting bands. 10+h = 3x, 6-10h = 2x, else 1x.
 if(gap>=600)smartCount+=3;else if(gap>=360)smartCount+=2;else smartCount+=1;});// Age-adjusted target
-const months=(ageWeeks||0)/4.33;const target=months<6?6:months<12?5:4;const ok=smartCount>=target;return{count:smartCount,raw:wetNappies.length,target,ok,label:smartCount+" of "+target+"+"};}const fmtLong=d=>new Date(d+"T12:00:00").toLocaleDateString(navigator.language||"en-GB",{weekday:"short",day:"numeric",month:"short"});const nowTime=()=>{const n=new Date();return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`;};const todayStr=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};const localDateStr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;// ═══ CENTRAL MORNING WAKE DETECTION ══════════════════════════════════
+const months=(ageWeeks||0)/4.33;const target=months<6?6:months<12?5:4;const ok=smartCount>=target;return{count:smartCount,raw:wetNappies.length,target,ok,label:smartCount+" of "+target+"+"};}const fmtLong=d=>new Date(d+"T12:00:00").toLocaleDateString(navigator.language||"en-GB",{weekday:"short",day:"numeric",month:"short"});const nowTime=()=>{const n=new Date();return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`;};const todayStr=()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};// Yesterday as a LOCAL date key. The old `new Date().toISOString().slice(0,10)`
+// pattern produces a UTC key which is wrong in any timezone that's ahead of
+// UTC during the first few hours of the day (e.g. UTC+12 at 00:30 local
+// returns yesterday's UTC date, not the calendar-yesterday the user sees).
+// Mirrors todayStr() so both helpers stay in the user's local timezone.
+const yesterdayStr=()=>{const d=new Date();d.setDate(d.getDate()-1);return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};const localDateStr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;// ═══ CENTRAL MORNING WAKE DETECTION ══════════════════════════════════
 // SECTION 3: CENTRAL WAKE/BED DETECTION (SINGLE SOURCE OF TRUTH)
 // SINGLE SOURCE OF TRUTH. every function that needs to find the morning wake
 // MUST call one of these. NEVER check `e.night` to identify morning wakes.
@@ -809,7 +814,7 @@ try{setTimeout(()=>{try{window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.()
 // state is null, restore it from the data. Ensures the bedtime timer survives
 // app updates that wipe localStorage.
 const bedTimerResurrectedRef=React.useRef(false);React.useEffect(()=>{if(bedTimerResurrectedRef.current)return;if(bedTimerDay){bedTimerResurrectedRef.current=true;return;}// Wait for data to load
-if(Object.keys(days).length===0)return;const _todayKey=todayStr();const _yestKey=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();// Check today first, then yesterday (cross-midnight)
+if(Object.keys(days).length===0)return;const _todayKey=todayStr();const _yestKey=yesterdayStr();// Check today first, then yesterday (cross-midnight)
 let _foundDay=null;let _bedEntry=null;for(const _k of[_todayKey,_yestKey]){const _be=(days[_k]||[]).find(e=>e.type==="sleep"&&!e.night);if(_be){// Check if there's already a morning wake after it (night is over)
 const _laterWake=(days[_todayKey]||[]).find(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<=12;})());if(_laterWake)continue;_foundDay=_k;_bedEntry=_be;break;}}if(!_foundDay||!_bedEntry){bedTimerResurrectedRef.current=true;return;}// Sanity: bedtime must be within last 16 hours
 const[_bh,_bm]=_bedEntry.time.split(":").map(Number);const _bedDate=new Date(_foundDay+"T00:00:00");_bedDate.setHours(_bh,_bm,0,0);const _elapsedH=(Date.now()-_bedDate.getTime())/(1000*3600);if(_elapsedH<0||_elapsedH>16){bedTimerResurrectedRef.current=true;return;}console.log("[OBubba] Resurrecting bed timer. day:",_foundDay,"bedtime:",_bedEntry.time);setBedTimerDay(_foundDay);try{localStorage.setItem("bed_timer_day",_foundDay);}catch{}// Restart the bed Live Activity (Dynamic Island + lock screen) via the
@@ -1294,7 +1299,7 @@ let napTarget=null,bedTarget=null;const storeTargets=()=>{const now=Date.now();/
 let _predLAState="";// tracks current prediction LA state to avoid redundant calls
 function _syncPredictionLA(){if(!_isNative)return;try{const _la=window.Capacitor?.Plugins?.OBLiveActivity;if(!_la)return;// Check localStorage + entry data. covers timer desync after rebuild/update
 const _hasActiveNapLA=(days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));// Data-driven bed timer check: bedTimerDay state OR localStorage OR yesterday has bedtime + today no wake
-const _bedTimerActive=!!bedTimerDay||!!localStorage.getItem("bed_timer_day")||!!findBedtime(days[(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})()]||[])&&!hasMorningWake(days[todayStr()]||[]);const _anyTimer=localStorage.getItem("nap_on")==="1"||localStorage.getItem("breast_active")==="1"||_bedTimerActive||_hasActiveNapLA;if(_anyTimer){if(_predLAState!==""){_la.stopPrediction?.().catch(()=>{});_predLAState="";}return;}const td=tickDataRef.current||{};const now=new Date();const nowMins=now.getHours()*60+now.getMinutes();// Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
+const _bedTimerActive=!!bedTimerDay||!!localStorage.getItem("bed_timer_day")||!!findBedtime(days[yesterdayStr()]||[])&&!hasMorningWake(days[todayStr()]||[]);const _anyTimer=localStorage.getItem("nap_on")==="1"||localStorage.getItem("breast_active")==="1"||_bedTimerActive||_hasActiveNapLA;if(_anyTimer){if(_predLAState!==""){_la.stopPrediction?.().catch(()=>{});_predLAState="";}return;}const td=tickDataRef.current||{};const now=new Date();const nowMins=now.getHours()*60+now.getMinutes();// Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
 let _predNapMins=td.nextNapMins;try{const _predFresh=tickDataRef.current.pred;if(_predFresh&&typeof _predFresh.napStart_min==="number"){_predNapMins=Math.round(_predFresh.napStart_min);}}catch{}if(!td.napsComplete&&_predNapMins!==null&&_predNapMins>nowMins){const nH=Math.floor(_predNapMins/60),nM=_predNapMins%60;const napNum=(td.napsDone||0)+1;const key="nap"+napNum+"_"+nH+":"+nM;if(_predLAState!==key){const targetDate=new Date();targetDate.setHours(nH,nM,0,0);const label="Nap "+napNum;const timeStr=fmt12(`${String(nH).padStart(2,"0")}:${String(nM).padStart(2,"0")}`);_la.stopPrediction?.().catch(()=>{});setTimeout(()=>{if(localStorage.getItem("nap_on")!=="1"&&localStorage.getItem("breast_active")!=="1"){_la.startPrediction?.({babyName:babyName||'Baby',targetTime:targetDate.getTime(),label,timeFormatted:timeStr}).catch(()=>{});}},300);_predLAState=key;}}else if(td.napsComplete&&td.bedMins!==null&&td.bedMins>nowMins){const bH=Math.floor(td.bedMins/60),bM=td.bedMins%60;const key="bed_"+bH+":"+bM;if(_predLAState!==key){const targetDate=new Date();targetDate.setHours(bH,bM,0,0);const timeStr=fmt12(`${String(bH).padStart(2,"0")}:${String(bM).padStart(2,"0")}`);_la.stopPrediction?.().catch(()=>{});setTimeout(()=>{if(localStorage.getItem("nap_on")!=="1"&&localStorage.getItem("breast_active")!=="1"){_la.startPrediction?.({babyName:babyName||'Baby',targetTime:targetDate.getTime(),label:"Bedtime",timeFormatted:timeStr}).catch(()=>{});}},300);_predLAState=key;}}else{if(_predLAState!==""){_la.stopPrediction?.().catch(()=>{});_predLAState="";}}}catch{}}countdownRef.current=setInterval(()=>{tick();_syncPredictionLA();// Check prediction LA state every tick. localStorage is always current
 },1000);// Also run once immediately
 _syncPredictionLA();return()=>clearInterval(countdownRef.current);},[selDay,days,age,timerMode,napOn,bedTimerDay]);// ═══ HERO CARD v2. Bubba Rhythm ═══
@@ -1308,7 +1313,7 @@ function renderHeroCard(){try{const td=tickDataRef.current||{};if(!age)return/*#
 // - selDay is yesterday and today has no morning wake yet, OR
 // - selDay is the bedTimerDay (bed timer active, regardless of calendar date)
 // ══════════════════════════════════════════════════════
-const _calToday=todayStr();const _calYesterday=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();const _activeBTD=bedTimerDay||localStorage.getItem("bed_timer_day");// Check if yesterday has a bedtime and today has no morning wake (data-driven, not state-driven)
+const _calToday=todayStr();const _calYesterday=yesterdayStr();const _activeBTD=bedTimerDay||localStorage.getItem("bed_timer_day");// Check if yesterday has a bedtime and today has no morning wake (data-driven, not state-driven)
 const _yesterdayHasBed=!!findBedtime(days[_calYesterday]||[]);const _todayNoWake=!hasMorningWake(days[_calToday]||[]);const _isActiveDay=selDay===_calToday||selDay===_calYesterday&&_todayNoWake||dayBoundary==="wake"&&_activeBTD&&selDay===_activeBTD||dayBoundary==="wake"&&_yesterdayHasBed&&_todayNoWake&&selDay===_calYesterday;if(!_isActiveDay)return null;// ══════════════════════════════════════════════════════
 // LAYER 1: Unified data. computed once, used everywhere
 // When viewing bedTimerDay (cross-midnight), merge bedtime-day entries
@@ -1346,10 +1351,20 @@ const _tag=(arr,dk)=>arr.map(e=>({...e,_dk:dk}));const _prev2DayStr=prevCalDay(_
 // night feed (stored directly on today under midnight-mode dayBoundary)
 // into tomorrow, producing a negative gap that Math.max clamps to 0.
 // That was the "Last feed 00:17am (0m ago) at 8:41am" bug.
-if(e.night&&t[0]<12&&e._dk&&e._dk<_calToday){d.setDate(d.getDate()+1);}// Sanity: if the resulting timestamp is still in the future (clock drift,
+if(e.night&&t[0]<12&&e._dk&&e._dk<_calToday){d.setDate(d.getDate()+1);// SECONDARY GUARD: if the +1 day shift pushed us into the future
+// (clock drift on the device, or an entry from earlier today that
+// looked like a yesterday-night entry because of odd day-boundary
+// handling), undo the shift. This was the "Last feed 0m ago" bug
+// that reappeared on phones with a slightly-fast clock: the night
+// entry was in the right place, we pushed it a day forward, it
+// became "in the future", Math.max clamped the gap to 0, and the
+// hero card confidently announced a feed that happened last night.
+if(d.getTime()>_nowMs){d.setDate(d.getDate()-1);}}// Sanity: if the resulting timestamp is still in the future (clock drift,
 // user edited an entry to a future minute, entry stamped with tomorrow's
-// date), treat the gap as "just now" rather than a huge fake positive.
-const gapMin=Math.round((_nowMs-d.getTime())/60000);if(gapMin<0)return 0;return gapMin;};const _lastFeed=_allPoolFeeds.length>0?_allPoolFeeds.reduce((best,e)=>_wallGap(e)<_wallGap(best)?e:best):null;const _feedGapM=_lastFeed?_wallGap(_lastFeed):9999;// ── Last nappy. same approach ──
+// date), return Infinity so this entry loses the "most recent" race
+// rather than winning it with a spurious 0. Previously returning 0 made
+// clock-drifted future entries always appear to be the last feed.
+const gapMin=Math.round((_nowMs-d.getTime())/60000);if(gapMin<0)return Infinity;return gapMin;};const _lastFeed=_allPoolFeeds.length>0?_allPoolFeeds.reduce((best,e)=>_wallGap(e)<_wallGap(best)?e:best):null;const _feedGapM=_lastFeed?_wallGap(_lastFeed):9999;// ── Last nappy. same approach ──
 const _nappyPool=_feedPool.filter(e=>e.time&&e.type==="poop");const _lastNappy=_nappyPool.length>0?_nappyPool.reduce((best,e)=>_wallGap(e)<_wallGap(best)?e:best):null;const _nappyGapM=_lastNappy?_wallGap(_lastNappy):9999;// ── Today's daytime feeds (for totals) ──
 const _allFeeds=_todayEntries.filter(e=>isBabyFeed(e)&&!e.night);const _totalMl=_allFeeds.reduce((s,f)=>s+(f.amount||0),0);// ── Feed predictions ──
 const _ageThreshM=_w<4?120:_w<8?150:_w<13?180:_w<26?210:_w<39?240:270;let _feedThreshM=_ageThreshM;// Personal rhythm: average feed interval from last 7 completed OBubba days
@@ -2424,7 +2439,16 @@ function _postBedtimeFlow(){// Fire the You Time modal 3 seconds after bedtime i
 // so firing multiple times per day is acceptable and actually helpful
 // during debugging or editing scenarios.
 try{trackEvent("timer_started",{type:"bed"});}catch{}setTimeout(()=>setShowYouTime(true),3000);}function saveLogSleep(){const f=logForm;if(f.sleepType==="nap"){quickAddLog("nap",{type:"nap",start:f.napStart||nowTime(),end:f.napEnd||nowTime(),night:false,note:""});}else{quickAddLog("sleep",{type:"sleep",time:f.bedTime||nowTime(),night:false,note:""});// Start Live Activity for bedtime on iOS. stop any existing one first
-if(_isNative){console.log("[OBubba] Starting bedtime Live Activity...");const _bParts=(f.bedTime||nowTime()).split(":").map(Number);const _bDate=new Date();_bDate.setHours(_bParts[0],_bParts[1],0,0);const _la2=window.Capacitor?.Plugins?.OBLiveActivity;if(_la2){_la2.stop?.().catch(()=>{});setTimeout(()=>{_la2.start({type:'sleep',babyName:babyName||'Baby',startTime:_bDate.getTime()}).then(function(r){console.log("[OBubba] Live Activity started:",JSON.stringify(r));}).catch(function(e){console.error("[OBubba] Live Activity FAILED:",e);});},300);}}_postBedtimeFlow();}}function saveEntry(){const _userChoseNight=eType==="feed"||eType==="wake"||eType==="sleep";let e={id:editEntry?editEntry.id:uid(),note:form.note||"",nightLocked:_userChoseNight?true:editEntry?editEntry.nightLocked:false,modifiedAt:Date.now()};const formTime=form.time||nowTime();const formStart=form.start||nowTime();const formEnd=form.end||nowTime();if(eType==="feed"){if(feedType==="breast"){const bL=parseInt(form.breastL)||0,bR=parseInt(form.breastR)||0;e={...e,type:"feed",time:formTime,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:form.night==="yes"};}else if(feedType==="pump"){const pL=parseInt(form.pumpL)||0,pR=parseInt(form.pumpR)||0;e={...e,type:"feed",time:formTime,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};}else{e={...e,type:"feed",time:formTime,amount:displayToMl(form.amount,FU),night:form.night==="yes",feedType:feedType};}}else if(eType==="nap"){e={...e,type:"nap",start:formStart,end:formEnd,night:false,napLocation:form.napLocation||null};}else if(eType==="poop"){e={...e,type:"poop",time:formTime,poopType:form.poopType||"",night:false};}else if(eType==="wake"){e={...e,type:"wake",time:formTime,night:form.night==="yes"};// Stop bedtime Live Activity when morning wake is saved via edit form
+if(_isNative){console.log("[OBubba] Starting bedtime Live Activity...");const _bParts=(f.bedTime||nowTime()).split(":").map(Number);const _bDate=new Date();_bDate.setHours(_bParts[0],_bParts[1],0,0);const _la2=window.Capacitor?.Plugins?.OBLiveActivity;if(_la2){_la2.stop?.().catch(()=>{});setTimeout(()=>{_la2.start({type:'sleep',babyName:babyName||'Baby',startTime:_bDate.getTime()}).then(function(r){console.log("[OBubba] Live Activity started:",JSON.stringify(r));}).catch(function(e){console.error("[OBubba] Live Activity FAILED:",e);});},300);}}_postBedtimeFlow();}}function saveEntry(){const _userChoseNight=eType==="feed"||eType==="wake"||eType==="sleep";let e={id:editEntry?editEntry.id:uid(),note:form.note||"",nightLocked:_userChoseNight?true:editEntry?editEntry.nightLocked:false,modifiedAt:Date.now()};const formTime=form.time||nowTime();const formStart=form.start||nowTime();const formEnd=form.end||nowTime();// GUARD: reject a nap whose end is before its start. Without this,
+// minDiff would wrap the negative duration to something like 23.5h,
+// downstream nap filters silently exclude it, and the corrupted
+// entry hides in state forever (it's not deleted, just invisible,
+// and cloud sync can pull it back into other devices). Same guard
+// covers a 0-min nap entered from a typo. The LA bridge nap that
+// logs start==end with duration:0 is an intentional "active nap"
+// placeholder and is NOT saved through this form, so this check
+// doesn't catch those.
+if(eType==="nap"){const[_sH,_sM]=formStart.split(":").map(Number);const[_eH,_eM]=formEnd.split(":").map(Number);if(isNaN(_sH)||isNaN(_sM)||isNaN(_eH)||isNaN(_eM)){showToast("Nap times look wrong. please check and try again",3000,2);return;}if(_eH*60+_eM<_sH*60+_sM){showToast("Nap end time is before start time. please fix",3000,2);return;}}if(eType==="feed"){if(feedType==="breast"){const bL=parseInt(form.breastL)||0,bR=parseInt(form.breastR)||0;e={...e,type:"feed",time:formTime,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:form.night==="yes"};}else if(feedType==="pump"){const pL=parseInt(form.pumpL)||0,pR=parseInt(form.pumpR)||0;e={...e,type:"feed",time:formTime,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};}else{e={...e,type:"feed",time:formTime,amount:displayToMl(form.amount,FU),night:form.night==="yes",feedType:feedType};}}else if(eType==="nap"){e={...e,type:"nap",start:formStart,end:formEnd,night:false,napLocation:form.napLocation||null};}else if(eType==="poop"){e={...e,type:"poop",time:formTime,poopType:form.poopType||"",night:false};}else if(eType==="wake"){e={...e,type:"wake",time:formTime,night:form.night==="yes"};// Stop bedtime Live Activity when morning wake is saved via edit form
 if(form.night!=="yes"&&_isNative)window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});}else if(eType==="sleep"){e={...e,type:"sleep",time:formTime,night:form.night==="yes"};// Logging bedtime via edit form. stop existing LA then start new one
 if(form.night!=="yes"&&_isNative){const _la3=window.Capacitor?.Plugins?.OBLiveActivity;if(form.wakeTime){// Morning wake time provided. stop LA immediately, no new bedtime timer
 if(_la3)_la3.stop?.().catch(()=>{});}else if(_la3){_la3.stopPrediction?.().catch(()=>{});const _p=formTime.split(":").map(Number);const _d=new Date();_d.setHours(_p[0],_p[1],0,0);_la3.start({type:'sleep',babyName:babyName||'Baby',startTime:_d.getTime()}).catch(()=>{});}}}else{e={...e,type:eType,time:formTime,night:false};}// If bedtime edit includes a morning wake time, prepare a wake entry to add
@@ -3257,8 +3281,16 @@ items.push({icon:"☀️",label:"Wake",time:fmt12(wake.time),done:true,mins:time
 completedNaps.forEach((n,i)=>{const dur=minDiff(n.start,n.end);items.push({icon:"😴",label:`Nap ${i+1}`,time:`${fmt12(n.start)} – ${fmt12(n.end)}`,sub:hm(dur),done:true,mins:timeVal(n)});});// 3. Active nap
 if(napOn&&napStartT){items.push({icon:"💤",label:`Nap ${completedNaps.length+1}`,time:`${fmt12(napStartT)} – now`,sub:"in progress",active:true,mins:timeVal({time:napStartT})});}if(!bedEntry&&!isPast){// Project remaining naps using personal data + NHS wake windows
 const dk=getRecentDays(7);const recentNapDurs=[];dk.forEach(d=>{(days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n=>{const dur=minDiff(n.start,n.end);if(dur>=10&&dur<=180)recentNapDurs.push(dur);});});const avgNapDur=recentNapDurs.length>=3?Math.round(recentNapDurs.reduce((a,b)=>a+b,0)/recentNapDurs.length):Math.round((napProfile.idealNapDurMin+napProfile.idealNapDurMax)/2);const totalCompletedNapMins=completedNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);const napsDone=completedNaps.length+(napOn?1:0);const expectedTotal=napStructure?napStructure.effectiveNapCount:napProfile.expectedNaps;// Find cursor: last known end point
-let cursor;if(napOn&&napStartT){// During active nap, project from estimated end
-const[sh,sm]=napStartT.split(":").map(Number);cursor=sh*60+sm+avgNapDur;}else if(completedNaps.length){const last=completedNaps[completedNaps.length-1];const[eh,em]=last.end.split(":").map(Number);cursor=eh*60+em;}else{cursor=timeVal(wake);}// ═══ PROJECT REMAINING NAPS + BEDTIME ═══
+let cursor;let _cursorInferred=false;if(napOn&&napStartT){// During active nap, project from estimated end
+const[sh,sm]=napStartT.split(":").map(Number);cursor=sh*60+sm+avgNapDur;}else if(completedNaps.length){const last=completedNaps[completedNaps.length-1];const[eh,em]=last.end.split(":").map(Number);cursor=eh*60+em;}else if(wake){cursor=timeVal(wake);}else{// No morning wake logged, no naps yet. Previously this
+// fell through to timeVal(undefined)===0 and the plan
+// confidently placed naps at 2:30am, 4am, 5:30am. The
+// 7am fallback matches the "7 to 7" consensus most
+// parents and consultants use as their default target
+// (Taking Cara Babies, The Sleep Sense Method etc.),
+// and it produces a plausible plan without requiring
+// the parent to go log a wake before seeing anything.
+cursor=7*60;_cursorInferred=true;}// ═══ PROJECT REMAINING NAPS + BEDTIME ═══
 // Simple, clean approach:
 // 1. Place naps using progressive WW (first nap uses cached prediction)
 // 2. After all naps placed, calculate bedtime from last nap end + final WW
@@ -3315,10 +3347,20 @@ const bedWW=clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);let bedM=cl
 // The bedtime override at line 27152 below would then snap bedM
 // to the engine's post-bridge time, leaving a visual gap with no
 // bridge item to fill it.
-const _enginePred=tickDataRef.current&&tickDataRef.current.bed;const _engineSaysBridge=!!(_enginePred&&_enginePred.forceBridge);const gapToBed=bedM-cursor;const _localSaysBridge=gapToBed>ww.max+15;if((_engineSaysBridge||_localSaysBridge)&&napIdx>=expectedTotal){// Use engine suggestion if available, else fall back to local math.
+//
+// FIRST-RENDER FIX: on a hard refresh or a cold start,
+// the tick effect hasn't run yet and `tickDataRef.current.bed`
+// is undefined. Without a fresh call, _engineSaysBridge is
+// false for the very first render and we fall through to the
+// strict local math again. Solution: if the cached engine
+// result is missing, compute it inline right here. Safe
+// because bedtimePrediction is pure over the current state.
+let _enginePred=tickDataRef.current&&tickDataRef.current.bed;if(!_enginePred){try{_enginePred=bedtimePrediction();}catch{_enginePred=null;}}const _engineSaysBridge=!!(_enginePred&&_enginePred.forceBridge);const gapToBed=bedM-cursor;const _localSaysBridge=gapToBed>ww.max+15;if((_engineSaysBridge||_localSaysBridge)&&napIdx>=expectedTotal){// Use engine suggestion if available, else fall back to local math.
 const _engBridge=_engineSaysBridge&&_enginePred.bridgeSuggestion;let bridgeStart;let bridgeDur;if(_engBridge&&_engBridge.start){const[_ebh,_ebm]=_engBridge.start.split(":").map(Number);bridgeStart=_ebh*60+_ebm;bridgeDur=_engBridge.duration||20;}else{bridgeStart=cursor+Math.round(ww.min*0.8);bridgeDur=20;}const bridgeEnd=bridgeStart+bridgeDur;// Sanity: bridge has to start after cursor (can't bridge backward)
-// and end at least 30 min before bedtime cap.
-const _safeStart=Math.max(cursor+10,bridgeStart);const _safeEnd=_safeStart+bridgeDur;if(_safeEnd+30<_ageBedCeiling){items.push({icon:"\u{1F309}",label:"Bridge nap",time:`${fmt12(mtp(_safeStart))} \u2013 ${fmt12(mtp(_safeEnd))}`,sub:`~${bridgeDur}m bridge nap to reach bedtime comfortably`,predicted:true,bridge:true,mins:_safeStart});hasPredictions=true;cursor=_safeEnd;// Recalculate bedtime from bridge end. Prefer engine's time
+// and end at least 30 min before bedtime cap. Also cap at
+// 23:30 so a very late plan doesn't schedule a "bridge nap"
+// at 2am tomorrow on today's timeline.
+const _MIDNIGHT_MINUS_30=23*60+30;const _safeStart=Math.min(_MIDNIGHT_MINUS_30,Math.max(cursor+10,bridgeStart));const _safeEnd=_safeStart+bridgeDur;if(_safeEnd+30<_ageBedCeiling){items.push({icon:"\u{1F309}",label:"Bridge nap",time:`${fmt12(mtp(_safeStart))} \u2013 ${fmt12(mtp(_safeEnd))}`,sub:`~${bridgeDur}m bridge nap to reach bedtime comfortably`,predicted:true,bridge:true,mins:_safeStart});hasPredictions=true;cursor=_safeEnd;// Recalculate bedtime from bridge end. Prefer engine's time
 // if it's reasonable (after cursor + 60min), else local.
 const _engineBed=_enginePred&&_enginePred.time?(()=>{const[_eh,_em]=_enginePred.time.split(":").map(Number);return _eh*60+_em;})():null;if(_engineBed&&_engineBed>=cursor+60){bedM=_engineBed;}else{bedM=clampBedtime(cursor+Math.round((ww.min+ww.max)/2),w);}bedTime=mtp(bedM);}}// ═══ SINGLE SOURCE: use tickDataRef.bedMins so Plan matches COMING UP ═══
 // BUT: only override if the tickData bedtime is actually AFTER the
