@@ -2587,6 +2587,177 @@ function getTonightsFocus(nightDiagnosis, todayEntries, ageWeeks) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 14-DAY SLEEP COACH PLAN BUILDER
+// ═══════════════════════════════════════════════════════════════════════
+// Parents often ask "how do I sleep train?". There's no single right
+// answer — there are styles, and the best one depends on the parent's
+// tolerance for baby fussing and the baby's age/temperament. This
+// helper takes (style, ageWeeks, currentState) and returns a 14-day
+// plan with a focus per day, an objective check for whether to advance
+// or repeat the day, and the "why" for that day's tactic.
+//
+// Styles supported (all evidence-based, all opt-in):
+//   gradual     — Ferber / graduated extinction. 5-min → 10 → 15 check-ins
+//   no_cry      — Pantley "Gentle" removal of sleep associations
+//   parent_led  — No sleep training; stabilise environment and rhythm,
+//                 wait for baby to mature into longer stretches
+//   chair       — Sleep lady shuffle, parent physically present, distance
+//                 increases each night
+//
+// Inputs:
+//   style         = "gradual" | "no_cry" | "parent_led" | "chair"
+//   ageWeeks
+//   dayNumber     = 1..14
+//   lastNightDiag = most recent diagnoseNightPattern output
+//
+// Returns: {day, focus, tactic, objective, why, readyToAdvance, warnings[]}
+//          or null if baby is too young for sleep training (< 16 weeks)
+function buildSleepCoachDay(style, ageWeeks, dayNumber, lastNightDiag) {
+  if (ageWeeks < 16) return null; // NHS: no sleep training before 4 months
+  if (dayNumber < 1 || dayNumber > 14) return null;
+
+  // ── GRADUAL (Ferber-style) ──
+  if (style === "gradual") {
+    if (dayNumber <= 3) {
+      return {
+        day: dayNumber,
+        focus: "Baseline & routine",
+        tactic: "Keep the exact wind-down routine you already use. Put baby down drowsy-but-awake for the next 3 nights. No new check-in patterns yet. OBubba is watching for your starting point.",
+        objective: "3 nights of consistent bedtime recorded",
+        why: "Before any sleep-training method works, the bedtime routine has to be predictable. Baby's brain needs to learn the sequence 'bath → feed → dim lights → cot' so there's no ambiguity.",
+        warnings: ["Do not introduce check-ins yet", "Do not move bedtime"]
+      };
+    }
+    if (dayNumber <= 6) {
+      return {
+        day: dayNumber,
+        focus: "Short check-ins",
+        tactic: "If baby fusses at bedtime, wait 3 minutes before going in. When you go in: no lights, 30 seconds of calm presence ('shhh, it's sleep time'), no pick-up. Leave. Wait 5 minutes if they fuss again. Max 3 check-ins.",
+        objective: "Check-in pattern used 3 nights in a row",
+        why: "Short intervals at the start help baby learn that you're nearby but not rescuing them from self-settling. The 3-minute first wait is low pressure.",
+        warnings: ["Pick-up breaks the method. Only go back to gradual extinction if baby is in distress, not fussing"]
+      };
+    }
+    if (dayNumber <= 10) {
+      return {
+        day: dayNumber,
+        focus: "Extend intervals",
+        tactic: "Wait 5 minutes before the first check-in, then 10, then 15. Same rules: no lights, 30s of calm, no pick-up, leave.",
+        objective: "Bedtime fuss < 20 min OR baby falls asleep without crying",
+        why: "Extending the interval is the whole point of gradual extinction — baby learns they can settle alone. Most babies drop the bedtime fuss by day 7-10.",
+        warnings: ["If your baby's crying escalates after the first check-in, switch to no_cry style for 3 nights and try again later"]
+      };
+    }
+    return {
+      day: dayNumber,
+      focus: "Consolidation",
+      tactic: "Continue the extended intervals. For night wakes, use the same pattern — wait, brief check-in, leave. Many babies start sleeping through in this window.",
+      objective: "2 consecutive nights with < 2 wakes",
+      why: "By day 11+, the skill is forming. Most progress happens in week 2. Don't abandon it because night 11 was rough.",
+      warnings: []
+    };
+  }
+
+  // ── NO-CRY (Pantley) ──
+  if (style === "no_cry") {
+    if (dayNumber <= 4) {
+      return {
+        day: dayNumber,
+        focus: "Identify sleep associations",
+        tactic: "For 4 days, log what baby falls asleep WITH — feed, rock, dummy, contact, movement. Don't change anything yet.",
+        objective: "14+ naps/bedtimes logged with associations",
+        why: "No-cry methods work by gently removing one association at a time. We can't remove them until we know what they are.",
+        warnings: []
+      };
+    }
+    if (dayNumber <= 8) {
+      return {
+        day: dayNumber,
+        focus: "Remove the strongest association",
+        tactic: "Pick the single most-used sleep association and remove it 15 seconds before baby falls asleep. If feeding to sleep: unlatch when baby is drowsy-but-still-awake. Replace with just your hand on them.",
+        objective: "Strong association removed on 5 of last 7 bedtimes",
+        why: "15 seconds of disconnection from the sleep prop teaches baby 'the prop isn't what makes me sleep, I can do it myself'. Pantley calls this the removal-replacement dance.",
+        warnings: ["Don't remove MORE than one association at a time, it overwhelms baby and you"]
+      };
+    }
+    return {
+      day: dayNumber,
+      focus: "Extend drowsy-but-awake window",
+      tactic: "Each night, put baby down 30 seconds earlier in their settling process. Goal: eventually baby goes in eyes-open.",
+      objective: "3 nights where baby goes in eyes-open and falls asleep within 15 min",
+      why: "Going in awake is the skill the whole method teaches. It's slow but it sticks. Most no-cry successes happen in week 2-3, not week 1.",
+      warnings: []
+    };
+  }
+
+  // ── PARENT-LED (gentle / no sleep training) ──
+  if (style === "parent_led") {
+    if (dayNumber <= 7) {
+      return {
+        day: dayNumber,
+        focus: "Stabilise rhythm",
+        tactic: "Keep bedtime within a 15-minute window every night. Same room, same light level, same sequence. Nothing more.",
+        objective: "7 nights of consistent bedtime ± 15 min",
+        why: "Baby's circadian rhythm consolidates best from consistency, not intervention. Many babies drop wakes naturally between 4 and 10 months given a stable rhythm.",
+        warnings: []
+      };
+    }
+    return {
+      day: dayNumber,
+      focus: "Watch and wait",
+      tactic: "Continue the rhythm. OBubba will flag any drift and auto-adjust bedtime. Don't respond to minor stirrings — pause 2 min before going in.",
+      objective: "Longest stretch growing week-over-week",
+      why: "Parent-led isn't doing nothing — it's protecting the rhythm that lets baby's brain mature. For some babies this is all that's needed.",
+      warnings: []
+    };
+  }
+
+  // ── CHAIR / SLEEP LADY SHUFFLE ──
+  if (style === "chair") {
+    if (dayNumber <= 3) {
+      return {
+        day: dayNumber,
+        focus: "Chair beside the cot",
+        tactic: "Put a chair right beside the cot. Sit in it. Stay until baby is asleep. No pick-up. Shh and pat as needed but only briefly.",
+        objective: "Baby falls asleep in cot for 3 nights",
+        why: "Your physical presence tells baby they're safe. The cot is where sleep happens — not your arms, not the bed. Proximity gives them confidence.",
+        warnings: ["Don't talk to baby during this. Shush and pat only."]
+      };
+    }
+    if (dayNumber <= 6) {
+      return {
+        day: dayNumber,
+        focus: "Chair at midway",
+        tactic: "Move the chair halfway between the cot and the door. Same rules: sit, shh as needed, stay until asleep.",
+        objective: "3 nights at midway position",
+        why: "Each small distance change builds baby's independence gradually. No sudden drops in proximity = minimal distress.",
+        warnings: []
+      };
+    }
+    if (dayNumber <= 9) {
+      return {
+        day: dayNumber,
+        focus: "Chair at the door",
+        tactic: "Chair at the bedroom doorway. Baby can still see you. Same rules.",
+        objective: "3 nights at the door",
+        why: "Baby now knows the routine: you'll be there, but you're further. This is the last step before you leave the room.",
+        warnings: []
+      };
+    }
+    return {
+      day: dayNumber,
+      focus: "Outside the door",
+      tactic: "Leave the room after the wind-down. Return for brief check-ins only if needed.",
+      objective: "Baby falls asleep without you in the room for 3 nights",
+      why: "The chair shuffle works because every step was small enough that baby never felt abandoned. Week 2 is the reward.",
+      warnings: []
+    };
+  }
+
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // NIGHT AUTOPILOT: adjustments derived from last night's diagnosis
 // ═══════════════════════════════════════════════════════════════════════
 // OBubba's philosophy: we do the work, then tell the parent what we did.
