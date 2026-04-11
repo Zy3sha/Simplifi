@@ -8108,7 +8108,7 @@ function App(){
       // Timer label for widget display
       var timerLabel = null;
       if (activeTimer === "nap") timerLabel = "Nap";
-      else if (activeTimer === "bed") timerLabel = bedPaused ? "Baby awake" : "Sleeping";
+      else if (activeTimer === "bed") timerLabel = bedPaused ? "Night wake" : "Sleeping";
       else if (activeTimer === "feed") timerLabel = "Nursing " + (activeSide === "left" ? "L" : activeSide === "right" ? "R" : "");
 
       // Shape matches Swift WidgetData struct
@@ -8135,7 +8135,7 @@ function App(){
         activeTimer: (activeTimer && !(activeTimer === "bed" && bedPausedRef.current)) ? String(activeTimer) : null,
         timerStartTime: (timerStartTime && !(activeTimer === "bed" && bedPausedRef.current)) ? String(timerStartTime) : null,
         timerStartMs: (timerStartMs && !(activeTimer === "bed" && bedPausedRef.current)) ? parseFloat(timerStartMs) : null,
-        timerLabel: bedPausedRef.current ? "Baby awake" : (timerLabel ? String(timerLabel) : null),
+        timerLabel: bedPausedRef.current ? "Night wake" : (timerLabel ? String(timerLabel) : null),
         breastSide: activeSide ? String(activeSide) : null,
         showNursing: !!showNursing,
         lastBreastSide: (function(){ try{ return localStorage.getItem("last_breast_side")||null; }catch{ return null; } })()
@@ -9171,7 +9171,7 @@ function App(){
         <div className="glass-card" style={{padding:"20px 18px",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:"#7B68EE",boxShadow:"0 0 8px rgba(123,104,238,0.4)",animation:"candlePulse 4s ease-in-out infinite"}}/>
-            <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{bedPaused ? "Baby is awake 🌙" : "Sleeping peacefully 🌙"}</span>
+            <span style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>{bedPaused ? "Night wake in progress 🌙" : "Sleeping peacefully 🌙"}</span>
           </div>
           <div style={{fontSize:14,color:C.mid,marginBottom:6}}>{_timeStr}</div>
           {/* Last feed during the night, use cross-day wall-clock calculation (works after midnight) */}
@@ -9193,7 +9193,7 @@ function App(){
           {bedPaused ? (
             <div>
               <div style={{textAlign:"center",padding:"10px 0",marginBottom:8}}>
-                <div style={{fontSize:13,color:"#D4A855",fontWeight:700,marginBottom:4}}>{"\u{1F319}"} Baby is awake</div>
+                <div style={{fontSize:13,color:"#D4A855",fontWeight:700,marginBottom:4}}>{"\u{1F319}"} Night wake in progress</div>
                 {bedPauseStart && (()=>{const _wakeMins=Math.max(0,Math.round((Date.now()-bedPauseStart)/60000));return <div style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{_wakeMins<1?"just now":hm(_wakeMins)+" awake"}</div>;})()}
               </div>
               {/* Settle method selection */}
@@ -9282,7 +9282,7 @@ function App(){
             <div>
               <div style={_S.flexRowGap8}>
                 <button onClick={pauseBedTimer} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
-                  {"\u23F8\uFE0F"} Baby awake
+                  {"\u23F8\uFE0F"} Night wake
                 </button>
                 <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
                   {"\u{1F4DD}"} Log details
@@ -17677,15 +17677,29 @@ function App(){
       : selDay;      // midnight mode OR normal daytime: store on current day
     setDays(d=>{
       const _dayArr = d[_targetDay]||[];
-      // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime
-      const _bedEntry = _dayArr.find(e=>e.type==="sleep"&&!e.night&&!e.nightLocked);
+      // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime.
+      // Strict filter: the "bedtime" must be a real bedtime (PM, h >= 12), not a
+      // morning sleep entry that got mislogged with type=sleep. Without this filter,
+      // a stale morning sleep entry was causing subsequent daytime feeds to be
+      // auto-classified as night wakes.
+      const _bedEntry = _dayArr.find(e => {
+        if (e.type !== "sleep" || e.night || e.nightLocked || !e.time) return false;
+        const _bh = parseInt(e.time.split(":")[0]);
+        return !isNaN(_bh) && _bh >= 12;
+      });
       const _bedMins = _bedEntry ? timeVal(_bedEntry) : null;
       const _entryMins = data.time ? (()=>{ const [_h,_m]=data.time.split(":").map(Number); return _h*60+_m; })() : null;
       const _isAfterBed = _bedMins !== null && _entryMins !== null && (
         _entryMins >= _bedMins || _entryMins < 6*60
       );
-      // Never auto-classify solids feeds as night entries (food logging should stay daytime)
-      const _autoNight = (type==="wake"||type==="feed") && data.feedType !== "solids" && _isAfterBed;
+      // Feeds must NEVER be auto-classified as night. If a parent is saving a
+      // feed via the detailed form, they explicitly chose the feed type and
+      // time — we should trust their intent and not move the entry to a
+      // different section of the day view based on ambient state. The
+      // breast-timer save path (saveBreastFeed) already sets night:true
+      // explicitly when the bed timer is paused, so real night breast feeds
+      // still work. Manual feed entries stay wherever the parent typed them.
+      const _autoNight = type === "wake" && _isAfterBed;
       const nightFlag = (data.nightLocked || data.night !== undefined) ? !!data.night : _autoNight;
       const u=[..._dayArr,{id:entryId,night:nightFlag,modifiedAt:_now,...data}];
       return{...d,[_targetDay]:u};
@@ -18277,6 +18291,9 @@ function App(){
       try { _btdForWake = localStorage.getItem("bed_timer_day") || null; } catch(_) {}
     }
     // Data-based fallback: scan today + yesterday for an unclosed bedtime.
+    // IMPORTANT: once today has a morning wake, ALL prior bedtimes are considered
+    // closed and cannot re-adopt as an active night. This prevents mid-day taps
+    // from pausing a non-existent "night" based on yesterday's already-closed sleep.
     if (!_btdForWake) {
       try {
         const _calTT = todayStr();
@@ -18284,10 +18301,11 @@ function App(){
         const _todayBed = findBedtime(days[_calTT]||[]);
         const _prevBed = findBedtime(days[_prevT]||[]);
         const _todayHasWake = hasMorningWake(days[_calTT]||[]);
-        // If today has a bedtime logged AND it's PM now with no morning-wake-after-bed, baby is still asleep
-        if (_todayBed && new Date().getHours() >= 17) _btdForWake = _calTT;
-        // If yesterday has bedtime AND today has no morning wake, baby is still asleep from last night
-        else if (_prevBed && !_todayHasWake) _btdForWake = _prevT;
+        if (!_todayHasWake) {
+          // Only consider adopting a bedtime if today has NOT yet been opened by a morning wake.
+          if (_todayBed && new Date().getHours() >= 17) _btdForWake = _calTT;
+          else if (_prevBed) _btdForWake = _prevT;
+        }
       } catch(_) {}
     }
     if (_btdForWake && !bedPaused) {
@@ -18401,12 +18419,25 @@ function App(){
       try { const _lsBTD = localStorage.getItem("bed_timer_day"); if(_lsBTD) setBedTimerDay(_lsBTD); } catch {}
     }
     let _effectiveBTD = bedTimerDay || localStorage.getItem("bed_timer_day");
-    // Last resort: find the bedtime entry day from data (hero card shows night mode but bedTimerDay was cleared)
+    // Last resort: find the bedtime entry day from data (hero card shows night mode but bedTimerDay was cleared).
+    // IMPORTANT: only use a found bedtime if it's still "open" (not closed by a morning wake on the next day).
+    // Without this check, pauseBedTimer would re-adopt a closed previous-night bedtime and start logging
+    // today's wakes as night wakes routed to yesterday's day key.
     if (!_effectiveBTD) {
       const _today = todayStr();
       const _prevDay = (()=>{const d=new Date(_today+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
-      if (findBedtime(days[_today]||[])) { _effectiveBTD = _today; }
-      else if (findBedtime(days[_prevDay]||[])) { _effectiveBTD = _prevDay; }
+      const _todayBedExists = !!findBedtime(days[_today]||[]);
+      const _prevBedExists = !!findBedtime(days[_prevDay]||[]);
+      const _todayHasMorningWake = hasMorningWake(days[_today]||[]);
+      if (_todayBedExists && !_todayHasMorningWake) {
+        // Today has a bedtime that wasn't yet closed by a morning wake
+        _effectiveBTD = _today;
+      } else if (_prevBedExists && !_todayHasMorningWake) {
+        // Yesterday has a bedtime AND today has no morning wake (still sleeping)
+        _effectiveBTD = _prevDay;
+      }
+      // If today already has a morning wake, any found bedtime is CLOSED
+      // and should NOT re-open as an active night. pauseBedTimer will bail below.
       if (_effectiveBTD) { setBedTimerDay(_effectiveBTD); try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{} }
     }
     if (!_effectiveBTD || bedPaused) return;
@@ -23807,7 +23838,7 @@ function App(){
           { icon:"🧠", title:"The hero card knows everything", body:"This card at the top is " + _bn2 + "'s brain. It reads the day and tells you:\n\n• What's happening NOW\n• What's coming NEXT\n• What you might want to DO\n• A gentle reassurance\n\nIt gets smarter every day you log. By day 3, it's personal to " + _bn2 + "." },
           { icon:"⚡", title:"One-tap logging", body:"The button row under the hero card is your best friend at 3am. One tap = logged. No forms, no fuss.\n\n• Feed / Breast / Nappy / Nap / Wake\n• Hold any button for detailed entry\n• Shake your phone to undo a mistake\n\nThe more you log, the smarter predictions get." },
           { icon:"📋", title:"Your day lives here", body:"Tap the 'Today' card to see everything:\n\n• Swipe between Log and Plan views\n• Log shows what happened\n• Plan shows what's coming\n• 'Coming Up' at the top shows the next prediction\n\nTip: the Plan gets better after 3+ days of logging." },
-          { icon:"🌙", title:"Nights made easier", body:"When bedtime comes, log it and a sleep timer starts. It tracks the whole night.\n\nIf " + _bn2 + " wakes:\n1. Tap 'Baby awake' (wake is logged instantly)\n2. Settle however works\n3. Tap 'Baby's settled' when done\n\nIn the morning, you'll see exactly how the night went." },
+          { icon:"🌙", title:"Nights made easier", body:"When bedtime comes, log it and a sleep timer starts. It tracks the whole night.\n\nIf " + _bn2 + " wakes:\n1. Tap 'Night wake' (wake is logged instantly)\n2. Settle however works\n3. Tap 'Baby's settled' when done\n\nIn the morning, you'll see exactly how the night went." },
           { icon:"💭", title:"OBubba notices things", body:"Tap 'What we noticed' on the hero card to see the journal. OBubba quietly watches for patterns:\n\n• Teething affecting feeds?\n• Naps getting shorter?\n• Ready for a nap transition?\n• Overtired cycle building?\n\nAll personalised. All gentle. No alarms." },
           { icon:"👩‍🍼", title:"Bubba Care. your village", body:"Going out? Leaving " + _bn2 + " with someone?\n\nAccount → Bubba Care → Share or Send Link\n\nThe carer gets: live status, what to do next, emergency numbers, soothing tips, and big log buttons. They can log feeds and naps. you review when you're back.\n\nNo app install needed. just a link." },
           { icon:"💛", title:"We care about YOU too", body:"Tap the Wellbeing card for:\n\n• Daily mood check-in\n• Water tracker\n• Self-care checklist\n• If you tap 'Struggling', real helplines appear. not a generic page. real people who understand.\n\nYou matter. Not just as a parent. as a person." },
@@ -24272,7 +24303,7 @@ function App(){
                 if(elapsedSec < 0 || elapsedSec > 20*3600) return null;
                 let displayLabel = nightEndWake
                   ? `Night \u00b7 ${nightWakes.length} wake${nightWakes.length!==1?"s":""}`
-                  : bedPaused ? "Baby awake"
+                  : bedPaused ? "Night wake"
                   : (nightWakes.length>0 ? `Bed \u00b7 ${nightWakes.length} wake${nightWakes.length>1?"s":""}` : "Bed");
                 // When paused: show frozen time, tap to resume
                 const _pillElapsed = bedPaused ? bedPausedAtSec : elapsedSec;
@@ -24660,13 +24691,21 @@ function App(){
                   {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
                   {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?null:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
                   {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
-                  {emoji:"☀️",label:(()=>{
-                    // If bed timer is actively running, this button becomes "Awake"
-                    // and directly pauses the timer instead of going through
-                    // handleSmartWake (which can be tricked by fallback-mode state).
+                  {emoji:(()=>{
+                    // Emoji changes alongside label so parents can tell at a glance
+                    // whether they're logging a morning wake (☀️) or a night wake (🌙).
                     try {
                       const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
-                      if (_btd && !bedPaused) return "Awake";
+                      if (_btd && !bedPaused) return "🌙";
+                    } catch(_) {}
+                    return "☀️";
+                  })(),label:(()=>{
+                    // When a bed timer is active, this button pauses the timer to log
+                    // a NIGHT WAKE. Previously labelled "Awake" which parents mistook
+                    // for "morning wake". Renamed to "Night wake" for clarity.
+                    try {
+                      const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
+                      if (_btd && !bedPaused) return "Night wake";
                     } catch(_) {}
                     return "Wake";
                   })(),action:()=>{
@@ -24680,8 +24719,15 @@ function App(){
                       if (!_btd) {
                         const _ct = todayStr();
                         const _pd = (()=>{const d=new Date(_ct+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
-                        if (findBedtime(days[_ct]||[]) && new Date().getHours() >= 17) _btd = _ct;
-                        else if (findBedtime(days[_pd]||[]) && !hasMorningWake(days[_ct]||[])) _btd = _pd;
+                        const _todayHasWake = hasMorningWake(days[_ct]||[]);
+                        // Defensive: do NOT adopt ANY previous bedtime once today has a
+                        // morning wake logged. A morning wake closes the prior night.
+                        // Without this, tapping Wake/Awake in the afternoon would re-open
+                        // yesterday's closed bedtime and log spurious night wakes.
+                        if (!_todayHasWake) {
+                          if (findBedtime(days[_ct]||[]) && new Date().getHours() >= 17) _btd = _ct;
+                          else if (findBedtime(days[_pd]||[])) _btd = _pd;
+                        }
                       }
                       const _nowH = new Date().getHours();
                       const _calT = todayStr();
@@ -28017,7 +28063,7 @@ function App(){
                     )}
                     {_sm.totalWakes < 5 && (
                       <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:6,lineHeight:1.4}}>
-                        Still learning, keep logging night wakes via Baby Awake to build a richer picture.
+                        Still learning, keep logging night wakes via the Night wake button to build a richer picture.
                       </div>
                     )}
                   </div>
@@ -36632,6 +36678,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   : (nwForm.note||"");
               // Log as "feed" if milk was given, "wake" otherwise
               const hadMilk = isMilkAssisted || mlVal > 0;
+              // The "+ add" Night Wake button is intentionally permissive —
+              // parents may be catching up on last night's wakes retroactively
+              // from a different selected day. Always save as night:true so
+              // the entry lands in the Night Wakes section as the user expects.
               const entry = {
                 id: nightEditId || uid(), type: hadMilk ? "feed" : "wake", time: saveTime, amount: mlVal,
                 feedType: hadMilk ? "milk" : undefined, night: true, nightLocked: true,
