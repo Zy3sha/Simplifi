@@ -36689,6 +36689,14 @@ function App(){
           multi_baby: { title: "Room for the whole family", body: "Track multiple children with separate profiles, patterns, and insights." },
           recipes: { title: "Weaning made simple", body: "Age-appropriate recipes and meal ideas, tailored to " + _bn + "'s stage. One less thing to worry about." },
           weaning_stats: { title: "Track the weaning journey", body: "See how " + _bn + "'s milk-to-solid balance is progressing against NHS guidelines." },
+          // ── Analyser-suite paywall copy ──
+          nap_analyser: { title: "Why was that nap short?", body: "Most short naps have one of seven causes — undertired, overtired, fell asleep on the feed, cycle skill still developing, fragmented day, catnap by design. OBubba's nap analyser tells you which one and what to try next time." },
+          night_analyser: { title: "Why did last night go that way?", body: "Undertired? Overtired? Hunger? Habit? OBubba reads the shape of last night's wakes and explains exactly what happened, then quietly adjusts tonight's bedtime for you." },
+          feed_analyser: { title: "Is this feeding normal?", body: "Cluster feeding vs growth spurt vs reverse cycling vs supply worry — these look identical from the outside. OBubba's feed analyser looks at " + _bn + "'s 14-day pattern and tells you which one it is." },
+          weaning_analyser: { title: "Is weaning on track?", body: "Iron gaps, allergen overdue, refusal streaks, constipation — the three things that trip most parents up. OBubba watches your weaning log and tells you the one thing to fix this week." },
+          wellbeing_analyser: { title: "How are YOU doing?", body: "OBubba passively tracks your sleep window, mood check-ins, and support signals. When something needs attention, it tells you gently. Safety flags are always free." },
+          triage: { title: "One tap. Whole-baby answer.", body: "Tap this when baby is unsettled and you're not sure why. OBubba runs every analyser in parallel — sleep, feed, weaning, wellbeing — and ranks by urgency. The thing a consultant does in a 30-min call, in 0.3 seconds." },
+          tonights_focus: { title: "Tonight's plan", body: "Every morning, based on last night's diagnosis, OBubba gives you a concrete 4-step plan for tonight. Not advice. A plan. With the reasoning explained so you know why." },
         };
         const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium gives you a sleep consultant in your pocket. so you can enjoy your baby instead of worrying." };
         return (
