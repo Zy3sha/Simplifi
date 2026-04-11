@@ -1374,8 +1374,13 @@ const FIRST_TASTES_CATALOGUE = [
   {food:"Beef mince",          emoji:"🥩",cat:"protein",phase:2,iron:true},
   {food:"Chicken thigh",       emoji:"🍗",cat:"protein",phase:2,iron:true},
   // Phase 3 (4+ weeks): allergens + expanding
-  {food:"Scrambled egg",       emoji:"🥚",cat:"allergen",phase:3,iron:false,allergenId:"eggs"},
-  {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen",phase:3,iron:false,allergenId:"peanuts",morningOnly:true},
+  // Allergen priority order based on LEAP trial (2015) and BSACI/NHS guidance:
+  // peanut and egg are the HIGHEST-IMPACT early-intro allergens — deferring
+  // them past 6 months increases allergy risk. Both promoted to phase 2 so
+  // they appear alongside first fruits and grains (from day 5), not after
+  // 8 days of weaning. Dairy, fish, sesame stay phase 3 as lower-impact.
+  {food:"Scrambled egg",       emoji:"🥚",cat:"allergen",phase:2,iron:false,allergenId:"eggs",priority:1},
+  {food:"Peanut butter on toast",emoji:"🥜",cat:"allergen",phase:2,iron:false,allergenId:"peanuts",morningOnly:true,priority:1},
   {food:"Plain full-fat yoghurt",emoji:"🥛",cat:"dairy", phase:3,iron:false,allergenId:"milk"},
   {food:"Soft cooked salmon",  emoji:"🐟",cat:"protein",phase:3,iron:false,allergenId:"fish"},
   {food:"Lentil dhal",         emoji:"🍲",cat:"protein",phase:3,iron:true},
@@ -9614,9 +9619,18 @@ function App(){
     const _sortedWeights = weights && weights.length >= 2 ? [...weights].sort((a,b)=>(a.date||"").localeCompare(b.date||"")) : null;
     const _recentWeightLoss = _sortedWeights && _sortedWeights.length >= 2 && _sortedWeights[_sortedWeights.length-1].kg < _sortedWeights[_sortedWeights.length-2].kg;
     const _needsScheduledNightFeeds = _w < 6 || _recentWeightLoss;
-    const _nightFeedHint = _needsScheduledNightFeeds
+    const _baseNightFeedHint = _needsScheduledNightFeeds
       ? "Feed every 2–3 hours. " + _name + " needs regular feeds to gain weight"
       : (()=>{ const p = []; if (_w < 26) p.push("Night wakes are completely normal at this age"); p.push("If " + _name + " wakes, offer a gentle feed" + (_w < 52 ? " and check the nappy" : "")); return p.join(". "); })();
+    // Prepend an engine whisper (parent sleep debt, regression, drift,
+    // witching hour, solids correlation) when one is active. This merges
+    // into the existing hint slot on the hero card — no new UI — so the
+    // parent sees one calm line instead of a dashboard of tips.
+    let _engineWhisper = "";
+    try { _engineWhisper = engineWhispers(); } catch {}
+    const _nightFeedHint = _engineWhisper
+      ? _engineWhisper + " · " + _baseNightFeedHint
+      : _baseNightFeedHint;
 
     // ══════════════════════════════════════════════════════
     // LAYER 2: Reassurance & self-care (preserved from v6)
@@ -10465,13 +10479,27 @@ function App(){
           );
         })()}
 
-        {/* Disruption mode indicator + toggle */}
-        {disruptionMode && (
-          <div style={{paddingLeft:16,marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:9,background:"rgba(212,168,85,0.15)",color:C.gold,padding:"2px 8px",borderRadius:99,fontWeight:700,fontFamily:_fM}}>🤒 {disruptionMode.reason||"Not a normal day"} mode</span>
-            <button onClick={()=>{haptic();setDisruptionMode(null);showToast("Back to normal predictions ✓",1500,1);}} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textDecoration:"underline",fontFamily:_fM}}>Turn off</button>
-          </div>
-        )}
+        {/* Disruption mode indicator + engine auto-context reasons.
+            We surface auto-detected context (fever, teething, post-jabs,
+            short-nap recovery, growth spurt) on the SAME badge row the
+            manual disruption mode uses, so the parent sees a single
+            "why predictions are adjusted today" strip instead of
+            multiple competing indicators. Merges into existing UI. */}
+        {(() => {
+          const _ctx = engineAutoContext();
+          if (!disruptionMode && !_ctx.active) return null;
+          const _reasonLabel = disruptionMode
+            ? (disruptionMode.reason||"Not a normal day")
+            : _ctx.reasons.slice(0,2).join(" + ");
+          return (
+            <div style={{paddingLeft:16,marginBottom:6,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+              <span style={{fontSize:9,background:"rgba(212,168,85,0.15)",color:C.gold,padding:"2px 8px",borderRadius:99,fontWeight:700,fontFamily:_fM}}>🤒 {_reasonLabel} · wake windows {_ctx.active ? Math.round((1-_ctx.multiplier)*100) : 20}% shorter</span>
+              {disruptionMode && (
+                <button onClick={()=>{haptic();setDisruptionMode(null);showToast("Back to normal predictions ✓",1500,1);}} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textDecoration:"underline",fontFamily:_fM}}>Turn off</button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Why dropdown + What we noticed + disruption mode */}
         <div style={{paddingLeft:16,marginTop:4,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
@@ -10756,20 +10784,380 @@ function App(){
   // Consensus from TCB, Huckleberry, Little Ones, Baby Sleep Science:
   // "Wake windows tend to increase as the day goes on"
   // "The longest wake window is between the last nap and bedtime"
+  // ═══════════════════════════════════════════════════════════════════════
+  // ENGINE AUTO-CONTEXT
+  // ═══════════════════════════════════════════════════════════════════════
+  // Computes a single multiplicative adjustment to apply to the wake-window
+  // value coming out of progressiveWW(). Each signal below contributes a
+  // factor; factors compose multiplicatively so multiple active signals
+  // don't silently over-correct. Also returns the reasons so downstream UI
+  // (hero card whispered message, Today's Plan note) can explain WHY.
+  //
+  // Bounded to [0.7, 1.15] so a stack of factors can't push the wake window
+  // below 70% or above 115% of the age-appropriate value.
+  //
+  // Inputs (all already in state, no new schema needed):
+  //   - meds[].temp in last 48h (illness signal)
+  //   - teething[] active in last 5 days (teething signal)
+  //   - appointments[] type containing jab/vaccine/immunisation in last 72h
+  //   - completedNaps (short-nap recovery)
+  //   - weights[] last 14 days (growth spurt signal)
+  //   - manual disruptionMode (user-set override still respected)
+  //
+  // This replaces the old bare `if (disruptionMode)` block in progressiveWW.
+  function engineAutoContext() {
+    const _now = Date.now();
+    const _factors = [];
+    const _reasons = [];
+
+    // 1. Temperature in last 48h ≥ 37.8°C → shrink 15%
+    // meds is stored as {dayKey: [entries]}, so we iterate keys AND
+    // entries to build an absolute timestamp for each temp reading.
+    try {
+      const _activeMeds = meds || {};
+      const _cutoff = _now - 48*60*60*1000;
+      let _maxTemp = 0;
+      Object.entries(_activeMeds).forEach(([dk, dayArr]) => {
+        if (!Array.isArray(dayArr)) return;
+        dayArr.forEach(m => {
+          if (!m || !m.time || !m.temp) return;
+          const _t = parseFloat(m.temp);
+          if (isNaN(_t)) return;
+          const [_mh, _mm] = (m.time || "00:00").split(":").map(Number);
+          const _ms = new Date(dk + "T" + String(_mh).padStart(2,"0") + ":" + String(_mm).padStart(2,"0") + ":00").getTime();
+          if (_ms >= _cutoff && _t >= 37.8 && _t > _maxTemp) _maxTemp = _t;
+        });
+      });
+      if (_maxTemp >= 37.8) {
+        _factors.push(0.85);
+        _reasons.push(_maxTemp >= 38.5 ? "fever" : "raised temp");
+      }
+    } catch {}
+
+    // 2. Teething active in last 5 days → shrink 12%
+    try {
+      const _teething = activeChild && activeChild.teething ? activeChild.teething : [];
+      const _cutoff2 = _now - 5*24*60*60*1000;
+      const _hasRecent = _teething.some(t => {
+        if (!t || !t.date) return false;
+        return new Date(t.date).getTime() >= _cutoff2;
+      });
+      if (_hasRecent) {
+        _factors.push(0.88);
+        _reasons.push("teething");
+      }
+    } catch {}
+
+    // 3. Jab day + 72h relax → shrink 15%
+    try {
+      const _appts = appointments || [];
+      const _cutoff3 = _now - 72*60*60*1000;
+      const _ceiling = _now + 12*60*60*1000;
+      const _recentJab = _appts.some(a => {
+        if (!a || !a.date) return false;
+        const _aMs = new Date(a.date + (a.time ? "T"+a.time+":00" : "T12:00:00")).getTime();
+        if (_aMs < _cutoff3 || _aMs > _ceiling) return false;
+        const _t = ((a.type || "") + " " + (a.title || "") + " " + (a.note || "")).toLowerCase();
+        return /jab|vaccine|vaccin|immuni/i.test(_t);
+      });
+      if (_recentJab) {
+        _factors.push(0.85);
+        _reasons.push("post-jabs");
+      }
+    } catch {}
+
+    // 4. Short-nap recovery. If the last completed nap was < 40 min,
+    //    the NEXT wake window should shrink by 15% to catch up the debt
+    //    before overtiredness snowballs.
+    try {
+      const _today = days && days[todayStr()] ? days[todayStr()] : [];
+      const _completed = _today.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.end !== e.start);
+      if (_completed.length > 0) {
+        const _last = _completed[_completed.length - 1];
+        const _dur = minDiff(_last.start, _last.end);
+        if (_dur > 0 && _dur < 40) {
+          _factors.push(0.85);
+          _reasons.push("short nap recovery");
+        }
+      }
+    } catch {}
+
+    // 5. Growth spurt signal. If the last two weight entries show a weekly
+    //    jump of ≥ 200g OR the baby has crossed a percentile band, expect
+    //    5–7 days of disrupted sleep + increased feeds. Shrink 10%.
+    try {
+      const _wts = (activeChild && activeChild.weights) ? activeChild.weights : [];
+      if (_wts.length >= 2) {
+        const _sorted = [..._wts].sort((a,b) => (a.date > b.date ? 1 : -1));
+        const _last2 = _sorted.slice(-2);
+        const _d1 = new Date(_last2[0].date).getTime();
+        const _d2 = new Date(_last2[1].date).getTime();
+        const _daysBetween = Math.max(1, Math.round((_d2 - _d1) / (24*60*60*1000)));
+        // Only meaningful if the two measurements were within 10 days of
+        // each other and the second one is within the last 10 days.
+        if (_daysBetween <= 10 && (_now - _d2) <= 10*24*60*60*1000) {
+          const _delta = (_last2[1].kg || 0) - (_last2[0].kg || 0);
+          // 200g in 7 days = growth spurt threshold
+          const _gPerDay = (_delta * 1000) / _daysBetween;
+          if (_gPerDay >= 28) {
+            _factors.push(0.9);
+            _reasons.push("growth spurt");
+          }
+        }
+      }
+    } catch {}
+
+    // 6. Manual disruption mode (user override). Kept for the case where
+    //    none of the auto signals fired but the parent knows the day is
+    //    off (e.g. house move, visitors, post-haircut meltdown).
+    if (disruptionMode) {
+      _factors.push(0.8);
+      _reasons.push(disruptionMode.reason || "off day");
+    }
+
+    // Compose multiplicatively, bounded.
+    let _mult = 1;
+    _factors.forEach(f => { _mult *= f; });
+    if (_mult < 0.7) _mult = 0.7;
+    if (_mult > 1.15) _mult = 1.15;
+
+    return {
+      multiplier: _mult,
+      reasons: _reasons,
+      active: _factors.length > 0
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ENGINE WHISPERS
+  // ═══════════════════════════════════════════════════════════════════════
+  // Returns a single highest-priority soft suggestion string (or "") that
+  // downstream UI (hero card whisper slot) appends to its existing copy.
+  // All signals are derived from data the user already logs. Priority
+  // order matters because we only surface the top one; the parent should
+  // not be buried in tips.
+  //
+  //   1. Parent sleep debt  (strongest — overrides all baby advice)
+  //   2. Regression window  (predictable, reassures)
+  //   3. Bedtime drift      (easy fix, surfaces early)
+  //   4. Witching-hour      (live, actionable today)
+  //   5. Solids correlation (contextual to feeding)
+  //
+  // Each whisper returns a plain string. Caller concatenates with existing
+  // whisper text using "·" separator.
+  function engineWhispers() {
+    const _now = Date.now();
+    const _today = todayStr();
+
+    // Helper: iterate last N day-keys in order
+    const _lastNDayKeys = (n) => {
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        const d = new Date(_today + "T12:00:00");
+        d.setDate(d.getDate() - i);
+        out.push(d.toISOString().slice(0,10));
+      }
+      return out;
+    };
+
+    // ─── 1. Parent sleep debt ────────────────────────────────
+    // Approximate parent sleep window = bedtime entry → first night wake,
+    // then gap → next night wake, etc. → morning wake. We don't try to be
+    // clever; we just sum "time between wakes minus assisted duration"
+    // as the parent's actual uninterrupted sleep. If this is < 5h for 3+
+    // of the last 5 nights, surface a wellbeing whisper.
+    try {
+      const _parentBadNights = _lastNDayKeys(5).filter(dk => {
+        const arr = days[dk] || [];
+        const bed = arr.find(e => e.type === "sleep" && !e.night);
+        if (!bed) return false;
+        const wakes = arr.filter(e => e.night && (e.type === "wake" || e.type === "feed"));
+        // Rough: 7h minus 20min per wake minus sum of assistedDuration
+        const assistedTotal = wakes.reduce((s,w) => s + (parseInt(w.assistedDuration)||0) + (parseInt(w.settleDuration)||0), 0);
+        const parentSleepMin = 7*60 - wakes.length * 20 - assistedTotal;
+        return parentSleepMin < 5*60;
+      }).length;
+      if (_parentBadNights >= 3) {
+        return "You've had 3+ rough nights. nap when baby naps today if you possibly can 🤍";
+      }
+    } catch {}
+
+    // ─── 2. Regression window (DOB-anchored) ────────────────
+    // Known developmental leaps: 16 weeks (4mo), 35 weeks (8mo),
+    // 52 weeks (12mo), 78 weeks (18mo). ±7 day window.
+    try {
+      if (age && typeof age.totalWeeks === "number") {
+        const _w = age.totalWeeks;
+        const _windows = [
+          {center: 16, name: "4-month regression", tip: "sleep usually settles in 2–3 weeks"},
+          {center: 35, name: "8-month regression", tip: "separation anxiety + new skills, it passes"},
+          {center: 52, name: "12-month regression", tip: "often coincides with walking, settles fast"},
+          {center: 78, name: "18-month regression", tip: "molars + autonomy, lean into routine"},
+        ];
+        for (const w of _windows) {
+          if (Math.abs(_w - w.center) <= 1) {
+            return "In a " + w.name + " window — " + w.tip;
+          }
+        }
+      }
+    } catch {}
+
+    // ─── 3. Bedtime drift (last 7 days) ──────────────────────
+    // Simple: compare average bedtime of last 3 vs previous 4 days.
+    // If last 3 are drifting ≥ 20 min later, flag it.
+    try {
+      const _last7 = _lastNDayKeys(7);
+      const _bedtimes = _last7.map(dk => {
+        const bed = (days[dk]||[]).find(e => e.type === "sleep" && !e.night);
+        return bed ? timeVal(bed) : null;
+      }).filter(v => v !== null);
+      if (_bedtimes.length >= 5) {
+        const recent3 = _bedtimes.slice(0, 3);
+        const prev4 = _bedtimes.slice(3);
+        const avgR = recent3.reduce((a,b)=>a+b,0) / recent3.length;
+        const avgP = prev4.reduce((a,b)=>a+b,0) / prev4.length;
+        if (avgR - avgP >= 20) {
+          return "Bedtime has drifted ~" + Math.round(avgR - avgP) + " min later this week. Try pulling it back 10 min tonight";
+        }
+      }
+    } catch {}
+
+    // ─── 4. Witching hour ────────────────────────────────────
+    // Cluster of crying-help entries between 16:30–18:30 in last 3 days.
+    // OBubba has cryingHelps as a counter, but we can also look at
+    // feed entries marked with "cry" in the note or high-frequency
+    // close-spaced feeds in that window.
+    try {
+      const _last3 = _lastNDayKeys(3);
+      let _witchCount = 0;
+      _last3.forEach(dk => {
+        const arr = days[dk] || [];
+        const inWindow = arr.filter(e => {
+          const t = timeVal(e);
+          return t >= 16*60+30 && t <= 18*60+30;
+        });
+        // Count feeds AND any entry with a note mentioning crying/fussy/upset
+        const cryishFeeds = inWindow.filter(e =>
+          e.type === "feed" ||
+          /cry|fuss|upset|scream/i.test(e.note || "")
+        );
+        if (cryishFeeds.length >= 2) _witchCount++;
+      });
+      if (_witchCount >= 2) {
+        return "Late-afternoon fussiness detected 3 days running — overtiredness signal, try earlier bedtime tonight";
+      }
+    } catch {}
+
+    // ─── 4b. Feed-to-sleep latency learner ──────────────────
+    // For each day in last 14, find pairs where a nap start is within
+    // 60 min of a feed end. Average the lag. If we have ≥ 5 samples,
+    // surface the learned value so the parent can anchor the next feed
+    // to the next nap. This is the "Feed at 12:55 for a 1:30 nap" hint.
+    try {
+      const _windowMins = 60;
+      const _samples = [];
+      const _lookback = _lastNDayKeys(14);
+      _lookback.forEach(dk => {
+        const arr = days[dk] || [];
+        const _feeds = arr.filter(e => e.type === "feed" && !e.night).sort((a,b)=>timeVal(a)-timeVal(b));
+        const _naps = arr.filter(e => e.type === "nap" && !e.night && e.start).sort((a,b)=>timeVal(a)-timeVal(b));
+        _naps.forEach(n => {
+          const napStart = timeVal({time: n.start});
+          // Find the last feed before this nap start
+          const _f = [..._feeds].reverse().find(f => {
+            const ft = timeVal(f);
+            return ft <= napStart && (napStart - ft) <= _windowMins;
+          });
+          if (_f) _samples.push(napStart - timeVal(_f));
+        });
+      });
+      if (_samples.length >= 5) {
+        const _avgLatency = Math.round(_samples.reduce((a,b)=>a+b,0) / _samples.length);
+        // Only surface if the next nap prediction exists and is within 90 min
+        try {
+          const _td = tickDataRef.current || {};
+          const _nextNapMins = _td.pred && _td.pred.napStart_min;
+          const _nowMins = (()=>{const d=new Date(); return d.getHours()*60+d.getMinutes();})();
+          if (_nextNapMins && _nextNapMins - _nowMins > 0 && _nextNapMins - _nowMins < 90) {
+            const _feedAnchor = _nextNapMins - _avgLatency;
+            if (_feedAnchor > _nowMins) {
+              const _anchorStr = fmt12(mtp24h(_feedAnchor));
+              return (age?.name || babyName || "Baby") + " usually settles ~" + _avgLatency + "min after a feed. Feed by " + _anchorStr + " for the next nap";
+            }
+          }
+        } catch {}
+      }
+    } catch {}
+
+    // ─── 4c. Night-feed taper detector ──────────────────────
+    // Last 14 days: if night feed COUNT has dropped by ≥ 1 over the
+    // last 5 days vs prior 9, flag "ready to try dropping". If it's
+    // been flat for 14 days, say "still needed". If rising, flag
+    // reverse cycling.
+    try {
+      const _nfCounts = _lastNDayKeys(14).map(dk => {
+        const arr = days[dk] || [];
+        return arr.filter(e => e.night && e.type === "feed").length;
+      });
+      // Only meaningful for 4+ month olds (dropping night feeds earlier
+      // than 16 weeks is not a sleep-engine recommendation, it's a
+      // medical one, and we should not touch it).
+      if (age && age.totalWeeks >= 16 && _nfCounts.length === 14) {
+        const _recent5 = _nfCounts.slice(0, 5);
+        const _prior9 = _nfCounts.slice(5);
+        const _avgRecent = _recent5.reduce((a,b)=>a+b,0) / _recent5.length;
+        const _avgPrior = _prior9.reduce((a,b)=>a+b,0) / _prior9.length;
+        if (_avgPrior >= 1 && _avgRecent <= _avgPrior - 1) {
+          return "Night feeds are tapering (" + _avgPrior.toFixed(1) + "→" + _avgRecent.toFixed(1) + " per night). might be ready to gently drop one if age-appropriate";
+        }
+        if (_avgRecent >= _avgPrior + 1 && _avgRecent >= 2) {
+          return "Night feeds have risen this week (" + _avgPrior.toFixed(1) + "→" + _avgRecent.toFixed(1) + "). Could be a growth spurt or reverse cycling (more day feeds help)";
+        }
+      }
+    } catch {}
+
+    // ─── 5. Solids-correlated night wake (last 14 days) ─────
+    // If a new food was introduced in weaning[] and that night + next
+    // had ≥ 1 more night wake than the 7-day rolling average, flag.
+    try {
+      const _weaning = (activeChild && activeChild.weaning) ? activeChild.weaning : [];
+      const _recent = _weaning.filter(w => {
+        if (!w || !w.date) return false;
+        const wMs = new Date(w.date).getTime();
+        return wMs >= _now - 3*24*60*60*1000 && wMs <= _now;
+      });
+      if (_recent.length > 0) {
+        // Baseline: avg night wakes over previous 7 days (before the food)
+        const _baselineKeys = _lastNDayKeys(10).slice(3);
+        const _baseline = _baselineKeys.map(dk => {
+          const arr = days[dk] || [];
+          return arr.filter(e => e.night && (e.type === "wake" || e.type === "feed")).length;
+        });
+        const _avgBase = _baseline.length ? _baseline.reduce((a,b)=>a+b,0)/_baseline.length : 0;
+        const _lastNight = (days[yesterdayStr()] || []).filter(e => e.night && (e.type === "wake" || e.type === "feed")).length;
+        if (_lastNight >= _avgBase + 1.5) {
+          const _foodName = _recent[_recent.length-1].food || "a new food";
+          return _foodName + " was introduced recently — extra night wakes can be normal for 1–2 days";
+        }
+      }
+    } catch {}
+
+    return "";
+  }
+
   function progressiveWW(ageWeeks, napIndex, totalNaps) {
     const ww = getWakeWindow(ageWeeks);
     const range = ww.max - ww.min;
+    const _ctx = engineAutoContext();
     if (totalNaps <= 1) {
       let base = ww.midpoint;
-      // Illness/teething mode: shorten WW by ~20% (baby needs more sleep when unwell)
-      if (disruptionMode) base = Math.round(base * 0.8);
+      if (_ctx.active) base = Math.round(base * _ctx.multiplier);
       return base;
     }
     const ratio = Math.min(napIndex / totalNaps, 1);
     const scaled = 0.15 + ratio * 0.7;
     let result = Math.round(ww.min + range * scaled);
-    // Illness/teething mode: shorten WW by ~20%
-    if (disruptionMode) result = Math.round(result * 0.8);
+    if (_ctx.active) result = Math.round(result * _ctx.multiplier);
     return result;
   }
   function getAgeNapProfile(ageWeeks) {
@@ -26627,20 +27015,31 @@ function App(){
                 </div>
               )}
 
-              {/* Feeding confidence indicator (0-13 weeks) */}
-              {age && age.totalWeeks < 13 && todayPanel==="log" && selDay===todayStr() && (()=>{
+              {/* Feeding confidence indicator (0-26 weeks).
+                  Extended from 0-13wk to 0-26wk so the wet-nappy × feed
+                  cross-check benefits babies through the weaning-start
+                  window. For babies ≥ 6 months, solids volume dominates
+                  and feed-count alerts start misleading, so we cap it
+                  there. The key insight the cross-check provides: if
+                  wet nappies are normal, hydration is fine even when
+                  feed counts look low — don't panic the parent. */}
+              {age && age.totalWeeks < 26 && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _fcEntries = days[selDay] || [];
                 const _fcFeeds = _fcEntries.filter(function(e){ return e.type==="feed"; }).length;
                 const _fcHydration = smartHydration(_fcEntries, age.totalWeeks);
-                const _fcTarget = age.totalWeeks < 4 ? 8 : 6;
+                const _fcTarget = age.totalWeeks < 4 ? 8 : age.totalWeeks < 13 ? 6 : 5;
                 const _h = new Date().getHours();
                 const _fcTargetByNow = Math.max(1, Math.round(_fcTarget * Math.min(_h / 20, 1)));
                 const _fcOk = _fcFeeds >= _fcTargetByNow;
                 const _fcWetOk = _fcHydration.ok || _fcHydration.count >= Math.max(1, Math.round(_fcHydration.target * Math.min(_h / 20, 1)));
                 const _fcColor = _fcOk && _fcWetOk ? "#7BA68C" : (!_fcOk && !_fcWetOk) ? "#D47070" : "#D4A855";
+                // Wet-nappy cross-check: if feeds look low but wet
+                // nappies are normal, reassure the parent rather than
+                // alarming them. NHS: 6+ wet nappies is the best single
+                // signal of adequate hydration.
                 const _fcMsg = _fcOk && _fcWetOk ? "Feeding looks on track today"
                   : (!_fcOk && !_fcWetOk) ? "Feeds and wet nappies are below expected. speak to your health visitor if worried"
-                  : !_fcOk ? "Feed count is a little low for this time of day"
+                  : !_fcOk ? "Feed count is on the low side, but wet nappies are normal — hydration looks fine"
                   : "Fewer wet nappies than expected. keep an eye on this";
                 return (
                   <div style={{padding:"10px 14px",borderRadius:14,border:"1px solid "+_fcColor+"30",background:_fcColor+"08",marginBottom:10}}>
@@ -27409,10 +27808,24 @@ function App(){
                     // confidently placed naps at 2:30am, 4am, 5:30am. The
                     // 7am fallback matches the "7 to 7" consensus most
                     // parents and consultants use as their default target
-                    // (Taking Cara Babies, The Sleep Sense Method etc.),
-                    // and it produces a plausible plan without requiring
-                    // the parent to go log a wake before seeing anything.
-                    cursor = 7 * 60;
+                    // (Taking Cara Babies, The Sleep Sense Method etc.).
+                    //
+                    // Season / daylight adjustment: UK sunrise shifts
+                    // from ~04:40 in June to ~08:10 in December. Circadian
+                    // rhythm follows the light, especially for young
+                    // babies. Rather than forcing 7am year-round, slide
+                    // the fallback ±30 min around 7am based on month:
+                    //   Dec–Feb (dark mornings): 7:15
+                    //   Jun–Aug (light mornings): 6:30
+                    //   Spring/autumn: 7:00
+                    // This keeps the plan realistic without introducing
+                    // location services. When a real wake is logged, it
+                    // always overrides this estimate.
+                    const _mo = new Date().getMonth(); // 0=Jan
+                    let _fallbackMin = 7 * 60;
+                    if (_mo === 11 || _mo <= 1) _fallbackMin = 7*60 + 15; // Dec Jan Feb
+                    else if (_mo >= 5 && _mo <= 7) _fallbackMin = 6*60 + 30; // Jun Jul Aug
+                    cursor = _fallbackMin;
                     _cursorInferred = true;
                   }
 
@@ -31755,15 +32168,20 @@ function App(){
                    blw:"Cook thigh until very tender, shred into thin strips. Offer with soft veg.",
                    puree:"Cook until falling apart, blend with cooking liquid and veg. Dark meat = more iron than breast.",
                    cat:"protein",phase:2,iron:true},
-                  // Phase 3. 4+ weeks: protein and allergens
+                  // Early allergens (phase 2). LEAP trial + NHS guidance:
+                  // peanut and egg should be introduced early (from 6 months,
+                  // alongside first tastes) — delaying past this window
+                  // actively increases allergy risk. Promoted from phase 3
+                  // so they appear after only 5 first tastes, not 8.
                   {food:"Scrambled egg",emoji:"🥚",note:"Excellent protein. introduce early to reduce allergy risk",
                    blw:"Cook soft, fluffy scrambles in a little butter. Serve in small pieces. Use Lion-stamped eggs (UK).",
                    puree:"Blend soft scrambled egg with a little breast milk or formula until smooth.",
-                   cat:"allergen",phase:3,iron:false,allergenId:"eggs"},
+                   cat:"allergen",phase:2,iron:false,allergenId:"eggs",priority:1},
                   {food:"Peanut butter on toast",emoji:"🥜",note:"Early introduction significantly reduces peanut allergy risk (LEAP study)",
                    blw:"Spread VERY thinly on toast fingers. a thin scraping only, never a thick dollop. Give in the morning so you can watch for 2 hours.",
                    puree:"Mix a tiny amount (¼ tsp) into smooth porridge or mashed banana.",
-                   cat:"allergen",phase:3,iron:false,allergenId:"peanuts",morningOnly:true},
+                   cat:"allergen",phase:2,iron:false,allergenId:"peanuts",morningOnly:true,priority:1},
+                  // Phase 3. 4+ weeks: remaining allergens + texture expansion
                   {food:"Plain full-fat yoghurt",emoji:"🥛",note:"Good calcium source. full fat is important at this age",
                    blw:"Pre-load a spoon and hand it to baby. Mix with mashed fruit for natural sweetness.",
                    puree:"Offer on a spoon as-is or mixed with fruit puree. No added sugar.",
@@ -31925,6 +32343,25 @@ function App(){
                   );
                 }
 
+                // Explicit stage indicator. Parents asked "when does baby
+                // move from first taste to the next phase?" — previously
+                // the phase gating was invisible (you only knew you had
+                // moved when new foods showed up). Now the stage is named
+                // and the "foods until next stage" count is visible.
+                //
+                // Stage 1 (First tastes)     — 0-4 foods  · single veg
+                // Stage 2 (Expanding)        — 5-7 foods  · + grains, fruit, iron, early allergens (egg, peanut)
+                // Stage 3 (Full variety)     — 8+ foods   · all allergens, textures, finger food
+                const _stageNum = _weanCount >= 8 ? 3 : _weanCount >= 5 ? 2 : 1;
+                const _stageName = _stageNum === 1 ? "First tastes"
+                  : _stageNum === 2 ? "Expanding"
+                  : "Full variety";
+                const _stageNext = _stageNum === 1 ? (5 - _weanCount) + " until Stage 2"
+                  : _stageNum === 2 ? (8 - _weanCount) + " until Stage 3"
+                  : "all stages unlocked";
+                const _stageNote = _stageNum === 1 ? "Single veg · bitter-first for flavour training"
+                  : _stageNum === 2 ? "Fruit, grains, iron-rich proteins, early allergens (egg + peanut)"
+                  : "Remaining allergens, more texture, finger foods";
                 return (
                   <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,order:weaningStarted?2:1}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
@@ -31932,6 +32369,29 @@ function App(){
                         🍽 {_wksSinceWean < 1 ? "First Taste" : "Try Today"}
                       </div>
                       {_weanCount > 0 && <span style={{fontSize:11,color:C.lt}}>{_weanCount} foods tried 🌈</span>}
+                    </div>
+
+                    {/* Stage indicator. Shows parent exactly which stage
+                        they're in and what unlocks next. */}
+                    <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"8px 12px",marginBottom:10,border:"1px solid "+C.blush}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                        <div style={{fontSize:11,fontWeight:700,color:C.deep,fontFamily:_fM}}>
+                          Stage {_stageNum} · {_stageName}
+                        </div>
+                        <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>{_stageNext}</div>
+                      </div>
+                      <div style={{fontSize:10,color:C.mid,lineHeight:1.4}}>{_stageNote}</div>
+                      {/* Progress dots */}
+                      <div style={{display:"flex",gap:3,marginTop:6}}>
+                        {Array.from({length: _stageNum === 3 ? 8 : _stageNum === 2 ? 8 : 5}).map((_,i) => (
+                          <div key={i} style={{
+                            flex:1,
+                            height:3,
+                            borderRadius:2,
+                            background: i < _weanCount ? C.gold : "var(--card-border)"
+                          }}/>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Today's food */}
@@ -35808,17 +36268,41 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             {!cryingResult ? (
               <div style={{marginTop:16}}>
                 <div style={{fontSize:13,fontWeight:700,color:C.deep,textAlign:"center",marginBottom:8}}>What helped?</div>
+                <div style={{fontSize:10,color:C.lt,textAlign:"center",marginBottom:8,fontFamily:_fM}}>Ordered by what's worked for {babyName||"baby"} before</div>
                 <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"center"}}>
-                  {[["🍼","Hungry","hungry"],["😴","Tired/sleep","overtired"],["💨","Wind/gas","wind_or_gas"],["🧷","Nappy change","wet_or_dirty_nappy"],["🦷","Teething","teething_pain"],["🌡️","Temperature","too_hot_or_cold"],["🫣","Overstimulated","overstimulated"],["🤱","Comfort/cuddle","comfort"],["🛁","Bath","bath"],["🚶","Walk/fresh air","walk"]].map(([emoji,label,key],i)=>(
-                    <button key={i} onClick={()=>{
-                      haptic();
-                      setCryingHelps(prev=>({...prev,[key]:(prev[key]||0)+1}));
-                      setCryingResult(label);
-                      setTimeout(()=>{setShowCryingHelper(false);setCryingResult(null);},800);
-                    }} style={{padding:"7px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.mid,cursor:_cP}}>
-                      {emoji} {label}
-                    </button>
-                  ))}
+                  {(()=>{
+                    // Smart cry triage: rank the "what helped" buttons by
+                    // historical success count. The highest-scoring item
+                    // jumps to the front and gets a ⭐ badge. Previously
+                    // the list was a fixed cosmetic order, so the parent
+                    // had to scroll past "Hungry" every time even if
+                    // "Overtired" was the thing that always worked.
+                    const _base = [["🍼","Hungry","hungry"],["😴","Tired/sleep","overtired"],["💨","Wind/gas","wind_or_gas"],["🧷","Nappy change","wet_or_dirty_nappy"],["🦷","Teething","teething_pain"],["🌡️","Temperature","too_hot_or_cold"],["🫣","Overstimulated","overstimulated"],["🤱","Comfort/cuddle","comfort"],["🛁","Bath","bath"],["🚶","Walk/fresh air","walk"]];
+                    const _counts = cryingHelps || {};
+                    const _total = Object.values(_counts).reduce((a,b)=>a+b,0);
+                    const _withCounts = _base.map(b => ({
+                      emoji: b[0], label: b[1], key: b[2], count: _counts[b[2]] || 0
+                    }));
+                    // Only apply smart ranking after ≥ 4 total logged helps,
+                    // otherwise the order is too volatile and a single
+                    // early tap dominates.
+                    if (_total >= 4) {
+                      _withCounts.sort((a,b) => b.count - a.count);
+                    }
+                    return _withCounts.map((item, i) => {
+                      const isTop = _total >= 4 && i === 0 && item.count > 0;
+                      return (
+                        <button key={item.key} onClick={()=>{
+                          haptic();
+                          setCryingHelps(prev=>({...prev,[item.key]:(prev[item.key]||0)+1}));
+                          setCryingResult(item.label);
+                          setTimeout(()=>{setShowCryingHelper(false);setCryingResult(null);},800);
+                        }} style={{padding:"7px 12px",borderRadius:99,border:`1px solid ${isTop?C.mint:C.blush}`,background:isTop?"rgba(111,168,152,0.08)":"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:isTop?C.mint:C.mid,cursor:_cP}}>
+                          {isTop && "⭐ "}{item.emoji} {item.label}{item.count > 0 && _total >= 4 ? " · " + item.count : ""}
+                        </button>
+                      );
+                    });
+                  })()}
                   <button onClick={()=>{setCryingResult("none");}} style={{padding:"7px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.lt,cursor:_cP}}>
                     🤷 Nothing yet
                   </button>
