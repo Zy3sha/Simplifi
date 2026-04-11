@@ -5782,8 +5782,18 @@ function App(){
           const pt = /dirty|bm|poo/i.test(cat) ? "dirty" : /mixed|both/i.test(cat) ? "both" : "wet";
           addEntry(dateStr, {type:"poop", time:timeStr, poopType:pt, note:notes});
         } else if (/sleep|nap/i.test(cat)) {
-          // Sprout gives duration in minutes; compute end time
-          const durMin = parseInt(duration)||0;
+          // Sprout usually gives duration in minutes, but some exports
+          // use "1h 30m" or "1 hour 30 mins" text. Parse both formats.
+          const _parseDuration = (s) => {
+            if (!s) return 0;
+            const _hMatch = String(s).match(/(\d+)\s*h/i);
+            const _mMatch = String(s).match(/(\d+)\s*m(?!o)/i);
+            if (_hMatch || _mMatch) {
+              return (parseInt(_hMatch?.[1])||0)*60 + (parseInt(_mMatch?.[1])||0);
+            }
+            return parseInt(s)||0;
+          };
+          const durMin = _parseDuration(duration);
           const [sh,sm] = timeStr.split(":").map(Number);
           const endMin = sh*60 + sm + durMin;
           const eh = Math.floor(endMin/60) % 24;
@@ -13545,7 +13555,12 @@ function App(){
     const adjustedExpected = _effNaps + (bridgeNapScheduled ? 1 : 0);
     const napsDone = todayNaps.length;
     const napsAreDone = napsDone >= adjustedExpected;
-    const ww = getWakeWindow(age.totalWeeks);
+    // Use corrected age for preemies (see the analyser fixes earlier).
+    const ww = getWakeWindow(age.predictiveWeeks ?? age.totalWeeks);
+    // Defensive: if getWakeWindow somehow returns a ww without valid
+    // min/max (unexpected age table gap), abort rather than producing
+    // NaN bedtimes that poison every downstream calculation.
+    if (!ww || typeof ww.min !== "number" || typeof ww.max !== "number") return null;
 
     // Get wake time for today
     const sorted = [...today].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -20814,7 +20829,12 @@ function App(){
       }
     } else {
       setDays(d=>{
-        const updated = [...(d[selDay]||[]), e];
+        // Filter any existing entry with the same id first — guards
+        // against the rapid-double-tap scenario where saveEntry runs
+        // twice in < 100ms and the same entry gets pushed twice. If
+        // the id isn't already in the array this is a no-op.
+        const existing = (d[selDay]||[]).filter(x => x.id !== e.id);
+        const updated = [...existing, e];
         // Always run autoClassifyNight. not just today
         const _pd = prevCalDay(selDay);
         return {...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
@@ -24436,6 +24456,23 @@ function App(){
     try { localStorage.setItem("ob_deleted_days", JSON.stringify([...deletedDaysRef.current])); } catch {}
     const cnt = (days[dayToDelete]||[]).length;
     userDeletedCountRef.current += cnt;
+    // If the deleted day is the active bed-timer day, tear the timer
+    // down — otherwise the timer keeps ticking against a day that no
+    // longer exists, the Live Activity keeps displaying, and the lock-
+    // screen notification stays up with stale data.
+    if (bedTimerDay === dayToDelete) {
+      setBedTimerDay(null);
+      setBedPaused(false);
+      setBedPauseStart(null);
+      setBedPausedAtSec(0);
+      setBedTotalPausedSec(0);
+      try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+      clearTimerNotification();
+      if(window.Capacitor?.Plugins?.OBLiveActivity) {
+        window.Capacitor.Plugins.OBLiveActivity.stop?.().catch(()=>{});
+        window.Capacitor.Plugins.OBLiveActivity.stopPrediction?.().catch(()=>{});
+      }
+    }
     setDays(d=>{
       const c={...d};
       delete c[dayToDelete];
