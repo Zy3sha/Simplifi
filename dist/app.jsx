@@ -206,6 +206,18 @@ const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String
 // Mirrors todayStr() so both helpers stay in the user's local timezone.
 const yesterdayStr = () => { const d=new Date(); d.setDate(d.getDate()-1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const localDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+// Add/subtract days from a local YYYY-MM-DD key. Avoids the common
+// bug of `new Date(dk).toISOString().slice(0,10)` which silently
+// converts to UTC and produces off-by-one keys for non-UTC users.
+const addDaysLocal = (dateStr, delta) => {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + "T12:00:00");
+  if (isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + delta);
+  return localDateStr(d);
+};
+const prevDayStr = (dk) => addDaysLocal(dk, -1);
+const nextDayStr = (dk) => addDaysLocal(dk, +1);
 
 // ═══ CENTRAL MORNING WAKE DETECTION ══════════════════════════════════
 // SECTION 3: CENTRAL WAKE/BED DETECTION (SINGLE SOURCE OF TRUTH)
@@ -1819,19 +1831,11 @@ function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
     }
   }
 
-  // ── 4. Cycle-linking (age-normal for < 5 months) ──
-  if (ageWeeks < 22) {
-    return {
-      type: "cycle_linking",
-      emoji: "🔄",
-      title: "Short nap · cycle skill developing",
-      detail: "At this age baby's sleep cycles are ~30–50 min and the brain hasn't learned to link them yet. Waking after one cycle is completely normal and usually resolves by 4–5 months.",
-      action: "Nothing to fix — this passes. A quiet 5-min pause before you pick baby up sometimes lets them self-settle into the next cycle.",
-      confidence: "high"
-    };
-  }
-
-  // ── 5. Fragmented day ──
+  // ── 4. Fragmented day (runs BEFORE cycle_linking so it doesn't
+  //      get short-circuited for young babies). If the day has 2+
+  //      short naps already, that's a compounding-debt signal and
+  //      the age-normal reassurance is wrong — we need to actually
+  //      fix the day's rhythm, not tell the parent to wait it out.
   const _priorNaps = _priorEntries.filter(e => e.type === "nap" && e.end && e.start);
   const _priorShort = _priorNaps.filter(n => {
     const [sh,sm] = n.start.split(":").map(Number);
@@ -1847,6 +1851,21 @@ function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
       title: "Fragmented day",
       detail: _priorShort.length + " short naps earlier today. Sleep debt is compounding — today's rhythm has slipped, and bedtime will likely need to come forward.",
       action: "Aim for bedtime 20 min earlier tonight to pay down the debt.",
+      confidence: "high"
+    };
+  }
+
+  // ── 5. Cycle-linking (age-normal for < 5 months) ──
+  // Only reassure with "it's normal" when there ISN'T a fragmented-day
+  // signal — a young baby with 3 short naps in a row still needs the
+  // fragmented-day fix, not the "nothing to worry about" default.
+  if (ageWeeks < 22) {
+    return {
+      type: "cycle_linking",
+      emoji: "🔄",
+      title: "Short nap · cycle skill developing",
+      detail: "At this age baby's sleep cycles are ~30–50 min and the brain hasn't learned to link them yet. Waking after one cycle is completely normal and usually resolves by 4–5 months.",
+      action: "Nothing to fix — this passes. A quiet 5-min pause before you pick baby up sometimes lets them self-settle into the next cycle.",
       confidence: "high"
     };
   }
@@ -1928,12 +1947,19 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
   const _todayCount = _todayFeeds.length;
 
   // ── 1. Dehydration warning ──
-  if (typeof latestWetNappies24h === "number" && latestWetNappies24h < 6 && ageWeeks < 26) {
+  // Exempt the first 3 days of life: NHS guidance on 6+ wet nappies
+  // kicks in from day 3 onwards. On day 1 babies typically have 1–2
+  // wet nappies and meconium, on day 2 they have 2–3. Flagging this
+  // as dehydration scares new parents unnecessarily. The 6+ rule
+  // applies from day 3 (when mature milk has come in for breastfed
+  // babies and formula volumes are stabilising).
+  const _ageDays = typeof ageWeeks === "number" ? Math.round(ageWeeks * 7) : null;
+  if (typeof latestWetNappies24h === "number" && latestWetNappies24h < 6 && ageWeeks < 26 && _ageDays !== null && _ageDays >= 3) {
     return {
       type: "dehydration_warning",
       emoji: "💧",
       title: "Wet nappy count low · hydration check",
-      detail: "Only " + latestWetNappies24h + " wet nappies in the last 24h. NHS guidance: 6+ wet nappies a day is the best single signal of adequate hydration. This is a red flag that needs attention.",
+      detail: "Only " + latestWetNappies24h + " wet nappies in the last 24h. NHS guidance: 6+ wet nappies a day is the best single signal of adequate hydration (from day 3 onwards). This is a red flag that needs attention.",
       action: "Offer a feed now. If wet count doesn't improve in 12h, contact your midwife or health visitor. If baby is unusually sleepy or hard to rouse, ring 111 or your GP today.",
       urgency: "high",
       confidence: "high"
@@ -1941,8 +1967,10 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
   }
 
   // ── 2. Cluster feed detection ──
-  // 3+ feeds within 90 min, today OR last 24h
-  const _sortedToday = _todayFeeds.slice().sort((a,b)=>{
+  // 3+ DAYTIME feeds within 90 min. Filter night feeds out first
+  // because a parent logging "night wake + feed" then a normal
+  // morning feed would otherwise look like a cluster.
+  const _sortedToday = _todayFeeds.filter(f => !f.night).slice().sort((a,b)=>{
     const ta = (a.time||"00:00"), tb = (b.time||"00:00");
     return ta.localeCompare(tb);
   });
@@ -1979,16 +2007,24 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
   }
 
   // ── 4. Reverse cycling (night > day volume) ──
-  // Only meaningful for 16+ week babies where night feeds should be dropping
+  // Only meaningful for 16+ week babies where night feeds should be dropping.
+  // IMPORTANT: only compare VOLUME for feeds with a real ml amount. Breast
+  // feeds are stored with amount=0 (duration is in breastL/breastR minutes),
+  // so a mostly-breast baby with one big night bottle would otherwise trip
+  // this check with _dayAvg = 0 and _nightAvg = 200. Filter to milk/bottle/
+  // pump feeds with a non-zero amount before comparing.
   if (ageWeeks >= 16) {
     const _last7 = Object.keys(_dayMap).slice(-7);
     let _nightMl = 0, _dayMl = 0, _nightN = 0, _dayN = 0;
     _feeds.forEach(e => {
       if (!e._dk || !_last7.includes(e._dk)) return;
-      if (e.night) { _nightMl += e.amount || 0; _nightN++; }
-      else { _dayMl += e.amount || 0; _dayN++; }
+      if (!e.amount || e.amount <= 0) return; // exclude breast (amount=0)
+      if (e.night) { _nightMl += e.amount; _nightN++; }
+      else { _dayMl += e.amount; _dayN++; }
     });
-    if (_nightN > 0 && _dayN > 0) {
+    // Need at least 3 day and 3 night volume-bearing feeds to make a
+    // meaningful comparison. Otherwise small sample sizes produce noise.
+    if (_nightN >= 3 && _dayN >= 3) {
       const _nightAvg = _nightMl / _nightN;
       const _dayAvg = _dayMl / _dayN;
       if (_nightAvg > _dayAvg * 1.3 && _nightAvg > 100) {
@@ -2215,7 +2251,11 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
   const _now = Date.now();
   const _daysSinceBirth = dobMs ? Math.floor((_now - dobMs) / (24*60*60*1000)) : null;
 
-  // Helper: parent sleep window estimate for a given day
+  // Helper: parent sleep window estimate for a given day.
+  // Clamped to [0, 8*60] so a noisy night with 10 wakes + typo-d
+  // assisted durations (e.g. "180" min entered for each) can't push
+  // the estimate to a huge negative number that then formats as
+  // "-2h 10m" or breaks Math.max chain downstream.
   const _estimateParentSleep = (dayArr) => {
     if (!Array.isArray(dayArr)) return null;
     const bed = dayArr.find(e => e.type === "sleep" && !e.night);
@@ -2224,14 +2264,18 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
     const assistedTotal = wakes.reduce((s,w) =>
       s + (parseInt(w.assistedDuration)||0) + (parseInt(w.settleDuration)||0), 0);
     // Rough: 7h minus 15min per wake minus assisted total
-    return 7*60 - wakes.length * 15 - assistedTotal;
+    const _raw = 7*60 - wakes.length * 15 - assistedTotal;
+    return Math.max(0, Math.min(8*60, _raw));
   };
 
   // ── 1. PND RED FLAG (always free) ──
-  // Mood check-ins < 3/5 averaged over last 3 entries AND baby > 14 days old
+  // Mood check-ins < 3/5 averaged over last 3 entries AND baby > 14 days old.
+  // CRITICAL: do NOT use `m.score || 3` because a score of 0 (very bad) is
+  // falsy and would silently upgrade to 3 (neutral), hiding exactly the
+  // cases that matter most. Use explicit number check.
   if (_daysSinceBirth !== null && _daysSinceBirth > 14 && Array.isArray(moodCheckins) && moodCheckins.length >= 3) {
     const _recent = moodCheckins.slice(-3);
-    const _avgMood = _recent.reduce((s,m)=>s+(m.score||3),0) / _recent.length;
+    const _avgMood = _recent.reduce((s,m)=>s+(typeof m.score === "number" ? m.score : 3),0) / _recent.length;
     if (_avgMood < 3) {
       return {
         type: "pnd_flag",
@@ -2405,7 +2449,7 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
   const _flags = [];
   const _now = Date.now();
 
-  // Recent temperature readings
+  // Recent temperature readings (physiological range check applied)
   try {
     const _recentTemps = [];
     Object.entries(meds || {}).forEach(([dk, dayArr]) => {
@@ -2414,6 +2458,7 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
         if (!m || !m.temp) return;
         const _t = parseFloat(m.temp);
         if (isNaN(_t)) return;
+        if (_t < 35 || _t > 42) return; // out-of-range = typo
         const [_h, _mn] = (m.time || "00:00").split(":").map(Number);
         const _ms = new Date(dk + "T" + String(_h).padStart(2,"0") + ":" + String(_mn).padStart(2,"0") + ":00").getTime();
         if (_now - _ms < 24*60*60*1000) _recentTemps.push(_t);
@@ -6379,7 +6424,7 @@ function App(){
       const _dk = getRecentDays(7);
       if(_dk.length < 5) return false;
       const hardNights = _dk.filter(d => {
-        const nextD = (()=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})();
+        const nextD = nextDayStr(d);
         const wakes = (days[nextD]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;
         return wakes >= 3;
       }).length;
@@ -6793,7 +6838,7 @@ function App(){
     // Check if the tracked entry still exists and is actually active (no end time)
     const _entryId = localStorage.getItem("nap_entry_id");
     if (_entryId) {
-      const todayK = new Date().toISOString().split("T")[0];
+      const todayK = todayStr();
       const _todayEntries = JSON.parse(localStorage.getItem("children_v1") || "{}");
       const _activeChild = localStorage.getItem("active_child");
       let _entryFound = false;
@@ -6823,7 +6868,7 @@ function App(){
     const startT = localStorage.getItem("nap_startT");
     const savedSec = parseInt(localStorage.getItem("nap_sec")) || 0;
     const napDay = localStorage.getItem("nap_start_day");
-    const todayKey = new Date().toISOString().split("T")[0];
+    const todayKey = todayStr();
     // If nap started on a different calendar day, auto-stop
     if (napDay && napDay !== todayKey) {
       console.warn("OBubba: timer from previous day detected. auto-stopping");
@@ -6913,7 +6958,7 @@ function App(){
   useEffect(()=>{
     if (!bedTimerDay) return;
     try {
-      const _todayK = new Date().toISOString().split("T")[0];
+      const _todayK = todayStr();
       // ★ Skip entirely if bedTimerDay is today, that's a fresh bedtime, not a stale one.
       if (bedTimerDay === _todayK) return;
       const _todayEnt = days[_todayK] || [];
@@ -7005,7 +7050,7 @@ function App(){
       // If timerMode is activeSleep, verify bed timer is valid
       if (_tm === "activeSleep") {
         const _btd = localStorage.getItem("bed_timer_day");
-        const _today = new Date().toISOString().split("T")[0];
+        const _today = todayStr();
         // Stale if: no bed_timer_day at all, OR bed_timer_day is from a previous day
         if (!_btd || _btd < _today) {
           ["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start","timer_mode_v1"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
@@ -7667,7 +7712,7 @@ function App(){
       try {
         if(napOn && napStartT) {
           const _napDay = localStorage.getItem("nap_start_day");
-          const _today = new Date().toISOString().split("T")[0];
+          const _today = todayStr();
           if (_napDay === _today) {
             const [_h,_m] = napStartT.split(":").map(Number);
             const _sd = new Date(); _sd.setHours(_h,_m,0,0);
@@ -7900,7 +7945,7 @@ function App(){
             const merged = mergeChildren(prev, incoming);
             // Safety guard: never let a Firestore sync reduce today's entry count
             // (protects against stale cloud data wiping locally-logged entries)
-            const todayK = new Date().toISOString().split("T")[0];
+            const todayK = todayStr();
             Object.keys(prev).forEach(cid => {
               const prevToday = (prev[cid]?.days?.[todayK] || []).filter(e => !e._deleted);
               const mergedToday = merged[cid]?.days?.[todayK] || [];
@@ -7914,7 +7959,7 @@ function App(){
             if(incomingCount > cloudEntryCountRef.current) cloudEntryCountRef.current = incomingCount;
             // If incoming data has a morning wake today AND bed timer is running, stop it
             // This handles partner sync: one parent logs wake, other phone stops timer
-            const _todayK2 = new Date().toISOString().split("T")[0];
+            const _todayK2 = todayStr();
             Object.values(merged).forEach(ch => {
               const _todayEnt = (ch.days && ch.days[_todayK2]) || [];
               const _hasWake = _todayEnt.some(e => e.type === "wake" && !e.night);
@@ -8060,7 +8105,7 @@ function App(){
           if (!_autoMergedIds.has(d.id) && _e.type && _e.time) {
             _autoMergedIds.add(d.id);
             // Build the entry for the day log
-            const _dayKey = _e.date || new Date().toISOString().split("T")[0];
+            const _dayKey = _e.date || todayStr();
             const _newEntry = {id:uid(), type:_e.type, time:_e.time, note:((_e.note||"")+" (from carer)").trim(), loggedBy:"carer", carerEntryId:d.id, modifiedAt:Date.now()};
             if(_e.type==="feed") { _newEntry.amount=_e.amount||0; _newEntry.feedType=_e.feedType||"bottle"; }
             if(_e.type==="poop"||_e.type==="nappy") { _newEntry.type="poop"; _newEntry.poopType=_e.poopType||"wet"; }
@@ -8398,7 +8443,12 @@ function App(){
       "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",
       // Ownership stamp MUST be cleared on logout so the next login
       // starts with pushToCloud's guard fully armed.
-      "ob_children_owner","ob_children_owner_code"];
+      "ob_children_owner","ob_children_owner_code",
+      // Premium-feature state that's scoped to a specific child's
+      // sleep-training run. Carrying this across accounts would show
+      // a different parent's "Day 5 of gradual" plan as if it was
+      // their own.
+      "ob_sleep_coach_v1","ob_last_import_batch"];
     keysToRemove.forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
 
     // Reset ALL app state. blank slate
@@ -9741,7 +9791,7 @@ function App(){
   // re-engage the timer so the pill shows elapsed time instead of "Bed Now!"
   useEffect(()=>{
     if(napOn) return; // timer already running
-    const todayK = new Date().toISOString().split("T")[0];
+    const todayK = todayStr();
     const todayEntries = days[todayK] || [];
     const ongoingNap = todayEntries.find(e => e.type === "nap" && e.start && (!e.end || e.end === e.start) && !e.night);
     if(ongoingNap && ongoingNap.start && typeof ongoingNap.start === 'string' && ongoingNap.start.includes(':')) {
@@ -9973,7 +10023,7 @@ function App(){
   React.useEffect(function() {
     if (!babyName) return;
     try {
-      var todayKey = selDay || new Date().toISOString().split("T")[0];
+      var todayKey = selDay || todayStr();
       var rd = days[todayKey] || [];
       // Merge entries from bedTimerDay if it's a different calendar day
       // Include ALL entries (not just night). morning nappies/feeds logged before wake
@@ -10200,7 +10250,7 @@ function App(){
     // Cross-midnight: if viewing a day without bedtime but yesterday has one AND today has no morning wake,
     // use yesterday's bedtime (this makes the timer tick on both Thursday and Friday views)
     if (!bedEntry) {
-      const _yestKey = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+      const _yestKey = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");})();
       const _yestBed = (days[_yestKey]||[]).find(e=>e.type==="sleep"&&!e.night);
       const _todayHasWake = todayEntries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<=12;})());
       if (_yestBed && !_todayHasWake) bedEntry = _yestBed;
@@ -10294,7 +10344,7 @@ function App(){
       if (bedMins < minBed) bedMins = minBed;
     }
     // Night timer data
-    const nextDay = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()+1);return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
+    const nextDay = nextDayStr(selDay);
     const nextDayHasWake = hasMorningWake(days[nextDay]||[]);
     let lastNightEvent = bedEntryTime;
     if (hasBedtime) {
@@ -10996,7 +11046,7 @@ function App(){
     const _recentNaps = _completedNaps || [];
     const _avgNapDur = _recentNaps.length ? Math.round(_recentNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0)/_recentNaps.length) : 0;
     const _nightWakeCount = td.nightWakeCount || 0;
-    const _prevNightWakes = (()=>{try{const _pd=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();return(days[_pd]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;}catch{return 0;}})();
+    const _prevNightWakes = (()=>{try{const _pd=yesterdayStr();return(days[_pd]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;}catch{return 0;}})();
 
     // Priority reassurance based on data patterns
     if (_recentNaps.length >= 2 && _avgNapDur < 25 && _avgNapDur > 0 && !_isNightTime) {
@@ -11912,7 +11962,7 @@ function App(){
                     const _ms = new Date(e._dk + "T" + String(_t[0]).padStart(2,"0") + ":" + String(_t[1]||0).padStart(2,"0") + ":00").getTime();
                     return _ms >= _24hAgo && /wet|both/i.test(e.poopType||"");
                   }).length;
-                  const _df = diagnoseFeedPattern(_todayArr, _recent14, age.totalWeeks, weights, _wetCount);
+                  const _df = diagnoseFeedPattern(_todayArr, _recent14, (age.predictiveWeeks??age.totalWeeks), weights, _wetCount);
                   if (!_df || _df.type === "normal_rhythm") return null;
                   const _unlockedF = hasAccess();
                   // Always-urgent flags bypass the paywall
@@ -11956,8 +12006,8 @@ function App(){
                       return timeVal({time: t}) < timeVal({time: _lastNap.start});
                     })
                     .sort((a,b)=>timeVal({time: a.time || a.start || ""}) - timeVal({time: b.time || b.start || ""}));
-                  const _ww2 = getWakeWindow(age.totalWeeks);
-                  const _d = diagnoseNapPattern(_lastNap, _priorToLast, age.totalWeeks, _ww2);
+                  const _ww2 = getWakeWindow((age.predictiveWeeks??age.totalWeeks));
+                  const _d = diagnoseNapPattern(_lastNap, _priorToLast, (age.predictiveWeeks??age.totalWeeks), _ww2);
                   if (!_d) return null;
                   const _unlocked = hasAccess();
                   return (
@@ -12097,7 +12147,7 @@ function App(){
   React.useEffect(()=>{
     // Only auto-reclassify TODAY's entries. past days should not be modified
     // to prevent cascading sync conflicts between devices
-    const todayKey = new Date().toISOString().split("T")[0];
+    const todayKey = todayStr();
     if(selDay !== todayKey || !entries.length) return;
     const prevD = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().split("T")[0];})();
     const reclassified = autoClassifyNight([...entries], days[prevD]||null);
@@ -12268,6 +12318,11 @@ function App(){
     // 1. Temperature in last 48h ≥ 37.8°C → shrink 15%
     // meds is stored as {dayKey: [entries]}, so we iterate keys AND
     // entries to build an absolute timestamp for each temp reading.
+    //
+    // Physiological bounds: 35–42°C is the real range for a human baby.
+    // Anything outside is either a typo (e.g. "101" for Fahrenheit, or a
+    // decimal slip like "378" for 37.8) or a thermometer misread. Reject
+    // out-of-range values silently instead of auto-panicking the parent.
     try {
       const _activeMeds = meds || {};
       const _cutoff = _now - 48*60*60*1000;
@@ -12278,6 +12333,7 @@ function App(){
           if (!m || !m.time || !m.temp) return;
           const _t = parseFloat(m.temp);
           if (isNaN(_t)) return;
+          if (_t < 35 || _t > 42) return; // out-of-range, treat as typo
           const [_mh, _mm] = (m.time || "00:00").split(":").map(Number);
           const _ms = new Date(dk + "T" + String(_mh).padStart(2,"0") + ":" + String(_mm).padStart(2,"0") + ":00").getTime();
           if (_ms >= _cutoff && _t >= 37.8 && _t > _maxTemp) _maxTemp = _t;
@@ -12340,6 +12396,10 @@ function App(){
     // 5. Growth spurt signal. If the last two weight entries show a weekly
     //    jump of ≥ 200g OR the baby has crossed a percentile band, expect
     //    5–7 days of disrupted sleep + increased feeds. Shrink 10%.
+    //
+    // Safety caps: reject a weight delta > 2kg (typo like 99 instead of
+    // 9.9 was the observed failure mode); reject future-dated entries;
+    // reject measurements with invalid (NaN) dates.
     try {
       const _wts = (activeChild && activeChild.weights) ? activeChild.weights : [];
       if (_wts.length >= 2) {
@@ -12347,16 +12407,21 @@ function App(){
         const _last2 = _sorted.slice(-2);
         const _d1 = new Date(_last2[0].date).getTime();
         const _d2 = new Date(_last2[1].date).getTime();
-        const _daysBetween = Math.max(1, Math.round((_d2 - _d1) / (24*60*60*1000)));
-        // Only meaningful if the two measurements were within 10 days of
-        // each other and the second one is within the last 10 days.
-        if (_daysBetween <= 10 && (_now - _d2) <= 10*24*60*60*1000) {
-          const _delta = (_last2[1].kg || 0) - (_last2[0].kg || 0);
-          // 200g in 7 days = growth spurt threshold
-          const _gPerDay = (_delta * 1000) / _daysBetween;
-          if (_gPerDay >= 28) {
-            _factors.push(0.9);
-            _reasons.push("growth spurt");
+        if (!isNaN(_d1) && !isNaN(_d2) && _d2 <= _now) {
+          const _daysBetween = Math.max(1, Math.round((_d2 - _d1) / (24*60*60*1000)));
+          // Only meaningful if the two measurements were within 10 days of
+          // each other and the second one is within the last 10 days.
+          if (_daysBetween <= 10 && (_now - _d2) <= 10*24*60*60*1000) {
+            const _deltaKg = (_last2[1].kg || 0) - (_last2[0].kg || 0);
+            // Sanity: a baby cannot actually gain more than ~100g/day.
+            // Anything over 2kg between measurements is a typo (99 vs 9.9).
+            if (Math.abs(_deltaKg) <= 2) {
+              const _gPerDay = (_deltaKg * 1000) / _daysBetween;
+              if (_gPerDay >= 28) {
+                _factors.push(0.9);
+                _reasons.push("growth spurt");
+              }
+            }
           }
         }
       }
@@ -12471,7 +12536,7 @@ function App(){
             })
             .sort((a,b)=>timeVal({time: a.time || a.start || ""}) - timeVal({time: b.time || b.start || ""}));
           const _ww = getWakeWindow(age.totalWeeks);
-          const _diag = diagnoseNapPattern(_lastNap, _priorToLast, age.totalWeeks, _ww);
+          const _diag = diagnoseNapPattern(_lastNap, _priorToLast, (age.predictiveWeeks??age.totalWeeks), _ww);
           if (_diag) {
             // Free users see the headline only (premium gate on the detail).
             const _isPremium = (typeof hasAccess === "function") ? hasAccess() : false;
@@ -12723,7 +12788,7 @@ function App(){
     if (bedEntry4) {
       const bedMins4 = timeVal(bedEntry4);
       const now4 = new Date(), nowMins4 = now4.getHours()*60+now4.getMinutes();
-      const isToday4 = selDay === new Date().toISOString().split("T")[0];
+      const isToday4 = selDay === todayStr();
       // Only block if: past day (bedtime always in past) OR today and bedtime time has passed
       if (!isToday4 || nowMins4 >= bedMins4) {
 ;
@@ -17980,7 +18045,7 @@ function App(){
 
     // Quick reason from crying analysis. search selDay AND today's actual date
     // Tag each entry with its source day key so wall-clock gap works cross-midnight
-    const _prevDk = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+    const _prevDk = prevDayStr(selDay);
     const _calNow = todayStr();
     const _tagDk = (arr, dk) => (arr||[]).map(e=>({...e,_dk:e._dk||dk}));
     const _searchDays = [..._tagDk(_today, selDay), ..._tagDk(days[_prevDk]||[], _prevDk), ...(_calNow !== selDay ? _tagDk(days[_calNow]||[], _calNow) : [])];
@@ -18859,7 +18924,7 @@ function App(){
     setDays(d=>{
       // Search ALL days for this entry (night wakes may be stored on a different calendar day)
       const result = {...d};
-      const _todayKey = new Date().toISOString().split("T")[0];
+      const _todayKey = todayStr();
       for (const dk of Object.keys(result)) {
         const arr = result[dk] || [];
         if (arr.some(e => e.id === id)) {
@@ -20195,7 +20260,9 @@ function App(){
     haptic(15);
 
     // ── Forgotten wake check: if logging a daytime entry on today without a morning wake ──
-    const _todayKey2 = new Date().toISOString().split("T")[0];
+    // Use todayStr() (local) not ISO-UTC so this check works correctly in
+    // timezones ahead of UTC during the first few hours of local day.
+    const _todayKey2 = todayStr();
     if (selDay === _todayKey2 && type !== "wake" && type !== "sleep" && !data.night) {
       const _todayEntries = days[selDay] || [];
       const _hasWake = hasMorningWake(_todayEntries);
@@ -20341,7 +20408,7 @@ function App(){
       // "No night wakes logged?" prompt. if bedtime existed yesterday but no wakes recorded
       setTimeout(()=>{
         try {
-          const _prevDay = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+          const _prevDay = yesterdayStr();
           const _prevEntries = days[_prevDay]||[];
           const _hadBedtime = _prevEntries.some(e=>e.type==="sleep"&&!e.night);
           const _todayE = days[todayStr()]||[];
@@ -20430,7 +20497,25 @@ function App(){
   function saveLogSleep(){
     const f=logForm;
     if(f.sleepType==="nap"){
-      quickAddLog("nap",{type:"nap",start:f.napStart||nowTime(),end:f.napEnd||nowTime(),night:false,note:""});
+      // Guard: reject end < start the same way saveEntry() does for the
+      // edit form. Without this, the quick-log Log Sleep form would
+      // happily write a nap with end before start, minDiff would wrap
+      // the duration to ~23h, and all downstream filters would silently
+      // hide the entry. Same bug class the earlier audit caught in
+      // saveEntry; this is the parallel code path we missed.
+      const _ns = f.napStart || nowTime();
+      const _ne = f.napEnd || nowTime();
+      const [_nsH,_nsM] = _ns.split(":").map(Number);
+      const [_neH,_neM] = _ne.split(":").map(Number);
+      if (isNaN(_nsH) || isNaN(_nsM) || isNaN(_neH) || isNaN(_neM)) {
+        showToast("Nap times look wrong. please check and try again",3000,2);
+        return;
+      }
+      if (_neH*60+_neM < _nsH*60+_nsM) {
+        showToast("Nap end time is before start time. please fix",3000,2);
+        return;
+      }
+      quickAddLog("nap",{type:"nap",start:_ns,end:_ne,night:false,note:""});
     } else {
       quickAddLog("sleep",{type:"sleep",time:f.bedTime||nowTime(),night:false,note:""});
       // Start Live Activity for bedtime on iOS. stop any existing one first
@@ -20518,7 +20603,7 @@ function App(){
       setDays(d=>{
         const updated = (d[selDay]||[]).map(x=>x.id===editEntry.id?e:x);
         // Add morning wake entry to today's log if provided
-        const _todayKey = new Date().toISOString().split("T")[0];
+        const _todayKey = todayStr();
         const _wakeDay = (() => {
           if(!_wakeEntry) return null;
           // If wake time is "early" (before 12:00), assume it's next-day morning
@@ -20532,7 +20617,7 @@ function App(){
         })();
         let result = {...d};
         // Always run autoClassifyNight on any day. ensures correct day/night classification
-        const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+        const _pd=prevDayStr(selDay);
         result = {...result,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
         if(_wakeEntry && _wakeDay) {
           const _existing = result[_wakeDay]||[];
@@ -20547,7 +20632,7 @@ function App(){
       if(_wakeEntry) {
         const _wh2 = parseInt((form.wakeTime||"").split(":")[0]||0);
         const _wakeDayOuter = _wh2 < 12
-          ? (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})()
+          ? nextDayStr(selDay)
           : selDay;
         if(_wakeDayOuter !== selDay) setSelDay(_wakeDayOuter);
       }
@@ -21228,7 +21313,7 @@ function App(){
       const existing = d[targetDay]||[];
       const updated = [...existing, entry];
       // Run ACN so early AM night wakes get reclassified now that morning wake exists
-      const prevK = (()=>{const dt=new Date(targetDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+      const prevK = prevDayStr(targetDay);
       return {...d,[targetDay]:autoClassifyNight(updated, d[prevK]||null)};
     });
     setShowWakePrompt(false);
@@ -21357,7 +21442,7 @@ function App(){
     // Log nap entry immediately with start time + authoritative epoch (end will be filled when timer stops)
     setDays(d=>{
       const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,startMs:_nowMs,end:t,duration:0,night:false,note:"",_active:true,isBridge:!!bridgeNapScheduled}];
-      const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+      const _pd=prevDayStr(selDay);
       return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
     });
     try{
@@ -21366,7 +21451,7 @@ function App(){
       localStorage.setItem("nap_on","1");
       localStorage.setItem("nap_sec","0");
       localStorage.setItem("nap_entry_id",entryId);
-      localStorage.setItem("nap_start_day",new Date().toISOString().split("T")[0]);
+      localStorage.setItem("nap_start_day",todayStr());
     }catch{}
     setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
@@ -21403,6 +21488,18 @@ function App(){
   function saveMedicine() {
     const m = medForm;
     if (!m.name && !m.temp) return;
+    // Sanity-check temperature range. 35–42°C is the physiological
+    // window; anything outside is a typo (US user entering Fahrenheit,
+    // decimal slip like "378" for 37.8, or a thermometer misread).
+    // Warn the parent instead of silently saving garbage that would
+    // then trip the engine's fever detection.
+    if (m.temp) {
+      const _tNum = parseFloat(m.temp);
+      if (isNaN(_tNum) || _tNum < 35 || _tNum > 42) {
+        showToast("Temperature must be between 35 and 42°C. OBubba uses Celsius",3500,2);
+        return;
+      }
+    }
     const entry = { id: uid(), time: m.time || nowTime(), name: m.name, dose: m.dose, temp: m.temp, note: m.note, date: selDay, schedule: m.schedule || "none" };
     setMeds(prev => ({ ...prev, [selDay]: [...(prev[selDay] || []), entry] }));
     setShowMedForm(false);
@@ -22265,7 +22362,7 @@ function App(){
       });
       try{localStorage.removeItem("bed_wake_entry_id");}catch{}
     } else {
-      setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
+      setDays(d=>{const updated=[...(d[selDay]||[]),entry];const _pd=prevDayStr(selDay);return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};});
     }
     trackEvent("entry_logged",{type:"breast_feed"});
     haptic("medium")
@@ -22344,14 +22441,14 @@ function App(){
           const updated=(d[selDay]||[]).map(e=>
             e.id===napEntryId?{...e,end,duration:durMins,_active:false}:e
           );
-          const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+          const _pd=prevDayStr(selDay);
           return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
         });
       } else {
         // Fallback: create new entry if ID lost
         setDays(d=>{
           const updated=[...(d[selDay]||[]),{id:uid(),type:"nap",start:napStartT,end,duration:durMins,night:false,note:""}];
-          const _pd=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+          const _pd=prevDayStr(selDay);
           return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
         });
       }
@@ -22437,7 +22534,7 @@ function App(){
       lines.push("");
       if(wakeEntry) lines.push("Woke at " + fmt12(wakeEntry.time));
       // Last night summary
-      const yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+      const yday = yesterdayStr();
       const yEnt = days[yday]||[];
       const yBed = yEnt.find(e=>e.type==="sleep");
       const nightWakes = yEnt.filter(e=>(e.type==="wake"||e.type==="feed")&&e.night);
@@ -22955,7 +23052,7 @@ function App(){
         if(bed){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
         const wake = dayE.find(e=>e.type==="wake");
         if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
-        const next=(()=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})();
+        const next=nextDayStr(d);
         const nightW = (days[next]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed"));
         tNightWakes += nightW.length;
         // Longest stretch
@@ -23034,7 +23131,7 @@ function App(){
       const bed = dayE.find(e=>e.type==="sleep");
       const ml = feeds.reduce((s,f)=>s+(f.amount||0),0);
       const napMin = napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-      const _nextKey=(()=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})();
+      const _nextKey=nextDayStr(d);
       const _nightWakeCount=(days[_nextKey]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;
       return `${fmtDate(d)}: Wake ${wake?fmt12(wake.time):"--"} | ${feeds.length} feeds${ml?` (${fmtVol(ml,FU)})`:""} | ${napList.length} nap${napList.length!==1?"s":""}${napMin?` (${hm(napMin)})`:""} | Bed ${bed?fmt12(bed.time):"--"} | 🌙 ${_nightWakeCount}`;
     });
@@ -23137,7 +23234,7 @@ function App(){
       if(bed){const[h,m]=bed.time.split(":").map(Number);bedArr.push(h*60+m);}
       const wake=findMorningWake(entries);
       if(wake){const[h,m]=wake.time.split(":").map(Number);wakeArr.push(h*60+m);}
-      const next=(()=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})();
+      const next=nextDayStr(d);
       nightWakeTotal+=(days[next]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length;
     });
     lines.push(`Avg naps/day: ${Math.round(totalNaps/dk.length*10)/10}`);
@@ -23152,7 +23249,7 @@ function App(){
       const bed=entries.find(e=>e.type==="sleep"&&!e.night);
       if(!bed) return;
       const bedM=timeVal(bed);
-      const next=(()=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()+1);return dt.toISOString().slice(0,10);})();
+      const next=nextDayStr(d);
       const nextEntries=days[next]||[];
       const morningWake=findMorningWake(nextEntries);
       const allNight=[
@@ -25411,7 +25508,7 @@ function App(){
         const _todayEnt4 = days[todayStr()] || [];
         const _hardSignals = [];
         // Count rough signals
-        const _ydayKey = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+        const _ydayKey = yesterdayStr();
         const _ydayEnt = days[_ydayKey] || [];
         const _lastNightWakes = _ydayEnt.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
         if (_lastNightWakes >= 4) _hardSignals.push("4+ night wakes last night");
@@ -25462,7 +25559,7 @@ function App(){
     try {
       const _h4 = new Date().getHours();
       if (_h4 >= 6 && _h4 < 10) {
-        const _ydayKey2 = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+        const _ydayKey2 = yesterdayStr();
         const _ydayEnt2 = days[_ydayKey2] || [];
         const _lastNightWakes2 = _ydayEnt2.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
         if (_lastNightWakes2 >= 4) {
@@ -27427,12 +27524,12 @@ function App(){
                       setNapSec(elapsed);
                       setNapPaused(false);
                       setTimerMode("activeSleep");
-                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",new Date().toISOString().split("T")[0]);}catch{}
+                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",todayStr());}catch{}
                       // Create in-progress entry
                       const entryId = uid();
                       setNapEntryId(entryId);
                       setDays(d=>{
-                        const _pd2=(()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                        const _pd2=prevDayStr(selDay);
                         const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,end:null,night:false,note:"",_active:true}];
                         return{...d,[selDay]:autoClassifyNight(updated,d[_pd2]||null)};
                       });
@@ -27562,7 +27659,7 @@ function App(){
 
               {/* ═══ CATCH-UP PROMPT: show when yesterday has no entries ═══ */}
               {!daySubScreen && (()=>{
-                const _yday = (function(){var d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+                const _yday = yesterdayStr();
                 const _ydayEntries = days[_yday]||[];
                 if (_ydayEntries.length > 0) return null;
                 // Only show if we have at least 2 days of data (not brand new user)
@@ -27628,7 +27725,7 @@ function App(){
                     if(!upcoming.length) return null;
                     const a = upcoming[0];
                     const isToday2=a.date===todayStr();
-                    const isTmrw=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
+                    const isTmrw=a.date===nextDayStr(todayStr());
                     const dayLabel2=isToday2?"Today":isTmrw?"Tomorrow":fmtLong(a.date);
                     const moreCount = upcoming.length - 1;
                     return (
@@ -28605,7 +28702,7 @@ function App(){
                       _loggedBy[_by] = (_loggedBy[_by] || 0) + 1;
                     });
                   });
-                  const _dwb = diagnoseWellbeing(days, age.totalWeeks, _dob, _moodCheckins, _loggedBy);
+                  const _dwb = diagnoseWellbeing(days, (age.predictiveWeeks??age.totalWeeks), _dob, _moodCheckins, _loggedBy);
                   if (!_dwb) return null;
                   const _isUrgent = _dwb.urgency === "high" || _dwb.alwaysFree;
                   const _unlockedWB = hasAccess();
@@ -28735,7 +28832,7 @@ function App(){
                 if(!upcoming.length) return null;
                 const a = upcoming[0]; // next closest
                 const isToday=a.date===todayStr();
-                const isTomorrow=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
+                const isTomorrow=a.date===nextDayStr(todayStr());
                 const dayLabel=isToday?"Today":isTomorrow?"Tomorrow":fmtLong(a.date);
                 const moreCount = upcoming.length - 1;
                 return (
@@ -29083,8 +29180,8 @@ function App(){
                             const _ms = new Date(e._dk + "T" + String(_t[0]).padStart(2,"0") + ":" + String(_t[1]||0).padStart(2,"0") + ":00").getTime();
                             return _ms >= _24hAgo && /wet|both/i.test(e.poopType||"");
                           }).length;
-                          const _fd = diagnoseFeedPattern(_todayArr, _recent14, age.totalWeeks, weights, _wetCount);
-                          const _wd = age.totalWeeks >= 24 ? diagnoseWeaningPattern(weaning||[], age.totalWeeks, _recent14.filter(e=>e.type==="poop"), Object.keys(days).slice(-14)) : null;
+                          const _fd = diagnoseFeedPattern(_todayArr, _recent14, (age.predictiveWeeks??age.totalWeeks), weights, _wetCount);
+                          const _wd = (age.predictiveWeeks??age.totalWeeks) >= 24 ? diagnoseWeaningPattern(weaning||[], (age.predictiveWeeks??age.totalWeeks), _recent14.filter(e=>e.type==="poop"), Object.keys(days).slice(-14)) : null;
                           const _dob = activeChild && activeChild.dob ? new Date(activeChild.dob).getTime() : null;
                           const _moodCheckins = (observations||[]).filter(o=>o&&o.type==="mood").slice(-10);
                           const _loggedBy = {};
@@ -29094,7 +29191,7 @@ function App(){
                             if (_kMs < _cutoff7) return;
                             (days[dk]||[]).forEach(e => { const _by = e.loggedBy || "self"; _loggedBy[_by] = (_loggedBy[_by]||0)+1; });
                           });
-                          const _wb = diagnoseWellbeing(days, age.totalWeeks, _dob, _moodCheckins, _loggedBy);
+                          const _wb = diagnoseWellbeing(days, (age.predictiveWeeks??age.totalWeeks), _dob, _moodCheckins, _loggedBy);
                           const _findings = [];
                           if (_fd && _fd.type !== "normal_rhythm") _findings.push({src:"feed", d:_fd});
                           if (_wd && _wd.type !== "balanced_good") _findings.push({src:"weaning", d:_wd});
@@ -29215,7 +29312,7 @@ function App(){
                           because this is forward: what YOU should try. */}
                       {diagnosis && (()=>{
                         try {
-                          const _tf = getTonightsFocus(diagnosis, days[todayStr()]||[], age?.totalWeeks||0);
+                          const _tf = getTonightsFocus(diagnosis, days[todayStr()]||[], (age?.predictiveWeeks ?? age?.totalWeeks ?? 0));
                           if (!_tf) return null;
                           const _unlockedTF = (typeof hasAccess === "function") ? hasAccess() : false;
                           return (
@@ -30972,7 +31069,7 @@ function App(){
               {/* ═══ SLEEP SCORE + LAST NIGHT SUMMARY ═══ */}
               {(()=>{
                 // Last night data
-                const _prevDk = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().slice(0,10);})();
+                const _prevDk = prevDayStr(selDay);
                 const _prevEntries = days[_prevDk]||[];
                 const _todayEntries = days[selDay]||[];
                 const _bedEntry = _prevEntries.find(e=>e.type==="sleep"&&!e.night);
@@ -34037,7 +34134,7 @@ function App(){
                 }
                 const _findByName = (name) => _available.find(f=>f.food===name) || _pool.find(f=>f.food===name);
                 const _today = todayStr();
-                const _yday = (()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10);})();
+                const _yday = yesterdayStr();
                 // Read stored suggestions
                 let _stored = null;
                 try { _stored = JSON.parse(localStorage.getItem("ob_wean_suggestions_v1")||"null"); } catch {}
@@ -34181,7 +34278,7 @@ function App(){
                           });
                         }
                         const _recentDays = Object.keys(days).slice(-14);
-                        const _dw = diagnoseWeaningPattern(weaning||[], age.totalWeeks, _recentPoops, _recentDays);
+                        const _dw = diagnoseWeaningPattern(weaning||[], (age.predictiveWeeks??age.totalWeeks), _recentPoops, _recentDays);
                         if (!_dw || _dw.type === "balanced_good") return null;
                         const _unlockedW = hasAccess();
                         return (
@@ -36591,7 +36688,7 @@ function App(){
                   const nowM=new Date().getHours()*60+new Date().getMinutes();
                   let elapsedSec=(nowM-startMins)*60+new Date().getSeconds();
                   if(elapsedSec<0) elapsedSec+=86400;
-                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",new Date().toISOString().split("T")[0]);}catch{}
+                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",todayStr());}catch{}
                   setNapStartT(startT);setNapSec(elapsedSec);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
                   setModal(null);setEditEntry(null);
                   showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);
@@ -38068,16 +38165,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       return t && timeVal({time: t}) < timeVal({time: _lastNap.start});
                     })
                     .sort((a,b)=>timeVal({time: a.time || a.start || ""}) - timeVal({time: b.time || b.start || ""}));
-                  const _ww = getWakeWindow(age.totalWeeks);
-                  _napDiag = diagnoseNapPattern(_lastNap, _priorToLast, age.totalWeeks, _ww);
+                  const _ww = getWakeWindow((age.predictiveWeeks??age.totalWeeks));
+                  _napDiag = diagnoseNapPattern(_lastNap, _priorToLast, (age.predictiveWeeks??age.totalWeeks), _ww);
                 }
                 // Night diagnosis (last night)
                 const _nightDiag = (()=>{try{return diagnoseNightPattern(_lastNightMemo);}catch{return null;}})();
                 // Feed diagnosis
-                const _feedDiag = diagnoseFeedPattern(_todayArr, _recent14, age.totalWeeks, weights, _wetCount);
+                const _feedDiag = diagnoseFeedPattern(_todayArr, _recent14, (age.predictiveWeeks??age.totalWeeks), weights, _wetCount);
                 // Weaning diagnosis
                 const _weaningDiag = age.totalWeeks >= 24
-                  ? diagnoseWeaningPattern(weaning||[], age.totalWeeks, _recent14.filter(e=>e.type==="poop"), Object.keys(days).slice(-14))
+                  ? diagnoseWeaningPattern(weaning||[], (age.predictiveWeeks??age.totalWeeks), _recent14.filter(e=>e.type==="poop"), Object.keys(days).slice(-14))
                   : null;
                 // Wellbeing diagnosis
                 const _dob = activeChild && activeChild.dob ? new Date(activeChild.dob).getTime() : null;
@@ -38092,10 +38189,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     _loggedBy[_by] = (_loggedBy[_by] || 0) + 1;
                   });
                 });
-                const _wellbeingDiag = diagnoseWellbeing(days, age.totalWeeks, _dob, _moodCheckins, _loggedBy);
+                const _wellbeingDiag = diagnoseWellbeing(days, (age.predictiveWeeks??age.totalWeeks), _dob, _moodCheckins, _loggedBy);
 
                 // Red flags first — never gated
-                const _flags = detectHealthRedFlags(_todayArr, _recent14, meds, age.totalWeeks);
+                const _flags = detectHealthRedFlags(_todayArr, _recent14, meds, (age.predictiveWeeks??age.totalWeeks));
                 if (_flags.length > 0) {
                   return (
                     <div style={{padding:"16px 18px",borderRadius:16,background:"rgba(232,87,74,0.1)",border:"2px solid rgba(232,87,74,0.5)",marginBottom:14}}>
@@ -40543,7 +40640,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               <div style={{fontSize:13,color:C.lt,fontStyle:"italic",padding:"12px 4px"}}>No upcoming appointments</div>
             ):upcomingAll.map(a=>{
               const isToday2=a.date===todayStr();
-              const isTmrw=a.date===(()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);})();
+              const isTmrw=a.date===nextDayStr(todayStr());
               const dayLabel2=isToday2?"Today":isTmrw?"Tomorrow":fmtLong(a.date);
               return (
                 <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",marginBottom:6,background:"var(--card-bg-alt)",borderRadius:12,border:"1px solid var(--card-border)"}}>
