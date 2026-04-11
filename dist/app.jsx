@@ -15732,8 +15732,16 @@ function App(){
       const t = (e.time||"00:00").split(":").map(Number);
       const d = new Date(_dk+"T00:00:00");
       d.setHours(t[0], t[1], 0, 0);
-      // If this is a night entry with an AM time (< noon), it belongs to the next calendar day
-      if (e.night && t[0] < 12) d.setDate(d.getDate() + 1);
+      // Cross-midnight: a night entry stored under YESTERDAY's bedtime day
+      // key with an AM time happened in the early hours of TODAY, so shift
+      // forward by one day. Only apply when _dk is strictly earlier than
+      // today — otherwise a midnight-mode night entry already on today's
+      // key would be pushed into tomorrow and produce a wrong gap. Works
+      // for both dayBoundary modes because each mode stores the _dk
+      // correctly for its own semantics.
+      if (e.night && t[0] < 12 && _dk && _dk < _calNow) {
+        d.setDate(d.getDate() + 1);
+      }
       return d.getTime();
     };
     const _feedCandidates = _searchDays.filter(e => e.time && (e.type==="feed" || (e.amount||0)>0 || e.assistedType==="milk" || e.feedType==="milk"));
@@ -15745,9 +15753,17 @@ function App(){
       const ft = (_lastFeed.time||"00:00").split(":").map(Number);
       const feedDate = new Date(fdk + "T00:00:00");
       feedDate.setHours(ft[0], ft[1], 0, 0);
-      // Cross-midnight: night entry with AM time belongs to next calendar day
-      if (_lastFeed.night && ft[0] < 12) feedDate.setDate(feedDate.getDate() + 1);
-      _feedGap = Math.max(0, Math.round((_nowMs - feedDate.getTime()) / 60000));
+      // Cross-midnight shift only when the entry lives on a day key strictly
+      // earlier than today (wake-mode night entries routed to yesterday's
+      // bedtime day). A midnight-mode entry already stored on today must NOT
+      // be shifted — that produced the "0m ago" bug for night feeds logged
+      // in the early hours of the current day. Works for both dayBoundary
+      // modes because _dk already reflects each mode's routing rules.
+      if (_lastFeed.night && ft[0] < 12 && fdk && fdk < _calNow) {
+        feedDate.setDate(feedDate.getDate() + 1);
+      }
+      const _rawGap = Math.round((_nowMs - feedDate.getTime()) / 60000);
+      _feedGap = _rawGap < 0 ? 0 : _rawGap;
     }
     const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 210 : 270;
 
