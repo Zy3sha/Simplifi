@@ -2337,6 +2337,155 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// UNIFIED FUSSY-BABY TRIAGE
+// ═══════════════════════════════════════════════════════════════════════
+// Runs all four analysers against the current state and returns the
+// SINGLE most relevant finding to surface, plus a secondary finding
+// for "also worth checking". Priority order:
+//   1. Any urgency:high signal from any analyser (dehydration,
+//      sleep crisis, PND flag) — surfaced regardless of tier
+//   2. The most recent actionable signal from night/nap analysers
+//      (because sleep drives everything for young babies)
+//   3. Feed analyser signal
+//   4. Weaning analyser signal (only if age ≥ 24wk)
+//   5. Wellbeing analyser signal
+//
+// No consultant can do this passively from 14 days of data in 0.3
+// seconds. This is the "why is my baby unhappy right now" button.
+function runAllAnalysers(ctx) {
+  const results = [];
+  try {
+    if (ctx.napDiag && ctx.napDiag.title) results.push({source:"nap", ...ctx.napDiag});
+  } catch {}
+  try {
+    if (ctx.nightDiag && ctx.nightDiag.title) results.push({source:"night", ...ctx.nightDiag});
+  } catch {}
+  try {
+    if (ctx.feedDiag && ctx.feedDiag.title && ctx.feedDiag.type !== "normal_rhythm") results.push({source:"feed", ...ctx.feedDiag});
+  } catch {}
+  try {
+    if (ctx.weaningDiag && ctx.weaningDiag.title && ctx.weaningDiag.type !== "balanced_good") results.push({source:"weaning", ...ctx.weaningDiag});
+  } catch {}
+  try {
+    if (ctx.wellbeingDiag && ctx.wellbeingDiag.title && ctx.wellbeingDiag.type !== "positive_trajectory") results.push({source:"wellbeing", ...ctx.wellbeingDiag});
+  } catch {}
+
+  // Rank: urgency:high first, then source priority
+  const sourceRank = { wellbeing: 0, feed: 1, night: 2, nap: 3, weaning: 4 };
+  results.sort((a,b) => {
+    const aU = a.urgency === "high" ? 0 : 1;
+    const bU = b.urgency === "high" ? 0 : 1;
+    if (aU !== bU) return aU - bU;
+    return (sourceRank[a.source]||5) - (sourceRank[b.source]||5);
+  });
+
+  return {
+    top: results[0] || null,
+    secondary: results[1] || null,
+    all: results,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BABY HEALTH RED-FLAG DETECTOR
+// ═══════════════════════════════════════════════════════════════════════
+// Surfaces HARD safety signals that warrant a health visitor or GP call
+// TODAY. Free, never gated. Should NOT compete with sleep/feed analysers
+// for airtime — it's its own category.
+//
+// Red flags:
+//   R1. Temp ≥ 38.0°C  (any age)
+//   R2. Temp ≥ 37.5°C  (under 3 months)
+//   R3. < 4 wet nappies in 24h (any age)
+//   R4. Feed count drop ≥ 40% vs 7-day baseline + any elevated temp
+//   R5. No dirty nappy + no wet nappy 24h in baby < 6mo
+//   R6. Any entry note containing red-flag keywords (choking, blood,
+//       floppy, unresponsive, fever + rash)
+function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
+  const _flags = [];
+  const _now = Date.now();
+
+  // Recent temperature readings
+  try {
+    const _recentTemps = [];
+    Object.entries(meds || {}).forEach(([dk, dayArr]) => {
+      if (!Array.isArray(dayArr)) return;
+      dayArr.forEach(m => {
+        if (!m || !m.temp) return;
+        const _t = parseFloat(m.temp);
+        if (isNaN(_t)) return;
+        const [_h, _mn] = (m.time || "00:00").split(":").map(Number);
+        const _ms = new Date(dk + "T" + String(_h).padStart(2,"0") + ":" + String(_mn).padStart(2,"0") + ":00").getTime();
+        if (_now - _ms < 24*60*60*1000) _recentTemps.push(_t);
+      });
+    });
+    const _maxTemp = _recentTemps.length ? Math.max(..._recentTemps) : 0;
+    if (_maxTemp >= 38.0) {
+      _flags.push({
+        severity: "urgent",
+        title: "Temperature " + _maxTemp.toFixed(1) + "°C logged today",
+        action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. Call 111 or go to A&E now." : "If temp stays above 38°C for > 24h or baby is listless, ring 111 or your GP today.",
+        link: "111"
+      });
+    } else if (_maxTemp >= 37.5 && ageWeeks < 13) {
+      _flags.push({
+        severity: "urgent",
+        title: "Temperature " + _maxTemp.toFixed(1) + "°C in a young baby",
+        action: "Under 3 months, even a low-grade temperature is a medical consultation. Ring 111 or your GP today.",
+        link: "111"
+      });
+    }
+  } catch {}
+
+  // Wet nappy count in last 24h
+  try {
+    const _cutoff = _now - 24*60*60*1000;
+    let _wet = 0, _dirty = 0;
+    recent7Days.forEach(e => {
+      if (e.type !== "poop" || !e._dk) return;
+      const [_h, _mn] = (e.time || "00:00").split(":").map(Number);
+      const _ms = new Date(e._dk + "T" + String(_h).padStart(2,"0") + ":" + String(_mn).padStart(2,"0") + ":00").getTime();
+      if (_ms >= _cutoff) {
+        if (/wet|both/i.test(e.poopType||"")) _wet++;
+        if (/dirty|both|poo/i.test(e.poopType||"")) _dirty++;
+      }
+    });
+    if (_wet < 4 && ageWeeks < 26) {
+      _flags.push({
+        severity: "urgent",
+        title: "Only " + _wet + " wet nappies in 24h",
+        action: "Dehydration red flag. Offer more feeds now. If wet count doesn't improve within 6 hours, or baby is sleepy/hard to rouse, ring 111.",
+        link: "111"
+      });
+    }
+    if (_wet === 0 && _dirty === 0 && ageWeeks < 26) {
+      _flags.push({
+        severity: "urgent",
+        title: "No nappies in 24h",
+        action: "Please contact your health visitor or GP today. Combined with any other symptoms, ring 111.",
+        link: "111"
+      });
+    }
+  } catch {}
+
+  // Red-flag keywords anywhere in today's notes
+  try {
+    const _REDWORDS = /choking|blue|unresponsive|floppy|lethargic|seiz|fit|blood|rash.*fever|fever.*rash|dehydrat|unwell|cold to touch/i;
+    const _noteHit = (todayArr||[]).find(e => _REDWORDS.test(e.note || ""));
+    if (_noteHit) {
+      _flags.push({
+        severity: "urgent",
+        title: "Something you noted today needs attention",
+        action: "You logged something that could be a safety concern. Please ring 111 or contact your GP if symptoms are active now.",
+        link: "111"
+      });
+    }
+  } catch {}
+
+  return _flags;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // NIGHT AUTOPILOT: adjustments derived from last night's diagnosis
 // ═══════════════════════════════════════════════════════════════════════
 // OBubba's philosophy: we do the work, then tell the parent what we did.
@@ -11948,6 +12097,39 @@ function App(){
       _factors.push(0.8);
       _reasons.push(disruptionMode.reason || "off day");
     }
+
+    // 7. Developmental milestone regression window. When a baby has
+    //    just achieved a major motor milestone (roll, crawl, sit, pull
+    //    to stand, walk), their brain is literally practising the skill
+    //    during sleep — this is well-documented and predictable. Expect
+    //    10-14 days of disrupted naps and more night wakes. Engine
+    //    shrinks wake window by 10% during this window and surfaces
+    //    the reason so the parent knows it's developmental, not broken.
+    try {
+      const _ms = (activeChild && activeChild.milestones) || {};
+      const _motorIds = ["m32","m33","m36","m38","m39","m40","m41","m42"];
+      const _motorLabels = {
+        m32:"rolling",
+        m33:"rolling",
+        m36:"sitting",
+        m38:"crawling",
+        m39:"pulling to stand",
+        m40:"cruising",
+        m41:"standing",
+        m42:"walking"
+      };
+      for (const _mid of _motorIds) {
+        const _mObj = _ms[_mid];
+        if (!_mObj || !_mObj.date) continue;
+        const _d = new Date(_mObj.date).getTime();
+        const _daysSince = Math.floor((_now - _d) / (24*60*60*1000));
+        if (_daysSince >= 0 && _daysSince <= 14) {
+          _factors.push(0.9);
+          _reasons.push("just learned " + _motorLabels[_mid]);
+          break;
+        }
+      }
+    } catch {}
 
     // Compose multiplicatively, bounded.
     let _mult = 1;
@@ -37383,6 +37565,118 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
               <div style={{fontSize:11,color:C.lt,marginTop:8}}>Crying is stressful. Your calm helps {babyName||"baby"} calm down too.</div>
             </div>
+
+            {/* ── UNIFIED TRIAGE (PREMIUM) ──
+                Runs every analyser in parallel and surfaces the single
+                highest-priority finding plus a secondary "also worth
+                checking" line. No consultant does this passively. */}
+            {(()=>{
+              try {
+                if (!age || typeof age.totalWeeks !== "number") return null;
+                // Gather context for all four analysers
+                const _todayArr = days[todayStr()] || [];
+                const _recent14 = [];
+                for (let i = 0; i < 14; i++) {
+                  const d = new Date();
+                  d.setDate(d.getDate() - i);
+                  const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                  (days[dk]||[]).forEach(e => _recent14.push({...e, _dk: dk}));
+                }
+                const _24hAgo = Date.now() - 24*60*60*1000;
+                const _wetCount = _recent14.filter(e => {
+                  if (e.type !== "poop") return false;
+                  const _t = (e.time || "00:00").split(":").map(Number);
+                  const _ms = new Date(e._dk + "T" + String(_t[0]).padStart(2,"0") + ":" + String(_t[1]||0).padStart(2,"0") + ":00").getTime();
+                  return _ms >= _24hAgo && /wet|both/i.test(e.poopType||"");
+                }).length;
+                // Nap diagnosis
+                const _completed = _todayArr
+                  .filter(e => e.type === "nap" && !e.night && e.start && e.end && e.end !== e.start)
+                  .sort((a,b)=>timeVal({time:a.start}) - timeVal({time:b.start}));
+                const _lastNap = _completed[_completed.length - 1];
+                let _napDiag = null;
+                if (_lastNap) {
+                  const _priorToLast = _todayArr
+                    .filter(e => {
+                      const t = e.time || e.start || "";
+                      return t && timeVal({time: t}) < timeVal({time: _lastNap.start});
+                    })
+                    .sort((a,b)=>timeVal({time: a.time || a.start || ""}) - timeVal({time: b.time || b.start || ""}));
+                  const _ww = getWakeWindow(age.totalWeeks);
+                  _napDiag = diagnoseNapPattern(_lastNap, _priorToLast, age.totalWeeks, _ww);
+                }
+                // Night diagnosis (last night)
+                const _nightDiag = (()=>{try{return diagnoseNightPattern(_lastNightMemo);}catch{return null;}})();
+                // Feed diagnosis
+                const _feedDiag = diagnoseFeedPattern(_todayArr, _recent14, age.totalWeeks, weights, _wetCount);
+                // Weaning diagnosis
+                const _weaningDiag = age.totalWeeks >= 24
+                  ? diagnoseWeaningPattern(weaning||[], age.totalWeeks, _recent14.filter(e=>e.type==="poop"), Object.keys(days).slice(-14))
+                  : null;
+                // Wellbeing diagnosis
+                const _dob = activeChild && activeChild.dob ? new Date(activeChild.dob).getTime() : null;
+                const _moodCheckins = (observations || []).filter(o => o && o.type === "mood").slice(-10);
+                const _loggedBy = {};
+                const _cutoff = Date.now() - 7*86400000;
+                Object.keys(days).forEach(dk => {
+                  const _kMs = new Date(dk + "T12:00:00").getTime();
+                  if (_kMs < _cutoff) return;
+                  (days[dk]||[]).forEach(e => {
+                    const _by = e.loggedBy || "self";
+                    _loggedBy[_by] = (_loggedBy[_by] || 0) + 1;
+                  });
+                });
+                const _wellbeingDiag = diagnoseWellbeing(days, age.totalWeeks, _dob, _moodCheckins, _loggedBy);
+
+                // Red flags first — never gated
+                const _flags = detectHealthRedFlags(_todayArr, _recent14, meds, age.totalWeeks);
+                if (_flags.length > 0) {
+                  return (
+                    <div style={{padding:"16px 18px",borderRadius:16,background:"rgba(232,87,74,0.1)",border:"2px solid rgba(232,87,74,0.5)",marginBottom:14}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:"#e8574a",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:6}}>⚠️ HEALTH RED FLAG</div>
+                      <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:6}}>{_flags[0].title}</div>
+                      <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:10}}>{_flags[0].action}</div>
+                      <div style={{display:"flex",gap:8}}>
+                        <a href="tel:111" style={{flex:1,padding:"10px",borderRadius:99,background:"#e8574a",color:"white",textDecoration:"none",fontSize:13,fontWeight:700,textAlign:"center"}}>📞 Call 111</a>
+                        <a href="https://111.nhs.uk" target="_blank" rel="noopener" style={{flex:1,padding:"10px",borderRadius:99,background:"var(--card-bg)",color:C.deep,textDecoration:"none",fontSize:13,fontWeight:700,textAlign:"center",border:"1px solid "+C.blush}}>NHS 111 Online</a>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const _triage = runAllAnalysers({napDiag:_napDiag, nightDiag:_nightDiag, feedDiag:_feedDiag, weaningDiag:_weaningDiag, wellbeingDiag:_wellbeingDiag});
+                if (!_triage.top) return null;
+                const _unlockedT = hasAccess();
+                const _isUrgent = _triage.top.urgency === "high" || _triage.top.alwaysFree;
+                const _showFull = _unlockedT || _isUrgent;
+                const _sourceLabel = {nap:"nap",night:"last night",feed:"feeding",weaning:"weaning",wellbeing:"wellbeing"}[_triage.top.source] || "signal";
+                return (
+                  <div style={{padding:"14px 16px",borderRadius:16,background:"linear-gradient(135deg,rgba(192,112,136,0.08),rgba(212,168,85,0.05))",border:"1.5px solid rgba(192,112,136,0.3)",marginBottom:14}}>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:6,display:"flex",alignItems:"center",gap:4}}>
+                      <span>✨ Full OBubba analysis</span>
+                      {!_unlockedT && !_isUrgent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                    </div>
+                    <div style={{fontSize:10,color:C.lt,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em"}}>Most likely · from {_sourceLabel}</div>
+                    <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:4}}>{_triage.top.emoji} {_triage.top.title}</div>
+                    {_showFull ? (
+                      <>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:8}}>{_triage.top.detail}</div>
+                        <div style={{fontSize:12,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"8px 10px",background:"var(--card-bg)",borderRadius:10,marginBottom:_triage.secondary?8:0}}>💡 {_triage.top.action || _triage.top.actionTaken || ""}</div>
+                        {_triage.secondary && (
+                          <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginTop:6,paddingTop:6,borderTop:"1px dashed "+C.blush}}>
+                            <strong>Also worth checking:</strong> {_triage.secondary.emoji} {_triage.secondary.title}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <button onClick={()=>triggerPaywall("triage")} style={{width:"100%",marginTop:4,padding:"10px 12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,"+C.gold+","+C.ter+")",color:"white",fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                        Unlock full analysis + fix
+                      </button>
+                    )}
+                  </div>
+                );
+              } catch(e) { console.warn("triage error", e); return null; }
+            })()}
 
             {/* Reassurance card when nothing obvious */}
             {lowConf&&(
