@@ -4119,21 +4119,45 @@ function App(){
       return cols;
     }
 
-    // Normalise date string to YYYY-MM-DD
+    // Normalise date string to YYYY-MM-DD. Accepts ISO, US MM/DD/YYYY,
+    // UK DD-MM-YYYY, European DD.MM.YYYY, and ISO with offset/timezone.
+    // Loosened from the old version which only matched strict 2-digit
+    // day/month and missed single-digit fields and dot-separated dates.
     function normDate(s) {
       if (!s) return null;
       s = s.trim();
       if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,10);
-      if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) { const [mm,dd,yyyy]=s.split("/"); return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`; }
-      if (/^\d{2}-\d{2}-\d{4}/.test(s)) { const [dd,mm,yyyy]=s.split("-"); return `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`; }
+      let m;
+      if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+      if ((m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/)))   return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+      if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/))) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
       return null;
     }
 
-    // Extract HH:MM from datetime string like "2026-01-12 23:05" or "2026-01-12T23:05:00"
+    // Extract HH:MM (24-hour) from any timestamp-like string. Accepts
+    // ISO ("2026-01-12T23:05:00"), US 12-hour ("Jan 12 2026 7:30 PM"),
+    // plain 24-hour ("19:30"), and single-digit hours ("7:30 am"). Splits
+    // on space or 'T' first so we never accidentally grab minutes out of
+    // a year or a date component.
     function extractTime(s) {
       if (!s) return null;
-      const m = s.match(/(\d{2}:\d{2})/);
-      return m ? m[1] : null;
+      const parts = String(s).split(/[ T]+/);
+      const timePart = parts.length > 1 ? parts.slice(1).join(" ") : parts[0];
+      let mm = timePart.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm]?)/);
+      if (mm) {
+        let h = parseInt(mm[1]);
+        const min = parseInt(mm[2]);
+        const isPM = /^[pP]/.test(mm[3]);
+        if (isPM && h < 12) h += 12;
+        if (!isPM && h === 12) h = 0;
+        return `${String(h).padStart(2,"0")}:${String(min).padStart(2,"0")}`;
+      }
+      mm = timePart.match(/(\d{1,2}):(\d{2})/);
+      if (mm) {
+        const h = parseInt(mm[1]), min = parseInt(mm[2]);
+        if (h>=0 && h<=23 && min>=0 && min<=59) return `${String(h).padStart(2,"0")}:${String(min).padStart(2,"0")}`;
+      }
+      return null;
     }
 
     const headerCols = parseCSVRow(lines[0]).map(h => h.toLowerCase().trim());
@@ -4146,54 +4170,91 @@ function App(){
       const d = normDate(dateStr);
       if (!d) { skipped++; return; }
       if (!newDays[d]) newDays[d] = [];
-      newDays[d].push({...entry, id: uid(), night: false});
+      // CRITICAL: preserve entry.night if the caller set it. The old
+      // version hardcoded night:false AFTER the spread, which meant night
+      // wakes extracted from Huckleberry sleep chains lost their night
+      // flag and the engine couldn't tell them apart from morning wakes.
+      const out = {...entry, id: uid()};
+      if (out.night === undefined) out.night = false;
+      newDays[d].push(out);
       imported++;
     }
 
-    // ── HUCKLEBERRY FORMAT ──
-    // Headers: "Type","Start","End","Duration","Start Condition","Start Location","End Condition","Notes"
-    if (headerCols[0] === "type" && headerCols[1] === "start") {
+    // Absolute millisecond timestamp for a (dateStr, HH:MM) pair. Lets
+    // the Huckleberry branch sort sleep rows and detect cross-midnight
+    // gaps without fighting the YYYY-MM-DD + HH:MM split.
+    function toAbsMs(dateStr, hhmm) {
+      try { return new Date(dateStr + "T" + hhmm + ":00").getTime(); }
+      catch { return 0; }
+    }
+
+    // ── HUCKLEBERRY FORMAT (with night-wake consolidation) ──
+    //
+    // Huckleberry logs every sleep session as its own Sleep row. A typical
+    // night looks like three or four rows: bedtime, each "back to sleep"
+    // after a night wake, and the final morning wake. The previous import
+    // treated every row as an independent sleep entry so the sleep engine
+    // saw nothing but naps, never the bedtime, and never the night wakes.
+    // Debt and pressure calculations fell over completely.
+    //
+    // This pass collects all sleep rows, sorts them chronologically,
+    // groups consecutive rows whose gap is ≤ 90 minutes into a single
+    // "chain", and if that chain starts in the 17:00–10:00 window treats
+    // it as one night: the first row's start is bedtime, each gap is a
+    // night wake entry (with assistedDuration = gap length so the Night
+    // Wake edit form shows the right soothed-time), and the last row's
+    // end becomes the morning wake on the correct day.
+    //
+    // Fuzzy header detection: accept "Type|Activity|Category|Event" in
+    // col 0 or 1, and "Start|Start Time|Begin|Time|Datetime" anywhere.
+    // Older strict "headerCols[0]===type && headerCols[1]===start" check
+    // dropped the whole file into the generic fallback if Huckleberry
+    // shifted a column name by one character.
+    const _typeColIdx  = headerCols.findIndex(h => /^(type|activity|category|event)$/.test(h));
+    const _startColIdx = headerCols.findIndex(h => /^(start|start time|start date|begin|time|datetime)$/.test(h));
+    const _endColIdx   = headerCols.findIndex(h => /^(end|end time|finish|stop)$/.test(h));
+    const _isHuckleberry = _typeColIdx >= 0 && _typeColIdx <= 1 && _startColIdx >= 0;
+
+    if (_isHuckleberry) {
+      const _colType  = _typeColIdx;
+      const _colStart = _startColIdx;
+      const _colEnd   = _endColIdx >= 0 ? _endColIdx : (_colStart + 1);
+      const _findCol = (names) => {
+        for (const n of names) {
+          const idx = headerCols.findIndex(h => h === n);
+          if (idx >= 0) return idx;
+        }
+        return -1;
+      };
+      const _colStartCond = _findCol(["start condition"]);
+      const _colStartLoc  = _findCol(["start location"]);
+      const _colEndCond   = _findCol(["end condition"]);
+      const _colNotes     = _findCol(["notes","note"]);
+
+      const _sleepRows = [];
+
       for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const cols = parseCSVRow(lines[i]);
-        const type         = (cols[0]||"").trim();
-        const startRaw     = (cols[1]||"").trim();
-        const endRaw       = (cols[2]||"").trim();
-        const startCond    = (cols[4]||"").trim(); // e.g. "00:03R" for breast right
-        const startLoc     = (cols[5]||"").trim(); // e.g. "Breast", "Bottle"
-        const endCond      = (cols[6]||"").trim(); // e.g. "Pee", "Poo:large", "Both..."
-        const notes        = (cols[7]||"").trim();
-        const dateStr      = normDate(startRaw);
-        const startTime    = extractTime(startRaw);
-        const endTime      = extractTime(endRaw);
-        const t = type.toLowerCase();
+        const type     = (cols[_colType] ||"").trim().toLowerCase();
+        const startRaw = (cols[_colStart]||"").trim();
+        const endRaw   = (cols[_colEnd]  ||"").trim();
+        const startCond= _colStartCond >= 0 ? (cols[_colStartCond]||"").trim() : "";
+        const startLoc = _colStartLoc  >= 0 ? (cols[_colStartLoc] ||"").trim() : "";
+        const endCond  = _colEndCond   >= 0 ? (cols[_colEndCond]  ||"").trim() : "";
+        const notes    = _colNotes     >= 0 ? (cols[_colNotes]    ||"").trim() : "";
 
-        if (t === "sleep") {
-          if (!startTime) { skipped++; continue; }
-          const _sh = parseInt(startTime.split(":")[0]);
-          const _sm = parseInt(startTime.split(":")[1])||0;
-          // Calculate duration if both start and end exist
-          let _durMins = 0;
-          if (endTime) {
-            const [_eh,_em] = endTime.split(":").map(Number);
-            _durMins = (_eh*60+_em) - (_sh*60+_sm);
-            if (_durMins < 0) _durMins += 1440; // crosses midnight
-          }
-          // Classify: bedtime vs nap
-          // Bedtime if: starts 5pm-4am, OR duration > 3 hours (180min), OR starts 4-5pm AND > 2h
-          const _isBedtime = _sh >= 17 || _sh < 4 || _durMins >= 180 || (_sh >= 16 && _durMins >= 120);
-          if (_isBedtime) {
-            addEntry(dateStr, {type:"sleep", time:startTime, night:false, note:notes});
-          } else {
-            // Nap: cap at 6h max (sanity check for bad import data)
-            const _cappedEnd = endTime || startTime;
-            addEntry(dateStr, {type:"nap", start:startTime, end:_cappedEnd, note:notes});
-          }
-        } else if (t === "feed") {
-          if (!startTime) { skipped++; continue; }
-          const isBreast = startLoc.toLowerCase().includes("breast");
-          const isBottle = startLoc.toLowerCase().includes("bottle") || (!isBreast && startLoc);
-          // Parse breast duration from startCond e.g. "00:03R" or endCond e.g. "00:04L"
+        const startDate = normDate(startRaw);
+        const startTime = extractTime(startRaw);
+        const endDate   = normDate(endRaw)   || startDate;
+        const endTime   = extractTime(endRaw) || startTime;
+
+        if (!startDate || !startTime) { skipped++; continue; }
+
+        if (type === "sleep" || type === "nap" || type === "night sleep") {
+          _sleepRows.push({startDate, startTime, endDate, endTime, notes});
+        } else if (type === "feed" || type === "nursing" || type === "bottle") {
+          const isBreast = startLoc.toLowerCase().includes("breast") || type === "nursing";
           let breastL = 0, breastR = 0;
           const parseBreast = (s) => {
             const m = (s||"").match(/(\d+):(\d+)([LR])/i);
@@ -4205,17 +4266,102 @@ function App(){
           const ec = parseBreast(endCond);
           if (sc) { if(sc.side==="L") breastL=sc.mins; else breastR=sc.mins; }
           if (ec) { if(ec.side==="L") breastL=(breastL||0)+ec.mins; else breastR=(breastR||0)+ec.mins; }
-          addEntry(dateStr, {type:"feed", time:startTime, feedType:isBreast?"breast":"milk", amount:0, breastL, breastR, note:notes});
-        } else if (t === "diaper") {
-          if (!startTime && !startRaw) { skipped++; continue; }
-          const time = startTime || "00:00";
+          addEntry(startDate, {type:"feed", time:startTime, feedType:isBreast?"breast":"milk", amount:0, breastL, breastR, note:notes});
+        } else if (type === "diaper" || type === "nappy") {
           const ec = endCond.toLowerCase();
           const ptype = (ec.includes("poo") || ec.includes("both")) && ec.includes("pee") ? "both"
             : ec.includes("poo") ? "dirty"
             : "wet";
-          addEntry(dateStr, {type:"poop", time, poopType:ptype, note:notes||endCond});
+          addEntry(startDate, {type:"poop", time:startTime, poopType:ptype, note:notes||endCond});
         } else {
           skipped++;
+        }
+      }
+
+      // Chronological sort across midnight
+      _sleepRows.sort((a,b) => toAbsMs(a.startDate,a.startTime) - toAbsMs(b.startDate,b.startTime));
+
+      // Chain consecutive sleep rows whose gap ≤ 90 minutes. A new chain
+      // starts whenever the gap blows past 90 min (which is the longest
+      // plausible night-wake-plus-settle window).
+      const _CHAIN_GAP_MAX_MIN = 90;
+      const _chains = [];
+      let _cur = null;
+      for (const row of _sleepRows) {
+        if (!_cur) { _cur = [row]; continue; }
+        const prev = _cur[_cur.length - 1];
+        const gapMins = Math.round(
+          (toAbsMs(row.startDate, row.startTime) - toAbsMs(prev.endDate, prev.endTime)) / 60000
+        );
+        if (gapMins >= 0 && gapMins <= _CHAIN_GAP_MAX_MIN) {
+          _cur.push(row);
+        } else {
+          _chains.push(_cur);
+          _cur = [row];
+        }
+      }
+      if (_cur && _cur.length) _chains.push(_cur);
+
+      for (const chain of _chains) {
+        const first = chain[0];
+        const last  = chain[chain.length - 1];
+        const firstHour = parseInt(first.startTime.split(":")[0]);
+        // Night chain = first sleep starts between 5pm and 10am. Covers
+        // normal bedtime, late bedtime, and early-morning "back to sleep"
+        // sessions that are really continuation of night sleep.
+        const isNightChain = firstHour >= 17 || firstHour <= 10;
+
+        if (isNightChain) {
+          // Bedtime entry
+          addEntry(first.startDate, {
+            type: "sleep",
+            time: first.startTime,
+            night: false,
+            note: first.notes || ""
+          });
+
+          // Night wakes for each gap inside the chain
+          for (let i = 1; i < chain.length; i++) {
+            const prev = chain[i-1];
+            const next = chain[i];
+            const gapMins = Math.round(
+              (toAbsMs(next.startDate, next.startTime) - toAbsMs(prev.endDate, prev.endTime)) / 60000
+            );
+            if (gapMins <= 0) continue;
+            addEntry(prev.endDate, {
+              type: "wake",
+              time: prev.endTime,
+              night: true,
+              assisted: true,
+              assistedType: "milk",
+              assistedDuration: gapMins,
+              settleDuration: gapMins,
+              note: "Imported from Huckleberry (" + gapMins + "min soothed)"
+            });
+          }
+
+          // Morning wake — end of the last row in the chain, but only if
+          // it lands in a plausible morning window (4am–noon). Otherwise
+          // leave it for the post-process morning-wake inference step.
+          const lastHour = parseInt(last.endTime.split(":")[0]);
+          if (lastHour >= 4 && lastHour <= 12) {
+            addEntry(last.endDate, {
+              type: "wake",
+              time: last.endTime,
+              night: false,
+              note: "Imported from Huckleberry"
+            });
+          }
+        } else {
+          // Daytime nap(s) — each row is its own nap
+          for (const row of chain) {
+            addEntry(row.startDate, {
+              type: "nap",
+              start: row.startTime,
+              end: row.endTime,
+              note: row.notes || ""
+            });
+          }
         }
       }
     }
@@ -33730,7 +33876,7 @@ function App(){
           </div>
 
           {logForm.feedType==="bottle"&&(
-            <Inp label={`Amount (${volLabel(FU)})`} type="number" inputMode="numeric" placeholder={FU==="oz"?"e.g. 6":"e.g. 180"} value={logForm.amount} onChange={e=>setLogForm(f=>({...f,amount:e.target.value}))}/>
+            <Inp label={`Amount (${volLabel(FU)})`} type="number" inputMode={FU==="oz"?"decimal":"numeric"} step={FU==="oz"?"0.1":"1"} placeholder={FU==="oz"?"e.g. 1.5":"e.g. 180"} value={logForm.amount} onChange={e=>setLogForm(f=>({...f,amount:e.target.value}))}/>
           )}
           {logForm.feedType==="breast"&&(
             <div style={_S.mb12}>
@@ -33885,29 +34031,27 @@ function App(){
                 </div>
               );
             }
+            // Bedtime is logged. Night wakes are already covered by the
+            // dedicated Night wake button on the Sleeping peacefully hero
+            // card (which pauses the bed timer). So the quick-log Wake Up
+            // here only needs to handle the "start of a new day" case.
             return (
               <div>
                 <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"10px 12px",marginBottom:14,fontSize:13,color:C.mid,lineHeight:1.55}}>
-                  🌙 Bedtime has been logged. Is this a night wake or start of the next day?
+                  ☀️ Logs the start of a new day. Tap this when baby is up for the day.<br/>
+                  <span style={{fontSize:12,color:C.lt}}>For a night wake, use the Night wake button on the Sleeping peacefully card.</span>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  <PBtn v="pri" onClick={()=>{
-                    setLogPanel(null);
-                    setNwForm({time:logForm.feedTime||nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
-                    setShowNightWake(true);
-                  }}>🌙 Night Wake</PBtn>
-                  <PBtn v="ghost" onClick={()=>{
-                    const t = logForm.feedTime || nowTime();
-                    const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
-                    const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
-                    setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
-                    setLogPanel(null);
-                    setSelDay(nextDay);
-                    haptic("medium")
-                    showToast("☀️ Wake logged on "+fmtDate(nextDay),1500,1);
-                    fireEventReminders("after_wake");
-                  }}>☀️ Start of New Day</PBtn>
-                </div>
+                <PBtn onClick={()=>{
+                  const t = logForm.feedTime || nowTime();
+                  const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
+                  const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
+                  setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
+                  setLogPanel(null);
+                  setSelDay(nextDay);
+                  haptic("medium")
+                  showToast("☀️ Wake logged on "+fmtDate(nextDay),1500,1);
+                  fireEventReminders("after_wake");
+                }}>☀️ Start of New Day</PBtn>
               </div>
             );
           })()}
@@ -33923,12 +34067,13 @@ function App(){
             value={logForm.pumpDuration||""} onChange={e=>setLogForm(f=>({...f,pumpDuration:e.target.value}))}/>
           <div style={_S.mb14}>
             <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Total pumped ({volLabel(FU)})</label>
-            <input type="number" inputMode="numeric" min="0" placeholder="e.g. 120"
+            <input type="number" inputMode={FU==="oz"?"decimal":"numeric"} step={FU==="oz"?"0.1":"1"} min="0" placeholder={FU==="oz"?"e.g. 4.5":"e.g. 120"}
               value={logForm.pumpTotal||""}
               onChange={e=>{
-                const tot=parseInt(e.target.value)||0;
-                const half=Math.round(tot/2);
-                setLogForm(f=>({...f,pumpTotal:e.target.value,pumpL:tot>0?String(half):"",pumpR:tot>0?String(tot-half):""}));
+                const tot = FU==="oz" ? (parseFloat(e.target.value)||0) : (parseInt(e.target.value)||0);
+                const half = FU==="oz" ? Math.round(tot*5)/10 : Math.round(tot/2);
+                const other = FU==="oz" ? Math.round((tot-half)*10)/10 : (tot-half);
+                setLogForm(f=>({...f,pumpTotal:e.target.value,pumpL:tot>0?String(half):"",pumpR:tot>0?String(other):""}));
               }}
               style={{width:"100%",padding:"9px 11px",borderRadius:12,border:`2px solid ${C.ter}`,background:"var(--card-bg-alt)",fontSize:18,fontWeight:700,fontFamily:_fI,outline:_oN,boxSizing:_bBB,textAlign:"center",color:C.ter}}/>
             <div style={{fontSize:12,color:C.lt,marginTop:4,textAlign:"center",fontFamily:_fM}}>Splits equally between left & right. adjust below if needed</div>
@@ -33939,11 +34084,13 @@ function App(){
               {[["pumpL","Left (L)"],["pumpR","Right (R)"]].map(([k,lbl])=>(
                 <div key={k}>
                   <label style={{fontSize:13,fontFamily:_fM,color:C.mid,display:"block",marginBottom:3,textAlign:"center"}}>{lbl}</label>
-                  <input type="number" inputMode="numeric" min="0" placeholder={volLabel(FU)}
+                  <input type="number" inputMode={FU==="oz"?"decimal":"numeric"} step={FU==="oz"?"0.1":"1"} min="0" placeholder={volLabel(FU)}
                     value={logForm[k]||""}
                     onChange={e=>{
                       const updated={...logForm,[k]:e.target.value};
-                      const newTotal=(parseInt(updated.pumpL)||0)+(parseInt(updated.pumpR)||0);
+                      const _pL = FU==="oz" ? (parseFloat(updated.pumpL)||0) : (parseInt(updated.pumpL)||0);
+                      const _pR = FU==="oz" ? (parseFloat(updated.pumpR)||0) : (parseInt(updated.pumpR)||0);
+                      const newTotal = FU==="oz" ? Math.round((_pL+_pR)*10)/10 : (_pL+_pR);
                       setLogForm(f=>({...f,[k]:e.target.value,pumpTotal:newTotal>0?String(newTotal):""}));
                     }}
                     style={{width:"100%",padding:"9px 11px",borderRadius:12,border:"1.5px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontSize:15,fontFamily:_fI,outline:_oN,boxSizing:_bBB,textAlign:"center"}}/>
@@ -33981,7 +34128,7 @@ function App(){
                 </button>
               ))}
             </div>
-            {feedType==="milk"&&<Inp label={`Amount (${volLabel(FU)})`} type="number" inputMode="numeric" placeholder={FU==="oz"?"e.g. 6":"e.g. 180"} value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))}/>}
+            {feedType==="milk"&&<Inp label={`Amount (${volLabel(FU)})`} type="number" inputMode={FU==="oz"?"decimal":"numeric"} step={FU==="oz"?"0.1":"1"} placeholder={FU==="oz"?"e.g. 1.5":"e.g. 180"} value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))}/>}
             {feedType==="breast"&&(
               <div style={_S.mb12}>
                 <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Minutes each side</label>
@@ -37119,7 +37266,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   <div style={_S.mb10}>
                     <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Amount</div>
                     <div style={_S.flexCenter10}>
-                      <input type="number" inputMode="numeric" placeholder={volLabel(FU)} value={nwForm.ml}
+                      <input type="number" inputMode={FU==="oz"?"decimal":"numeric"} step={FU==="oz"?"0.1":"1"} placeholder={volLabel(FU)} value={nwForm.ml}
                         onChange={e=>setNwForm(f=>({...f,ml:e.target.value}))}
                         style={{flex:1,fontSize:18,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
                       <span style={{fontSize:15,color:C.lt,fontFamily:_fM}}>{volLabel(FU)}</span>
@@ -37150,7 +37297,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               <div style={_S.mb16}>
                 <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Feed amount (if applicable)</div>
                 <div style={_S.flexCenter10}>
-                  <input type="number" inputMode="numeric" placeholder={volLabel(FU)} value={nwForm.ml}
+                  <input type="number" inputMode={FU==="oz"?"decimal":"numeric"} step={FU==="oz"?"0.1":"1"} placeholder={volLabel(FU)} value={nwForm.ml}
                     onChange={e=>setNwForm(f=>({...f,ml:e.target.value}))}
                     style={{flex:1,fontSize:20,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
                   <span style={{fontSize:16,color:C.lt,fontFamily:_fM}}>{volLabel(FU)}</span>
@@ -37211,7 +37358,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               haptic(20);
               const saveTime = nwForm.time || nowTime();
               const isMilkAssisted = nwForm.assisted && nwForm.assistedType==="milk";
-              const mlVal = nwForm.selfSettled ? 0 : (parseInt(nwForm.ml)||0) > 0 ? displayToMl(nwForm.ml,FU) : 0;
+              const mlVal = nwForm.selfSettled ? 0 : (parseFloat(nwForm.ml)||0) > 0 ? displayToMl(nwForm.ml,FU) : 0;
               const noteStr = nwForm.selfSettled
                 ? (nwForm.note||"Self settled")
                 : nwForm.assisted
@@ -37448,7 +37595,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
             )}
             <div style={{fontSize:13,color:C.lt,marginBottom:20,lineHeight:1.6}}>
-              Import from a CSV exported by OBubba, Huckleberry, Glow Baby, or Baby Tracker. Your existing data is kept.
+              Import from a CSV exported by OBubba, Huckleberry, Glow Baby, or Baby Tracker. Huckleberry night sleep is consolidated automatically, so bedtimes and night wakes land on the right day. Your existing data is kept.
             </div>
             {importResult ? (
               <div>
