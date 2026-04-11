@@ -4162,13 +4162,64 @@ function App(){
 
     const headerCols = parseCSVRow(lines[0]).map(h => h.toLowerCase().trim());
     const header = lines[0].toLowerCase();
-    let imported = 0, skipped = 0;
+    let imported = 0, skipped = 0, duplicates = 0;
     const newDays = {};
+
+    // Dedup signature for an entry. Two entries with the same signature
+    // are considered "the same log" and the second one is skipped. The
+    // signature uses the fields that make an entry unique in practice:
+    // date + time + type + the one detail field that distinguishes
+    // same-type entries at the same moment (feedType, poopType, night
+    // flag, nap end time). Ignores notes and id so a re-import of a
+    // lightly-edited CSV still dedups cleanly.
+    function entrySignature(dateKey, entry) {
+      const t = entry.type;
+      const time = entry.time || entry.start || "";
+      if (t === "feed") {
+        // Volume is intentionally excluded so a re-import that rounded
+        // differently (e.g. 150 vs 149) still dedups.
+        return `${dateKey}|feed|${time}|${entry.feedType||""}`;
+      }
+      if (t === "poop") {
+        return `${dateKey}|poop|${time}|${entry.poopType||""}`;
+      }
+      if (t === "nap") {
+        return `${dateKey}|nap|${entry.start||""}|${entry.end||""}`;
+      }
+      if (t === "sleep") {
+        return `${dateKey}|sleep|${time}`;
+      }
+      if (t === "wake") {
+        return `${dateKey}|wake|${time}|${entry.night?"n":"d"}`;
+      }
+      return `${dateKey}|${t}|${time}`;
+    }
+
+    // Build a Set of every signature already in local `days` state so
+    // the importer can skip anything it's already seen. Also seeds the
+    // Set as we add new entries, which covers the case where the same
+    // row appears twice WITHIN the same CSV file.
+    const _existingSigs = new Set();
+    try {
+      const _activeDays = (activeChild && activeChild.days) || {};
+      Object.entries(_activeDays).forEach(([dk, arr]) => {
+        if (Array.isArray(arr)) {
+          arr.forEach(e => {
+            if (e && e.type) _existingSigs.add(entrySignature(dk, e));
+          });
+        }
+      });
+    } catch {}
 
     function addEntry(dateStr, entry) {
       if (!dateStr || !entry.type) { skipped++; return; }
       const d = normDate(dateStr);
       if (!d) { skipped++; return; }
+      // DEDUP: skip anything we've already logged (either on an earlier
+      // import, via manual logging, or earlier in the same CSV).
+      const _sig = entrySignature(d, entry);
+      if (_existingSigs.has(_sig)) { duplicates++; return; }
+      _existingSigs.add(_sig);
       if (!newDays[d]) newDays[d] = [];
       // CRITICAL: preserve entry.night if the caller set it. The old
       // version hardcoded night:false AFTER the spread, which meant night
@@ -4442,9 +4493,16 @@ function App(){
       else if(e.type==="wake") breakdown.wakes++;
     }));
 
-    return {imported, skipped, breakdown, message: imported > 0
-      ? `✅ Imported ${imported} entries across ${Object.keys(newDays).length} days`
-      : `Hmm, no entries found. OBubba supports Huckleberry, OBubba and Glow Baby CSV exports. Make sure you export from the app (not a PDF or report), and that the file ends in .csv`};
+    let msg;
+    if (imported > 0) {
+      msg = `✅ Imported ${imported} entries across ${Object.keys(newDays).length} days`;
+      if (duplicates > 0) msg += ` · ${duplicates} already logged (skipped)`;
+    } else if (duplicates > 0) {
+      msg = `All ${duplicates} entries were already logged. Nothing new to import.`;
+    } else {
+      msg = `Hmm, no entries found. OBubba supports Huckleberry, OBubba and Glow Baby CSV exports. Make sure you export from the app (not a PDF or report), and that the file ends in .csv`;
+    }
+    return {imported, skipped, duplicates, breakdown, message: msg};
   }
 
   function capturePhoto(forMilestone){
