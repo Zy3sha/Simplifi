@@ -8559,6 +8559,17 @@ function App(){
   function logout() {
     // Unsubscribe from Firestore listener. prevents old data leaking to new account
     if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
+    // Also tear down every per-child sync listener — logout used to
+    // leave these running in the background, which meant (a) a memory
+    // leak for each linked child, and (b) snapshots arriving for the
+    // logged-out account that could write into the new account's state
+    // if the listener closure was stale. Fully unsubscribe and reset.
+    try {
+      Object.values(childSubsRef.current || {}).forEach(unsub => {
+        try { typeof unsub === "function" && unsub(); } catch {}
+      });
+      childSubsRef.current = {};
+    } catch {}
     // CRITICAL: Stop cloud push BEFORE resetting children. otherwise the blank state
     // gets pushed to cloud, wiping the user's real data
     clearTimeout(cloudPushRef.current);
@@ -8589,6 +8600,18 @@ function App(){
     setOnboarded(true);
     setNeedsChildSetup(false);
     setTab("day");
+    // Clear child-sync per-code state and participants so a later login
+    // starts fresh and can't see the previous account's joiners.
+    setChildSyncCodes({});
+    setChildSyncParticipants({});
+    // Also drop the deletion blacklists that are scoped to "what this
+    // device has deleted from THIS account" — carrying them to a new
+    // account would silently hide children/entries that happen to
+    // share an ID with the old account's deletions.
+    try {
+      deletedEntryIdsRef.current = new Set();
+      deletedDaysRef.current = new Set();
+    } catch {}
 
     // Show auth screen with Sign In / Create Account
     setAuthScreen("login");
