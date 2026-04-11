@@ -1702,6 +1702,179 @@ function diagnoseNightPattern(lastNight) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// SHORT-NAP DIAGNOSIS
+// ═══════════════════════════════════════════════════════════════════════
+// Returns { emoji, title, detail, confidence } explaining WHY a nap was
+// short. Short is defined as:
+//   - < 40 min for ages ≥ 16 weeks (one sleep cycle)
+//   - < 30 min for ages < 16 weeks (cycles are still shorter)
+//
+// Babies have shorter sleep cycles than adults (~30-50 min until ~6 months
+// when they transition toward adult-length 90 min cycles). Most babies
+// cannot yet LINK cycles — they wake fully at each cycle boundary and
+// need to self-settle into the next one. Short naps are rarely "random":
+// they're driven by one of a handful of predictable causes, and the
+// engine has enough data in hand to tell them apart.
+//
+// Reason library (ranked by triage value):
+//   1. undertired     — wake window too short for age → not enough pressure
+//   2. overtired      — wake window too long for age → cortisol spike
+//   3. feed_association — last feed ended within 10 min of nap start
+//   4. cycle_linking  — age-normal for < 5 months, brain still learning
+//   5. fragmented_day — 2+ prior short naps → daily rhythm is out
+//   6. end_of_day     — 3rd/4th nap, short by design (bridge/catnap)
+//   7. unknown        — default, gentle reassurance
+//
+// Inputs:
+//   nap          = the nap entry being analysed
+//   prevEntries  = chronological list of TODAY's entries up to (not
+//                  including) this nap
+//   ageWeeks     = baby age in weeks
+//   wwForAge     = {min, max} from getWakeWindow for this age
+function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
+  if (!nap || !nap.start || !nap.end || nap.end === nap.start) return null;
+  const _durMin = (() => {
+    const [sh,sm] = nap.start.split(":").map(Number);
+    const [eh,em] = nap.end.split(":").map(Number);
+    let d = eh*60+em - sh*60-sm;
+    if (d < 0) d += 1440;
+    return d;
+  })();
+  // Not a short nap — nothing to diagnose.
+  const _shortThreshold = ageWeeks >= 16 ? 40 : 30;
+  if (_durMin >= _shortThreshold) return null;
+
+  const _napStartMin = (() => {
+    const [h,m] = nap.start.split(":").map(Number);
+    return h*60+m;
+  })();
+
+  // Find the preceding wake window anchor: the latest of (last nap end,
+  // morning wake, first entry of the day). Anything > 12h ago is ignored
+  // (it's yesterday's data).
+  const _priorEntries = (prevEntries||[]).filter(e => {
+    if (!e) return false;
+    const t = e.time || e.start || "";
+    if (!t) return false;
+    const [h,m] = t.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return false;
+    const _tMin = h*60+m;
+    return _tMin < _napStartMin;
+  });
+  // Most recent "wake-end" (end of previous nap OR morning wake)
+  let _wakeAnchorMin = null;
+  for (let i = _priorEntries.length - 1; i >= 0; i--) {
+    const e = _priorEntries[i];
+    if (e.type === "nap" && e.end) {
+      const [h,m] = e.end.split(":").map(Number);
+      _wakeAnchorMin = h*60+m;
+      break;
+    }
+    if (e.type === "wake" && !e.night) {
+      const [h,m] = (e.time || "").split(":").map(Number);
+      _wakeAnchorMin = h*60+m;
+      break;
+    }
+  }
+  const _wwUsed = _wakeAnchorMin !== null ? _napStartMin - _wakeAnchorMin : null;
+
+  // ── 1. Undertired (wake window too short) ──
+  if (_wwUsed !== null && wwForAge && _wwUsed > 0 && _wwUsed < wwForAge.min - 10) {
+    return {
+      type: "undertired",
+      emoji: "⏰",
+      title: "Nap ended short · low pressure",
+      detail: "Wake window was only " + _wwUsed + " min before this nap (expected " + wwForAge.min + "–" + wwForAge.max + " for " + Math.round(ageWeeks/4.33) + "mo). Not enough sleep pressure had built up, so the nap ended at the first cycle boundary.",
+      action: "Stretch the next wake window by 15 min to build more pressure.",
+      confidence: "high"
+    };
+  }
+
+  // ── 2. Overtired (wake window too long) ──
+  if (_wwUsed !== null && wwForAge && _wwUsed > wwForAge.max + 20) {
+    return {
+      type: "overtired",
+      emoji: "😫",
+      title: "Nap ended short · overtired",
+      detail: "Wake window was " + _wwUsed + " min (expected " + wwForAge.min + "–" + wwForAge.max + "). Overtired babies get a cortisol spike that wakes them at cycle boundaries and blocks re-settling.",
+      action: "Try the next nap 10–15 min earlier tomorrow to catch it before the spike.",
+      confidence: "high"
+    };
+  }
+
+  // ── 3. Feed association ──
+  const _lastFeed = [..._priorEntries].reverse().find(e => e.type === "feed");
+  if (_lastFeed && _lastFeed.time) {
+    const [fh, fm] = _lastFeed.time.split(":").map(Number);
+    const _feedMin = fh*60 + fm;
+    if (_napStartMin - _feedMin >= 0 && _napStartMin - _feedMin <= 10) {
+      return {
+        type: "feed_association",
+        emoji: "🍼",
+        title: "Likely fell asleep on the feed",
+        detail: "Last feed ended ~" + (_napStartMin - _feedMin) + " min before nap started. If baby falls asleep at the breast/bottle, they often wake at the first cycle boundary looking for the same conditions to fall back.",
+        action: "Try finishing the feed 5–10 min before the nap so baby is drowsy but awake going down.",
+        confidence: "medium"
+      };
+    }
+  }
+
+  // ── 4. Cycle-linking (age-normal for < 5 months) ──
+  if (ageWeeks < 22) {
+    return {
+      type: "cycle_linking",
+      emoji: "🔄",
+      title: "Short nap · cycle skill developing",
+      detail: "At this age baby's sleep cycles are ~30–50 min and the brain hasn't learned to link them yet. Waking after one cycle is completely normal and usually resolves by 4–5 months.",
+      action: "Nothing to fix — this passes. A quiet 5-min pause before you pick baby up sometimes lets them self-settle into the next cycle.",
+      confidence: "high"
+    };
+  }
+
+  // ── 5. Fragmented day ──
+  const _priorNaps = _priorEntries.filter(e => e.type === "nap" && e.end && e.start);
+  const _priorShort = _priorNaps.filter(n => {
+    const [sh,sm] = n.start.split(":").map(Number);
+    const [eh,em] = n.end.split(":").map(Number);
+    let d = eh*60+em - sh*60-sm;
+    if (d < 0) d += 1440;
+    return d > 0 && d < _shortThreshold;
+  });
+  if (_priorShort.length >= 2) {
+    return {
+      type: "fragmented",
+      emoji: "🧩",
+      title: "Fragmented day",
+      detail: _priorShort.length + " short naps earlier today. Sleep debt is compounding — today's rhythm has slipped, and bedtime will likely need to come forward.",
+      action: "Aim for bedtime 20 min earlier tonight to pay down the debt.",
+      confidence: "high"
+    };
+  }
+
+  // ── 6. End-of-day catnap ──
+  if (_napStartMin >= 15*60) { // 3pm or later
+    return {
+      type: "end_of_day",
+      emoji: "🌆",
+      title: "End-of-day catnap",
+      detail: "This late in the day a short nap is often intentional — just enough to reach bedtime without eating into night sleep. If bedtime is still 2+ hours away, it may also be too late for a full nap.",
+      action: "Aim for bedtime on the earlier end of the usual window tonight.",
+      confidence: "medium"
+    };
+  }
+
+  // ── 7. Unknown ──
+  return {
+    type: "unknown",
+    emoji: "🌙",
+    title: "Short nap · cause unclear",
+    detail: "Nap ended at the first cycle boundary (~" + _durMin + " min). Could be a one-off — if it happens 3+ days in a row, we'll look for a pattern.",
+    action: "Watch for a pattern. One short nap isn't enough to change the rhythm.",
+    confidence: "low"
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // NIGHT AUTOPILOT: adjustments derived from last night's diagnosis
 // ═══════════════════════════════════════════════════════════════════════
 // OBubba's philosophy: we do the work, then tell the parent what we did.
@@ -3255,7 +3428,7 @@ function UsernameSetForm({ normaliseUsername, reserveUsername, saveRecoveryEmail
   );
 }
 
-function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regenerateChildSyncCode, unlinkChild, showToast, showConfirm, haptic, C }) {
+function ChildSyncCard({ child, cid, code, isShared, participants, myUid, createChildSyncCode, regenerateChildSyncCode, unlinkChild, showToast, showConfirm, haptic, C }) {
   const [newCode, setNewCode] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -3336,6 +3509,31 @@ function ChildSyncCard({ child, cid, code, isShared, createChildSyncCode, regene
             </div>
           </div>
           <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Share this code with a co-parent. they enter it under "Link a child" below. Change it anytime to stop sharing.</div>
+
+          {/* ── WHO HAS JOINED ─────────────────────────────────
+              Backend was already writing this to child_syncs on join
+              (line ~8270) but the UI never read it. Now the card shows
+              every device/account that's joined Oliver's code, with a
+              joined date and a subtle "you" marker on your own entry.
+              Filtered to exclude the code owner — the owner sees their
+              own children elsewhere and doesn't need to see themselves
+              as a "participant". */}
+          {Array.isArray(participants) && participants.filter(p => p && p.uid && p.uid !== myUid).length > 0 && (
+            <div style={{background:"var(--card-bg-alt)",border:"1px solid "+C.blush,borderRadius:10,padding:"8px 12px",marginBottom:8}}>
+              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700,marginBottom:4}}>
+                👥 {participants.filter(p => p && p.uid && p.uid !== myUid).length} joined
+              </div>
+              {participants.filter(p => p && p.uid && p.uid !== myUid).map((p, i)=>{
+                const _joined = p.joinedAt ? (()=>{ try { const d=new Date(p.joinedAt); return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}); } catch { return ""; } })() : "";
+                return (
+                  <div key={p.uid||i} style={{fontSize:12,color:C.mid,padding:"3px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontWeight:600,color:C.deep}}>{p.username || "Unknown device"}</span>
+                    {_joined && <span style={{fontSize:10,color:C.lt}}>joined {_joined}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div style={{fontSize:11,color:C.mint,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.2)",borderRadius:8,padding:"8px 10px",marginBottom:8,lineHeight:1.5}}>
             <strong style={{color:C.mid}}>🔒 Per-child sharing.</strong> Whoever uses this code will see <strong style={{color:C.deep}}>{child.name||"this child"}</strong> only. They will not see any other children on your account. Perfect for blended families and co-parents who each have other children.
           </div>
@@ -4110,9 +4308,9 @@ function App(){
     trackEvent("data_exported",{format:"csv"});
   }
 
-  function importFromCSV(csvText) {
+  function importFromCSV(csvText, commit) {
     const lines = csvText.split(/\r?\n/).filter(l => l.trim());
-    if (!lines.length) return {imported:0, skipped:0, message:"Empty file"};
+    if (!lines.length) return {mode: commit ? "commit" : "preview", imported:0, skipped:0, message:"Empty file"};
 
     // Proper CSV row parser handling quoted fields
     function parseCSVRow(line) {
@@ -4130,19 +4328,50 @@ function App(){
       return cols;
     }
 
-    // Normalise date string to YYYY-MM-DD. Accepts ISO, US MM/DD/YYYY,
-    // UK DD-MM-YYYY, European DD.MM.YYYY, and ISO with offset/timezone.
-    // Loosened from the old version which only matched strict 2-digit
-    // day/month and missed single-digit fields and dot-separated dates.
+    // Normalise date string to YYYY-MM-DD. Accepts ISO, slash-separated,
+    // dash-separated, dot-separated, with or without leading zeros.
+    //
+    // Slash ambiguity: US uses MM/DD/YYYY, most of the rest of the world
+    // uses DD/MM/YYYY. We auto-detect by scanning ALL date fields in the
+    // file upfront: if any field has a first token > 12, the file is
+    // DD/MM. If all fields look like they could be either, we default
+    // to DD/MM (UK guess, since most of OBubba's users are UK-based and
+    // the alternative is silently reading Feb 1 as Jan 2).
+    //
+    // _slashFormat is set once at the top of importFromCSV by scanning
+    // the data rows, so all calls to normDate within one import use a
+    // consistent interpretation.
     function normDate(s) {
       if (!s) return null;
       s = s.trim();
       if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,10);
       let m;
-      if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+      if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) {
+        // Use detected format. _slashFormat === "dmy" means first = day.
+        if (_slashFormat === "dmy") {
+          return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+        }
+        return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+      }
       if ((m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/)))   return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
       if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/))) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
       return null;
+    }
+
+    // Fingerprint slash-date format by scanning every row for any field
+    // whose first token is > 12 (unambiguously a day). If we find one,
+    // the file is DD/MM/YYYY. If we don't find one, default to DD/MM
+    // (UK bias) because the alternative silently misreads UK dates.
+    let _slashFormat = "dmy"; // default
+    for (const line of lines) {
+      const _slashMatches = line.match(/(\d{1,2})\/(\d{1,2})\/\d{4}/g) || [];
+      for (const _sm of _slashMatches) {
+        const _parts = _sm.split("/");
+        const _first = parseInt(_parts[0]);
+        const _second = parseInt(_parts[1]);
+        if (_first > 12 && _second <= 12) { _slashFormat = "dmy"; break; }
+        if (_second > 12 && _first <= 12) { _slashFormat = "mdy"; break; }
+      }
     }
 
     // Extract HH:MM (24-hour) from any timestamp-like string. Accepts
@@ -4487,22 +4716,72 @@ function App(){
       }
     });
 
-    if (imported > 0) {
-      setDays(prev => {
-        const merged = {...prev};
-        Object.keys(newDays).forEach(d => { merged[d] = [...(merged[d]||[]), ...newDays[d]]; });
-        return merged;
-      });
-    }
-
-    // Count breakdown by type
-    const breakdown = {feeds:0, naps:0, poops:0, wakes:0};
+    // Count breakdown by type (even on preview)
+    const breakdown = {feeds:0, naps:0, poops:0, wakes:0, sleeps:0, naps_consolidated:0};
     Object.values(newDays).forEach(entries => entries.forEach(e => {
       if(e.type==="feed") breakdown.feeds++;
       else if(e.type==="nap") breakdown.naps++;
       else if(e.type==="poop") breakdown.poops++;
       else if(e.type==="wake") breakdown.wakes++;
+      else if(e.type==="sleep") breakdown.sleeps++;
     }));
+
+    // Sample entries for the preview UI. Up to 8 earliest rows, formatted
+    // as friendly strings the parent can sanity-check.
+    const _sortedDays = Object.keys(newDays).sort();
+    const _sample = [];
+    for (const dk of _sortedDays) {
+      for (const e of (newDays[dk]||[])) {
+        if (_sample.length >= 8) break;
+        const _t = e.time || e.start || "";
+        const _end = e.end ? `–${e.end}` : "";
+        const _label = e.type === "nap" ? "😴 Nap"
+          : e.type === "sleep" ? "🌙 Bedtime"
+          : e.type === "wake" ? (e.night ? "🌙 Night wake" : "☀️ Morning wake")
+          : e.type === "feed" ? "🍼 Feed"
+          : e.type === "poop" ? "🧷 Nappy"
+          : e.type;
+        _sample.push(`${dk} ${_t}${_end} · ${_label}${e.note ? " · " + e.note.slice(0,30) : ""}`);
+      }
+      if (_sample.length >= 8) break;
+    }
+
+    // PREVIEW MODE: return parsed data without mutating state. The caller
+    // (import modal) uses this to show a confirmation card, then calls
+    // importFromCSV again with commit=true to actually apply. This stops
+    // a parent from tapping Import and getting 1200 entries they didn't
+    // expect into state with no way to review first.
+    if (!commit) {
+      let previewMsg;
+      if (imported > 0) {
+        previewMsg = `Found ${imported} entries across ${Object.keys(newDays).length} days`;
+        if (duplicates > 0) previewMsg += ` · ${duplicates} already logged`;
+      } else if (duplicates > 0) {
+        previewMsg = `All ${duplicates} entries already logged. Nothing new.`;
+      } else {
+        previewMsg = `Hmm, no entries found. OBubba supports Huckleberry, OBubba and Glow Baby CSV exports. Make sure you export from the app (not a PDF or report), and that the file ends in .csv`;
+      }
+      return {mode:"preview", imported, skipped, duplicates, breakdown, sample:_sample, dayCount:Object.keys(newDays).length, message: previewMsg};
+    }
+
+    // COMMIT MODE: stamp every entry with the import batch ID and apply.
+    // The batch ID is a millisecond timestamp so the parent can revert
+    // exactly this import later via the Undo button (which filters
+    // entries whose src === "import:<thisBatch>").
+    const _batchId = "import:" + Date.now();
+    if (imported > 0) {
+      setDays(prev => {
+        const merged = {...prev};
+        Object.keys(newDays).forEach(d => {
+          const tagged = newDays[d].map(e => ({...e, src: _batchId}));
+          merged[d] = [...(merged[d]||[]), ...tagged];
+        });
+        return merged;
+      });
+      // Remember the last batch ID on-device so the undo button in the
+      // modal knows what to revert. Cleared when the modal closes.
+      try { localStorage.setItem("ob_last_import_batch", _batchId); } catch {}
+    }
 
     let msg;
     if (imported > 0) {
@@ -4513,7 +4792,29 @@ function App(){
     } else {
       msg = `Hmm, no entries found. OBubba supports Huckleberry, OBubba and Glow Baby CSV exports. Make sure you export from the app (not a PDF or report), and that the file ends in .csv`;
     }
-    return {imported, skipped, duplicates, breakdown, message: msg};
+    return {mode:"commit", imported, skipped, duplicates, breakdown, message: msg, batchId: _batchId};
+  }
+
+  // Revert the most recent CSV import. Pulls the batch ID from
+  // localStorage and removes every entry whose src field matches.
+  function undoLastImport() {
+    let _batchId;
+    try { _batchId = localStorage.getItem("ob_last_import_batch"); } catch {}
+    if (!_batchId) return {ok:false, removed:0};
+    let _removed = 0;
+    setDays(prev => {
+      const next = {};
+      Object.keys(prev).forEach(dk => {
+        const filtered = (prev[dk]||[]).filter(e => {
+          if (e && e.src === _batchId) { _removed++; return false; }
+          return true;
+        });
+        if (filtered.length > 0 || dk === todayStr()) next[dk] = filtered;
+      });
+      return next;
+    });
+    try { localStorage.removeItem("ob_last_import_batch"); } catch {}
+    return {ok:true, removed:_removed};
   }
 
   function capturePhoto(forMilestone){
@@ -6022,6 +6323,9 @@ function App(){
   const[fqNappyTime,setFqNappyTime]=useState("");
   const[showImportModal,setShowImportModal]=useState(false);
   const[importResult,setImportResult]=useState(null);
+  // Stash raw CSV text between the preview and commit steps so the
+  // parent doesn't have to re-select the file when they hit "Import".
+  const _pendingCsvRef = useRef(null);
   const[needsChildSetup,setNeedsChildSetup]=useState(false);
   const[obUsername,setObUsername]=useState("");
   const[obUsernameStatus,setObUsernameStatus]=useState("idle");
@@ -6168,6 +6472,9 @@ function App(){
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
     try{const s=localStorage.getItem("child_sync_codes_v1");return s?JSON.parse(s):{};}catch{return {};}
   });
+  // Participants per child_sync code, populated by the onSnapshot handler
+  // in subscribeToChildSync. Used by ChildSyncCard to show WHO has joined.
+  const[childSyncParticipants,setChildSyncParticipants]=useState({});
 
   const childSubsRef = React.useRef({});
   const[backupCode,setBackupCode]=useState(()=>{try{return localStorage.getItem("backup_code")||null;}catch{return null;}});
@@ -8020,6 +8327,15 @@ function App(){
 
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
       if(d.updatedBy && window._fbUid && d.updatedBy === window._fbUid) return;
+      // Capture participants so the owner's Child Sync card can surface
+      // WHO has joined the code. Stored in a separate ref keyed by
+      // childId so the existing onSnapshot body doesn't have to change
+      // and the ChildSyncCard can read the current list on render.
+      try {
+        if (Array.isArray(d.participants)) {
+          setChildSyncParticipants(prev => ({...prev, [childId]: d.participants}));
+        }
+      } catch {}
       try {
         if(d.child) {
           const remoteChild = JSON.parse(d.child);
@@ -10526,6 +10842,53 @@ function App(){
           )}
           {heroWhyOpen&&(
             <div style={{marginTop:8,padding:"12px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+              {/* ── PREMIUM: Short-nap analyser ──
+                  If the last completed nap today was short, render the
+                  full diagnosis (reason + action) inside the existing
+                  Why? expander. Free users see a teaser + "Unlock"
+                  button; premium users see the whole thing. Merges into
+                  the existing Why? slot — no new card surface. */}
+              {(()=>{
+                try {
+                  if (!age || typeof age.totalWeeks !== "number") return null;
+                  const _todayArr = days[todayStr()] || [];
+                  const _completed = _todayArr
+                    .filter(e => e.type === "nap" && !e.night && e.start && e.end && e.end !== e.start)
+                    .sort((a,b)=>timeVal({time:a.start}) - timeVal({time:b.start}));
+                  const _lastNap = _completed[_completed.length - 1];
+                  if (!_lastNap) return null;
+                  const _priorToLast = _todayArr
+                    .filter(e => {
+                      const t = e.time || e.start || "";
+                      if (!t) return false;
+                      return timeVal({time: t}) < timeVal({time: _lastNap.start});
+                    })
+                    .sort((a,b)=>timeVal({time: a.time || a.start || ""}) - timeVal({time: b.time || b.start || ""}));
+                  const _ww2 = getWakeWindow(age.totalWeeks);
+                  const _d = diagnoseNapPattern(_lastNap, _priorToLast, age.totalWeeks, _ww2);
+                  if (!_d) return null;
+                  const _unlocked = hasAccess();
+                  return (
+                    <div style={{background:"rgba(192,112,136,0.06)",border:"1px solid rgba(192,112,136,0.25)",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                      <div style={{fontSize:10,fontFamily:_fM,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
+                        <span>🔍 Nap analyser</span>
+                        {!_unlocked && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                      </div>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_d.emoji} {_d.title}</div>
+                      {_unlocked ? (
+                        <>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{_d.detail}</div>
+                          <div style={{fontSize:11,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"6px 8px",background:"var(--card-bg)",borderRadius:8}}>💡 {_d.action}</div>
+                        </>
+                      ) : (
+                        <button onClick={()=>triggerPaywall("nap_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                          Unlock full analysis + fix
+                        </button>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
               {/* Live feed/nappy context */}
               {_secondary && <div style={{fontSize:11,color:C.mid,marginBottom:10,fontFamily:_fM,lineHeight:1.5}}>{_secondary}</div>}
               {/* Contextual hint */}
@@ -10959,6 +11322,42 @@ function App(){
       }
       return out;
     };
+
+    // ─── 0. Short-nap diagnosis (PREMIUM, highest priority) ──
+    // If the most recent completed nap today was short, run it through
+    // diagnoseNapPattern() and surface the headline + action. This is
+    // the marquee feature — parents see "Nap ended short · low
+    // pressure · stretch the next wake window by 15 min" within seconds
+    // of the short nap ending.
+    try {
+      if (age && typeof age.totalWeeks === "number") {
+        const _todayArr = days[_today] || [];
+        const _completed = _todayArr
+          .filter(e => e.type === "nap" && !e.night && e.start && e.end && e.end !== e.start)
+          .sort((a,b)=>timeVal({time:a.start}) - timeVal({time:b.start}));
+        const _lastNap = _completed[_completed.length - 1];
+        if (_lastNap) {
+          // Find entries BEFORE the last nap for context
+          const _priorToLast = _todayArr
+            .filter(e => {
+              const t = e.time || e.start || "";
+              if (!t) return false;
+              return timeVal({time: t}) < timeVal({time: _lastNap.start});
+            })
+            .sort((a,b)=>timeVal({time: a.time || a.start || ""}) - timeVal({time: b.time || b.start || ""}));
+          const _ww = getWakeWindow(age.totalWeeks);
+          const _diag = diagnoseNapPattern(_lastNap, _priorToLast, age.totalWeeks, _ww);
+          if (_diag) {
+            // Free users see the headline only (premium gate on the detail).
+            const _isPremium = (typeof hasAccess === "function") ? hasAccess() : false;
+            if (_isPremium) {
+              return _diag.emoji + " " + _diag.title + " — " + _diag.action;
+            }
+            return _diag.emoji + " " + _diag.title + " · tap Why? for full analysis";
+          }
+        }
+      }
+    } catch {}
 
     // ─── 1. Parent sleep debt ────────────────────────────────
     // Approximate parent sleep window = bedtime entry → first night wake,
@@ -38193,7 +38592,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       )}
 
       {(showImportModal || showImportAfterSetup) && (
-        <div style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",zIndex:9900,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);}}>
+        <div style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",zIndex:9900,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);_pendingCsvRef.current=null;}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--card-bg-solid)",borderRadius:"24px 24px 0 0",padding:"28px 24px 48px",width:"100%",maxWidth:480,boxShadow:"0 -8px 40px rgba(0,0,0,0.15)"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 24px"}}/>
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:8}}>📥 Import Data</div>
@@ -38205,21 +38604,79 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontSize:13,color:C.lt,marginBottom:20,lineHeight:1.6}}>
               Import from a CSV exported by OBubba, Huckleberry, Glow Baby, or Baby Tracker. Huckleberry night sleep is consolidated automatically, so bedtimes and night wakes land on the right day. Your existing data is kept.
             </div>
-            {importResult ? (
+            {importResult && importResult.mode === "commit" ? (
+              // ── Post-commit summary with Undo ──
               <div>
                 <div style={{background:importResult.imported>0?"rgba(80,200,120,0.1)":"rgba(255,150,50,0.1)",border:`1px solid ${importResult.imported>0?"#50c878":"#ff9632"}`,borderRadius:14,padding:"16px",marginBottom:20,fontSize:14,color:C.deep,lineHeight:1.6}}>
                   {importResult.message}
                   {importResult.breakdown && (
                     <div style={{marginTop:8,fontSize:12,color:C.lt,lineHeight:1.8}}>
                       {importResult.breakdown.feeds>0 && <div>🍼 {importResult.breakdown.feeds} feeds</div>}
-                      {importResult.breakdown.naps>0 && <div>😴 {importResult.breakdown.naps} sleeps</div>}
+                      {importResult.breakdown.sleeps>0 && <div>🌙 {importResult.breakdown.sleeps} bedtimes</div>}
+                      {importResult.breakdown.naps>0 && <div>😴 {importResult.breakdown.naps} naps</div>}
                       {importResult.breakdown.poops>0 && <div>💩 {importResult.breakdown.poops} nappies</div>}
-                      {importResult.breakdown.wakes>0 && <div>☀️ {importResult.breakdown.wakes} wake ups</div>}
+                      {importResult.breakdown.wakes>0 && <div>☀️ {importResult.breakdown.wakes} wakes</div>}
                     </div>
                   )}
                   {importResult.skipped > 0 && <div style={{fontSize:12,color:C.lt,marginTop:4}}>{importResult.skipped} rows skipped (unsupported type)</div>}
                 </div>
-                <button onClick={()=>{setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP}}>Done</button>
+                {importResult.imported > 0 && (
+                  <button onClick={()=>{
+                    showConfirm("Undo this import?", "This will remove the " + importResult.imported + " entries you just imported. Entries you logged manually will not be touched.",
+                      ()=>{
+                        const r = undoLastImport();
+                        setConfirmDialog(null);
+                        if (r.ok) {
+                          showToast("↩ Reverted " + r.removed + " imported entries", 2500, 1);
+                          setImportResult(null);
+                        } else {
+                          showToast("Nothing to undo", 2000, 2);
+                        }
+                      }, "Yes, undo import");
+                  }} style={{width:"100%",padding:"11px",borderRadius:99,border:"1px solid "+C.blush,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:10}}>
+                    ↩ Undo this import
+                  </button>
+                )}
+                <button onClick={()=>{setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);_pendingCsvRef.current=null;}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP}}>Done</button>
+              </div>
+            ) : importResult && importResult.mode === "preview" ? (
+              // ── Preview: show breakdown + sample rows, ask user to confirm ──
+              <div>
+                <div style={{background:importResult.imported>0?"rgba(80,200,120,0.08)":"rgba(255,150,50,0.1)",border:`1px solid ${importResult.imported>0?"#50c878":"#ff9632"}`,borderRadius:14,padding:"16px",marginBottom:14,fontSize:14,color:C.deep,lineHeight:1.6}}>
+                  <div style={{fontWeight:700,marginBottom:6}}>{importResult.message}</div>
+                  {importResult.breakdown && importResult.imported > 0 && (
+                    <div style={{marginTop:4,fontSize:12,color:C.lt,lineHeight:1.8}}>
+                      {importResult.breakdown.feeds>0 && <div>🍼 {importResult.breakdown.feeds} feeds</div>}
+                      {importResult.breakdown.sleeps>0 && <div>🌙 {importResult.breakdown.sleeps} bedtimes</div>}
+                      {importResult.breakdown.naps>0 && <div>😴 {importResult.breakdown.naps} naps</div>}
+                      {importResult.breakdown.poops>0 && <div>💩 {importResult.breakdown.poops} nappies</div>}
+                      {importResult.breakdown.wakes>0 && <div>☀️ {importResult.breakdown.wakes} wakes</div>}
+                    </div>
+                  )}
+                  {importResult.skipped > 0 && <div style={{fontSize:12,color:C.lt,marginTop:4}}>{importResult.skipped} rows skipped (unsupported type)</div>}
+                </div>
+                {importResult.sample && importResult.sample.length > 0 && (
+                  <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px",marginBottom:14,border:"1px solid "+C.blush}}>
+                    <div style={{fontSize:11,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Preview (first {importResult.sample.length} rows)</div>
+                    {importResult.sample.map((s,i)=>(
+                      <div key={i} style={{fontSize:11,color:C.mid,lineHeight:1.6,fontFamily:"'SF Mono',monospace"}}>{s}</div>
+                    ))}
+                  </div>
+                )}
+                {importResult.imported > 0 ? (
+                  <>
+                    <button onClick={()=>{
+                      if (!_pendingCsvRef.current) { showToast("Lost the file. please pick it again", 3000, 2); setImportResult(null); return; }
+                      const r = importFromCSV(_pendingCsvRef.current, true);
+                      setImportResult(r);
+                    }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP,marginBottom:10}}>
+                      ✓ Import {importResult.imported} entries
+                    </button>
+                    <button onClick={()=>{setImportResult(null);_pendingCsvRef.current=null;}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid "+C.blush,background:"transparent",color:C.lt,fontSize:14,cursor:_cP}}>Cancel</button>
+                  </>
+                ) : (
+                  <button onClick={()=>{setImportResult(null);_pendingCsvRef.current=null;}} style={{width:"100%",padding:"14px",borderRadius:99,border:"1px solid "+C.blush,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>Close</button>
+                )}
               </div>
             ) : (
               <div>
@@ -38231,7 +38688,13 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     const file = e.target.files?.[0];
                     if (!file) return;
                     const reader = new FileReader();
-                    reader.onload = ev => { setImportResult(importFromCSV(ev.target.result)); };
+                    reader.onload = ev => {
+                      // Stash raw CSV text so the confirm button can call
+                      // importFromCSV again in commit mode without the user
+                      // having to re-select the file. Cleared on cancel/close.
+                      _pendingCsvRef.current = ev.target.result;
+                      setImportResult(importFromCSV(ev.target.result, false));
+                    };
                     reader.readAsText(file);
                     e.target.value = "";
                   }}/>
@@ -38344,6 +38807,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 const isShared = !!code;
                 return (
                   <ChildSyncCard key={cid} child={child} cid={cid} code={code} isShared={isShared}
+                    participants={code ? (childSyncParticipants[code] || []) : []}
+                    myUid={window._fbUid || ""}
                     createChildSyncCode={createChildSyncCode} regenerateChildSyncCode={regenerateChildSyncCode}
                     unlinkChild={unlinkChild} showToast={showToast} showConfirm={showConfirm} haptic={haptic} C={C} />
                 );
