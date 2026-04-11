@@ -3169,9 +3169,36 @@ if(isLast){const durations=[_safeAvgNapDur,Math.round(_safeAvgNapDur*0.7),25,20,
 // out (7mo, 12mo). The loop stops naturally when there's
 // no more room.
 if(napStart+_safeAvgNapDur+minBedWW>_napFitCeiling)break;}const napEnd=napStart+napDur;items.push({icon:isBridge?"\u{1F309}":"\u23F1\uFE0F",label:isBridge?"Bridge nap":`Nap ${napIdx+1}`,time:`${fmt12(mtp(napStart))} \u2013 ${fmt12(mtp(napEnd))}`,sub:napLabel,predicted:true,mins:napStart,bridge:isBridge,predictedDur:napDur});hasPredictions=true;cursor=napEnd;projectedNapMins+=napDur;napIdx++;}// Step 2: Calculate bedtime from last nap end
-const bedWW=clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);let bedM=clampBedtime(cursor+bedWW,w);let bedTime=mtp(bedM);// Step 3: If gap to bedtime still too long, add bridge nap
-const gapToBed=bedM-cursor;if(gapToBed>ww.max+15&&napIdx>=expectedTotal){const bridgeStart=cursor+Math.round(ww.min*0.8);const bridgeDur=20;const bridgeEnd=bridgeStart+bridgeDur;if(bridgeEnd+60<bedM){items.push({icon:"\u{1F309}",label:"Bridge nap",time:`${fmt12(mtp(bridgeStart))} \u2013 ${fmt12(mtp(bridgeEnd))}`,sub:"~20m \u2014 bridge nap to reach bedtime comfortably",predicted:true,bridge:true,mins:bridgeStart});hasPredictions=true;cursor=bridgeEnd;// Recalculate bedtime from bridge end
-bedM=clampBedtime(cursor+Math.round((ww.min+ww.max)/2),w);bedTime=mtp(bedM);}}// ═══ SINGLE SOURCE: use tickDataRef.bedMins so Plan matches COMING UP ═══
+const bedWW=clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);let bedM=clampBedtime(cursor+bedWW,w);let bedTime=mtp(bedM);// Step 3: Insert a bridge nap if one is needed.
+//
+// Two signals we can trust, in priority order:
+//
+//   A. Engine signal: tickDataRef.bed.forceBridge === true.
+//      This is the authoritative decision from bedtimePrediction()
+//      which has access to personal bedtime history, scheduleOverride,
+//      sleep debt adjustments, and the full bedtimeFloor check.
+//      When the engine says forceBridge, we MUST insert a visible
+//      bridge nap into the plan, otherwise the parent sees a huge
+//      gap between the last nap and bedtime with no explanation.
+//
+//   B. Local gap math: gapToBed > ww.max + 15. Fallback for cases
+//      where tickData isn't populated yet (first render, no naps
+//      logged) but the local projection shows the gap is too long.
+//
+// Previously only B existed, with too-strict thresholds. The engine
+// would correctly return forceBridge + bridgeSuggestion, the pill
+// would show "Bridge nap needed", but the Plan timeline never
+// inserted the bridge item because gapToBed typically equals the
+// wake window value (150min for 5mo) which is NOT > ww.max + 15.
+// The bedtime override at line 27152 below would then snap bedM
+// to the engine's post-bridge time, leaving a visual gap with no
+// bridge item to fill it.
+const _enginePred=tickDataRef.current&&tickDataRef.current.bed;const _engineSaysBridge=!!(_enginePred&&_enginePred.forceBridge);const gapToBed=bedM-cursor;const _localSaysBridge=gapToBed>ww.max+15;if((_engineSaysBridge||_localSaysBridge)&&napIdx>=expectedTotal){// Use engine suggestion if available, else fall back to local math.
+const _engBridge=_engineSaysBridge&&_enginePred.bridgeSuggestion;let bridgeStart;let bridgeDur;if(_engBridge&&_engBridge.start){const[_ebh,_ebm]=_engBridge.start.split(":").map(Number);bridgeStart=_ebh*60+_ebm;bridgeDur=_engBridge.duration||20;}else{bridgeStart=cursor+Math.round(ww.min*0.8);bridgeDur=20;}const bridgeEnd=bridgeStart+bridgeDur;// Sanity: bridge has to start after cursor (can't bridge backward)
+// and end at least 30 min before bedtime cap.
+const _safeStart=Math.max(cursor+10,bridgeStart);const _safeEnd=_safeStart+bridgeDur;if(_safeEnd+30<_ageBedCeiling){items.push({icon:"\u{1F309}",label:"Bridge nap",time:`${fmt12(mtp(_safeStart))} \u2013 ${fmt12(mtp(_safeEnd))}`,sub:`~${bridgeDur}m bridge nap to reach bedtime comfortably`,predicted:true,bridge:true,mins:_safeStart});hasPredictions=true;cursor=_safeEnd;// Recalculate bedtime from bridge end. Prefer engine's time
+// if it's reasonable (after cursor + 60min), else local.
+const _engineBed=_enginePred&&_enginePred.time?(()=>{const[_eh,_em]=_enginePred.time.split(":").map(Number);return _eh*60+_em;})():null;if(_engineBed&&_engineBed>=cursor+60){bedM=_engineBed;}else{bedM=clampBedtime(cursor+Math.round((ww.min+ww.max)/2),w);}bedTime=mtp(bedM);}}// ═══ SINGLE SOURCE: use tickDataRef.bedMins so Plan matches COMING UP ═══
 // BUT: only override if the tickData bedtime is actually AFTER the
 // last projected nap end + a safe wake window. Otherwise we'd show
 // "Nap 3 6:00pm–6:50pm, Bedtime 6:30pm", a nap ending AFTER bedtime.
