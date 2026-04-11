@@ -417,7 +417,6 @@ var OBDatabase = {
     if (!SQL) { this._initInProgress = false; return Promise.resolve(false); }
     var self = this;
     try {
-      // Use unencrypted for existing users — encryption requires migration which risks data loss
       return SQL.createConnection({ database: 'obubba', version: 1, encrypted: false, mode: 'no-encryption' })
         .then(function() { return SQL.open({ database: 'obubba' }); })
         .then(function() {
@@ -709,95 +708,7 @@ var OBStatusBar = {
   }
 };
 
-// ── 20. IN-APP PURCHASES (StoreKit 2 / Google Play Billing) ────
-// Bridges to the native OBStore Capacitor plugin on both iOS and Android.
-// Sets window._purchases for the app to use.
-var OBStore = {
-  _products: null,
-
-  // Load all products from the store
-  getProducts: function() {
-    if (!isNative()) return Promise.resolve([]);
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.resolve([]);
-    try {
-      return Store.getProducts().then(function(result) {
-        var products = result.products || [];
-        OBStore._products = products;
-        return products;
-      }).catch(function(e) {
-        console.warn('[OBStore] getProducts error:', e);
-        return [];
-      });
-    } catch(e) { return Promise.resolve([]); }
-  },
-
-  // Get a single product by period (monthly/annual/lifetime)
-  getProduct: function(period) {
-    var _findProduct = function(products) {
-      if (!products || !products.length) return null;
-      for (var i = 0; i < products.length; i++) {
-        var p = products[i];
-        if (period === 'monthly' && p.period === 'monthly') return p;
-        if (period === 'annual' && p.period === 'annual') return p;
-        if (period === 'lifetime' && p.type === 'nonConsumable') return p;
-      }
-      return null;
-    };
-
-    // Use cached products if available
-    if (OBStore._products) return Promise.resolve(_findProduct(OBStore._products));
-
-    // Otherwise load first
-    return OBStore.getProducts().then(function(products) {
-      return _findProduct(products);
-    });
-  },
-
-  // Purchase a product (pass the product object from getProduct)
-  purchase: function(product) {
-    if (!isNative() || !product) return Promise.resolve({ success: false });
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.resolve({ success: false });
-    try {
-      return Store.purchase({ productId: product.id }).then(function(result) {
-        return result;
-      }).catch(function(e) {
-        console.warn('[OBStore] purchase error:', e);
-        return { success: false, error: (e && e.message) || 'purchase_failed' };
-      });
-    } catch(e) { return Promise.resolve({ success: false, error: 'error' }); }
-  },
-
-  // Restore purchases
-  restore: function() {
-    if (!isNative()) return Promise.resolve({ isPremium: false });
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.resolve({ isPremium: false });
-    try {
-      return Store.restore().then(function(result) {
-        return result;
-      }).catch(function(e) {
-        console.warn('[OBStore] restore error:', e);
-        return { isPremium: false };
-      });
-    } catch(e) { return Promise.resolve({ isPremium: false }); }
-  },
-
-  // Check active entitlements (returns boolean)
-  checkEntitlements: function() {
-    if (!isNative()) return Promise.resolve(false);
-    var Store = _plug('OBStore');
-    if (!Store) return Promise.resolve(false);
-    try {
-      return Store.getEntitlements().then(function(result) {
-        return !!(result && result.isPremium);
-      }).catch(function() { return false; });
-    } catch(e) { return Promise.resolve(false); }
-  }
-};
-
-// ── 21. PREFERENCES (Key-Value, replaces localStorage on native) ─
+// ── 20. PREFERENCES (Key-Value, replaces localStorage on native) ─
 var OBPreferences = {
   get: function(key) {
     if (!isNative()) return Promise.resolve(localStorage.getItem(key));
@@ -842,21 +753,8 @@ window.OBNative = {
   lifecycle: OBAppLifecycle,
   screen: OBScreen,
   statusBar: OBStatusBar,
-  preferences: OBPreferences,
-  store: OBStore
+  preferences: OBPreferences
 };
-
-// ── Set up window._purchases for app.jsx to consume ────────────
-// The app uses window._purchases.checkEntitlements(), .getProduct(), .purchase(), .restore()
-if (isNative()) {
-  window._purchases = {
-    checkEntitlements: OBStore.checkEntitlements,
-    getProduct: OBStore.getProduct,
-    purchase: OBStore.purchase,
-    restore: OBStore.restore,
-    getProducts: OBStore.getProducts
-  };
-}
 
 // ── AUTO-INIT on native ─────────────────────────────────────────
 // Guard: only run once per page load to prevent double-init
@@ -883,8 +781,6 @@ if (isNative() && !window.__obNativeInitDone) {
         OBSiri.donateAllShortcuts();
       }
       // Widget data managed by main app — skip legacy sender
-      // Preload store products so paywall opens instantly
-      OBStore.getProducts();
     } catch(e) {
       console.warn('Native init error:', e);
     }
