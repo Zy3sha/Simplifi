@@ -6560,13 +6560,21 @@ function App(){
                   setBackupCode(code);
                   try{ localStorage.setItem("backup_code",code); }catch{}
                 }
-                // Restore child sync codes from username doc (survives UID changes after reinstall)
+                // Restore child sync codes from username doc (survives UID changes after reinstall).
+                // SECURITY: Do NOT merge local sync codes into the authenticated account.
+                // The cloud account is the source of truth for what children belong to this user.
+                // If a device still has localStorage from a previous different account (e.g. a
+                // parent logging into another user's account to troubleshoot), merging would
+                // inject their children's sync codes into the new account. Use cloud only.
+                // Also filter out any codes the user has explicitly blacklisted.
                 if(uData.childSyncCodes && typeof uData.childSyncCodes === "object") {
-                  const _storedCodes = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
-                  const _merged = {...uData.childSyncCodes, ..._storedCodes};
-                  setChildSyncCodes(_merged);
-                  try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_merged)); }catch{}
-                  Object.entries(_merged).forEach(([cid,sc])=>subscribeToChildSync(cid,sc));
+                  const _blacklisted = (()=>{try{return JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");}catch{return [];}})();
+                  const _cleanCodes = Object.fromEntries(
+                    Object.entries(uData.childSyncCodes).filter(([cid])=>!_blacklisted.includes(cid))
+                  );
+                  setChildSyncCodes(_cleanCodes);
+                  try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_cleanCodes)); }catch{}
+                  Object.entries(_cleanCodes).forEach(([cid,sc])=>subscribeToChildSync(cid,sc));
                 }
               }
             } catch(e){ console.warn("OBubba username lookup error",e); }
@@ -6584,13 +6592,17 @@ function App(){
                   setBackupCode(ec);
                   try{ localStorage.setItem("backup_code",ec); }catch{}
                 }
-                // Restore child sync links (for linked parties without username)
+                // Restore child sync links (for linked parties without username).
+                // SECURITY: Cloud is source of truth. Do not merge local codes — see
+                // the matching comment on the username path above for rationale.
                 if(_u2d.childSyncCodes && typeof _u2d.childSyncCodes === "object") {
-                  const _storedCodes = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
-                  const _merged = {..._u2d.childSyncCodes, ..._storedCodes};
-                  setChildSyncCodes(_merged);
-                  try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_merged)); }catch{}
-                  Object.entries(_merged).forEach(([cid,sc])=>subscribeToChildSync(cid,sc));
+                  const _blacklisted = (()=>{try{return JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");}catch{return [];}})();
+                  const _cleanCodes = Object.fromEntries(
+                    Object.entries(_u2d.childSyncCodes).filter(([cid])=>!_blacklisted.includes(cid))
+                  );
+                  setChildSyncCodes(_cleanCodes);
+                  try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_cleanCodes)); }catch{}
+                  Object.entries(_cleanCodes).forEach(([cid,sc])=>subscribeToChildSync(cid,sc));
                 }
               }
             } catch(e){ console.warn("OBubba early uid_to_backup lookup error",e); }
@@ -7602,12 +7614,41 @@ function App(){
   }
   const subscribeToChildSync = React.useCallback((childId, code) => {
     if(!window._fb || !code) return;
+    // SECURITY: Blacklist gate. If the user has explicitly removed this child
+    // from their account, do not subscribe. Prevents ghost re-hydration after
+    // a user cleans up an accidentally-leaked child.
+    try {
+      const _bl = JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");
+      if (Array.isArray(_bl) && _bl.includes(childId)) return;
+    } catch {}
 
     if(childSubsRef.current[childId]) childSubsRef.current[childId]();
     const {db, doc, onSnapshot} = window._fb;
     const unsub = onSnapshot(doc(db,"child_syncs",code), (snap) => {
       if(!snap.exists()){ cloudSyncedRef.current = true; return; }
       const d = snap.data();
+
+      // SECURITY: If the code has been explicitly deactivated (via regenerate /
+      // severing the link), unsubscribe immediately and clean up local state so
+      // the child stops appearing. Without this, a regenerated code on the
+      // owner side would still push child data through this listener for
+      // however long the old doc lives.
+      if (d.isActive === false) {
+        try { childSubsRef.current[childId] && childSubsRef.current[childId](); } catch {}
+        delete childSubsRef.current[childId];
+        setChildSyncCodes(prev => {
+          if (!prev[childId]) return prev;
+          const n = {...prev}; delete n[childId];
+          try { localStorage.setItem("child_sync_codes_v1", JSON.stringify(n)); } catch {}
+          return n;
+        });
+        setChildren(prev => {
+          if (!prev[childId]) return prev;
+          const n = {...prev}; delete n[childId];
+          return n;
+        });
+        return;
+      }
 
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
       if(d.updatedBy && window._fbUid && d.updatedBy === window._fbUid) return;
@@ -7616,23 +7657,48 @@ function App(){
           const remoteChild = JSON.parse(d.child);
           setChildren(prev => {
             const existing = prev[childId];
+            // SECURITY: Also re-check the blacklist at mutation time, so a
+            // race between delete and snapshot can't resurrect a removed child.
+            try {
+              const _bl2 = JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");
+              if (Array.isArray(_bl2) && _bl2.includes(childId)) return prev;
+            } catch {}
             if(!existing) {
-
-              return {...prev, [childId]: {...remoteChild, id: childId}};
+              // Even on first hydration, filter out entries the user has
+              // explicitly deleted on this device. Without this, a freshly
+              // loaded child would pull back every deleted entry from cloud.
+              const _cleanedDays = {};
+              Object.entries(remoteChild.days||{}).forEach(([date, entries]) => {
+                _cleanedDays[date] = (entries||[]).filter(e =>
+                  e && e.id && !deletedEntryIdsRef.current.has(e.id)
+                );
+              });
+              return {...prev, [childId]: {...remoteChild, id: childId, days: _cleanedDays}};
             }
 
             const mergedDays = {...(existing.days||{})};
             Object.entries(remoteChild.days||{}).forEach(([date, entries]) => {
+              // ALWAYS filter remote entries through the deletion blacklist
+              // before they can enter local state. Previously this filter was
+              // only applied in the "merge extras" branch, so a day whose only
+              // entry had been deleted locally (leaving local empty) would
+              // silently re-absorb every cloud entry for that day.
+              const filteredRemote = (entries||[]).filter(e =>
+                e && e.id && !deletedEntryIdsRef.current.has(e.id)
+              );
               const local = mergedDays[date] || [];
-              if(!local.length){ mergedDays[date] = entries; return; }
+              if(!local.length){ mergedDays[date] = filteredRemote; return; }
               const seen = new Set(local.map(e=>e.id));
-              const extra = (entries||[]).filter(e=>e.id && !seen.has(e.id) && !deletedEntryIdsRef.current.has(e.id));
+              const extra = filteredRemote.filter(e=>!seen.has(e.id));
               if(extra.length) {
                 const dt2=new Date(date+"T12:00:00"); dt2.setDate(dt2.getDate()-1);
                 const prevD3=dt2.toISOString().slice(0,10);
                 mergedDays[date] = autoClassifyNight([...local, ...extra], mergedDays[prevD3]||null);
               }
             });
+            // Also rebuild the top-level child with the cleaned days, so the
+            // spread of remoteChild doesn't reintroduce deleted entries from
+            // its own days map in the remoteChild object itself.
             return {...prev, [childId]: {...remoteChild, id:childId, days:mergedDays}};
           });
         }
@@ -7663,6 +7729,16 @@ function App(){
       const childId = d.childId;
       if(!childId) return {ok:false, error:"Invalid sync code"};
 
+      // SECURITY: Joining removes this child from the blacklist (the user
+      // has explicitly opted in), so previously-blacklisted ghosts can be
+      // re-adopted intentionally if needed.
+      try {
+        const _bl = JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");
+        if (Array.isArray(_bl) && _bl.includes(childId)) {
+          const _bl2 = _bl.filter(x=>x!==childId);
+          localStorage.setItem("ob_removed_child_ids", JSON.stringify(_bl2));
+        }
+      } catch {}
       setChildren(prev => {
         if(prev[childId]) return prev;
         let remoteChild = {};
@@ -7681,6 +7757,29 @@ function App(){
       if(_unameJ) {
         try { const _kJ = _unameJ.toLowerCase().replace(/[^a-z0-9_]/g,""); await fsSet("usernames", _kJ, {childSyncCodes:_allCodesJ}, true); } catch(e){}
       }
+      // VISIBILITY: Record this joiner in the child_syncs document so the
+      // code owner (sharer) can see who has access. Uses arrayUnion via
+      // merge:true with a participants array of {uid, username, joinedAt}.
+      try {
+        const _fb = window._fb;
+        if (_fb && window._fbUid) {
+          const _participantEntry = {
+            uid: window._fbUid,
+            username: familyUsername || localStorage.getItem("family_username") || "",
+            joinedAt: new Date().toISOString()
+          };
+          // Read current participants, append if not already present, write back.
+          const _curSnap = await fsGet("child_syncs", clean);
+          const _curData = _curSnap.exists() ? _curSnap.data() : {};
+          const _curParticipants = Array.isArray(_curData.participants) ? _curData.participants : [];
+          const _alreadyIn = _curParticipants.some(p=>p && p.uid === window._fbUid);
+          if (!_alreadyIn) {
+            await fsSet("child_syncs", clean, {
+              participants: [..._curParticipants, _participantEntry]
+            }, true);
+          }
+        }
+      } catch(e) { console.warn("OBubba participant record error", e); }
       trackEvent("child_sync_joined");
       return {ok:true, childName: d.childName || "child"};
     } catch(e) { return {ok:false, error:"Something went wrong. please try again"}; }
@@ -7690,7 +7789,26 @@ function App(){
       childSubsRef.current[childId]();
       delete childSubsRef.current[childId];
     }
-    setChildSyncCodes(prev => {const n={...prev};delete n[childId];return n;});
+    // SECURITY: Add to persistent removal blacklist so no snapshot, login
+    // restore, or merge path can silently re-add this child. This survives
+    // app restart (unlike React state) and is checked at every snapshot
+    // apply and subscription attempt.
+    try {
+      const _bl = JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");
+      if (!Array.isArray(_bl)) throw new Error("bad blacklist");
+      if (!_bl.includes(childId)) {
+        _bl.push(childId);
+        localStorage.setItem("ob_removed_child_ids", JSON.stringify(_bl));
+      }
+    } catch {
+      try { localStorage.setItem("ob_removed_child_ids", JSON.stringify([childId])); } catch {}
+    }
+    setChildSyncCodes(prev => {
+      const n={...prev};
+      delete n[childId];
+      try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(n)); }catch{}
+      return n;
+    });
     setChildren(prev => {const n={...prev};delete n[childId];return n;});
     // Persist removal to cloud so unlinked child doesn't reappear after reinstall
     (async()=>{
