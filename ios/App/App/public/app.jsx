@@ -6199,7 +6199,19 @@ function App(){
       let _syncCodesForCloud = {};
       try { _syncCodesForCloud = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}"); } catch {}
       // Entry-level merge: read cloud state, merge entries by ID, then write
-      // This prevents two parents logging simultaneously from overwriting each other
+      // This prevents two parents logging simultaneously from overwriting each other.
+      //
+      // CRITICAL: this merge MUST respect the deletion blacklists
+      // (`deletedDaysRef` and `deletedEntryIdsRef`). Without these checks,
+      // deleting a day on one device caused a tug-of-war with cloud:
+      //   1. user deletes day → gone locally, added to deletedDaysRef
+      //   2. pushToCloud fires → reads cloud (still has day)
+      //   3. merge sees "cloud has day, local doesn't" → re-adds it
+      //   4. writes resurrected day back to cloud
+      //   5. onSnapshot filters it back out locally
+      //   6. next push, loop repeats → visible flicker on the timer
+      // Filtering the incoming cloud entries through the blacklists stops
+      // the resurrection at step 3 so the delete actually sticks.
       try {
         const _cloudSnap = await fsGet("families", code);
         if (_cloudSnap.exists()) {
@@ -6212,14 +6224,26 @@ function App(){
               const cloud = _cloudChildren[cid];
               if (!cloud || !cloud.days) return;
               Object.keys(cloud.days || {}).forEach(dk => {
+                // Skip whole days the user has deleted. Without this check,
+                // the push that's meant to REMOVE a day ends up resurrecting
+                // it from the pre-delete cloud snapshot.
+                try {
+                  if (deletedDaysRef.current.has(cid + ":" + dk)) return;
+                } catch {}
                 const cloudEntries = cloud.days[dk] || [];
                 const localEntries = (local.days || {})[dk] || [];
                 if (!cloudEntries.length) return;
-                // Merge by ID: cloud entries not in local get added
+                // Merge by ID: cloud entries not in local get added,
+                // UNLESS the user has deleted that entry on this device.
                 const localIds = new Set(localEntries.map(e => e.id));
                 const merged = [...localEntries];
                 cloudEntries.forEach(ce => {
-                  if (ce.id && !localIds.has(ce.id)) {
+                  if (!ce || !ce.id) return;
+                  // Blacklist check: never re-add a deleted entry.
+                  try {
+                    if (deletedEntryIdsRef.current.has(ce.id)) return;
+                  } catch {}
+                  if (!localIds.has(ce.id)) {
                     merged.push(ce); // cloud has an entry local doesn't. keep it
                   }
                 });
