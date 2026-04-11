@@ -966,10 +966,20 @@ try{const _bl=JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");if(
 // however long the old doc lives.
 if(d.isActive===false){try{childSubsRef.current[childId]&&childSubsRef.current[childId]();}catch{}delete childSubsRef.current[childId];setChildSyncCodes(prev=>{if(!prev[childId])return prev;const n={...prev};delete n[childId];try{localStorage.setItem("child_sync_codes_v1",JSON.stringify(n));}catch{}return n;});setChildren(prev=>{if(!prev[childId])return prev;const n={...prev};delete n[childId];return n;});return;}if(d.writeToken&&d.writeToken===writeTokenRef.current)return;if(d.updatedBy&&window._fbUid&&d.updatedBy===window._fbUid)return;try{if(d.child){const remoteChild=JSON.parse(d.child);setChildren(prev=>{const existing=prev[childId];// SECURITY: Also re-check the blacklist at mutation time, so a
 // race between delete and snapshot can't resurrect a removed child.
-try{const _bl2=JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");if(Array.isArray(_bl2)&&_bl2.includes(childId))return prev;}catch{}if(!existing){// Even on first hydration, filter out entries the user has
-// explicitly deleted on this device. Without this, a freshly
-// loaded child would pull back every deleted entry from cloud.
-const _cleanedDays={};Object.entries(remoteChild.days||{}).forEach(([date,entries])=>{_cleanedDays[date]=(entries||[]).filter(e=>e&&e.id&&!deletedEntryIdsRef.current.has(e.id));});return{...prev,[childId]:{...remoteChild,id:childId,days:_cleanedDays}};}const mergedDays={...(existing.days||{})};Object.entries(remoteChild.days||{}).forEach(([date,entries])=>{// ALWAYS filter remote entries through the deletion blacklist
+try{const _bl2=JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");if(Array.isArray(_bl2)&&_bl2.includes(childId))return prev;}catch{}// Day-level deletion blacklist: entire days the user has wiped
+// must not be re-absorbed from remote snapshots. Previously only
+// the cloud-sync merge path (line 7505 area) respected this, and
+// the onSnapshot handler bypassed it — meaning a deleted day
+// would reappear the moment another device pushed or the
+// listener fired on reconnect.
+const _isDayDeleted=date=>{try{return deletedDaysRef.current.has(childId+":"+date);}catch{return false;}};if(!existing){// Even on first hydration, filter out entries the user has
+// explicitly deleted on this device AND skip whole days the
+// user has wiped. Without this, a freshly loaded child would
+// pull back every deleted entry AND every wiped day from cloud.
+const _cleanedDays={};Object.entries(remoteChild.days||{}).forEach(([date,entries])=>{if(_isDayDeleted(date))return;_cleanedDays[date]=(entries||[]).filter(e=>e&&e.id&&!deletedEntryIdsRef.current.has(e.id));});return{...prev,[childId]:{...remoteChild,id:childId,days:_cleanedDays}};}const mergedDays={...(existing.days||{})};// Also wipe any day the user has deleted from the existing local
+// state — otherwise a stale local day key could leak through.
+Object.keys(mergedDays).forEach(date=>{if(_isDayDeleted(date))delete mergedDays[date];});Object.entries(remoteChild.days||{}).forEach(([date,entries])=>{// Skip whole days the user has deleted.
+if(_isDayDeleted(date))return;// ALWAYS filter remote entries through the deletion blacklist
 // before they can enter local state. Previously this filter was
 // only applied in the "merge extras" branch, so a day whose only
 // entry had been deleted locally (leaving local empty) would
