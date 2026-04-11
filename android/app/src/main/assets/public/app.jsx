@@ -6131,6 +6131,30 @@ function App(){
     // Safety: never push blank/empty state to cloud (would wipe real data)
     const _hasData = Object.values(allChildren).some(c => c.name || Object.values(c.days||{}).some(d => d && d.length > 0));
     if(!_hasData) return;
+
+    // OWNERSHIP GUARD. This is the hard safety net that stops an account
+    // switch from leaking the previous account's children into the new
+    // account's cloud doc. When children are hydrated for an account, we
+    // stamp localStorage["ob_children_owner"] with that account's username.
+    // Before writing, we verify:
+    //   1. the stamp exists and matches the currently-signed-in username
+    //   2. the target backup code matches what we've stamped as the owner's
+    // If EITHER check fails, refuse to write. The blank-slate login flow
+    // clears the stamp and re-sets it after the new hydrate completes, so
+    // mid-switch pushes hit this gate and get dropped on the floor.
+    try {
+      const _stampedOwner = localStorage.getItem("ob_children_owner") || "";
+      const _stampedCode = localStorage.getItem("ob_children_owner_code") || "";
+      const _currentOwner = (familyUsername || localStorage.getItem("family_username") || "").trim();
+      if (_stampedOwner && _currentOwner && _stampedOwner !== _currentOwner) {
+        console.warn("pushToCloud blocked: children belong to", _stampedOwner, "but signed in as", _currentOwner);
+        return;
+      }
+      if (_stampedCode && _stampedCode !== code) {
+        console.warn("pushToCloud blocked: children owner code", _stampedCode, "≠ target", code);
+        return;
+      }
+    } catch {}
     // Throttle: if we pushed recently, queue it for later
     const _now = Date.now();
     const _elapsed = _now - _lastPushTs.current;
@@ -6810,7 +6834,10 @@ function App(){
     // Clear ALL localStorage
     const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
       "children_v1","active_child","tut_v2","install_date_v1",
-      "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1"];
+      "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",
+      // Ownership stamp MUST be cleared on logout so the next login
+      // starts with pushToCloud's guard fully armed.
+      "ob_children_owner","ob_children_owner_code"];
     keysToRemove.forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
 
     // Reset ALL app state. blank slate
@@ -6949,6 +6976,67 @@ function App(){
       if(data.deleted) { setAuthError("Username not found"); return false; }
       if(data.pinHash !== hashPin(pin)) { setAuthError("Incorrect PIN"); return false; }
       const resolvedBackup = data.backupCode || null;
+
+      // ACCOUNT-SWITCH GUARD. If the user is signing in while already
+      // signed into a DIFFERENT account (e.g. switching to help a friend
+      // debug), we must wipe local state before hydrating the new cloud
+      // doc. Otherwise the in-memory children from the previous account
+      // survive `mergeChildren`, and the next pushToCloud writes them
+      // into the new account's families doc. That is how Oliver got
+      // leaked into a friend's account and her onSnapshot then hydrated
+      // him into her own local cache. Treat a backup-code change as an
+      // account switch and clean-slate everything device-scoped.
+      let _isAccountSwitch = false;
+      try {
+        const _existingCode = backupCodeRef.current || localStorage.getItem("backup_code") || null;
+        if (_existingCode && resolvedBackup && _existingCode !== resolvedBackup) {
+          _isAccountSwitch = true;
+        }
+      } catch {}
+
+      if (_isAccountSwitch) {
+        // Gate pushes until the new account has hydrated from cloud.
+        // Without this, the auto-push effect could fire with the OLD
+        // account's state still in memory and clobber the new account's
+        // families doc before we've read from it.
+        cloudSyncedRef.current = false;
+        clearTimeout(cloudPushRef.current);
+
+        // Wipe in-memory children to a blank child so mergeChildren has
+        // nothing to leak from the previous account. The cloud hydrate
+        // below will replace this blank with the new account's real data.
+        const _blankChild = { id: uid(), name: "", dob: "", sex: "", unborn: false, days: {}, weights: [], heights: [], photos: [], milestones: {} };
+        setChildren({ [_blankChild.id]: _blankChild });
+        setActiveChildId(_blankChild.id);
+
+        // Drop ALL the per-device dedup/blacklist state. These are scoped
+        // to "what this device has deleted" and do not make sense across
+        // accounts. If the previous account's user had blacklisted a
+        // child ID that happens to match an ID in the new account, the
+        // new account's hydrate would silently refuse to load that child.
+        try {
+          deletedEntryIdsRef.current = new Set();
+          deletedDaysRef.current = new Set();
+          localStorage.removeItem("ob_removed_child_ids");
+          localStorage.removeItem("ob_deleted_days");
+          localStorage.removeItem("ob_deleted_ids");
+          // Drop the ownership stamp so pushToCloud's guard blocks any
+          // rogue push between the wipe and the new account's hydrate.
+          localStorage.removeItem("ob_children_owner");
+          localStorage.removeItem("ob_children_owner_code");
+        } catch {}
+
+        // Tear down any per-child Firestore listeners pointing at the
+        // previous account's child_syncs docs, so their onSnapshot
+        // callbacks can't fire into the new account's state.
+        try {
+          Object.values(childSubsRef.current || {}).forEach(unsub => { try { unsub(); } catch {} });
+          childSubsRef.current = {};
+          setChildSyncCodes({});
+          try { localStorage.removeItem("child_sync_codes_v1"); } catch {}
+        } catch {}
+      }
+
       if(resolvedBackup) {
         setBackupCode(resolvedBackup);
         try{ localStorage.setItem("backup_code", resolvedBackup); }catch{}
@@ -6965,6 +7053,8 @@ function App(){
               if(cloud) {
                 const cloudIds = Object.keys(cloud);
                 setChildren(prev => {
+                  // On an account switch we've already blanked prev, so
+                  // mergeChildren effectively becomes "use cloud".
                   const merged = mergeChildren(prev, cloud);
                   const cloudHasNamedChild = cloudIds.some(id => cloud[id] && cloud[id].name);
                   if (cloudHasNamedChild) {
@@ -7003,6 +7093,17 @@ function App(){
       setFamilyUsername(data.displayName || username.trim());
       try{ localStorage.setItem("family_username", data.displayName || username.trim()); }catch{}
       try{ localStorage.setItem("auth_verified","1"); }catch{}
+
+      // Stamp the owner of the newly-hydrated children state. Once this is
+      // set, pushToCloud's ownership guard will only allow writes when the
+      // signed-in username AND target backup code both match the stamp.
+      try {
+        const _ownerUsername = (data.displayName || username.trim()) || "";
+        if (_ownerUsername) localStorage.setItem("ob_children_owner", _ownerUsername);
+        if (resolvedBackup) localStorage.setItem("ob_children_owner_code", resolvedBackup);
+        // Re-open the push gate now that the new account is fully loaded.
+        cloudSyncedRef.current = true;
+      } catch {}
 
       if(!restoreDone) setRestoreDone(true);
       return true;
@@ -7427,6 +7528,29 @@ function App(){
     });
   }
   function mergeChildren(localCh, remoteCh) {
+    // SECURITY: filter remote children through the removal blacklist BEFORE
+    // merging. Without this, a family-sync snapshot or verifyLogin hydration
+    // can silently re-add a child the user has explicitly removed. This was
+    // the path that kept re-adding Oliver into a friend's account after she
+    // tapped Remove: unlinkChild added Oliver to ob_removed_child_ids, but
+    // the next families-doc snapshot re-merged him in because the blacklist
+    // was never consulted on the incoming side.
+    let _removedIds = [];
+    try {
+      const _raw = localStorage.getItem("ob_removed_child_ids");
+      if (_raw) {
+        const _parsed = JSON.parse(_raw);
+        if (Array.isArray(_parsed)) _removedIds = _parsed;
+      }
+    } catch {}
+    const _blocked = new Set(_removedIds);
+    const _filteredRemote = {};
+    Object.entries(remoteCh || {}).forEach(([id, child]) => {
+      if (_blocked.has(id)) return; // never re-absorb a removed child
+      _filteredRemote[id] = child;
+    });
+    remoteCh = _filteredRemote;
+
     const merged = {...localCh};
     Object.entries(remoteCh).forEach(([id, child]) => {
       if(!merged[id]) {
