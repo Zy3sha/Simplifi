@@ -2491,7 +2491,7 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + cToDisplay(_maxTemp).toFixed(1) + tempLabel + " logged today",
-        action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. This is a medical emergency. Call " + _emergNum + " now." : "If temp stays above 38°C for > 24h or baby is listless, call " + _helpLine + " today.",
+        action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. Call " + _emergNum + " now." : "If temp stays above " + cToDisplay(38) + tempLabel + " for > 24h or baby is listless, call " + _helpLine + " today.",
         link: "111"
       });
     } else if (_maxTemp >= 37.5 && ageWeeks < 13) {
@@ -23286,7 +23286,7 @@ function App(){
         <b>Non-emergency:</b> ${nonEmerg}<br>
         <b>If concerned:</b> Contact ${hvTitle}
       </div>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">If ${name} is unresponsive, has difficulty breathing, has a high temperature (38°C+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${emergNum}.</p>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">If ${name} is unresponsive, has difficulty breathing, has a high temperature (${cToDisplay(38)}${tempLabel}+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${emergNum}.</p>
     </div>`);
 
     // Footer
@@ -25342,7 +25342,7 @@ function App(){
       if (_recentVax.length > 0) {
         addObservation("💉", "Post-vaccination. expect disruption",
           `${_name} had vaccinations ${_recentVax[0].date === todayStr() ? "today" : "yesterday"}. For the next 24-48 hours, expect:`,
-          "• Fussiness and crying (normal immune response)\n• Lower appetite. offer smaller, frequent feeds\n• Disrupted sleep. extra wakes, harder to settle\n• Mild fever. if >38°C, infant paracetamol (if age-appropriate)\n• A lump at the injection site (normal, fades in days)\n\nThis settles within 48 hours. If fever is high (>39°C), baby is very drowsy, or you're worried, call your GP or 111.");
+          "• Fussiness and crying (normal immune response)\n• Lower appetite. offer smaller, frequent feeds\n• Disrupted sleep. extra wakes, harder to settle\n• Mild fever. if >" + cToDisplay(38) + tempLabel + ", infant paracetamol (if age-appropriate)\n• A lump at the injection site (normal, fades in days)\n\nThis settles within 48 hours. If fever is high (>" + cToDisplay(39) + tempLabel + "), baby is very drowsy, or you're worried, call your " + _doctor + ".");
       }
     } catch {}
 
