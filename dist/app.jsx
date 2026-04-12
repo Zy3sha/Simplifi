@@ -17616,7 +17616,7 @@ function App(){
           const windowOpen = new Date(); windowOpen.setHours(nwH, nwM, 0, 0);
           if (windowOpen.getTime() > now && windowOpen.getTime() < now + 12*3600000) {
             const napLabel = `Nap ${(td.napsDone||0)+1}`;
-            notifications.push({title:`🟢 ${_bn}'s nap window is open`, body:`${napLabel} window open. watch for sleepy cues (yawning, eye rubbing, fussiness). Ideal time is around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}.`, id:stableId("napwin",todayKey+td.napsDone), schedule:{at:windowOpen}, sound:"notification.wav", channelId:"obubba_reminders"});
+            notifications.push({title:`🟢 ${_bn}'s nap window is open`, body:`${napLabel} window open. watch for sleepy cues (yawning, eye rubbing, fussiness). Ideal time is around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}.`, id:stableId("napwin",todayKey+td.napsDone), schedule:{at:windowOpen}, sound:"notification.wav", channelId:"obubba_reminders", extra:{action:"start_timer"}});
           }
         }
       } catch {}
@@ -17630,7 +17630,7 @@ function App(){
       // Notify 20 min before bedtime for wind-down routine
       const bedAlert=new Date(bedTime.getTime()-20*60*1000);
       if(bedAlert.getTime()>now&&bedAlert.getTime()<now+12*3600000){
-        notifications.push({title:`Start ${_bn}'s bedtime routine`,body:`Predicted bedtime around ${fmt12(`${String(bedH).padStart(2,"0")}:${String(bedM).padStart(2,"0")}`)}. Start winding down. dim lights, quiet play, bath if part of your routine.`,id:stableId("bed",todayKey),schedule:{at:bedAlert},sound:"notification.wav"});
+        notifications.push({title:`Start ${_bn}'s bedtime routine`,body:`Predicted bedtime around ${fmt12(`${String(bedH).padStart(2,"0")}:${String(bedM).padStart(2,"0")}`)}. Start winding down. dim lights, quiet play, bath if part of your routine.`,id:stableId("bed",todayKey),schedule:{at:bedAlert},sound:"notification.wav",extra:{action:"log_sleep"}});
       }
     }
 
@@ -17673,7 +17673,7 @@ function App(){
           _nappyRemindAt = new Date(now + 30*60*1000);
         }
         if(_nappyRemindAt.getTime() > now && _nappyRemindAt.getTime() < now + 6*3600000){
-          notifications.push({title:`🧷 Time for a nappy check`,body:`It's been ${hm(nappyReminderMins)} since ${_bn}'s last change at ${fmt12(_lastNappy.time)}.`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders"});
+          notifications.push({title:`🧷 Time for a nappy check`,body:`It's been ${hm(nappyReminderMins)} since ${_bn}'s last change at ${fmt12(_lastNappy.time)}.`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders",extra:{action:"log_nappy"}});
         }
       }
     }
@@ -22025,18 +22025,18 @@ function App(){
       try { Capacitor.Plugins.LocalNotifications.cancel({notifications:[{id:medStableId},{id:medStableId+1},{id:medStableId+2}]}); } catch {}
 
       if (m.schedule === "daily") {
-        try { Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId, schedule: { on: { hour: hh, minute: mm }, every: "day", allowWhileIdle: true }, channelId: "med_reminders" }] }); } catch {}
+        try { Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId, schedule: { on: { hour: hh, minute: mm }, every: "day", allowWhileIdle: true }, channelId: "med_reminders", extra:{action:"log_medicine"} }] }); } catch {}
       } else if (m.schedule === "every_other_day") {
         try {
           const next = new Date(); next.setHours(hh, mm, 0, 0);
           if (next <= new Date()) next.setDate(next.getDate() + 1);
-          Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId + 1, schedule: { at: next, every: "day", count: 2, allowWhileIdle: true }, channelId: "med_reminders" }] }); } catch {}
+          Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId + 1, schedule: { at: next, every: "day", count: 2, allowWhileIdle: true }, channelId: "med_reminders", extra:{action:"log_medicine"} }] }); } catch {}
       } else if (m.schedule.startsWith("every_")) {
         const hrs = parseInt(m.schedule.replace("every_", "").replace("h", ""), 10);
         if (hrs > 0) {
           try {
             const next = new Date(); next.setTime(next.getTime() + hrs * 3600000);
-            Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId + 2, schedule: { at: next, every: "hour", count: hrs, allowWhileIdle: true }, channelId: "med_reminders" }] }); } catch {}
+            Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId + 2, schedule: { at: next, every: "hour", count: hrs, allowWhileIdle: true }, channelId: "med_reminders", extra:{action:"log_medicine"} }] }); } catch {}
         }
       }
       showToast(`💊 Logged + reminder set (${m.schedule.replace(/_/g, " ")})`, 3000, 1);
