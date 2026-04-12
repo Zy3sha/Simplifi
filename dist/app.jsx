@@ -18097,8 +18097,11 @@ function App(){
       }
     }
 
-    // Check for illness patterns (temp logged, unusual feeds)
-    const _recentMeds = _dk.flatMap(d => (days[d] || []).filter(e => e.type === "medicine" || (e.note && e.note.toLowerCase().includes("temp")))).length;
+    // Check for illness patterns (temp/medicine logged, unusual feeds)
+    // Medicine entries live in the separate `meds` state, not in `days`.
+    const _recentMedNotes = _dk.flatMap(d => (days[d] || []).filter(e => e.note && e.note.toLowerCase().includes("temp"))).length;
+    const _recentMedEntries = _dk.reduce((s, d) => s + ((meds[d] || []).length), 0);
+    const _recentMeds = _recentMedNotes + _recentMedEntries;
     if (_recentMeds >= 2) {
       causes.push({
         type: "illness", score: 70,
