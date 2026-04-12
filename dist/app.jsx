@@ -1546,7 +1546,11 @@ function analyzeLastNight(days, bedtimeDayKey, morningDayKey) {
       const m = _nightMins(e.time);
       if (m === null) return null;
       const fromBed = m >= bedMins ? m - bedMins : (24 * 60 - bedMins) + m;
-      const durationMin = parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0;
+      // If no duration was logged, assume a minimum of 5 minutes per wake
+      // (realistic minimum for a wake + soothe + back-to-sleep cycle).
+      // Showing "0 min awake" when a wake is logged is misleading.
+      const _rawDur = parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0;
+      const durationMin = _rawDur > 0 ? _rawDur : 5;
       const method = classifySettleMethod(e);
       return { time: e.time, mins: m, fromBedMin: fromBed, durationMin, method, raw: e };
     })
@@ -20695,6 +20699,12 @@ function App(){
     if (dayBoundary === "wake" && _isNightEntry && bedTimerDay) {
       // Wake mode: night entries always go with the bedtime
       _targetDay = bedTimerDay;
+    } else if (dayBoundary === "wake" && _isNightEntry && !bedTimerDay) {
+      // Wake mode but bedTimerDay cleared — find bedtime day from data
+      const _prevD = prevDayStr(_todayCalendar);
+      const _prevHasBed = (days[_prevD]||[]).some(e=>e.type==="sleep"&&!e.night);
+      const _todayHasBed = (days[_todayCalendar]||[]).some(e=>e.type==="sleep"&&!e.night);
+      _targetDay = _prevHasBed ? _prevD : _todayHasBed ? _todayCalendar : selDay;
     } else if (_isNightEntry && bedTimerDay && selDay !== _todayCalendar && selDay !== bedTimerDay) {
       // Midnight mode but user is viewing a random historical day — route to today
       _targetDay = _todayCalendar;
@@ -21396,10 +21406,25 @@ function App(){
       // (morning wake). Otherwise treat as mid-night wake → pause.
       const _nowH = new Date().getHours();
       const _calT = todayStr();
-      // End-of-night detection: bed was yesterday's AND it's a reasonable
-      // morning hour. Anything else (PM tap, early AM tap, today's bedtime)
-      // is a mid-night wake that should pause.
-      const _isEndOfNight = _btdForWake !== _calT && _nowH >= 5 && _nowH < 12;
+      // End-of-night detection: determine if this Wake tap is a morning
+      // wake (end the night) vs a mid-night wake (pause the timer).
+      //
+      // Case 1: bedTimerDay is YESTERDAY and it's 5am-12pm → morning wake
+      // Case 2: bedTimerDay is TODAY but bedtime was PM and now it's AM
+      //         (user logged bedtime at 8pm, crossed midnight, now 7am —
+      //         bedTimerDay is still "today" because bed was logged before
+      //         midnight, but the night is over)
+      let _isEndOfNight = _btdForWake !== _calT && _nowH >= 5 && _nowH < 12;
+      if (!_isEndOfNight && _btdForWake === _calT && _nowH >= 5 && _nowH < 12) {
+        // Check if bedtime was PM (after noon) — if so, this morning tap
+        // IS end-of-night, not a mid-night wake
+        const _bedEntries = days[_btdForWake] || [];
+        const _bedE = _bedEntries.find(e => e.type === "sleep" && !e.night);
+        if (_bedE && _bedE.time) {
+          const _bedH = parseInt(_bedE.time.split(":")[0], 10);
+          if (!isNaN(_bedH) && _bedH >= 12) _isEndOfNight = true;
+        }
+      }
       if (!_isEndOfNight) {
         // True mid-night wake. Pause the bed timer, it'll log a pending
         // wake entry, show the "Back to sleep" controls, and let user
