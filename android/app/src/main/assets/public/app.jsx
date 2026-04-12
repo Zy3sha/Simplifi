@@ -6046,7 +6046,10 @@ function App(){
           }
         }else{
           // Add to photo diary
-          setPhotos(prev=>[...prev,{id:uid(),date:selDay||todayStr(),time:nowTime(),dataUrl,note:""}]);
+          // Always date photos to TODAY (when they were taken), not
+          // the calendar day being viewed — browsing yesterday's data
+          // and snapping a photo should not backdate the photo.
+          setPhotos(prev=>[...prev,{id:uid(),date:todayStr(),time:nowTime(),dataUrl,note:""}]);
 
         }
         haptic("light")
@@ -20506,7 +20509,12 @@ function App(){
   }
 
         // Log same entry for ALL children (twins/multiples)
+        const _logAllTsRef = React.useRef(0);
         function quickAddLogForAll(type, data) {
+          // Rapid-tap dedup (same pattern as saveEntry, saveBreastFeed etc.)
+          const _laNow = Date.now();
+          if (_logAllTsRef.current && _laNow - _logAllTsRef.current < 600) return;
+          _logAllTsRef.current = _laNow;
           const ids = Object.keys(children);
           ids.forEach(cid => {
             const child = children[cid];
@@ -41277,9 +41285,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Morning Wellbeing Popup ═══ */}
       {morningMsg && (
         <div onClick={()=>setMorningMsg(null)} style={{position:"fixed",inset:0,zIndex:9995,display:"flex",alignItems:"center",justifyContent:"center",padding:32,pointerEvents:"auto"}}>
-          <div style={{background:"linear-gradient(145deg, #FFF9F0, #FFF5E8)",borderRadius:28,padding:"32px 28px",maxWidth:300,width:"100%",textAlign:"center",boxShadow:"0 24px 80px rgba(0,0,0,0.18), 0 4px 20px rgba(212,168,85,0.15)",border:"1.5px solid rgba(212,168,85,0.25)",animation:"popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)"}}>
+          <div style={{background:"var(--bg-solid, linear-gradient(145deg, #FFF9F0, #FFF5E8))",borderRadius:28,padding:"32px 28px",maxWidth:300,width:"100%",textAlign:"center",boxShadow:"0 24px 80px rgba(0,0,0,0.18), 0 4px 20px rgba(212,168,85,0.15)",border:"1.5px solid rgba(212,168,85,0.25)",animation:"popIn 0.5s cubic-bezier(0.34,1.56,0.64,1)"}}>
             <div style={{fontSize:44,marginBottom:12,filter:"drop-shadow(0 2px 4px rgba(0,0,0,0.1))"}}>{morningMsg.emoji}</div>
-            <div style={{fontSize:16,color:"#3a2e28",fontWeight:600,lineHeight:1.6,fontFamily:"'Playfair Display',serif"}}>{morningMsg.msg}</div>
+            <div style={{fontSize:16,color:C.deep,fontWeight:600,lineHeight:1.6,fontFamily:"'Playfair Display',serif"}}>{morningMsg.msg}</div>
           </div>
         </div>
       )}
