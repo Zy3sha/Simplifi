@@ -2700,7 +2700,7 @@ function buildSleepCoachDay(style, ageWeeks, dayNumber, lastNightDiag) {
         focus: "Remove the strongest association",
         tactic: "Pick the single most-used sleep association and remove it 15 seconds before baby falls asleep. If feeding to sleep: unlatch when baby is drowsy-but-still-awake. Replace with just your hand on them.",
         objective: "Strong association removed on 5 of last 7 bedtimes",
-        why: "15 seconds of disconnection from the sleep prop teaches baby 'the prop isn't what makes me sleep, I can do it myself'. Pantley calls this the removal-replacement dance.",
+        why: "15 seconds of disconnection from the sleep prop teaches baby 'the prop isn't what makes me sleep, I can do it myself'. This is the removal-replacement approach — gradually swapping the old prop for a lighter one.",
         warnings: ["Don't remove MORE than one association at a time, it overwhelms baby and you"]
       };
     }
@@ -15072,9 +15072,36 @@ function App(){
   }
 
   // ── Wet Nappy Hydration Counter ──
+  // Counts wet nappies across last 24 hours (today + yesterday) not just
+  // the current OBubba day. On wake-boundary mode, nappies logged after
+  // bedtime on yesterday's day were excluded, undercounting hydration.
   function getHydrationStatus() {
     const today = entries;
-    const wetCount = today.filter(e => { if(e.type!=="poop") return false; const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
+    const _yKey = prevDayStr(selDay);
+    const _yEntries = days[_yKey] || [];
+    // Combine today + yesterday, then filter to last 24h by time
+    const _isWet = e => { if(e.type!=="poop") return false; const _pt=(e.poopType||"").toLowerCase(); return _pt.includes("wet")||_pt==="both"; };
+    const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
+    const _isToday = selDay === todayStr();
+    // Today's wet nappies (all of them)
+    const _todayWet = today.filter(_isWet).length;
+    // Yesterday's wet nappies AFTER the equivalent time (to get 24h window)
+    // If viewing today: count yesterday's nappies from current time onwards
+    // If viewing a past day: count all of both days
+    let _yesterdayWet = 0;
+    if (_isToday) {
+      _yesterdayWet = _yEntries.filter(e => {
+        if (!_isWet(e)) return false;
+        const t = e.time || "";
+        if (!t) return true; // no time = count it
+        const [h,m] = t.split(":").map(Number);
+        if (isNaN(h)) return true;
+        return h*60+(m||0) >= _nowMins; // same hour or later = within 24h
+      }).length;
+    } else {
+      _yesterdayWet = _yEntries.filter(_isWet).length;
+    }
+    const wetCount = _todayWet + _yesterdayWet;
     const poopCount = today.filter(e => e.type === "poop" && e.poopType && e.poopType !== "wet").length;
     const target = 6;
     return { wetCount, poopCount, target, met: wetCount >= target };
@@ -38375,12 +38402,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         }
 
         const _methods = [
-          {id:"no_cry", name:"No-cry / gentle", icon:"🌙", source:"Elizabeth Pantley",
+          {id:"no_cry", name:"No-cry / gentle", icon:"🌙", source:"Evidence-based gentle approach",
            summary:"Gradually and gently weaken sleep associations over 14 days. No crying required.",
            how:"You'll slowly reduce rocking, feeding-to-sleep, or whatever prop " + _name3 + " relies on. Each day, OBubba gives you one small adjustment. By day 14, " + _name3 + " learns to settle with less help — at their own pace.",
            obubba:"OBubba tracks " + _name3 + "'s night wakes and settling time each day. If progress stalls, the plan adapts. If a day is too hard, it repeats until you're both ready.",
            best:"Parents who want zero crying and are happy with gradual progress over 2-4 weeks."},
-          {id:"chair", name:"Chair shuffle", icon:"🪑", source:"Kim West (Sleep Lady)",
+          {id:"chair", name:"Chair shuffle", icon:"🪑", source:"Gradual-distance method",
            summary:"You stay in the room with " + _name3 + ", moving your chair further from the cot each night.",
            how:"Night 1-3: sit right next to the cot, offer a reassuring hand. Night 4-6: move the chair halfway across the room. Night 7-10: sit by the door. Night 11-14: outside the door. " + _name3 + " can always see or hear you.",
            obubba:"OBubba tells you exactly where to sit each night and tracks " + _name3 + "'s settling time. If they need you closer for an extra night, the plan adjusts automatically.",
