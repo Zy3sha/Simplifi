@@ -6163,7 +6163,7 @@ function App(){
     };
   }, []);
 
-  // ═══ ANDROID BACK BUTTON — moved below all state declarations ═══
+  // (Android back button handler is after line ~6900, after all state declarations)
 
   // ═══════════════════════════════════════════════════════════════
   // ONE-SHOT MIGRATION: bedtimer night wake duration in note → field
@@ -6773,21 +6773,18 @@ function App(){
   const [_agKnownAllergy, _setAgKnownAllergy] = useState("");
   const [_agFamilyHistory, _setAgFamilyHistory] = useState("");
   // Early weaning flag. GP-approved start before 26 weeks (persisted per child)
+  // Uses resolvedActiveId (not the old selectedChild which was never declared)
   const [weaningStarted, setWeaningStarted] = useState(()=>{
-    try{ return localStorage.getItem("weaning_started_"+selectedChild)==="1"; }catch{ return false; }
+    try{ return localStorage.getItem("weaning_started_"+resolvedActiveId)==="1"; }catch{ return false; }
   });
-  const startWeaningEarly = ()=>{ try{ localStorage.setItem("weaning_started_"+selectedChild,"1"); }catch{} setWeaningStarted(true); };
+  const startWeaningEarly = ()=>{ try{ localStorage.setItem("weaning_started_"+resolvedActiveId,"1"); }catch{} setWeaningStarted(true); };
   const saveAllergenProfile = (profile) => {
     try{ localStorage.setItem("allergen_profile_v1", JSON.stringify(profile)); }catch{}
     window.location.reload();
   };
-  const[show6moTransition,setShow6moTransition]=useState(()=>{
-    try{
-      const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
-      const _shown = localStorage.getItem("transition_6mo_v1");
-      return _aw >= 26 && _aw < 30 && !_shown;
-    }catch{return false;}
-  });
+  // show6moTransition: deferred to useEffect because `age` is declared later
+  // (useMemo at ~line 10349). Using it in useState initializer causes TDZ.
+  const[show6moTransition,setShow6moTransition]=useState(false);
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
   const[modal,setModal]=useState(null);
   const[logPanel,setLogPanel]=useState(null);
@@ -10348,6 +10345,13 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("breast_active",breastActive?"1":"0");}catch{}},[breastActive]);
   const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate), [babyDob, activeChild.dueDate]);
   const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+
+  // Deferred 6-month weaning transition check (age not available at useState init)
+  React.useEffect(()=>{
+    if (!age) return;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
+    try { if (_aw >= 26 && _aw < 30 && !localStorage.getItem("transition_6mo_v1") && !show6moTransition) setShow6moTransition(true); } catch {}
+  }, [age]);
 
   // ── Day entries: simple direct access, split by night flag ──
   const resolvedDay = React.useMemo(function() {
@@ -17591,6 +17595,12 @@ function App(){
     });
 
     // ── 3. Nap Prediction ──
+    // Skip nap/bedtime notifications if baby is currently napping or sleeping.
+    // Notifications during sleep are pointless and disturb the parent.
+    const _napActive = napOn || localStorage.getItem("nap_on")==="1";
+    const _bedActive = !!bedTimerDay || !!localStorage.getItem("bed_timer_day");
+    const _sleepingNow = _napActive || (_bedActive && !bedPaused);
+
     const td=tickDataRef.current||{};
     // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
     let _notifNapMins = td.nextNapMins;
@@ -17607,7 +17617,7 @@ function App(){
       const napTime=new Date();napTime.setHours(napH,napM,0,0);
       // Notify 10 min before predicted nap (subject to quiet factor)
       const napAlert=new Date(napTime.getTime()-10*60*1000);
-      if(napAlert.getTime()>now&&napAlert.getTime()<now+12*3600000){
+      if(!_sleepingNow && napAlert.getTime()>now&&napAlert.getTime()<now+12*3600000){
         if (Math.random() <= _quietFactor) {
         const napLabel=`Nap ${(td.napsDone||0)+1} of ${td.expectedNaps||"?"}`;
         notifications.push({title:`${_bn}'s nap time approaching`,body:`${napLabel}. predicted around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}. Watch for sleepy cues.`,id:stableId("nap",todayKey+td.napsDone),schedule:{at:napAlert},sound:"notification.wav"});
@@ -17621,7 +17631,7 @@ function App(){
           const napWindowMins = _notifNapMins - Math.round((_ww.max - _ww.min) / 2); // approx when min WW is hit
           const nwH = Math.floor(napWindowMins / 60), nwM = napWindowMins % 60;
           const windowOpen = new Date(); windowOpen.setHours(nwH, nwM, 0, 0);
-          if (windowOpen.getTime() > now && windowOpen.getTime() < now + 12*3600000) {
+          if (!_sleepingNow && windowOpen.getTime() > now && windowOpen.getTime() < now + 12*3600000) {
             const napLabel = `Nap ${(td.napsDone||0)+1}`;
             notifications.push({title:`🟢 ${_bn}'s nap window is open`, body:`${napLabel} window open. watch for sleepy cues (yawning, eye rubbing, fussiness). Ideal time is around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}.`, id:stableId("napwin",todayKey+td.napsDone), schedule:{at:windowOpen}, sound:"notification.wav", channelId:"obubba_reminders", extra:{action:"start_timer"}});
           }
@@ -17630,7 +17640,7 @@ function App(){
     }
 
     // ── 4. Bedtime Prediction ──
-    if(td.bedMins&&(td.napsComplete||td.hasBedtime===false)&&!td.hasBedtime){
+    if(!_sleepingNow && td.bedMins&&(td.napsComplete||td.hasBedtime===false)&&!td.hasBedtime){
       const bedH=Math.floor(td.bedMins/60);
       const bedM=td.bedMins%60;
       const bedTime=new Date();bedTime.setHours(bedH,bedM,0,0);
