@@ -27093,7 +27093,7 @@ function App(){
           </div>
         ) : (
           <form onSubmit={e=>{e.preventDefault();setBabyName(nameIn.trim());setNameEdit(false);}} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
-            <input autoFocus value={nameIn} onChange={e=>setNameIn(e.target.value)} placeholder="e.g. Emma"
+            <input autoFocus value={nameIn} maxLength={20} onChange={e=>setNameIn(e.target.value)} placeholder="e.g. Emma"
               style={{flex:1,fontSize:18,padding:"9px 13px",borderRadius:12,border:_bN,background:"var(--card-bg)",color:C.deep,outline:_oN,fontFamily:_fI}}/>
             <button type="submit" style={{background:C.ter,border:_bN,borderRadius:10,color:"white",fontSize:14,padding:"9px 14px",cursor:_cP,fontWeight:700}}>Save</button>
             {babyName&&<button type="button" onClick={()=>setNameEdit(false)} style={{background:"var(--chip-bg)",border:_bN,borderRadius:10,color:C.mid,fontSize:14,padding:"9px 10px",cursor:_cP}}>✕</button>}
@@ -32568,6 +32568,8 @@ function App(){
                   <Inp label={`Height (${htLabel(MU)})`} type="number" step="0.1" placeholder={MU==="lbs"?"e.g. 24.4":"e.g. 62"} value={heightForm.cm} onChange={e=>setHeightForm(f=>({...f,cm:e.target.value}))} style={{marginBottom:0}}/>
                 </div>
                 <PBtn onClick={()=>{
+                  // Reject future dates
+                  if (growthForm.date > todayStr()) { showToast("Can't log measurements for a future date",2500,1); return; }
                   let saved = false;
                   if(growthForm.kg){
                     const kg = displayToKg(growthForm.kg, MU);
