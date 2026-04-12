@@ -6730,7 +6730,7 @@ function App(){
   };
   const[show6moTransition,setShow6moTransition]=useState(()=>{
     try{
-      const _aw = age ? age.totalWeeks : 0;
+      const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
       const _shown = localStorage.getItem("transition_6mo_v1");
       return _aw >= 26 && _aw < 30 && !_shown;
     }catch{return false;}
@@ -10814,7 +10814,8 @@ function App(){
           _countdownNapMins = _cachedPred.napStart_min;
         } else if (td.lastAwakeMins !== null && age) {
           // Free users: progressive WW from research
-          const _freeWW = clampWakeWindow(progressiveWW(age.totalWeeks, td.napsDone || 0, td.expectedNaps || 3), age.totalWeeks);
+          const _fwW = age.predictiveWeeks ?? age.totalWeeks;
+          const _freeWW = clampWakeWindow(progressiveWW(_fwW, td.napsDone || 0, td.expectedNaps || 3), _fwW);
           _countdownNapMins = td.lastAwakeMins + _freeWW;
         } else {
           _countdownNapMins = td.nextNapMins;
@@ -15488,7 +15489,7 @@ function App(){
     const todayNaps = today.filter(e=>e.type==="nap"&&!e.night);
     const totalDaySleep = todayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
     const wakeEntry = findMorningWake(today);
-    const ageWeeks = age.totalWeeks;
+    const ageWeeks = age.predictiveWeeks ?? age.totalWeeks;
     const ww = getWakeWindow(ageWeeks);
     const daySleepRange = getExpectedDaySleepRange(ageWeeks);
 
@@ -16075,7 +16076,7 @@ function App(){
   // Always optional and parent-led. Never a command.
   function buildGentleWakeGuidance(config) {
     if (!config.age || !config.napDurMins || !config.totalDaySleepMins) return null;
-    var w = config.age.totalWeeks;
+    var w = config.age.predictiveWeeks ?? config.age.totalWeeks;
     var name = config.babyName || "Baby";
     var napDur = config.napDurMins;
     var totalDaySleep = config.totalDaySleepMins;
@@ -17496,7 +17497,7 @@ function App(){
 
     // ── 7. Milestones Coming Up ──
     if(age&&age.totalWeeks){
-      const aw=age.totalWeeks;
+      const aw=age.predictiveWeeks ?? age.totalWeeks;
       const upcomingMs=typeof MILESTONES!=="undefined"?MILESTONES.filter(m=>!milestones[m.id]?.date&&m.weeks[0]<=aw+1&&m.weeks[0]>aw-1):[];
       if(upcomingMs.length>0){
         // Schedule for 9am tomorrow if new milestones are entering the window
@@ -17515,7 +17516,7 @@ function App(){
 
     // ── 7. New Developmental Phase ──
     if(age&&age.totalWeeks){
-      const aw=age.totalWeeks;
+      const aw=age.predictiveWeeks ?? age.totalWeeks;
       const currentPhase=DEV_PHASES.find(l=>aw>=l.windowStart&&aw<=l.windowEnd);
       if(currentPhase){
         const phaseKey="phase_"+currentPhase.phase;
@@ -17816,7 +17817,7 @@ function App(){
     const _wakeE = findMorningWake(_today);
     const _bedE = _today.find(e => e.type === "sleep" && !e.night);
     const _nightWakes = _today.filter(e => e.night);
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
     const _profile = getAgeNapProfile(_aw);
     const _ww = getWakeWindow(_aw);
     const _h = new Date().getHours();
@@ -17966,7 +17967,7 @@ function App(){
   // ── Disruption Diagnostic: cross-reference sleep, leaps, teething, regressions ──
   function disruptionDiagnostic() {
     if (!age) return null;
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
     const _n = babyName || "Baby";
     const _dk = getRecentDays(5);
     if (_dk.length < 3) return null;
@@ -18135,7 +18136,7 @@ function App(){
   // ── Nap Transition Guide ──
   function napTransitionGuide() {
     if (!age) return null;
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
     const _n = babyName || "Baby";
     const _dk = getRecentDays(DATA_WINDOWS.TRANSITION);
     if (_dk.length < 5) return null;
@@ -18322,7 +18323,8 @@ function App(){
       const _rawGap = Math.round((_nowMs - feedDate.getTime()) / 60000);
       _feedGap = _rawGap < 0 ? 0 : _rawGap;
     }
-    const _feedThreshold = age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 180 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 210 : 270;
+    const _ftW = age.predictiveWeeks ?? age.totalWeeks;
+    const _feedThreshold = _ftW < 8 ? 150 : _ftW < 17 ? 180 : _ftW < 26 ? 210 : 270;
 
     let _topReason = null;
     if (_feedGap > _feedThreshold) _topReason = "Last feed was " + hm(_feedGap) + " ago. might be waking for a feed";
@@ -18354,7 +18356,7 @@ function App(){
   function feedIntelligence() {
     if (!age) return null;
     const _n = babyName || "Baby";
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
     const _dk = Object.keys(days).sort();
     if (_dk.length < 5) return null;
 
@@ -18435,7 +18437,7 @@ function App(){
   function generateSleepStory() {
     if (!age) return null;
     const _n = babyName || "Baby";
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
     const _dk = Object.keys(days).sort();
     if (_dk.length < 3) return null;
     const _recent7 = _dk.slice(-7);
@@ -18886,7 +18888,7 @@ function App(){
           }
         }
         // 3. Short nap pattern (>5 months only)
-        if (age && age.totalWeeks >= 22) {
+        if (age && (age.predictiveWeeks ?? age.totalWeeks) >= 22) {
           const _allNapDurs = [];
           _hygieneDays.forEach(d => {
             (days[d]||[]).filter(e=>e.type==="nap"&&!e.night&&e.start&&e.end).forEach(n => {
@@ -18983,7 +18985,7 @@ function App(){
     const _bedE = _today.find(e => e.type === "sleep" && !e.night);
     const _h = new Date().getHours();
     const _nowM = _h * 60 + new Date().getMinutes();
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
     let _pred;
     const _td3 = tickDataRef.current || {};
     if (isPremium || trialActive) {
@@ -19030,7 +19032,7 @@ function App(){
       const _lastFeedTime = Math.max(..._allFeedsForGap.map(f => timeVal(f)));
       let _feedGap = _nowM - _lastFeedTime;
       if (_feedGap < 0) _feedGap += 1440; // overnight wrap
-      if (_feedGap >= 150) return { text: (age && age.totalWeeks < 3) ? "Little tummies empty quickly at this age. feeding every 2–3 hours is normal" : "Last feed was " + hm(_feedGap) + " ago. " + _n + " could be getting peckish", priority: "med" };
+      if (_feedGap >= 150) return { text: (age && (age.predictiveWeeks ?? age.totalWeeks) < 3) ? "Little tummies empty quickly at this age. feeding every 2–3 hours is normal" : "Last feed was " + hm(_feedGap) + " ago. " + _n + " could be getting peckish", priority: "med" };
     } else if (_wakeE && _awakeMin > 30) {
       return { text: "No feeds logged yet. offer a feed", priority: "med" };
     }
@@ -20946,7 +20948,7 @@ function App(){
     const nowMins = now.getHours()*60+now.getMinutes();
     const todayEntries = (days[selDay]||[]).filter(e=>!e.night);
     const allEntries = (days[selDay]||[]);
-    const aw = age ? age.totalWeeks : 12;
+    const aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 12;
     const reasons = [];
 
     // ── Gather personal averages from last 7 days ──
@@ -21729,7 +21731,7 @@ function App(){
     }, 500);
     // Safe sleep popup for new parents (0-8 months, first timer use)
     try {
-      if (age && age.totalWeeks <= 35 && !localStorage.getItem("safe_sleep_shown_v1")) {
+      if (age && (age.predictiveWeeks ?? age.totalWeeks) <= 35 && !localStorage.getItem("safe_sleep_shown_v1")) {
         localStorage.setItem("safe_sleep_shown_v1", "1");
         setTimeout(() => setShowSafeSleepPopup(true), 800);
       }
@@ -22317,7 +22319,7 @@ function App(){
     } catch {}
 
     // Tier 6: evergreen age-based fallback
-    const _aw = age ? age.totalWeeks : 0;
+    const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
     const evergreen = _aw < 13 ? [
       { icon: "🫂", title: "Skin-to-skin supports everything", body: "Even 10 minutes regulates heart rate, temperature, and stress for both of you. Try it during a fussy stretch today." },
       { icon: "👀", title: "Watch for sleepy cues", body: "Yawning, staring, quiet fussing. these come before crying. Catching them shortens the journey to sleep." },
@@ -32206,7 +32208,7 @@ function App(){
                 const _volTrend = _thisAvg!==null && _lastAvg!==null ? (_thisAvg > _lastAvg*1.1 ? "up" : _thisAvg < _lastAvg*0.9 ? "down" : "stable") : null;
 
                 // Growth spurt proximity
-                const _aw = age ? age.totalWeeks : 0;
+                const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
                 const _gsWeeks = [3,6,12,16,24,36,52];
                 const _nearGs = _gsWeeks.find(w=>Math.abs(_aw-w)<=1);
                 const _isGs = _nearGs && _volTrend === "up";
