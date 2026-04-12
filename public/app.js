@@ -1002,9 +1002,13 @@ React.useEffect(()=>{try{if(localStorage.getItem("ob_migration_bedtimer_duration
 const isSelf=/self\s*settled/i.test(e.note);// Clean the note: drop the "(Nmin)" chunk.
 const cleanedNote=e.note.replace(_re,"").replace(/\s{2,}/g," ").replace(/\s+\./g,".").trim();_touched++;_cdTouched=true;const patch={...e,note:cleanedNote};if(isSelf)patch.settleDuration=mins;else patch.assistedDuration=mins;// wakeDuration may already be set by resumeBedTimer, but set it
 // defensively for entries where it wasn't stored.
-if(!e.wakeDuration)patch.wakeDuration=mins;return patch;});nextDays[dk]=mapped;}next[cid]=_cdTouched?{...ch,days:nextDays}:ch;}return next;});// Mark done regardless of whether any entries were touched — the
-// migration is idempotent but we still only want it to run once.
-setTimeout(()=>{try{localStorage.setItem("ob_migration_bedtimer_duration_v1","1");if(_touched>0){console.log("[OBubba] Migrated "+_touched+" bed-timer night wake(s): duration now in structured field.");}}catch{}},600);}catch(e){console.warn("[OBubba] Bed-timer duration migration failed:",e);}},[]);const[tab,setTab]=useState("day");// Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
+if(!e.wakeDuration)patch.wakeDuration=mins;return patch;});nextDays[dk]=mapped;}next[cid]=_cdTouched?{...ch,days:nextDays}:ch;}return next;});// Mark done IMMEDIATELY — don't wait for setTimeout. If the app
+// crashes before the timeout fires, the flag never gets set and
+// the migration re-runs on next load, potentially re-processing
+// entries that were already modified in the state update.
+// The migration IS idempotent (checks assistedDuration/settleDuration
+// existence before patching), but marking synchronously is safer.
+try{localStorage.setItem("ob_migration_bedtimer_duration_v1","1");if(_touched>0){console.log("[OBubba] Migrated "+_touched+" bed-timer night wake(s): duration now in structured field.");}}catch{}}catch(e){console.warn("[OBubba] Bed-timer duration migration failed:",e);}},[]);const[tab,setTab]=useState("day");// Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
 const[daySubScreen,setDaySubScreen]=useState(null);const[todayPanel,setTodayPanel]=useState("log");// "log" | "plan". used inside the unified Today sub-screen
 const[showShareFamily,setShowShareFamily]=useState(false);// Day notes (free-form per day)
 const[dayNote,setDayNote]=useState("");// Load day note when selDay changes
@@ -1497,7 +1501,9 @@ const local=localById[id];const remote=remoteById[id];if(local&&!remote){// Loca
 // (session _localEntryIds tracking was causing data loss after app reload)
 merged2.push(local);}else if(remote&&!local){// Remote-only: keep (unless locally deleted)
 merged2.push(remote);}else{// Both exist: keep the one with newer modifiedAt (remote wins ties)
-const lMod=local.modifiedAt||0;const rMod=remote.modifiedAt||0;merged2.push(lMod>rMod?local:remote);}});mergedDays[date]=dedupEntries(merged2);});// Merge arrays with dedup helper
+const lMod=local.modifiedAt||0;const rMod=remote.modifiedAt||0;// Local wins ties: the user just edited locally AFTER pulling
+// cloud data, so if timestamps match, the local version is newer.
+merged2.push(lMod>=rMod?local:remote);}});mergedDays[date]=dedupEntries(merged2);});// Merge arrays with dedup helper
 function mergeByKey(local,remote,keyFn){const merged=[...(local||[])];const seen=new Set(merged.map(keyFn));(remote||[]).forEach(r=>{const k=keyFn(r);if(k&&!seen.has(k))merged.push(r);});return merged;}const mergedWeights=mergeByKey(merged[id].weights,child.weights,w=>w.date+w.kg);const mergedHeights=mergeByKey(merged[id].heights,child.heights,h=>h.date+h.cm);const mergedPhotos=mergeByKey(merged[id].photos,child.photos,p=>p.id);// Reclassify night flags on merged data. cloud may have stale night flags
 const reclassifiedDays={};const sortedDates=Object.keys(mergedDays).sort();sortedDates.forEach((date,i)=>{const prevDate=i>0?sortedDates[i-1]:null;reclassifiedDays[date]=autoClassifyNight(mergedDays[date],prevDate?mergedDays[prevDate]:null);});merged[id]={...child,days:reclassifiedDays,weights:mergedWeights,heights:mergedHeights,photos:mergedPhotos,milestones:{...(merged[id].milestones||{}),...(child.milestones||{})}};}});return merged;}function _generateSyncCode(){const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";// no I/O/0/1 to avoid confusion
 let code="";for(let i=0;i<6;i++)code+=chars[Math.floor(Math.random()*chars.length)];return code;}async function createChildSyncCode(childId,userCode){if(!window._fb)return{ok:false,error:"No connection"};const{serverTimestamp}=window._fb;const code=userCode?userCode.trim().toUpperCase():_generateSyncCode();if(code.length!==6)return{ok:false,error:"Code must be exactly 6 characters"};if(!/^[A-Z0-9]+$/.test(code))return{ok:false,error:"Letters and numbers only"};// Check if code is already taken (allow reclaim if same owner)

@@ -13304,23 +13304,29 @@ function App(){
     let lastAwakeStart = null;
     let lastAwakeMinsCheck = 0;
     sorted.forEach(function(e) {
-      const eVal = e.end ? (parseInt(e.end.split(":")[0])*60+parseInt(e.end.split(":")[1])) : (e.time ? (parseInt(e.time.split(":")[0])*60+parseInt(e.time.split(":")[1])) : 0);
+      var _parseTime = function(t) { if (!t) return NaN; var p = t.split(":"); var h = parseInt(p[0],10); var m = parseInt(p[1],10); return (isNaN(h)||isNaN(m)) ? NaN : h*60+m; };
+      var eVal = _parseTime(e.end || e.time);
+      if (isNaN(eVal)) return; // skip corrupted entries
       if (e.type==="wake" && eVal >= lastAwakeMinsCheck) { lastAwakeStart = e.time; lastAwakeMinsCheck = eVal; }
-      if (e.type==="nap" && e.end) { const endVal = parseInt(e.end.split(":")[0])*60+parseInt(e.end.split(":")[1]); if (endVal >= lastAwakeMinsCheck) { lastAwakeStart = e.end; lastAwakeMinsCheck = endVal; } }
-      else if (e.type==="nap" && e.start && !e.end) { const startVal = parseInt(e.start.split(":")[0])*60+parseInt(e.start.split(":")[1]); if (startVal >= lastAwakeMinsCheck) { lastAwakeStart = e.start; lastAwakeMinsCheck = startVal; } }
+      if (e.type==="nap" && e.end) { var endVal = _parseTime(e.end); if (!isNaN(endVal) && endVal >= lastAwakeMinsCheck) { lastAwakeStart = e.end; lastAwakeMinsCheck = endVal; } }
+      else if (e.type==="nap" && e.start && !e.end) { var startVal = _parseTime(e.start); if (!isNaN(startVal) && startVal >= lastAwakeMinsCheck) { lastAwakeStart = e.start; lastAwakeMinsCheck = startVal; } }
     });
     // If no wake or nap end found, use first entry time (e.g. first feed time)
     if (!lastAwakeStart) lastAwakeStart = wakeEntry ? wakeEntry.time : firstEntryTime;
     // Safety: also check days[selDay] directly for any nap ends we might have missed
     const _rawNaps = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night&&e.end);
     _rawNaps.forEach(function(n) {
+      if (!n.end) return;
       const [nh,nm] = n.end.split(":").map(Number);
+      if (isNaN(nh) || isNaN(nm)) return;
       const nEndMins = nh*60+nm;
       if (nEndMins > lastAwakeMinsCheck) { lastAwakeStart = n.end; lastAwakeMinsCheck = nEndMins; }
     });
 
     // Bug 5: minimum 30 min after waking
+    if (!lastAwakeStart) return null;
     const [law_h, law_m] = lastAwakeStart.split(":").map(Number);
+    if (isNaN(law_h) || isNaN(law_m)) return null;
     const lastAwakeMins = law_h*60 + law_m;
 
     // HIGH FIX #2: Clamp early wakes (before 6am) to 6:00am for FIRST nap prediction only.
