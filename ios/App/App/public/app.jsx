@@ -5616,7 +5616,8 @@ function App(){
       for (const chain of _chains) {
         const first = chain[0];
         const last  = chain[chain.length - 1];
-        const firstHour = parseInt(first.startTime.split(":")[0]);
+        if (!first.startTime || !last.endTime) continue;
+        const firstHour = parseInt(first.startTime.split(":")[0], 10);
         // Night chain = first sleep starts between 5pm and 10am. Covers
         // normal bedtime, late bedtime, and early-morning "back to sleep"
         // sessions that are really continuation of night sleep.
@@ -5654,7 +5655,7 @@ function App(){
           // Morning wake — end of the last row in the chain, but only if
           // it lands in a plausible morning window (4am–noon). Otherwise
           // leave it for the post-process morning-wake inference step.
-          const lastHour = parseInt(last.endTime.split(":")[0]);
+          const lastHour = parseInt(last.endTime.split(":")[0], 10);
           if (lastHour >= 4 && lastHour <= 12) {
             addEntry(last.endDate, {
               type: "wake",
@@ -5754,16 +5755,18 @@ function App(){
         for (const chain of _chains) {
           const first = chain[0];
           const last = chain[chain.length-1];
-          const fh = parseInt(first.startTime.split(":")[0]);
+          if (!first.startTime || !last.endTime) continue;
+          const fh = parseInt(first.startTime.split(":")[0], 10);
           const isNight = fh >= 17 || fh <= 10;
           if (isNight) {
             addEntry(first.startDate, {type:"sleep", time:first.startTime, night:false, note:first.notes||""});
             for (let i = 1; i < chain.length; i++) {
               const p = chain[i-1], n = chain[i];
+              if (!p.endTime || !n.startTime) continue;
               const g = Math.round((toAbsMs(n.startDate,n.startTime) - toAbsMs(p.endDate,p.endTime))/60000);
               if (g > 0) addEntry(p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Baby Connect ("+g+"min soothed)"});
             }
-            const lh = parseInt(last.endTime.split(":")[0]);
+            const lh = parseInt(last.endTime.split(":")[0], 10);
             if (lh >= 4 && lh <= 12) addEntry(last.endDate, {type:"wake", time:last.endTime, night:false, note:"Imported from Baby Connect"});
           } else {
             for (const row of chain) addEntry(row.startDate, {type:"nap", start:row.startTime, end:row.endTime, note:row.notes||""});
@@ -5861,16 +5864,18 @@ function App(){
         for (const chain of _chains) {
           const first = chain[0];
           const last = chain[chain.length-1];
-          const fh = parseInt(first.startTime.split(":")[0]);
+          if (!first.startTime || !last.endTime) continue;
+          const fh = parseInt(first.startTime.split(":")[0], 10);
           const isNight = fh >= 17 || fh <= 10;
           if (isNight) {
             addEntry(first.startDate, {type:"sleep", time:first.startTime, night:false, note:first.notes||""});
             for (let i = 1; i < chain.length; i++) {
               const p = chain[i-1], n = chain[i];
+              if (!p.endTime || !n.startTime) continue;
               const g = Math.round((toAbsMs(n.startDate,n.startTime) - toAbsMs(p.endDate,p.endTime))/60000);
               if (g > 0) addEntry(p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Sprout ("+g+"min soothed)"});
             }
-            const lh = parseInt(last.endTime.split(":")[0]);
+            const lh = parseInt(last.endTime.split(":")[0], 10);
             if (lh >= 4 && lh <= 12) addEntry(last.endDate, {type:"wake", time:last.endTime, night:false, note:"Imported from Sprout"});
           } else {
             for (const row of chain) addEntry(row.startDate, {type:"nap", start:row.startTime, end:row.endTime, note:row.notes||""});
@@ -11614,7 +11619,7 @@ function App(){
                   </button>
                 );
               })()}
-              <button onClick={resumeBedTimer} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
+              <button onClick={()=>resumeBedTimer()} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7BA68C,#5A8A6C)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,marginBottom:6}}>
                 {"\u{1F319}"} Baby's settled. back to sleep
               </button>
             </div>
@@ -13662,7 +13667,7 @@ function App(){
     const loggedBedtimeData = _bedRecentDays
       .map((rd, idx) => {
         const e = rd.entries.find(x => x.type==="sleep" && !x.night);
-        if (!e) return null;
+        if (!e || !e.time) return null;
         const [h,m] = e.time.split(":").map(Number);
         const recency = 0.4 + 0.6 * (idx / Math.max(_bedRecentDays.length - 1, 1));
         return { mins: h*60+m, weight: recency };
@@ -13762,11 +13767,11 @@ function App(){
       const _nightMaxByAge = _pWks < 13 ? 600 : _pWks < 26 ? 720 : _pWks < 52 ? 720 : _pWks < 78 ? 690 : 660; // minutes
       const _nightDurations = _bedRecentDays.map(rd => {
         const bedE = rd.entries.find(x => x.type === "sleep" && !x.night);
-        if (!bedE) return null;
+        if (!bedE || !bedE.time) return null;
         try {
           const nextDayE = resolveHistoricalDay(nextCalDay(rd.dayKey), days);
           const nextWk = findMorningWake(nextDayE);
-          if (!nextWk) return null;
+          if (!nextWk || !nextWk.time) return null;
           const [bh2,bm2] = bedE.time.split(":").map(Number);
           const [wh2,wm2] = nextWk.time.split(":").map(Number);
           let dur = (wh2*60+wm2+1440) - (bh2*60+bm2);
