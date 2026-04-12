@@ -6764,6 +6764,7 @@ function App(){
   const[searchResults,setSearchResults]=useState(null);
   const[showSearch,setShowSearch]=useState(false);
   const[showCryingHelper,setShowCryingHelper]=useState(false);
+  const[showSleepCoach,setShowSleepCoach]=useState(false);
   const[logForAll,setLogForAll]=useState(false);
   const[showSupportModal,setShowSupportModal]=useState(false);
   const[showBreathing,setShowBreathing]=useState(false);
@@ -31641,118 +31642,37 @@ function App(){
 
               {/* ═══ SCHEDULE BUILDER. moved to Today tab dashboard ═══ */}
 
-              {/* ═══ SLEEP COACH. 14-day guided plan, premium ═══ */}
+              {/* ═══ SLEEP COACH entry point → opens dedicated sub-screen ═══ */}
               {age && (age.predictiveWeeks??age.totalWeeks) >= 16 && (()=>{
-                try {
-                  // Persisted sleep-coach state — style + start date + dismissals
-                  const _scRaw = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
-                  const _sc = _scRaw ? (()=>{try{return JSON.parse(_scRaw);}catch{return null;}})() : null;
-                  const _unlockedSC = hasAccess();
-
-                  // Auto-reset if user had the removed "gradual" (Ferber) style
-                  if (_sc && _sc.style === "gradual") {
-                    try { localStorage.removeItem("ob_sleep_coach_v1"); } catch {}
-                  }
-                  // Not started yet — style picker
-                  if (!_sc || !_sc.style || _sc.style === "gradual") {
-                    return (
-                      <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                          <span style={_S.f18}>🗓</span>
-                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach · 14-day plan</div>
-                          {!_unlockedSC && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                const _scRaw2 = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
+                const _sc2 = _scRaw2 ? (()=>{try{return JSON.parse(_scRaw2);}catch{return null;}})() : null;
+                // Auto-reset removed Ferber style
+                if (_sc2 && _sc2.style === "gradual") { try{localStorage.removeItem("ob_sleep_coach_v1");}catch{} }
+                const _hasActivePlan = _sc2 && _sc2.style && _sc2.style !== "gradual";
+                const _unlockedSC2 = hasAccess();
+                let _dayLabel2 = "";
+                if (_hasActivePlan) {
+                  const _start2 = new Date(_sc2.startDate + "T00:00:00");
+                  const _elapsed2 = Math.floor((new Date() - _start2) / (24*60*60*1000));
+                  _dayLabel2 = _elapsed2 >= 14 ? "Complete ✓" : "Day " + Math.min(14, Math.max(1, _elapsed2 + 1)) + "/14";
+                }
+                return (
+                  <button onClick={()=>{haptic();if(!_unlockedSC2){triggerPaywall("sleep_coach",true);}else{setShowSleepCoach(true);}}} className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)",cursor:_cP,textAlign:"left",width:"100%",fontFamily:_fI}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:22}}>🗓</span>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach</div>
+                          <div style={{fontSize:11,color:C.lt}}>{_hasActivePlan ? ({no_cry:"No-cry / gentle",chair:"Chair shuffle",parent_led:"Parent-led rhythm"}[_sc2.style]||_sc2.style) + " · " + _dayLabel2 : "14-day personalised plan"}</div>
                         </div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>
-                          The 14-day sleep-coaching plan a consultant charges £300–£800 for. Four evidence-based styles. Pick one and OBubba walks you through it day by day with the reasoning explained.
-                        </div>
-                        {_unlockedSC ? (
-                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                            {[
-                              {id:"no_cry", name:"No-cry / gentle", sub:"Pantley method · removes sleep associations slowly"},
-                              {id:"chair", name:"Chair shuffle", sub:"Sleep Lady · you stay in the room, move further each night"},
-                              {id:"parent_led", name:"Parent-led rhythm only", sub:"No training · stabilise the environment and wait it out"},
-                            ].map(style => (
-                              <button key={style.id} onClick={()=>{
-                                haptic();
-                                try{localStorage.setItem("ob_sleep_coach_v1", JSON.stringify({style:style.id, startDate: todayStr()}));}catch{}
-                                setForceRender(c=>c+1);
-                              }} style={{padding:"12px 14px",borderRadius:12,border:"1px solid "+C.blush,background:"var(--card-bg)",textAlign:"left",cursor:_cP,fontFamily:_fI}}>
-                                <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{style.name}</div>
-                                <div style={{fontSize:11,color:C.lt,marginTop:2}}>{style.sub}</div>
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <button onClick={()=>triggerPaywall("sleep_coach", true)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
-                            Unlock Sleep Coach
-                          </button>
-                        )}
                       </div>
-                    );
-                  }
-
-                  // Started — show today's day plan
-                  const _start = new Date(_sc.startDate + "T00:00:00");
-                  const _now = new Date();
-                  const _daysElapsed = Math.floor((_now - _start) / (24*60*60*1000));
-                  // 14-day plan is complete after day 14 has passed.
-                  // Show a "complete" card with a restart option instead of
-                  // pinning Day 14 forever.
-                  if (_daysElapsed >= 14) {
-                    return (
-                      <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(111,168,152,0.08),rgba(155,184,168,0.04))", border:"1.5px solid rgba(111,168,152,0.3)"}}>
-                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>🎉 14-day plan complete</div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>You finished the {({no_cry:"No-cry",chair:"Chair shuffle",parent_led:"Parent-led"}[_sc.style])||_sc.style} plan. If the new rhythm has stuck, keep doing what's working. If things are still rocky, start another 14-day run with a different style.</div>
-                        <button onClick={()=>{
-                          try{localStorage.removeItem("ob_sleep_coach_v1");}catch{}
-                          setForceRender(c=>c+1);
-                        }} style={{width:"100%",padding:"10px",borderRadius:99,border:"1px solid "+C.blush,background:"var(--card-bg)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP}}>
-                          Pick a new style
-                        </button>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        {!_unlockedSC2 && <span style={{fontSize:9,padding:"2px 8px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                        <span style={{fontSize:16,color:C.lt}}>→</span>
                       </div>
-                    );
-                  }
-                  const _dayNum = Math.min(14, Math.max(1, _daysElapsed + 1));
-                  const _plan = buildSleepCoachDay(_sc.style, (age.predictiveWeeks??age.totalWeeks), _dayNum, _nightDiagnosisMemo);
-                  if (!_plan) return null;
-                  const _styleLabel = {no_cry:"No-cry / gentle", chair:"Chair shuffle", parent_led:"Parent-led rhythm"}[_sc.style] || _sc.style;
-                  return (
-                    <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)"}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={_S.f18}>🗓</span>
-                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach · Day {_plan.day}/14</div>
-                        </div>
-                        <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>{_styleLabel}</div>
-                      </div>
-                      {_unlockedSC ? (
-                        <>
-                          <div style={{fontSize:11,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4}}>Today's focus</div>
-                          <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>{_plan.focus}</div>
-                          <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:8,padding:"10px 12px",background:"var(--card-bg)",borderRadius:10}}>{_plan.tactic}</div>
-                          <div style={{fontSize:11,color:C.deep,fontWeight:600,marginBottom:4}}>✓ {_plan.objective}</div>
-                          <div style={{fontSize:10,color:C.lt,lineHeight:1.5,fontStyle:"italic",marginTop:6,paddingTop:6,borderTop:"1px dashed rgba(111,168,152,0.2)"}}>{_plan.why}</div>
-                          {_plan.warnings && _plan.warnings.length > 0 && (
-                            <div style={{marginTop:8,padding:"8px 10px",background:"rgba(212,168,85,0.08)",borderRadius:8,border:"1px solid rgba(212,168,85,0.25)"}}>
-                              {_plan.warnings.map((w,i)=><div key={i} style={{fontSize:10,color:C.gold,lineHeight:1.5}}>⚠ {w}</div>)}
-                            </div>
-                          )}
-                          <button onClick={()=>{
-                            showConfirm("Change sleep coach style?", "You'll start a new 14-day plan from day 1.", ()=>{
-                              try{localStorage.removeItem("ob_sleep_coach_v1");}catch{}
-                              setConfirmDialog(null);
-                              setForceRender(c=>c+1);
-                            }, "Yes, change style");
-                          }} style={{marginTop:8,fontSize:10,color:C.lt,background:"none",border:"none",textDecoration:"underline",cursor:_cP,fontFamily:_fM}}>Change style or restart</button>
-                        </>
-                      ) : (
-                        <button onClick={()=>triggerPaywall("sleep_coach", true)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
-                          Unlock Sleep Coach
-                        </button>
-                      )}
                     </div>
-                  );
-                } catch(e) { console.warn("sleep coach render error", e); return null; }
+                  </button>
+                );
               })()}
 
               {/* ═══ SLEEP INSIGHTS. clean, flat, no collapsible ═══ */}
@@ -38412,6 +38332,134 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           </div>
         </div>
       )}
+
+      {/* ═══ SLEEP COACH FULL-SCREEN ═══ */}
+      {showSleepCoach && (()=>{
+        const _scRaw3 = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
+        const _sc3 = _scRaw3 ? (()=>{try{return JSON.parse(_scRaw3);}catch{return null;}})() : null;
+        if (_sc3 && _sc3.style === "gradual") { try{localStorage.removeItem("ob_sleep_coach_v1");}catch{} }
+        const _hasActive3 = _sc3 && _sc3.style && _sc3.style !== "gradual";
+        const _name3 = babyName || "Baby";
+        const _ageW3 = age ? (age.predictiveWeeks ?? age.totalWeeks) : 20;
+
+        // Active plan day info
+        let _dayNum3 = 0, _plan3 = null, _complete3 = false;
+        if (_hasActive3) {
+          const _start3 = new Date(_sc3.startDate + "T00:00:00");
+          const _elapsed3 = Math.floor((new Date() - _start3) / (24*60*60*1000));
+          _complete3 = _elapsed3 >= 14;
+          _dayNum3 = Math.min(14, Math.max(1, _elapsed3 + 1));
+          _plan3 = buildSleepCoachDay(_sc3.style, _ageW3, _dayNum3, null);
+        }
+
+        const _methods = [
+          {id:"no_cry", name:"No-cry / gentle", icon:"🌙", source:"Elizabeth Pantley",
+           summary:"Gradually and gently weaken sleep associations over 14 days. No crying required.",
+           how:"You'll slowly reduce rocking, feeding-to-sleep, or whatever prop " + _name3 + " relies on. Each day, OBubba gives you one small adjustment. By day 14, " + _name3 + " learns to settle with less help — at their own pace.",
+           obubba:"OBubba tracks " + _name3 + "'s night wakes and settling time each day. If progress stalls, the plan adapts. If a day is too hard, it repeats until you're both ready.",
+           best:"Parents who want zero crying and are happy with gradual progress over 2-4 weeks."},
+          {id:"chair", name:"Chair shuffle", icon:"🪑", source:"Kim West (Sleep Lady)",
+           summary:"You stay in the room with " + _name3 + ", moving your chair further from the cot each night.",
+           how:"Night 1-3: sit right next to the cot, offer a reassuring hand. Night 4-6: move the chair halfway across the room. Night 7-10: sit by the door. Night 11-14: outside the door. " + _name3 + " can always see or hear you.",
+           obubba:"OBubba tells you exactly where to sit each night and tracks " + _name3 + "'s settling time. If they need you closer for an extra night, the plan adjusts automatically.",
+           best:"Parents who want to be physically present but help " + _name3 + " learn to settle independently."},
+          {id:"parent_led", name:"Parent-led rhythm", icon:"🌿", source:"No formal method",
+           summary:"No sleep training at all. Stabilise the environment, keep routines consistent, and let development do the work.",
+           how:"Focus on wake windows, consistent bedtime routine, dark room, and white noise. " + _name3 + "'s sleep will naturally consolidate as their brain matures. OBubba optimises the timing so you're not guessing.",
+           obubba:"OBubba fine-tunes " + _name3 + "'s wake windows and bedtime each day based on actual data. You follow the predictions. no training, no stress, just rhythm.",
+           best:"Parents who believe in waiting for developmental readiness, or babies under 5 months."},
+        ];
+
+        return (
+          <div onClick={e=>{if(e.target===e.currentTarget)setShowSleepCoach(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:510,display:"flex",alignItems:"flex-end"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+              <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
+                <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowSleepCoach(false)} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
+              </div>
+              <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
+
+              <div style={{textAlign:"center",marginBottom:20}}>
+                <div style={{fontSize:36,marginBottom:8}}>🗓</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:6}}>Sleep Coach</div>
+                <div style={{fontSize:13,color:C.mid,lineHeight:1.5,maxWidth:320,margin:"0 auto"}}>
+                  A personalised 14-day plan that adapts to {_name3}'s data every night. Three gentle, evidence-based approaches — no cry-it-out, ever.
+                </div>
+              </div>
+
+              {/* Active plan status */}
+              {_hasActive3 && !_complete3 && _plan3 && (
+                <div style={{padding:"16px",borderRadius:16,background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))",border:"1.5px solid rgba(123,104,238,0.25)",marginBottom:20}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Day {_plan3.day}/14 · {({no_cry:"No-cry",chair:"Chair shuffle",parent_led:"Parent-led"}[_sc3.style])||_sc3.style}</div>
+                    <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>Active</div>
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4}}>Today's focus</div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>{_plan3.focus}</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:8,padding:"10px 12px",background:"var(--card-bg)",borderRadius:10}}>{_plan3.tactic}</div>
+                  <div style={{fontSize:11,color:C.deep,fontWeight:600,marginBottom:4}}>✓ {_plan3.objective}</div>
+                  <div style={{fontSize:10,color:C.lt,lineHeight:1.5,fontStyle:"italic",marginTop:6,paddingTop:6,borderTop:"1px dashed rgba(111,168,152,0.2)"}}>{_plan3.why}</div>
+                  {_plan3.warnings && _plan3.warnings.length > 0 && (
+                    <div style={{marginTop:8,padding:"8px 10px",background:"rgba(212,168,85,0.08)",borderRadius:8,border:"1px solid rgba(212,168,85,0.25)"}}>
+                      {_plan3.warnings.map((w,i)=><div key={i} style={{fontSize:10,color:C.gold,lineHeight:1.5}}>⚠ {w}</div>)}
+                    </div>
+                  )}
+                  <button onClick={()=>{
+                    showConfirm("Change sleep coach style?", "You'll start a new 14-day plan from day 1.", ()=>{
+                      try{localStorage.removeItem("ob_sleep_coach_v1");}catch{}
+                      setConfirmDialog(null);
+                      setForceRender(c=>c+1);
+                    }, "Yes, change style");
+                  }} style={{marginTop:10,fontSize:11,color:C.lt,background:"none",border:"none",textDecoration:"underline",cursor:_cP,fontFamily:_fM}}>Change style or restart</button>
+                </div>
+              )}
+
+              {_complete3 && (
+                <div style={{padding:"16px",borderRadius:16,background:"linear-gradient(135deg,rgba(111,168,152,0.08),rgba(155,184,168,0.04))",border:"1.5px solid rgba(111,168,152,0.3)",marginBottom:20,textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>🎉</div>
+                  <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>14-day plan complete</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>You finished the {({no_cry:"No-cry",chair:"Chair shuffle",parent_led:"Parent-led"}[_sc3.style])||_sc3.style} plan. If the new rhythm has stuck, keep doing what's working. If things are still unsettled, try a different approach below.</div>
+                </div>
+              )}
+
+              {/* Method cards */}
+              <div style={{fontSize:11,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:10}}>{_hasActive3 && !_complete3 ? "All methods" : "Choose your approach"}</div>
+              {_methods.map(m => (
+                <div key={m.id} style={{padding:"16px",borderRadius:16,border:(_hasActive3 && _sc3.style === m.id) ? "1.5px solid "+C.ter : "1px solid var(--card-border)",background:(_hasActive3 && _sc3.style === m.id) ? C.ter+"08" : "var(--card-bg)",marginBottom:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <span style={{fontSize:22}}>{m.icon}</span>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{m.name}</div>
+                      <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>Based on {m.source}</div>
+                    </div>
+                    {_hasActive3 && _sc3.style === m.id && <span style={{fontSize:9,padding:"2px 8px",borderRadius:99,background:C.ter+"22",color:C.ter,fontWeight:700,marginLeft:"auto"}}>ACTIVE</span>}
+                  </div>
+                  <div style={{fontSize:13,color:C.deep,fontWeight:600,marginBottom:6}}>{m.summary}</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:8}}>{m.how}</div>
+                  <div style={{fontSize:12,color:C.mint,lineHeight:1.5,padding:"10px 12px",borderRadius:10,background:C.mint+"08",border:"1px solid "+C.mint+"15",marginBottom:8}}>
+                    <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>How OBubba helps</div>
+                    {m.obubba}
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginBottom:10}}>Best for: {m.best}</div>
+                  {(!_hasActive3 || _sc3.style !== m.id || _complete3) && (
+                    <button onClick={()=>{
+                      haptic();
+                      try{localStorage.setItem("ob_sleep_coach_v1", JSON.stringify({style:m.id, startDate: todayStr()}));}catch{}
+                      setForceRender(c=>c+1);
+                      showToast("🗓 " + m.name + " plan started. Day 1 begins tonight.",3000,1);
+                    }} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7b68ee,#5a4cbf)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                      {_complete3 && _sc3.style === m.id ? "Start again" : "Start this plan"}
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <div style={{fontSize:11,color:C.lt,lineHeight:1.5,textAlign:"center",marginTop:8,padding:"0 20px"}}>
+                All methods are gentle and evidence-based. None involve leaving {_name3} to cry alone. You can switch methods at any time.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Why Is My Baby Crying?. helper sheet */}
       {showCryingHelper&&(()=>{
