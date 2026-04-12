@@ -2035,9 +2035,12 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
       if (e.night) { _nightMl += e.amount; _nightN++; }
       else { _dayMl += e.amount; _dayN++; }
     });
-    // Need at least 3 day and 3 night volume-bearing feeds to make a
-    // meaningful comparison. Otherwise small sample sizes produce noise.
-    if (_nightN >= 3 && _dayN >= 3) {
+    // Need at least 2 day and 2 night volume-bearing feeds to make a
+    // meaningful comparison. Raising this to 3 (earlier fix) was too
+    // conservative and missed real reverse cycling in parents with
+    // only 1–2 bottles/night. 2-per-pool still gives a meaningful
+    // comparison and is sensitive enough to catch early cases.
+    if (_nightN >= 2 && _dayN >= 2) {
       const _nightAvg = _nightMl / _nightN;
       const _dayAvg = _dayMl / _dayN;
       if (!isNaN(_nightAvg) && !isNaN(_dayAvg) && _nightAvg > _dayAvg * 1.3 && _nightAvg > 100) {
@@ -5669,21 +5672,21 @@ function App(){
         if (!startDate || !startTime) { skipped++; continue; }
         if (/feed|bottle|nurs|breast/i.test(activity)) {
           const isBreast = /nurs|breast/i.test(activity);
-          // Parse volume from details field. Baby Connect may include
-          // units inline ("5 oz", "150 ml"). Detect the unit so an oz
-          // export imported while the user is on ml doesn't produce a
-          // 5ml entry (or vice versa). If no unit present, assume ml
-          // (most export apps default to metric for export).
+          // Parse volume from details field. Only convert oz→ml when
+          // the field EXPLICITLY contains an oz hint. If no unit is
+          // named, fall back to the user's current fluidUnit setting
+          // rather than guessing from number size.
           let _amount = 0;
           const _num = parseFloat(details);
           if (!isNaN(_num) && _num > 0) {
             const _hasOz = /\boz\b|fl\.?\s*oz|fluid/i.test(details);
             const _hasMl = /\bml\b|millilit/i.test(details);
-            if (_hasOz || (!_hasMl && _num < 12)) {
-              // Small number + oz hint = convert oz to ml
+            if (_hasOz) {
               _amount = Math.round(_num * 29.5735);
-            } else {
+            } else if (_hasMl) {
               _amount = Math.round(_num);
+            } else {
+              _amount = (fluidUnit === "oz") ? Math.round(_num * 29.5735) : Math.round(_num);
             }
           }
           addEntry(startDate, {type:"feed", time:startTime, feedType:isBreast?"breast":"milk", amount:_amount, note:notes});
@@ -5763,18 +5766,23 @@ function App(){
         if (!dateStr || !timeStr) { skipped++; continue; }
         if (/feed|bottle|nurs|breast/i.test(cat)) {
           const isBreast = /nurs|breast/i.test(cat);
-          // Same unit detection as Baby Connect — Sprout's Quantity
-          // column may include unit inline. Detect oz vs ml to avoid
-          // silent 30x volume errors across unit systems.
+          // Unit detection: only convert oz→ml when the quantity
+          // EXPLICITLY contains an oz hint. If neither unit is named,
+          // fall back to the user's current fluidUnit setting rather
+          // than guessing from number size — a 10ml feed with no unit
+          // hint should NOT be interpreted as 10oz/295ml.
           let _amount = 0;
           const _num = parseFloat(quantity);
           if (!isNaN(_num) && _num > 0) {
             const _hasOz = /\boz\b|fl\.?\s*oz|fluid/i.test(quantity);
             const _hasMl = /\bml\b|millilit/i.test(quantity);
-            if (_hasOz || (!_hasMl && _num < 12)) {
+            if (_hasOz) {
               _amount = Math.round(_num * 29.5735);
-            } else {
+            } else if (_hasMl) {
               _amount = Math.round(_num);
+            } else {
+              // No unit hint — trust user's current fluidUnit setting
+              _amount = (fluidUnit === "oz") ? Math.round(_num * 29.5735) : Math.round(_num);
             }
           }
           addEntry(dateStr, {type:"feed", time:timeStr, feedType:isBreast?"breast":"milk", amount:_amount, note:notes});
@@ -8329,6 +8337,11 @@ function App(){
   // declared — crashed with ReferenceError the first time a parent
   // tapped the × button to dismiss a morning card.
   const [forceRender, setForceRender] = React.useState(0);
+  // Rapid-tap guard for saveEntry. If the parent double-taps Save in
+  // < 600ms, the second call is dropped. Fixes the one remaining gap
+  // in the entry-dedup story (id-based filter doesn't help because
+  // each call generates a fresh uid).
+  const _saveEntryTsRef = React.useRef(0);
 
   const restoreRanRef = React.useRef(false);
 
@@ -20748,6 +20761,14 @@ function App(){
     }
   }
   function saveEntry(){
+    // Rapid-tap dedup: if saveEntry fired less than 600ms ago (the
+    // realistic human double-tap window), abort. The id-filter fix
+    // earlier didn't work because a fresh uid is minted on every call,
+    // so two double-taps produce two different ids and both pass the
+    // filter. This time-based guard is the correct approach.
+    const _nowMs = Date.now();
+    if (_saveEntryTsRef.current && _nowMs - _saveEntryTsRef.current < 600) return;
+    _saveEntryTsRef.current = _nowMs;
     const _userChoseNight = (eType==="feed"||eType==="wake"||eType==="sleep");
     let e={id:editEntry?editEntry.id:uid(),note:form.note||"",nightLocked:_userChoseNight?true:(editEntry?editEntry.nightLocked:false),modifiedAt:Date.now()};
     const formTime = form.time || nowTime();
@@ -24488,11 +24509,13 @@ function App(){
     try { localStorage.setItem("ob_deleted_days", JSON.stringify([...deletedDaysRef.current])); } catch {}
     const cnt = (days[dayToDelete]||[]).length;
     userDeletedCountRef.current += cnt;
-    // If the deleted day is the active bed-timer day, tear the timer
-    // down — otherwise the timer keeps ticking against a day that no
-    // longer exists, the Live Activity keeps displaying, and the lock-
-    // screen notification stays up with stale data.
-    if (bedTimerDay === dayToDelete) {
+    // If the deleted day is the active bed-timer day OR the day
+    // before it (i.e. the night the timer is running through), tear
+    // the timer down. Otherwise the timer keeps ticking against a day
+    // that no longer exists, the Live Activity keeps displaying, and
+    // the lock-screen notification stays up with stale data.
+    const _prevBedDay = bedTimerDay ? prevDayStr(bedTimerDay) : null;
+    if (bedTimerDay === dayToDelete || _prevBedDay === dayToDelete) {
       setBedTimerDay(null);
       setBedPaused(false);
       setBedPauseStart(null);
