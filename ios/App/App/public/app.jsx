@@ -23258,11 +23258,18 @@ function App(){
       try {
         const _stored = JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");
         // Reuse token if created within 30 days
-        if(_stored && _stored.token && _stored.created && (Date.now()-new Date(_stored.created).getTime()) < 30*24*60*60*1000) return _stored.token;
-        // Generate new short-lived carer token
+        if(_stored && _stored.token && _stored.created && (Date.now()-new Date(_stored.created).getTime()) < 30*24*60*60*1000) {
+          // Ensure it's in Firestore (might have failed on first push)
+          try { if(window._fb && _stored.backupCode) { window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_stored.token),{backupCode:_stored.backupCode,updatedAt:window._fb.serverTimestamp()},{merge:true}).catch(()=>{}); } } catch {}
+          return _stored.token;
+        }
+        // Generate new carer token
         const _bc = backupCode || "";
         const _newToken = "CT" + _bc.substring(2,6) + Math.random().toString(36).substring(2,6).toUpperCase();
         localStorage.setItem("ob_carer_token_v1", JSON.stringify({token:_newToken, created: new Date().toISOString(), backupCode: _bc}));
+        // Write to Firestore IMMEDIATELY so the carer link works right away
+        // (previously only written during pushToCloud which might not have fired yet)
+        try { if(window._fb && _bc) { window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_newToken),{backupCode:_bc,updatedAt:window._fb.serverTimestamp()},{merge:true}).catch(()=>{}); } } catch {}
         return _newToken;
       } catch { return backupCode||""; }
     })();

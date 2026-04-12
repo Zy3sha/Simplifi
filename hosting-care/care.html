@@ -145,12 +145,21 @@ if (!rawCode || rawCode.length < 4) {
   signInAnonymously(auth).then(async () => {
     // If code is a CT token, look up the real backup code from carer_tokens collection
     if (rawCode.startsWith("CT")) {
-      try {
-        const _tokenDoc = await getDoc(doc(db, "carer_tokens", rawCode));
-        if (_tokenDoc.exists() && _tokenDoc.data().backupCode) {
-          code = _tokenDoc.data().backupCode;
-        }
-      } catch(e) { console.warn("CT token lookup failed", e); }
+      let _resolved = false;
+      // Try up to 3 times with 1s delay (token may not have synced yet)
+      for (let _attempt = 0; _attempt < 3 && !_resolved; _attempt++) {
+        try {
+          if (_attempt > 0) await new Promise(r => setTimeout(r, 1000));
+          const _tokenDoc = await getDoc(doc(db, "carer_tokens", rawCode));
+          if (_tokenDoc.exists() && _tokenDoc.data().backupCode) {
+            code = _tokenDoc.data().backupCode;
+            _resolved = true;
+          }
+        } catch(e) { console.warn("CT token lookup attempt " + (_attempt+1) + " failed", e); }
+      }
+      if (!_resolved) {
+        console.warn("CT token not found after 3 attempts, code stays as:", code);
+      }
     }
     await loadFamilyContext();
     renderApp();
