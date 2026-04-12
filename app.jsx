@@ -5488,7 +5488,9 @@ function App(){
         return `${dateKey}|poop|${time}|${entry.poopType||""}`;
       }
       if (t === "nap") {
-        return `${dateKey}|nap|${entry.start||""}|${entry.end||""}`;
+        // Use start time only — end times vary slightly between exports
+        // and using both caused re-imports to create duplicates
+        return `${dateKey}|nap|${entry.start||""}`;
       }
       if (t === "sleep") {
         return `${dateKey}|sleep|${time}`;
@@ -5680,10 +5682,11 @@ function App(){
         const last  = chain[chain.length - 1];
         if (!first.startTime || !last.endTime) continue;
         const firstHour = parseInt(first.startTime.split(":")[0], 10);
-        // Night chain = first sleep starts between 5pm and 10am. Covers
-        // normal bedtime, late bedtime, and early-morning "back to sleep"
-        // sessions that are really continuation of night sleep.
-        const isNightChain = firstHour >= 17 || firstHour <= 10;
+        // Night chain = first sleep starts between 5pm and 5am. Covers
+        // normal bedtime, late bedtime, and early-morning continuation.
+        // Previously used <= 10 which misclassified 5am-10am morning naps
+        // as bedtime entries, making them disappear from the day view.
+        const isNightChain = firstHour >= 17 || firstHour < 5;
 
         if (isNightChain) {
           // Bedtime entry
@@ -5701,7 +5704,7 @@ function App(){
             const gapMins = Math.round(
               (toAbsMs(next.startDate, next.startTime) - toAbsMs(prev.endDate, prev.endTime)) / 60000
             );
-            if (gapMins <= 0) continue;
+            if (gapMins < 0) continue; // allow 0-gap (consecutive sleep = brief wake)
             addEntry(prev.endDate, {
               type: "wake",
               time: prev.endTime,
@@ -5819,7 +5822,7 @@ function App(){
           const last = chain[chain.length-1];
           if (!first.startTime || !last.endTime) continue;
           const fh = parseInt(first.startTime.split(":")[0], 10);
-          const isNight = fh >= 17 || fh <= 10;
+          const isNight = fh >= 17 || fh < 5;
           if (isNight) {
             addEntry(first.startDate, {type:"sleep", time:first.startTime, night:false, note:first.notes||""});
             for (let i = 1; i < chain.length; i++) {
@@ -5928,7 +5931,7 @@ function App(){
           const last = chain[chain.length-1];
           if (!first.startTime || !last.endTime) continue;
           const fh = parseInt(first.startTime.split(":")[0], 10);
-          const isNight = fh >= 17 || fh <= 10;
+          const isNight = fh >= 17 || fh < 5;
           if (isNight) {
             addEntry(first.startDate, {type:"sleep", time:first.startTime, night:false, note:first.notes||""});
             for (let i = 1; i < chain.length; i++) {
