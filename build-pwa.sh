@@ -23,4 +23,12 @@ echo "Copying to dist/..."
 cp -f app.js dist/app.js
 cp -f app.jsx dist/app.jsx
 
+# Update service worker revision hash so PWA users get the new version
+echo "Updating service worker hash..."
+NEW_HASH=$(md5 -q dist/app.js 2>/dev/null || md5sum dist/app.js | cut -d' ' -f1)
+if [ -f dist/sw.js ]; then
+  sed -i '' "s|{url:\"app.js\",revision:\"[a-f0-9]*\"}|{url:\"app.js\",revision:\"${NEW_HASH}\"}|g" dist/sw.js
+  echo "SW hash updated to: $NEW_HASH"
+fi
+
 echo "Build complete."
