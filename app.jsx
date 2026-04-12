@@ -3673,96 +3673,68 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
   );
 }
 
-// ═══ SWIPEABLE ENTRY ═══
-// Apple-style swipe-to-delete + long-press-to-edit wrapper.
-// Touch: swipe left = delete, long-press = edit.
-// Desktop: double-click = edit, right side shows subtle delete on hover.
+// ═══ LONG-PRESS ENTRY ═══
+// Long-press to show edit/delete action sheet. No swipe.
 function SwipeableEntry({ entryId, onEdit, onDelete, children }) {
-  const [swipeX, setSwipeX] = React.useState(0);
-  const [swiped, setSwiped] = React.useState(false);
-  const [isMoving, setIsMoving] = React.useState(false);
-  const touchRef = React.useRef({ startX: 0, startY: 0, moved: false, lpTimer: null });
-  const DELETE_THRESHOLD = 80;
+  const [showActions, setShowActions] = React.useState(false);
+  const touchRef = React.useRef({ moved: false, lpTimer: null });
 
-  // Reset on entry change
-  React.useEffect(() => { setSwipeX(0); setSwiped(false); }, [entryId]);
-
-  // Cleanup long-press timer on unmount
+  React.useEffect(() => { setShowActions(false); }, [entryId]);
   React.useEffect(() => {
     return () => { if (touchRef.current.lpTimer) clearTimeout(touchRef.current.lpTimer); };
   }, []);
 
   function onTouchStart(ev) {
-    const t = ev.touches[0];
-    touchRef.current = { startX: t.clientX, startY: t.clientY, moved: false, lpTimer: null };
-    setIsMoving(false);
-    // Start long-press timer (500ms)
+    touchRef.current = { moved: false, lpTimer: null };
     touchRef.current.lpTimer = setTimeout(() => {
       if (!touchRef.current.moved) {
         haptic("medium");
-        onEdit();
+        setShowActions(true);
         touchRef.current.lpTimer = null;
       }
     }, 500);
   }
 
-  function onTouchMove(ev) {
-    const t = ev.touches[0];
-    const dx = touchRef.current.startX - t.clientX;
-    const dy = Math.abs(t.clientY - touchRef.current.startY);
-    // Cancel long-press if moved more than 10px
-    if (Math.abs(dx) > 10 || dy > 10) {
-      touchRef.current.moved = true;
-      if (touchRef.current.lpTimer) { clearTimeout(touchRef.current.lpTimer); touchRef.current.lpTimer = null; }
-    }
-    // Only track horizontal swipe (must be more horizontal than vertical)
-    if (Math.abs(dx) > 20 && Math.abs(dx) > dy * 1.5) {
-      setIsMoving(true);
-      const clampedX = dx > 0 ? -Math.min(dx, DELETE_THRESHOLD + 20) : 0;
-      setSwipeX(clampedX);
-      if (swiped && dx < 20) { setSwiped(false); }
-    }
+  function onTouchMove() {
+    touchRef.current.moved = true;
+    if (touchRef.current.lpTimer) { clearTimeout(touchRef.current.lpTimer); touchRef.current.lpTimer = null; }
   }
 
   function onTouchEnd() {
     if (touchRef.current.lpTimer) { clearTimeout(touchRef.current.lpTimer); touchRef.current.lpTimer = null; }
-    setIsMoving(false);
-    if (Math.abs(swipeX) >= DELETE_THRESHOLD) {
-      setSwipeX(-DELETE_THRESHOLD);
-      setSwiped(true);
-    } else {
-      setSwipeX(0);
-      setSwiped(false);
-    }
-  }
-
-  function handleTap() {
-    if (swiped) { setSwipeX(0); setSwiped(false); }
   }
 
   return (
-    React.createElement("div", { style: { position: "relative", overflow: "hidden", borderRadius: 16, marginBottom: 0 } },
-      // Delete action (behind the card)
-      React.createElement("div", {
-        onClick: (ev) => { ev.stopPropagation(); onDelete(); },
-        style: { position: "absolute", right: 0, top: 0, bottom: 0, width: DELETE_THRESHOLD,
-          background: "linear-gradient(90deg, #d04050, #c03040)", display: "flex",
-          alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4,
-          color: "white", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans',sans-serif",
-          cursor: "pointer", borderRadius: "0 16px 16px 0" }
-      }, React.createElement("span", { style: { fontSize: 18 } }, "\uD83D\uDDD1"), "Delete"),
-      // Slideable entry content
-      React.createElement("div", {
-        onTouchStart: onTouchStart,
-        onTouchMove: onTouchMove,
-        onTouchEnd: onTouchEnd,
-        onClick: handleTap,
-        onDoubleClick: onEdit, // Desktop fallback: double-click to edit
-        style: { transform: "translateX(" + swipeX + "px)",
-          transition: isMoving ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-          position: "relative", zIndex: 1, background: "var(--card-bg)", borderRadius: 16,
-          willChange: "transform", WebkitUserSelect: "none", userSelect: "none" }
-      }, children)
+    React.createElement("div", {
+      style: { position: "relative", borderRadius: 16 },
+      onTouchStart: onTouchStart,
+      onTouchMove: onTouchMove,
+      onTouchEnd: onTouchEnd,
+      onDoubleClick: () => setShowActions(true),
+    },
+      children,
+      // Action sheet overlay
+      showActions && React.createElement("div", {
+        onClick: () => setShowActions(false),
+        style: { position: "absolute", inset: 0, borderRadius: 16, background: "rgba(44,31,26,0.85)",
+          backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 12, zIndex: 5, animation: "fadeIn 0.15s ease" }
+      },
+        React.createElement("button", {
+          onClick: (ev) => { ev.stopPropagation(); setShowActions(false); onEdit(); },
+          style: { padding: "10px 20px", borderRadius: 99, border: "none",
+            background: "#7b68ee", color: "white", fontSize: 13, fontWeight: 700,
+            cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex",
+            alignItems: "center", gap: 6 }
+        }, "✎ Edit"),
+        React.createElement("button", {
+          onClick: (ev) => { ev.stopPropagation(); setShowActions(false); onDelete(); },
+          style: { padding: "10px 20px", borderRadius: 99, border: "none",
+            background: "#d04050", color: "white", fontSize: 13, fontWeight: 700,
+            cursor: "pointer", fontFamily: "'DM Sans',sans-serif", display: "flex",
+            alignItems: "center", gap: 6 }
+        }, "✕ Delete")
+      )
     )
   );
 }
@@ -29079,49 +29051,9 @@ function App(){
                 </div>
               )}
 
-              {/* Feeding confidence indicator (0-26 weeks).
-                  Extended from 0-13wk to 0-26wk so the wet-nappy × feed
-                  cross-check benefits babies through the weaning-start
-                  window. For babies ≥ 6 months, solids volume dominates
-                  and feed-count alerts start misleading, so we cap it
-                  there. The key insight the cross-check provides: if
-                  wet nappies are normal, hydration is fine even when
-                  feed counts look low — don't panic the parent. */}
-              {age && (age.predictiveWeeks ?? age.totalWeeks) < 26 && todayPanel==="log" && selDay===todayStr() && (()=>{
-                const _fcEntries = days[selDay] || [];
-                const _fcFeeds = _fcEntries.filter(function(e){ return e.type==="feed"; }).length;
-                const _fcHydration = smartHydration(_fcEntries, age.predictiveWeeks ?? age.totalWeeks);
-                const _fcAgeW = age.predictiveWeeks ?? age.totalWeeks;
-                const _fcTarget = _fcAgeW < 4 ? 8 : _fcAgeW < 13 ? 6 : 5;
-                const _h = new Date().getHours();
-                // Don't show the card before 9am or before a morning wake is logged.
-                // Showing "0 feeds" at 6am when the day hasn't started is anxiety-inducing.
-                const _hasMorningWakeToday = hasMorningWake(_fcEntries);
-                if (_h < 9 && !_hasMorningWakeToday) return null;
-                if (_fcFeeds === 0 && !_hasMorningWakeToday) return null;
-                const _fcTargetByNow = Math.max(1, Math.round(_fcTarget * Math.min(_h / 20, 1)));
-                const _fcOk = _fcFeeds >= _fcTargetByNow;
-                const _fcWetOk = _fcHydration.ok || _fcHydration.count >= Math.max(1, Math.round(_fcHydration.target * Math.min(_h / 20, 1)));
-                const _fcColor = _fcOk && _fcWetOk ? "#7BA68C" : (!_fcOk && !_fcWetOk) ? "#D4A855" : "#D4A855";
-                // Gentle language. Never alarm — guide.
-                const _fcMsg = _fcOk && _fcWetOk ? "Feeding looks on track today"
-                  : (!_fcOk && !_fcWetOk) ? "Feeds and wet nappies are a little low so far today. This is just a gentle nudge — if you have any concerns, your health visitor is always happy to chat"
-                  : !_fcOk ? "Feed count is a little low, but wet nappies look normal — hydration seems fine"
-                  : "Fewer wet nappies than usual today. Worth keeping an eye on, but could just be timing";
-                return (
-                  <div style={{padding:"10px 14px",borderRadius:14,border:"1px solid "+_fcColor+"30",background:_fcColor+"08",marginBottom:10}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
-                      <div style={{width:8,height:8,borderRadius:"50%",background:_fcColor}}/>
-                      <span style={{fontSize:12,fontWeight:700,color:C.deep}}>Feeding confidence</span>
-                    </div>
-                    <div style={{display:"flex",gap:16,marginBottom:4}}>
-                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F37C}"} {_fcFeeds} feeds (target: {_fcTarget}+)</span>
-                      <span style={{fontSize:12,color:C.mid}}>{"\u{1F4A7}"} {_fcHydration.label} hydration</span>
-                    </div>
-                    <div style={{fontSize:11,color:_fcColor,fontWeight:600}}>{_fcMsg}</div>
-                  </div>
-                );
-              })()}
+              {/* Feeding confidence card REMOVED — user feedback: anxiety-inducing.
+                  Feed/hydration data still tracked in Insights tab and health
+                  red-flag detector. The Today tab should feel calm, not clinical. */}
 
               {/* ── PREMIUM: Postpartum wellbeing analyser ──
                   Upgraded from the old "0-2 weeks only" nudge. Now runs
@@ -29156,9 +29088,13 @@ function App(){
                   // Suppress the bland "positive_trajectory" default unless
                   // the first two weeks are active (the existing nudge).
                   if (_dwb.type === "positive_trajectory" && age.totalWeeks >= 2) return null;
+                  // Allow dismissing non-urgent wellbeing cards (support vacuum etc.)
+                  const _wbDismissKey = "ob_wb_dismiss_" + _dwb.type;
+                  if (!_isUrgent) { try { if (localStorage.getItem(_wbDismissKey)) return null; } catch {} }
                   return (
-                    <div style={{padding:"14px 16px",borderRadius:14,background:_isUrgent?"rgba(232,87,74,0.06)":"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid "+(_isUrgent?"rgba(232,87,74,0.35)":"rgba(212,168,85,0.2)"),marginBottom:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                    <div style={{padding:"14px 16px",borderRadius:14,background:_isUrgent?"rgba(232,87,74,0.06)":"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid "+(_isUrgent?"rgba(232,87,74,0.35)":"rgba(212,168,85,0.2)"),marginBottom:10,position:"relative"}}>
+                      {!_isUrgent && <button onClick={()=>{try{localStorage.setItem(_wbDismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:8,right:8,background:"none",border:"none",fontSize:14,color:C.lt,cursor:_cP,padding:"2px 6px",lineHeight:1}} aria-label="Dismiss">✕</button>}
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap",paddingRight:_isUrgent?0:20}}>
                         <span style={{fontSize:16}}>{_dwb.emoji}</span>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_dwb.title}</div>
                         {_isUrgent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:"#e8574a22",color:"#e8574a",fontWeight:700}}>IMPORTANT</span>}
@@ -30666,9 +30602,9 @@ function App(){
               {/* Swipe tutorial: show once per device after update */}
               {dayE.length > 0 && !showSwipeTutorial && (()=>{
                 try {
-                  if (!localStorage.getItem("ob_swipe_tutorial_v1")) {
+                  if (!localStorage.getItem("ob_swipe_tutorial_v2")) {
                     setTimeout(()=>setShowSwipeTutorial(true), 1200);
-                    localStorage.setItem("ob_swipe_tutorial_v1", "1");
+                    localStorage.setItem("ob_swipe_tutorial_v2", "1");
                   }
                 } catch {}
                 return null;
@@ -39894,20 +39830,13 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         <div onClick={()=>setShowSwipeTutorial(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:320,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
             <div style={{fontSize:36,marginBottom:12}}>👆</div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"var(--text-deep,#5B4F5F)",marginBottom:16}}>New: Edit & Delete</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"var(--text-deep,#5B4F5F)",marginBottom:16}}>Edit & Delete</div>
             <div style={{display:"flex",flexDirection:"column",gap:14,textAlign:"left",marginBottom:20}}>
-              <div style={{display:"flex",alignItems:"center",gap:12}}>
-                <span style={{fontSize:28,flexShrink:0}}>👈</span>
-                <div>
-                  <div style={{fontSize:14,fontWeight:700,color:"var(--text-deep,#5B4F5F)"}}>Swipe left to delete</div>
-                  <div style={{fontSize:12,color:"var(--text-mid,#8A7F87)",lineHeight:1.5}}>Slide any entry left to reveal the delete button</div>
-                </div>
-              </div>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <span style={{fontSize:28,flexShrink:0}}>👆</span>
                 <div>
-                  <div style={{fontSize:14,fontWeight:700,color:"var(--text-deep,#5B4F5F)"}}>Press and hold to edit</div>
-                  <div style={{fontSize:12,color:"var(--text-mid,#8A7F87)",lineHeight:1.5}}>Long-press any entry to open the edit form</div>
+                  <div style={{fontSize:14,fontWeight:700,color:"var(--text-deep,#5B4F5F)"}}>Press and hold</div>
+                  <div style={{fontSize:12,color:"var(--text-mid,#8A7F87)",lineHeight:1.5}}>Long-press any entry to edit or delete it</div>
                 </div>
               </div>
             </div>
