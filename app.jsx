@@ -5177,9 +5177,9 @@ function App(){
   const babySex     = activeChild.sex;
   const babyUnborn  = activeChild.unborn;
   const days        = activeChild.days || {};
-  const weights     = activeChild.weights;
+  const weights     = activeChild.weights || [];
   const heights     = activeChild.heights || [];
-  const milestones  = activeChild.milestones;
+  const milestones  = activeChild.milestones || {};
 
   // ═══ DATA HELPERS. single source of truth for common day/feed/nap queries ═══
   // Sorted day keys. Pass N for last N days; omit for all.
