@@ -766,48 +766,6 @@ const htLabel = (unit) => unit === "lbs" ? "in" : "cm";
 const fmtWt = (kg, unit) => kg ? `${kgToDisplay(kg, unit)}${wtLabel(unit)}` : "";
 const fmtHt = (cm, unit) => cm ? `${cmToDisplay(cm, unit)}${htLabel(unit)}` : "";
 
-// Global time parser for use in TimeInput component (outside App scope)
-function parseTimeFree(str, previousMinutes=null) {
-  if (!str) return null;
-  str = str.trim().toLowerCase();
-  str = str.replace(/(\d+)(st|nd|rd|th)/g,"$1");
-  let m = str.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/);
-  if (m) {
-    let h = parseInt(m[1]), min = parseInt(m[2]);
-    const suffix = m[3];
-    if (suffix==="pm" && h<12) h+=12;
-    if (suffix==="am" && h===12) h=0;
-    // No suffix: if ambiguous, use previousMinutes to resolve
-    if (!suffix && previousMinutes!==null && h*60+min <= previousMinutes) {
-      const total0 = h*60+min;
-      const crossedMidnight = previousMinutes >= 1080 && total0 < 720;
-      let total = total0;
-      if (!crossedMidnight) { while(total <= previousMinutes && total < 24*60) total+=12*60; }
-      total = total % (24*60);
-      return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
-    }
-    // No suffix, no context: if h<8 assume pm (afternoon), otherwise keep as-is
-    if (!suffix && h>0 && h<=6 && previousMinutes===null) h+=12;
-    const total = (h*60+min) % (24*60);
-    return `${String(Math.floor(total/60)).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
-  }
-  m = str.match(/^(\d{1,2})\s*(am|pm)$/);
-  if (m) {
-    let h = parseInt(m[1]), min = 0;
-    const suffix = m[2];
-    if (suffix==="pm" && h<12) h+=12;
-    if (suffix==="am" && h===12) h=0;
-    return `${String(h).padStart(2,"0")}:00`;
-  }
-  // bare number: e.g. "7" or "14"
-  m = str.match(/^(\d{1,2})$/);
-  if (m) {
-    const h = parseInt(m[1]);
-    if (h >= 0 && h <= 23) return `${String(h).padStart(2,"0")}:00`;
-  }
-  return null;
-}
-
 function getAwakeWindows(entries) {
 
   const sorted=[...entries].filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
@@ -3565,7 +3523,7 @@ function Inp({label,...p}){
 
 // TimeInput: free-text time entry with live parsing preview
 // value = stored HH:MM string, onChange(parsedHHMM) called on blur/enter
-function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=false, style={}, inputStyle={}}){
+function TimeInput({label, value, onChange, nightOnly=false, style={}, inputStyle={}}){
   const [parsed, setParsed] = React.useState(value || null);
   const [showPicker, setShowPicker] = React.useState(false);
 
