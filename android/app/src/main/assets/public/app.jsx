@@ -4895,7 +4895,7 @@ function App(){
                 try { trackEvent("timer_stopped", { type: "nap", duration_mins: _durS, source: "widget" }); } catch {}
               }
               setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
-              ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+              ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
               if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
               showToast("😴 Nap stopped via Widget ✓", 3000, 1);
             } catch(e) { console.warn("[OBubba] Widget nap stop failed:", e); }
@@ -5016,7 +5016,7 @@ function App(){
                   const _dayKey = localStorage.getItem("nap_start_day") || todayStr();
                   if (!_eid || !_startT) {
                     // State-only cleanup — nothing to update in data
-                    ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+                    ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
                     setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
                     showToast("😴 Timer stopped (no entry to update)", 2500, 1);
                     return;
@@ -5036,7 +5036,7 @@ function App(){
                   });
                   // Clear all timer state in both React and localStorage.
                   setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
-                  ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+                  ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
                   if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
                   try { trackEvent("timer_stopped", { type: "nap", duration_mins: _dur, source: entry.source || "siri" }); } catch {}
                   showToast("😴 Nap stopped via " + (entry.source === "widget" ? "Widget" : "Siri") + " ✓ (" + _dur + "m)", 3000, 1);
@@ -7055,7 +7055,7 @@ function App(){
               if (match.end && match.end !== match.start) {
                 // Entry has an end time. nap was already stopped
                 console.warn("OBubba: timer entry already has end time. auto-stopping timer");
-                ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(function(k){try{localStorage.removeItem(k);}catch{}});
+                ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(function(k){try{localStorage.removeItem(k);}catch{}});
               }
             }
           });
@@ -7074,7 +7074,7 @@ function App(){
     // If nap started on a different calendar day, auto-stop
     if (napDay && napDay !== todayKey) {
       console.warn("OBubba: timer from previous day detected. auto-stopping");
-      ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+      ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
       return false;
     }
     // If nap has been running for more than 4 hours, auto-stop (likely forgotten)
@@ -7085,7 +7085,7 @@ function App(){
       const elapsedH = (now - startDate) / (1000*3600);
       if (elapsedH > 4 || elapsedH < -1) {
         console.warn("OBubba: timer running 4h+ or negative. auto-stopping");
-        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
+        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
         return false;
       }
     }
@@ -7215,7 +7215,7 @@ function App(){
       // Orphan state recovery: napOn=true but no startT means desync. reset timer
       if(on && !startT){
         console.warn("OBubba: timer orphan state detected (napOn=1 but no startT). resetting");
-        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
+        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
         return 0;
       }
       if(on && startT){
@@ -7528,7 +7528,7 @@ function App(){
           setNapPaused(false); setNapPausedAtSec(0); setTimerMode("prediction");
           setBreastSide(null); setBreastSec({L:0,R:0}); setBreastActive(false); setBreastStartTime(null);
         }
-        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","timer_mode_v1","breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));
+        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","timer_mode_v1","breast_side","breast_sec","breast_active","breast_startTime"].forEach(k=>localStorage.removeItem(k));
       }
     } catch {
       // Reset on error
@@ -10123,7 +10123,7 @@ function App(){
         const _isBedTimer = (napEntryId && (days[_bedCheckDay]||[]).some(e=>e.id===napEntryId&&e.type==="sleep"));
         if (_isBedTimer && elapsed >= 14*3600) {
           setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
-          try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+          try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
           showToast("🌅 Looks like morning's here. log " + (babyName||"baby") + "'s wake time when you're ready", 6000, 2);
           return;
         }
@@ -10171,7 +10171,7 @@ function App(){
         const startT = napStartT || localStorage.getItem("nap_startT");
         if(startT && typeof startT === 'string' && startT.includes(':')) {
           const [sh,sm]=startT.split(":").map(Number);
-          if(isNaN(sh)||isNaN(sm)){console.warn("OBubba: snapAllTimers. bad startT format:",startT);setNapOn(false);setNapStartT(null);setNapSec(0);setNapEntryId(null);setNapPaused(false);setTimerMode("prediction");try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}return;}
+          if(isNaN(sh)||isNaN(sm)){console.warn("OBubba: snapAllTimers. bad startT format:",startT);setNapOn(false);setNapStartT(null);setNapSec(0);setNapEntryId(null);setNapPaused(false);setTimerMode("prediction");try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}return;}
           const startDate=new Date(); startDate.setHours(sh,sm,0,0);
           const now=new Date();
           let elapsed=Math.floor((now-startDate)/1000);
@@ -10183,7 +10183,7 @@ function App(){
           console.warn("OBubba: snapAllTimers. napOn but no startT, resetting timer");
           setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null);
           setNapPaused(false); setNapPausedAtSec(0); setTimerMode("prediction");
-          try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+          try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
         }
       }
 
@@ -11484,6 +11484,7 @@ function App(){
     if (_pred && typeof _pred.napStart_min === "number" && !_napsComplete) {
       const _napDelta = _pred.napStart_min - _nowMinsSel;
       if (_napDelta <= 0 && _napDelta > -60) _nextEvent = { icon: "😴", text: _name + " looks ready for a nap. about " + hm(-_napDelta) + " past their usual window" };
+      else if (_napDelta <= -60) _nextEvent = { icon: "😴", text: _name + " is well past their nap window (" + hm(-_napDelta) + " overdue). settle now if you can, or consider an earlier bedtime tonight" };
       else if (_napDelta > 0 && _napDelta <= 30) _nextEvent = { icon: "😴", text: "Next nap in ~" + hm(_napDelta) + " (around " + mtp24h(_pred.napStart_min).replace(/:00/,":00") + ")" };
     }
     if (!_nextEvent && _bed && _bed.time && _napsComplete) {
@@ -19262,7 +19263,7 @@ function App(){
       } else if (_deletedEntry.type === "nap" && napEntryId === id) {
         // Also clean up the nap timer state if the active nap entry is deleted directly
         setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
-        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
         window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
       }
     }
@@ -21687,7 +21688,7 @@ function App(){
     // Stop any running nap/bedtime timer. the night is over
     if(napOn) {
       setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
-      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
     }
     setBedTimerDay(null);
     setBedPaused(false);
@@ -22620,7 +22621,7 @@ function App(){
         return {...d, [selDay]: existing.filter(x => x.id !== napEntryId)};
       });
       setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
-      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
       if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     }
     quickAddLog("sleep",{type:"sleep",time:bedTime,night:false,note:""});
@@ -22865,7 +22866,7 @@ function App(){
       }
       logBedtimeNow();
       setNapSec(0); setNapStartT(null); setNapEntryId(null);
-      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
       if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
       setTimerMode("prediction");
       return;
@@ -22902,7 +22903,7 @@ function App(){
     setTimerMode("prediction");
     // Stop Live Activity on iOS
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
-    try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+    try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
 
     // Log what we noticed. parent can read in the "What we noticed" sheet when ready
     if (durMins > 0 && !isNightTime && !hasBedtime && age) {
@@ -29096,7 +29097,8 @@ function App(){
                   // the first two weeks are active (the existing nudge).
                   if (_dwb.type === "positive_trajectory" && age.totalWeeks >= 2) return null;
                   // Allow dismissing non-urgent wellbeing cards (support vacuum etc.)
-                  const _wbDismissKey = "ob_wb_dismiss_" + _dwb.type;
+                  // Date-scoped so it re-appears on a new day (not permanently dismissed)
+                  const _wbDismissKey = "ob_wb_dismiss_" + _dwb.type + "_" + todayStr();
                   if (!_isUrgent) { try { if (localStorage.getItem(_wbDismissKey)) return null; } catch {} }
                   return (
                     <div style={{padding:"14px 16px",borderRadius:14,background:_isUrgent?"rgba(232,87,74,0.06)":"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid "+(_isUrgent?"rgba(232,87,74,0.35)":"rgba(212,168,85,0.2)"),marginBottom:10,position:"relative"}}>
