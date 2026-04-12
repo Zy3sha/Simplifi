@@ -22427,7 +22427,10 @@ function App(){
       }
     }
     // Android: persistent lock screen notification for bedtime
-    showTimerNotification("\u{1F319} " + (babyName||"Baby") + " is sleeping", "Bedtime started at " + fmt12(formTime));
+    // (Was referencing `formTime` which is undefined in this scope —
+    // defined in saveEntry, not here. The notification body was empty
+    // or crashing when it tried to read the undefined variable.)
+    showTimerNotification("\u{1F319} " + (babyName||"Baby") + " is sleeping", "Bedtime started at " + fmt12(bedTime));
     fireEventReminders("after_bedtime");
     // One-time safe sleep signpost for babies under 6 months
     try {
