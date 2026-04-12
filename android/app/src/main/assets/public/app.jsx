@@ -19466,8 +19466,6 @@ function App(){
           },
           "Undo"
         );
-        showToast("↩️ Undone",1500,1);
-        setLastAction(null);
       }
     }
     async function enableShake(){
