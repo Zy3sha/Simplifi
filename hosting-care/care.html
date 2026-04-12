@@ -666,11 +666,16 @@ function _renderHtml() {
   const _lastNapStr = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? `${fmt12(_t.lastNap.start)} – ${fmt12(_t.lastNap.end)}` : null;
   const _lastNapDur = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? (()=>{const [sh,sm]=_t.lastNap.start.split(":").map(Number);const [eh2,em2]=_t.lastNap.end.split(":").map(Number);let d2=(eh2*60+em2)-(sh*60+sm);if(d2<0)d2+=1440;return d2;})() : null;
   const _locale = (navigator.language||"en-GB").toLowerCase();
-  const _isUS = _locale.includes("en-us");
-  const _isAU = _locale.includes("en-au");
-  const _emergNum = _isUS ? "911" : _isAU ? "000" : "999";
-  const _nonEmerg = _isUS ? "Poison Control: 1-800-222-1222" : _isAU ? "13 HEALTH (13 43 25 84)" : "NHS 111";
-  const _hvTitle = _isUS ? "pediatrician" : _isAU ? "child health nurse or GP" : "health visitor or GP";
+  const _tz = (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch{return "";}})();
+  const _isUS = _locale.includes("en-us") || _tz.includes("America/");
+  const _isAU = _locale.includes("en-au") || _tz.includes("Australia/");
+  const _isCA = _locale.includes("en-ca");
+  const _isNZ = _locale.includes("en-nz") || _tz.includes("Pacific/Auckland");
+  const _isIE = _locale.includes("en-ie") || _locale === "ga";
+  const _isIN = _locale.includes("en-in") || _tz.includes("Asia/Kolkata") || _tz.includes("Asia/Calcutta");
+  const _emergNum = _isUS||_isCA ? "911" : _isAU ? "000" : _isNZ ? "111" : _isIE ? "999/112" : _isIN ? "112" : "999";
+  const _nonEmerg = _isUS ? "Poison Control: 1-800-222-1222" : _isCA ? "811 (Health Link)" : _isAU ? "13 HEALTH (13 43 25 84)" : _isNZ ? "Healthline: 0800 611 116" : _isIE ? "HSE Live: 1800 700 700" : _isIN ? "your paediatrician" : "NHS 111";
+  const _hvTitle = _isUS||_isCA ? "pediatrician" : _isAU ? "child health nurse or GP" : _isNZ ? "Plunket nurse or GP" : _isIE ? "public health nurse or GP" : _isIN ? "paediatrician" : "health visitor or GP";
   const _photoHtml = familyContext.babyPhoto ? `<div style="text-align:center;margin-bottom:12px"><img src="${familyContext.babyPhoto}" alt="${escapeHtml(_name)}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #E8DED3;box-shadow:0 4px 12px rgba(0,0,0,0.1)"/></div>` : "";
 
   $app.innerHTML = `

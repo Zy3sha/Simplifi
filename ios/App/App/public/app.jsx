@@ -2490,14 +2490,14 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
     if (_maxTemp >= 38.0) {
       _flags.push({
         severity: "urgent",
-        title: "Temperature " + _maxTemp.toFixed(1) + "°C logged today",
+        title: "Temperature " + cToDisplay(_maxTemp).toFixed(1) + tempLabel + " logged today",
         action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. This is a medical emergency. Call " + _emergNum + " now." : "If temp stays above 38°C for > 24h or baby is listless, call " + _helpLine + " today.",
         link: "111"
       });
     } else if (_maxTemp >= 37.5 && ageWeeks < 13) {
       _flags.push({
         severity: "urgent",
-        title: "Temperature " + _maxTemp.toFixed(1) + "°C in a young baby",
+        title: "Temperature " + cToDisplay(_maxTemp).toFixed(1) + tempLabel + " in a young baby",
         action: "Under 3 months, even a low-grade temperature is a medical consultation. Call " + _helpLine + " today.",
         link: "111"
       });
@@ -7687,8 +7687,18 @@ function App(){
   const[measureUnit,setMeasureUnit]=useState(()=>{
     try{const _saved=localStorage.getItem("measure_unit_v1"); if(_saved) return _saved; return _isUS?"lbs":"metric";}catch{return "metric";}
   });
+  const[tempUnit,setTempUnit]=useState(()=>{
+    try{const _saved=localStorage.getItem("temp_unit_v1"); if(_saved) return _saved; return _isUS?"f":"c";}catch{return "c";}
+  });
   const FU=fluidUnit; // shorthand for templates
   const MU=measureUnit; // "metric" or "lbs"
+  const TU=tempUnit; // "c" or "f"
+  // Temperature conversions (always store °C internally)
+  const cToF = c => Math.round((c * 9/5 + 32) * 10) / 10;
+  const fToC = f => Math.round((f - 32) * 5/9 * 10) / 10;
+  const tempToC = (val) => TU === "f" ? fToC(parseFloat(val) || 0) : parseFloat(val) || 0;
+  const cToDisplay = (c) => TU === "f" ? cToF(c) : c;
+  const tempLabel = TU === "f" ? "°F" : "°C";
     const[pasteText,setPasteText]=useState("");
   const[parsedEntries,setParsedEntries]=useState(null);
   const parsedEntriesRef = React.useRef(null);
@@ -17436,6 +17446,9 @@ function App(){
   React.useEffect(()=>{
     try{localStorage.setItem("fluid_unit_v1",fluidUnit);}catch{}
   },[fluidUnit]);
+  React.useEffect(()=>{
+    try{localStorage.setItem("temp_unit_v1",tempUnit);}catch{}
+  },[tempUnit]);
 
   React.useEffect(()=>{
     try{localStorage.setItem("measure_unit_v1",measureUnit);}catch{}
@@ -21938,12 +21951,16 @@ function App(){
     // then trip the engine's fever detection.
     if (m.temp) {
       const _tNum = parseFloat(m.temp);
-      if (isNaN(_tNum) || _tNum < 35 || _tNum > 42) {
-        showToast("Temperature must be between 35 and 42°C. OBubba uses Celsius",3500,2);
+      const _minT = TU==="f" ? 95 : 35;
+      const _maxT = TU==="f" ? 107.6 : 42;
+      if (isNaN(_tNum) || _tNum < _minT || _tNum > _maxT) {
+        showToast(TU==="f"?"Temperature must be between 95 and 107.6°F":"Temperature must be between 35 and 42°C",3500,2);
         return;
       }
     }
-    const entry = { id: uid(), time: m.time || nowTime(), name: m.name, dose: m.dose, temp: m.temp, note: m.note, date: selDay, schedule: m.schedule || "none" };
+    // Always store temperature in °C internally
+    const _storedTemp = m.temp ? String(tempToC(m.temp)) : "";
+    const entry = { id: uid(), time: m.time || nowTime(), name: m.name, dose: m.dose, temp: _storedTemp, note: m.note, date: selDay, schedule: m.schedule || "none" };
     setMeds(prev => ({ ...prev, [selDay]: [...(prev[selDay] || []), entry] }));
     setShowMedForm(false);
     setMedForm({ name: "", dose: "", time: "", temp: "", note: "", schedule: "none" });
@@ -21988,7 +22005,7 @@ function App(){
       showToast(`💊 Logged + reminder set (${m.schedule.replace(/_/g, " ")})`, 3000, 1);
     } else if (m.temp && parseFloat(m.temp) >= 38 && age && age.totalWeeks < 13) {
       // Safety: fever in under 3 months
-      setTimeout(() => showToast(`🌡️ 38°C+ under 3 months. please call ${_helpLine} for guidance`, 8000, 3), 300);
+      setTimeout(() => showToast(`🌡️ ${cToDisplay(38)}${tempLabel}+ under 3 months. please call ${_helpLine} for guidance`, 8000, 3), 300);
     } else if (m.temp && parseFloat(m.temp) >= 38) {
       setTimeout(() => showToast(`🌡️ Temperature logged. Keep baby comfortable and hydrated. You can always call ${_helpLine} if you'd like advice.`, 5000, 2), 300);
     } else {
@@ -23781,7 +23798,7 @@ function App(){
         (meds[d]||[]).forEach(m => {
           let medLine = `${fmtDate(d)} ${fmt12(m.time)}: `;
           if (m.name) medLine += `${m.name}${m.dose ? " (" + m.dose + ")" : ""}`;
-          if (m.temp) medLine += ` 🌡️ ${m.temp}°C${parseFloat(m.temp) >= 38 ? " (elevated)" : ""}`;
+          if (m.temp) medLine += ` 🌡️ ${cToDisplay(parseFloat(m.temp))}${tempLabel}${parseFloat(m.temp) >= 38 ? " (elevated)" : ""}`;
           if (m.note) medLine += `. ${m.note}`;
           lines.push(medLine);
         });
@@ -29196,7 +29213,7 @@ function App(){
                             <div>
                               <span style={{fontSize:13,color:C.deep,fontWeight:600}}>{fmt12(m.time)}</span>
                               {m.name && <span style={{fontSize:13,color:C.mid}}>. {m.name}{m.dose?" ("+m.dose+")":""}</span>}
-                              {m.temp && <span style={{fontSize:13,color:parseFloat(m.temp)>=38?"#e8574a":C.mint,fontWeight:600}}> 🌡️ {m.temp}°C</span>}
+                              {m.temp && <span style={{fontSize:13,color:parseFloat(m.temp)>=38?"#e8574a":C.mint,fontWeight:600}}> 🌡️ {cToDisplay(parseFloat(m.temp))}{tempLabel}</span>}
                               {m.note && <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>{m.note}</div>}
                             </div>
                             <button onClick={()=>deleteMed(m.id)} style={{width:22,height:22,borderRadius:"50%",border:_bN,background:"rgba(232,87,74,0.1)",color:"#e8574a",fontSize:11,cursor:_cP}}>✕</button>
@@ -36222,6 +36239,16 @@ function App(){
                 <button onClick={()=>setMeasureUnit("lbs")} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:measureUnit==="lbs"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:measureUnit==="lbs"?"white":C.lt,cursor:"pointer",borderRadius:99}}>lbs/in</button>
               </div>
             </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={_S.f18}>🌡️</span>
+                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Temperature</span>
+              </div>
+              <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:`1px solid ${C.blush}`,overflow:"hidden"}}>
+                <button onClick={()=>setTempUnit("c")} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:tempUnit==="c"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:tempUnit==="c"?"white":C.lt,cursor:"pointer",borderRadius:99}}>°C</button>
+                <button onClick={()=>setTempUnit("f")} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:tempUnit==="f"?`linear-gradient(135deg,${C.ter},#a85a44)`:"transparent",color:tempUnit==="f"?"white":C.lt,cursor:"pointer",borderRadius:99}}>°F</button>
+              </div>
+            </div>
 
             {/* Nappy reminder */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
@@ -42484,8 +42511,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 </div>
                 <div style={_S.flexRowGap8}>
                   <div style={_S.flex1}>
-                    <div style={{fontSize:11,color:C.lt,marginBottom:3}}>Temperature (°C)</div>
-                    <input placeholder="e.g. 37.5" type="number" step="0.1" value={medForm.temp} onChange={e=>setMedForm(f=>({...f,temp:e.target.value}))}
+                    <div style={{fontSize:11,color:C.lt,marginBottom:3}}>Temperature ({tempLabel})</div>
+                    <input placeholder={TU==="f"?"e.g. 99.5":"e.g. 37.5"} type="number" step="0.1" value={medForm.temp} onChange={e=>setMedForm(f=>({...f,temp:e.target.value}))}
                       style={{width:"100%",padding:"10px 12px",borderRadius:12,border:`1.5px solid ${medForm.temp&&parseFloat(medForm.temp)>=38?"#e8574a":C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_oN,boxSizing:_bBB}}/>
                   </div>
                   <div style={_S.flex1}>
@@ -42513,7 +42540,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 )}
                 {medForm.temp && parseFloat(medForm.temp) >= 38 && age && age.totalWeeks < 13 && (
                   <div style={{background:"rgba(232,87,74,0.1)",border:"1.5px solid rgba(232,87,74,0.3)",borderRadius:12,padding:"10px 12px",fontSize:13,color:"#c44",lineHeight:1.5}}>
-                    🌡️ <b>38°C+ in a baby under 3 months</b>. please call {_helpLine} for guidance.
+                    🌡️ <b>{cToDisplay(38)}{tempLabel}+ in a baby under 3 months</b>. please call {_helpLine} for guidance.
                   </div>
                 )}
               </div>
@@ -42531,7 +42558,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         <span style={{fontSize:13,color:C.mid}}>{fmt12(m.time)} </span>
                         <span style={{fontSize:13,fontWeight:600,color:C.deep}}>{m.name||"Temperature"}</span>
                         {m.dose&&<span style={{fontSize:12,color:C.lt}}> · {m.dose}</span>}
-                        {m.temp&&<span style={{fontSize:12,color:parseFloat(m.temp)>=38?"#c44":C.lt}}> · 🌡️{m.temp}°C</span>}
+                        {m.temp&&<span style={{fontSize:12,color:parseFloat(m.temp)>=38?"#c44":C.lt}}> · 🌡️{cToDisplay(parseFloat(m.temp))}{tempLabel}</span>}
                       </div>
                       <button onClick={()=>deleteMed(m.id)} style={{background:"none",border:"none",color:"#e06070",fontSize:12,cursor:_cP}}>✕</button>
                     </div>
