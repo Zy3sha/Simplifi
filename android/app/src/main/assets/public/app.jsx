@@ -20906,10 +20906,10 @@ function App(){
         const bL=parseInt(form.breastL)||0, bR=parseInt(form.breastR)||0;
         e={...e,type:"feed",time:formTime,amount:0,feedType:"breast",breastL:bL,breastR:bR,night:form.night==="yes"};
       } else if(feedType==="pump"){
-        const pL=parseInt(form.pumpL)||0, pR=parseInt(form.pumpR)||0;
+        const pL=Math.max(0,parseInt(form.pumpL)||0), pR=Math.max(0,parseInt(form.pumpR)||0);
         e={...e,type:"feed",time:formTime,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};
       } else {
-        e={...e,type:"feed",time:formTime,amount:displayToMl(form.amount,FU),night:form.night==="yes",feedType:feedType};
+        e={...e,type:"feed",time:formTime,amount:Math.max(0,displayToMl(form.amount,FU)),night:form.night==="yes",feedType:feedType};
       }
     }
     else if(eType==="nap"){e={...e,type:"nap",start:formStart,end:formEnd,night:false,napLocation:form.napLocation||null};}
@@ -36469,7 +36469,7 @@ function App(){
                         }catch(e0){console.warn("[DELETE] Step 0 error",e0);}
 
                         // 1. Wipe Firestore docs via overwrite (DELETE gets 403, but PATCH/write is allowed)
-                        console.log("[DELETE] Step 1: Wiping Firestore docs. backupCode="+backupCode+" uid="+window._fbUid+" username="+familyUsername);
+                        console.log("[DELETE] Step 1: Wiping Firestore docs");
                         try{
                           var wipes=[];
                           // Overwrite critical docs with empty/deleted data so they can't be used to sign back in

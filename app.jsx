@@ -36469,7 +36469,7 @@ function App(){
                         }catch(e0){console.warn("[DELETE] Step 0 error",e0);}
 
                         // 1. Wipe Firestore docs via overwrite (DELETE gets 403, but PATCH/write is allowed)
-                        console.log("[DELETE] Step 1: Wiping Firestore docs. backupCode="+backupCode+" uid="+window._fbUid+" username="+familyUsername);
+                        console.log("[DELETE] Step 1: Wiping Firestore docs");
                         try{
                           var wipes=[];
                           // Overwrite critical docs with empty/deleted data so they can't be used to sign back in
