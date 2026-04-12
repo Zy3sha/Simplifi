@@ -7298,10 +7298,23 @@ function App(){
     for (const _k of [_todayKey, _yestKey]) {
       const _be = (days[_k]||[]).find(e => e.type === "sleep" && !e.night);
       if (_be) {
-        // Check if there's already a morning wake after it (night is over)
-        const _laterWake = (days[_todayKey]||[]).find(e => e.type === "wake" && !e.night && (()=>{
-          const h = parseInt((e.time||"12:00").split(":")[0]); return h >= 5 && h <= 12;
-        })());
+        // Check if there's already a morning wake AFTER this bedtime (night is over).
+        // Must compare timestamps, not just hour-of-day, otherwise a new bedtime
+        // at 18:00 on a day that already had a 07:00 morning wake would be falsely
+        // treated as "already closed" — when in reality this is a fresh bedtime.
+        const _beDate = _k === _yestKey
+          ? (()=>{ const [bh,bm]=_be.time.split(":").map(Number); const d=new Date(_k+"T00:00:00"); d.setHours(bh,bm,0,0); return d.getTime(); })()
+          : (()=>{ const [bh,bm]=_be.time.split(":").map(Number); const d=new Date(_k+"T00:00:00"); d.setHours(bh,bm,0,0); return d.getTime(); })();
+        const _laterWake = (days[_todayKey]||[]).concat(days[_yestKey]||[]).find(e => {
+          if (e.type !== "wake" || e.night) return false;
+          const h = parseInt((e.time||"12:00").split(":")[0]);
+          if (h < 5 || h > 12) return false;
+          // Find which day this wake lives on to build its timestamp correctly
+          const _wDay = (days[_todayKey]||[]).includes(e) ? _todayKey : _yestKey;
+          const [wh,wm] = e.time.split(":").map(Number);
+          const _wd = new Date(_wDay+"T00:00:00"); _wd.setHours(wh,wm,0,0);
+          return _wd.getTime() > _beDate;
+        });
         if (_laterWake) continue;
         _foundDay = _k;
         _bedEntry = _be;
