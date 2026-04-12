@@ -946,7 +946,7 @@ const ALLERGEN_GUIDE = [
    maintain:"Mix into oatmeal, offer on toast fingers, add to sauces.",
    note:"Early introduction significantly reduces allergy risk (LEAP study). Introduce in the morning so you can watch for 2 hours."},
   {id:"eggs",      label:"Egg",        emoji:"🥚", priority:2, risk:"high",
-   prep:"Hard boil and mash, or scramble well. Use Lion-stamped eggs. Start with a tiny amount (¼ tsp).",
+   prep:"Hard boil and mash, or scramble well. Use pasteurised eggs. Start with a tiny amount (¼ tsp).",
    maintain:"Scrambled egg, French toast fingers, egg in pasta.",
    note:"Introduce well-cooked egg first. Raw or lightly cooked eggs carry salmonella risk for babies."},
   {id:"milk",      label:"Cow's milk", emoji:"🥛", priority:3, risk:"medium",
@@ -1963,7 +1963,7 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
       emoji: "💧",
       title: "Wet nappy count low · hydration check",
       detail: "Only " + latestWetNappies24h + " wet nappies in the last 24h. NHS guidance: 6+ wet nappies a day is the best single signal of adequate hydration (from day 3 onwards). This is a red flag that needs attention.",
-      action: "Offer a feed now. If wet count doesn't improve in 12h, contact your midwife or health visitor. If baby is unusually sleepy or hard to rouse, ring 111 or your GP today.",
+      action: "Offer a feed now. If wet count doesn't improve in 12h, contact your " + _doctor + ". If baby is unusually sleepy or hard to rouse, call " + _helpLine + " today.",
       urgency: "high",
       confidence: "high"
     };
@@ -2491,14 +2491,14 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + _maxTemp.toFixed(1) + "°C logged today",
-        action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. Call 111 or go to A&E now." : "If temp stays above 38°C for > 24h or baby is listless, ring 111 or your GP today.",
+        action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. This is a medical emergency. Call " + _emergNum + " now." : "If temp stays above 38°C for > 24h or baby is listless, call " + _helpLine + " today.",
         link: "111"
       });
     } else if (_maxTemp >= 37.5 && ageWeeks < 13) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + _maxTemp.toFixed(1) + "°C in a young baby",
-        action: "Under 3 months, even a low-grade temperature is a medical consultation. Ring 111 or your GP today.",
+        action: "Under 3 months, even a low-grade temperature is a medical consultation. Call " + _helpLine + " today.",
         link: "111"
       });
     }
@@ -2521,7 +2521,7 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
       _flags.push({
         severity: "urgent",
         title: "Only " + _wet + " wet nappies in 24h",
-        action: "Dehydration red flag. Offer more feeds now. If wet count doesn't improve within 6 hours, or baby is sleepy/hard to rouse, ring 111.",
+        action: "Dehydration red flag. Offer more feeds now. If wet count doesn't improve within 6 hours, or baby is sleepy/hard to rouse, call " + _helpLine + ".",
         link: "111"
       });
     }
@@ -2529,7 +2529,7 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
       _flags.push({
         severity: "urgent",
         title: "No nappies in 24h",
-        action: "Please contact your health visitor or GP today. Combined with any other symptoms, ring 111.",
+        action: "Please contact your " + _doctor + " today. Combined with any other symptoms, call " + _helpLine + ".",
         link: "111"
       });
     }
@@ -2995,7 +2995,7 @@ const WEANING_RECIPES = [
    method:"Steam or poach salmon 10 min. Boil potato until soft. Mash together with milk. Check thoroughly for bones.",
    blw:"Flake into large soft pieces. check very carefully for bones.",
    allergens:["fish"],iron:false,vitC:false,tags:["protein","omega3"]},
-  {stage:1,name:"Egg & Avocado Mash",emoji:"🥚",ingredients:"1 egg (Lion stamped), ½ ripe avocado",
+  {stage:1,name:"Egg & Avocado Mash",emoji:"🥚",ingredients:"1 egg (pasteurised), ½ ripe avocado",
    method:"Hard boil egg 12 min. Mash egg with avocado using a fork until desired consistency.",
    blw:"Serve omelette strips with avocado slices. Roll avocado in baby oats to make it easier to grip.",
    allergens:["eggs"],iron:true,vitC:false,tags:["protein","quick"]},
@@ -3021,7 +3021,7 @@ const WEANING_RECIPES = [
    method:"Cook pasta. Steam broccoli. Poach chicken. Mix together, stir in cream cheese, mash lightly with fork.",
    blw:"Use fusilli or penne. easier for little hands to grip than spaghetti.",
    allergens:["wheat","milk"],iron:true,vitC:true,tags:["protein","quick"]},
-  {stage:2,name:"Scrambled Eggs with Toast Soldiers",emoji:"🍳",ingredients:"1 egg (Lion stamped), knob of butter, 1 slice wholemeal bread",
+  {stage:2,name:"Scrambled Eggs with Toast Soldiers",emoji:"🍳",ingredients:"1 egg (pasteurised), knob of butter, 1 slice wholemeal bread",
    method:"Beat egg, scramble gently in butter until fully cooked. Toast bread, cut into soldiers.",
    blw:"Perfect BLW meal as-is. babies love dipping toast soldiers into scrambled egg.",
    allergens:["eggs","milk","wheat"],iron:true,vitC:false,tags:["breakfast","quick","allergen"]},
@@ -3041,7 +3041,7 @@ const WEANING_RECIPES = [
    method:"Sauté onion and garlic. Add grated veg, lentils, and tomatoes. Simmer 25 min. Cook pasta separately. Mix and mash lightly.",
    blw:"Use large pasta shapes (fusilli) baby can pick up coated in sauce.",
    allergens:["wheat"],iron:true,vitC:true,tags:["plant","batch"]},
-  {stage:2,name:"Omelette Fingers with Spinach",emoji:"🥬",ingredients:"2 eggs (Lion stamped), handful baby spinach (wilted), 20g grated cheese",
+  {stage:2,name:"Omelette Fingers with Spinach",emoji:"🥬",ingredients:"2 eggs (pasteurised), handful baby spinach (wilted), 20g grated cheese",
    method:"Beat eggs, stir in wilted spinach and cheese. Cook flat in oiled pan until set. Cut into finger-length strips.",
    blw:"Perfect finger food. soft, easy to grip, packed with iron.",
    allergens:["eggs","milk"],iron:true,vitC:false,tags:["quick","protein"]},
@@ -3294,7 +3294,7 @@ const IRON_GUIDE = {
     {food:"Chicken (dark meat)",type:"heme",note:"Thighs have more iron than breast"},
     {food:"Lentils (all varieties)",type:"plant",note:"Red lentils cook soft and blend easily"},
     {food:"Chickpeas & beans",type:"plant",note:"Kidney, butter, black. mash or blend"},
-    {food:"Eggs (Lion stamped)",type:"heme",note:"Scrambled, omelette, or hard boiled"},
+    {food:"Eggs (pasteurised)",type:"heme",note:"Scrambled, omelette, or hard boiled"},
     {food:"Fortified cereals",type:"plant",note:"Baby porridge or Weetabix"},
     {food:"Spinach & kale",type:"plant",note:"Cook to reduce oxalates. never raw for babies"},
     {food:"Tofu",type:"plant",note:"Firm tofu cut into strips. great BLW food"},
@@ -7682,10 +7682,10 @@ function App(){
     }catch{return null;}
   });
   const[fluidUnit,setFluidUnit]=useState(()=>{
-    try{return localStorage.getItem("fluid_unit_v1")||"ml";}catch{return "ml";}
+    try{const _saved=localStorage.getItem("fluid_unit_v1"); if(_saved) return _saved; return _isUS?"oz":"ml";}catch{return "ml";}
   });
   const[measureUnit,setMeasureUnit]=useState(()=>{
-    try{return localStorage.getItem("measure_unit_v1")||"metric";}catch{return "metric";}
+    try{const _saved=localStorage.getItem("measure_unit_v1"); if(_saved) return _saved; return _isUS?"lbs":"metric";}catch{return "metric";}
   });
   const FU=fluidUnit; // shorthand for templates
   const MU=measureUnit; // "metric" or "lbs"
@@ -33640,7 +33640,7 @@ function App(){
                   {q:"Soft spot on head (fontanelle)", a:"The soft spots are gaps between skull bones. there's one at the front (closes 9-18 months) and one at the back (closes at 6-8 weeks). It's normal to see it pulse with heartbeat. See a doctor if it bulges when baby isn't crying, or is sunken."},
                   {q:"Hiccups all the time", a:"Normal and harmless. The diaphragm is immature and easily triggered. Feed slowly and pause to wind if they happen during feeds. They stop on their own."},
                   {q:"Jerky movements or startle reflex", a:"Normal. this is the Moro reflex and all healthy newborns have it. Baby throws arms out when startled. It disappears around 3-4 months. Swaddling can help calm babies who startle themselves awake."},
-                  {q:"Jaundice (yellow skin or eyes)", a:"Common in the first week. affects around 60% of newborns. Mild jaundice usually clears by 2 weeks. Frequent feeding (8-12 times/day) helps flush bilirubin. If baby looks very yellow, is difficult to wake for feeds, jaundice appears in the first 24 hours, or lasts beyond 2 weeks, contact your midwife or GP promptly. Some babies need phototherapy (light treatment). this is safe and effective."},
+                  {q:"Jaundice (yellow skin or eyes)", a:"Common in the first week. affects around 60% of newborns. Mild jaundice usually clears by 2 weeks. Frequent feeding (8-12 times/day) helps flush bilirubin. If baby looks very yellow, is difficult to wake for feeds, jaundice appears in the first 24 hours, or lasts beyond 2 weeks, contact your "+_doctor+" promptly. Some babies need phototherapy (light treatment). this is safe and effective."},
                   {q:"Vitamin D drops. does my baby need them?", a:"Yes. all breastfed and partially breastfed babies need vitamin D drops from birth. Breast milk is wonderful but naturally low in vitamin D, regardless of your diet. " + (_isUS?"The AAP recommends 400 IU daily.":_isIE?"The HSE recommends 5 micrograms daily for ALL babies birth to 12 months.":_isAU?"The RACP recommends 400 IU daily, especially for at-risk babies.":_isCA?"The CPS recommends 400 IU daily.":_isNZ?"The Ministry of Health recommends 400 IU daily for at-risk babies.":"The NHS recommends 8.5-10 micrograms daily.") + " Formula-fed babies taking 500ml+ per day usually get enough from formula. If baby is on any medications (especially for reflux or seizures), check with your GP as some affect vitamin D absorption."},
                   {q:"Poo colour. green, yellow, black", a:"Black/dark green in first 2 days (meconium) is normal. Then changes to yellow/seedy (breastfed) or tan/yellow (formula). Green can be normal but if persistent with other symptoms, mention to health visitor. White, pale or chalky poo needs same-day GP attention."},
                   {q:"Not focusing eyes or looking at me", a:"Normal under 6-8 weeks. Newborns can see clearly about 20-30cm. roughly the distance to your face during feeding. By 6-8 weeks they start making real eye contact and smiling."},
@@ -34421,7 +34421,7 @@ function App(){
                   // actively increases allergy risk. Promoted from phase 3
                   // so they appear after only 5 first tastes, not 8.
                   {food:"Scrambled egg",emoji:"🥚",note:"Excellent protein. introduce early to reduce allergy risk",
-                   blw:"Cook soft, fluffy scrambles in a little butter. Serve in small pieces. Use Lion-stamped eggs (UK).",
+                   blw:"Cook soft, fluffy scrambles in a little butter. Serve in small pieces. Use pasteurised eggs (UK).",
                    puree:"Blend soft scrambled egg with a little breast milk or formula until smooth.",
                    cat:"allergen",phase:2,iron:false,allergenId:"eggs",priority:1},
                   {food:"Peanut butter on toast",emoji:"🥜",note:"Early introduction significantly reduces peanut allergy risk (LEAP study)",
@@ -37497,7 +37497,7 @@ function App(){
           wellbeing_analyser: { title: "How are YOU doing?", body: "OBubba passively tracks your sleep window, mood check-ins, and support signals. When something needs attention, it tells you gently. Safety flags are always free." },
           triage: { title: "One tap. Whole-baby answer.", body: "Tap this when baby is unsettled and you're not sure why. OBubba runs every analyser in parallel — sleep, feed, weaning, wellbeing — and ranks by urgency. The thing a consultant does in a 30-min call, in 0.3 seconds." },
           tonights_focus: { title: "Tonight's plan", body: "Every morning, based on last night's diagnosis, OBubba gives you a concrete 4-step plan for tonight. Not advice. A plan. With the reasoning explained so you know why." },
-          sleep_coach: { title: "Your 14-day sleep coach", body: "Pick a style — gradual, no-cry, chair shuffle, or parent-led — and OBubba walks you through a 14-day plan one day at a time. The same plan a consultant charges £300–£800 for, tailored to " + _bn + "'s age and last night's data." },
+          sleep_coach: { title: "Your 14-day sleep coach", body: "Pick a style — no-cry, chair shuffle, or parent-led — and OBubba walks you through a 14-day plan one day at a time. The same plan a consultant charges hundreds for, tailored to " + _bn + "'s age and last night's data." },
         };
         const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium gives you a sleep consultant in your pocket. so you can enjoy your baby instead of worrying." };
         return (
@@ -37528,9 +37528,9 @@ function App(){
             {/* Plan selector. 3 tappable cards */}
             <div style={{display:"flex",gap:8,marginBottom:14}}>
               {[
-                {key:"monthly",label:"Monthly",price:"£4.99",sub:"/month",badge:null},
-                {key:"annual",label:"Annual",price:"£44.99",sub:"/year",badge:"Save 25%"},
-                {key:"lifetime",label:"Lifetime",price:"£79.99",sub:"once",badge:"Best value"},
+                {key:"monthly",label:"Monthly",price:_isUS?"$4.99":_isAU?"A$7.99":_isCA?"C$6.99":"£4.99",sub:"/month",badge:null},
+                {key:"annual",label:"Annual",price:_isUS?"$44.99":_isAU?"A$69.99":_isCA?"C$59.99":"£44.99",sub:"/year",badge:"Save 25%"},
+                {key:"lifetime",label:"Lifetime",price:_isUS?"$79.99":_isAU?"A$129.99":_isCA?"C$109.99":"£79.99",sub:"once",badge:"Best value"},
               ].map(plan=>{
                 const _sel = (paywallPlan||"annual") === plan.key;
                 return (
@@ -37601,7 +37601,7 @@ function App(){
             <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.blush||"#e8d5cf"}`,fontSize:10,color:C.lt,lineHeight:1.5,textAlign:"left"}}>
               <div style={{fontWeight:700,color:C.mid,marginBottom:4,fontSize:10.5}}>OBubba Premium · Auto-renewing subscription</div>
               <div style={{marginBottom:6}}>
-                Monthly (£4.99/month) or Annual (£44.99/year). Payment is charged to your Apple ID at purchase confirmation. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your App Store account settings. Lifetime is a one-time purchase and does not auto-renew.
+                Payment is charged to your account at purchase confirmation. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your device's subscription settings. Lifetime is a one-time purchase and does not auto-renew.
               </div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:8}}>
                 <a href="https://obubba.com/terms" target="_blank" rel="noopener noreferrer" style={{color:C.ter,fontWeight:600,textDecoration:"underline",fontSize:10.5}}>Terms of Use (EULA)</a>
