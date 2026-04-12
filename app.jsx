@@ -5090,10 +5090,9 @@ function App(){
       }catch{}
     });
 
-    // Handle Android back button
+    // Handle Android back button: dispatch event for React to handle
     OB.lifecycle.onBackButton(({canGoBack})=>{
-      // Close any open sheet first, then navigate back
-      // The app handles this via its own sheet management
+      window.dispatchEvent(new CustomEvent("ob-back-button"));
     });
 
     // Set up push notification tap handler
@@ -6163,6 +6162,32 @@ function App(){
       window.removeEventListener("pageshow", _maybeSnapToToday);
     };
   }, []);
+
+  // ═══ ANDROID BACK BUTTON ═══
+  // Close the topmost open modal/sheet. If nothing is open, let Android exit.
+  React.useEffect(()=>{
+    function _handleBack(){
+      // Try to close modals in priority order (highest z-index first)
+      if(showPaywall){setShowPaywall(false);return;}
+      if(showSleepCoach){setShowSleepCoach(false);return;}
+      if(showNightWake){setShowNightWake(false);setNightEditId(null);return;}
+      if(showCryingHelper){setShowCryingHelper(false);return;}
+      if(showSoundMachine){setShowSoundMachine(false);return;}
+      if(showCalendar){setShowCalendar(false);return;}
+      if(showMedForm){setShowMedForm(false);return;}
+      if(modal){setModal(null);setEditEntry(null);return;}
+      if(logPanel){setLogPanel(null);return;}
+      if(showTeethingForm){setShowTeethingForm(false);return;}
+      if(showWeaningForm){setShowWeaningForm(false);return;}
+      if(showBfHub){setShowBfHub(false);return;}
+      if(daySubScreen && daySubScreen !== "today"){setDaySubScreen("today");return;}
+      if(tab !== "day"){setTab("day");return;}
+      // Nothing open — let Android handle (exit app)
+      try{window.Capacitor?.Plugins?.App?.exitApp?.();}catch{}
+    }
+    window.addEventListener("ob-back-button",_handleBack);
+    return ()=>window.removeEventListener("ob-back-button",_handleBack);
+  },[showPaywall,showSleepCoach,showNightWake,showCryingHelper,showSoundMachine,showCalendar,showMedForm,modal,logPanel,showTeethingForm,showWeaningForm,showBfHub,daySubScreen,tab]);
 
   // ═══════════════════════════════════════════════════════════════
   // ONE-SHOT MIGRATION: bedtimer night wake duration in note → field
@@ -10249,6 +10274,18 @@ function App(){
     window.addEventListener("pageshow", snapAllTimers);
     // Capacitor fires 'resume' when app comes back from background on iOS
     document.addEventListener("resume", snapAllTimers);
+    // iOS audio interruption recovery: after a phone call or Siri, the
+    // AudioContext becomes "interrupted". Resume it when state changes back.
+    try {
+      if (soundCtxRef.current && soundCtxRef.current.addEventListener) {
+        soundCtxRef.current.addEventListener("statechange", ()=>{
+          if (soundCtxRef.current.state === "suspended" || soundCtxRef.current.state === "interrupted") {
+            soundCtxRef.current.resume().catch(()=>{});
+          }
+        });
+      }
+    } catch {}
+
 
     // Belt-and-braces: every 30 seconds, snap timers to wall clock
     // This catches cases where visibilitychange doesn't fire (iOS PWA edge case)
