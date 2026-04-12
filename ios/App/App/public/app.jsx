@@ -7593,8 +7593,10 @@ function App(){
       const hasName = localStorage.getItem("bn_v2");
       const hasDob = localStorage.getItem("dob_v1");
       if (hasName && hasName.trim() && hasDob) return true;
-      // Any other signal (onboarded_v2 flag alone, empty children shell,
-      // sync artifacts) is NOT enough. Force the welcome page.
+      // If the user explicitly completed onboarding (even if they skipped
+      // entering a name), respect that choice. Previously this forced the
+      // welcome page on every cold start for skip-all users.
+      if (localStorage.getItem("onboarded_v2") === "1") return true;
       return false;
     } catch { return false; }
   });

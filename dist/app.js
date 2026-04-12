@@ -1278,9 +1278,10 @@ const PremiumTeaser=({icon,label,description,context})=>{if(isPremium||!STORE_RE
 // welcome page, no data. The fix: the name is the source of truth.
 try{const saved=localStorage.getItem("children_v1");// Primary check: does any child in the store have a non-empty name?
 if(saved){try{const ch=JSON.parse(saved);const hasNamedChild=Object.values(ch).some(c=>c&&typeof c.name==="string"&&c.name.trim().length>0);if(hasNamedChild)return true;}catch(_){}}// Legacy keys: bn_v2 (old baby name) + dob_v1 together count as onboarded
-const hasName=localStorage.getItem("bn_v2");const hasDob=localStorage.getItem("dob_v1");if(hasName&&hasName.trim()&&hasDob)return true;// Any other signal (onboarded_v2 flag alone, empty children shell,
-// sync artifacts) is NOT enough. Force the welcome page.
-return false;}catch{return false;}});const[obStep,setObStep]=useState(0);const[obName,setObName]=useState("");const[obDob,setObDob]=useState("");const[obSex,setObSex]=useState("");const[obDueDate,setObDueDate]=useState("");const[obTodayStatus,setObTodayStatus]=useState("");// "woke"|"fed"|"napped"|"bedtime"
+const hasName=localStorage.getItem("bn_v2");const hasDob=localStorage.getItem("dob_v1");if(hasName&&hasName.trim()&&hasDob)return true;// If the user explicitly completed onboarding (even if they skipped
+// entering a name), respect that choice. Previously this forced the
+// welcome page on every cold start for skip-all users.
+if(localStorage.getItem("onboarded_v2")==="1")return true;return false;}catch{return false;}});const[obStep,setObStep]=useState(0);const[obName,setObName]=useState("");const[obDob,setObDob]=useState("");const[obSex,setObSex]=useState("");const[obDueDate,setObDueDate]=useState("");const[obTodayStatus,setObTodayStatus]=useState("");// "woke"|"fed"|"napped"|"bedtime"
 const[obFeedType,setObFeedType]=useState("");// "breast"|"bottle"|"both"
 const[obNapStart,setObNapStart]=useState("");const[obNapEnd,setObNapEnd]=useState("");const[showDeferredAuth,setShowDeferredAuth]=useState(false);const[familyShareGate,setFamilyShareGate]=useState(false);const[showImportAfterSetup,setShowImportAfterSetup]=useState(false);// Aliases for questionnaire state setters (PWA uses Q*, native uses Fq*)
 const[fqStep,setFqStep]=useState(0);const[fqWakeTime,setFqWakeTime]=useState("");const[fqFeedTime,setFqFeedTime]=useState("");const[fqNappyTime,setFqNappyTime]=useState("");const[showImportModal,setShowImportModal]=useState(false);const[importResult,setImportResult]=useState(null);// Stash raw CSV text between the preview and commit steps so the

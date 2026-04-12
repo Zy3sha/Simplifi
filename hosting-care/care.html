@@ -280,7 +280,17 @@ function _applyFamilyDoc(data) {
         familyContext.babyPhoto = _resolvedCh.photo || null;
         if (_resolvedCh.dob) {
           const _dobDate = new Date(_resolvedCh.dob + "T00:00:00");
-          familyContext.ageWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
+          const _chronoWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
+          // Use corrected age for preemies (same as main app)
+          let _correctedWeeks = _chronoWeeks;
+          if (_resolvedCh.dueDate) {
+            const _dueDate = new Date(_resolvedCh.dueDate + "T00:00:00");
+            const _pretermDays = Math.round((_dueDate.getTime() - _dobDate.getTime()) / (24*3600*1000));
+            if (_pretermDays > 14) {
+              _correctedWeeks = Math.floor((Date.now() - _dueDate.getTime()) / (7*24*3600*1000));
+            }
+          }
+          familyContext.ageWeeks = Math.max(0, _correctedWeeks);
         }
       }
     }
