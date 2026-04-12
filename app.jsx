@@ -12319,7 +12319,7 @@ function App(){
 
   function getAgeStage(){
     if(!age) return null;
-    const w=age.totalWeeks;
+    const w=age.predictiveWeeks ?? age.totalWeeks;
     if(w<2)   return{stage:"newborn0",label:"Just Arrived",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"Multiple short naps",feedGoal:"8-12 feeds/day",nightNote:"Waking every 2-3h is normal and needed",tip:"Your baby is brand new. Feed on demand, day and night. Wake windows are just 30–45 min. You're doing amazingly.",isNewborn:true};
     if(w<4)   return{stage:"newborn1",label:"2–4 Weeks",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"Multiple naps",feedGoal:"8-12 feeds/day",nightNote:"Night feeds every 2-3h still normal",tip:"Still finding your feet. that's completely normal. Feed on demand. Wake windows 30–60 min.",isNewborn:true};
     if(w<6)   return{stage:"newborn2",label:"4–6 Weeks",weeks:w,feedUnit:"ml",showSolids:false,napGoal:"Multiple naps",feedGoal:"7-10 feeds/day",nightNote:"Crying often peaks around 6 weeks. this is normal",tip:"Crying may be peaking right now. this is the hardest week for many parents. It gets better after 12 weeks.",isNewborn:true};
@@ -13698,7 +13698,7 @@ function App(){
       const latestBed = absoluteLatestBed;
       let finalMins = Math.min(latestBed, Math.max(earliestBed, baseBed + adjustMins));
       const _preClamp = finalMins;
-      finalMins = clampBedtime(finalMins, age.totalWeeks);
+      finalMins = clampBedtime(finalMins, age.predictiveWeeks ?? age.totalWeeks);
       if (finalMins - lastNapEndMins > ww.max) finalMins = lastNapEndMins + ww.max;
       // Explain if clamp shifted bedtime by >15 min
       if (Math.abs(finalMins - _preClamp) > 15) {
@@ -13756,11 +13756,12 @@ function App(){
         const _earliestBed = _earliestNextEnd + ww.min;
         const _totalWithNap = todayNaps.reduce((s,n)=>s+minDiff(n.start,n.end),0) + _minNapDur;
         const _maxDaySleep = napProfile.idealTotalMax || 300;
-        const _ageBedMax = clampBedtime(24*60, age.totalWeeks); // get age-adjusted max
+        const _skipNapW = age.predictiveWeeks ?? age.totalWeeks;
+        const _ageBedMax = clampBedtime(24*60, _skipNapW); // get age-adjusted max
         if (_earliestBed > _ageBedMax || _totalWithNap > _maxDaySleep) {
           // Skip remaining naps. calculate early bedtime
           const _idealBedM = _lastEndM + Math.round((ww.min + ww.max) / 2);
-          const _clampedBed = clampBedtime(_idealBedM, age.totalWeeks);
+          const _clampedBed = clampBedtime(_idealBedM, _skipNapW);
           const _hh = Math.floor(_clampedBed/60)%24, _mm = _clampedBed%60;
           return _applyNightShift({
             time: `${String(_hh).padStart(2,"0")}:${String(_mm).padStart(2,"0")}`,
@@ -13810,10 +13811,11 @@ function App(){
     const _bedPredRecentWithNaps = _bedPredRecentDays.filter(rd => rd.entries.some(e => e.type==="nap" && !e.night && e.start && e.end));
     const _bedPredUsePersonal = usePersonalRecs === null ? true : usePersonalRecs;
 
+    const _bedPredW = age.predictiveWeeks ?? age.totalWeeks;
     for (let i = 0; i < napsRemaining; i++) {
       const napIdx = napsDone + i;
-      // Use age-appropriate progressive wake window
-      const nhsWW = progressiveWW(age.totalWeeks, napIdx, adjustedExpected);
+      // Use age-appropriate progressive wake window (corrected age for preemies)
+      const nhsWW = progressiveWW(_bedPredW, napIdx, adjustedExpected);
       let rawWW = nhsWW;
 
       // Blend with personal per-position wake window data when personal mode is enabled
@@ -13857,7 +13859,7 @@ function App(){
         if (prevDur <= 20) rawWW = Math.max(ww.min, rawWW - 45);
         else if (prevDur <= 40) rawWW = Math.max(ww.min, rawWW - 30);
       }
-      const thisWW = clampWakeWindow(rawWW, age.totalWeeks);
+      const thisWW = clampWakeWindow(rawWW, _bedPredW);
       const napStart = projectedLastNapEnd + thisWW;
       const napEnd = napStart + avgNapDur;
       projectedLastNapEnd = napEnd;
@@ -13865,7 +13867,7 @@ function App(){
 
     // Calculate bedtime from projected last nap end
     // Last WW before bed uses the age-appropriate max (longest of the day)
-    const lastWW = clampWakeWindow(ww.max, age.totalWeeks);
+    const lastWW = clampWakeWindow(ww.max, _bedPredW);
     let projBed = projectedLastNapEnd + lastWW;
 
     // Blend: 95% projection + 5% historical (research: WW science must dominate)
@@ -13876,7 +13878,7 @@ function App(){
       projBed = Math.min(blended, projBed + 15);
     }
 
-    projBed = clampBedtime(projBed, age.totalWeeks);
+    projBed = clampBedtime(projBed, _bedPredW);
 
     // SAFETY: bedtime can NEVER be more than ww.max from projected last nap end
     if (projBed - projectedLastNapEnd > ww.max) {
@@ -13898,7 +13900,7 @@ function App(){
     }
     projBed += adjustMins;
     const _preClamp2 = projBed;
-    projBed = clampBedtime(projBed, age.totalWeeks);
+    projBed = clampBedtime(projBed, _bedPredW);
     // Final safety: never exceed max WW from projected last nap
     if (projBed - projectedLastNapEnd > ww.max) {
       projBed = projectedLastNapEnd + ww.max;
@@ -13968,7 +13970,7 @@ function App(){
 
   function napNormalRange() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
 
     if (w < 4)  return { min:480, max:960, label:"8–16 hrs (inc. night)" };
     if (w < 8)  return { min:240, max:480, label:"4–8 hrs" };
@@ -14105,7 +14107,7 @@ function App(){
   // ── Sleep regression detection ──
   function detectSleepRegression() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const name = babyName || "Baby";
     const regressions = [
       { weeks:[15,19], label:"4-Month Sleep Regression", emoji:"🌊",
@@ -14149,7 +14151,7 @@ function App(){
   // ── Nap transition detection ──
   function detectNapTransition() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const name = babyName || "Baby";
     const profile = getAgeNapProfile(w);
     const _ntRecent = getResolvedRecentDays(days, selDay, 10);
@@ -14183,7 +14185,7 @@ function App(){
   // ── Sleep debt tracking ──
   function sleepDebtCheck() {
     if (!age) return null;
-    const target = getAgeTotalSleepHours(age.totalWeeks);
+    const target = getAgeTotalSleepHours(age.predictiveWeeks ?? age.totalWeeks);
     const name = babyName || "Baby";
     const _sdRecent = getResolvedRecentDays(days, selDay, 3);
     if (_sdRecent.length < 2) return null;
@@ -14243,7 +14245,7 @@ function App(){
   // Returns complete 24h sleep budget with day/night split, AASM comparison, and 7-day trend
   function sleepBudgetDashboard() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const name = babyName || "Baby";
     const aasm = getAASMRange(w);
     const dayRange = getExpectedDaySleepRange(w);
@@ -14358,7 +14360,7 @@ function App(){
   // Returns current state of all three sleep drives
   function threeDriveSleepModel() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const name = babyName || "Baby";
     const ww = getWakeWindow(w);
     const now = new Date();
@@ -14434,7 +14436,7 @@ function App(){
   // Detects: catnapping, early waking, split nights, overtired cascade, nap transition readiness
   function advancedSleepPatterns() {
     if (!age) return [];
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const name = babyName || "Baby";
     const ww = getWakeWindow(w);
     const patterns = [];
@@ -14719,7 +14721,7 @@ function App(){
   function detectSleepPatterns() {
     if (!age) return [];
     const name = babyName || "Baby";
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const ww = getWakeWindow(w);
     const patterns = [];
     const _spRecent = getResolvedRecentDays(days, selDay, 7);
@@ -15002,7 +15004,7 @@ function App(){
     const isToday = selDay === todayStr();
     if (!isToday) return null;
     const name = babyName || "Baby";
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
 
     // Suppress nap predictions while napping, or when naps are complete (overdue → bedtime)
     if (napOn) return null;
@@ -15101,7 +15103,7 @@ function App(){
     }
     const last = new Date(lastPoopDay + "T12:00:00");
     const daysSince = Math.round((today - last) / (1000 * 60 * 60 * 24));
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const hasBreast = _pfRecent.slice(-3).some(rd => rd.entries.some(e => e.feedType === "breast"));
     return { daysSince, hasBreast, ageWeeks: w };
   }
@@ -15180,7 +15182,7 @@ function App(){
     const today = entries;
     const todayNaps = today.filter(e => e.type==="nap" && !e.night);
     const totalDaySleep = todayNaps.reduce((s,n) => s + minDiff(n.start, n.end), 0);
-    const range = getExpectedDaySleepRange(age.totalWeeks);
+    const range = getExpectedDaySleepRange(age.predictiveWeeks ?? age.totalWeeks);
     const status = totalDaySleep < range.min ? "below" : totalDaySleep > range.max ? "above" : "normal";
     return { totalDaySleep, range, status };
   }
@@ -15221,7 +15223,8 @@ function App(){
     // Suggest bridge nap if: wake window too long OR (early risk AND below day sleep) OR (short last nap AND long gap)
     const suggestBridge = !bridgeNapScheduled && (wwTooLong || (isEarlyRisk && belowDaySleep) || (lastNapShort && wwToBed > ww.max));
     const bridgeStart = lastNapEndMins + ww.min;
-    const _bDur = age.totalWeeks < 22 ? 25 : age.totalWeeks < 39 ? 20 : 15;
+    const _bDurW = age.predictiveWeeks ?? age.totalWeeks;
+    const _bDur = _bDurW < 22 ? 25 : _bDurW < 39 ? 20 : 15;
     const bridgeEnd = bridgeStart + _bDur;
     return { isEarlyRisk, method1BedMins, suggestBridge, lastNapEndMins, bridgeStart, bridgeEnd, wwToBed, lastNapShort };
   }
@@ -15248,7 +15251,7 @@ function App(){
   // 6 & 7. Dynamic nap structure recommendation
   function dynamicNapStructure() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const dss = getDaySleepSummary();
     const consec = consecutiveEarlyBedDays();
     const ebr = earlyBedtimeRisk();
@@ -15350,7 +15353,7 @@ function App(){
     if (!wakeEntry) return { time: clampBedtime(method1), method1, method2: null, combined: method1, source: "method1" };
     const [wh,wm] = wakeEntry.time.split(":").map(Number);
     const wakeMins = wh*60+wm;
-    const totalSleepH = getAgeTotalSleepHours(age.totalWeeks);
+    const totalSleepH = getAgeTotalSleepHours(age.predictiveWeeks ?? age.totalWeeks);
     const daySleepH = (getDaySleepSummary()?.totalDaySleep || 0) / 60;
     const nightSleepNeeded = totalSleepH - daySleepH;
     let method2 = wakeMins + (24*60 - nightSleepNeeded*60);
@@ -15670,7 +15673,7 @@ function App(){
   // 11. Predict tomorrow's flexible schedule (enhanced version)
   function tomorrowFlexSchedule() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const ww = getWakeWindow(w);
     const napProfile = getAgeNapProfile(w);
     const mtp = mtp24h;
@@ -16847,7 +16850,7 @@ function App(){
       const [h,m]=e.time.split(":").map(Number); return h*60+m;
     }).filter(v=>v!==null);
     const personalAvgBed = bedArr.length >= 3 ? Math.round(bedArr.reduce((a,b)=>a+b,0)/bedArr.length) : null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const nhsWW = getWakeWindow(w);
     const nhsNapProfile = getAgeNapProfile(w);
     const nhsBedMin = 18*60, nhsBedMax = 20*60;
@@ -16876,7 +16879,7 @@ function App(){
   // Returns null if <3 complete days. Gets richer as sample size grows.
   function getPositionalRhythm() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const nhsWW = getWakeWindow(w);
     // Per-position expected multipliers of the age max:
     //  - WW1 (morning): shorter, 65–90% of age max (sleep pressure builds fast after waking)
@@ -17255,7 +17258,7 @@ function App(){
 
     const transitions = [];
     if (dropping) {
-      const w = age.totalWeeks;
+      const w = age.predictiveWeeks ?? age.totalWeeks;
       const expectedNap = w < 13 ? "3→2" : w < 26 ? "3→2" : w < 52 ? "2→1" : "1→0";
       transitions.push({
         type: "nap_drop",
@@ -22722,7 +22725,7 @@ function App(){
 
     // Log what we noticed. parent can read in the "What we noticed" sheet when ready
     if (durMins > 0 && !isNightTime && !hasBedtime && age) {
-      const w = age.totalWeeks;
+      const w = age.predictiveWeeks ?? age.totalWeeks;
       const napProfile = getAgeNapProfile(w);
       const _name = babyName || "Baby";
       const _wasBridge = napEntryId && (days[selDay]||[]).some(e => e.id === napEntryId && e.isBridge);
@@ -23813,7 +23816,7 @@ function App(){
     // ~10-15min before the event (baby wakes fresh), then work backwards
     // from there for earlier naps. Work forwards from event end for later naps.
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const ww = getWakeWindow(w);
     const profile = getAgeNapProfile(w);
     const napCount = profile.expectedNaps;
@@ -24075,7 +24078,7 @@ function App(){
   // Schedule maker: baby SLEEPS during the event (car ride, pram walk, etc.)
   function buildScheduleWithSleepEvent(eventTimeMins, eventLabel, eventDurMins) {
     if (!age) return null;
-    const w = age.totalWeeks;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const ww = getWakeWindow(w);
     const profile = getAgeNapProfile(w);
     const napCount = profile.expectedNaps;
@@ -28157,7 +28160,7 @@ function App(){
 
                   {/* This week's development. brief summary, details in Development tab */}
                   {age && (()=>{
-                    const w = age.totalWeeks;
+                    const w = age.predictiveWeeks ?? age.totalWeeks;
                     const _name = babyName || "Baby";
                     const _currentPhase = DEV_PHASES.slice().reverse().find(p => w >= p.windowStart);
                     const _suitable = DEV_ACTIVITIES.filter(a => w >= a.weeks[0] && w <= a.weeks[1]);
@@ -29802,7 +29805,7 @@ function App(){
                   return be;
                 })();
                 const isPast = selDay < todayStr();
-                const w = age.totalWeeks;
+                const w = age.predictiveWeeks ?? age.totalWeeks;
                 const ww = getWakeWindow(w);
                 const napProfile = getAgeNapProfile(w);
                 const mtp = mtp24h;
