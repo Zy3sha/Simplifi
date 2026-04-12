@@ -3671,19 +3671,27 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
 
 // ═══ SWIPEABLE ENTRY ═══
 // Apple-style swipe-to-delete + long-press-to-edit wrapper.
-// Wraps any entry card content. Manages its own touch state.
+// Touch: swipe left = delete, long-press = edit.
+// Desktop: double-click = edit, right side shows subtle delete on hover.
 function SwipeableEntry({ entryId, onEdit, onDelete, children }) {
   const [swipeX, setSwipeX] = React.useState(0);
   const [swiped, setSwiped] = React.useState(false);
+  const [isMoving, setIsMoving] = React.useState(false);
   const touchRef = React.useRef({ startX: 0, startY: 0, moved: false, lpTimer: null });
   const DELETE_THRESHOLD = 80;
 
-  // Reset if another entry is swiped (via key change)
+  // Reset on entry change
   React.useEffect(() => { setSwipeX(0); setSwiped(false); }, [entryId]);
+
+  // Cleanup long-press timer on unmount
+  React.useEffect(() => {
+    return () => { if (touchRef.current.lpTimer) clearTimeout(touchRef.current.lpTimer); };
+  }, []);
 
   function onTouchStart(ev) {
     const t = ev.touches[0];
     touchRef.current = { startX: t.clientX, startY: t.clientY, moved: false, lpTimer: null };
+    setIsMoving(false);
     // Start long-press timer (500ms)
     touchRef.current.lpTimer = setTimeout(() => {
       if (!touchRef.current.moved) {
@@ -3705,27 +3713,25 @@ function SwipeableEntry({ entryId, onEdit, onDelete, children }) {
     }
     // Only track horizontal swipe (must be more horizontal than vertical)
     if (Math.abs(dx) > 20 && Math.abs(dx) > dy * 1.5) {
-      // Only allow left swipe (dx > 0 = finger moved left)
+      setIsMoving(true);
       const clampedX = dx > 0 ? -Math.min(dx, DELETE_THRESHOLD + 20) : 0;
       setSwipeX(clampedX);
-      if (swiped && dx < 20) { setSwiped(false); } // user is swiping back
+      if (swiped && dx < 20) { setSwiped(false); }
     }
   }
 
   function onTouchEnd() {
     if (touchRef.current.lpTimer) { clearTimeout(touchRef.current.lpTimer); touchRef.current.lpTimer = null; }
+    setIsMoving(false);
     if (Math.abs(swipeX) >= DELETE_THRESHOLD) {
-      // Snap to reveal delete button
       setSwipeX(-DELETE_THRESHOLD);
       setSwiped(true);
     } else {
-      // Spring back
       setSwipeX(0);
       setSwiped(false);
     }
   }
 
-  // Tap anywhere to reset swiped state
   function handleTap() {
     if (swiped) { setSwipeX(0); setSwiped(false); }
   }
@@ -3747,8 +3753,9 @@ function SwipeableEntry({ entryId, onEdit, onDelete, children }) {
         onTouchMove: onTouchMove,
         onTouchEnd: onTouchEnd,
         onClick: handleTap,
+        onDoubleClick: onEdit, // Desktop fallback: double-click to edit
         style: { transform: "translateX(" + swipeX + "px)",
-          transition: touchRef.current.moved ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+          transition: isMoving ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
           position: "relative", zIndex: 1, background: "var(--card-bg)", borderRadius: 16,
           willChange: "transform", WebkitUserSelect: "none", userSelect: "none" }
       }, children)
