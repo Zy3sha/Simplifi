@@ -19869,6 +19869,11 @@ function App(){
 
     function addAppointment(){
     if(!apptForm.title.trim()||!apptForm.date) return;
+    // Validate endDate is not before startDate
+    if(apptForm.endDate && apptForm.endDate < apptForm.date) {
+      showToast("End date can't be before start date",3000,2);
+      return;
+    }
     const _allDay = !!apptForm.allDay;
     const base={
       title:apptForm.title.trim(),
@@ -19903,7 +19908,13 @@ function App(){
         if(apptForm.repeat==="daily") next.setDate(next.getDate()+i);
         else if(apptForm.repeat==="weekly") next.setDate(next.getDate()+7*i);
         else if(apptForm.repeat==="fortnightly") next.setDate(next.getDate()+14*i);
-        else if(apptForm.repeat==="monthly") next.setMonth(next.getMonth()+i);
+        else if(apptForm.repeat==="monthly") {
+          // Safe month add: Jan 31 + 1mo → Feb 28 (not Mar 2/3)
+          const origDay = startD.getDate();
+          next.setMonth(startD.getMonth()+i);
+          // If day overflowed (e.g. 31→2), clamp to last day of target month
+          if(next.getDate() !== origDay) next.setDate(0); // setDate(0) = last day of previous month
+        }
         else if(apptForm.repeat==="yearly") next.setFullYear(next.getFullYear()+i);
         if(next > stopD) break;
         const _nextDate = localDateStr(next);
