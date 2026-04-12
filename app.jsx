@@ -12908,7 +12908,7 @@ function App(){
       // Only meaningful for 4+ month olds (dropping night feeds earlier
       // than 16 weeks is not a sleep-engine recommendation, it's a
       // medical one, and we should not touch it).
-      if (age && age.totalWeeks >= 16 && _nfCounts.length === 14) {
+      if (age && (age.predictiveWeeks ?? age.totalWeeks) >= 16 && _nfCounts.length === 14) {
         const _recent5 = _nfCounts.slice(0, 5);
         const _prior9 = _nfCounts.slice(5);
         const _avgRecent = _recent5.reduce((a,b)=>a+b,0) / _recent5.length;
