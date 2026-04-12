@@ -333,11 +333,16 @@ function showToast(msg) {
 }
 
 async function logEntry(entry) {
+  // Read time from time picker if present
+  const _timePicker = document.getElementById("carer-time-input");
+  const _entryTime = (_timePicker && _timePicker.value) ? _timePicker.value : (entry.time || nowTime());
   try {
+    if (!code || code.length < 4) { showToast("Invalid care link. ask the parent for a new one"); return; }
     const colRef = collection(db, "carer_logs", code, "entries");
     await addDoc(colRef, {
       ...entry,
-      time: entry.time || nowTime(),
+      time: _entryTime,
+      start: entry.start ? _entryTime : undefined,
       loggedAt: new Date().toISOString(),
       loggedBy: "carer"
     });
@@ -345,7 +350,14 @@ async function logEntry(entry) {
     closeSheet();
   } catch (e) {
     console.error("Log failed", e);
-    showToast("Couldn't save, try again");
+    // More specific error message
+    if (e.code === "permission-denied") {
+      showToast("Access expired. ask the parent for a new care link");
+    } else if (!navigator.onLine) {
+      showToast("No internet. check your connection and try again");
+    } else {
+      showToast("Couldn't save. check your connection and try again");
+    }
   }
 }
 
@@ -360,12 +372,19 @@ function openSheet(type) {
   sheet.onclick = (e) => { if(e.target === sheet) closeSheet(); };
   let inner = "";
 
+  // Reusable time picker row
+  const _timePickerHtml = `<div style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;justify-content:center">
+    <label style="font-size:13px;color:#8A7F87;font-weight:600">Time:</label>
+    <input type="time" id="carer-time-input" value="${nowTime()}" style="font-size:16px;padding:8px 12px;border-radius:10px;border:1.5px solid #f0e8e0;background:#FFFCF9;color:#5B4F5F;text-align:center;font-family:inherit;outline:none;min-width:120px"/>
+  </div>`;
+
   if (type === "feed") {
     let ml = 120;
     inner = `
       <div class="sheet-inner">
         <div class="sheet-handle"></div>
         <div class="sheet-title">🍼 Log a Feed</div>
+        ${_timePickerHtml}
         <div class="amount-display"><span id="ml-val">${ml}</span><span class="unit">ml</span></div>
         <div class="amount-btns">
           <button class="amt-btn" data-delta="-30">−30</button>
@@ -395,6 +414,7 @@ function openSheet(type) {
       <div class="sheet-inner">
         <div class="sheet-handle"></div>
         <div class="sheet-title">💩 Log a Nappy</div>
+        ${_timePickerHtml}
         <button class="opt-btn" data-kind="wet"><span class="emoji">💧</span>Wet</button>
         <button class="opt-btn" data-kind="dirty"><span class="emoji">💩</span>Dirty</button>
         <button class="opt-btn" data-kind="wet + dirty"><span class="emoji">💧💩</span>Wet + Dirty</button>
