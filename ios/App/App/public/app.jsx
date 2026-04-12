@@ -3568,48 +3568,24 @@ function Inp({label,...p}){
 function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=false, style={}, inputStyle={}}){
   const [parsed, setParsed] = React.useState(value || null);
   const [showPicker, setShowPicker] = React.useState(false);
-  const [typeBuf, setTypeBuf] = React.useState("");
-  const [typeErr, setTypeErr] = React.useState(false);
-  const tRef = React.useRef(null);
 
   React.useEffect(()=>{
     if(value && value !== parsed){ setParsed(value); }
     else if(!value){ setParsed(null); }
   },[value]);
 
-  function tryParse(str){
-    if(!str || !str.trim()) return null;
-    const result = parseTimeFree(str, previousMinutes);
-    if(!result) return null;
-    if(nightOnly){ const [h] = result.split(":").map(Number); if(h >= 8 && h < 18) return null; }
-    return result;
-  }
-
   function openPicker(){
-    setTypeBuf("");
-    setTypeErr(false);
     setShowPicker(true);
-    setTimeout(()=>{ if(tRef.current) tRef.current.focus(); }, 150);
-  }
-
-  function handleDone(){
-    const r = tryParse(typeBuf);
-    if(r){ setParsed(r); onChange(r); setShowPicker(false); }
-    else if(typeBuf && typeBuf.trim()){ setTypeErr(true); }
-    else { setParsed(null); onChange(""); setShowPicker(false); }
   }
 
   function handleWheel(e){
     const v = e.target.value; if(!v) return;
-    setParsed(v); setTypeBuf(fmt12(v)); setTypeErr(false);
+    setParsed(v);
     onChange(v);
-    // Don't auto-close. let user tap Done
   }
 
-  function handleType(str){
-    setTypeBuf(str); setTypeErr(false);
-    const r = tryParse(str);
-    if(r){ setParsed(r); onChange(r); }
+  function handleDone(){
+    setShowPicker(false);
   }
 
   const borderColor = parsed ? C.ter : C.blush;
@@ -3629,27 +3605,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:20,padding:"20px",width:"100%",maxWidth:300,boxShadow:"0 12px 40px rgba(0,0,0,0.2)"}}>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:14,textAlign:"center"}}>Set Time</div>
 
-            <div style={_S.mb14}>
-              <div style={{fontSize:11,color:C.mid,fontFamily:_fM,marginBottom:5,textTransform:"uppercase",letterSpacing:_ls08}}>✏️ Type a time</div>
-              <input
-                ref={tRef}
-                type="text"
-                inputMode="text"
-                placeholder={fmt12(nowTime())}
-                value={typeBuf}
-                onChange={e=>handleType(e.target.value)}
-                onKeyDown={e=>{if(e.key==="Enter") handleDone();}}
-                style={{width:"100%",padding:"11px 14px",borderRadius:12,border:`2px solid ${typeErr?"#e8574a":tryParse(typeBuf)?C.ter:C.blush}`,background:tryParse(typeBuf)?"var(--chip-bg-active)":"var(--card-bg-alt)",fontSize:18,fontFamily:_fI,outline:_oN,boxSizing:_bBB,textAlign:"center",caretColor:C.ter,letterSpacing:"0.02em"}}
-              />
-              {typeErr&&<div style={{fontSize:11,color:"#e8574a",marginTop:3,fontFamily:_fM,textAlign:"center"}}>Couldn't parse. try "7:30am" or "19:00"</div>}
-              {tryParse(typeBuf)&&<div style={{fontSize:12,color:C.ter,marginTop:4,fontFamily:_fM,textAlign:"center"}}>→ {fmt12(tryParse(typeBuf))}</div>}
-            </div>
-
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-              <div style={{flex:1,height:1,background:C.blush}}/>
-              <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>or scroll</span>
-              <div style={{flex:1,height:1,background:C.blush}}/>
-            </div>
+            {/* Scroll-only time picker — no text input to avoid AM/PM confusion */}
 
             <div style={{display:"flex",justifyContent:"center",marginBottom:16}}>
               <input type="time" value={parsed||""} onChange={handleWheel}
@@ -40275,7 +40231,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:20}}>🌟 {nightEditId?"Edit":"Log"} Night Wake</div>
 
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Wake time</div>
-            <TimeInput value={nwForm.time} onChange={t=>{
+            <TimeInput value={nwForm.time} nightOnly={true} onChange={t=>{
               // Auto-recompute duration soothed when editing wake time.
               // Preserves the implied "resume time" = originalWake + originalDuration
               // so moving the wake earlier lengthens the soothed duration,
@@ -40487,7 +40443,25 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             <button onClick={()=>{
               haptic(20);
-              const saveTime = nwForm.time || nowTime();
+              let saveTime = nwForm.time || nowTime();
+              // Auto-correct PM night wakes that fall before bedtime:
+              // if user enters "1:10" and it parses as 13:10 (PM), but
+              // bedtime is 20:27 (PM), a 1pm wake makes no sense — they
+              // meant 1:10 AM. Convert hours 12-17 → subtract 12.
+              try {
+                const [_nwH, _nwM] = saveTime.split(":").map(Number);
+                if (!isNaN(_nwH) && _nwH >= 12 && _nwH < 18) {
+                  // Check if there's a bedtime that's LATER than this time
+                  const _bedE = (days[selDay]||[]).find(e=>e.type==="sleep"&&!e.night);
+                  if (_bedE && _bedE.time) {
+                    const _bedH = parseInt(_bedE.time.split(":")[0], 10);
+                    if (!isNaN(_bedH) && _bedH >= 18 && _nwH < _bedH) {
+                      // This PM time is before bedtime — almost certainly meant AM
+                      saveTime = String(_nwH - 12).padStart(2,"0") + ":" + String(_nwM).padStart(2,"0");
+                    }
+                  }
+                }
+              } catch {}
               const isMilkAssisted = nwForm.assisted && nwForm.assistedType==="milk";
               const mlVal = nwForm.selfSettled ? 0 : (parseFloat(nwForm.ml)||0) > 0 ? displayToMl(nwForm.ml,FU) : 0;
               const noteStr = nwForm.selfSettled
