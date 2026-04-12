@@ -873,12 +873,17 @@ return`${dateKey}|nap|${entry.start||""}`;}if(t==="sleep"){return`${dateKey}|sle
 // the importer can skip anything it's already seen. Also seeds the
 // Set as we add new entries, which covers the case where the same
 // row appears twice WITHIN the same CSV file.
-const _existingSigs=new Set();try{const _activeDays=activeChild&&activeChild.days||{};Object.entries(_activeDays).forEach(([dk,arr])=>{if(Array.isArray(arr)){arr.forEach(e=>{if(e&&e.type)_existingSigs.add(entrySignature(dk,e));});}});}catch{}function addEntry(dateStr,entry){if(!dateStr||!entry.type){skipped++;return;}const d=normDate(dateStr);if(!d){skipped++;return;}// Reject dates before baby was born (ancient imports), more than
+const _existingSigs=new Set();try{const _activeDays=activeChild&&activeChild.days||{};Object.entries(_activeDays).forEach(([dk,arr])=>{if(Array.isArray(arr)){arr.forEach(e=>{if(e&&e.type){_existingSigs.add(entrySignature(dk,e));// Cross-type key: catches old-import type mismatches
+const _tk=dk+"|"+(e.time||e.start||"");_existingSigs.add("_t|"+_tk);}});}});}catch{}function addEntry(dateStr,entry){if(!dateStr||!entry.type){skipped++;return;}const d=normDate(dateStr);if(!d){skipped++;return;}// Reject dates before baby was born (ancient imports), more than
 // 1 day in the future (typo), or before 2020 (unambiguous typo).
 // These used to pollute the 7-day / 14-day analyser baselines.
 try{const _t=new Date(d+"T12:00:00").getTime();const _dobMs=activeChild&&activeChild.dob?new Date(activeChild.dob+"T00:00:00").getTime():null;const _2020=new Date("2020-01-01T00:00:00").getTime();const _tomorrow=Date.now()+36*60*60*1000;if(isNaN(_t)||_t<_2020||_t>_tomorrow||_dobMs&&_t<_dobMs-24*60*60*1000){skipped++;return;}}catch{}// DEDUP: skip anything we've already logged (either on an earlier
 // import, via manual logging, or earlier in the same CSV).
-const _sig=entrySignature(d,entry);if(_existingSigs.has(_sig)){duplicates++;return;}_existingSigs.add(_sig);if(!newDays[d])newDays[d]=[];// CRITICAL: preserve entry.night if the caller set it. The old
+const _sig=entrySignature(d,entry);if(_existingSigs.has(_sig)){duplicates++;return;}// Cross-type dedup: a previous import with the old night-chain code
+// may have created "sleep" entries for morning naps (firstHour <= 10
+// bug). The new code correctly creates "nap" entries. Check if any
+// entry at the same time already exists regardless of type.
+const _timeKey=d+"|"+(entry.time||entry.start||"");if(_existingSigs.has("_t|"+_timeKey)){duplicates++;return;}_existingSigs.add(_sig);_existingSigs.add("_t|"+_timeKey);if(!newDays[d])newDays[d]=[];// CRITICAL: preserve entry.night if the caller set it. The old
 // version hardcoded night:false AFTER the spread, which meant night
 // wakes extracted from Huckleberry sleep chains lost their night
 // flag and the engine couldn't tell them apart from morning wakes.
@@ -969,7 +974,18 @@ if(!commit){let previewMsg;if(imported>0){previewMsg=`Found ${imported} entries 
 // The batch ID is a millisecond timestamp so the parent can revert
 // exactly this import later via the Undo button (which filters
 // entries whose src === "import:<thisBatch>").
-const _batchId="import:"+Date.now();if(imported>0){setDays(prev=>{const merged={...prev};Object.keys(newDays).forEach(d=>{const tagged=newDays[d].map(e=>({...e,src:_batchId}));merged[d]=[...(merged[d]||[]),...tagged];});return merged;});// Remember the last batch ID on-device so the undo button in the
+const _batchId="import:"+Date.now();if(imported>0){setDays(prev=>{const merged={...prev};Object.keys(newDays).forEach(d=>{const tagged=newDays[d].map(e=>({...e,src:_batchId}));merged[d]=[...(merged[d]||[]),...tagged];});// Post-import dedup: remove existing duplicates from previous
+// bad imports (e.g. old code created "sleep" entries for morning
+// naps, new code creates "nap" entries → both exist). Dedup by
+// time key: if two entries on the same day have the same time
+// and one is from an import batch, remove the older import one.
+let _dedupRemoved=0;Object.keys(merged).forEach(dk=>{const arr=merged[dk];if(!arr||arr.length<2)return;const seen=new Map();// time → first entry
+const keep=[];arr.forEach(e=>{const tk=(e.time||e.start||"")+"|"+(e.type||"");if(seen.has(tk)){// Duplicate time+type: keep the one WITHOUT an import src,
+// or the newer one if both are imports
+const prev=seen.get(tk);if(prev.src&&prev.src.startsWith("import:")&&(!e.src||!e.src.startsWith("import:"))){// Previous was import, current is manual → keep current, drop previous
+keep.splice(keep.indexOf(prev),1);keep.push(e);seen.set(tk,e);_dedupRemoved++;}else if(e.src&&e.src.startsWith("import:")){// Current is import, previous is manual → skip current
+_dedupRemoved++;}else{keep.push(e);// both manual → keep both (different entries)
+}}else{seen.set(tk,e);keep.push(e);}});if(_dedupRemoved>0)merged[dk]=keep;});if(_dedupRemoved>0)console.log("[OBubba] Post-import dedup removed "+_dedupRemoved+" duplicate entries");return merged;});// Remember the last batch ID on-device so the undo button in the
 // modal knows what to revert. Cleared when the modal closes.
 try{localStorage.setItem("ob_last_import_batch",_batchId);}catch{}}let msg;if(imported>0){msg=`✅ Imported ${imported} entries across ${Object.keys(newDays).length} days`;if(duplicates>0)msg+=` · ${duplicates} already logged (skipped)`;}else if(duplicates>0){msg=`All ${duplicates} entries were already logged. Nothing new to import.`;}else{msg=`Hmm, no entries found. OBubba supports Huckleberry, OBubba and Glow Baby CSV exports. Make sure you export from the app (not a PDF or report), and that the file ends in .csv`;}return{mode:"commit",imported,skipped,duplicates,breakdown,message:msg,batchId:_batchId};}// Revert the most recent CSV import. Pulls the batch ID from
 // localStorage and removes every entry whose src field matches.

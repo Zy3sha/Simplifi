@@ -5408,7 +5408,12 @@ function App(){
       Object.entries(_activeDays).forEach(([dk, arr]) => {
         if (Array.isArray(arr)) {
           arr.forEach(e => {
-            if (e && e.type) _existingSigs.add(entrySignature(dk, e));
+            if (e && e.type) {
+              _existingSigs.add(entrySignature(dk, e));
+              // Cross-type key: catches old-import type mismatches
+              const _tk = dk + "|" + (e.time || e.start || "");
+              _existingSigs.add("_t|" + _tk);
+            }
           });
         }
       });
@@ -5435,7 +5440,14 @@ function App(){
       // import, via manual logging, or earlier in the same CSV).
       const _sig = entrySignature(d, entry);
       if (_existingSigs.has(_sig)) { duplicates++; return; }
+      // Cross-type dedup: a previous import with the old night-chain code
+      // may have created "sleep" entries for morning naps (firstHour <= 10
+      // bug). The new code correctly creates "nap" entries. Check if any
+      // entry at the same time already exists regardless of type.
+      const _timeKey = d + "|" + (entry.time || entry.start || "");
+      if (_existingSigs.has("_t|" + _timeKey)) { duplicates++; return; }
       _existingSigs.add(_sig);
+      _existingSigs.add("_t|" + _timeKey);
       if (!newDays[d]) newDays[d] = [];
       // CRITICAL: preserve entry.night if the caller set it. The old
       // version hardcoded night:false AFTER the spread, which meant night
@@ -5965,6 +5977,43 @@ function App(){
           const tagged = newDays[d].map(e => ({...e, src: _batchId}));
           merged[d] = [...(merged[d]||[]), ...tagged];
         });
+        // Post-import dedup: remove existing duplicates from previous
+        // bad imports (e.g. old code created "sleep" entries for morning
+        // naps, new code creates "nap" entries → both exist). Dedup by
+        // time key: if two entries on the same day have the same time
+        // and one is from an import batch, remove the older import one.
+        let _dedupRemoved = 0;
+        Object.keys(merged).forEach(dk => {
+          const arr = merged[dk];
+          if (!arr || arr.length < 2) return;
+          const seen = new Map(); // time → first entry
+          const keep = [];
+          arr.forEach(e => {
+            const tk = (e.time || e.start || "") + "|" + (e.type || "");
+            if (seen.has(tk)) {
+              // Duplicate time+type: keep the one WITHOUT an import src,
+              // or the newer one if both are imports
+              const prev = seen.get(tk);
+              if (prev.src && prev.src.startsWith("import:") && (!e.src || !e.src.startsWith("import:"))) {
+                // Previous was import, current is manual → keep current, drop previous
+                keep.splice(keep.indexOf(prev), 1);
+                keep.push(e);
+                seen.set(tk, e);
+                _dedupRemoved++;
+              } else if (e.src && e.src.startsWith("import:")) {
+                // Current is import, previous is manual → skip current
+                _dedupRemoved++;
+              } else {
+                keep.push(e); // both manual → keep both (different entries)
+              }
+            } else {
+              seen.set(tk, e);
+              keep.push(e);
+            }
+          });
+          if (_dedupRemoved > 0) merged[dk] = keep;
+        });
+        if (_dedupRemoved > 0) console.log("[OBubba] Post-import dedup removed " + _dedupRemoved + " duplicate entries");
         return merged;
       });
       // Remember the last batch ID on-device so the undo button in the
