@@ -951,8 +951,34 @@ const ALLERGENS = {
   "sulphites":["dried fruit","wine","vinegar"]
 };
 function detectAllergens(food) {
-  const lower = (food||"").toLowerCase();
-  return Object.entries(ALLERGENS).filter(([,words])=>words.some(w=>lower.includes(w))).map(([name])=>name);
+  let lower = (food||"").toLowerCase();
+  if (!lower) return [];
+  // Compound-word false positives: certain compound foods contain an
+  // allergen keyword that doesn't apply. Strip those compounds first so
+  // the downstream substring match doesn't trigger.
+  //   "peanut butter" → should only match peanuts, not milk (butter)
+  //   "nut butter" → same (tree nuts, not milk)
+  //   "almond/cashew/walnut butter" → tree nuts, not milk
+  //   "rice cereal", "oat cereal", "baby cereal" → not wheat by default
+  //   "rice flour", "almond flour", "oat flour", "coconut flour" → not wheat
+  //   "coconut milk/cream/yoghurt" → not dairy (coconut is not cow's milk)
+  //   "squid" → belongs to molluscs in our taxonomy (remove from shellfish match)
+  const _stripped = lower
+    .replace(/peanut butter/g, "peanut")
+    .replace(/(almond|cashew|walnut|hazelnut|pecan|pistachio|macadamia|brazil nut|nut) butter/g, "$1")
+    .replace(/(rice|oat|baby|corn|quinoa|millet) cereal/g, "$1 grain")
+    .replace(/(rice|almond|oat|coconut|chickpea|corn) flour/g, "$1")
+    .replace(/coconut (milk|cream|yoghurt|yogurt|butter)/g, "coconut");
+  const matched = new Set();
+  Object.entries(ALLERGENS).forEach(([name, words]) => {
+    if (words.some(w => _stripped.includes(w))) matched.add(name);
+  });
+  // Deduplicate squid → molluscs (not shellfish) when both match
+  if (matched.has("shellfish") && matched.has("molluscs") && /\bsquid\b/.test(_stripped) &&
+      !/(prawn|shrimp|crab|lobster|mussel|oyster|clam|scallop)/.test(_stripped)) {
+    matched.delete("shellfish");
+  }
+  return [...matched];
 }
 
 // 14 allergen checklist with introduction priority, prep guide, and risk notes
