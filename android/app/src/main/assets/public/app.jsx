@@ -10013,7 +10013,7 @@ function App(){
         const startD = new Date(); startD.setHours(sh,sm,0,0);
         let elapsed = Math.floor((new Date() - startD) / 1000);
         if(elapsed < 0) elapsed += 24*3600;
-        const gp = age ? getAgeNapProfile(age.totalWeeks) : null;
+        const gp = age ? getAgeNapProfile(age.predictiveWeeks??age.totalWeeks) : null;
         const guardMins = gp ? Math.round(gp.idealNapDurMax * 1.5) : 150;
         // 14h bedtime timer safety cap. auto-stop if bedtime has been running too long
         const _sd = selDayRef.current;
@@ -10620,7 +10620,7 @@ function App(){
           _rsScore += _rsWakeVar <= 15 ? 10 : _rsWakeVar <= 30 ? 5 : -5;
         }
         // Nap count matching expected
-        const _rsProfile = getAgeNapProfile(age.totalWeeks);
+        const _rsProfile = getAgeNapProfile(age.predictiveWeeks??age.totalWeeks);
         const _rsTodayNaps = (days[selDay]||[]).filter(e=>e.type==="nap"&&!e.night).length;
         if (_rsTodayNaps === _rsProfile.expectedNaps) _rsScore += 10;
         else if (Math.abs(_rsTodayNaps - _rsProfile.expectedNaps) <= 1) _rsScore += 5;
@@ -13586,7 +13586,7 @@ function App(){
     const todayNaps = today.filter(e => e.type === "nap" && !e.night && e.start && e.end && minDiff(e.start, e.end) >= 5 && minDiff(e.start, e.end) < 480);
     if (!age) return null;
 
-    const napProfile = getAgeNapProfile(age.totalWeeks);
+    const napProfile = getAgeNapProfile(age.predictiveWeeks??age.totalWeeks);
     const _effNaps = napStructure ? napStructure.effectiveNapCount : napProfile.expectedNaps;
     const adjustedExpected = _effNaps + (bridgeNapScheduled ? 1 : 0);
     const napsDone = todayNaps.length;
@@ -13932,7 +13932,7 @@ function App(){
       const hrs = (napMinutes / 60).toFixed(1);
       return `Baby napped ${hrs}h today.`;
     }
-    const p = getAgeNapProfile(age.totalWeeks);
+    const p = getAgeNapProfile(age.predictiveWeeks??age.totalWeeks);
     const _effAdv = napStructure ? napStructure.effectiveNapCount : p.expectedNaps;
     const adjustedExpectedAdv = _effAdv + (bridgeNapScheduled ? 1 : 0);
     const hrs = (napMinutes / 60).toFixed(1);
@@ -13987,7 +13987,7 @@ function App(){
     const range = napNormalRange();
     if (!range) return null;
 
-    const p = age ? getAgeNapProfile(age.totalWeeks) : null;
+    const p = age ? getAgeNapProfile(age.predictiveWeeks??age.totalWeeks) : null;
     const napsComplete = p ? naps.length >= (p.expectedNaps + (bridgeNapScheduled ? 1 : 0)) : true;
     const isToday = selDay === todayStr();
     const nowMins = isToday ? (() => { const n = new Date(); return n.getHours()*60+n.getMinutes(); })() : 24*60;
@@ -15195,7 +15195,7 @@ function App(){
     // Guard: invalid nap data (0 min duration = likely a timer still running or bad entry)
     if (lastNapDur <= 0) return null;
     const ww = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
-    const p = getAgeNapProfile(age.totalWeeks);
+    const p = getAgeNapProfile(age.predictiveWeeks??age.totalWeeks);
     // Guard: only suggest bridge nap when most expected naps are done
     // (at least expectedNaps - 1, or all of them)
     const napsDone = todayNaps.length;
@@ -15575,7 +15575,7 @@ function App(){
         // Check WHY bedtime is early. don't criticize if it's compensating for short naps
         const todayNaps3 = today.filter(e=>e.type==="nap"&&!e.night);
         const totalNapMins3 = todayNaps3.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-        const napProfile3 = age ? getAgeNapProfile(age.totalWeeks) : null;
+        const napProfile3 = age ? getAgeNapProfile(age.predictiveWeeks??age.totalWeeks) : null;
         const dayTarget3 = napProfile3 ? Math.round((napProfile3.idealTotalMin + napProfile3.idealTotalMax) / 2) : 150;
         const hadShortNaps = totalNapMins3 < dayTarget3 - 20;
         const hadBridge = bridgeNapScheduled;
@@ -16711,7 +16711,7 @@ function App(){
       if (bedH < 17) {
         const recentNapTotals = dk.map(d => (days[d]||[]).filter(e=>e.type==="nap"&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0));
         const avgNapTotal = recentNapTotals.length ? Math.round(recentNapTotals.reduce((a,b)=>a+b,0)/recentNapTotals.length) : 0;
-        const napTarget = age ? Math.round((getAgeNapProfile(age.totalWeeks).idealTotalMin + getAgeNapProfile(age.totalWeeks).idealTotalMax)/2) : 150;
+        const napTarget = age ? Math.round((getAgeNapProfile(age.predictiveWeeks??age.totalWeeks).idealTotalMin + getAgeNapProfile(age.predictiveWeeks??age.totalWeeks).idealTotalMax)/2) : 150;
         const shortNapsExplain = avgNapTotal < napTarget - 20;
         insights.push({
           type: shortNapsExplain ? "info" : "warn",
@@ -24303,7 +24303,7 @@ function App(){
     // Feasibility: bed - wake must allow enough awake time for all naps + wake windows
     if (wakeMins && bedMins) {
       const totalDay = bedMins - wakeMins;
-      const profile = getAgeNapProfile(age.totalWeeks);
+      const profile = getAgeNapProfile(age.predictiveWeeks??age.totalWeeks);
       const minNeeded = profile.expectedNaps * 30 + (profile.expectedNaps + 1) * ww.min;
       if (totalDay < minNeeded) {
         const _origBed = bedMins;
@@ -29685,7 +29685,7 @@ function App(){
               {/* Free users: full research-based schedule + personalisation upsell */}
               {!hasAccess() && todayPlanOpen && (()=>{
                 const _freeWW = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks) : null;
-                const _freeProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
+                const _freeProfile = age ? getAgeNapProfile(age.predictiveWeeks??age.totalWeeks) : null;
                 const _freeWake = findMorningWake(entries);
                 const _freeWakeMin = _freeWake ? timeVal(_freeWake) : null;
                 const _fmtMin = (m) => { const h=Math.floor(m/60)%24; return fmt12(String(h).padStart(2,"0")+":"+String(Math.round(m%60)).padStart(2,"0")); };
