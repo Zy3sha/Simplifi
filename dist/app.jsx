@@ -21339,7 +21339,7 @@ function App(){
     // 7. TEMPERATURE. always relevant
     reasons.push({
       emoji: "🌡️", title: "Too hot or cold",
-      detail: "The Lullaby Trust recommends 16–20°C",
+      detail: "The Lullaby Trust recommends "+cToDisplay(16)+"–"+cToDisplay(20)+tempLabel+"",
       action: "Feel baby's chest or back of neck. if hot or sweaty, remove a layer. Hands and feet are normally cooler. Remove hats indoors",
       urgency: "low", score: 30
     });
@@ -23203,7 +23203,7 @@ function App(){
         ✅ Always on their <b>back</b>. for every sleep, day and night<br>
         ✅ <b>Clear cot</b>. firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
         ✅ <b>Same room as you</b>. stay in the room while ${name} sleeps<br>
-        ✅ <b>Room temperature 16–20°C</b>. feel chest or back of neck to check<br>
+        ✅ <b>Room temperature "+cToDisplay(16)+"–"+cToDisplay(20)+tempLabel+"</b>. feel chest or back of neck to check<br>
         ✅ <b>Don't cover their head</b>. no hats indoors<br>
         ✅ <b>Feet to foot</b>. feet at the bottom of the cot<br>
         ❌ <b>Never</b> on a sofa or armchair. even if you're holding them<br>
@@ -25603,7 +25603,7 @@ function App(){
             const _better = _avgCoolWakes < _avgWarmWakes ? "cooler" : "warmer";
             addObservation("🌡️", "Room temperature affects sleep",
               `${_name} sleeps better in ${_better} rooms. ${_better === "cooler" ? _avgCoolTemp + "°C → " + _avgCoolWakes + " wakes vs " + _avgWarmTemp + "°C → " + _avgWarmWakes + " wakes." : _avgWarmTemp + "°C → " + _avgWarmWakes + " wakes vs " + _avgCoolTemp + "°C → " + _avgCoolWakes + " wakes."}`,
-              "NHS recommends 16-20°C for baby sleep. A room thermometer is one of the cheapest sleep improvements you can make.");
+              "Recommended room temperature for baby sleep is " + cToDisplay(16) + "–" + cToDisplay(20) + tempLabel + ". A room thermometer is one of the cheapest sleep improvements you can make.");
           }
         }
       }
@@ -37758,7 +37758,7 @@ function App(){
               {[
                 ["🔙","Always on their back"],
                 ["🛏️","Firm, flat mattress. no inclines"],
-                ["🌡️","Room 16–20°C. feel tummy, not hands"],
+                ["🌡️","Room "+cToDisplay(16)+"–"+cToDisplay(20)+tempLabel+". feel tummy, not hands"],
                 ["🧸","Clear cot. no pillows, toys, bumpers"],
                 ["🏠","Same room as you for 6 months"],
               ].map(([icon,text],i) => (
@@ -39547,7 +39547,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const _sleepTips = [
           { emoji: "🎵", title: "Build a sleep-association cue", body: "Pick one song, white noise track, or lullaby and play it EVERY bedtime and nap. Over weeks, baby's brain will link the sound to sleep. Power of repetition, consistency matters more than the specific sound." },
           { emoji: "💡", title: "Dim lights 30 minutes before bed", body: "Bright light suppresses melatonin for up to an hour. Turn off overhead lights, use a warm lamp or red nightlight. This alone can shave 15–20 min off how long it takes baby to settle." },
-          { emoji: "🌡️", title: "Room temperature: 16–20°C", body: "Babies sleep best slightly cool. Too warm is linked to more wakes AND is a SIDS risk factor. A thermometer in the room (not on baby) is the simplest check." },
+          { emoji: "🌡️", title: "Room temperature: "+cToDisplay(16)+"–"+cToDisplay(20)+tempLabel+"", body: "Babies sleep best slightly cool. Too warm is linked to more wakes AND is a SIDS risk factor. A thermometer in the room (not on baby) is the simplest check." },
           { emoji: "😴", title: "Drowsy but awake, the golden rule", body: "Put baby down when they're relaxed and heavy but still awake. This lets them practise falling asleep on their own, which means they can re-settle at 2am without needing you. Biggest single factor for independent sleep." },
           { emoji: "🔇", title: "White noise the whole night", body: "If you use white noise at bedtime, leave it on ALL night at a low volume (~50dB). Babies stir between sleep cycles, if the sound they fell asleep to is gone, they wake up fully. Keep it constant." },
           { emoji: "🍼", title: "Final feed before the bath, not after", body: "Feeding LAST creates a feed-to-sleep association that's hard to unwind. Try feeding earlier in the routine (before bath or story), so baby learns to fall asleep without the breast or bottle." },
