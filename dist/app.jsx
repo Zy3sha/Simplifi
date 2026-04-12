@@ -10975,7 +10975,7 @@ function App(){
     const _h = _now.getHours();
     const _nowM = _h * 60 + _now.getMinutes();
     const _isNightTime = _h >= 22 || _h < 5;
-    const _w = age.totalWeeks;
+    const _w = age.predictiveWeeks ?? age.totalWeeks;
     const _ww = getWakeWindow(_w);
     const _profile = getAgeNapProfile(_w);
     const _todayEntries = entries;
@@ -12793,7 +12793,7 @@ function App(){
     // 52 weeks (12mo), 78 weeks (18mo). ±7 day window.
     try {
       if (age && typeof age.totalWeeks === "number") {
-        const _w = age.totalWeeks;
+        const _w = age.predictiveWeeks ?? age.totalWeeks;
         const _windows = [
           {center: 16, name: "4-month regression", tip: "sleep usually settles in 2–3 weeks"},
           {center: 35, name: "8-month regression", tip: "separation anxiety + new skills, it passes"},
@@ -22012,7 +22012,7 @@ function App(){
     const _totalTarget = fc.totalTarget || 750;
     const _mlRemaining = Math.max(0, _totalTarget - _todayMl);
     // Age-based safety check: only newborns can be woken for feeds
-    const _w = age.totalWeeks;
+    const _w = age.predictiveWeeks ?? age.totalWeeks;
     const _allowNightTopUp = _w < 4; // under 4 weeks. pediatric guidance says wake every 3h until weight gain steady
     // Estimate remaining DAY feeds (cut off at ~7pm / 19:00 local for most babies)
     const _nowH = new Date().getHours();
@@ -24285,7 +24285,7 @@ function App(){
       bedMins = clampBedtime(bedRequested);
       if (bedMins !== bedRequested) {
         // Describe whether we pulled it earlier or pushed it later
-        const _w = age.totalWeeks;
+        const _w = age.predictiveWeeks ?? age.totalWeeks;
         const _ceilingLabel =
           (!_w || _w < 6)  ? "10:00pm"
           : _w < 13        ? "9:00pm"
@@ -27597,7 +27597,7 @@ function App(){
               {!daySubScreen && (()=>{
                 const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
                 if (_daysLogged >= 5 || !age) return null;
-                const _w = age.totalWeeks;
+                const _w = age.predictiveWeeks ?? age.totalWeeks;
                 const _name = babyName||"Baby";
                 const _ww = getWakeWindow(_w);
                 const _profile = getAgeNapProfile(_w);
@@ -29259,7 +29259,7 @@ function App(){
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
               <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:4}}>
                 <HelpBtn title="Today's Summary" body={(()=>{
-                  const _w = age ? age.totalWeeks : 0;
+                  const _w = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
                   const _n = babyName || "baby";
                   const _milkTip = _w < 6 ? "🍼 Milk. Around 150–200ml per kg of body weight per day. Little tummies empty quickly, so frequent feeds are normal."
                     : _w < 13 ? "🍼 Milk. Roughly 150–200ml per kg per day, typically 5–8 feeds. " + _n + " may start spacing feeds out a little."
