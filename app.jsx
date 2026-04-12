@@ -288,7 +288,10 @@ var resolveHistoricalDay = function(dayKey, days) {
 // sorted oldest→newest. Excludes the current day.
 var getResolvedRecentDays = function(days, currentDayKey, n) {
   var keys = Object.keys(days).filter(function(k) {
-    if (k === currentDayKey) return false;
+    // Strict < prevents leaking future-dated entries when the user
+    // scrolls back in the calendar: insights should only look at
+    // days BEFORE the selected day, never after.
+    if (currentDayKey && k >= currentDayKey) return false;
     var entries = days[k];
     if (!entries || !entries.length) return false;
     // Must have at least a morning wake and a bedtime to count as a complete day

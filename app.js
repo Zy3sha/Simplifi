@@ -88,7 +88,10 @@ const addDaysLocal=(dateStr,delta)=>{if(!dateStr)return null;const d=new Date(da
 var nextCalDay=function(dateStr){var dt=new Date(dateStr+"T12:00:00");dt.setDate(dt.getDate()+1);return localDateStr(dt);};var prevCalDay=function(dateStr){var dt=new Date(dateStr+"T12:00:00");dt.setDate(dt.getDate()-1);return localDateStr(dt);};// Returns entries for a single historical day. direct access, no cross-day merge.
 var resolveHistoricalDay=function(dayKey,days){return days[dayKey]||[];};// Returns an array of {dayKey, entries} for the last N days with entries,
 // sorted oldest→newest. Excludes the current day.
-var getResolvedRecentDays=function(days,currentDayKey,n){var keys=Object.keys(days).filter(function(k){if(k===currentDayKey)return false;var entries=days[k];if(!entries||!entries.length)return false;// Must have at least a morning wake and a bedtime to count as a complete day
+var getResolvedRecentDays=function(days,currentDayKey,n){var keys=Object.keys(days).filter(function(k){// Strict < prevents leaking future-dated entries when the user
+// scrolls back in the calendar: insights should only look at
+// days BEFORE the selected day, never after.
+if(currentDayKey&&k>=currentDayKey)return false;var entries=days[k];if(!entries||!entries.length)return false;// Must have at least a morning wake and a bedtime to count as a complete day
 var hasWake=false,hasBed=false;for(var i=0;i<entries.length;i++){if(entries[i].type==="wake"&&!entries[i].night)hasWake=true;if(entries[i].type==="sleep"&&!entries[i].night)hasBed=true;}return hasWake&&hasBed;}).sort();var recent=keys.slice(-(n||7));var result=[];for(var i=0;i<recent.length;i++){result.push({dayKey:recent[i],entries:days[recent[i]]||[]});}return result;};// ═══ End Day Resolution Layer ══════════════════════════════════
 // ═══ Android Persistent Timer Notification (lock screen) ═══
 // Shows a sticky notification when a timer is running, similar to Huckleberry
