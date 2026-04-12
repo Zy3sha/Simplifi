@@ -4892,7 +4892,7 @@ function App(){
             try {
               const entry = JSON.parse(r.entry);
               const now = new Date();
-              const todayKey = now.toISOString().split("T")[0];
+              const todayKey = todayStr();
               const timeNow = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
               const time = entry.time || timeNow;
               if(entry.type==='wake') {
@@ -10344,7 +10344,7 @@ function App(){
         var today = new Date();
         for (var di = 0; di < 7; di++) {
           var dk = new Date(today); dk.setDate(dk.getDate() - di);
-          var dkStr = dk.toISOString().split("T")[0];
+          var dkStr = localDateStr(dk);
           var dayEntries = days[dkStr] || [];
           if (dayEntries.some(function(e) { return e.type === "feed" && e.feedType === "breast"; })) { showNursing = true; break; }
         }
@@ -12347,7 +12347,7 @@ function App(){
     // to prevent cascading sync conflicts between devices
     const todayKey = todayStr();
     if(selDay !== todayKey || !entries.length) return;
-    const prevD = (()=>{const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-1);return dt.toISOString().split("T")[0];})();
+    const prevD = prevDayStr(selDay);
     const reclassified = autoClassifyNight([...entries], days[prevD]||null);
     let changed = false;
     for(let i=0;i<reclassified.length;i++){
@@ -21202,7 +21202,7 @@ function App(){
     if (!_btdForWake) {
       try {
         const _calTT = todayStr();
-        const _prevT = (()=>{const d=new Date(_calTT+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+        const _prevT = prevDayStr(_calTT);
         const _todayBed = findBedtime(days[_calTT]||[]);
         const _prevBed = findBedtime(days[_prevT]||[]);
         const _todayHasWake = hasMorningWake(days[_calTT]||[]);
@@ -21249,7 +21249,7 @@ function App(){
 
     // Check if previous day has a bedtime (covers early AM on a new day)
     // Use _calToday (not selDay) because setSelDay above is async, selDay may still be stale
-    const prevDay = (()=>{const d=new Date(_calToday+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+    const prevDay = prevDayStr(_calToday);
     const prevHasBedtime = !!findBedtime(days[prevDay]||[]);
     // Also check if morning wake already exists today. use global hasMorningWake (time position, not night flag)
     const _hasMorningWakeLocal = hasMorningWake(dayEntries);
@@ -21545,9 +21545,9 @@ function App(){
     // If selDay has NO bedtime (we're already viewing the new day), wake goes on selDay
     const hasBedOnSelDay = !!findBedtime(days[selDay]||[]);
     const targetDay = hasBedOnSelDay
-      ? (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})()
+      ? nextDayStr(selDay)
       : selDay;
-    const bedDay = hasBedOnSelDay ? selDay : (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+    const bedDay = hasBedOnSelDay ? selDay : prevDayStr(selDay);
     
     const entry = {id:uid(),type:"wake",time:nowTime(),night:false,note:"",modifiedAt:Date.now()};
     setDays(d=>{
@@ -27716,7 +27716,7 @@ function App(){
                       if (!_btd) { try { _btd = localStorage.getItem("bed_timer_day"); } catch(_) {} }
                       if (!_btd) {
                         const _ct = todayStr();
-                        const _pd = (()=>{const d=new Date(_ct+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+                        const _pd = prevDayStr(_ct);
                         const _todayHasWake = hasMorningWake(days[_ct]||[]);
                         // Defensive: do NOT adopt ANY previous bedtime once today has a
                         // morning wake logged. A morning wake closes the prior night.
@@ -36619,7 +36619,7 @@ function App(){
               // Morning wake. if bedtime already logged today, create next day and log wake there
               const hasBedtime = !!findBedtime(days[selDay]||[]);
               if (hasBedtime) {
-                const nextDay = (()=>{ const d=new Date(selDay+"T12:00:00"); d.setDate(d.getDate()+1); return d.toISOString().split("T")[0]; })();
+                const nextDay = nextDayStr(selDay);
                 setDays(d=>{
                   const existing = d[nextDay] || [];
                   const hasWake = hasMorningWake(existing);
@@ -36627,7 +36627,7 @@ function App(){
                   const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:""}];
                   return {...d, [nextDay]: updated};
                 });
-                setSelDay((()=>{ const d=new Date(selDay+"T12:00:00"); d.setDate(d.getDate()+1); return d.toISOString().split("T")[0]; })());
+                setSelDay(nextDayStr(selDay));
               } else {
                 quickAddLog("wake",{type:"wake",time:timerEndPrompt.end,night:false,note:""});
               }
@@ -36826,7 +36826,7 @@ function App(){
                 </div>
                 <PBtn onClick={()=>{
                   const t = logForm.feedTime || nowTime();
-                  const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
+                  const nextDay = nextDayStr(selDay);
                   const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
                   setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
                   setLogPanel(null);
@@ -38662,7 +38662,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 // If bedtime is on previous day, switch to it first
                 const curHasBed = (days[selDay]||[]).some(e=>e.type==="sleep"&&!e.night);
                 if(!curHasBed){
-                  const prev=(()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];})();
+                  const prev=prevDayStr(selDay);
                   if((days[prev]||[]).some(e=>e.type==="sleep"&&!e.night)) setSelDay(prev);
                 }
                 setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",note:""});
@@ -40017,7 +40017,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 setShowWakeEditPrompt(false);
                 const entry = wakeEditEntry;
                 delEntry(entry.id);
-                const nextDay = (()=>{const d=new Date(selDay+"T12:00:00");d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];})();
+                const nextDay = nextDayStr(selDay);
                 const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||""};
                 setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),newEntry]}));
                 setWakeEditEntry(null);
@@ -42116,7 +42116,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         }
                       }
                     }
-                    const weekCount = (()=>{let c=0;const today=new Date();for(let i=0;i<7;i++){const dk=new Date(today);dk.setDate(dk.getDate()-i);const dkStr=dk.toISOString().split("T")[0];const dayArr=meds[dkStr];if(Array.isArray(dayArr))dayArr.forEach(e=>{if(e.name===sm.name)c++;});}return c;})();
+                    const weekCount = (()=>{let c=0;const today=new Date();for(let i=0;i<7;i++){const dk=new Date(today);dk.setDate(dk.getDate()-i);const dkStr=localDateStr(dk);const dayArr=meds[dkStr];if(Array.isArray(dayArr))dayArr.forEach(e=>{if(e.name===sm.name)c++;});}return c;})();
                     return (
                       <div key={sm.id} style={{background:"var(--card-bg-solid)",border:`1.5px solid ${isOverdue?"rgba(224,96,112,0.4)":"var(--card-border)"}`,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
