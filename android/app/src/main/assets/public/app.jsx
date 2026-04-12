@@ -2410,9 +2410,9 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
       return {
         type: "support_vacuum",
         emoji: "🤝",
-        title: "You're carrying this alone",
-        detail: "Every log this week has come from one device. You might have partner or family help, but the tracking is all on you — and that's a signal the mental load isn't being shared.",
-        action: "Share the OBubba sync code with a partner, parent, or trusted friend. Even 1 hour a day of someone else holding the logging helps. You deserve to be off-duty sometimes.",
+        title: "You're doing so much",
+        detail: "All the logging this week has come from one device. That's a lot of invisible work, and we see it. If you have someone who could share the tracking, OBubba makes it easy to sync.",
+        action: "You can share your OBubba sync code with a partner, parent, or anyone you trust. No pressure — just know it's there if you'd like a hand.",
         urgency: "low",
         confidence: "medium"
       };
@@ -2701,8 +2701,7 @@ function getTonightsFocus(nightDiagnosis, todayEntries, ageWeeks) {
 // plan with a focus per day, an objective check for whether to advance
 // or repeat the day, and the "why" for that day's tactic.
 //
-// Styles supported (all evidence-based, all opt-in):
-//   gradual     — Ferber / graduated extinction. 5-min → 10 → 15 check-ins
+// Styles supported (all evidence-based, all opt-in, NO cry-it-out):
 //   no_cry      — Pantley "Gentle" removal of sleep associations
 //   parent_led  — No sleep training; stabilise environment and rhythm,
 //                 wait for baby to mature into longer stretches
@@ -2710,7 +2709,7 @@ function getTonightsFocus(nightDiagnosis, todayEntries, ageWeeks) {
 //                 increases each night
 //
 // Inputs:
-//   style         = "gradual" | "no_cry" | "parent_led" | "chair"
+//   style         = "no_cry" | "parent_led" | "chair"
 //   ageWeeks
 //   dayNumber     = 1..14
 //   lastNightDiag = most recent diagnoseNightPattern output
@@ -2720,48 +2719,6 @@ function getTonightsFocus(nightDiagnosis, todayEntries, ageWeeks) {
 function buildSleepCoachDay(style, ageWeeks, dayNumber, lastNightDiag) {
   if (ageWeeks < 16) return null; // NHS: no sleep training before 4 months
   if (dayNumber < 1 || dayNumber > 14) return null;
-
-  // ── GRADUAL (Ferber-style) ──
-  if (style === "gradual") {
-    if (dayNumber <= 3) {
-      return {
-        day: dayNumber,
-        focus: "Baseline & routine",
-        tactic: "Keep the exact wind-down routine you already use. Put baby down drowsy-but-awake for the next 3 nights. No new check-in patterns yet. OBubba is watching for your starting point.",
-        objective: "3 nights of consistent bedtime recorded",
-        why: "Before any sleep-training method works, the bedtime routine has to be predictable. Baby's brain needs to learn the sequence 'bath → feed → dim lights → cot' so there's no ambiguity.",
-        warnings: ["Do not introduce check-ins yet", "Do not move bedtime"]
-      };
-    }
-    if (dayNumber <= 6) {
-      return {
-        day: dayNumber,
-        focus: "Short check-ins",
-        tactic: "If baby fusses at bedtime, wait 3 minutes before going in. When you go in: no lights, 30 seconds of calm presence ('shhh, it's sleep time'), no pick-up. Leave. Wait 5 minutes if they fuss again. Max 3 check-ins.",
-        objective: "Check-in pattern used 3 nights in a row",
-        why: "Short intervals at the start help baby learn that you're nearby but not rescuing them from self-settling. The 3-minute first wait is low pressure.",
-        warnings: ["Pick-up breaks the method. Only go back to gradual extinction if baby is in distress, not fussing"]
-      };
-    }
-    if (dayNumber <= 10) {
-      return {
-        day: dayNumber,
-        focus: "Extend intervals",
-        tactic: "Wait 5 minutes before the first check-in, then 10, then 15. Same rules: no lights, 30s of calm, no pick-up, leave.",
-        objective: "Bedtime fuss < 20 min OR baby falls asleep without crying",
-        why: "Extending the interval is the whole point of gradual extinction — baby learns they can settle alone. Most babies drop the bedtime fuss by day 7-10.",
-        warnings: ["If your baby's crying escalates after the first check-in, switch to no_cry style for 3 nights and try again later"]
-      };
-    }
-    return {
-      day: dayNumber,
-      focus: "Consolidation",
-      tactic: "Continue the extended intervals. For night wakes, use the same pattern — wait, brief check-in, leave. Many babies start sleeping through in this window.",
-      objective: "2 consecutive nights with < 2 wakes",
-      why: "By day 11+, the skill is forming. Most progress happens in week 2. Don't abandon it because night 11 was rough.",
-      warnings: []
-    };
-  }
 
   // ── NO-CRY (Pantley) ──
   if (style === "no_cry") {
@@ -2907,7 +2864,7 @@ function _getNightAdjustments(dayKey) {
 // → harder night). Named buildNightDigest to avoid collision with the
 // App-scoped generateWeeklyDigest share-card builder which takes no args
 // and reads days from closure.
-function buildNightDigest(days, currentDayKey) {
+function buildNightDigest(days, currentDayKey, ageWeeks) {
   if (!days || !currentDayKey) return null;
   const anchor = new Date(currentDayKey + "T00:00:00");
   const nights = [];
@@ -2942,12 +2899,23 @@ function buildNightDigest(days, currentDayKey) {
       .pop();
     if (lastNap) {
       const lastNapEndMins = _nightMins(lastNap.end);
-      if (lastNapEndMins !== null && lastNapEndMins >= 15 * 60) {
-        correlationInsight = {
-          factor: "Last nap ended at " + lastNap.end,
-          explanation: "Late naps (after 3pm) can eat into sleep pressure and cause more night waking. Try ending the last nap before 3pm tomorrow.",
-          confidence: "medium"
-        };
+      if (lastNapEndMins !== null) {
+        // Age-aware cutoff: use bedtime - wake window instead of
+        // hardcoded 3pm. A baby with 6pm bedtime and 2h wake window
+        // needs last nap to end by 4pm, not 3pm.
+        const _bedEnt2 = hardEnt.find(e => e && e.type === "sleep" && !e.night);
+        const _avgBedMins2 = _bedEnt2 ? _nightMins(_bedEnt2.time) : null;
+        const _ww2 = (typeof ageWeeks === "number" && ageWeeks > 0) ? getWakeWindow(ageWeeks) : null;
+        // Max nap end = bedtime - min wake window. Default to 15:00 if we can't compute.
+        const _maxNapEnd = (_avgBedMins2 && _ww2) ? (_avgBedMins2 - _ww2.min) : 15 * 60;
+        const _maxNapEndStr = String(Math.floor(_maxNapEnd / 60)).padStart(2, "0") + ":" + String(_maxNapEnd % 60).padStart(2, "0");
+        if (lastNapEndMins >= _maxNapEnd) {
+          correlationInsight = {
+            factor: "Last nap ended at " + lastNap.end,
+            explanation: "Late naps (after " + _maxNapEndStr.replace(/^0/,"") + ") can eat into sleep pressure and cause more night waking. Try ending the last nap before " + _maxNapEndStr.replace(/^0/,"") + " tomorrow.",
+            confidence: "medium"
+          };
+        }
       }
     }
     if (!correlationInsight) {
@@ -10262,7 +10230,7 @@ function App(){
   const napStructure = React.useMemo(function() {
     if (!age || !selDay) return null;
     return classifyNapStructure({
-      ageWeeks: age.totalWeeks, days: days, selDay: selDay, babyName: babyName
+      ageWeeks: age.predictiveWeeks ?? age.totalWeeks, days: days, selDay: selDay, babyName: babyName
     });
   }, [age, days, selDay, babyName]);
 
@@ -13615,7 +13583,7 @@ function App(){
   function bedtimePrediction() {
     if (!entries || !Array.isArray(entries)) return null;
     // Newborns 0-4 weeks: no bedtime prediction (sleep is chaotic, no circadian rhythm yet)
-    if (age && age.totalWeeks < 4) return null;
+    if (age && (age.predictiveWeeks ?? age.totalWeeks) < 4) return null;
     // ═══ Night autopilot shift ═══
     // Read any adjustment written by last night's diagnosis (see
     // _applyNightAdjustments). Applied to every return below so the
@@ -22424,7 +22392,7 @@ function App(){
   function getWeaningReport() {
     if (!age || ((age.predictiveWeeks??age.totalWeeks)) < 26) return null;
     const _wlog = weaning || [];
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
 
     // ── Allergen progress (out of 14 major allergens) ──
     const _allergenList = Object.keys(ALLERGENS);
@@ -24794,7 +24762,7 @@ function App(){
     // Only compute on Sundays so we don't burn cycles the other 6 days.
     const _d = new Date();
     if (_d.getDay() !== 0) return null;
-    try { return buildNightDigest(days, todayStr()); } catch { return null; }
+    try { return buildNightDigest(days, todayStr(), age ? (age.predictiveWeeks ?? age.totalWeeks) : null); } catch { return null; }
   }, [days, selDay]);
   // Fire observations for bottle-fed babies: catch-up warnings AND positive wins.
   React.useEffect(() => {
@@ -25353,13 +25321,16 @@ function App(){
         const short = _napFeedPairs.filter(p => p.gap < 30);
         const good = _napFeedPairs.filter(p => p.gap >= 30 && p.gap <= 60);
         const long = _napFeedPairs.filter(p => p.gap > 60);
-        const avgShort = short.length >= 2 ? Math.round(short.reduce((s, p) => s + p.napDur, 0) / short.length) : 0;
-        const avgGood = good.length >= 2 ? Math.round(good.reduce((s, p) => s + p.napDur, 0) / good.length) : 0;
-        const avgLong = long.length >= 2 ? Math.round(long.reduce((s, p) => s + p.napDur, 0) / long.length) : 0;
-        if (avgGood > avgShort + 10 && good.length >= 2) {
-          addObservation("🍼", "Feed timing affects naps",
-            `${_name} naps ${hm(avgGood)} avg when fed 30-60min before vs ${hm(avgShort)} when fed within 30min. That's ${hm(avgGood - avgShort)} more sleep.`,
-            "Feeding too close to nap time can cause discomfort (reflux, gas). Try finishing the feed at least 30 minutes before putting " + _name + " down.");
+        // Only show insight when BOTH categories have enough data (>=2 samples each)
+        // to avoid misleading "0m" display when one bucket is empty
+        if (short.length >= 2 && good.length >= 2) {
+          const avgShort = Math.round(short.reduce((s, p) => s + p.napDur, 0) / short.length);
+          const avgGood = Math.round(good.reduce((s, p) => s + p.napDur, 0) / good.length);
+          if (avgGood > avgShort + 10) {
+            addObservation("🍼", "Feed timing affects naps",
+              `${_name} naps ${hm(avgGood)} avg when fed 30-60min before vs ${hm(avgShort)} when fed within 30min. That's ${hm(avgGood - avgShort)} more sleep.`,
+              "Feeding too close to nap time can cause discomfort (reflux, gas). Try finishing the feed at least 30 minutes before putting " + _name + " down.");
+          }
         }
       }
     } catch {}
@@ -27792,58 +27763,6 @@ function App(){
                   {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
                   {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?null:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
                   {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
-                  {emoji:(()=>{
-                    // Emoji changes alongside label so parents can tell at a glance
-                    // whether they're logging a morning wake (☀️) or a night wake (🌙).
-                    try {
-                      const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
-                      if (_btd && !bedPaused) return "🌙";
-                    } catch(_) {}
-                    return "☀️";
-                  })(),label:(()=>{
-                    // When a bed timer is active, this button pauses the timer to log
-                    // a NIGHT WAKE. Previously labelled "Awake" which parents mistook
-                    // for "morning wake". Renamed to "Night wake" for clarity.
-                    try {
-                      const _btd = bedTimerDay || localStorage.getItem("bed_timer_day");
-                      if (_btd && !bedPaused) return "Night wake";
-                    } catch(_) {}
-                    return "Wake";
-                  })(),action:()=>{
-                    // Direct pause short-circuit. If we can detect an active
-                    // bed timer at all (state, localStorage, OR data), jump
-                    // straight to pauseBedTimer without going through
-                    // handleSmartWake's morning-vs-night branching.
-                    try {
-                      let _btd = bedTimerDay;
-                      if (!_btd) { try { _btd = localStorage.getItem("bed_timer_day"); } catch(_) {} }
-                      if (!_btd) {
-                        const _ct = todayStr();
-                        const _pd = prevDayStr(_ct);
-                        const _todayHasWake = hasMorningWake(days[_ct]||[]);
-                        // Defensive: do NOT adopt ANY previous bedtime once today has a
-                        // morning wake logged. A morning wake closes the prior night.
-                        // Without this, tapping Wake/Awake in the afternoon would re-open
-                        // yesterday's closed bedtime and log spurious night wakes.
-                        if (!_todayHasWake) {
-                          if (findBedtime(days[_ct]||[]) && new Date().getHours() >= 17) _btd = _ct;
-                          else if (findBedtime(days[_pd]||[])) _btd = _pd;
-                        }
-                      }
-                      const _nowH = new Date().getHours();
-                      const _calT = todayStr();
-                      const _endOfNight = _btd && _btd !== _calT && _nowH >= 5 && _nowH < 12;
-                      if (_btd && !bedPaused && !_endOfNight) {
-                        // Active bed timer, not morning wake. PAUSE directly.
-                        if (!bedTimerDay) { try { setBedTimerDay(_btd); localStorage.setItem("bed_timer_day", _btd); } catch(_) {} }
-                        haptic("medium");
-                        pauseBedTimer();
-                        return;
-                      }
-                    } catch(e) { console.warn("[OBubba] direct pause short-circuit failed", e); }
-                    // Otherwise fall through to the normal wake handler
-                    handleSmartWake();
-                  }},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
                   {emoji:"🎵",label:soundPlaying?"Playing":"Sounds",action:()=>{haptic();setShowSoundMachine(true);}},
                   ...(ageWeeks >= 26 ? [{emoji:"🥕",label:"Meal",action:()=>{haptic();setShowMealPicker(true);}}] : []),
@@ -29022,22 +28941,24 @@ function App(){
               {age && (age.predictiveWeeks ?? age.totalWeeks) < 26 && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _fcEntries = days[selDay] || [];
                 const _fcFeeds = _fcEntries.filter(function(e){ return e.type==="feed"; }).length;
-                const _fcHydration = smartHydration(_fcEntries, age.totalWeeks);
+                const _fcHydration = smartHydration(_fcEntries, age.predictiveWeeks ?? age.totalWeeks);
                 const _fcAgeW = age.predictiveWeeks ?? age.totalWeeks;
                 const _fcTarget = _fcAgeW < 4 ? 8 : _fcAgeW < 13 ? 6 : 5;
                 const _h = new Date().getHours();
+                // Don't show the card before 9am or before a morning wake is logged.
+                // Showing "0 feeds" at 6am when the day hasn't started is anxiety-inducing.
+                const _hasMorningWakeToday = hasMorningWake(_fcEntries);
+                if (_h < 9 && !_hasMorningWakeToday) return null;
+                if (_fcFeeds === 0 && !_hasMorningWakeToday) return null;
                 const _fcTargetByNow = Math.max(1, Math.round(_fcTarget * Math.min(_h / 20, 1)));
                 const _fcOk = _fcFeeds >= _fcTargetByNow;
                 const _fcWetOk = _fcHydration.ok || _fcHydration.count >= Math.max(1, Math.round(_fcHydration.target * Math.min(_h / 20, 1)));
-                const _fcColor = _fcOk && _fcWetOk ? "#7BA68C" : (!_fcOk && !_fcWetOk) ? "#D47070" : "#D4A855";
-                // Wet-nappy cross-check: if feeds look low but wet
-                // nappies are normal, reassure the parent rather than
-                // alarming them. NHS: 6+ wet nappies is the best single
-                // signal of adequate hydration.
+                const _fcColor = _fcOk && _fcWetOk ? "#7BA68C" : (!_fcOk && !_fcWetOk) ? "#D4A855" : "#D4A855";
+                // Gentle language. Never alarm — guide.
                 const _fcMsg = _fcOk && _fcWetOk ? "Feeding looks on track today"
-                  : (!_fcOk && !_fcWetOk) ? "Feeds and wet nappies are below expected. speak to your health visitor if worried"
-                  : !_fcOk ? "Feed count is on the low side, but wet nappies are normal — hydration looks fine"
-                  : "Fewer wet nappies than expected. keep an eye on this";
+                  : (!_fcOk && !_fcWetOk) ? "Feeds and wet nappies are a little low so far today. This is just a gentle nudge — if you have any concerns, your health visitor is always happy to chat"
+                  : !_fcOk ? "Feed count is a little low, but wet nappies look normal — hydration seems fine"
+                  : "Fewer wet nappies than usual today. Worth keeping an eye on, but could just be timing";
                 return (
                   <div style={{padding:"10px 14px",borderRadius:14,border:"1px solid "+_fcColor+"30",background:_fcColor+"08",marginBottom:10}}>
                     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
@@ -31728,8 +31649,12 @@ function App(){
                   const _sc = _scRaw ? (()=>{try{return JSON.parse(_scRaw);}catch{return null;}})() : null;
                   const _unlockedSC = hasAccess();
 
+                  // Auto-reset if user had the removed "gradual" (Ferber) style
+                  if (_sc && _sc.style === "gradual") {
+                    try { localStorage.removeItem("ob_sleep_coach_v1"); } catch {}
+                  }
                   // Not started yet — style picker
-                  if (!_sc || !_sc.style) {
+                  if (!_sc || !_sc.style || _sc.style === "gradual") {
                     return (
                       <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
@@ -31743,7 +31668,6 @@ function App(){
                         {_unlockedSC ? (
                           <div style={{display:"flex",flexDirection:"column",gap:6}}>
                             {[
-                              {id:"gradual", name:"Gradual check-ins", sub:"Ferber-style · extends intervals over 2 weeks"},
                               {id:"no_cry", name:"No-cry / gentle", sub:"Pantley method · removes sleep associations slowly"},
                               {id:"chair", name:"Chair shuffle", sub:"Sleep Lady · you stay in the room, move further each night"},
                               {id:"parent_led", name:"Parent-led rhythm only", sub:"No training · stabilise the environment and wait it out"},
@@ -31778,7 +31702,7 @@ function App(){
                     return (
                       <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(111,168,152,0.08),rgba(155,184,168,0.04))", border:"1.5px solid rgba(111,168,152,0.3)"}}>
                         <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>🎉 14-day plan complete</div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>You finished the {({gradual:"Gradual",no_cry:"No-cry",chair:"Chair shuffle",parent_led:"Parent-led"}[_sc.style])||_sc.style} plan. If the new rhythm has stuck, keep doing what's working. If things are still rocky, start another 14-day run with a different style.</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>You finished the {({no_cry:"No-cry",chair:"Chair shuffle",parent_led:"Parent-led"}[_sc.style])||_sc.style} plan. If the new rhythm has stuck, keep doing what's working. If things are still rocky, start another 14-day run with a different style.</div>
                         <button onClick={()=>{
                           try{localStorage.removeItem("ob_sleep_coach_v1");}catch{}
                           setForceRender(c=>c+1);
@@ -31791,7 +31715,7 @@ function App(){
                   const _dayNum = Math.min(14, Math.max(1, _daysElapsed + 1));
                   const _plan = buildSleepCoachDay(_sc.style, (age.predictiveWeeks??age.totalWeeks), _dayNum, _nightDiagnosisMemo);
                   if (!_plan) return null;
-                  const _styleLabel = {gradual:"Gradual check-ins", no_cry:"No-cry / gentle", chair:"Chair shuffle", parent_led:"Parent-led rhythm"}[_sc.style] || _sc.style;
+                  const _styleLabel = {no_cry:"No-cry / gentle", chair:"Chair shuffle", parent_led:"Parent-led rhythm"}[_sc.style] || _sc.style;
                   return (
                     <div className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
@@ -32200,10 +32124,10 @@ function App(){
 
               {/* ── FEEDING & NUTRITION (collapsible) ── */}
               {/* BF Hub card */}
-              {(insightFilter==="feeding") && age && age.totalWeeks < 52 && (()=>{
+              {(insightFilter==="feeding") && age && (age.predictiveWeeks??age.totalWeeks) < 52 && (()=>{
                 const _bfFeeds = getRecentDays(3).flatMap(d=>(days[d]||[]).filter(e=>e.type==="feed"&&e.feedType==="breast"));
                 if(!_bfFeeds.length) return null;
-                const _aw = age.totalWeeks;
+                const _aw = age.predictiveWeeks ?? age.totalWeeks;
                 const _spurts=[{week:3,label:"3-week"},{week:6,label:"6-week"},{week:12,label:"3-month"},{week:19,label:"4-month"},{week:26,label:"6-month"}];
                 const _near=_spurts.find(s=>Math.abs(_aw-s.week)<=1);
                 const _coming=_spurts.find(s=>s.week>_aw&&s.week-_aw<=3);
