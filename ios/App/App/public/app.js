@@ -1431,7 +1431,10 @@ const merged=mergeChildren(prev,cloud);const cloudHasNamedChild=cloudIds.some(id
 }}}}catch(e){console.warn("OBubba verifyLogin cloud pull error",e);}if(data.familyCode){setFamilyCode(data.familyCode);try{localStorage.setItem("family_code",data.familyCode);}catch{}subscribeToFamily(data.familyCode);}}setFamilyUsername(data.displayName||username.trim());try{localStorage.setItem("family_username",data.displayName||username.trim());}catch{}try{localStorage.setItem("auth_verified","1");}catch{}// Stamp the owner of the newly-hydrated children state. Once this is
 // set, pushToCloud's ownership guard will only allow writes when the
 // signed-in username AND target backup code both match the stamp.
-try{const _ownerUsername=data.displayName||username.trim()||"";if(_ownerUsername)localStorage.setItem("ob_children_owner",_ownerUsername);if(resolvedBackup)localStorage.setItem("ob_children_owner_code",resolvedBackup);// Re-open the push gate now that the new account is fully loaded.
+// IMPORTANT: trim before storing so the guard's trim-based compare
+// works — otherwise a displayName with trailing whitespace would
+// always mismatch the guard's trimmed `_currentOwner`.
+try{const _ownerUsername=(data.displayName||username||"").toString().trim();if(_ownerUsername)localStorage.setItem("ob_children_owner",_ownerUsername);if(resolvedBackup)localStorage.setItem("ob_children_owner_code",resolvedBackup);// Re-open the push gate now that the new account is fully loaded.
 cloudSyncedRef.current=true;}catch{}if(!restoreDone)setRestoreDone(true);return true;}catch(e){setAuthError("Something went wrong. try again");return false;}}// Firestore REST read via CapacitorHttp. bypasses WKWebView CORS block
 // Falls back to fetch (works in browser). Mirrors getDoc() snap interface.
 // Firebase REST auth fallback. gets an anonymous token when SDK auth fails in WKWebView

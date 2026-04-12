@@ -8892,8 +8892,11 @@ function App(){
       // Stamp the owner of the newly-hydrated children state. Once this is
       // set, pushToCloud's ownership guard will only allow writes when the
       // signed-in username AND target backup code both match the stamp.
+      // IMPORTANT: trim before storing so the guard's trim-based compare
+      // works — otherwise a displayName with trailing whitespace would
+      // always mismatch the guard's trimmed `_currentOwner`.
       try {
-        const _ownerUsername = (data.displayName || username.trim()) || "";
+        const _ownerUsername = ((data.displayName || username || "").toString().trim());
         if (_ownerUsername) localStorage.setItem("ob_children_owner", _ownerUsername);
         if (resolvedBackup) localStorage.setItem("ob_children_owner_code", resolvedBackup);
         // Re-open the push gate now that the new account is fully loaded.
