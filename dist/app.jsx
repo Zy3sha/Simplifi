@@ -40158,7 +40158,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {showNightWake&&(()=>{
               return(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;}}}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:510,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;}}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;}} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>

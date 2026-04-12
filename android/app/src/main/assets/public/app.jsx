@@ -20591,9 +20591,20 @@ function App(){
     const _todayCalendar = todayStr();
     // Wake mode: night entries route to bedtime's calendar day (sleep consultant standard)
     // Midnight mode: all entries stay on the calendar day they're created (simple)
-    const _targetDay = (dayBoundary === "wake" && _isNightEntry && bedTimerDay && bedTimerDay !== _todayCalendar && selDay === _todayCalendar)
-      ? bedTimerDay  // wake mode: route to bedtime's day (e.g. March 29 when it's 2am March 30)
-      : selDay;      // midnight mode OR normal daytime: store on current day
+    // CRITICAL: if the user was viewing a historical day when a night wake fires,
+    // never route to the historical day — route to bedTimerDay (wake mode) or today
+    // (midnight mode). Without this, scrolling to last week then getting a night
+    // wake puts the entry on a day from last week.
+    let _targetDay;
+    if (dayBoundary === "wake" && _isNightEntry && bedTimerDay) {
+      // Wake mode: night entries always go with the bedtime
+      _targetDay = bedTimerDay;
+    } else if (_isNightEntry && bedTimerDay && selDay !== _todayCalendar && selDay !== bedTimerDay) {
+      // Midnight mode but user is viewing a random historical day — route to today
+      _targetDay = _todayCalendar;
+    } else {
+      _targetDay = selDay;
+    }
     setDays(d=>{
       const _dayArr = d[_targetDay]||[];
       // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime.
@@ -22682,7 +22693,7 @@ function App(){
       // - "midnight" (calendar day boundary): write to selDay/today (Friday)
       const _pendingId = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
       setDays(d=>{
-        const _tgt = (dayBoundary === "wake") ? (bedTimerDay || todayStr()) : selDay;
+        const _tgt = (dayBoundary === "wake") ? (bedTimerDay || todayStr()) : todayStr();
         // Filter the pending placeholder AND any existing entry with
         // the new entry's id (rapid-double-tap dedup).
         const existing = (d[_tgt]||[]).filter(e =>
@@ -40394,8 +40405,17 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               setDays(d=>{
                 // Night wakes respect dayBoundary: in wake mode, route to bedTimerDay
                 const _todayCal = todayStr();
-                const targetDay = (dayBoundary === "wake" && bedTimerDay && bedTimerDay !== _todayCal && selDay === _todayCal)
-                  ? bedTimerDay : selDay;
+                // Night wake routing: wake mode always routes to bedTimerDay.
+                // Midnight mode routes to today (not selDay which could be a
+                // historical day the user was browsing).
+                let targetDay;
+                if (dayBoundary === "wake" && bedTimerDay) {
+                  targetDay = bedTimerDay;
+                } else if (bedTimerDay && selDay !== _todayCal && selDay !== bedTimerDay) {
+                  targetDay = _todayCal;
+                } else {
+                  targetDay = selDay;
+                }
                 const existing = d[targetDay]||[];
                 const filtered = nightEditId ? existing.filter(x=>x.id!==nightEditId) : existing;
                 const combined = [...filtered, entry];
