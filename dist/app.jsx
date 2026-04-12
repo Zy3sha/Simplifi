@@ -1047,7 +1047,7 @@ function allergenIntroduced(weaningLog, allergenId) {
 
 // Check if allergen has been given recently (within 7 days)
 function allergenRecent(weaningLog, allergenId) {
-  const sevenDaysAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().slice(0,10);
+  const sevenDaysAgo = addDaysLocal(todayStr(), -7);
   return (weaningLog||[]).some(w => {
     const detected = detectAllergens(w.food);
     return detected.includes(allergenId) && w.date >= sevenDaysAgo;
@@ -8358,6 +8358,9 @@ function App(){
   const _saveEntryTsRef = React.useRef(0);
   const _saveBreastTsRef = React.useRef(0);
   const _logSleepTsRef = React.useRef(0);
+  const _saveMedTsRef = React.useRef(0);
+  const _saveTummyTsRef = React.useRef(0);
+  const _saveEditDayTsRef = React.useRef(0);
 
   const restoreRanRef = React.useRef(false);
 
@@ -9691,8 +9694,7 @@ function App(){
               const seen = new Set(local.map(e=>e.id));
               const extra = filteredRemote.filter(e=>!seen.has(e.id));
               if(extra.length) {
-                const dt2=new Date(date+"T12:00:00"); dt2.setDate(dt2.getDate()-1);
-                const prevD3=dt2.toISOString().slice(0,10);
+                const prevD3 = prevDayStr(date);
                 mergedDays[date] = autoClassifyNight([...local, ...extra], mergedDays[prevD3]||null);
               }
             });
@@ -19793,8 +19795,8 @@ function App(){
         else if(apptForm.repeat==="monthly") next.setMonth(next.getMonth()+i);
         else if(apptForm.repeat==="yearly") next.setFullYear(next.getFullYear()+i);
         if(next > stopD) break;
-        const _nextDate = next.toISOString().slice(0,10);
-        const _nextEnd = new Date(next.getTime()+_durationMs).toISOString().slice(0,10);
+        const _nextDate = localDateStr(next);
+        const _nextEnd = localDateStr(new Date(next.getTime()+_durationMs));
         newAppts.push({...base,id:uid(),date:_nextDate, endDate:_nextEnd});
         i++;
       }
@@ -20379,7 +20381,7 @@ function App(){
       // Fussy/unsettled period
       events.push({
         title:"⛈ Phase "+p.phase+": "+p.name+" (Unsettled)",
-        date:startDate.toISOString().slice(0,10),
+        date:localDateStr(startDate),
         endTime:null,time:null,
         note:"OBubba Developmental Phase "+p.phase+"\\n\\nUnsettled period: "+startDate.toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short"})+" – "+peakDate.toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"short"})+"\\n\\n"+p.fussy+"\\n\\nSkills coming: "+p.skills.join(", "),
         uid:"phase-fussy-"+p.phase
@@ -20387,7 +20389,7 @@ function App(){
       // Skills/bloom period
       events.push({
         title:"🌱 Phase "+p.phase+": "+p.name+" (New Skills)",
-        date:peakDate.toISOString().slice(0,10),
+        date:localDateStr(peakDate),
         endTime:null,time:null,
         note:"OBubba Developmental Phase "+p.phase+". Skills Emerging\\n\\nNew skills: "+p.skills.join(", "),
         uid:"phase-bloom-"+p.phase
@@ -20875,9 +20877,7 @@ function App(){
           // If wake time is "early" (before 12:00), assume it's next-day morning
           const _wh = parseInt((form.wakeTime||"").split(":")[0]||0);
           if(_wh < 12) {
-            const dt = new Date(selDay+"T12:00:00");
-            dt.setDate(dt.getDate()+1);
-            return dt.toISOString().slice(0,10);
+            return nextDayStr(selDay);
           }
           return selDay;
         })();
@@ -21763,6 +21763,11 @@ function App(){
   function saveMedicine() {
     const m = medForm;
     if (!m.name && !m.temp) return;
+    // Rapid-tap dedup: medicine especially matters — double-entry makes
+    // it look like the parent dosed twice.
+    const _mNow = Date.now();
+    if (_saveMedTsRef.current && _mNow - _saveMedTsRef.current < 800) return;
+    _saveMedTsRef.current = _mNow;
     // Sanity-check temperature range. 35–42°C is the physiological
     // window; anything outside is a typo (US user entering Fahrenheit,
     // decimal slip like "378" for 37.8, or a thermometer misread).
@@ -21829,11 +21834,15 @@ function App(){
   // ── Tummy Time ──
   function saveTummyTime() {
     if (tummySec < 5) { setTummyOn(false); setTummySec(0); return; }
+    // Rapid-tap dedup
+    const _ttNow = Date.now();
+    if (_saveTummyTsRef.current && _ttNow - _saveTummyTsRef.current < 600) return;
+    _saveTummyTsRef.current = _ttNow;
     const mins = Math.max(1, Math.round(tummySec / 60));
     const entry = { id: uid(), type: "tummy", time: nowTime(), duration: mins, note: "" };
     setDays(d => {
       const updated = [...(d[selDay] || []), entry];
-      const _pd = (()=>{ const dt = new Date(selDay + "T12:00:00"); dt.setDate(dt.getDate() - 1); return dt.toISOString().slice(0, 10); })();
+      const _pd = prevDayStr(selDay);
       return { ...d, [selDay]: autoClassifyNight(updated, d[_pd] || null) };
     });
     setTummyOn(false); setTummySec(0);
@@ -24836,7 +24845,7 @@ function App(){
       const _recent14 = [];
       for (let i = 0; i < 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const naps = ent.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.start !== e.end);
         if (naps.length > 0) _recent14.push({ naps: naps.length, date: ds });
@@ -24863,7 +24872,7 @@ function App(){
         const _falseStarts = [];
         for (let i = 0; i < 7; i++) {
           const d = new Date(); d.setDate(d.getDate() - i);
-          const ds = d.toISOString().slice(0, 10);
+          const ds = localDateStr(d);
           const ent = days[ds] || [];
           const bed = ent.find(e => e.type === "sleep");
           if (!bed) continue;
@@ -24964,7 +24973,7 @@ function App(){
       const _classifyNights = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night);
         nightWakes.forEach(w => {
@@ -25000,7 +25009,7 @@ function App(){
       const _morningWakes = [];
       for (let i = 1; i <= 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const wake = ent.find(e => e.type === "wake" && !e.night);
         if (wake) _morningWakes.push(timeVal(wake));
@@ -25025,7 +25034,7 @@ function App(){
         const _prev4feeds = [];
         for (let i = 0; i < 7; i++) {
           const d = new Date(); d.setDate(d.getDate() - i);
-          const ds = d.toISOString().slice(0, 10);
+          const ds = localDateStr(d);
           const ent = days[ds] || [];
           const dayMl = ent.filter(e => isBabyFeed(e) && e.amount > 0).reduce((s, f) => s + f.amount, 0);
           if (dayMl > 0) { if (i < 3) _last3feeds.push(dayMl); else _prev4feeds.push(dayMl); }
@@ -25064,7 +25073,7 @@ function App(){
         let _avgMl7 = 0, _avgNap7 = 0, _count7 = 0;
         for (let i = 1; i <= 7; i++) {
           const d = new Date(); d.setDate(d.getDate() - i);
-          const ds = d.toISOString().slice(0, 10);
+          const ds = localDateStr(d);
           const ent = days[ds] || [];
           if (ent.length < 2) continue;
           _avgMl7 += ent.filter(e => isBabyFeed(e)).reduce((s, f) => s + (f.amount || 0), 0);
@@ -25113,7 +25122,7 @@ function App(){
             const _feedCounts = [];
             for (let i = 0; i < 5; i++) {
               const d = new Date(); d.setDate(d.getDate() - i);
-              const ds = d.toISOString().slice(0, 10);
+              const ds = localDateStr(d);
               _feedCounts.push((days[ds] || []).filter(e => isBabyFeed(e)).length);
             }
             const _avgFeeds = _feedCounts.length ? Math.round(_feedCounts.reduce((a, b) => a + b, 0) / _feedCounts.length * 10) / 10 : 0;
@@ -25150,7 +25159,7 @@ function App(){
       const _bedTimes = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const wake = ent.find(e => e.type === "wake" && !e.night);
         const bed = ent.find(e => e.type === "sleep" && !e.night);
@@ -25185,7 +25194,7 @@ function App(){
         const _nightData = [];
         for (let i = 1; i <= 14; i++) {
           const d = new Date(); d.setDate(d.getDate() - i);
-          const ds = d.toISOString().slice(0, 10);
+          const ds = localDateStr(d);
           const ent = days[ds] || [];
           const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
           const napMin = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
@@ -25229,7 +25238,7 @@ function App(){
           let _weekMilkAvg = 0, _weekSolidAvg = 0, _weekCount = 0;
           for (let i = 1; i <= 7; i++) {
             const d = new Date(); d.setDate(d.getDate() - i);
-            const ds = d.toISOString().slice(0, 10);
+            const ds = localDateStr(d);
             const r = getWeaningRatio(age, days[ds] || []);
             if (r && r.totalMilkMl > 0) { _weekMilkAvg += r.totalMilkMl; _weekSolidAvg += r.solidCount; _weekCount++; }
           }
@@ -25248,7 +25257,7 @@ function App(){
           let _consecutiveSolidRefusal = 0;
           for (let i = 1; i <= 14; i++) {
             const _d = new Date(); _d.setDate(_d.getDate() - i);
-            const _ds = _d.toISOString().slice(0, 10);
+            const _ds = _localDateStr(d);
             const _r = getWeaningRatio(age, days[_ds] || []);
             if (_r && _r.solidStatus === "low") { _consecutiveSolidRefusal++; } else { break; }
           }
@@ -25270,7 +25279,7 @@ function App(){
       const _napFeedPairs = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
         naps.forEach(n => {
@@ -25306,7 +25315,7 @@ function App(){
       let _totalDebtMins = 0;
       for (let i = 0; i < 3; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const nightWakes = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
         if (nightWakes >= 3) _roughNights++;
@@ -25325,7 +25334,7 @@ function App(){
       const _pooCounts = [];
       for (let i = 0; i < 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const poos = ent.filter(e => e.type === "poop");
         if (ent.length >= 2) _pooCounts.push({ date: ds, total: poos.length, dirty: poos.filter(p => (p.poopType||"").includes("dirty") || p.poopType === "both").length });
@@ -25377,7 +25386,7 @@ function App(){
       const _tempNights = [];
       for (let i = 0; i < 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const meds = JSON.parse(localStorage.getItem("meds_v1") || "{}");
         const dayMeds = meds[ds] || [];
@@ -25439,7 +25448,7 @@ function App(){
       const _weekday = [], _weekend = [];
       for (let i = 0; i < 21; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         if (ent.length < 3) continue;
         const wake = ent.find(e => e.type === "wake" && !e.night);
@@ -25508,7 +25517,7 @@ function App(){
       const _fussyTimes = [];
       for (let i = 0; i < 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         // Detect fussy periods: multiple short wakes/feeds close together, or crying helper used
         const _cryDate = (activeChild.cryingHelps || {})[ds];
@@ -25544,7 +25553,7 @@ function App(){
       const _firstStretches = [];
       for (let i = 0; i < 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const bed = ent.find(e => e.type === "sleep" && !e.night);
         if (!bed) continue;
@@ -25584,7 +25593,7 @@ function App(){
       let _cascadeDays = 0;
       for (let i = 0; i < 5; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
         const napMin = naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
@@ -25605,7 +25614,7 @@ function App(){
       const _feedGaps = { recent: [], older: [] };
       for (let i = 0; i < 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const feeds = ent.filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
         for (let j = 1; j < feeds.length; j++) {
@@ -25727,7 +25736,7 @@ function App(){
         const _wakeTrend = [];
         for (let i = 0; i < Math.min(_daysSinceMarch || _daysSinceOct, 10); i++) {
           const d = new Date(); d.setDate(d.getDate() - i);
-          const ds = d.toISOString().slice(0, 10);
+          const ds = localDateStr(d);
           const ent = days[ds] || [];
           const wake = ent.find(e => e.type === "wake" && !e.night);
           if (wake) _wakeTrend.push(timeVal(wake));
@@ -25771,7 +25780,7 @@ function App(){
       const _feedData2 = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ml = (days[ds] || []).filter(e => isBabyFeed(e)).reduce((s, f) => s + (f.amount || 0), 0);
         if (ml > 0) _feedData2.push(ml);
       }
@@ -25784,7 +25793,7 @@ function App(){
       const _pooCounts2 = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const wet = (days[ds] || []).filter(e => e.type === "poop" && ((e.poopType || "").includes("wet") || e.poopType === "both")).length;
         _pooCounts2.push(wet);
       }
@@ -25797,7 +25806,7 @@ function App(){
       const _nightWakeCounts = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         _nightWakeCounts.push((days[ds] || []).filter(e => (e.type === "wake" || e.type === "feed") && e.night).length);
       }
       const _avgNW = _nightWakeCounts.length ? Math.round(_nightWakeCounts.reduce((a, b) => a + b, 0) / _nightWakeCounts.length * 10) / 10 : 0;
@@ -25929,7 +25938,7 @@ function App(){
       const _wbResponses = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         try {
           const _wb = JSON.parse(localStorage.getItem("wb_response_v1") || "{}");
           if (_wb.date === ds && _wb.key === "struggling") _wbResponses.push(ds);
@@ -25939,7 +25948,7 @@ function App(){
       let _hardDays = 0;
       for (let i = 0; i < 7; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         const nw = ent.filter(e => (e.type === "wake" || e.type === "feed") && e.night).length;
         if (nw >= 4) _hardDays++;
@@ -25994,7 +26003,7 @@ function App(){
       const _altDays = [];
       for (let i = 0; i < 14; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
+        const ds = localDateStr(d);
         const ent = days[ds] || [];
         if (ent.length < 3) continue;
         const naps = ent.filter(e => e.type === "nap" && e.start && e.end && e.start !== e.end);
@@ -26031,8 +26040,8 @@ function App(){
         // Check last 3 days: did a new food correlate with nappy changes?
         for (let _di = 0; _di < 3; _di++) {
           const _d = new Date(); _d.setDate(_d.getDate() - _di);
-          const _ds = _d.toISOString().slice(0, 10);
-          const _nextDs = (()=>{const d2=new Date(_d);d2.setDate(d2.getDate()+1);return d2.toISOString().slice(0,10);})();
+          const _ds = _localDateStr(d);
+          const _nextDs = (()=>{const d2=new Date(_d);d2.setDate(d2.getDate()+1);return localDateStr(d2);})();
           // Food introduced on this day
           const _foodsOnDay = (weaning||[]).filter(w => w.date === _ds);
           if (!_foodsOnDay.length) continue;
@@ -26043,7 +26052,7 @@ function App(){
           let _avgDirty = 0, _avgCount = 0;
           for (let _j = 2; _j < 7; _j++) {
             const _dd = new Date(); _dd.setDate(_dd.getDate() - _j);
-            const _dds = _dd.toISOString().slice(0, 10);
+            const _dds = _dlocalDateStr(d);
             const _de = days[_dds] || [];
             const _dirtyCount = _de.filter(e => e.type === "poop" && ((e.poopType||"").includes("dirty") || e.poopType === "both")).length;
             if (_de.length >= 2) { _avgDirty += _dirtyCount; _avgCount++; }
@@ -26085,7 +26094,7 @@ function App(){
           const _daysSinceDirty2 = (()=>{
             for (let k = 0; k < 5; k++) {
               const dd = new Date(); dd.setDate(dd.getDate() - k);
-              const dds = dd.toISOString().slice(0, 10);
+              const dds = dlocalDateStr(d);
               if ((days[dds]||[]).some(e => e.type === "poop" && ((e.poopType||"").includes("dirty") || e.poopType === "both"))) return k;
             }
             return 5;
@@ -31513,7 +31522,7 @@ function App(){
                       const _recent7 = [];
                       for(let i=1;i<=7;i++){
                         const d=new Date();d.setDate(d.getDate()-i);
-                        const ds=d.toISOString().slice(0,10);
+                        const ds=localDateStr(d);
                         const ent=days[ds]||[];
                         const bed=ent.find(e=>e.type==="sleep");
                         if(!bed) continue;
@@ -32068,8 +32077,7 @@ function App(){
                   const _last7 = (()=>{
                     const out=[];
                     for(let i=6;i>=0;i--){
-                      const dt=new Date(selDay+"T12:00:00");dt.setDate(dt.getDate()-i);
-                      out.push(dt.toISOString().slice(0,10));
+                      out.push(addDaysLocal(selDay, -i));
                     }
                     return out;
                   })();
@@ -39047,8 +39055,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <button onClick={()=>{
               haptic();
               // Generate yesterday's synthetic entries
-              const yday = new Date(); yday.setDate(yday.getDate()-1);
-              const ydayStr = yday.toISOString().slice(0,10);
+              const ydayStr = yesterdayStr();
               const entries = [];
               // Wake
               entries.push({id:uid(),type:"wake",time:qsWake,night:false,src:"quickstart"});
