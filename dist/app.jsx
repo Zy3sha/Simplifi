@@ -8721,7 +8721,11 @@ function App(){
       // sleep-training run. Carrying this across accounts would show
       // a different parent's "Day 5 of gradual" plan as if it was
       // their own.
-      "ob_sleep_coach_v1","ob_last_import_batch"];
+      "ob_sleep_coach_v1","ob_last_import_batch",
+      // Premium state MUST be cleared to prevent account A's premium
+      // leaking to account B on the same device.
+      "ob_premium","ob_village_end","ob_village_unlocked",
+      "ob_trial_start","ob_trial_duration"];
     keysToRemove.forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
 
     // Reset ALL app state. blank slate
@@ -8735,6 +8739,9 @@ function App(){
     setOnboarded(true);
     setNeedsChildSetup(false);
     setTab("day");
+    // Reset premium state so account B doesn't inherit account A's premium
+    setIsPremium(false);
+    paywallShownRef.current = false;
     // Clear child-sync per-code state and participants so a later login
     // starts fresh and can't see the previous account's joiners.
     setChildSyncCodes({});
