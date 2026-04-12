@@ -13710,7 +13710,8 @@ function App(){
 
       // FIX #5: Early wake cycle. if avg night sleep exceeds age max, nudge bedtime later
       // This prevents the cycle: too-early bedtime → too much night sleep → 5am wake → repeat
-      const _nightMaxByAge = age.totalWeeks < 13 ? 600 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 720 : age.totalWeeks < 52 ? 720 : age.totalWeeks < 78 ? 690 : 660; // minutes
+      const _pWks = age.predictiveWeeks ?? age.totalWeeks;
+      const _nightMaxByAge = _pWks < 13 ? 600 : _pWks < 26 ? 720 : _pWks < 52 ? 720 : _pWks < 78 ? 690 : 660; // minutes
       const _nightDurations = _bedRecentDays.map(rd => {
         const bedE = rd.entries.find(x => x.type === "sleep" && !x.night);
         if (!bedE) return null;
@@ -15078,7 +15079,8 @@ function App(){
       _perDayGaps.forEach(d => gaps.push(...d.gaps));
     }
     const avgGap = gaps.length >= 3 ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null;
-    const threshold = avgGap || (age.totalWeeks < 4 ? 120 : age.totalWeeks < 8 ? 150 : age.totalWeeks < 17 ? 160 : ((age.predictiveWeeks??age.totalWeeks)) < 26 ? 150 : age.totalWeeks < 52 ? 180 : 210);
+    const _pW2 = age.predictiveWeeks ?? age.totalWeeks;
+    const threshold = avgGap || (_pW2 < 4 ? 120 : _pW2 < 8 ? 150 : _pW2 < 17 ? 160 : _pW2 < 26 ? 150 : _pW2 < 52 ? 180 : 210);
 
     return { gap, threshold, avgGap, lastFeedTime: lastFeed.time, overdue: gap > threshold };
   }
@@ -28922,11 +28924,12 @@ function App(){
                   there. The key insight the cross-check provides: if
                   wet nappies are normal, hydration is fine even when
                   feed counts look low — don't panic the parent. */}
-              {age && age.totalWeeks < 26 && todayPanel==="log" && selDay===todayStr() && (()=>{
+              {age && (age.predictiveWeeks ?? age.totalWeeks) < 26 && todayPanel==="log" && selDay===todayStr() && (()=>{
                 const _fcEntries = days[selDay] || [];
                 const _fcFeeds = _fcEntries.filter(function(e){ return e.type==="feed"; }).length;
                 const _fcHydration = smartHydration(_fcEntries, age.totalWeeks);
-                const _fcTarget = age.totalWeeks < 4 ? 8 : age.totalWeeks < 13 ? 6 : 5;
+                const _fcAgeW = age.predictiveWeeks ?? age.totalWeeks;
+                const _fcTarget = _fcAgeW < 4 ? 8 : _fcAgeW < 13 ? 6 : 5;
                 const _h = new Date().getHours();
                 const _fcTargetByNow = Math.max(1, Math.round(_fcTarget * Math.min(_h / 20, 1)));
                 const _fcOk = _fcFeeds >= _fcTargetByNow;
