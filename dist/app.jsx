@@ -229,6 +229,7 @@ const nextDayStr = (dk) => addDaysLocal(dk, +1);
 var findMorningWake = function(entries) {
   if (!entries || !entries.length) return null;
   var best = null;
+  var bestMins = Infinity;
   for (var i = 0; i < entries.length; i++) {
     var e = entries[i];
     if (e.type !== "wake" || !e.time) continue;
@@ -238,7 +239,7 @@ var findMorningWake = function(entries) {
     if (isNaN(h) || isNaN(mm)) continue;
     if (h < 5 || h >= 12) continue;
     var m = h * 60 + mm;
-    if (!best || m < best._mins) { best = e; best._mins = m; }
+    if (m < bestMins) { best = e; bestMins = m; }
   }
   return best;
 };
@@ -14218,6 +14219,7 @@ function App(){
         const [wh,wm] = nextWake.time.split(":").map(Number);
         nightMins = (wh*60+wm+1440) - (bh*60+bm);
         if (nightMins > 1440) nightMins -= 1440;
+        if (nightMins > 840) nightMins = 720; // cap at 14h (sanity against bad entries)
         // Subtract actual awake time from logged night wakes
         const _awakeA = entries.filter(e=>e.night).reduce((s,w)=>s+(parseInt(w.assistedDuration||w.wakeDuration||w.duration)||0),0);
         const _awakeB = (nextDayEntries||[]).filter(e=>e.night).reduce((s,w)=>s+(parseInt(w.assistedDuration||w.wakeDuration||w.duration)||0),0);
