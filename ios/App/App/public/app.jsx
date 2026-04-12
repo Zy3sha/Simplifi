@@ -6210,16 +6210,18 @@ function App(){
         }
         return next;
       });
-      // Mark done regardless of whether any entries were touched — the
-      // migration is idempotent but we still only want it to run once.
-      setTimeout(() => {
-        try {
-          localStorage.setItem("ob_migration_bedtimer_duration_v1", "1");
-          if (_touched > 0) {
-            console.log("[OBubba] Migrated " + _touched + " bed-timer night wake(s): duration now in structured field.");
-          }
-        } catch {}
-      }, 600);
+      // Mark done IMMEDIATELY — don't wait for setTimeout. If the app
+      // crashes before the timeout fires, the flag never gets set and
+      // the migration re-runs on next load, potentially re-processing
+      // entries that were already modified in the state update.
+      // The migration IS idempotent (checks assistedDuration/settleDuration
+      // existence before patching), but marking synchronously is safer.
+      try {
+        localStorage.setItem("ob_migration_bedtimer_duration_v1", "1");
+        if (_touched > 0) {
+          console.log("[OBubba] Migrated " + _touched + " bed-timer night wake(s): duration now in structured field.");
+        }
+      } catch {}
     } catch (e) {
       console.warn("[OBubba] Bed-timer duration migration failed:", e);
     }
@@ -9447,7 +9449,9 @@ function App(){
               // Both exist: keep the one with newer modifiedAt (remote wins ties)
               const lMod = local.modifiedAt || 0;
               const rMod = remote.modifiedAt || 0;
-              merged2.push(lMod > rMod ? local : remote);
+              // Local wins ties: the user just edited locally AFTER pulling
+              // cloud data, so if timestamps match, the local version is newer.
+              merged2.push(lMod >= rMod ? local : remote);
             }
           });
           mergedDays[date] = dedupEntries(merged2);

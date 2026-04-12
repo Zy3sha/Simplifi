@@ -10262,7 +10262,7 @@ function App(){
   const napStructure = React.useMemo(function() {
     if (!age || !selDay) return null;
     return classifyNapStructure({
-      ageWeeks: age.totalWeeks, days: days, selDay: selDay, babyName: babyName
+      ageWeeks: age.predictiveWeeks ?? age.totalWeeks, days: days, selDay: selDay, babyName: babyName
     });
   }, [age, days, selDay, babyName]);
 
@@ -13615,7 +13615,7 @@ function App(){
   function bedtimePrediction() {
     if (!entries || !Array.isArray(entries)) return null;
     // Newborns 0-4 weeks: no bedtime prediction (sleep is chaotic, no circadian rhythm yet)
-    if (age && age.totalWeeks < 4) return null;
+    if (age && (age.predictiveWeeks ?? age.totalWeeks) < 4) return null;
     // ═══ Night autopilot shift ═══
     // Read any adjustment written by last night's diagnosis (see
     // _applyNightAdjustments). Applied to every return below so the
@@ -22424,7 +22424,7 @@ function App(){
   function getWeaningReport() {
     if (!age || ((age.predictiveWeeks??age.totalWeeks)) < 26) return null;
     const _wlog = weaning || [];
-    const _aw = age.totalWeeks;
+    const _aw = age.predictiveWeeks ?? age.totalWeeks;
 
     // ── Allergen progress (out of 14 major allergens) ──
     const _allergenList = Object.keys(ALLERGENS);
@@ -32200,10 +32200,10 @@ function App(){
 
               {/* ── FEEDING & NUTRITION (collapsible) ── */}
               {/* BF Hub card */}
-              {(insightFilter==="feeding") && age && age.totalWeeks < 52 && (()=>{
+              {(insightFilter==="feeding") && age && (age.predictiveWeeks??age.totalWeeks) < 52 && (()=>{
                 const _bfFeeds = getRecentDays(3).flatMap(d=>(days[d]||[]).filter(e=>e.type==="feed"&&e.feedType==="breast"));
                 if(!_bfFeeds.length) return null;
-                const _aw = age.totalWeeks;
+                const _aw = age.predictiveWeeks ?? age.totalWeeks;
                 const _spurts=[{week:3,label:"3-week"},{week:6,label:"6-week"},{week:12,label:"3-month"},{week:19,label:"4-month"},{week:26,label:"6-month"}];
                 const _near=_spurts.find(s=>Math.abs(_aw-s.week)<=1);
                 const _coming=_spurts.find(s=>s.week>_aw&&s.week-_aw<=3);
