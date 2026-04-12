@@ -8356,6 +8356,8 @@ function App(){
   // in the entry-dedup story (id-based filter doesn't help because
   // each call generates a fresh uid).
   const _saveEntryTsRef = React.useRef(0);
+  const _saveBreastTsRef = React.useRef(0);
+  const _logSleepTsRef = React.useRef(0);
 
   const restoreRanRef = React.useRef(false);
 
@@ -20747,6 +20749,10 @@ function App(){
   }
 
   function saveLogSleep(){
+    // Rapid-tap dedup
+    const _lsNow = Date.now();
+    if (_logSleepTsRef.current && _lsNow - _logSleepTsRef.current < 600) return;
+    _logSleepTsRef.current = _lsNow;
     const f=logForm;
     if(f.sleepType==="nap"){
       // Guard: reject end < start the same way saveEntry() does for the
@@ -22605,6 +22611,11 @@ function App(){
 
   function saveBreastFeed(){
     if(!breastStartTime && breastSec.L===0 && breastSec.R===0) return;
+    // Rapid-tap dedup: React state updates are async, so a double-tap
+    // can execute twice before breastStartTime clears, creating two entries.
+    const _bNow = Date.now();
+    if (_saveBreastTsRef.current && _bNow - _saveBreastTsRef.current < 600) return;
+    _saveBreastTsRef.current = _bNow;
     const totalSec = breastSec.L + breastSec.R;
     // Allow saving even with 0 seconds. logs as breastfeed at start time
     const lMins=breastSec.L > 0 ? Math.max(1, Math.round(breastSec.L/60)) : 0;
