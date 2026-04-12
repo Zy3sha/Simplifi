@@ -7426,7 +7426,8 @@ function App(){
     if(outId) {
       try {
         const outState = { napOn, napStartT, napSec, napEntryId, napPaused, napPausedAtSec, timerMode,
-          breastSide, breastSec, breastActive, breastStartTime, bedTimerDay };
+          breastSide, breastSec, breastActive, breastStartTime, bedTimerDay,
+          bedPaused, bedPauseStart, bedPausedAtSec, bedTotalPausedSec };
         localStorage.setItem(`timer_${outId}`, JSON.stringify(outState));
       } catch {}
     }
@@ -7452,6 +7453,10 @@ function App(){
           setBreastActive(s.breastActive || false);
           setBreastStartTime(s.breastStartTime || null);
           setBedTimerDay(s.bedTimerDay || null);
+          setBedPaused(s.bedPaused || false);
+          setBedPauseStart(s.bedPauseStart || null);
+          setBedPausedAtSec(s.bedPausedAtSec || 0);
+          setBedTotalPausedSec(s.bedTotalPausedSec || 0);
           // Sync localStorage keys so existing tick/interval logic works
           localStorage.setItem("nap_on", s.napOn ? "1" : "0");
           if(s.napStartT) localStorage.setItem("nap_startT", s.napStartT); else localStorage.removeItem("nap_startT");
@@ -7464,6 +7469,12 @@ function App(){
           localStorage.setItem("breast_sec", JSON.stringify(s.breastSec || {L:0,R:0}));
           localStorage.setItem("breast_active", s.breastActive ? "1" : "0");
           if(s.breastStartTime) localStorage.setItem("breast_startTime", s.breastStartTime); else localStorage.removeItem("breast_startTime");
+          // Bed pause state
+          if(s.bedPaused) localStorage.setItem("bed_paused", "1"); else localStorage.removeItem("bed_paused");
+          if(s.bedPauseStart) localStorage.setItem("bed_pause_start", String(s.bedPauseStart)); else localStorage.removeItem("bed_pause_start");
+          if(s.bedPausedAtSec) localStorage.setItem("bed_paused_sec", String(s.bedPausedAtSec)); else localStorage.removeItem("bed_paused_sec");
+          localStorage.setItem("bed_total_paused_sec", String(s.bedTotalPausedSec || 0));
+          if(s.bedTimerDay) localStorage.setItem("bed_timer_day", s.bedTimerDay); else localStorage.removeItem("bed_timer_day");
         }
       } else {
         // No saved per-child state. check individual localStorage keys before resetting
@@ -8329,8 +8340,14 @@ function App(){
             if(_e.type==="nap") { _newEntry.start=_e.start; _newEntry.end=_e.end; _newEntry.duration=_e.duration||0; }
             if(_e.type==="wake") { _newEntry.night = !!_e.night; }
             setDays(d2=>({...d2,[_dayKey]:[...(d2[_dayKey]||[]),_newEntry]}));
-            // Delete from carer_logs (already merged)
-            try { const {db:_db, doc:_doc, deleteDoc:_del} = window._fb; _del(_doc(_db,"carer_logs",backupCode,"entries",d.id)).catch(()=>{}); } catch(_){}
+            // Mark as merged but DON'T delete immediately — carer portal
+            // reads from carer_logs for its "Recent" list. Deleting instantly
+            // empties grandma's view. Instead, mark with mergedAt timestamp
+            // and clean up entries older than 2 hours in the background.
+            try {
+              const {db:_db, doc:_doc, setDoc:_set} = window._fb;
+              _set(_doc(_db,"carer_logs",backupCode,"entries",d.id),{_merged:true,_mergedAt:Date.now()},{merge:true}).catch(()=>{});
+            } catch(_){}
             // Gentle toast
             const _typeLabel = _e.type==="feed"?"🍼 Feed":_e.type==="nap"?"😴 Nap":_e.type==="poop"||_e.type==="nappy"?"🧷 Nappy":_e.type==="wake"?"☀️ Wake":"📝 Entry";
             showToast(_typeLabel+" from carer · auto-added",2500,1);
