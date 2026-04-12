@@ -6255,8 +6255,19 @@ function App(){
     return ()=>clearInterval(_mid);
   },[trialBannerDismissed]);
 
-  function triggerPaywall(context) {
-    if (!STORE_READY || isPremium || trialActive || paywallShownRef.current) return;
+  // triggerPaywall is called from two kinds of event:
+  //   1. AUTOMATIC (curiosity gap, soft nudges, background triggers) —
+  //      should respect the once-per-session guard so we don't spam.
+  //   2. EXPLICIT (parent tapped an "Unlock X" button on a card) —
+  //      should ALWAYS open the paywall because the parent is asking.
+  //
+  // Pass force=true from explicit button handlers. Previously every
+  // trigger used the auto guard, which meant after the first paywall
+  // dismiss in a session the 7 new "Unlock" buttons on the Why?
+  // expander and Insights cards silently stopped doing anything.
+  function triggerPaywall(context, force) {
+    if (!STORE_READY || isPremium || trialActive) return;
+    if (!force && paywallShownRef.current) return;
     paywallShownRef.current = true;
     setPaywallContext(context);
     setShowPaywall(true);
@@ -12156,7 +12167,7 @@ function App(){
                           <div style={{fontSize:11,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"6px 8px",background:"var(--card-bg)",borderRadius:8}}>💡 {_df.action}</div>
                         </>
                       ) : (
-                        <button onClick={()=>triggerPaywall("feed_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                        <button onClick={()=>triggerPaywall("feed_analyser", true)} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                           Unlock full analysis
                         </button>
                       )}
@@ -12197,7 +12208,7 @@ function App(){
                           <div style={{fontSize:11,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"6px 8px",background:"var(--card-bg)",borderRadius:8}}>💡 {_d.action}</div>
                         </>
                       ) : (
-                        <button onClick={()=>triggerPaywall("nap_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                        <button onClick={()=>triggerPaywall("nap_analyser", true)} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                           Unlock full analysis + fix
                         </button>
                       )}
@@ -28953,7 +28964,7 @@ function App(){
                           <div style={{fontSize:12,color:_isUrgent?"#e8574a":C.deep,fontWeight:600,lineHeight:1.6,padding:"8px 10px",background:"var(--card-bg)",borderRadius:10}}>{_dwb.action}</div>
                         </>
                       ) : (
-                        <button onClick={()=>triggerPaywall("wellbeing_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                        <button onClick={()=>triggerPaywall("wellbeing_analyser", true)} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                           Unlock full wellbeing analysis
                         </button>
                       )}
@@ -29526,7 +29537,7 @@ function App(){
                           ) : (
                             <>
                               <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:6,fontStyle:"italic"}}>Unlock to see why this happened + the fix OBubba applied for tonight.</div>
-                              <button onClick={()=>triggerPaywall("night_analyser")} style={{padding:"6px 12px",borderRadius:99,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                              <button onClick={()=>triggerPaywall("night_analyser", true)} style={{padding:"6px 12px",borderRadius:99,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                                 Unlock full night analysis
                               </button>
                             </>
@@ -29561,7 +29572,7 @@ function App(){
                                   <div style={{fontSize:10,color:C.lt,lineHeight:1.5,marginTop:6,fontStyle:"italic",paddingTop:6,borderTop:"1px dashed rgba(111,168,152,0.25)"}}>{_tf.why}</div>
                                 </>
                               ) : (
-                                <button onClick={()=>triggerPaywall("tonights_focus")} style={{marginTop:2,padding:"6px 12px",borderRadius:99,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                                <button onClick={()=>triggerPaywall("tonights_focus", true)} style={{marginTop:2,padding:"6px 12px",borderRadius:99,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                                   Unlock tonight's plan
                                 </button>
                               )}
@@ -31612,7 +31623,7 @@ function App(){
                             ))}
                           </div>
                         ) : (
-                          <button onClick={()=>triggerPaywall("sleep_coach")} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                          <button onClick={()=>triggerPaywall("sleep_coach", true)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
                             Unlock Sleep Coach
                           </button>
                         )}
@@ -31675,7 +31686,7 @@ function App(){
                           }} style={{marginTop:8,fontSize:10,color:C.lt,background:"none",border:"none",textDecoration:"underline",cursor:_cP,fontFamily:_fM}}>Change style or restart</button>
                         </>
                       ) : (
-                        <button onClick={()=>triggerPaywall("sleep_coach")} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
+                        <button onClick={()=>triggerPaywall("sleep_coach", true)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
                           Unlock Sleep Coach
                         </button>
                       )}
@@ -34541,7 +34552,7 @@ function App(){
                                 <div style={{fontSize:11,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"6px 8px",background:"var(--card-bg)",borderRadius:8}}>💡 {_dw.action}</div>
                               </>
                             ) : (
-                              <button onClick={()=>triggerPaywall("weaning_analyser")} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                              <button onClick={()=>triggerPaywall("weaning_analyser", true)} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                                 Unlock full analysis
                               </button>
                             )}
@@ -38479,7 +38490,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         )}
                       </>
                     ) : (
-                      <button onClick={()=>triggerPaywall("triage")} style={{width:"100%",marginTop:4,padding:"10px 12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,"+C.gold+","+C.ter+")",color:"white",fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                      <button onClick={()=>triggerPaywall("triage", true)} style={{width:"100%",marginTop:4,padding:"10px 12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,"+C.gold+","+C.ter+")",color:"white",fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                         Unlock full analysis + fix
                       </button>
                     )}
