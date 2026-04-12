@@ -12716,7 +12716,7 @@ function App(){
               return timeVal({time: t}) < timeVal({time: _lastNap.start});
             })
             .sort((a,b)=>timeVal({time: a.time || a.start || ""}) - timeVal({time: b.time || b.start || ""}));
-          const _ww = getWakeWindow(age.totalWeeks);
+          const _ww = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
           const _diag = diagnoseNapPattern(_lastNap, _priorToLast, (age.predictiveWeeks??age.totalWeeks), _ww);
           if (_diag) {
             // Free users see the headline only (premium gate on the detail).
