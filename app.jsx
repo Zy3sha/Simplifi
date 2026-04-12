@@ -342,7 +342,7 @@ function clearTimerNotification() {
 const hm = m => { if(typeof m!=="number"||isNaN(m))return"--"; m=Math.round(m); if(m<=0)return"0m"; return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m}m`; };
 // Helper: true for feeds baby actually consumed (excludes pump sessions which are expressed milk, not intake)
 const isBabyFeed = e => e && e.type === "feed" && e.feedType !== "pump";
-const fmtSec = s => { if(typeof s!=='number'||isNaN(s)||!isFinite(s)) s=0; return s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
+const fmtSec = s => { if(typeof s!=='number'||isNaN(s)||!isFinite(s)||s<0) s=0; return s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
 const haptic=(ms=10)=>{try{if(window.OBNative){window.OBNative.haptics.impact(typeof ms==="string"?ms.charAt(0).toUpperCase()+ms.slice(1):"Medium");return;}if(window._nativeHaptic){window._nativeHaptic(typeof ms==="string"?ms:"medium");return;}if(navigator.vibrate){navigator.vibrate(typeof ms==="number"?ms:10);}}catch{}};
 // ── Native Feature Integration ──
 const _isNativePlatform = () => window.OBNative && window.OBNative.isNative();
@@ -21830,18 +21830,24 @@ function App(){
       const title = `💊 ${babyName || "Baby"}'s Medicine`;
       const body = `Time for ${m.name}${m.dose ? " (" + m.dose + ")" : ""}`;
 
-      const medStableId = Math.abs((schedId.split("").reduce(function(h,c){return(h*31+c.charCodeAt(0))|0;},0))%90000)+10000;
+      // Space notification IDs apart by 10 to prevent collision
+      // between different medications with consecutive hash values.
+      // Old code used +1/+2 offsets, so med A (id 50000) and med B
+      // (id 49999+1=50000) would collide. 10x spacing eliminates this.
+      const medStableId = Math.abs((schedId.split("").reduce(function(h,c){return(h*31+c.charCodeAt(0))|0;},0))%9000)*10+10000;
+
+      // Cancel any existing notification with this base ID before rescheduling
+      try { Capacitor.Plugins.LocalNotifications.cancel({notifications:[{id:medStableId},{id:medStableId+1},{id:medStableId+2}]}); } catch {}
 
       if (m.schedule === "daily") {
         try { Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId, schedule: { on: { hour: hh, minute: mm }, every: "day", allowWhileIdle: true }, channelId: "med_reminders" }] }); } catch {}
       } else if (m.schedule === "every_other_day") {
-        // Schedule for 48 hours from now, repeating
         try {
           const next = new Date(); next.setHours(hh, mm, 0, 0);
           if (next <= new Date()) next.setDate(next.getDate() + 1);
           Capacitor.Plugins.LocalNotifications.schedule({ notifications: [{ title, body, id: medStableId + 1, schedule: { at: next, every: "day", count: 2, allowWhileIdle: true }, channelId: "med_reminders" }] }); } catch {}
       } else if (m.schedule.startsWith("every_")) {
-        const hrs = parseInt(m.schedule.replace("every_", "").replace("h", ""));
+        const hrs = parseInt(m.schedule.replace("every_", "").replace("h", ""), 10);
         if (hrs > 0) {
           try {
             const next = new Date(); next.setTime(next.getTime() + hrs * 3600000);
