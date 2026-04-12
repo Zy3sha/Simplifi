@@ -15194,7 +15194,7 @@ function App(){
     const lastNapDur = minDiff(lastNap.start, lastNap.end);
     // Guard: invalid nap data (0 min duration = likely a timer still running or bad entry)
     if (lastNapDur <= 0) return null;
-    const ww = getWakeWindow(age.totalWeeks);
+    const ww = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
     const p = getAgeNapProfile(age.totalWeeks);
     // Guard: only suggest bridge nap when most expected naps are done
     // (at least expectedNaps - 1, or all of them)
@@ -15234,7 +15234,7 @@ function App(){
       if (!naps.length) break;
       const lastNap = naps[naps.length-1];
       if (!lastNap.end || !age) break;
-      const ww = getWakeWindow(age.totalWeeks);
+      const ww = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
       const [lh,lm] = lastNap.end.split(":").map(Number);
       const pred = lh*60+lm + ww.max;
       if (pred < 18*60+15) consecutive++;
@@ -15336,7 +15336,7 @@ function App(){
     }
 
     // Fallback: compute from wake window if tick engine unavailable
-    const ww = getWakeWindow(age.totalWeeks);
+    const ww = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
     const [lh,lm] = lastNap.end.split(":").map(Number);
     const lastNapEndMins = lh*60+lm;
 
@@ -15615,7 +15615,7 @@ function App(){
     const todayNaps = today.filter(e=>e.type==="nap"&&!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
     if (todayNaps.length < 2) return null;
 
-    const ww = getWakeWindow(age.totalWeeks);
+    const ww = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
     const nap1Dur = minDiff(todayNaps[0].start, todayNaps[0].end);
     const nap2Dur = minDiff(todayNaps[1].start, todayNaps[1].end);
 
@@ -16323,7 +16323,10 @@ function App(){
   // ─── END ENHANCED SLEEP ENGINE ─────────────────────────────────────────────
   function feedCard() {
     if (!age) return null;
-    const w = age.totalWeeks;
+    // Use corrected age so feed-target tables align with the other
+    // analysers. A preemie at 24 chronological weeks but 16 corrected
+    // weeks should see the 3-4mo breast target, not the 6mo one.
+    const w = age.predictiveWeeks ?? age.totalWeeks;
     const today = entries;
     const nextDayStr = nextCalDay(selDay);
     const nextDayEntries = days[nextDayStr] || [];
@@ -17103,7 +17106,7 @@ function App(){
     }
     // Fallback to age default if no bucket data
     if (baseMins === null && age) {
-      const nhsWW = getWakeWindow(age.totalWeeks);
+      const nhsWW = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
       baseMins = Math.round((nhsWW.min + nhsWW.max) / 2);
       source = "age guideline";
     }
@@ -17417,7 +17420,7 @@ function App(){
       // Notify when nap window opens (wake window minimum reached)
       // Calculate: last awake time + WW min = window open time
       try {
-        const _ww = age ? getWakeWindow(age.totalWeeks) : null;
+        const _ww = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks) : null;
         if (_ww && _ww.min) {
           const napWindowMins = _notifNapMins - Math.round((_ww.max - _ww.min) / 2); // approx when min WW is hit
           const nwH = Math.floor(napWindowMins / 60), nwM = napWindowMins % 60;
@@ -22137,7 +22140,7 @@ function App(){
     let napPts = 0;
     const _naps = getDayNaps(dk);
     const napM = _naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
-    const ww = age ? getWakeWindow(age.totalWeeks) : null;
+    const ww = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks) : null;
     if (_naps.length > 0) napPts += 10;
     if (ww && napM >= ww.minNapTotal*0.8) napPts += 10;
     components.nap = Math.min(20, napPts);
@@ -22867,7 +22870,7 @@ function App(){
     const pred = tickDataRef.current.pred;
 
     // Wake window info
-    const ww = age ? getWakeWindow(age.totalWeeks) : null;
+    const ww = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks) : null;
 
     // Pinned notes (allergies, medical info)
     const notes = pinnedNotes.filter(n => n.pinned);
@@ -24257,7 +24260,7 @@ function App(){
   // ═══ ADJUST SCHEDULE. manual override within guidelines ═══
   function applyScheduleAdjustment(wakeStr, bedStr, duration) {
     if (!age) return;
-    const ww = getWakeWindow(age.totalWeeks);
+    const ww = getWakeWindow(age.predictiveWeeks??age.totalWeeks);
     const _ageLabel = fmtAge ? fmtAge(age) : (age.months ? age.months+"mo" : age.totalWeeks+"w");
     let wakeMins = null, bedMins = null;
     // Keep what the parent asked for so we can compare against the clamped value
@@ -27310,7 +27313,7 @@ function App(){
               // Premium gate: countdown pill shows live countdown for premium, basic info for free
               if (!hasAccess()) {
                 // Free: show basic awake time or generic wake window
-                const _wwLabel = age ? getWakeWindow(age.totalWeeks).label : "";
+                const _wwLabel = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks).label : "";
                 if (!_wakeE2 && _todayE2.length === 0) {
                   return (
                     <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
@@ -27381,7 +27384,7 @@ function App(){
               if(isNeutral) {
                 if (_todayE2.length > 0) {
                   // Day has entries but no nap prediction. show awake timer
-                  const _wwLabel2 = age ? getWakeWindow(age.totalWeeks).label : "";
+                  const _wwLabel2 = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks).label : "";
                   return (
                     <button onClick={()=>triggerPaywall("nap_prediction")}
                       style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontFamily:_fM}}>
@@ -29681,7 +29684,7 @@ function App(){
 
               {/* Free users: full research-based schedule + personalisation upsell */}
               {!hasAccess() && todayPlanOpen && (()=>{
-                const _freeWW = age ? getWakeWindow(age.totalWeeks) : null;
+                const _freeWW = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks) : null;
                 const _freeProfile = age ? getAgeNapProfile(age.totalWeeks) : null;
                 const _freeWake = findMorningWake(entries);
                 const _freeWakeMin = _freeWake ? timeVal(_freeWake) : null;
@@ -33019,7 +33022,7 @@ function App(){
                     {(()=>{
                       const _wws = getAwakeWindows(rDayE);
                       if(!_wws.length) return null;
-                      const _wwT = age ? getWakeWindow(age.totalWeeks) : null;
+                      const _wwT = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks) : null;
                       return (
                         <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",borderLeft:`3px solid ${C.gold}`,marginBottom:8}}>
                           <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>⏱️ Wake Windows</div>
