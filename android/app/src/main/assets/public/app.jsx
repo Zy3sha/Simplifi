@@ -12436,7 +12436,16 @@ function App(){
     // Age-adaptive wake windows. consensus from 18 sources:
     // Taking Cara Babies, Huckleberry, Little Ones, Cleveland Clinic,
     // NHS Start4Life, AASM, Baby Sleep Science, Baby Sleep Site
-    // Returns {min, max, label, midpoint} in minutes
+    // Returns {min, max, label, midpoint} in minutes.
+    //
+    // Defensive: if ageWeeks is NaN/undefined/null (DOB not yet set,
+    // calcAge returned null, corrupted state), return a sensible
+    // newborn default rather than the 36mo+ stage which would happen
+    // because NaN comparisons always return false and findIndex would
+    // return -1, pinning idx at the last stage (6-12 hour wake window).
+    if (typeof ageWeeks !== "number" || isNaN(ageWeeks) || ageWeeks < 0) {
+      return { min: 60, max: 90, midpoint: 75, label: "~60–90 min" };
+    }
     const months = ageWeeks / 4.33;
     let min, max, label;
     // Stages: [maxMonths, minWW, maxWW]

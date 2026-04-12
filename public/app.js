@@ -1923,8 +1923,14 @@ const totalMlWithNight=(()=>{const nightFeedMl=nightE.filter(e=>(e.amount||0)>0)
 function getWakeWindow(ageWeeks){// Age-adaptive wake windows. consensus from 18 sources:
 // Taking Cara Babies, Huckleberry, Little Ones, Cleveland Clinic,
 // NHS Start4Life, AASM, Baby Sleep Science, Baby Sleep Site
-// Returns {min, max, label, midpoint} in minutes
-const months=ageWeeks/4.33;let min,max,label;// Stages: [maxMonths, minWW, maxWW]
+// Returns {min, max, label, midpoint} in minutes.
+//
+// Defensive: if ageWeeks is NaN/undefined/null (DOB not yet set,
+// calcAge returned null, corrupted state), return a sensible
+// newborn default rather than the 36mo+ stage which would happen
+// because NaN comparisons always return false and findIndex would
+// return -1, pinning idx at the last stage (6-12 hour wake window).
+if(typeof ageWeeks!=="number"||isNaN(ageWeeks)||ageWeeks<0){return{min:60,max:90,midpoint:75,label:"~60–90 min"};}const months=ageWeeks/4.33;let min,max,label;// Stages: [maxMonths, minWW, maxWW]
 const stages=[[1.39,30,90],// 0-6wk:   TCB 30-60, Cleveland 45-60, wider for newborn variability
 [3,45,90],// 6wk-3mo: TCB 60-90, consensus 45-90
 [5,75,120],// 3-5mo:   TCB 75-120, tightened from [90,150]. overtiredness risk
