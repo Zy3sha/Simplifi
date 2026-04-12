@@ -3941,10 +3941,17 @@ function GrowthChart({lmsTable, babyData, yLabel, unit, sex, color}) {
   const sorted=[...babyData].sort((a,b)=>a.mo-b.mo);
   const babyPath=sorted.map((d,i)=>`${i===0?"M":"L"}${x(d.mo).toFixed(1)},${y(d.val).toFixed(1)}`).join(" ");
 
-  // Grid lines
+  // Grid lines — ticks are in internal units (cm/kg), converted to display units for labels
   const yTicks=[];
-  const yStep=yLabel==="Weight"?1:5;
+  const _isWeight = unit==="kg"||unit==="lbs";
+  const yStep = _isWeight ? 1 : 5;
   for(let v=Math.ceil(yMin/yStep)*yStep;v<=yMax;v+=yStep) yTicks.push(v);
+  // Convert tick value to display unit for label text
+  const _tickLabel = (v) => {
+    if (unit==="lbs") return Math.round(v / KG_PER_LB * 10) / 10;
+    if (unit==="in") return Math.round(v / CM_PER_IN * 10) / 10;
+    return Math.round(v * 10) / 10;
+  };
   const xTicks=[];
   for(let m=0;m<=maxMo;m+=3) xTicks.push(m);
 
@@ -3952,7 +3959,7 @@ function GrowthChart({lmsTable, babyData, yLabel, unit, sex, color}) {
     // Grid
     yTicks.map(v=>React.createElement("g",{key:"gy"+v},
       React.createElement("line",{x1:PAD.l,y1:y(v),x2:W-PAD.r,y2:y(v),stroke:"var(--card-border)",strokeWidth:0.5}),
-      React.createElement("text",{x:PAD.l-4,y:y(v)+3,textAnchor:"end",fontSize:8,fill:"var(--text-lt)",fontFamily:"monospace"},v+(unit==="kg"?"":""))
+      React.createElement("text",{x:PAD.l-4,y:y(v)+3,textAnchor:"end",fontSize:8,fill:"var(--text-lt)",fontFamily:"monospace"},_tickLabel(v))
     )),
     xTicks.map(m=>React.createElement("g",{key:"gx"+m},
       React.createElement("line",{x1:x(m),y1:PAD.t,x2:x(m),y2:H-PAD.b,stroke:"var(--card-border)",strokeWidth:0.5}),
