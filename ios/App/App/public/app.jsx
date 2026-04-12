@@ -17491,7 +17491,7 @@ function App(){
           const windowOpen = new Date(); windowOpen.setHours(nwH, nwM, 0, 0);
           if (windowOpen.getTime() > now && windowOpen.getTime() < now + 12*3600000) {
             const napLabel = `Nap ${(td.napsDone||0)+1}`;
-            notifications.push({title:`🟢 ${_bn}'s nap window is open`, body:`${napLabel} window open. watch for sleepy cues (yawning, eye rubbing, fussiness). Sweet spot is around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}.`, id:stableId("napwin",todayKey+td.napsDone), schedule:{at:windowOpen}, sound:"notification.wav", channelId:"obubba_reminders"});
+            notifications.push({title:`🟢 ${_bn}'s nap window is open`, body:`${napLabel} window open. watch for sleepy cues (yawning, eye rubbing, fussiness). Ideal time is around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}.`, id:stableId("napwin",todayKey+td.napsDone), schedule:{at:windowOpen}, sound:"notification.wav", channelId:"obubba_reminders"});
           }
         }
       } catch {}
@@ -17941,8 +17941,8 @@ function App(){
         lines.push(napLine);
       } else {
         let napLine = _naps.length + " naps so far, " + hm(_totalNapMin) + " total.";
-        const longest = Math.max(..._napDurs);
-        const shortest = Math.min(..._napDurs);
+        const longest = _napDurs.length ? Math.max(..._napDurs) : 0;
+        const shortest = _napDurs.length ? Math.min(..._napDurs) : 0;
         if (longest - shortest > 20) napLine += " The longest was " + hm(longest) + " and shortest " + hm(shortest) + ". mixed nap days are completely normal at " + ageStr + ".";
         lines.push(napLine);
       }
@@ -18811,7 +18811,7 @@ function App(){
             if (inAny) _inWindow++; else _outWindow++;
           });
           if (_outWindow > 0 && _inWindow === 0) {
-            patCards.push({ icon: "🎯", title: "Nap timing could improve", detail: "Today's naps fell outside the typical circadian sweet spots. Naps in the biological dip windows (mid-morning and early afternoon) tend to be longer and more restorative.",
+            patCards.push({ icon: "🎯", title: "Nap timing could improve", detail: "Today's naps fell outside the typical circadian dip windows. Naps in the biological dip windows (mid-morning and early afternoon) tend to be longer and more restorative.",
               action: "Try aiming for naps around 9-10am and 1-2pm when the body naturally dips in alertness.",
               why: "The body has two natural dips in alertness each day. mid-morning and early afternoon. Naps timed to these windows are biologically supported and tend to be longer." });
           }
@@ -22340,7 +22340,7 @@ function App(){
           if (Math.abs(earlyWakes - lateWakes) >= 0.5) {
             const better = earlyWakes < lateWakes ? "earlier" : "later";
             const betterWakes = Math.min(earlyWakes, lateWakes);
-            patterns.push({ emoji: "🕐", title: "Bedtime Sweet Spot", detail: `${_n} sleeps better with a ${better} bedtime. averaging ${Math.round(betterWakes*10)/10} night wakes vs ${Math.round(Math.max(earlyWakes,lateWakes)*10)/10} otherwise.`, type: "timing" });
+            patterns.push({ emoji: "🕐", title: "Bedtime Timing", detail: `${_n} sleeps better with a ${better} bedtime. averaging ${Math.round(betterWakes*10)/10} night wakes vs ${Math.round(Math.max(earlyWakes,lateWakes)*10)/10} otherwise.`, type: "timing" });
           }
         }
       }
@@ -25314,7 +25314,7 @@ function App(){
             } else {
               const _avgRoughNap = Math.round(_rough.reduce((s, n) => s + n.napMin, 0) / _rough.length);
               addObservation("🌙", "Tonight's forecast",
-                `Today's naps (${hm(_todayNapMin2)}) are ${_todayNapMin2 < _avgGoodNap ? "below" : "above"} ${_name}'s sweet spot (${hm(_avgGoodNap)}). Rougher nights tend to follow days with ${hm(_avgRoughNap)} nap time.`,
+                `Today's naps (${hm(_todayNapMin2)}) are ${_todayNapMin2 < _avgGoodNap ? "below" : "above"} ${_name}'s ideal range (${hm(_avgGoodNap)}). Rougher nights tend to follow days with ${hm(_avgRoughNap)} nap time.`,
                 (_todayNapMin2 < _avgGoodNap ? "An earlier bedtime (15-20min) can help compensate for less daytime sleep. " : "Bedtime might need to be a little later to build enough sleep pressure. ") + "A big bedtime feed helps too.");
             }
           }
@@ -25768,7 +25768,7 @@ function App(){
         localStorage.setItem("ob_30day_win", "1");
         addObservation("🏆", "30 days. you're a data hero",
           "A full month of tracking " + _name + "'s patterns. The insights you're seeing now are deeply personalised. no other baby has these exact predictions.",
-          "OBubba knows " + _name + "'s rhythm, sweet spots, and patterns. The dream feed data, nap location stats, and night correlations are all unique to your family. You've built something valuable. 💛");
+          "OBubba knows " + _name + "'s rhythm, ideal ranges, and patterns. The dream feed data, nap location stats, and night correlations are all unique to your family. You've built something valuable. 💛");
       }
     } catch {}
 
@@ -30550,7 +30550,25 @@ function App(){
               {/* ═══ Timeline + Night Wakes. LOG-ONLY ═══ */}
               {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
 
-              {/* 7. Daily timeline (heading deduped. sub-screen title already says Today's Log) */}
+              {/* One-time Sleep Coach pointer */}
+              {age && (age.predictiveWeeks??age.totalWeeks) >= 16 && selDay===todayStr() && (()=>{
+                try {
+                  if (localStorage.getItem("ob_coach_pointer_v1")) return null;
+                  return (
+                    <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",marginBottom:10,borderRadius:14,background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))",border:"1.5px solid rgba(123,104,238,0.2)"}}>
+                      <span style={{fontSize:20}}>🗓</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Sleep Coach is ready</div>
+                        <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>A personalised 14-day sleep plan is waiting for you in the <strong style={{color:C.deep}}>Insights</strong> tab.</div>
+                      </div>
+                      <button onClick={()=>{haptic();try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setTab("insights");}} style={{padding:"6px 12px",borderRadius:99,border:"none",background:"#7b68ee",color:"white",fontSize:11,fontWeight:700,cursor:_cP,flexShrink:0}}>Go →</button>
+                      <button onClick={()=>{try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"2px"}}>✕</button>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* 7. Daily timeline */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                 <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:14}}>Daytime</span>
               </div>
@@ -31169,6 +31187,38 @@ function App(){
                 </div>
               )}
 
+              {/* ═══ SLEEP COACH — top of Insights, always visible ═══ */}
+              {!insightFilter && age && (age.predictiveWeeks??age.totalWeeks) >= 16 && (()=>{
+                const _scRaw2 = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
+                const _sc2 = _scRaw2 ? (()=>{try{return JSON.parse(_scRaw2);}catch{return null;}})() : null;
+                if (_sc2 && _sc2.style === "gradual") { try{localStorage.removeItem("ob_sleep_coach_v1");}catch{} }
+                const _hasActivePlan = _sc2 && _sc2.style && _sc2.style !== "gradual";
+                const _unlockedSC2 = hasAccess();
+                let _dayLabel2 = "";
+                if (_hasActivePlan) {
+                  const _start2 = new Date(_sc2.startDate + "T00:00:00");
+                  const _elapsed2 = Math.floor((new Date() - _start2) / (24*60*60*1000));
+                  _dayLabel2 = _elapsed2 >= 14 ? "Complete ✓" : "Day " + Math.min(14, Math.max(1, _elapsed2 + 1)) + "/14";
+                }
+                return (
+                  <button onClick={()=>{haptic();if(!_unlockedSC2){triggerPaywall("sleep_coach",true);}else{setShowSleepCoach(true);}}} className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)",cursor:_cP,textAlign:"left",width:"100%",fontFamily:_fI}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:22}}>🗓</span>
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach</div>
+                          <div style={{fontSize:11,color:C.lt}}>{_hasActivePlan ? ({no_cry:"No-cry / gentle",chair:"Chair shuffle",parent_led:"Parent-led rhythm"}[_sc2.style]||_sc2.style) + " · " + _dayLabel2 : "14-day personalised plan"}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        {!_unlockedSC2 && <span style={{fontSize:9,padding:"2px 8px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                        <span style={{fontSize:16,color:C.lt}}>→</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })()}
+
               {/* ═══ Post-trial banner. warm, never pushy ═══ */}
               {STORE_READY && trialExpired && !trialBannerDismissed && (
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",marginBottom:10,borderRadius:14,background:"linear-gradient(135deg,rgba(192,112,136,0.06),rgba(123,104,238,0.06))",border:"1.5px solid rgba(192,112,136,0.15)"}}>
@@ -31367,7 +31417,8 @@ function App(){
               {(()=>{
                 const _sm = _settleMethodsMemo;
                 if (!_sm || !_sm.hasData) return null;
-                const _maxAvg = Math.max(...Object.values(_sm.byMethod).map(m => m.avgMin));
+                const _methodVals = Object.values(_sm.byMethod).map(m => m.avgMin);
+                const _maxAvg = _methodVals.length ? Math.max(..._methodVals) : 1;
                 const _activeMethods = Object.entries(_sm.byMethod).filter(([_,v]) => v.count > 0);
                 return (
                   <div style={{marginBottom:14,padding:"14px 16px",borderRadius:16,background:"var(--card-bg)",border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)"}}>
@@ -31688,39 +31739,6 @@ function App(){
               )}
 
               {/* ═══ SCHEDULE BUILDER. moved to Today tab dashboard ═══ */}
-
-              {/* ═══ SLEEP COACH entry point → opens dedicated sub-screen ═══ */}
-              {age && (age.predictiveWeeks??age.totalWeeks) >= 16 && (()=>{
-                const _scRaw2 = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
-                const _sc2 = _scRaw2 ? (()=>{try{return JSON.parse(_scRaw2);}catch{return null;}})() : null;
-                // Auto-reset removed Ferber style
-                if (_sc2 && _sc2.style === "gradual") { try{localStorage.removeItem("ob_sleep_coach_v1");}catch{} }
-                const _hasActivePlan = _sc2 && _sc2.style && _sc2.style !== "gradual";
-                const _unlockedSC2 = hasAccess();
-                let _dayLabel2 = "";
-                if (_hasActivePlan) {
-                  const _start2 = new Date(_sc2.startDate + "T00:00:00");
-                  const _elapsed2 = Math.floor((new Date() - _start2) / (24*60*60*1000));
-                  _dayLabel2 = _elapsed2 >= 14 ? "Complete ✓" : "Day " + Math.min(14, Math.max(1, _elapsed2 + 1)) + "/14";
-                }
-                return (
-                  <button onClick={()=>{haptic();if(!_unlockedSC2){triggerPaywall("sleep_coach",true);}else{setShowSleepCoach(true);}}} className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)",cursor:_cP,textAlign:"left",width:"100%",fontFamily:_fI}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={{fontSize:22}}>🗓</span>
-                        <div>
-                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach</div>
-                          <div style={{fontSize:11,color:C.lt}}>{_hasActivePlan ? ({no_cry:"No-cry / gentle",chair:"Chair shuffle",parent_led:"Parent-led rhythm"}[_sc2.style]||_sc2.style) + " · " + _dayLabel2 : "14-day personalised plan"}</div>
-                        </div>
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        {!_unlockedSC2 && <span style={{fontSize:9,padding:"2px 8px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
-                        <span style={{fontSize:16,color:C.lt}}>→</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })()}
 
               {/* ═══ SLEEP INSIGHTS. clean, flat, no collapsible ═══ */}
 
