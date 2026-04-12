@@ -3669,6 +3669,93 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
   );
 }
 
+// ═══ SWIPEABLE ENTRY ═══
+// Apple-style swipe-to-delete + long-press-to-edit wrapper.
+// Wraps any entry card content. Manages its own touch state.
+function SwipeableEntry({ entryId, onEdit, onDelete, children }) {
+  const [swipeX, setSwipeX] = React.useState(0);
+  const [swiped, setSwiped] = React.useState(false);
+  const touchRef = React.useRef({ startX: 0, startY: 0, moved: false, lpTimer: null });
+  const DELETE_THRESHOLD = 80;
+
+  // Reset if another entry is swiped (via key change)
+  React.useEffect(() => { setSwipeX(0); setSwiped(false); }, [entryId]);
+
+  function onTouchStart(ev) {
+    const t = ev.touches[0];
+    touchRef.current = { startX: t.clientX, startY: t.clientY, moved: false, lpTimer: null };
+    // Start long-press timer (500ms)
+    touchRef.current.lpTimer = setTimeout(() => {
+      if (!touchRef.current.moved) {
+        haptic("medium");
+        onEdit();
+        touchRef.current.lpTimer = null;
+      }
+    }, 500);
+  }
+
+  function onTouchMove(ev) {
+    const t = ev.touches[0];
+    const dx = touchRef.current.startX - t.clientX;
+    const dy = Math.abs(t.clientY - touchRef.current.startY);
+    // Cancel long-press if moved more than 10px
+    if (Math.abs(dx) > 10 || dy > 10) {
+      touchRef.current.moved = true;
+      if (touchRef.current.lpTimer) { clearTimeout(touchRef.current.lpTimer); touchRef.current.lpTimer = null; }
+    }
+    // Only track horizontal swipe (must be more horizontal than vertical)
+    if (Math.abs(dx) > 20 && Math.abs(dx) > dy * 1.5) {
+      // Only allow left swipe (dx > 0 = finger moved left)
+      const clampedX = dx > 0 ? -Math.min(dx, DELETE_THRESHOLD + 20) : 0;
+      setSwipeX(clampedX);
+      if (swiped && dx < 20) { setSwiped(false); } // user is swiping back
+    }
+  }
+
+  function onTouchEnd() {
+    if (touchRef.current.lpTimer) { clearTimeout(touchRef.current.lpTimer); touchRef.current.lpTimer = null; }
+    if (Math.abs(swipeX) >= DELETE_THRESHOLD) {
+      // Snap to reveal delete button
+      setSwipeX(-DELETE_THRESHOLD);
+      setSwiped(true);
+    } else {
+      // Spring back
+      setSwipeX(0);
+      setSwiped(false);
+    }
+  }
+
+  // Tap anywhere to reset swiped state
+  function handleTap() {
+    if (swiped) { setSwipeX(0); setSwiped(false); }
+  }
+
+  return (
+    React.createElement("div", { style: { position: "relative", overflow: "hidden", borderRadius: 16, marginBottom: 0 } },
+      // Delete action (behind the card)
+      React.createElement("div", {
+        onClick: (ev) => { ev.stopPropagation(); onDelete(); },
+        style: { position: "absolute", right: 0, top: 0, bottom: 0, width: DELETE_THRESHOLD,
+          background: "linear-gradient(90deg, #d04050, #c03040)", display: "flex",
+          alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4,
+          color: "white", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans',sans-serif",
+          cursor: "pointer", borderRadius: "0 16px 16px 0" }
+      }, React.createElement("span", { style: { fontSize: 18 } }, "\uD83D\uDDD1"), "Delete"),
+      // Slideable entry content
+      React.createElement("div", {
+        onTouchStart: onTouchStart,
+        onTouchMove: onTouchMove,
+        onTouchEnd: onTouchEnd,
+        onClick: handleTap,
+        style: { transform: "translateX(" + swipeX + "px)",
+          transition: touchRef.current.moved ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+          position: "relative", zIndex: 1, background: "var(--card-bg)", borderRadius: 16,
+          willChange: "transform", WebkitUserSelect: "none", userSelect: "none" }
+      }, children)
+    )
+  );
+}
+
 function PBtn({children,onClick,v="pri",style={}}){
   const vs={pri:{background:C.ter,color:"white"},ghost:{background:C.blush,color:C.mid},danger:{background:"#e8574a",color:"white"}};
   return <button onClick={e=>{haptic();onClick&&onClick(e);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:6,touchAction:"manipulation",WebkitTapHighlightColor:"transparent",...vs[v],...style}}>{children}</button>;
@@ -6691,6 +6778,7 @@ function App(){
   // Lives at parent level so it survives re-renders, MilestoneRow is redefined
   // on every parent render, so component-local useState would reset every tick.
   const[msTipsOpen,setMsTipsOpen]=useState(()=>new Set());
+  const[showSwipeTutorial,setShowSwipeTutorial]=useState(false);
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
   const[insightFilter,setInsightFilter]=useState(null);
   const[devFilter,setDevFilter]=useState(null);
@@ -28845,7 +28933,7 @@ function App(){
                           const _type = e.type==="feed"?(e.feedType==="breast"?"🤱 Breast":"🍼 Bottle"):e.type==="nap"?"😴 Nap":e.type==="poop"?"🧷 Nappy":e.type==="wake"?(e.night?"🌙 Night":"☀️ Wake"):e.type==="sleep"?"🌙 Bed":"📝 "+e.type;
                           let _d2 = "";
                           if(e.type==="feed"&&e.amount) _d2 = " "+e.amount+"ml";
-                          if(e.type==="nap"&&e.start&&e.end) _d2 = " "+minDiff(e.start,e.end)+"m";
+                          if(e.type==="nap"&&e.start&&e.end) _d2 = " "+hm(minDiff(e.start,e.end));
                           if(e.type==="poop") _d2 = " "+(e.poopType||"");
                           _lines.push(fmt12(_t)+" "+_type+_d2);
                         });
@@ -30529,6 +30617,16 @@ function App(){
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                 <span style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",color:C.mid,fontSize:14}}>Daytime</span>
               </div>
+              {/* Swipe tutorial: show once per device after update */}
+              {dayE.length > 0 && !showSwipeTutorial && (()=>{
+                try {
+                  if (!localStorage.getItem("ob_swipe_tutorial_v1")) {
+                    setTimeout(()=>setShowSwipeTutorial(true), 1200);
+                    localStorage.setItem("ob_swipe_tutorial_v1", "1");
+                  }
+                } catch {}
+                return null;
+              })()}
               <div ref={logListCallbackRef} style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
                 {dayE.length===0&&(
                   <div style={{textAlign:"center",padding:"22px 12px",background:"var(--card-bg-alt)",borderRadius:14,border:"1px dashed "+C.blush}}>
@@ -30582,9 +30680,10 @@ function App(){
                   if(e.type==="feed"&&e.feedType==="breast"){
                     const parts=[];
                     const total = (e.breastL||0)+(e.breastR||0);
-                    if(total>0) parts.push(`${total}min`);
-                    if(e.breastL>0) parts.push(`L: ${e.breastL}min`);
-                    if(e.breastR>0) parts.push(`R: ${e.breastR}min`);
+                    if(total>0) parts.push(hm(total));
+                    if(e.breastL>0) parts.push(`L: ${hm(e.breastL)}`);
+                    if(e.breastR>0) parts.push(`R: ${hm(e.breastR)}`);
+
                     if(parts.length) subDetail=parts.join(" · ");
                   } else if(e.type==="feed"&&e.feedType==="pump"){
                     const parts=[];
@@ -30592,7 +30691,7 @@ function App(){
                     if(total>0) parts.push(fmtVol(total,FU));
                     if(e.pumpL>0) parts.push(`L: ${fmtVol(e.pumpL,FU)}`);
                     if(e.pumpR>0) parts.push(`R: ${fmtVol(e.pumpR,FU)}`);
-                    if(e.pumpDuration>0) parts.push(`${e.pumpDuration}min`);
+                    if(e.pumpDuration>0) parts.push(hm(e.pumpDuration));
                     if(parts.length) subDetail=parts.join(" · ");
                   } else if(e.type==="feed"&&e.feedType==="solids"){
                     subDetail = e.note||null;
@@ -30613,7 +30712,7 @@ function App(){
                   // Badge chip value (right side). show key metric only, no time duplication
                   let badgeVal = null;
                   if(e.type==="feed"){
-                    if(e.feedType==="breast") badgeVal=`${(e.breastL||0)+(e.breastR||0)}min`;
+                    if(e.feedType==="breast") badgeVal=hm((e.breastL||0)+(e.breastR||0));
                     else if(e.feedType==="pump") badgeVal=fmtVol((e.pumpL||0)+(e.pumpR||0)||e.amount||0,FU);
                     else if(e.feedType==="solids") badgeVal=null;
                     else badgeVal=e.amount?fmtVol(e.amount,FU):null;
@@ -30637,34 +30736,33 @@ function App(){
                   }
 
                   return(
-                    <div key={e.id}
-                      data-entry-id={e.id}
-                      draggable
-                      onDragStart={()=>setDragId(e.id)}
-                      onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
-                      onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
-                      onDrop={ev=>{ev.preventDefault();}}
-                      style={{background:isOver?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:16,padding:"12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,backdropFilter:"blur(16px) saturate(1.6)",WebkitBackdropFilter:"blur(16px) saturate(1.6)",boxShadow:"var(--card-shadow)"}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-                          <span data-drag-handle="1" style={{fontSize:16,cursor:"grab",color:C.lt,touchAction:"none",padding:"4px 2px",userSelect:"none",WebkitUserSelect:"none"}}>&#x2261;</span>
-                          <span style={{fontSize:16,flexShrink:0}}>{e.type==="feed"&&e.feedType==="solids"?"🥣":e.type==="feed"&&e.feedType==="breast"?"🤱":ICONS[e.type]||"📝"}</span>
-                          <div style={{minWidth:0}}>
-                            <div style={{fontSize:14,fontWeight:600,color:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"flex",alignItems:"center",gap:6}}>
-                              <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{actLabel}</span>
-                              {e.loggedBy==="grandparent" && <span title="Logged by caregiver" style={{fontSize:11,padding:"1px 6px",borderRadius:99,background:"rgba(123,166,140,0.15)",color:C.mint,fontWeight:700,flexShrink:0}}>👵</span>}
-                              {e.loggedBy==="carer" && <span title="Auto-added from Bubba Care" style={{fontSize:9,padding:"2px 6px",borderRadius:99,background:"rgba(123,104,238,0.12)",color:"#7B68EE",fontWeight:700,flexShrink:0,fontFamily:_fM}}>CARER</span>}
+                    <SwipeableEntry key={e.id} entryId={e.id} onEdit={()=>openEdit(e)} onDelete={()=>delEntry(e.id)}>
+                      <div
+                        data-entry-id={e.id}
+                        draggable
+                        onDragStart={()=>setDragId(e.id)}
+                        onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
+                        onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
+                        onDrop={ev=>{ev.preventDefault();}}
+                        style={{background:isOver?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:16,padding:"12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,backdropFilter:"blur(16px) saturate(1.6)",WebkitBackdropFilter:"blur(16px) saturate(1.6)",boxShadow:"var(--card-shadow)"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+                            <span style={{fontSize:16,flexShrink:0}}>{e.type==="feed"&&e.feedType==="solids"?"🥣":e.type==="feed"&&e.feedType==="breast"?"🤱":ICONS[e.type]||"📝"}</span>
+                            <div style={{minWidth:0}}>
+                              <div style={{fontSize:14,fontWeight:600,color:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"flex",alignItems:"center",gap:6}}>
+                                <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{actLabel}</span>
+                                {e.loggedBy==="grandparent" && <span title="Logged by caregiver" style={{fontSize:11,padding:"1px 6px",borderRadius:99,background:"rgba(123,166,140,0.15)",color:C.mint,fontWeight:700,flexShrink:0}}>👵</span>}
+                                {e.loggedBy==="carer" && <span title="Auto-added from Bubba Care" style={{fontSize:9,padding:"2px 6px",borderRadius:99,background:"rgba(123,104,238,0.12)",color:"#7B68EE",fontWeight:700,flexShrink:0,fontFamily:_fM}}>CARER</span>}
+                              </div>
+                              {subDetail&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subDetail}</div>}
                             </div>
-                            {subDetail&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subDetail}</div>}
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                            {badgeVal&&<Badge type={e.type}>{badgeVal}</Badge>}
                           </div>
                         </div>
-                        <div onTouchStart={ev=>ev.stopPropagation()} onTouchMove={ev=>ev.stopPropagation()} style={{display:"flex",alignItems:"center",gap:6,flexShrink:0,touchAction:"manipulation",WebkitTouchCallout:"none"}}>
-                          {badgeVal&&<Badge type={e.type}>{badgeVal}</Badge>}
-                          <button onPointerUp={ev=>{ev.stopPropagation();ev.preventDefault();openEdit(e);}} onTouchEnd={ev=>{ev.stopPropagation();ev.preventDefault();openEdit(e);}} onClick={ev=>{ev.stopPropagation();openEdit(e);}} style={{background:"var(--card-bg-solid)",border:"1px solid var(--card-border)",borderRadius:"50%",width:32,height:32,color:C.ter,cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",touchAction:"manipulation",WebkitTapHighlightColor:"transparent",position:"relative",zIndex:10}} aria-label="Edit">✎</button>
-                          <button onPointerUp={ev=>{ev.stopPropagation();ev.preventDefault();delEntry(e.id);}} onTouchEnd={ev=>{ev.stopPropagation();ev.preventDefault();delEntry(e.id);}} onClick={ev=>{ev.stopPropagation();delEntry(e.id);}} style={{background:"var(--card-bg-solid)",border:"1px solid var(--card-border)",borderRadius:"50%",width:32,height:32,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",touchAction:"manipulation",WebkitTapHighlightColor:"transparent",position:"relative",zIndex:10}}>✕</button>
-                        </div>
                       </div>
-                    </div>
+                    </SwipeableEntry>
                   );
                 })}
               </div>
@@ -30696,7 +30794,7 @@ function App(){
                       : nightE[i-1].time;
                     
                     if(!prevTime) return (
-                      <div key={e.id}>
+                      <SwipeableEntry key={e.id} entryId={e.id} onEdit={()=>openEdit(e)} onDelete={()=>delEntry(e.id)}>
                         <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                             <div>
@@ -30711,12 +30809,10 @@ function App(){
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:7}}>
                               {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
-                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:28,height:28,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}} aria-label="Edit">✎</button>
-                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:28,height:28,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </SwipeableEntry>
                     );
 
                     // If previous wake had assistedDuration, stretch starts from (prevWake + duration)
@@ -30740,25 +30836,25 @@ function App(){
                             <div style={{flex:1,height:1,background:"var(--card-bg-alt)"}}/>
                           </div>
                         )}
-                        <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                            <div>
-                              <span style={{color:"var(--text-mid)",fontSize:15}}>{e.amount>0?"🍼":"🌟"} {fmt12(e.time)} {e.amount>0?"feed":"wake"}</span>
-                              {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled{e.settleDuration?` in ${hm(parseInt(e.settleDuration))}`:""}</div>}
-                              {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
-                                Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
-                                {e.assistedDuration?<span> · Duration: {hm(parseInt(e.assistedDuration))}</span>:null}
-                              </div>}
-                              {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:13,color:"var(--text-lt)",fontStyle:"italic",marginTop:2}}>{e.note}</div>}
-                              {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {hm(parseInt(e.assistedDuration))}</div>}
-                            </div>
-                            <div style={{display:"flex",alignItems:"center",gap:7}}>
-                              {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
-                              <button onClick={()=>openEdit(e)} style={{background:"var(--card-bg-solid)",border:"1.5px solid rgba(123,104,238,0.30)",borderRadius:"50%",width:28,height:28,color:"#7b68ee",cursor:_cP,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 8px rgba(123,104,238,0.20)"}} aria-label="Edit">✎</button>
-                              <button onClick={()=>delEntry(e.id)} style={{background:"var(--card-bg-solid)",border:"1.5px solid var(--card-border)",borderRadius:"50%",width:28,height:28,color:"#e06070",cursor:_cP,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                        <SwipeableEntry entryId={e.id} onEdit={()=>openEdit(e)} onDelete={()=>delEntry(e.id)}>
+                          <div style={{padding:"7px 10px",background:"var(--card-bg-solid)",borderRadius:10,border:"1px solid var(--card-border)",marginBottom:5}}>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                              <div>
+                                <span style={{color:"var(--text-mid)",fontSize:15}}>{e.amount>0?"🍼":"🌟"} {fmt12(e.time)} {e.amount>0?"feed":"wake"}</span>
+                                {e.selfSettled&&<div style={{fontSize:12,color:"#50c878",fontFamily:_fM,marginTop:2}}>Self settled{e.settleDuration?` in ${hm(parseInt(e.settleDuration))}`:""}</div>}
+                                {e.assisted&&<div style={{fontSize:12,color:"#7b68ee",fontFamily:_fM,marginTop:2}}>
+                                  Assisted soothing{e.assistedType==="milk"?" – milk":e.assistedNote?" – "+e.assistedNote:""}
+                                  {e.assistedDuration?<span> · Duration: {hm(parseInt(e.assistedDuration))}</span>:null}
+                                </div>}
+                                {!e.selfSettled&&!e.assisted&&e.note&&<div style={{fontSize:13,color:"var(--text-lt)",fontStyle:"italic",marginTop:2}}>{e.note}</div>}
+                                {!e.selfSettled&&!e.assisted&&e.assistedDuration&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>Soothed: {hm(parseInt(e.assistedDuration))}</div>}
+                              </div>
+                              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                                {e.amount>0&&<span style={{background:"var(--chip-bg)",color:C.gold,fontFamily:_fM,fontSize:15,padding:"2px 7px",borderRadius:99}}>{fmtVol(e.amount,FU)}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        </SwipeableEntry>
                       </div>
                     );
                   });
@@ -39743,6 +39839,33 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <button onClick={()=>setShowSupportModal(false)} style={{width:"100%",marginTop:16,padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer"}}>
               I hear you 💜
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Swipe Tutorial (one-time) ═══ */}
+      {showSwipeTutorial&&(
+        <div onClick={()=>setShowSwipeTutorial(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:320,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>👆</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"var(--text-deep,#5B4F5F)",marginBottom:16}}>New: Edit & Delete</div>
+            <div style={{display:"flex",flexDirection:"column",gap:14,textAlign:"left",marginBottom:20}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:28,flexShrink:0}}>👈</span>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:"var(--text-deep,#5B4F5F)"}}>Swipe left to delete</div>
+                  <div style={{fontSize:12,color:"var(--text-mid,#8A7F87)",lineHeight:1.5}}>Slide any entry left to reveal the delete button</div>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:28,flexShrink:0}}>👆</span>
+                <div>
+                  <div style={{fontSize:14,fontWeight:700,color:"var(--text-deep,#5B4F5F)"}}>Press and hold to edit</div>
+                  <div style={{fontSize:12,color:"var(--text-mid,#8A7F87)",lineHeight:1.5}}>Long-press any entry to open the edit form</div>
+                </div>
+              </div>
+            </div>
+            <button onClick={()=>setShowSwipeTutorial(false)} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>Got it!</button>
           </div>
         </div>
       )}
