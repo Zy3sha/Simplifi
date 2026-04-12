@@ -4487,7 +4487,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
               Filtered to exclude the code owner — the owner sees their
               own children elsewhere and doesn't need to see themselves
               as a "participant". */}
-          {Array.isArray(participants) && participants.filter(p => p && p.uid && p.uid !== myUid).length > 0 && (
+          {Array.isArray(participants) && myUid && participants.filter(p => p && p.uid && p.uid !== myUid).length > 0 && (
             <div style={{background:"var(--card-bg-alt)",border:"1px solid "+C.blush,borderRadius:10,padding:"8px 12px",marginBottom:8}}>
               <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700,marginBottom:4}}>
                 👥 {participants.filter(p => p && p.uid && p.uid !== myUid).length} joined
