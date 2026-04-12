@@ -10666,7 +10666,7 @@ function App(){
         tickDataRef.current.rhythmVibe = _rsVibe;
       }
     } catch {}
-  },[selDay, days, age, bridgeNapScheduled, napStructure, napOn, napEntryId]);
+  },[selDay, days, age, bridgeNapScheduled, napStructure, napOn, napEntryId, resolvedActiveId]);
 
   // Helper: get next nap/bed label for Live Activity display (e.g. "Nap 2 2:00pm" or "Bed 7:30pm")
   function _getNextNapBedLabel() {
