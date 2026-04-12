@@ -6163,31 +6163,7 @@ function App(){
     };
   }, []);
 
-  // ═══ ANDROID BACK BUTTON ═══
-  // Close the topmost open modal/sheet. If nothing is open, let Android exit.
-  React.useEffect(()=>{
-    function _handleBack(){
-      // Try to close modals in priority order (highest z-index first)
-      if(showPaywall){setShowPaywall(false);return;}
-      if(showSleepCoach){setShowSleepCoach(false);return;}
-      if(showNightWake){setShowNightWake(false);setNightEditId(null);return;}
-      if(showCryingHelper){setShowCryingHelper(false);return;}
-      if(showSoundMachine){setShowSoundMachine(false);return;}
-      if(showCalendar){setShowCalendar(false);return;}
-      if(showMedForm){setShowMedForm(false);return;}
-      if(modal){setModal(null);setEditEntry(null);return;}
-      if(logPanel){setLogPanel(null);return;}
-      if(showTeethingForm){setShowTeethingForm(false);return;}
-      if(showWeaningForm){setShowWeaningForm(false);return;}
-      if(showBfHub){setShowBfHub(false);return;}
-      if(daySubScreen && daySubScreen !== "today"){setDaySubScreen("today");return;}
-      if(tab !== "day"){setTab("day");return;}
-      // Nothing open — let Android handle (exit app)
-      try{window.Capacitor?.Plugins?.App?.exitApp?.();}catch{}
-    }
-    window.addEventListener("ob-back-button",_handleBack);
-    return ()=>window.removeEventListener("ob-back-button",_handleBack);
-  },[showPaywall,showSleepCoach,showNightWake,showCryingHelper,showSoundMachine,showCalendar,showMedForm,modal,logPanel,showTeethingForm,showWeaningForm,showBfHub,daySubScreen,tab]);
+  // ═══ ANDROID BACK BUTTON — moved below all state declarations ═══
 
   // ═══════════════════════════════════════════════════════════════
   // ONE-SHOT MIGRATION: bedtimer night wake duration in note → field
@@ -6917,6 +6893,31 @@ function App(){
   const[teethingForm,setTeethingForm]=useState({teeth:[],date:"",symptoms:[],note:""});
   const[showWeaningForm,setShowWeaningForm]=useState(false);
   const[weaningForm,setWeaningForm]=useState({food:"",date:"",reaction:"neutral",note:"",liked:null});
+
+  // ═══ ANDROID BACK BUTTON ═══
+  // Must be AFTER all state declarations it references to avoid
+  // "Cannot access before initialization" ReferenceError.
+  React.useEffect(()=>{
+    function _handleBack(){
+      if(showPaywall){setShowPaywall(false);return;}
+      if(showSleepCoach){setShowSleepCoach(false);return;}
+      if(showNightWake){setShowNightWake(false);setNightEditId(null);return;}
+      if(showCryingHelper){setShowCryingHelper(false);return;}
+      if(showSoundMachine){setShowSoundMachine(false);return;}
+      if(showCalendar){setShowCalendar(false);return;}
+      if(showMedForm){setShowMedForm(false);return;}
+      if(modal){setModal(null);setEditEntry(null);return;}
+      if(logPanel){setLogPanel(null);return;}
+      if(showTeethingForm){setShowTeethingForm(false);return;}
+      if(showWeaningForm){setShowWeaningForm(false);return;}
+      if(showBfHub){setShowBfHub(false);return;}
+      if(daySubScreen && daySubScreen !== "today"){setDaySubScreen("today");return;}
+      if(tab !== "day"){setTab("day");return;}
+      try{window.Capacitor?.Plugins?.App?.exitApp?.();}catch{}
+    }
+    window.addEventListener("ob-back-button",_handleBack);
+    return ()=>window.removeEventListener("ob-back-button",_handleBack);
+  },[showPaywall,showSleepCoach,showNightWake,showCryingHelper,showSoundMachine,showCalendar,showMedForm,modal,logPanel,showTeethingForm,showWeaningForm,showBfHub,daySubScreen,tab]);
   // Weekly shopping list for weaning foods. User plans next N days of foods
   // and can add recipe ingredients. Once saved, the "today/tomorrow" food
   // suggestion algorithm prefers items from the active plan.
@@ -8651,6 +8652,12 @@ function App(){
       _loadGuard.done();
       setRestoreDone(true);
     })();
+    // Safety timeout: if restore takes > 15s, dismiss loading anyway.
+    // A stuck loading screen is worse than showing stale local data.
+    const _restoreTimeout = setTimeout(()=>{
+      setMascotPopup(p => p && p.type==="loading" ? null : p);
+    }, 15000);
+    return ()=>clearTimeout(_restoreTimeout);
   },[fbReady]);
   const syncTimerRef = React.useRef(null);
 
