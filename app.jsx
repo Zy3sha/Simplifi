@@ -7667,14 +7667,8 @@ function App(){
     try{ if(localStorage.getItem("_just_deleted")){ localStorage.removeItem("_just_deleted"); return "create"; } }catch{}
     return "login";
   });
-  const[showBetaBanner,setShowBetaBanner]=useState(()=>{
-    try{
-      if(localStorage.getItem("beta_emailed_v1")) return false;
-      const last = localStorage.getItem("beta_banner_v1");
-      if(!last) return true;
-      return (Date.now() - parseInt(last)) > 5*24*60*60*1000;
-    }catch{return true;}
-  });
+  // Beta banner removed — app is live
+  const showBetaBanner = false;
   const[authUsername,setAuthUsername]=useState(()=>{try{return localStorage.getItem("family_username")||"";}catch{return "";}});
   const[authUsernameStatus,setAuthUsernameStatus]=useState("idle");
   const[authPin,setAuthPin]=useState("");
