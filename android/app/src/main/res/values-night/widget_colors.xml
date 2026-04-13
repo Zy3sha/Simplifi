@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_text_primary">#FFFFFF</color>
+    <color name="widget_text_secondary">#D0C8D0</color>
+    <color name="widget_text_timer">#FFFFFF</color>
+    <color name="widget_text_label_feed">#FFFFFF</color>
+    <color name="widget_text_label_nappy">#FFFFFF</color>
+    <color name="widget_text_label_nap">#FFFFFF</color>
+    <color name="widget_text_since">#90FFFFFF</color>
+</resources>

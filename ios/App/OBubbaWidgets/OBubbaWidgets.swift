@@ -825,13 +825,16 @@ struct OBubbaMediumWidgetView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .environment(\.colorScheme, .dark) // Force dark mode so text is always white on glass
         .containerBackground(for: .widget) {
+            // Adaptive glass: light mode = warm translucent, dark mode = dark translucent
+            // iOS applies its own blur when the user enables "tinted" widget appearance
             ZStack {
-                // Dark glass background — always looks like frosted glass
-                Color.black.opacity(0.65)
+                Color(light: "#FFFCF9", dark: "#1C1820").opacity(0.85)
                 LinearGradient(
-                    colors: [Color.white.opacity(0.08), Color.white.opacity(0.03)],
+                    colors: [
+                        Color.white.opacity(0.3),
+                        Color(light: "#F0DDD6", dark: "#2A2030").opacity(0.2)
+                    ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

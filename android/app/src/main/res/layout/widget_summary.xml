@@ -27,7 +27,7 @@
             android:text="Baby"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/widget_text_primary"
             android:fontFamily="sans-serif-medium" />
 
         <LinearLayout
@@ -53,7 +53,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="8sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/widget_text_primary"
                     android:visibility="gone" />
 
                 <TextView
@@ -61,7 +61,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textSize="11sp"
-                    android:textColor="#D0C8D0"
+                    android:textColor="@color/widget_text_secondary"
                     android:fontFamily="sans-serif-medium" />
 
                 <Chronometer
@@ -71,7 +71,7 @@
                     android:layout_marginStart="4dp"
                     android:textSize="20sp"
                     android:textStyle="bold"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/widget_text_primary"
                     android:fontFamily="sans-serif-medium"
                     android:visibility="gone" />
 
@@ -81,7 +81,7 @@
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    android:textColor="#D0C8D0"
+                    android:textColor="@color/widget_text_secondary"
                     android:fontFamily="sans-serif-medium" />
             </LinearLayout>
 
@@ -92,7 +92,7 @@
                 android:layout_gravity="end"
                 android:layout_marginTop="2dp"
                 android:textSize="10sp"
-                android:textColor="#90FFFFFF"
+                android:textColor="@color/widget_text_since"
                 android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
@@ -123,7 +123,7 @@
                 android:text="L"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/widget_text_primary" />
             <TextView
                 android:id="@+id/tv_bl_label"
                 android:layout_width="wrap_content"
@@ -132,7 +132,7 @@
                 android:text=""
                 android:textSize="10sp"
                 android:textStyle="bold"
-                android:textColor="#D0C8D0" />
+                android:textColor="@color/widget_text_secondary" />
         </LinearLayout>
 
         <LinearLayout
@@ -151,7 +151,7 @@
                 android:text="R"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/widget_text_primary" />
             <TextView
                 android:id="@+id/tv_br_label"
                 android:layout_width="wrap_content"
@@ -160,7 +160,7 @@
                 android:text=""
                 android:textSize="10sp"
                 android:textStyle="bold"
-                android:textColor="#D0C8D0" />
+                android:textColor="@color/widget_text_secondary" />
         </LinearLayout>
     </LinearLayout>
 
@@ -195,7 +195,7 @@
                 android:text="Feed"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/widget_text_primary" />
         </LinearLayout>
 
         <LinearLayout
@@ -219,7 +219,7 @@
                 android:text="Nappy"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/widget_text_primary" />
         </LinearLayout>
 
         <LinearLayout
@@ -237,7 +237,7 @@
                 android:layout_height="wrap_content"
                 android:text="▶"
                 android:textSize="18sp"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/widget_text_primary" />
             <TextView
                 android:id="@+id/tv_ns_label"
                 android:layout_width="wrap_content"
@@ -245,7 +245,7 @@
                 android:text="Nap"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/widget_text_primary" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>
