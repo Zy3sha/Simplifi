@@ -235,6 +235,48 @@ private let brandPurple  = Color(hex: "#8B7EC8")
 private let brandSky     = Color(hex: "#7AABC4")
 private let brandGold    = Color(hex: "#D4A855")
 
+// SwiftUI helper: conditionally apply a modifier
+extension View {
+    @ViewBuilder func ifLet<T, Content: View>(_ value: T?, transform: (Self, T) -> Content) -> some View {
+        if let value = value {
+            transform(self, value)
+        } else {
+            self
+        }
+    }
+}
+
+// Widget theme backgrounds — user can pick in Settings
+private func widgetThemeBackground() -> some View {
+    let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
+    return ZStack {
+        switch theme {
+        case "rose":
+            Color(hex: "#F5ECE8").opacity(0.92)
+        case "lavender":
+            Color(hex: "#EDEAF5").opacity(0.92)
+        case "mint":
+            Color(hex: "#EAF5F0").opacity(0.92)
+        case "sky":
+            Color(hex: "#E8F0F5").opacity(0.92)
+        case "dark":
+            Color(hex: "#282025").opacity(0.88)
+        default: // auto
+            Color(light: "#FFFCF9", dark: "#1C1820").opacity(0.85)
+        }
+        LinearGradient(
+            colors: [Color.white.opacity(theme == "dark" ? 0.06 : 0.25), Color.clear],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
+
+private func widgetForcedScheme() -> ColorScheme? {
+    let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
+    return theme == "dark" ? .dark : nil
+}
+
 // ══════════════════════════════════════════════════════════════════
 // MARK: - Data Model
 // ══════════════════════════════════════════════════════════════════
@@ -660,8 +702,11 @@ struct OBubbaSmallWidgetView: View {
                 }
         }
         .padding(12)
+        .ifLet(widgetForcedScheme()) { view, scheme in
+            view.environment(\.colorScheme, scheme)
+        }
         .containerBackground(for: .widget) {
-            bgGrad
+            widgetThemeBackground()
         }
     }
 }
@@ -825,20 +870,11 @@ struct OBubbaMediumWidgetView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+        .ifLet(widgetForcedScheme()) { view, scheme in
+            view.environment(\.colorScheme, scheme)
+        }
         .containerBackground(for: .widget) {
-            // Adaptive glass: light mode = warm translucent, dark mode = dark translucent
-            // iOS applies its own blur when the user enables "tinted" widget appearance
-            ZStack {
-                Color(light: "#FFFCF9", dark: "#1C1820").opacity(0.85)
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0.3),
-                        Color(light: "#F0DDD6", dark: "#2A2030").opacity(0.2)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
+            widgetThemeBackground()
         }
     }
 }
