@@ -40,15 +40,27 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
             RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_summary);
 
             // Apply user-chosen widget colour theme
+            // All theming is done in Java — no drawable-night folder
+            // so the user's chosen colour always wins
             try {
-                int bgRes = R.drawable.widget_bg_gradient; // default (auto light/dark)
+                int bgRes = R.drawable.widget_bg_gradient; // default light
                 boolean isDarkTheme = false;
-                switch (widgetTheme) {
-                    case "rose": bgRes = R.drawable.widget_bg_rose; break;
-                    case "lavender": bgRes = R.drawable.widget_bg_lavender; break;
-                    case "mint": bgRes = R.drawable.widget_bg_mint; break;
-                    case "sky": bgRes = R.drawable.widget_bg_sky; break;
-                    case "dark": bgRes = R.drawable.widget_bg_dark; isDarkTheme = true; break;
+
+                // "auto" checks time: dark between 7pm-6am
+                if ("auto".equals(widgetTheme)) {
+                    int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+                    if (hour >= 19 || hour < 6) {
+                        bgRes = R.drawable.widget_bg_dark;
+                        isDarkTheme = true;
+                    }
+                } else {
+                    switch (widgetTheme) {
+                        case "rose": bgRes = R.drawable.widget_bg_rose; break;
+                        case "lavender": bgRes = R.drawable.widget_bg_lavender; break;
+                        case "mint": bgRes = R.drawable.widget_bg_mint; break;
+                        case "sky": bgRes = R.drawable.widget_bg_sky; break;
+                        case "dark": bgRes = R.drawable.widget_bg_dark; isDarkTheme = true; break;
+                    }
                 }
                 v.setInt(R.id.widget_root, "setBackgroundResource", bgRes);
                 // Dark theme needs white text
