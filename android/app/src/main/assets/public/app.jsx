@@ -20760,10 +20760,13 @@ function App(){
     // (midnight mode). Without this, scrolling to last week then getting a night
     // wake puts the entry on a day from last week.
     let _targetDay;
-    if (dayBoundary === "wake" && _isNightEntry && bedTimerDay) {
+    // Use localStorage fallback for bedTimerDay — React state may be stale
+    // (setBedTimerDay is async, quickAddLog may run before re-render)
+    const _btdEffective = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
+    if (dayBoundary === "wake" && _isNightEntry && _btdEffective) {
       // Wake mode: night entries always go with the bedtime
-      _targetDay = bedTimerDay;
-    } else if (dayBoundary === "wake" && _isNightEntry && !bedTimerDay) {
+      _targetDay = _btdEffective;
+    } else if (dayBoundary === "wake" && _isNightEntry && !_btdEffective) {
       // Wake mode but bedTimerDay cleared — find bedtime day from data
       const _prevD = prevDayStr(_todayCalendar);
       const _prevHasBed = (days[_prevD]||[]).some(e=>e.type==="sleep"&&!e.night);
@@ -21620,12 +21623,13 @@ function App(){
     setBedWakeSettle("assisted"); // default settle method
     try{localStorage.setItem("bed_paused","1");localStorage.setItem("bed_paused_sec",String(frozenSec));localStorage.setItem("bed_pause_start",String(_pauseTs));}catch{}
     // Log the night wake IMMEDIATELY so it's never lost
-    // (will be updated with duration + settle method when "Back to sleep" is tapped)
+    // Route directly to _effectiveBTD — do NOT rely on bedTimerDay state
+    // which is async and may still be null from the setBedTimerDay above.
     const _wakeNow = new Date(_pauseTs);
     const _wH = String(_wakeNow.getHours()).padStart(2,"0");
     const _wM = String(_wakeNow.getMinutes()).padStart(2,"0");
     const _wakeEntryId = uid();
-    quickAddLog("wake", {
+    const _wakeEntry = {
       type: "wake",
       time: _wH+":"+_wM,
       night: true,
@@ -21633,6 +21637,13 @@ function App(){
       note: "Night wake. settling...",
       _pendingSettle: true,
       id: _wakeEntryId
+    };
+    // Write directly to the correct day instead of going through quickAddLog
+    // which reads bedTimerDay from stale React state
+    const _wakeDayKey = (dayBoundary === "wake" && _effectiveBTD) ? _effectiveBTD : todayStr();
+    setDays(d => {
+      const existing = d[_wakeDayKey] || [];
+      return {...d, [_wakeDayKey]: [...existing, _wakeEntry]};
     });
     try{localStorage.setItem("bed_wake_entry_id", _wakeEntryId);}catch{}
     // Stop Live Activity during pause so widget+Dynamic Island don't keep counting
@@ -21684,7 +21695,8 @@ function App(){
       // Respect breastfeeding preference: breastfed moms log as breast, not milk
       const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
       setDays(d => {
-        const _targetDay = bedTimerDay || todayStr();
+        // Use bedTimerDay state, fall back to localStorage (state might be stale)
+        const _targetDay = bedTimerDay || localStorage.getItem("bed_timer_day") || todayStr();
         const entries = d[_targetDay] || [];
         return {...d, [_targetDay]: entries.map(e => e.id === _pendingId ? {
           ...e,
@@ -40639,15 +40651,19 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 // Night wakes respect dayBoundary: in wake mode, route to bedTimerDay
                 const _todayCal = todayStr();
                 // Night wake routing: wake mode always routes to bedTimerDay.
-                // Midnight mode routes to today (not selDay which could be a
-                // historical day the user was browsing).
+                // Fall back to localStorage (bedTimerDay state may be stale).
                 let targetDay;
-                if (dayBoundary === "wake" && bedTimerDay) {
-                  targetDay = bedTimerDay;
-                } else if (bedTimerDay && selDay !== _todayCal && selDay !== bedTimerDay) {
-                  targetDay = _todayCal;
+                const _btdLS = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
+                if (dayBoundary === "wake" && _btdLS) {
+                  targetDay = _btdLS;
+                } else if (dayBoundary === "wake" && !_btdLS) {
+                  // Wake mode, no bed timer — find bedtime day from data
+                  const _pd2 = prevDayStr(_todayCal);
+                  const _pdBed = (d[_pd2]||[]).some(e=>e.type==="sleep"&&!e.night);
+                  const _tdBed = (d[_todayCal]||[]).some(e=>e.type==="sleep"&&!e.night);
+                  targetDay = _pdBed ? _pd2 : _tdBed ? _todayCal : selDay;
                 } else {
-                  targetDay = selDay;
+                  targetDay = _todayCal;
                 }
                 const existing = d[targetDay]||[];
                 const filtered = nightEditId ? existing.filter(x=>x.id!==nightEditId) : existing;
