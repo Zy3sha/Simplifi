@@ -1109,7 +1109,7 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     milkMin = 400; milkTarget = 500; solidMeals = 3;
     ratioLabel = "~55% milk / 45% solids";
     stageLabel = "Balanced";
-    guidance = "Solids becoming a bigger part of the diet, but NHS still says milk is the main drink until 12 months. For bottle: 400–500ml minimum. For breast: 4–6 feeds/day is typical. Don't rush to drop feeds.";
+    guidance = "Solids becoming a bigger part of the diet, but milk is still the main drink until 12 months. For bottle: 400–500ml minimum. For breast: 4–6 feeds/day is typical. Don't rush to drop feeds.";
   } else {
     milkMin = 300; milkTarget = 400; solidMeals = 3;
     ratioLabel = "~40% milk / 60% solids";
@@ -1253,7 +1253,7 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     // No personal baseline yet, fall back to NHS guidance
     if (totalMilkMl < milkMin && months < 12 && totalMilkMl > 0) {
       statusTone = "attention";
-      statusMsg = "Below NHS minimum (" + milkMin + "ml). Keep offering milk on demand, log a few more days so I can learn " + "your baby" + "'s personal rhythm.";
+      statusMsg = "Below the recommended minimum (" + milkMin + "ml). Keep offering milk on demand, log a few more days so I can learn your baby's personal rhythm.";
     } else if (totalMilkMl > 0) {
       statusTone = "ok";
       statusMsg = "Tracking nicely. Log a few more days so I can compare to your personal average.";
@@ -2133,7 +2133,7 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
         type: "weaning_due",
         emoji: "🌱",
         title: "Weaning window approaching",
-        detail: "NHS guidance is to start solids at around 6 months (26 weeks). Signs of readiness: holds head steady, sits with minimal support, grabs for food, no tongue-thrust.",
+        detail: "Most health organisations recommend starting solids at around 6 months (26 weeks). Signs of readiness: holds head steady, sits with minimal support, grabs for food, no tongue-thrust.",
         action: "Start with single-ingredient vegetable purees or soft finger-food sticks. Once baby has tolerated a few, introduce peanut and egg early (LEAP trial: reduces allergy risk).",
         urgency: "low",
         confidence: "high"
@@ -12148,7 +12148,7 @@ function App(){
         })() && (()=>{
           // Confidence indicator based on days of usable data
           const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
-          const _confLevel = _daysLogged < 3 ? {label:"NHS guideline",color:C.lt,icon:"📋"}
+          const _confLevel = _daysLogged < 3 ? {label:"Guideline",color:C.lt,icon:"📋"}
             : _daysLogged < 7 ? {label:"Learning "+_name+"'s rhythm",color:C.gold,icon:"📊"}
             : _daysLogged < 14 ? {label:"Based on "+_daysLogged+" days",color:C.mint,icon:"✓"}
             : {label:"High confidence · "+_daysLogged+" days",color:C.mint,icon:"✓"};
@@ -30637,7 +30637,7 @@ function App(){
                     {/* Guidance collapsible. Adapts to feeding mode */}
                     <details style={{marginTop:4}}>
                       <summary style={{fontSize:10,color:C.lt,cursor:_cP,listStyle:"none",userSelect:"none"}}>
-                        ℹ️ {_isBreastMode ? "Breastfeeding guidance" : "NHS guidance"} for {_wr.months}mo · {_wr.ratioLabel}
+                        ℹ️ {_isBreastMode ? "Breastfeeding guidance" : "Feeding guidance"} for {_wr.months}mo · {_wr.ratioLabel}
                       </summary>
                       <div style={{fontSize:11,color:C.mid,marginTop:6,lineHeight:1.5,paddingLeft:2}}>
                         {_isBreastMode ? (
@@ -30649,7 +30649,7 @@ function App(){
                           </>
                         ) : (
                           <>
-                            <div style={{marginBottom:4}}><strong>NHS minimum:</strong> {_wr.milkMin}ml milk/day{_wr.months < 12 ? " (until 12 months)" : ""}</div>
+                            <div style={{marginBottom:4}}><strong>Recommended minimum:</strong> {_wr.milkMin}ml milk/day{_wr.months < 12 ? " (until 12 months)" : ""}</div>
                             <div>{_wr.guidance}</div>
                           </>
                         )}
