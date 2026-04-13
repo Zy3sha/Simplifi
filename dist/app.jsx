@@ -21177,6 +21177,7 @@ function App(){
       _postBedtimeFlow();
     }
     setModal(null);setEditEntry(null);
+    showToast(editEntry ? "✓ Updated" : "✓ Logged", 1200, 1);
   }
 
   function reorderEntry(fromId, toId){
