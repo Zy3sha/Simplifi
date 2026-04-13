@@ -23362,12 +23362,29 @@ function App(){
     </div>`);
 
     // QR code points to Bubba Care. use short-lived carer token (not the raw backup code)
-    // Skip CT token entirely — use raw backup code in the URL.
-    // The CT token system had a persistent race condition: the Firestore
-    // write was fire-and-forget, so the carer often opened the link before
-    // the token was queryable. Using the backup code directly is simpler
-    // and always works because it's already in Firestore from pushToCloud.
-    const _carerToken = backupCode || localStorage.getItem("backup_code") || "";
+    // Generate or reuse a CT token that maps to the backup code.
+    // The token is written to Firestore synchronously (awaited) before
+    // the share URL is generated, so the carer can look it up immediately.
+    const _carerToken = (()=>{
+      try {
+        const _bc = backupCode || localStorage.getItem("backup_code") || "";
+        if (!_bc) return "";
+        const _stored = JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");
+        if (_stored && _stored.token && _stored.created && (Date.now()-new Date(_stored.created).getTime()) < 30*24*60*60*1000) return _stored.token;
+        const _newToken = "CT" + _bc.substring(2,6) + Math.random().toString(36).substring(2,6).toUpperCase();
+        localStorage.setItem("ob_carer_token_v1", JSON.stringify({token:_newToken, created: new Date().toISOString(), backupCode: _bc}));
+        return _newToken;
+      } catch { return backupCode || ""; }
+    })();
+    // Write CT token to Firestore — MUST complete before sharing
+    // (runs in background, share functions await it)
+    const _ctWritePromise = (()=>{
+      try {
+        const _bc = backupCode || localStorage.getItem("backup_code") || "";
+        if (!_bc || !_carerToken.startsWith("CT") || !window._fb) return Promise.resolve();
+        return window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_carerToken),{backupCode:_bc,updatedAt:window._fb.serverTimestamp()},{merge:true});
+      } catch { return Promise.resolve(); }
+    })();
     // Carer portal is now on Firebase Hosting with real Cache-Control:
     // no-cache headers, so stale HTML isn't possible. No cache-bust
     // query param needed.
@@ -23403,6 +23420,8 @@ function App(){
 
   async function shareCarerCard() {
     const name = babyName || "Baby";
+    // Ensure CT token is in Firestore before sharing the link
+    try { await _ctWritePromise; } catch {}
     const finalHtml = await prepareCareCardHTML();
 
     // Village unlock: first Bubba Care share = 7 days premium
@@ -40211,8 +40230,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <button onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();shareCarerCard();}} onClick={e=>{e.stopPropagation();haptic();shareCarerCard();}} style={{width:"100%",padding:"15px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation",WebkitTapHighlightColor:"transparent"}}>
               📤 Share Care Guide
             </button>
-            <button onClick={e=>{
+            <button onClick={async(e)=>{
               e.stopPropagation();haptic();
+              // Ensure CT token is in Firestore before sharing
+              try { await _ctWritePromise; } catch {}
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
               const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
