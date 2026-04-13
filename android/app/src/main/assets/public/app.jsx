@@ -6719,6 +6719,7 @@ function App(){
             try{
               await LN.createChannel({id:"obubba_reminders",name:"OBubba Reminders",description:"Nap predictions, bedtime alerts, and appointment reminders",importance:4,sound:"notification.wav",vibration:true});
               await LN.createChannel({id:"med_reminders",name:"Medicine Reminders",description:"Medicine and temperature logging reminders",importance:4,sound:"notification.wav",vibration:true});
+              await LN.createChannel({id:"obubba_timers",name:"Active Timers",description:"Shows while a nap or bedtime timer is running",importance:2,vibration:false});
               console.log("[OBubba] Android notification channels created");
             }catch(e){console.warn("[OBubba] Channel creation error:",e);}
           }
