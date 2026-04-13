@@ -21610,7 +21610,12 @@ function App(){
       // and should NOT re-open as an active night. pauseBedTimer will bail below.
       if (_effectiveBTD) { setBedTimerDay(_effectiveBTD); try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{} }
     }
-    if (!_effectiveBTD || bedPaused) return;
+    // In midnight mode, we don't need bedTimerDay to route — entries go to todayStr().
+    // Only bail if: already paused, OR (wake mode AND no bedTimerDay found)
+    if (bedPaused) return;
+    if (!_effectiveBTD && dayBoundary === "wake") return;
+    // For midnight mode with no _effectiveBTD, use todayStr() as the routing target
+    if (!_effectiveBTD) _effectiveBTD = todayStr();
     haptic();
     // Freeze display at current elapsed seconds
     const frozenSec = nightElapsed || 0;
@@ -21658,7 +21663,9 @@ function App(){
     showToast("🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
   }
   function resumeBedTimer(overrideSettleMethod){
-    if (!bedTimerDay || !bedPaused) return;
+    // Check both React state AND localStorage (state may be stale from async setBedTimerDay)
+    const _btdResume = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
+    if (!_btdResume || !bedPaused) return;
     haptic();
     const pauseStart = bedPauseStart || Date.now();
     const pauseEnd = Date.now();
@@ -21693,8 +21700,9 @@ function App(){
       // Respect breastfeeding preference: breastfed moms log as breast, not milk
       const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
       setDays(d => {
-        // Use bedTimerDay state, fall back to localStorage (state might be stale)
-        const _targetDay = bedTimerDay || localStorage.getItem("bed_timer_day") || todayStr();
+        // Respect dayBoundary: wake mode → bedTimerDay, midnight mode → today
+        const _btdFallback = bedTimerDay || localStorage.getItem("bed_timer_day") || todayStr();
+        const _targetDay = (dayBoundary === "midnight") ? todayStr() : _btdFallback;
         const entries = d[_targetDay] || [];
         return {...d, [_targetDay]: entries.map(e => e.id === _pendingId ? {
           ...e,
@@ -22882,7 +22890,8 @@ function App(){
     try { trackEvent("timer_stopped", { type: "breast", duration_mins: Math.round(totalSec/60) }); } catch {}
     // If bed timer is paused (night wake in progress), this is a night feed:
     // route to bedTimerDay, mark night, and remove the pending placeholder wake entry
-    const _nightMode = bedPausedRef.current && !!bedTimerDay;
+    // Check both state AND localStorage — bedTimerDay state may be stale
+    const _nightMode = bedPausedRef.current && !!(bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})());
     const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:_nightMode,nightLocked:_nightMode,note:_nightMode?"Night breast feed":""};
 
     setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);

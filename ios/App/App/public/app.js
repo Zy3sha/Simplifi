@@ -3247,7 +3247,10 @@ if(!_effectiveBTD){const _today=todayStr();const _prevDay=prevDayStr(_today);con
 _effectiveBTD=_today;}else if(_prevBedExists&&!_todayHasMorningWake){// Yesterday has a bedtime AND today has no morning wake (still sleeping)
 _effectiveBTD=_prevDay;}// If today already has a morning wake, any found bedtime is CLOSED
 // and should NOT re-open as an active night. pauseBedTimer will bail below.
-if(_effectiveBTD){setBedTimerDay(_effectiveBTD);try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{}}}if(!_effectiveBTD||bedPaused)return;haptic();// Freeze display at current elapsed seconds
+if(_effectiveBTD){setBedTimerDay(_effectiveBTD);try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{}}}// In midnight mode, we don't need bedTimerDay to route — entries go to todayStr().
+// Only bail if: already paused, OR (wake mode AND no bedTimerDay found)
+if(bedPaused)return;if(!_effectiveBTD&&dayBoundary==="wake")return;// For midnight mode with no _effectiveBTD, use todayStr() as the routing target
+if(!_effectiveBTD)_effectiveBTD=todayStr();haptic();// Freeze display at current elapsed seconds
 const frozenSec=nightElapsed||0;const _pauseTs=Date.now();setBedPaused(true);setBedPausedAtSec(frozenSec);setBedPauseStart(_pauseTs);setBedWakeSettle("assisted");// default settle method
 try{localStorage.setItem("bed_paused","1");localStorage.setItem("bed_paused_sec",String(frozenSec));localStorage.setItem("bed_pause_start",String(_pauseTs));}catch{}// Log the night wake IMMEDIATELY so it's never lost
 // Route directly to _effectiveBTD — do NOT rely on bedTimerDay state
@@ -3258,7 +3261,8 @@ const _wakeDayKey=dayBoundary==="wake"&&_effectiveBTD?_effectiveBTD:todayStr();s
 try{if(_isNative){const _la=window.Capacitor?.Plugins?.OBLiveActivity;_la?.stop?.().catch(()=>{});}// Clear Android lock-screen notification too — the timer is
 // effectively paused, not running, so the "bed timer running"
 // banner shouldn't stay up.
-clearTimerNotification();}catch{}showToast("🌙 Night wake logged. tap Back to sleep when settled.",3000,1);}function resumeBedTimer(overrideSettleMethod){if(!bedTimerDay||!bedPaused)return;haptic();const pauseStart=bedPauseStart||Date.now();const pauseEnd=Date.now();const pauseDurSec=Math.max(0,Math.round((pauseEnd-pauseStart)/1000));const pauseDurMin=Math.round(pauseDurSec/60);// Accumulate total paused time. this is subtracted from raw elapsed in both tick loops
+clearTimerNotification();}catch{}showToast("🌙 Night wake logged. tap Back to sleep when settled.",3000,1);}function resumeBedTimer(overrideSettleMethod){// Check both React state AND localStorage (state may be stale from async setBedTimerDay)
+const _btdResume=bedTimerDay||(()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();if(!_btdResume||!bedPaused)return;haptic();const pauseStart=bedPauseStart||Date.now();const pauseEnd=Date.now();const pauseDurSec=Math.max(0,Math.round((pauseEnd-pauseStart)/1000));const pauseDurMin=Math.round(pauseDurSec/60);// Accumulate total paused time. this is subtracted from raw elapsed in both tick loops
 // Formula: sleep_resume_time = wake_time + awake_duration (user spec point 4)
 const newTotalPaused=(bedTotalPausedSec||0)+pauseDurSec;setBedTotalPausedSec(newTotalPaused);try{localStorage.setItem("bed_total_paused_sec",String(newTotalPaused));}catch{}// Clear pause state
 setBedPaused(false);setBedPauseStart(null);setBedPausedAtSec(0);try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}// Update the night wake entry (logged on pause) with duration and settle method
@@ -3267,8 +3271,8 @@ const settleMethod=overrideSettleMethod||bedWakeSettle||"assisted";// Short, cle
 // and the night wake card directly, not buried in a string.
 const noteStr=pauseDurMin<1?"Brief wake · logged via bed timer":settleMethod==="self"?"Self settled · logged via bed timer":settleMethod==="milk"?"Night feed · logged via bed timer":settleMethod==="other"?"Resettled · logged via bed timer":"Assisted · logged via bed timer";// Find and update the pending wake entry
 const _pendingId=(()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();if(_pendingId){const settleTime=new Date(pauseEnd);const settleH=String(settleTime.getHours()).padStart(2,"0");const settleM=String(settleTime.getMinutes()).padStart(2,"0");// Respect breastfeeding preference: breastfed moms log as breast, not milk
-const _isBreast=(()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();setDays(d=>{// Use bedTimerDay state, fall back to localStorage (state might be stale)
-const _targetDay=bedTimerDay||localStorage.getItem("bed_timer_day")||todayStr();const entries=d[_targetDay]||[];return{...d,[_targetDay]:entries.map(e=>e.id===_pendingId?{...e,type:settleMethod==="milk"?"feed":"wake",feedType:settleMethod==="milk"?_isBreast?"breast":"milk":undefined,selfSettled:settleMethod==="self",assisted:settleMethod!=="self",assistedType:settleMethod==="milk"?_isBreast?"breast":"milk":settleMethod==="other"?"other":undefined,note:noteStr,// Write the duration to the structured field the NW edit form and the
+const _isBreast=(()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();setDays(d=>{// Respect dayBoundary: wake mode → bedTimerDay, midnight mode → today
+const _btdFallback=bedTimerDay||localStorage.getItem("bed_timer_day")||todayStr();const _targetDay=dayBoundary==="midnight"?todayStr():_btdFallback;const entries=d[_targetDay]||[];return{...d,[_targetDay]:entries.map(e=>e.id===_pendingId?{...e,type:settleMethod==="milk"?"feed":"wake",feedType:settleMethod==="milk"?_isBreast?"breast":"milk":undefined,selfSettled:settleMethod==="self",assisted:settleMethod!=="self",assistedType:settleMethod==="milk"?_isBreast?"breast":"milk":settleMethod==="other"?"other":undefined,note:noteStr,// Write the duration to the structured field the NW edit form and the
 // Night Wakes card both read directly. Without this, the edit form
 // showed "0h 0m" for duration soothed because it was only set in the
 // note string. wakeDuration is kept for backward compat (other
@@ -3423,7 +3427,8 @@ function getBreastfeedingInsight(entryTime){if(bfSupportShownRef.current)return 
 const _bNow=Date.now();if(_saveBreastTsRef.current&&_bNow-_saveBreastTsRef.current<600)return;_saveBreastTsRef.current=_bNow;const totalSec=breastSec.L+breastSec.R;// Allow saving even with 0 seconds. logs as breastfeed at start time
 const lMins=breastSec.L>0?Math.max(1,Math.round(breastSec.L/60)):0;const rMins=breastSec.R>0?Math.max(1,Math.round(breastSec.R/60)):0;try{trackEvent("timer_stopped",{type:"breast",duration_mins:Math.round(totalSec/60)});}catch{}// If bed timer is paused (night wake in progress), this is a night feed:
 // route to bedTimerDay, mark night, and remove the pending placeholder wake entry
-const _nightMode=bedPausedRef.current&&!!bedTimerDay;const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:_nightMode,nightLocked:_nightMode,note:_nightMode?"Night breast feed":""};setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}clearTimerNotification();// Android: clear lock screen notification
+// Check both state AND localStorage — bedTimerDay state may be stale
+const _nightMode=bedPausedRef.current&&!!(bedTimerDay||(()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})());const entry={id:uid(),type:"feed",feedType:"breast",time:breastStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:_nightMode,nightLocked:_nightMode,note:_nightMode?"Night breast feed":""};setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}clearTimerNotification();// Android: clear lock screen notification
 // Stop Live Activity when feed saved
 if(_isNative)window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});// Auto-resume nap if it was paused by the breast timer
 try{if(localStorage.getItem("nap_paused_by_breast")==="1"){localStorage.removeItem("nap_paused_by_breast");resumeNap();}}catch{}if(_nightMode){// Night mode routing respects dayBoundary:
