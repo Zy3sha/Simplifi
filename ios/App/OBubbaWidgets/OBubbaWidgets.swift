@@ -825,11 +825,13 @@ struct OBubbaMediumWidgetView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+        .environment(\.colorScheme, .dark) // Force dark mode so text is always white on glass
         .containerBackground(for: .widget) {
             ZStack {
-                brandBg
+                // Dark glass background — always looks like frosted glass
+                Color.black.opacity(0.65)
                 LinearGradient(
-                    colors: [Color.white.opacity(0.35), brandWarm.opacity(0.15)],
+                    colors: [Color.white.opacity(0.08), Color.white.opacity(0.03)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

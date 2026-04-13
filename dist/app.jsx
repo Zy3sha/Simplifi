@@ -39110,7 +39110,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
             ) : (
               <div style={{marginTop:14}}>
-                {(observations||[]).filter(o=>o.title && o.ts && o.ts > 1700000000000).map((o,i)=>{
+                {(observations||[]).filter(o=>{
+                  if (!o.title || !o.ts) return false;
+                  // Only show today's observations (max 3 per the addObservation cap)
+                  const _todayStart2 = new Date(); _todayStart2.setHours(0,0,0,0);
+                  return o.ts >= _todayStart2.getTime();
+                }).slice(0, 3).map((o,i)=>{
                   const _mins = Math.floor((Date.now() - o.ts) / 60000);
                   const _ago = _mins < 1 ? "just now" : _mins < 60 ? _mins+"m ago" : _mins < 1440 ? Math.floor(_mins/60)+"h ago" : Math.floor(_mins/1440)+"d ago";
                   return (
