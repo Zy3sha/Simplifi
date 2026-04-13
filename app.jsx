@@ -23363,28 +23363,19 @@ function App(){
 
     // QR code points to Bubba Care. use short-lived carer token (not the raw backup code)
     // Generate or reuse a CT token that maps to the backup code.
-    // The token is written to Firestore synchronously (awaited) before
-    // the share URL is generated, so the carer can look it up immediately.
-    const _carerToken = (()=>{
-      try {
-        const _bc = backupCode || localStorage.getItem("backup_code") || "";
-        if (!_bc) return "";
+    const _bc2 = backupCode || localStorage.getItem("backup_code") || "";
+    let _carerToken = _bc2; // fallback to raw code
+    try {
+      if (_bc2) {
         const _stored = JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");
-        if (_stored && _stored.token && _stored.created && (Date.now()-new Date(_stored.created).getTime()) < 30*24*60*60*1000) return _stored.token;
-        const _newToken = "CT" + _bc.substring(2,6) + Math.random().toString(36).substring(2,6).toUpperCase();
-        localStorage.setItem("ob_carer_token_v1", JSON.stringify({token:_newToken, created: new Date().toISOString(), backupCode: _bc}));
-        return _newToken;
-      } catch { return backupCode || ""; }
-    })();
-    // Write CT token to Firestore — MUST complete before sharing
-    // (runs in background, share functions await it)
-    const _ctWritePromise = (()=>{
-      try {
-        const _bc = backupCode || localStorage.getItem("backup_code") || "";
-        if (!_bc || !_carerToken.startsWith("CT") || !window._fb) return Promise.resolve();
-        return window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_carerToken),{backupCode:_bc,updatedAt:window._fb.serverTimestamp()},{merge:true});
-      } catch { return Promise.resolve(); }
-    })();
+        if (_stored && _stored.token && _stored.created && (Date.now()-new Date(_stored.created).getTime()) < 30*24*60*60*1000) {
+          _carerToken = _stored.token;
+        } else {
+          _carerToken = "CT" + _bc2.substring(2,6) + Math.random().toString(36).substring(2,6).toUpperCase();
+          localStorage.setItem("ob_carer_token_v1", JSON.stringify({token:_carerToken, created: new Date().toISOString(), backupCode: _bc2}));
+        }
+      }
+    } catch {};
     // Carer portal is now on Firebase Hosting with real Cache-Control:
     // no-cache headers, so stale HTML isn't possible. No cache-bust
     // query param needed.
@@ -23421,7 +23412,12 @@ function App(){
   async function shareCarerCard() {
     const name = babyName || "Baby";
     // Ensure CT token is in Firestore before sharing the link
-    try { await _ctWritePromise; } catch {}
+    try {
+      const _ct2 = (()=>{try{return JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");}catch{return null;}})();
+      if (_ct2 && _ct2.token && _ct2.backupCode && window._fb) {
+        await window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_ct2.token),{backupCode:_ct2.backupCode,updatedAt:window._fb.serverTimestamp()},{merge:true});
+      }
+    } catch(e) { console.warn("CT write failed", e); }
     const finalHtml = await prepareCareCardHTML();
 
     // Village unlock: first Bubba Care share = 7 days premium
@@ -40233,7 +40229,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <button onClick={async(e)=>{
               e.stopPropagation();haptic();
               // Ensure CT token is in Firestore before sharing
-              try { await _ctWritePromise; } catch {}
+              try {
+                const _ct3 = (()=>{try{return JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");}catch{return null;}})();
+                if (_ct3 && _ct3.token && _ct3.backupCode && window._fb) {
+                  await window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_ct3.token),{backupCode:_ct3.backupCode,updatedAt:window._fb.serverTimestamp()},{merge:true});
+                }
+              } catch(e2) { console.warn("CT write failed", e2); }
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
               const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
