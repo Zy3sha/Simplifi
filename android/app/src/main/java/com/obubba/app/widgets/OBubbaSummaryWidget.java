@@ -54,14 +54,22 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 // Dark theme needs white text
                 if (isDarkTheme) {
                     int white = 0xFFFFFFFF;
+                    int secondary = 0xFFD0C8D0;
+                    // All text must be white/light on dark background
                     v.setTextColor(R.id.tv_baby_name, white);
-                    v.setTextColor(R.id.tv_timer_label, 0xFFD0C8D0);
+                    v.setTextColor(R.id.tv_timer_dot, white);
+                    v.setTextColor(R.id.tv_timer_label, secondary);
                     v.setTextColor(R.id.timer_chrono, white);
-                    v.setTextColor(R.id.tv_prediction, 0xFFD0C8D0);
+                    v.setTextColor(R.id.tv_prediction, secondary);
                     v.setTextColor(R.id.tv_since, 0x90FFFFFF);
                     v.setTextColor(R.id.tv_feed_label, white);
                     v.setTextColor(R.id.tv_ns_label, white);
-                    v.setInt(R.id.tv_ns_icon, "setTextColor", white);
+                    v.setTextColor(R.id.tv_ns_icon, white);
+                    // Breast row (if visible)
+                    v.setTextColor(R.id.tv_bl_icon, white);
+                    v.setTextColor(R.id.tv_bl_label, secondary);
+                    v.setTextColor(R.id.tv_br_icon, white);
+                    v.setTextColor(R.id.tv_br_label, secondary);
                 }
             } catch (Exception e) { /* ignore theme errors */ }
 

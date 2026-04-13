@@ -1200,6 +1200,10 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
   let personalLabel = null;
   let statusTone = "ok"; // ok | attention | low | high
   let statusMsg = null;
+  // Don't alarm parents early in the day — feed count is naturally low
+  // before the day has progressed. Suppress warnings before 11am.
+  const _feedHour = new Date().getHours();
+  const _suppressFeedWarning = _feedHour < 11;
 
   if (hasSolidsToday && solidDayAvg) {
     personalTarget = solidDayAvg;
@@ -1257,6 +1261,16 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     } else if (totalMilkMl > 0) {
       statusTone = "ok";
       statusMsg = "Tracking nicely. Log a few more days so I can compare to your personal average.";
+    }
+  }
+
+  // Before 11am, suppress warning/low tones — the day hasn't progressed
+  // enough for feed counts to be meaningful. Parents shouldn't see
+  // "well below usual" at 7am when baby just woke up.
+  if (_suppressFeedWarning && (statusTone === "attention" || statusTone === "low")) {
+    statusTone = "ok";
+    if (totalMilkMl > 0 || (isBreastfeedingToday && breastCountToday > 0)) {
+      statusMsg = "Day's just getting started. keep feeding on cues.";
     }
   }
 
@@ -19338,22 +19352,23 @@ function App(){
       const _found = (days[_dk]||[]).find(e => e.id === id);
       if (_found) { _deletedEntry = _found; break; }
     }
-    // Stop Live Activity when bedtime entry is deleted
-    if (_isNative && _deletedEntry) {
-      if (_deletedEntry.type === "sleep" && !_deletedEntry.night) {
+    // Stop Live Activity and clear bed timer when bedtime entry is deleted
+    if (_deletedEntry && _deletedEntry.type === "sleep" && !_deletedEntry.night) {
+      // Clear bed timer state — the bedtime this timer was tracking no longer exists
+      setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+      try{["bed_timer_day","bed_paused","bed_paused_sec","bed_pause_start","bed_total_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
+      setTimerMode("prediction");
+      try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
+      if (_isNative) {
         window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
-        // Clear the Android lock-screen notification so it doesn't
-        // keep the "bedtime timer running" banner visible after the
-        // entry that started it was deleted.
         clearTimerNotification();
-        setTimerMode("prediction");
-        try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
-      } else if (_deletedEntry.type === "nap" && napEntryId === id) {
-        // Also clean up the nap timer state if the active nap entry is deleted directly
-        setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
-        try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
-        window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
       }
+    }
+    // Clean up nap timer if the active nap entry is deleted
+    if (_deletedEntry && _deletedEntry.type === "nap" && napEntryId === id) {
+      setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
+      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
+      if (_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     }
 
     setDays(d=>{
