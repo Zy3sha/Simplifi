@@ -23350,25 +23350,12 @@ function App(){
     </div>`);
 
     // QR code points to Bubba Care. use short-lived carer token (not the raw backup code)
-    const _carerToken = (()=>{
-      try {
-        const _stored = JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");
-        // Reuse token if created within 30 days
-        if(_stored && _stored.token && _stored.created && (Date.now()-new Date(_stored.created).getTime()) < 30*24*60*60*1000) {
-          // Ensure it's in Firestore (might have failed on first push)
-          try { if(window._fb && _stored.backupCode) { window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_stored.token),{backupCode:_stored.backupCode,updatedAt:window._fb.serverTimestamp()},{merge:true}).catch(()=>{}); } } catch {}
-          return _stored.token;
-        }
-        // Generate new carer token
-        const _bc = backupCode || "";
-        const _newToken = "CT" + _bc.substring(2,6) + Math.random().toString(36).substring(2,6).toUpperCase();
-        localStorage.setItem("ob_carer_token_v1", JSON.stringify({token:_newToken, created: new Date().toISOString(), backupCode: _bc}));
-        // Write to Firestore IMMEDIATELY so the carer link works right away
-        // (previously only written during pushToCloud which might not have fired yet)
-        try { if(window._fb && _bc) { window._fb.setDoc(window._fb.doc(window._fb.db,"carer_tokens",_newToken),{backupCode:_bc,updatedAt:window._fb.serverTimestamp()},{merge:true}).catch(()=>{}); } } catch {}
-        return _newToken;
-      } catch { return backupCode||""; }
-    })();
+    // Skip CT token entirely — use raw backup code in the URL.
+    // The CT token system had a persistent race condition: the Firestore
+    // write was fire-and-forget, so the carer often opened the link before
+    // the token was queryable. Using the backup code directly is simpler
+    // and always works because it's already in Firestore from pushToCloud.
+    const _carerToken = backupCode || localStorage.getItem("backup_code") || "";
     // Carer portal is now on Firebase Hosting with real Cache-Control:
     // no-cache headers, so stale HTML isn't possible. No cache-bust
     // query param needed.
