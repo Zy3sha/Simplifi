@@ -27373,64 +27373,60 @@ function App(){
                   {napPaused?"▶":"⏸"}
                 </button>
               </div>
-              {showNapStartEdit && (
-                <>
-                  {/* Backdrop to dismiss on outside tap. Catches clicks that
-                      would otherwise go to the date navigator behind us. */}
-                  <div onClick={()=>setShowNapStartEdit(false)} style={{position:"fixed",inset:0,background:"transparent",zIndex:9998}}/>
-                <div onClick={e=>e.stopPropagation()} style={{position:"absolute",top:"calc(100% + 8px)",left:0,right:0,background:"var(--picker-bg,#FFFCF9)",borderRadius:16,padding:"14px",boxShadow:"0 12px 32px rgba(0,0,0,0.22)",zIndex:9999,minWidth:220,border:"1px solid var(--card-border)"}}>
-                  <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Nap started at</div>
-                  <input type="time" value={napStartT||""} onChange={e=>{
-                    const newT = e.target.value;
-                    if(!newT) return;
-                    const [nh,nm] = newT.split(":").map(Number);
-                    const now = new Date();
-                    const startDate = new Date(); startDate.setHours(nh,nm,0,0);
-                    let elapsed = Math.floor((now - startDate)/1000);
-                    if(elapsed < 0) elapsed += 24*3600;
-                    if(elapsed > 23*3600) elapsed = 0;
-                    setNapStartT(newT);
-                    setNapSec(elapsed);
-                    // Update the entry in days
-                    if(napEntryId){
-                      setDays(d=>{
-                        const existing = d[selDay]||[];
-                        return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
-                      });
-                    }
-                    try{localStorage.setItem("nap_startT",newT);}catch{}
-                  }} style={{width:"100%",fontSize:18,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
-                  <div style={{display:"flex",gap:6,marginTop:8}}>
-                    {[-30,-15,-10,-5,5].map(m=>(
-                      <button key={m} onClick={()=>{
-                        if(!napStartT) return;
-                        const [oh,om] = napStartT.split(":").map(Number);
-                        const total = oh*60+om+m;
-                        const nh2 = Math.floor(((total%1440)+1440)%1440/60);
-                        const nm2 = ((total%1440)+1440)%1440%60;
-                        const newT = `${String(nh2).padStart(2,"0")}:${String(nm2).padStart(2,"0")}`;
-                        const now = new Date();
-                        const startDate = new Date(); startDate.setHours(nh2,nm2,0,0);
-                        let elapsed = Math.floor((now - startDate)/1000);
-                        if(elapsed < 0) elapsed += 24*3600;
-                        setNapStartT(newT);
-                        setNapSec(elapsed);
-                        if(napEntryId){
-                          setDays(d=>{
-                            const existing = d[selDay]||[];
-                            return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
-                          });
-                        }
-                        try{localStorage.setItem("nap_startT",newT);}catch{}
-                      }} style={{flex:1,padding:"6px 2px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:m<0?C.ter:C.mint,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fM}}>
-                        {m>0?"+":""}{m}m
-                      </button>
-                    ))}
+              {showNapStartEdit && ReactDOM.createPortal(
+                <div onClick={()=>setShowNapStartEdit(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.4)",backdropFilter:"blur(3px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+                  <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:20,padding:"20px",width:"100%",maxWidth:300,boxShadow:"0 12px 40px rgba(0,0,0,0.25)",border:"1px solid var(--card-border)"}}>
+                    <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:10,textAlign:"center"}}>Nap started at</div>
+                    <input type="time" value={napStartT||""} onChange={e=>{
+                      const newT = e.target.value;
+                      if(!newT) return;
+                      const [nh,nm] = newT.split(":").map(Number);
+                      const now = new Date();
+                      const startDate = new Date(); startDate.setHours(nh,nm,0,0);
+                      let elapsed = Math.floor((now - startDate)/1000);
+                      if(elapsed < 0) elapsed += 24*3600;
+                      if(elapsed > 23*3600) elapsed = 0;
+                      setNapStartT(newT);
+                      setNapSec(elapsed);
+                      if(napEntryId){
+                        setDays(d=>{
+                          const existing = d[selDay]||[];
+                          return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                        });
+                      }
+                      try{localStorage.setItem("nap_startT",newT);}catch{}
+                    }} style={{width:"100%",fontSize:22,padding:"12px",borderRadius:14,border:`2px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:"'Playfair Display',serif",textAlign:"center",boxSizing:_bBB}}/>
+                    <div style={{display:"flex",gap:6,marginTop:10}}>
+                      {[-30,-15,-10,-5,5].map(m=>(
+                        <button key={m} onClick={()=>{
+                          if(!napStartT) return;
+                          const [oh,om] = napStartT.split(":").map(Number);
+                          const total = oh*60+om+m;
+                          const nh2 = Math.floor(((total%1440)+1440)%1440/60);
+                          const nm2 = ((total%1440)+1440)%1440%60;
+                          const newT = `${String(nh2).padStart(2,"0")}:${String(nm2).padStart(2,"0")}`;
+                          const now = new Date();
+                          const startDate = new Date(); startDate.setHours(nh2,nm2,0,0);
+                          let elapsed = Math.floor((now - startDate)/1000);
+                          if(elapsed < 0) elapsed += 24*3600;
+                          setNapStartT(newT);
+                          setNapSec(elapsed);
+                          if(napEntryId){
+                            setDays(d=>{
+                              const existing = d[selDay]||[];
+                              return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                            });
+                          }
+                          try{localStorage.setItem("nap_startT",newT);}catch{}
+                        }} style={{flex:1,padding:"8px 2px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:m<0?C.ter:C.mint,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fM}}>
+                          {m>0?"+":""}{m}m
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={()=>setShowNapStartEdit(false)} style={{width:"100%",marginTop:12,padding:"12px",borderRadius:99,border:_bN,background:C.mint,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>Done</button>
                   </div>
-                  <button onClick={()=>setShowNapStartEdit(false)} style={{width:"100%",marginTop:8,padding:"8px",borderRadius:10,border:_bN,background:C.mint,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>Done</button>
                 </div>
-                </>
-              )}
+              , document.body)}
               </div>
               );
             })()}
