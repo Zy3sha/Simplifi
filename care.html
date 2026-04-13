@@ -709,7 +709,10 @@ function _renderHtml() {
       let statusIcon="☀️", statusText=_name+" is awake", statusColor="#6A8A7A", statusBg="rgba(155,184,168,0.1)";
       let nextAction = "";
 
-      if (bedEntry && nowM >= 18*60) {
+      // Baby is sleeping if: bedtime logged AND (it's evening OR it's early AM with no morning wake)
+      const _hasMorningWake = entries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<12;})());
+      const _isNightSleep = bedEntry && (nowM >= 18*60 || (nowM < 12*60 && !_hasMorningWake));
+      if (_isNightSleep) {
         // Baby is sleeping for the night
         statusIcon="🌙"; statusText=_name+" is sleeping for the night"; statusColor="#7B68EE"; statusBg="rgba(123,104,238,0.08)";
         nextAction = "If "+_name+" wakes, keep it dark and quiet. Brief feed if needed, then straight back down. No play, no lights.";
