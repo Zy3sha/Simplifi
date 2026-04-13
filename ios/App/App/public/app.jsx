@@ -7556,7 +7556,7 @@ function App(){
   const[helpTip,setHelpTip]=useState(null); // {title, body}
   const HelpBtn = ({title,body}) => (
     <button onClick={e=>{e.stopPropagation();setHelpTip({title,body});}}
-      style={{width:20,height:20,borderRadius:"50%",border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.lt,fontSize:11,fontWeight:700,cursor:_cP,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:4}}>?</button>
+      style={{width:44,height:44,borderRadius:"50%",border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.lt,fontSize:11,fontWeight:700,cursor:_cP,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:4}}>?</button>
   );
   // Premium gate. wraps premium features with a warm, inviting nudge (not a cold lock-out)
   const PremiumGate = ({children, feature, context, hint}) => {
@@ -12159,9 +12159,9 @@ function App(){
               <div>
                 <span style={{fontSize:12,color:C.mid,lineHeight:1.45}}>{_nextEvent.text}</span>
                 <div style={{display:"flex",alignItems:"center",gap:4,marginTop:3}}>
-                  <span style={{fontSize:8}}>{_confLevel.icon}</span>
-                  <span style={{fontSize:9,fontFamily:_fM,color:_confLevel.color,letterSpacing:"0.02em"}}>{_confLevel.label}</span>
-                  {_daysLogged < 7 && <span style={{fontSize:8,color:C.lt}}>· log more days to personalise</span>}
+                  <span style={{fontSize:10}}>{_confLevel.icon}</span>
+                  <span style={{fontSize:10,fontFamily:_fM,color:_confLevel.color,letterSpacing:"0.02em"}}>{_confLevel.label}</span>
+                  {_daysLogged < 7 && <span style={{fontSize:10,color:C.lt}}>· log more days to personalise</span>}
                 </div>
               </div>
             </div>
@@ -12251,7 +12251,7 @@ function App(){
             : _ctx.reasons.slice(0,2).join(" + ");
           return (
             <div style={{paddingLeft:16,marginBottom:6,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-              <span style={{fontSize:9,background:"rgba(212,168,85,0.15)",color:C.gold,padding:"2px 8px",borderRadius:99,fontWeight:700,fontFamily:_fM}}>🤒 {_reasonLabel} · wake windows {_ctx.active ? Math.round((1-_ctx.multiplier)*100) : 20}% shorter</span>
+              <span style={{fontSize:10,background:"rgba(212,168,85,0.15)",color:C.gold,padding:"2px 8px",borderRadius:99,fontWeight:700,fontFamily:_fM}}>🤒 {_reasonLabel} · wake windows {_ctx.active ? Math.round((1-_ctx.multiplier)*100) : 20}% shorter</span>
               {disruptionMode && (
                 <button onClick={()=>{haptic();setDisruptionMode(null);showToast("Back to normal predictions ✓",1500,1);}} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textDecoration:"underline",fontFamily:_fM}}>Turn off</button>
               )}
@@ -12262,10 +12262,10 @@ function App(){
         {/* Why dropdown + What we noticed + disruption mode */}
         <div style={{paddingLeft:16,marginTop:4,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
           <button onClick={()=>{haptic();setHeroWhyOpen(!heroWhyOpen);if(STORE_READY&&!heroWhyOpen&&!isPremium&&Object.keys(days).length>=3)setTimeout(()=>triggerPaywall("why"),800);}} style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
-            {heroWhyOpen?"Hide details":"Why?"} <span style={{fontSize:8,transform:heroWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
+            {heroWhyOpen?"Hide details":"Why?"} <span style={{fontSize:10,transform:heroWhyOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
           </button>
           {(observations||[]).length > 0 && (
-            <button onClick={()=>{haptic();setShowObservations(true);}} style={{background:_unreadObs>0?`${C.mint}15`:"none",border:_unreadObs>0?`1px solid ${C.mint}40`:"none",padding:_unreadObs>0?"3px 10px":0,borderRadius:99,fontSize:11,fontWeight:600,color:_unreadObs>0?C.mint:C.lt,cursor:_cP,display:"flex",alignItems:"center",gap:4}}>
+            <button onClick={()=>{haptic();setShowObservations(true);}} style={{background:_unreadObs>0?`${C.mint}15`:"none",border:_unreadObs>0?`1px solid ${C.mint}40`:"none",padding:_unreadObs>0?"10px 14px":"10px 12px",borderRadius:99,fontSize:11,fontWeight:600,color:_unreadObs>0?C.mint:C.lt,cursor:_cP,display:"flex",alignItems:"center",gap:4,minHeight:44,minWidth:44,boxSizing:"border-box"}}>
               💭 {_unreadObs>0 ? `${_unreadObs} new` : "What we noticed"}
             </button>
           )}
@@ -12325,8 +12325,8 @@ function App(){
                     <div style={{background:_df.urgency==="high"?"rgba(232,87,74,0.08)":"rgba(212,168,85,0.06)",border:"1px solid "+(_df.urgency==="high"?"rgba(232,87,74,0.35)":"rgba(212,168,85,0.25)"),borderRadius:10,padding:"10px 12px",marginBottom:10}}>
                       <div style={{fontSize:10,fontFamily:_fM,color:_df.urgency==="high"?"#e8574a":C.gold,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
                         <span>🍼 Feed analyser</span>
-                        {!_unlockedF && !_alwaysFree && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
-                        {_df.urgency === "high" && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:"#e8574a22",color:"#e8574a"}}>URGENT</span>}
+                        {!_unlockedF && !_alwaysFree && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                        {_df.urgency === "high" && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:"#e8574a22",color:"#e8574a"}}>URGENT</span>}
                       </div>
                       <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_df.emoji} {_df.title}</div>
                       {_showFull ? (
@@ -12367,7 +12367,7 @@ function App(){
                     <div style={{background:"rgba(192,112,136,0.06)",border:"1px solid rgba(192,112,136,0.25)",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
                       <div style={{fontSize:10,fontFamily:_fM,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
                         <span>🔍 Nap analyser</span>
-                        {!_unlocked && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                        {!_unlocked && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
                       </div>
                       <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_d.emoji} {_d.title}</div>
                       {_unlocked ? (
@@ -20766,8 +20766,12 @@ function App(){
       const _prevHasBed = (days[_prevD]||[]).some(e=>e.type==="sleep"&&!e.night);
       const _todayHasBed = (days[_todayCalendar]||[]).some(e=>e.type==="sleep"&&!e.night);
       _targetDay = _prevHasBed ? _prevD : _todayHasBed ? _todayCalendar : selDay;
-    } else if (_isNightEntry && bedTimerDay && selDay !== _todayCalendar && selDay !== bedTimerDay) {
-      // Midnight mode but user is viewing a random historical day — route to today
+    } else if (_isNightEntry && dayBoundary === "midnight") {
+      // Midnight mode: night entries always go to TODAY (the current calendar day).
+      // At 2am, selDay might still be yesterday if auto-snap hasn't fired.
+      _targetDay = _todayCalendar;
+    } else if (_isNightEntry && selDay !== _todayCalendar && selDay !== bedTimerDay) {
+      // Any other mode viewing a historical day — route to today
       _targetDay = _todayCalendar;
     } else {
       _targetDay = selDay;
@@ -24852,7 +24856,7 @@ function App(){
     }
   },[Object.keys(days).join(",")]);
 
-  const tabSt=t=>({flex:"none",padding:"8px 14px 6px",border:_bN,background:"none",fontSize:9,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:"var(--text-lt)",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative",transition:"transform 0.2s cubic-bezier(.23,1,.32,1)",borderRadius:12});
+  const tabSt=t=>({flex:"none",padding:"8px 14px 6px",border:_bN,background:"none",fontSize:10,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:"var(--text-lt)",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative",transition:"transform 0.2s cubic-bezier(.23,1,.32,1)",borderRadius:12});
   const card={background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"var(--card-shadow)",transition:"transform 0.2s cubic-bezier(.23,1,.32,1),box-shadow 0.25s ease"};
 
   const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
@@ -26904,7 +26908,7 @@ function App(){
 
           <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)",boxSizing:"border-box",overflow:"hidden"}}>
             <div style={{padding:"48px 28px 20px",display:"flex",alignItems:"center",gap:12}}>
-              <button onClick={()=>setObStep(s=>s-1)} style={{width:38,height:38,borderRadius:11,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,color:C.mid,fontSize:17,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:_fI}}>←</button>
+              <button onClick={()=>setObStep(s=>s-1)} style={{width:44,height:44,borderRadius:11,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,color:C.mid,fontSize:17,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:_fI}}>←</button>
               <div style={{flex:1,height:3,background:C.blush,borderRadius:99,overflow:"hidden"}}>
                 <div style={{height:"100%",width:`${(obStep/_obMaxSteps)*100}%`,background:"linear-gradient(90deg,#9B8BB8,#B8A8D0)",borderRadius:99,transition:"width 0.4s ease"}}/>
               </div>
@@ -27165,7 +27169,7 @@ function App(){
                   <div style={{width:40,height:40,borderRadius:12,background:"var(--card-bg-alt)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{step.icon}</div>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:700,color:cardText,lineHeight:1.2}}>{step.title}</div>
                 </div>
-                <button onClick={dismissTutorial} aria-label="Close" style={{background:_bN,border:_bN,color:locText,fontSize:18,cursor:_cP,padding:"0 0 0 8px",lineHeight:1,flexShrink:0}}>✕</button>
+                <button onClick={dismissTutorial} aria-label="Close" style={{background:_bN,border:_bN,color:locText,fontSize:18,cursor:_cP,padding:"10px 12px",lineHeight:1,flexShrink:0,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
               </div>
               {step.location && (
                 <div style={{display:"inline-flex",alignItems:"center",gap:5,background:locBg,borderRadius:99,padding:"4px 12px",marginBottom:10,fontSize:12,color:locText,fontFamily:_fM}}>
@@ -27271,7 +27275,7 @@ function App(){
                   return <div style={{fontSize:12,color:C.ter,fontWeight:600,fontFamily:_fM,marginTop:3,letterSpacing:"0.02em"}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
                 }
                 if (!age) return null;
-                return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:3,letterSpacing:"0.03em",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><span>{fmtAge(age)}{age.months >= 1 ? ` \u00B7 ${age.totalWeeks}wk` : ""}</span>{age.totalWeeks < 6 && <span style={{fontSize:9,fontFamily:_fM,color:"#7b68ee",background:"rgba(123,104,238,0.08)",padding:"2px 8px",borderRadius:99}}>Newborn</span>}</div>;
+                return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:3,letterSpacing:"0.03em",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><span>{fmtAge(age)}{age.months >= 1 ? ` \u00B7 ${age.totalWeeks}wk` : ""}</span>{age.totalWeeks < 6 && <span style={{fontSize:10,fontFamily:_fM,color:"#7b68ee",background:"rgba(123,104,238,0.08)",padding:"2px 8px",borderRadius:99}}>Newborn</span>}</div>;
               })()}
             </div>
           </div>
@@ -27289,7 +27293,7 @@ function App(){
           <div style={{display:"flex",gap:8,marginBottom:10}}>
             <div onClick={()=>{haptic();saveTummyTime();}} style={{display:"flex",alignItems:"center",gap:5,background:"#7B68EE",borderRadius:99,padding:"5px 14px",cursor:_cP}}>
               <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:"white"}}>🤸 {fmtSec(tummySec)}</span>
-              <button onClick={(e)=>{e.stopPropagation();setTummyOn(false);setTummySec(0);}} style={{background:"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"3px 8px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>✕</button>
+              <button onClick={(e)=>{e.stopPropagation();setTummyOn(false);setTummySec(0);}} style={{background:"rgba(255,255,255,0.25)",border:_bN,borderRadius:99,padding:"10px 14px",fontSize:11,color:"white",cursor:_cP,fontWeight:700,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
             </div>
           </div>
         )}
@@ -27582,7 +27586,7 @@ function App(){
                     <div onClick={()=>{haptic();try{trackEvent("prediction_viewed",{type:"bed_timer"});}catch{}if(bedPaused){resumeBedTimer();}else{setShowNightTimerMenu(true);}}} style={{display:"flex",alignItems:"center",gap:5,background:_pillBg,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
                       <span style={_S.f13}>{bedPaused?"\u{23F8}\uFE0F":"\u{1F319}"}</span>
                       <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
-                        <span style={{fontSize:9,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {fmt12(bedEntry.time)}</span>
+                        <span style={{fontSize:10,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {fmt12(bedEntry.time)}</span>
                         <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(_pillElapsed)}</span>
                       </div>
                       <button onClick={(e)=>{e.stopPropagation();haptic();if(bedEntry)openEdit(bedEntry);}} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:99,padding:"3px 6px",fontSize:10,color:"white",cursor:_cP,fontWeight:600}}>
@@ -27734,7 +27738,7 @@ function App(){
               <div style={{fontSize:14,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:10,color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:6,letterSpacing:"0.02em"}}>TODAY</span>:null}</div>
             </button>
             <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:18,color:C.mid,flexShrink:0}}>{"\u203A"}</button>
-            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:10,width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:14,color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
+            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:10,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:14,color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
           </div>
           {/* Search bar */}
           {showSearch&&(
@@ -27778,7 +27782,7 @@ function App(){
               ✓ Log
             </button>
             <button onClick={()=>setShowWakeInline(false)}
-              style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:28,height:28,color:C.lt,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+              style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:"50%",width:44,height:44,color:C.lt,cursor:_cP,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
           </div>
         </div>
       )}
@@ -27869,7 +27873,7 @@ function App(){
                         <span style={_S.f20}>✨</span>
                         <div style={{fontSize:14,fontWeight:700,color:C.deep}}>What's new in OBubba</div>
                       </div>
-                      <button onClick={()=>{try{localStorage.setItem("ob_whats_new_v",_currentVersion);}catch{}haptic();setPartnerTick(t=>t+1);}} style={{background:"none",border:"none",fontSize:11,color:C.lt,cursor:_cP}}>✕</button>
+                      <button onClick={()=>{try{localStorage.setItem("ob_whats_new_v",_currentVersion);}catch{}haptic();setPartnerTick(t=>t+1);}} style={{background:"none",border:"none",fontSize:11,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:6}}>
                       {[
@@ -28084,7 +28088,7 @@ function App(){
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:3}}>{bfSupport.body}</div>
                       </div>
                     </div>
-                    <button onClick={()=>setBfSupport(null)} style={{background:"none",border:"none",color:C.lt,fontSize:16,cursor:_cP,padding:"0 0 0 8px",lineHeight:1}}>✕</button>
+                    <button onClick={()=>setBfSupport(null)} style={{background:"none",border:"none",color:C.lt,fontSize:16,cursor:_cP,padding:"10px 12px",lineHeight:1,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                   </div>
                 </div>
               )}
@@ -28264,7 +28268,7 @@ function App(){
                               <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2}}>{dayLabel2}{a.time?" · "+fmt12(a.time):""}{a.travelMins>0?" · 🚗 "+a.travelMins+"min":""}</div>
                               {a.location && <div style={{fontSize:12,color:C.sky,fontFamily:_fM,marginTop:1}}>📍 {a.location}</div>}
                             </div>
-                            <button onClick={e=>{e.stopPropagation();haptic();showConfirm("Delete appointment","Remove \""+a.title+"\"?",()=>{deleteAppointment(a.id);setConfirmDialog(null);showToast("✓ Deleted",1400,1);},"Delete",true);}} aria-label="Delete" style={{background:"none",border:"none",color:C.lt,fontSize:16,cursor:_cP,padding:"4px 6px",flexShrink:0}}>✕</button>
+                            <button onClick={e=>{e.stopPropagation();haptic();showConfirm("Delete appointment","Remove \""+a.title+"\"?",()=>{deleteAppointment(a.id);setConfirmDialog(null);showToast("✓ Deleted",1400,1);},"Delete",true);}} aria-label="Delete" style={{background:"none",border:"none",color:C.lt,fontSize:16,cursor:_cP,padding:"10px 12px",flexShrink:0,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                           </div>
                         </div>
                         {moreCount===0&&<div style={{fontSize:11,color:C.lt,marginTop:2,marginLeft:2}}>No other appointments scheduled</div>}
@@ -28312,7 +28316,7 @@ function App(){
                       <div key={n.id} className="glass-card" style={{padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"flex-start",gap:10}}>
                         <span style={{fontSize:14,marginTop:1}}>📌</span>
                         <div onClick={()=>{haptic();setPinForm(n.text);setEditNoteId(n.id);setShowAddPin(true);}} style={{flex:1,fontSize:14,color:C.deep,lineHeight:1.5,cursor:_cP}}>{n.text}</div>
-                        <button onClick={()=>{haptic();deletePinnedNote(n.id);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"0 4px"}}>✕</button>
+                        <button onClick={()=>{haptic();deletePinnedNote(n.id);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"10px 12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                       </div>
                     ))}
                   </div>
@@ -28336,7 +28340,7 @@ function App(){
                               {!r.trigger && (r.time||r.date!==todayStr()) && <span style={{fontSize:11,color:C.lt,fontFamily:_fM}}>{r.date===todayStr()?"Today":fmtLong(r.date)}{r.time?" · "+fmt12(r.time):""}</span>}
                             </div>
                           </div>
-                          <button onClick={()=>{haptic();deleteReminder(r.id);}} style={{background:"none",border:"none",fontSize:12,color:C.lt,cursor:_cP}}>✕</button>
+                          <button onClick={()=>{haptic();deleteReminder(r.id);}} style={{background:"none",border:"none",fontSize:12,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                         </div>
                       );
                     })}
@@ -28727,12 +28731,12 @@ function App(){
                           <div style={{flex:1,background:"var(--card-bg-alt)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
                             <div style={{fontSize:10,color:C.lt}}>Milk today</div>
                             <div style={{fontSize:15,fontWeight:700,color:_wr.ratio.milkStatus==="low"?C.ter:_wr.ratio.milkStatus==="high"?C.gold:C.mint}}>{_wr.ratio.totalMilkMl}ml</div>
-                            <div style={{fontSize:9,color:C.lt}}>target: {_wr.ratio.milkMin}–{_wr.ratio.milkTarget}ml</div>
+                            <div style={{fontSize:10,color:C.lt}}>target: {_wr.ratio.milkMin}–{_wr.ratio.milkTarget}ml</div>
                           </div>
                           <div style={{flex:1,background:"var(--card-bg-alt)",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
                             <div style={{fontSize:10,color:C.lt}}>Solid meals</div>
                             <div style={{fontSize:15,fontWeight:700,color:_wr.ratio.solidCount>=_wr.ratio.solidMeals?C.mint:C.gold}}>{_wr.ratio.solidCount} / {_wr.ratio.solidMeals}</div>
-                            <div style={{fontSize:9,color:C.lt}}>target: {_wr.ratio.solidMeals} meals</div>
+                            <div style={{fontSize:10,color:C.lt}}>target: {_wr.ratio.solidMeals} meals</div>
                           </div>
                         </div>
                         {_wr.ratio.milkStatus==="low" && <div style={{fontSize:11,color:C.ter,fontWeight:600,marginBottom:4}}>⚠️ Milk intake is below minimum. offer more milk feeds before solids</div>}
@@ -28770,13 +28774,13 @@ function App(){
                           <div style={_S.flex1Center}>
                             <div style={{fontSize:10,color:C.lt}}>Before</div>
                             <div style={{fontSize:18,fontWeight:700,color:C.mid}}>{_wr.preWeanWakes}</div>
-                            <div style={{fontSize:9,color:C.lt}}>avg/night</div>
+                            <div style={{fontSize:10,color:C.lt}}>avg/night</div>
                           </div>
                           <div style={{fontSize:16,color:_wr.sleepDelta<=0?C.mint:C.gold}}>{_wr.sleepDelta<0?"↓":_wr.sleepDelta>0?"↑":"→"}</div>
                           <div style={_S.flex1Center}>
                             <div style={{fontSize:10,color:C.lt}}>Now</div>
                             <div style={{fontSize:18,fontWeight:700,color:_wr.sleepDelta<=0?C.mint:C.gold}}>{_wr.postWeanWakes}</div>
-                            <div style={{fontSize:9,color:C.lt}}>avg/night</div>
+                            <div style={{fontSize:10,color:C.lt}}>avg/night</div>
                           </div>
                         </div>
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>
@@ -29201,12 +29205,12 @@ function App(){
                   if (!_isUrgent) { try { if (localStorage.getItem(_wbDismissKey)) return null; } catch {} }
                   return (
                     <div style={{padding:"14px 16px",borderRadius:14,background:_isUrgent?"rgba(232,87,74,0.06)":"linear-gradient(135deg,rgba(212,168,85,0.06),rgba(155,184,168,0.04))",border:"1px solid "+(_isUrgent?"rgba(232,87,74,0.35)":"rgba(212,168,85,0.2)"),marginBottom:10,position:"relative"}}>
-                      {!_isUrgent && <button onClick={()=>{try{localStorage.setItem(_wbDismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:8,right:8,background:"none",border:"none",fontSize:14,color:C.lt,cursor:_cP,padding:"2px 6px",lineHeight:1}} aria-label="Dismiss">✕</button>}
+                      {!_isUrgent && <button onClick={()=>{try{localStorage.setItem(_wbDismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:4,right:4,background:"none",border:"none",fontSize:14,color:C.lt,cursor:_cP,padding:"10px 12px",lineHeight:1,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}} aria-label="Dismiss">✕</button>}
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap",paddingRight:_isUrgent?0:20}}>
                         <span style={{fontSize:16}}>{_dwb.emoji}</span>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_dwb.title}</div>
-                        {_isUrgent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:"#e8574a22",color:"#e8574a",fontWeight:700}}>IMPORTANT</span>}
-                        {!_unlockedWB && !_isUrgent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                        {_isUrgent && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:"#e8574a22",color:"#e8574a",fontWeight:700}}>IMPORTANT</span>}
+                        {!_unlockedWB && !_isUrgent && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
                       </div>
                       {_showFull ? (
                         <>
@@ -29274,7 +29278,7 @@ function App(){
                               {m.temp && <span style={{fontSize:13,color:parseFloat(m.temp)>=38?"#e8574a":C.mint,fontWeight:600}}> 🌡️ {cToDisplay(parseFloat(m.temp))}{tempLabel}</span>}
                               {m.note && <div style={{fontSize:12,color:C.lt,fontStyle:"italic"}}>{m.note}</div>}
                             </div>
-                            <button onClick={()=>deleteMed(m.id)} style={{width:22,height:22,borderRadius:"50%",border:_bN,background:"rgba(232,87,74,0.1)",color:"#e8574a",fontSize:11,cursor:_cP}}>✕</button>
+                            <button onClick={()=>deleteMed(m.id)} style={{width:44,height:44,borderRadius:"50%",border:_bN,background:"rgba(232,87,74,0.1)",color:"#e8574a",fontSize:11,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
                           </div>
                         ))}
                       </div>
@@ -29364,7 +29368,7 @@ function App(){
                           {r.repeat && r.repeat!=="none" && <span style={{fontSize:10,fontFamily:_fM,color:C.mint,background:C.mint+"15",padding:"1px 7px",borderRadius:99}}>🔁 {({daily:"Daily",weekdays:"Weekdays",weekly:"Weekly"})[r.repeat]||r.repeat}</span>}
                         </div>
                       </div>
-                      <button onClick={()=>deleteReminder(r.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
+                      <button onClick={()=>deleteReminder(r.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                     </div>
                     );
                   })}
@@ -29377,7 +29381,7 @@ function App(){
                             <span style={{color:"white",fontSize:10,fontWeight:700}}>✓</span>
                           </div>
                           <div style={{flex:1,fontSize:12,color:C.lt,textDecoration:"line-through"}}>{r.text}</div>
-                          <button onClick={()=>deleteReminder(r.id)} aria-label="Delete" style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP}}>✕</button>
+                          <button onClick={()=>deleteReminder(r.id)} aria-label="Delete" style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                         </div>
                       ))}
                     </div>
@@ -29396,7 +29400,7 @@ function App(){
                     <div key={n.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
                       <span style={{fontSize:12,flexShrink:0,marginTop:1}}>📌</span>
                       <div onClick={()=>{setPinForm(n.text);setEditNoteId(n.id);setShowAddPin(true);}} style={{flex:1,fontSize:13,color:C.deep,lineHeight:1.5,cursor:_cP}}>{n.text}</div>
-                      <button onClick={()=>deletePinnedNote(n.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"4px"}}>✕</button>
+                      <button onClick={()=>deletePinnedNote(n.id)} style={{background:_bN,border:_bN,fontSize:11,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                     </div>
                   ))}
                 </div>
@@ -29606,19 +29610,19 @@ function App(){
                   };
                   return (
                     <div style={{marginBottom:12,padding:"16px 18px",borderRadius:16,background:`linear-gradient(135deg,${C.sky}10,${C.mint}06)`,border:`1.5px solid ${C.sky}33`,position:"relative"}}>
-                      <button onClick={()=>{try{localStorage.setItem(_dismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:10,right:10,width:24,height:24,borderRadius:99,border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:13,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                      <button onClick={()=>{try{localStorage.setItem(_dismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:6,right:6,width:44,height:44,borderRadius:99,border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:13,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                       <div style={{fontSize:10,fontFamily:_fM,color:C.sky,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,fontWeight:700}}>📊 Your week in nights</div>
                       <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8,lineHeight:1.2}}>{_digest.nights.length}-night review</div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                         <div style={{padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
-                          <div style={{fontSize:9,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Total wakes</div>
+                          <div style={{fontSize:10,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Total wakes</div>
                           <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_digest.totalWakes}</div>
-                          <div style={{fontSize:9,color:C.lt}}>avg {_digest.avgWakes}/night</div>
+                          <div style={{fontSize:10,color:C.lt}}>avg {_digest.avgWakes}/night</div>
                         </div>
                         <div style={{padding:"8px 10px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
-                          <div style={{fontSize:9,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Total soothing</div>
+                          <div style={{fontSize:10,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Total soothing</div>
                           <div style={{fontSize:16,fontWeight:700,color:C.deep}}>{_hmStr(_digest.totalSoothedMin)}</div>
-                          <div style={{fontSize:9,color:C.lt}}>avg {_digest.avgSoothedMin}m/night</div>
+                          <div style={{fontSize:10,color:C.lt}}>avg {_digest.avgSoothedMin}m/night</div>
                         </div>
                       </div>
                       {_digest.bestNight && (
@@ -29733,7 +29737,7 @@ function App(){
                   const _hmStr = (m) => m >= 60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m";
                   return (
                     <div style={{marginBottom:12,padding:"14px 16px",borderRadius:16,background:`linear-gradient(135deg,rgba(123,104,238,0.06),rgba(111,168,152,0.04))`,border:`1.5px solid rgba(123,104,238,0.2)`,position:"relative"}}>
-                      <button onClick={()=>{try{localStorage.setItem(_dismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:10,right:10,width:24,height:24,borderRadius:99,border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:13,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                      <button onClick={()=>{try{localStorage.setItem(_dismissKey,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:6,right:6,width:44,height:44,borderRadius:99,border:_bN,background:"var(--card-bg-alt)",color:C.lt,fontSize:13,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                       <div style={{fontSize:10,fontFamily:_fM,color:"#7B68EE",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4,fontWeight:700}}>🌙 Last night at a glance</div>
                       <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:6}}>
                         <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1}}>{lastNight.totalSleepMin !== null ? _hmStr(lastNight.totalSleepMin) : "--"}</div>
@@ -29753,8 +29757,8 @@ function App(){
                                 style={{position:"absolute",left:_leftPct+"%",top:0,bottom:0,width:_widthPct+"%",background:"rgba(212,168,85,0.7)",borderLeft:"1px solid rgba(212,168,85,0.9)"}}/>
                             );
                           })}
-                          <div style={{position:"absolute",left:4,top:3,fontSize:9,color:"rgba(44,31,26,0.55)",fontFamily:_fM}}>🌙 {lastNight.bedtimeStr ? fmt12(lastNight.bedtimeStr) : ""}</div>
-                          <div style={{position:"absolute",right:4,top:3,fontSize:9,color:"rgba(44,31,26,0.55)",fontFamily:_fM}}>☀️ {lastNight.morningWakeStr ? fmt12(lastNight.morningWakeStr) : ""}</div>
+                          <div style={{position:"absolute",left:4,top:3,fontSize:10,color:"rgba(44,31,26,0.55)",fontFamily:_fM}}>🌙 {lastNight.bedtimeStr ? fmt12(lastNight.bedtimeStr) : ""}</div>
+                          <div style={{position:"absolute",right:4,top:3,fontSize:10,color:"rgba(44,31,26,0.55)",fontFamily:_fM}}>☀️ {lastNight.morningWakeStr ? fmt12(lastNight.morningWakeStr) : ""}</div>
                         </div>
                       )}
                       {/* Diagnosis + autopilot action. _applyNightAdjustments
@@ -29776,8 +29780,8 @@ function App(){
                           <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
                             <span style={{fontSize:16}}>{diagnosis.emoji}</span>
                             <span style={{fontSize:13,fontWeight:700,color:C.deep}}>{diagnosis.title}</span>
-                            {diagnosis.confidence==="high" && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700}}>HIGH CONFIDENCE</span>}
-                            {!_unlockedN && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                            {diagnosis.confidence==="high" && <span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700}}>HIGH CONFIDENCE</span>}
+                            {!_unlockedN && <span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
                           </div>
                           {_unlockedN ? (
                             <>
@@ -29809,7 +29813,7 @@ function App(){
                             <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:"1px solid rgba(111,168,152,0.2)",marginBottom:lastNight.avgResettleMin>0?8:0}}>
                               <div style={{fontSize:10,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
                                 <span>🎯 Tonight's focus</span>
-                                {!_unlockedTF && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                                {!_unlockedTF && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
                               </div>
                               <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:_unlockedTF?6:4}}>{_tf.title}</div>
                               {_unlockedTF ? (
@@ -29940,15 +29944,15 @@ function App(){
                     <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Powered by the OBubba Sleep Engine {"\u2014"} built from pediatric sleep research & consultant guidelines. Every baby is different {"\u2014"} always follow sleepy cues.</div>
                     <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
                       <div style={{flex:1,minWidth:90,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
-                        <div style={{fontSize:9,color:C.lt}}>Wake windows</div>
+                        <div style={{fontSize:10,color:C.lt}}>Wake windows</div>
                         <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{Math.round(_freeWW.min/60*10)/10}{"\u2013"}{Math.round(_freeWW.max/60*10)/10}h</div>
                       </div>
                       <div style={{flex:1,minWidth:70,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
-                        <div style={{fontSize:9,color:C.lt}}>Naps</div>
+                        <div style={{fontSize:10,color:C.lt}}>Naps</div>
                         <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{_freeExpected}</div>
                       </div>
                       <div style={{flex:1,minWidth:90,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
-                        <div style={{fontSize:9,color:C.lt}}>Day sleep</div>
+                        <div style={{fontSize:10,color:C.lt}}>Day sleep</div>
                         <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{hm(_freeProfile.idealTotalMin)}{"\u2013"}{hm(_freeProfile.idealTotalMax)}</div>
                       </div>
                     </div>
@@ -30390,7 +30394,7 @@ function App(){
                             {/* Timeline line */}
                             <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:20,flexShrink:0}}>
                               <div style={{width:item.active?14:10,height:item.active?14:10,borderRadius:"50%",background:item.done?C.mint:item.active?C.gold:item.overdue?C.gold:item.bridge?C.gold+"30":"var(--card-bg)",border:`2px solid ${item.done?C.mint:item.active?C.gold:item.overdue?C.gold:item.bridge?C.gold:C.blush}`,flexShrink:0,marginTop:4,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                                {item.done && <span style={{fontSize:6,color:"white"}}>✓</span>}
+                                {item.done && <span style={{fontSize:10,color:"white"}}>✓</span>}
                               </div>
                               {!isLast && <div style={{width:2,flex:1,background:`linear-gradient(${lineColor}, ${items[i+1]?.done?C.mint:C.blush})`,minHeight:12,borderRadius:1}}/>}
                             </div>
@@ -30400,7 +30404,7 @@ function App(){
                                 <span style={_S.f13}>{item.icon}</span>
                                 <span style={{fontSize:13,fontWeight:600,color:item.active?C.gold:item.overdue?C.gold:item.bridge?C.gold:C.deep}}>{item.label}</span>
                                 <span style={{fontSize:12,color:item.done?C.mid:item.active?C.gold:C.lt,fontFamily:_fM}}>{item.time}</span>
-                                {item.predicted && <span style={{fontSize:9,fontFamily:_fM,color:C.blush,background:"var(--chip-bg)",padding:"1px 6px",borderRadius:99}}>predicted</span>}
+                                {item.predicted && <span style={{fontSize:10,fontFamily:_fM,color:C.blush,background:"var(--chip-bg)",padding:"1px 6px",borderRadius:99}}>predicted</span>}
                               </div>
                               {item.sub && <div style={{fontSize:10,color:item.overdue?C.gold:item.bridge?C.gold:C.lt,fontFamily:_fM,marginTop:1,marginLeft:22}}>{item.sub}</div>}
                             </div>
@@ -30592,13 +30596,13 @@ function App(){
                         {_wr.solidDayAvg && (
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
                             <span style={{color:C.mid}}>🥕 On solid-trial days</span>
-                            <span style={{color:C.deep,fontWeight:700}}>~{_wr.solidDayAvg}ml <span style={{fontSize:9,color:C.lt,fontWeight:500}}>({_wr.solidDayCount} days)</span></span>
+                            <span style={{color:C.deep,fontWeight:700}}>~{_wr.solidDayAvg}ml <span style={{fontSize:10,color:C.lt,fontWeight:500}}>({_wr.solidDayCount} days)</span></span>
                           </div>
                         )}
                         {_wr.milkOnlyDayAvg && (
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"3px 0",fontSize:12}}>
                             <span style={{color:C.mid}}>🍼 On milk-only days</span>
-                            <span style={{color:C.deep,fontWeight:700}}>~{_wr.milkOnlyDayAvg}ml <span style={{fontSize:9,color:C.lt,fontWeight:500}}>({_wr.milkOnlyDayCount} days)</span></span>
+                            <span style={{color:C.deep,fontWeight:700}}>~{_wr.milkOnlyDayAvg}ml <span style={{fontSize:10,color:C.lt,fontWeight:500}}>({_wr.milkOnlyDayCount} days)</span></span>
                           </div>
                         )}
                         {_wr.solidDayAvg && _wr.milkOnlyDayAvg && (
@@ -30715,7 +30719,7 @@ function App(){
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>A personalised 14-day sleep plan is waiting for you in the <strong style={{color:C.deep}}>Insights</strong> tab.</div>
                       </div>
                       <button onClick={()=>{haptic();try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setTab("insights");}} style={{padding:"6px 12px",borderRadius:99,border:"none",background:"#7b68ee",color:"white",fontSize:11,fontWeight:700,cursor:_cP,flexShrink:0}}>Go →</button>
-                      <button onClick={()=>{try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"2px"}}>✕</button>
+                      <button onClick={()=>{try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                     </div>
                   );
                 } catch { return null; }
@@ -30860,7 +30864,7 @@ function App(){
                               <div style={{fontSize:14,fontWeight:600,color:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"flex",alignItems:"center",gap:6}}>
                                 <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{actLabel}</span>
                                 {e.loggedBy==="grandparent" && <span title="Logged by caregiver" style={{fontSize:11,padding:"1px 6px",borderRadius:99,background:"rgba(123,166,140,0.15)",color:C.mint,fontWeight:700,flexShrink:0}}>👵</span>}
-                                {e.loggedBy==="carer" && <span title="Auto-added from Bubba Care" style={{fontSize:9,padding:"2px 6px",borderRadius:99,background:"rgba(123,104,238,0.12)",color:"#7B68EE",fontWeight:700,flexShrink:0,fontFamily:_fM}}>CARER</span>}
+                                {e.loggedBy==="carer" && <span title="Auto-added from Bubba Care" style={{fontSize:10,padding:"2px 6px",borderRadius:99,background:"rgba(123,104,238,0.12)",color:"#7B68EE",fontWeight:700,flexShrink:0,fontFamily:_fM}}>CARER</span>}
                               </div>
                               {subDetail&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subDetail}</div>}
                             </div>
@@ -31277,7 +31281,7 @@ function App(){
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                         <span style={_S.f20}>🎯</span>
                         <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Tip of the day</div>
-                        <span style={{marginLeft:"auto",fontSize:9,fontFamily:_fM,padding:"2px 8px",borderRadius:99,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontWeight:700,letterSpacing:"0.05em"}}>PREMIUM</span>
+                        <span style={{marginLeft:"auto",fontSize:10,fontFamily:_fM,padding:"2px 8px",borderRadius:99,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontWeight:700,letterSpacing:"0.05em"}}>PREMIUM</span>
                       </div>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>Personalised daily tips for {babyName||"baby"}</div>
                       <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:6}}>A single, priority-ranked action each day. built from your baby's sleep patterns, feeds, and rhythm. No scrolling. No decision fatigue.</div>
@@ -31364,7 +31368,7 @@ function App(){
                         </div>
                       </div>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        {!_unlockedSC2 && <span style={{fontSize:9,padding:"2px 8px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
+                        {!_unlockedSC2 && <span style={{fontSize:10,padding:"2px 8px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
                         <span style={{fontSize:16,color:C.lt}}>→</span>
                       </div>
                     </div>
@@ -31380,7 +31384,7 @@ function App(){
                     <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:2}}>For less than a coffee a month, gift yourself better nights and happier days. {babyName||"Your little one"} deserves a well-rested parent too.</div>
                   </div>
                   <button onClick={()=>triggerPaywall("trial")} style={{padding:"7px 14px",borderRadius:99,background:C.ter,color:"white",border:"none",fontSize:11,fontWeight:700,cursor:_cP,marginRight:8,whiteSpace:"nowrap"}}>See plans</button>
-                  <button onClick={()=>{setTrialBannerDismissed(true);try{localStorage.setItem("trial_banner_date",todayStr());}catch{};}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP}}>✕</button>
+                  <button onClick={()=>{setTrialBannerDismissed(true);try{localStorage.setItem("trial_banner_date",todayStr());}catch{};}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
                 </div>
               )}
 
@@ -31664,7 +31668,7 @@ function App(){
                           </svg>
                           <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
                             <div style={{fontSize:28,fontWeight:700,color:_scoreColor,lineHeight:1}}>{_score}</div>
-                            <div style={{fontSize:9,color:C.lt,fontFamily:_fM}}>SLEEP</div>
+                            <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>SLEEP</div>
                           </div>
                         </div>
                         <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:2}}>
@@ -31924,7 +31928,7 @@ function App(){
                       <div onClick={()=>{haptic();triggerPaywall("rhythm_check");}} className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.ter}35`,background:`linear-gradient(135deg,${C.ter}06,${C.mint}04)`,cursor:_cP}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                           <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>{_name}'s Rhythm</div>
-                          <span style={{fontSize:9,fontFamily:_fM,padding:"2px 8px",borderRadius:99,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontWeight:700,letterSpacing:"0.05em"}}>PREMIUM</span>
+                          <span style={{fontSize:10,fontFamily:_fM,padding:"2px 8px",borderRadius:99,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontWeight:700,letterSpacing:"0.05em"}}>PREMIUM</span>
                         </div>
                         <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>See {_name}'s personal wake-window pattern</div>
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:6}}>Per-position wake windows vs healthy range for {_name}'s age. Catches overtired or undertired drift before it becomes a pattern. Includes time-of-day view.</div>
@@ -31948,7 +31952,7 @@ function App(){
                     <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
                         <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>{_name}'s Rhythm</div>
-                        <span style={{fontSize:9,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,background:"var(--card-bg-alt)",padding:"2px 8px",borderRadius:99}}>{_pr.confidence}</span>
+                        <span style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,background:"var(--card-bg-alt)",padding:"2px 8px",borderRadius:99}}>{_pr.confidence}</span>
                       </div>
                       <div style={{fontSize:11,color:C.lt,marginBottom:10,fontFamily:_fM}}>From {_pr.sampleDays} days · healthy range {hm(_pr.healthyBase.ageMin)}–{hm(_pr.healthyBase.ageMax)}</div>
                       {/* Position rows */}
@@ -31999,7 +32003,7 @@ function App(){
                         return (
                           <details style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`}}>
                             <summary style={{cursor:_cP,fontSize:11,color:C.ter,fontWeight:600,listStyle:"none",WebkitAppearance:"none",display:"flex",alignItems:"center",gap:4}}>
-                              🕐 View by time of day <span style={{fontSize:8}}>▼</span>
+                              🕐 View by time of day <span style={{fontSize:10}}>▼</span>
                             </summary>
                             <div style={{marginTop:8}}>
                               {_filled.map((b,i)=>{
@@ -32027,7 +32031,7 @@ function App(){
                         return (
                           <details style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`}}>
                             <summary style={{cursor:_cP,fontSize:11,color:C.ter,fontWeight:600,listStyle:"none",WebkitAppearance:"none",display:"flex",alignItems:"center",gap:4}}>
-                              🔗 How nap length affects next window <span style={{fontSize:8}}>▼</span>
+                              🔗 How nap length affects next window <span style={{fontSize:10}}>▼</span>
                             </summary>
                             <div style={{marginTop:8,fontSize:12,color:C.mid,lineHeight:1.6}}>
                               {_hasShort && <div style={{marginBottom:4}}>After a <strong>short nap</strong> (under 45min): next window ~<strong style={{color:C.ter}}>{hm(_c.afterShort.median)}</strong> ({_c.afterShort.n} sample{_c.afterShort.n!==1?"s":""})</div>}
@@ -32211,7 +32215,7 @@ function App(){
                       {/* Time axis labels */}
                       <div style={{display:"flex",marginBottom:4,paddingLeft:30}}>
                         {[6,9,12,15,18,21].map(h=>(
-                          <div key={h} style={{flex:1,fontSize:9,color:C.lt,fontFamily:"monospace",textAlign:"left"}}>{h > 12 ? (h-12)+"pm" : h+"am"}</div>
+                          <div key={h} style={{flex:1,fontSize:10,color:C.lt,fontFamily:"monospace",textAlign:"left"}}>{h > 12 ? (h-12)+"pm" : h+"am"}</div>
                         ))}
                       </div>
                       {_last7.map((dk,rowIdx)=>{
@@ -32225,7 +32229,7 @@ function App(){
                         const _bedM = _bedE ? timeVal(_bedE) : null;
                         return (
                           <div key={dk} style={{display:"flex",alignItems:"center",marginBottom:3}}>
-                            <div style={{width:26,fontSize:9,color:_isToday?C.ter:C.lt,fontWeight:_isToday?700:400,fontFamily:"monospace",flexShrink:0}}>{_dayLbl}</div>
+                            <div style={{width:26,fontSize:10,color:_isToday?C.ter:C.lt,fontWeight:_isToday?700:400,fontFamily:"monospace",flexShrink:0}}>{_dayLbl}</div>
                             <div style={{flex:1,height:14,position:"relative",background:"var(--card-bg-alt)",borderRadius:4,overflow:"hidden"}}>
                               {/* Wake marker */}
                               {_wakeM !== null && <div style={{position:"absolute",left:_toPercent(_wakeM)+"%",top:0,width:2,height:"100%",background:C.mint,borderRadius:1}}/>}
@@ -32317,7 +32321,7 @@ function App(){
                           </svg>
                           <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
                             <div style={{fontSize:24,fontWeight:700,color:_bColor,lineHeight:1}}>{fc.breastCountToday}</div>
-                            <div style={{fontSize:9,color:C.lt,fontFamily:_fM}}>FEEDS</div>
+                            <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>FEEDS</div>
                           </div>
                         </div>
                         <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>
@@ -32377,7 +32381,7 @@ function App(){
                         </svg>
                         <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
                           <div style={{fontSize:28,fontWeight:700,color:_scoreColor,lineHeight:1}}>{_pct}</div>
-                          <div style={{fontSize:9,color:C.lt,fontFamily:_fM}}>FEED</div>
+                          <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>FEED</div>
                         </div>
                       </div>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>
@@ -33038,7 +33042,7 @@ function App(){
                         </svg>
                         <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
                           <div style={{fontSize:28,fontWeight:700,color:_scColor,lineHeight:1}}>{_sc}</div>
-                          <div style={{fontSize:9,color:C.lt,fontFamily:_fM}}>DAY</div>
+                          <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>DAY</div>
                         </div>
                       </div>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>
@@ -33069,7 +33073,7 @@ function App(){
                               <button key={i} onClick={()=>{haptic();setScoreDetail(c);}} style={{padding:"8px 6px",borderRadius:12,background:_col+"10",border:`1px solid ${_col}25`,textAlign:"center",cursor:_cP,fontFamily:_fI}}>
                                 <div style={{fontSize:16,marginBottom:2}}>{c.emoji}</div>
                                 <div style={{fontSize:14,fontWeight:700,color:_col,fontFamily:_fM,lineHeight:1}}>{c.val}<span style={{fontSize:10,color:C.lt,fontWeight:400}}>/{c.max}</span></div>
-                                <div style={{fontSize:9,color:C.lt,fontFamily:_fM,marginTop:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{c.label}</div>
+                                <div style={{fontSize:10,color:C.lt,fontFamily:_fM,marginTop:3,textTransform:"uppercase",letterSpacing:"0.05em"}}>{c.label}</div>
                               </button>
                             );
                           })}
@@ -33108,9 +33112,9 @@ function App(){
                             const isToday = s.day === selDay;
                             return (
                               <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                                <div style={{fontSize:9,fontWeight:isToday?700:400,color:isToday?c:C.lt}}>{s.score}</div>
+                                <div style={{fontSize:10,fontWeight:isToday?700:400,color:isToday?c:C.lt}}>{s.score}</div>
                                 <div style={{width:"100%",height:h,borderRadius:4,background:isToday?c:c+"40",transition:"height 0.3s"}}/>
-                                <div style={{fontSize:8,color:isToday?C.deep:C.lt,fontFamily:_fM}}>{s.day.slice(8)}</div>
+                                <div style={{fontSize:10,color:isToday?C.deep:C.lt,fontFamily:_fM}}>{s.day.slice(8)}</div>
                               </div>
                             );
                           })}
@@ -33628,7 +33632,7 @@ function App(){
                         data-tip-toggle="1"
                         onClick={e=>{e.stopPropagation();haptic();setTipOpen(v=>!v);}}
                         style={{background:"none",border:"none",padding:0,fontSize:11,fontWeight:600,color:"#9878d0",cursor:_cP,display:"flex",alignItems:"center",gap:4,fontFamily:_fM}}>
-                        <span>💡</span> <span>Try this to help</span> <span style={{fontSize:9,color:C.lt,transform:tipOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s",display:"inline-block"}}>▼</span>
+                        <span>💡</span> <span>Try this to help</span> <span style={{fontSize:10,color:C.lt,transform:tipOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.15s",display:"inline-block"}}>▼</span>
                       </button>
                       {tipOpen && (
                         <div
@@ -34231,7 +34235,7 @@ function App(){
                               <div style={_S.flex1}>
                                 <div style={{display:"flex",alignItems:"center",gap:6}}>
                                   <span style={{fontSize:12,fontWeight:700,color:C.deep}}>{eq.item}</span>
-                                  {eq.essential && <span style={{fontSize:9,background:`${C.mint}15`,color:C.mint,padding:"1px 6px",borderRadius:99,fontWeight:600}}>ESSENTIAL</span>}
+                                  {eq.essential && <span style={{fontSize:10,background:`${C.mint}15`,color:C.mint,padding:"1px 6px",borderRadius:99,fontWeight:600}}>ESSENTIAL</span>}
                                 </div>
                                 <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginTop:2}}>{eq.desc}</div>
                               </div>
@@ -34742,7 +34746,7 @@ function App(){
                           <div style={{background:_dw.urgency==="high"?"rgba(232,87,74,0.08)":"rgba(192,112,136,0.06)",border:"1px solid "+(_dw.urgency==="high"?"rgba(232,87,74,0.35)":"rgba(192,112,136,0.25)"),borderRadius:10,padding:"10px 12px",marginBottom:10}}>
                             <div style={{fontSize:10,fontFamily:_fM,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
                               <span>🥣 Weaning analyser</span>
-                              {!_unlockedW && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                              {!_unlockedW && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
                             </div>
                             <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_dw.emoji} {_dw.title}</div>
                             {_unlockedW ? (
@@ -34766,8 +34770,8 @@ function App(){
                       <div style={_S.flex1}>
                         <div style={{fontSize:15,fontWeight:700,color:C.deep}}>
                           {_ft.food}
-                          {_isAllergen && <span style={{fontSize:9,background:"rgba(212,168,85,0.2)",color:C.gold,padding:"1px 6px",borderRadius:99,marginLeft:6,fontWeight:600}}>ALLERGEN</span>}
-                          {_ft.iron && <span style={{fontSize:9,background:"rgba(80,200,120,0.15)",color:C.mint,padding:"1px 6px",borderRadius:99,marginLeft:4,fontWeight:600}}>IRON-RICH</span>}
+                          {_isAllergen && <span style={{fontSize:10,background:"rgba(212,168,85,0.2)",color:C.gold,padding:"1px 6px",borderRadius:99,marginLeft:6,fontWeight:600}}>ALLERGEN</span>}
+                          {_ft.iron && <span style={{fontSize:10,background:"rgba(80,200,120,0.15)",color:C.mint,padding:"1px 6px",borderRadius:99,marginLeft:4,fontWeight:600}}>IRON-RICH</span>}
                         </div>
                         <div style={{fontSize:12,color:C.mid,marginTop:2}}>{_ft.note}</div>
                       </div>
@@ -34926,7 +34930,7 @@ function App(){
                                 {_noProfile ? "Complete safety check to unlock allergen suggestions"
                                  : _gpFirst ? "Speak to your GP before introducing allergens"
                                  : _tmr.food}
-                                {!_noProfile && !_gpFirst && _tmrIsAllergen && <span style={{fontSize:9,background:"rgba(212,168,85,0.2)",color:C.gold,padding:"1px 6px",borderRadius:99,marginLeft:6,fontWeight:600}}>ALLERGEN</span>}
+                                {!_noProfile && !_gpFirst && _tmrIsAllergen && <span style={{fontSize:10,background:"rgba(212,168,85,0.2)",color:C.gold,padding:"1px 6px",borderRadius:99,marginLeft:6,fontWeight:600}}>ALLERGEN</span>}
                               </div>
                             </div>
                           </div>
@@ -35470,7 +35474,7 @@ function App(){
                         <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:6}}>Top iron-rich foods for babies</div>
                         {IRON_GUIDE.topFoods.map((f,i)=>(
                           <div key={i} style={{display:"flex",gap:8,padding:"5px 0",borderTop:i?`1px solid ${C.blush}`:"none",fontSize:12}}>
-                            <span style={{fontSize:9,padding:"2px 6px",borderRadius:99,background:f.type==="heme"?"rgba(192,64,64,0.1)":"rgba(80,200,120,0.1)",color:f.type==="heme"?"#c04040":C.mint,fontWeight:600,whiteSpace:"nowrap",alignSelf:"center"}}>{f.type==="heme"?"HEME":"PLANT"}</span>
+                            <span style={{fontSize:10,padding:"2px 6px",borderRadius:99,background:f.type==="heme"?"rgba(192,64,64,0.1)":"rgba(80,200,120,0.1)",color:f.type==="heme"?"#c04040":C.mint,fontWeight:600,whiteSpace:"nowrap",alignSelf:"center"}}>{f.type==="heme"?"HEME":"PLANT"}</span>
                             <div><strong style={{color:C.deep}}>{f.food}</strong> <span style={{color:C.mid}}>, {f.note}</span></div>
                           </div>
                         ))}
@@ -35637,7 +35641,7 @@ function App(){
                       {WEANING_STAGES.map(s=>(
                         <button key={s.id} onClick={()=>{haptic(8);_setRecipeStage(s.id);_setRecipeOpen(null);}}
                           style={{display:"flex",alignItems:"center",gap:4,padding:"6px 12px",borderRadius:99,border:`1.5px solid ${_recipeStage===s.id?C.ter:C.blush}`,background:_recipeStage===s.id?C.ter+"12":"var(--card-bg)",color:_recipeStage===s.id?C.ter:C.mid,fontSize:11,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0}}>
-                          <span style={{width:16,height:16,borderRadius:"50%",background:_recipeStage===s.id?C.ter:C.lt,color:"white",fontSize:9,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{s.id}</span>
+                          <span style={{width:16,height:16,borderRadius:"50%",background:_recipeStage===s.id?C.ter:C.lt,color:"white",fontSize:10,fontWeight:700,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{s.id}</span>
                           {s.name}
                         </button>
                       ))}
@@ -35668,10 +35672,10 @@ function App(){
                               <div style={{minWidth:0}}>
                                 <div style={{fontSize:13,fontWeight:600,color:_isOpen?C.ter:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.name}</div>
                                 <div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
-                                  {r.iron && <span style={{fontSize:9,padding:"1px 5px",borderRadius:99,background:`${C.mint}15`,color:C.mint,fontWeight:600}}>IRON</span>}
-                                  {r.vitC && <span style={{fontSize:9,padding:"1px 5px",borderRadius:99,background:"rgba(255,165,0,0.12)",color:"#d4a855",fontWeight:600}}>VIT C</span>}
-                                  {r.allergens&&r.allergens.length>0 && <span style={{fontSize:9,padding:"1px 5px",borderRadius:99,background:"rgba(232,87,74,0.12)",color:"#c04040",fontWeight:600}}>ALLERGEN</span>}
-                                  {r.allergens.map(a=><span key={a} style={{fontSize:9,padding:"1px 5px",borderRadius:99,background:`${C.gold}15`,color:C.gold,fontWeight:600}}>{a}</span>)}
+                                  {r.iron && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:`${C.mint}15`,color:C.mint,fontWeight:600}}>IRON</span>}
+                                  {r.vitC && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:"rgba(255,165,0,0.12)",color:"#d4a855",fontWeight:600}}>VIT C</span>}
+                                  {r.allergens&&r.allergens.length>0 && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:"rgba(232,87,74,0.12)",color:"#c04040",fontWeight:600}}>ALLERGEN</span>}
+                                  {r.allergens.map(a=><span key={a} style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:`${C.gold}15`,color:C.gold,fontWeight:600}}>{a}</span>)}
                                 </div>
                               </div>
                             </div>
@@ -35767,15 +35771,15 @@ function App(){
                     <div style={{display:"flex",gap:8,marginBottom:12}}>
                       <div style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:"var(--card-bg-alt)"}}>
                         <span style={{fontSize:12}}>🥩</span>
-                        <div><div style={{fontSize:12,fontWeight:700,color:C.deep}}>{_ironFoods}</div><div style={{fontSize:9,color:C.lt}}>Iron-rich meals</div></div>
+                        <div><div style={{fontSize:12,fontWeight:700,color:C.deep}}>{_ironFoods}</div><div style={{fontSize:10,color:C.lt}}>Iron-rich meals</div></div>
                       </div>
                       <div style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:"var(--card-bg-alt)"}}>
                         <span style={{fontSize:12}}>👎</span>
-                        <div><div style={{fontSize:12,fontWeight:700,color:C.deep}}>{_disliked}</div><div style={{fontSize:9,color:C.lt}}>Disliked</div></div>
+                        <div><div style={{fontSize:12,fontWeight:700,color:C.deep}}>{_disliked}</div><div style={{fontSize:10,color:C.lt}}>Disliked</div></div>
                       </div>
                       {_reactions > 0 && <div style={{flex:1,display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:10,background:"rgba(232,87,74,0.05)"}}>
                         <span style={{fontSize:12}}>⚠️</span>
-                        <div><div style={{fontSize:12,fontWeight:700,color:"#c04040"}}>{_reactions}</div><div style={{fontSize:9,color:C.lt}}>Reactions</div></div>
+                        <div><div style={{fontSize:12,fontWeight:700,color:"#c04040"}}>{_reactions}</div><div style={{fontSize:10,color:C.lt}}>Reactions</div></div>
                       </div>}
                     </div>
 
@@ -35877,7 +35881,7 @@ function App(){
                       <button key={c.key} onClick={()=>setMsFilter(c.key)}
                         style={{flexShrink:0,display:"flex",alignItems:"center",gap:4,padding:"7px 14px",borderRadius:999,border:msFilter===c.key?`1.5px solid ${c.key==="all"?C.ter:(catColors[c.key]||C.ter)}`:"1px solid var(--card-border)",background:msFilter===c.key?(c.key==="all"?C.ter:(catColors[c.key]||C.ter))+"10":"var(--chip-bg)",color:msFilter===c.key?(c.key==="all"?C.ter:(catColors[c.key]||C.ter)):C.mid,fontSize:12,fontWeight:msFilter===c.key?700:400,cursor:_cP,fontFamily:_fI,whiteSpace:"nowrap"}}>
                         {c.icon} {c.label}
-                        {dueCount > 0 && <span style={{background:msFilter===c.key?(c.key==="all"?C.ter:(catColors[c.key]||C.ter)):"rgba(0,0,0,0.08)",color:msFilter===c.key?"white":C.lt,fontSize:9,fontWeight:700,borderRadius:99,padding:"1px 6px",minWidth:16,textAlign:"center"}}>{dueCount}</span>}
+                        {dueCount > 0 && <span style={{background:msFilter===c.key?(c.key==="all"?C.ter:(catColors[c.key]||C.ter)):"rgba(0,0,0,0.08)",color:msFilter===c.key?"white":C.lt,fontSize:10,fontWeight:700,borderRadius:99,padding:"1px 6px",minWidth:16,textAlign:"center"}}>{dueCount}</span>}
                       </button>
                     );
                   })}
@@ -36352,7 +36356,7 @@ function App(){
             <div style={_S.flexCenter10}>
               <span style={_S.f18}>{"\u{1F305}"}</span>
               <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Day starts at</span>
-              <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight belong to yesterday's bedtime. This is what sleep consultants use.\n\n\u{1F55B} Midnight. Simple calendar days. 1am entries show on today. Some parents find this more intuitive."}/>
+              <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight stay with yesterday's bedtime until you log a morning wake. This is what sleep consultants use.\n\n\u{1F55B} Midnight. Simple calendar days. Anything logged after 12:00am midnight appears on the new day. Night wakes at 1am, 3am etc. show on today, not yesterday."}/>
             </div>
             <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:"1px solid "+C.blush,overflow:"hidden",marginTop:8,marginBottom:8}}>
               <button onClick={()=>{setDayBoundary("wake");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"wake"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
@@ -36546,11 +36550,11 @@ function App(){
                         <div style={{fontSize:12,fontWeight:600,color:C.deep}}>{item.label}</div>
                         <div style={{fontSize:10,color:C.lt}}>{item.note}</div>
                       </div>
-                      <span style={{fontSize:9,color:C.lt}}>{item.source} ↗</span>
+                      <span style={{fontSize:10,color:C.lt}}>{item.source} ↗</span>
                     </button>
                   ))}
                 </div>
-                <div style={{fontSize:9,color:C.lt,marginTop:6,textAlign:"center",fontStyle:"italic"}}>Not medical advice · Emergency: {emergNum}</div>
+                <div style={{fontSize:10,color:C.lt,marginTop:6,textAlign:"center",fontStyle:"italic"}}>Not medical advice · Emergency: {emergNum}</div>
               </div>
               );
             })()}
@@ -37620,10 +37624,10 @@ function App(){
                 const _sel = (paywallPlan||"annual") === plan.key;
                 return (
                   <button key={plan.key} onClick={()=>setPaywallPlan(plan.key)} style={{flex:1,padding:"10px 6px",borderRadius:14,border:_sel?`2px solid ${C.ter}`:`1.5px solid ${C.blush||"#e8d5cf"}`,background:_sel?(C.ter+"0C"):"transparent",cursor:_cP,textAlign:"center",position:"relative",transition:"all 0.2s"}}>
-                    {plan.badge && <div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:8,fontWeight:700,color:"white",background:plan.key==="lifetime"?C.mint||"#6FA898":C.ter,padding:"2px 7px",borderRadius:99,whiteSpace:"nowrap"}}>{plan.badge}</div>}
-                    <div style={{fontSize:9,fontWeight:600,color:C.mid,marginBottom:2}}>{plan.label}</div>
+                    {plan.badge && <div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:10,fontWeight:700,color:"white",background:plan.key==="lifetime"?C.mint||"#6FA898":C.ter,padding:"2px 7px",borderRadius:99,whiteSpace:"nowrap"}}>{plan.badge}</div>}
+                    <div style={{fontSize:10,fontWeight:600,color:C.mid,marginBottom:2}}>{plan.label}</div>
                     <div style={{fontSize:16,fontWeight:800,color:_sel?C.ter:C.deep}}>{plan.price}</div>
-                    <div style={{fontSize:9,color:C.lt}}>{plan.sub}</div>
+                    <div style={{fontSize:10,color:C.lt}}>{plan.sub}</div>
                   </button>
                 );
               })}
@@ -38661,7 +38665,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{m.name}</div>
                       <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>Based on {m.source}</div>
                     </div>
-                    {_hasActive3 && _sc3.style === m.id && <span style={{fontSize:9,padding:"2px 8px",borderRadius:99,background:C.ter+"22",color:C.ter,fontWeight:700,marginLeft:"auto"}}>ACTIVE</span>}
+                    {_hasActive3 && _sc3.style === m.id && <span style={{fontSize:10,padding:"2px 8px",borderRadius:99,background:C.ter+"22",color:C.ter,fontWeight:700,marginLeft:"auto"}}>ACTIVE</span>}
                   </div>
                   <div style={{fontSize:13,color:C.deep,fontWeight:600,marginBottom:6}}>{m.summary}</div>
                   <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:8}}>{m.how}</div>
@@ -38812,7 +38816,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   <div style={{padding:"14px 16px",borderRadius:16,background:"linear-gradient(135deg,rgba(192,112,136,0.08),rgba(212,168,85,0.05))",border:"1.5px solid rgba(192,112,136,0.3)",marginBottom:14}}>
                     <div style={{fontSize:11,fontFamily:_fM,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:6,display:"flex",alignItems:"center",gap:4}}>
                       <span>✨ Full OBubba analysis</span>
-                      {!_unlockedT && !_isUrgent && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
+                      {!_unlockedT && !_isUrgent && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
                     </div>
                     <div style={{fontSize:10,color:C.lt,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em"}}>Most likely · from {_sourceLabel}</div>
                     <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:4}}>{_triage.top.emoji} {_triage.top.title}</div>
@@ -38865,8 +38869,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   <div style={_S.flex1}>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
                       <span style={{fontSize:15,fontWeight:700,color:r.urgency==="high"?C.ter:r.urgency==="med"?C.gold:C.deep}}>{r.title}</span>
-                      {i===0&&!lowConf&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.ter+"22",color:C.ter,fontWeight:700,fontFamily:_fM}}>MOST LIKELY</span>}
-                      {pct>0&&<span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700,fontFamily:_fM}}>HELPED {pct}%</span>}
+                      {i===0&&!lowConf&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:C.ter+"22",color:C.ter,fontWeight:700,fontFamily:_fM}}>MOST LIKELY</span>}
+                      {pct>0&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:C.mint+"22",color:C.mint,fontWeight:700,fontFamily:_fM}}>HELPED {pct}%</span>}
                     </div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.4,marginBottom:4}}>{r.detail}</div>
                     <div style={{fontSize:12,color:C.deep,fontWeight:600,lineHeight:1.4}}>💡 {r.action}</div>
@@ -39658,7 +39662,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{padding:"12px 14px",borderRadius:14,background:`linear-gradient(135deg,rgba(155,139,184,0.08),rgba(111,168,152,0.04))`,border:"1px solid rgba(155,139,184,0.2)",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                 <span style={{fontSize:11,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.05em"}}>💡 Tonight's tip</span>
-                <span style={{fontSize:9,color:C.lt}}>· one new idea per night</span>
+                <span style={{fontSize:10,color:C.lt}}>· one new idea per night</span>
               </div>
               <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
                 <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{_nightTip.emoji}</span>
@@ -41622,8 +41626,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         {s.val}
                         {t&&t.arrow&&t.arrow!=="→"&&<span style={{fontSize:11,color:t.color,fontWeight:800}}>{t.arrow}</span>}
                       </div>
-                      <div style={{fontSize:9,color:C.lt,fontFamily:_fM,textTransform:"uppercase",marginTop:2}}>{s.label}</div>
-                      {t&&t.arrow&&t.arrow!=="→"&&<div style={{fontSize:8,color:t.color,fontFamily:_fM,marginTop:1}}>vs last week</div>}
+                      <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",marginTop:2}}>{s.label}</div>
+                      {t&&t.arrow&&t.arrow!=="→"&&<div style={{fontSize:10,color:t.color,fontFamily:_fM,marginTop:1}}>vs last week</div>}
                     </div>
                   );
                 })}
@@ -41734,7 +41738,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               })()}
 
               {/* Source attribution */}
-              <div style={{fontSize:9,color:C.lt,textAlign:"center",marginBottom:12,lineHeight:1.4}}>
+              <div style={{fontSize:10,color:C.lt,textAlign:"center",marginBottom:12,lineHeight:1.4}}>
                 Sleep: NHS/AASM · Growth: WHO · Feeding: NHS/WHO · Development: NHS Start4Life
               </div>
 
@@ -42318,7 +42322,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                             {recipe.iron && " · iron-rich"}
                             {recipe.allergens && recipe.allergens.length > 0 && " · allergen"}
                           </div>
-                          <div style={{fontSize:9,color:C.lt,lineHeight:1.35,marginTop:2,whiteSpace:"normal",wordBreak:"break-word"}}>{recipe.ingredients}</div>
+                          <div style={{fontSize:10,color:C.lt,lineHeight:1.35,marginTop:2,whiteSpace:"normal",wordBreak:"break-word"}}>{recipe.ingredients}</div>
                         </button>
                       );
                     })}
@@ -42688,7 +42692,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                             <div style={_S.flex1}>
                               <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
                                 <span style={{fontSize:13,fontWeight:700,color:_isDone?C.lt:_isOd?C.gold:C.deep}}>{v.label}</span>
-                                {_isOd&&<span style={{fontSize:9,background:"rgba(212,168,85,0.15)",color:C.gold,padding:"1px 6px",borderRadius:99,fontWeight:700}}>DUE</span>}
+                                {_isOd&&<span style={{fontSize:10,background:"rgba(212,168,85,0.15)",color:C.gold,padding:"1px 6px",borderRadius:99,fontWeight:700}}>DUE</span>}
                               </div>
                               <div style={{fontSize:11,color:C.lt,marginBottom:3}}>{_fmt(v.due)}</div>
                               {v.jabs.map((j,ji)=><div key={ji} style={{fontSize:11,color:_isDone?C.lt:C.mid}}>• {j}</div>)}
