@@ -42,6 +42,24 @@ public class WidgetBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setTheme(PluginCall call) {
+        String theme = call.getString("theme", "auto");
+        getSharedPrefs().edit().putString("widgetTheme", theme).apply();
+
+        // Trigger widget update so it redraws with new theme
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
+        ComponentName widgetComponent = new ComponentName(getContext(), OBubbaSummaryWidget.class);
+        int[] widgetIds = appWidgetManager.getAppWidgetIds(widgetComponent);
+        if (widgetIds.length > 0) {
+            OBubbaSummaryWidget.updateWidgets(getContext(), appWidgetManager, widgetIds);
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("theme", theme);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void reloadAll(PluginCall call) {
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(getContext());
         ComponentName widgetComponent = new ComponentName(getContext(), OBubbaSummaryWidget.class);

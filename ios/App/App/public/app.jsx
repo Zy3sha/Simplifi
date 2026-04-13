@@ -36322,6 +36322,47 @@ function App(){
               </div>
             </div>
 
+            {/* Widget theme picker */}
+            <div style={{marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={_S.f18}>🎨</span>
+                <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Widget Colour</span>
+              </div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                {[
+                  {id:"auto",label:"Auto",color:"linear-gradient(135deg,#F5F0EB,#3A2E35)"},
+                  {id:"rose",label:"Rose",color:"#F5ECE8"},
+                  {id:"lavender",label:"Lavender",color:"#EDEAF5"},
+                  {id:"mint",label:"Mint",color:"#EAF5F0"},
+                  {id:"sky",label:"Sky",color:"#E8F0F5"},
+                  {id:"dark",label:"Dark",color:"#282025"},
+                ].map(t=>{
+                  const _wt = localStorage.getItem("ob_widget_theme")||"auto";
+                  const _active = _wt === t.id;
+                  return (
+                    <button key={t.id} onClick={()=>{
+                      haptic();
+                      try{localStorage.setItem("ob_widget_theme",t.id);}catch{}
+                      // Push to Android widget via SharedPreferences bridge
+                      try{
+                        if(window.Capacitor?.Plugins?.OBWidgetBridge){
+                          window.Capacitor.Plugins.OBWidgetBridge.setTheme({theme:t.id}).catch(()=>{});
+                        }
+                      }catch{}
+                      setForceRender(c=>c+1);
+                      showToast("Widget theme: "+t.label,1500,1);
+                    }} style={{
+                      width:44,height:44,borderRadius:12,border:_active?`2px solid ${C.ter}`:`1.5px solid ${C.blush}`,
+                      background:t.color,cursor:_cP,position:"relative",
+                      boxShadow:_active?"0 0 8px rgba(192,112,136,0.3)":"none"
+                    }}>
+                      {_active && <span style={{position:"absolute",bottom:-14,left:"50%",transform:"translateX(-50%)",fontSize:8,color:C.ter,fontWeight:700,fontFamily:_fM,whiteSpace:"nowrap"}}>{t.label}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Nappy reminder */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
               <div style={_S.flexCenter10}>

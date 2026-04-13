@@ -34,9 +34,36 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
     public static void updateWidgets(Context context, AppWidgetManager mgr, int[] ids) {
         SharedPreferences prefs = context.getSharedPreferences("obubba_widget_data", Context.MODE_PRIVATE);
         String json = prefs.getString("widgetData", null);
+        String widgetTheme = prefs.getString("widgetTheme", "auto");
 
         for (int id : ids) {
             RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_summary);
+
+            // Apply user-chosen widget colour theme
+            try {
+                int bgRes = R.drawable.widget_bg_gradient; // default (auto light/dark)
+                boolean isDarkTheme = false;
+                switch (widgetTheme) {
+                    case "rose": bgRes = R.drawable.widget_bg_rose; break;
+                    case "lavender": bgRes = R.drawable.widget_bg_lavender; break;
+                    case "mint": bgRes = R.drawable.widget_bg_mint; break;
+                    case "sky": bgRes = R.drawable.widget_bg_sky; break;
+                    case "dark": bgRes = R.drawable.widget_bg_dark; isDarkTheme = true; break;
+                }
+                v.setInt(R.id.widget_root, "setBackgroundResource", bgRes);
+                // Dark theme needs white text
+                if (isDarkTheme) {
+                    int white = 0xFFFFFFFF;
+                    v.setTextColor(R.id.tv_baby_name, white);
+                    v.setTextColor(R.id.tv_timer_label, 0xFFD0C8D0);
+                    v.setTextColor(R.id.timer_chrono, white);
+                    v.setTextColor(R.id.tv_prediction, 0xFFD0C8D0);
+                    v.setTextColor(R.id.tv_since, 0x90FFFFFF);
+                    v.setTextColor(R.id.tv_feed_label, white);
+                    v.setTextColor(R.id.tv_ns_label, white);
+                    v.setInt(R.id.tv_ns_icon, "setTextColor", white);
+                }
+            } catch (Exception e) { /* ignore theme errors */ }
 
             // Whole widget opens app
             Intent open = new Intent(context, MainActivity.class);
