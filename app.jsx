@@ -7662,10 +7662,7 @@ function App(){
   const[familyShareGate,setFamilyShareGate]=useState(false);
   const[showImportAfterSetup,setShowImportAfterSetup]=useState(false);
   // Aliases for questionnaire state setters (PWA uses Q*, native uses Fq*)
-  const[fqStep,setFqStep]=useState(0);
-  const[fqWakeTime,setFqWakeTime]=useState("");
-  const[fqFeedTime,setFqFeedTime]=useState("");
-  const[fqNappyTime,setFqNappyTime]=useState("");
+  // First-log questionnaire removed — dead state cleaned up in round 86
   const[showImportModal,setShowImportModal]=useState(false);
   const[importResult,setImportResult]=useState(null);
   // Stash raw CSV text between the preview and commit steps so the
@@ -26960,14 +26957,7 @@ function App(){
       if (childData) {
         updateChild({ name: (childData.name||"").trim(), dob: childData.dob||"", sex: childData.sex||"", dueDate: childData.dueDate||null });
       }
-      // Pre-set questionnaire defaults before closing setup
-      setFqWakeTime(nowTime());
-      setFqFeedTime((()=>{const d=new Date();d.setMinutes(d.getMinutes()-90);return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})());
-      setFqNappyTime((()=>{const d=new Date();d.setMinutes(d.getMinutes()-45);return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})());
-      setFqStep(0);
       setNeedsChildSetup(false);
-      // Delay so needsChildSetup screen unmounts first, then show questionnaire
-      setTimeout(()=>setShowFirstLogQ(true), 100);
     };
     return (
       <div style={{minHeight:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,30px) 24px 40px",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflowY:"auto"}}>
