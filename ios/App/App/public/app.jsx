@@ -32761,6 +32761,25 @@ function App(){
                 );
               })()}
 
+              {/* ═══ Insights Dashboard — navigation grid (moved up so users can jump into a section first) ═══ */}
+              {!insightFilter && (
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                  {[
+                    {id:"tomorrow",label:"Tomorrow",icon:"📅",color:C.gold},
+                    {id:"sleep",label:"Sleep",icon:"😴",color:C.sky},
+                    {id:"feeding",label:"Feeding",icon:"🍼",color:C.ter},
+                    {id:"growth",label:"Growth",icon:"📏",color:"#7B68EE"},
+                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️",color:"#7AABC4"},
+                    {id:"reports",label:"Reports",icon:"📊",color:C.mint},
+                  ].map(f=>(
+                    <button key={f.id} onClick={()=>{haptic(8);setInsightFilter(f.id);}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:78}}>
+                      <span style={{fontSize:22}}>{f.icon}</span>
+                      <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2}}>{f.label}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* ═══ Last Night at a Glance — rich analytical recap with timeline, diagnosis, actions ═══ */}
               {!insightFilter && (()=>{
                 try {
@@ -32898,46 +32917,18 @@ function App(){
                 } catch { return null; }
               })()}
 
-              {/* ═══ Travel / timezone adaptation plan ═══ */}
-              {!insightFilter && (()=>{
+              {/* ═══ Travel / timezone adaptation plan — only shown when active (empty state hidden to reduce home clutter; setup moved to Tomorrow tab) ═══ */}
+              {!insightFilter && travelContext && (()=>{
                 const _plan = getTravelAdaptationPlan();
+                if (!_plan) return null;
                 return (
                   <div className="glass-card" style={{..._S.card, padding:"14px 14px 12px"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                       <span style={{fontSize:16}}>✈️</span>
                       <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,flex:1}}>Travel plan</div>
-                      {travelContext && (
-                        <button onClick={()=>{if(confirm("Clear travel plan?")){setTravelContext(null);}}} style={{fontSize:10,color:C.lt,background:"none",border:"none",cursor:_cP,fontFamily:_fI}}>Clear</button>
-                      )}
+                      <button onClick={()=>{if(confirm("Clear travel plan?")){setTravelContext(null);}}} style={{fontSize:10,color:C.lt,background:"none",border:"none",cursor:_cP,fontFamily:_fI}}>Clear</button>
                     </div>
-                    {!_plan ? (
-                      <div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>Flying or changing timezone? OBubba can build a personalised adjustment plan (before / during / after) so {babyName||"baby"}'s body clock adapts smoothly.</div>
-                        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                          <label style={{fontSize:11,color:C.lt}}>Timezone offset (hours):</label>
-                          <input type="number" min="-12" max="14" step="1" placeholder="e.g. 5"
-                            onKeyDown={e=>{
-                              if(e.key==="Enter"){
-                                const v = parseInt(e.target.value,10);
-                                if(!isNaN(v) && v!==0 && v>=-12 && v<=14){
-                                  setTravelContext({offsetHrs:v, since:new Date().toISOString()});
-                                  e.target.value="";
-                                }
-                              }
-                            }}
-                            onBlur={e=>{
-                              const v = parseInt(e.target.value,10);
-                              if(!isNaN(v) && v!==0 && v>=-12 && v<=14){
-                                setTravelContext({offsetHrs:v, since:new Date().toISOString()});
-                                e.target.value="";
-                              }
-                            }}
-                            style={{width:70,padding:"5px 8px",borderRadius:8,border:`1px solid ${C.blush}`,fontFamily:_fI,fontSize:12,background:"var(--card-bg-solid)"}}/>
-                          <div style={{fontSize:10,color:C.lt}}>positive = east, negative = west</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
+                    <div>
                         <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>{_plan.title}</div>
                         <div style={{fontSize:11,color:C.lt,marginBottom:10}}>Strategy: <strong style={{color:C.mid}}>{_plan.strategy==="quick"?"adjust on arrival":_plan.strategy==="gradual"?"gradual pre-shift":"full reset at destination"}</strong> · Estimated {_plan.daysNeeded} day{_plan.daysNeeded!==1?"s":""} to adjust</div>
                         {_plan.prePlan.length>0 && (
@@ -32970,17 +32961,14 @@ function App(){
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 );
               })()}
 
-              {/* ═══ Night Weaning 7-Night Program ═══ */}
-              {!insightFilter && (()=>{
+              {/* ═══ Night Weaning 7-Night Program — only shown when active (intro/setup moved to Sleep tab to reduce home clutter) ═══ */}
+              {!insightFilter && nightWeanProg && (()=>{
                 const _nwWks = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
-                // Only surface for babies 6mo+ (NHS/UNICEF guidance minimum)
-                if (_nwWks < 26 && !nightWeanProg) return null;
                 const _curNight = nightWeanProg ? Math.min(nightWeanProg.currentNight||1, 7) : 1;
                 const _curStep = NIGHT_WEAN_PROGRAM[_curNight - 1];
                 const _doneCount = nightWeanProg ? (nightWeanProg.completedNights||[]).length : 0;
@@ -33137,26 +33125,6 @@ function App(){
                   </div>
                 );
               })()}
-
-              {/* Insights Dashboard. 2x2 navigation grid */}
-              {!insightFilter && (
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                  {[
-                    {id:"tomorrow",label:"Tomorrow",icon:"📅",sub:"Predicted rhythm & plan",color:C.gold},
-                    {id:"sleep",label:"Sleep",icon:"😴",sub:"Score, patterns & trends",color:C.sky},
-                    {id:"feeding",label:"Feeding",icon:"🍼",sub:"Intake, rhythm & insights",color:C.ter},
-                    {id:"growth",label:"Growth",icon:"📏",sub:"Weight, height & percentiles",color:"#7B68EE"},
-                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️",sub:"TOG guide & safety",color:"#7AABC4"},
-                    {id:"reports",label:"Reports",icon:"📊",sub:"Day score & patterns",color:C.mint},
-                  ].map(f=>(
-                    <button key={f.id} onClick={()=>{haptic(8);setInsightFilter(f.id);}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"16px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:110}}>
-                      <span style={{fontSize:28}}>{f.icon}</span>
-                      <div style={{fontSize:15,fontWeight:700,color:C.deep}}>{f.label}</div>
-                      <div style={{fontSize:11,color:C.lt,lineHeight:1.4}}>{f.sub}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
 
               {/* Back button + active filter label (when a section is open) */}
               {insightFilter && (
@@ -33461,10 +33429,56 @@ function App(){
               ) : (
                 <PremiumTeaser icon="📅" label="Tomorrow's Predicted Rhythm" description="See a personalised nap & bedtime schedule based on NHS guidance and your baby's sleep patterns" context="predicted_rhythm"/>
               )}
+
+              {/* Travel plan setup — discoverable from the Tomorrow tab */}
+              {!travelContext && (
+                <div className="glass-card" style={{..._S.card, padding:"14px", marginTop:12}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <span style={{fontSize:16}}>✈️</span>
+                    <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Travel plan</div>
+                  </div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>Flying or changing timezone? OBubba can build a personalised adjustment plan (before / during / after) so {babyName||"baby"}'s body clock adapts smoothly.</div>
+                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                    <label style={{fontSize:11,color:C.lt}}>Timezone offset (hours):</label>
+                    <input type="number" min="-12" max="14" step="1" placeholder="e.g. 5"
+                      onKeyDown={e=>{
+                        if(e.key==="Enter"){
+                          const v = parseInt(e.target.value,10);
+                          if(!isNaN(v) && v!==0 && v>=-12 && v<=14){
+                            setTravelContext({offsetHrs:v, since:new Date().toISOString()});
+                            e.target.value="";
+                          }
+                        }
+                      }}
+                      onBlur={e=>{
+                        const v = parseInt(e.target.value,10);
+                        if(!isNaN(v) && v!==0 && v>=-12 && v<=14){
+                          setTravelContext({offsetHrs:v, since:new Date().toISOString()});
+                          e.target.value="";
+                        }
+                      }}
+                      style={{width:70,padding:"5px 8px",borderRadius:8,border:`1px solid ${C.blush}`,fontFamily:_fI,fontSize:12,background:"var(--card-bg-solid)"}}/>
+                    <div style={{fontSize:10,color:C.lt}}>positive = east, negative = west</div>
+                  </div>
+                </div>
+              )}
               </div>}
 
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
               {(insightFilter==="sleep") && <div>
+
+              {/* Night Weaning intro card — discoverable from Sleep tab (only when not yet started + 6mo+) */}
+              {!nightWeanProg && age && (age.predictiveWeeks ?? age.totalWeeks) >= 26 && (
+                <div className="glass-card" style={{..._S.card, padding:"14px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                    <span style={{fontSize:16}}>🌙</span>
+                    <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Night weaning program</div>
+                  </div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>A gentle 7-night program to reduce night feeds progressively. Based on NHS/UNICEF guidance. Works best when {babyName||"baby"} is growing well and taking enough milk during the day.</div>
+                  <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:10,padding:"8px 10px",background:`${C.gold}10`,borderRadius:8,borderLeft:`3px solid ${C.gold}`}}>⚠️ Check with your {_doctor||"health visitor"} first if {babyName||"baby"} has reflux, CMPA, faltering growth, or any other concerns.</div>
+                  <button onClick={()=>{haptic(15);setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});}} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:C.mint,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>Start tonight (Night 1: Baseline)</button>
+                </div>
+              )}
 
               {/* ═══ SLEEP CONSULTANT SUMMARY ("Last Night's Debrief") ═══
                   Plain-English summary: What happened, Why, What OBubba is doing, What you can do.
