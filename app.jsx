@@ -29196,6 +29196,69 @@ function App(){
                   </button>
                 </div>
               )}
+              {/* ═══ AGE CELEBRATION CARD ═══ */}
+              {!daySubScreen && age && selDay === todayStr() && (()=>{
+                try {
+                  const _bn9 = babyName || "Baby";
+                  const _dob = activeChild.dob;
+                  if (!_dob) return null;
+                  const _birth = new Date(_dob + "T12:00:00");
+                  const _today9 = new Date();
+                  const _daysSinceBirth = Math.floor((_today9 - _birth) / 86400000);
+                  let _celebration = null;
+                  if (_daysSinceBirth === 100) _celebration = {emoji:"💯",title:_bn9 + " is 100 days old!",sub:"A hundred days of love, growth, and sleepless nights. You've made it this far — that's incredible."};
+                  else {
+                    const _birthDay = _birth.getDate();
+                    const _todayDay = _today9.getDate();
+                    if (_birthDay === _todayDay && _daysSinceBirth >= 28) {
+                      const _months = Math.round(_daysSinceBirth / 30.44);
+                      if (_months === 6) _celebration = {emoji:"🎉",title:_bn9 + " is 6 months old!",sub:"Half a year of firsts. You're doing an amazing job."};
+                      else if (_months === 12) _celebration = {emoji:"🎂",title:"Happy 1st birthday, " + _bn9 + "!",sub:"One whole year. From tiny newborn to little explorer. What a journey."};
+                      else if (_months <= 12) _celebration = {emoji:"🌟",title:_bn9 + " is " + _months + " month" + (_months!==1?"s":"") + " old!",sub:"Another month of growing, learning, and being loved."};
+                    }
+                  }
+                  if (!_celebration) return null;
+                  const _dismissKey9 = "ob_age_celeb_" + _daysSinceBirth;
+                  if ((()=>{try{return localStorage.getItem(_dismissKey9)==="1";}catch{return false;}})()) return null;
+                  const _allEntries = Object.values(days).flat();
+                  const _totalFeeds = _allEntries.filter(e=>e.type==="feed"&&e.feedType!=="pump").length;
+                  const _totalNaps = _allEntries.filter(e=>e.type==="nap"&&!e.night).length;
+                  const _totalNappies = _allEntries.filter(e=>e.type==="poop").length;
+                  return (
+                    <div style={{padding:"20px 16px",borderRadius:20,background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(192,112,136,0.06))",border:"1.5px solid rgba(123,104,238,0.2)",marginBottom:12,textAlign:"center",position:"relative"}}>
+                      <button onClick={()=>{try{localStorage.setItem(_dismissKey9,"1");}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:8,right:8,width:32,height:32,borderRadius:99,border:"none",background:"var(--card-bg-alt)",color:C.lt,fontSize:12,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                      <div style={{fontSize:40,marginBottom:8}}>{_celebration.emoji}</div>
+                      <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:6}}>{_celebration.title}</div>
+                      <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:12}}>{_celebration.sub}</div>
+                      <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:12}}>
+                        <div style={{padding:"8px 12px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                          <div style={{fontSize:16,fontWeight:700,color:C.ter}}>{_totalFeeds}</div>
+                          <div style={{fontSize:10,color:C.lt}}>feeds</div>
+                        </div>
+                        <div style={{padding:"8px 12px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                          <div style={{fontSize:16,fontWeight:700,color:C.mint}}>{_totalNaps}</div>
+                          <div style={{fontSize:10,color:C.lt}}>naps</div>
+                        </div>
+                        <div style={{padding:"8px 12px",borderRadius:10,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                          <div style={{fontSize:16,fontWeight:700,color:C.gold}}>{_totalNappies}</div>
+                          <div style={{fontSize:10,color:C.lt}}>nappies</div>
+                        </div>
+                      </div>
+                      <button onClick={async()=>{
+                        haptic();
+                        try {
+                          const _cardData = {message:_celebration.title, stat:_totalFeeds+" feeds · "+_totalNaps+" naps · "+_totalNappies+" nappies", statLabel:"since birth"};
+                          const dataUrl = await renderShareCard("milestone", _celebration.title, _cardData);
+                          setSharePreview({title:_celebration.title, milestone:null, dataUrl, cardType:"milestone", cardTitle:_celebration.title, cardData:_cardData});
+                        } catch(e) { try { showToast("Couldn't create card",2000,1); } catch {} }
+                      }} style={{padding:"8px 20px",borderRadius:99,border:"1.5px solid "+C.ter+"40",background:C.ter+"10",color:C.ter,fontSize:12,fontWeight:700,cursor:_cP}}>
+                        🎉 Share the milestone
+                      </button>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {/* ONE-TAP LOG ROW. only on dashboard, not sub-screens */}
               {!daySubScreen && <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:16,padding:"10px 8px",marginBottom:10,gap:1,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2,overflow:"hidden"}}>
                 {[
@@ -29773,6 +29836,57 @@ function App(){
                       </div>
                       <span style={{fontSize:14,color:"rgba(255,255,255,0.6)"}}>›</span>
                     </button>);})()}
+
+                    {/* ═══ WEANING ROADMAP — vertical stage timeline ═══ */}
+                    {age && (()=>{
+                      const _aw = age.predictiveWeeks ?? age.totalWeeks;
+                      const _curIdx = WEANING_STAGES.findIndex(s => _aw >= s.weeksRange[0] && _aw < s.weeksRange[1]);
+                      const _stageIdx = _curIdx >= 0 ? _curIdx : (_aw >= 52 ? 3 : 0);
+                      const _weanLog = weaning || [];
+                      const _allergensDone = ALLERGEN_GUIDE.filter(a => allergenIntroduced(_weanLog, a.id)).length;
+                      return (
+                        <div className="glass-card" style={{padding:"16px 14px"}}>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:12,fontFamily:"'Playfair Display',serif"}}>🗺️ {babyName||"Baby"}'s Weaning Roadmap</div>
+                          <div style={{position:"relative",paddingLeft:28}}>
+                            <div style={{position:"absolute",left:9,top:8,bottom:8,width:2,background:`linear-gradient(to bottom, ${C.ter} ${Math.round((_stageIdx/3)*100)}%, ${C.blush} ${Math.round((_stageIdx/3)*100)}%)`}}/>
+                            {WEANING_STAGES.map((s,i)=>{
+                              const _done = i < _stageIdx;
+                              const _active = i === _stageIdx;
+                              const _dur = s.weeksRange[1] < 999 ? Math.round((s.weeksRange[1]-s.weeksRange[0])) : null;
+                              return (
+                                <div key={s.id} style={{position:"relative",marginBottom:i<WEANING_STAGES.length-1?16:0,padding:_active?"10px 12px":"4px 0",borderRadius:_active?14:0,background:_active?"rgba(192,112,136,0.06)":"transparent",border:_active?`1px solid ${C.ter}20`:"none"}}>
+                                  <div style={{position:"absolute",left:-22,top:_active?14:8,width:14,height:14,borderRadius:"50%",background:_done||_active?C.ter:C.blush,border:_active?`3px solid ${C.ter}40`:"2px solid var(--card-bg-solid)",boxShadow:_active?`0 0 8px ${C.ter}30`:"none",zIndex:1}}/>
+                                  {_done && <div style={{position:"absolute",left:-19,top:_active?17:11,fontSize:8,color:"white",fontWeight:700,zIndex:2}}>✓</div>}
+                                  <div style={{display:"flex",alignItems:"baseline",gap:6,marginBottom:_active?6:2}}>
+                                    <span style={{fontSize:_active?14:12,fontWeight:700,color:_done||_active?C.deep:C.lt}}>{s.name}</span>
+                                    <span style={{fontSize:10,color:C.lt,fontFamily:_fM}}>{s.ageRange}{_dur?" · ~"+_dur+"w":""}</span>
+                                  </div>
+                                  {_active && (
+                                    <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
+                                      <div style={{display:"flex",gap:12,marginBottom:4,flexWrap:"wrap"}}>
+                                        <span style={{color:C.mint,fontWeight:600}}>{new Set(_weanLog.map(w=>(w.food||"").toLowerCase().trim())).size} unique foods</span>
+                                        <span style={{color:C.gold,fontWeight:600}}>{_allergensDone}/14 allergens</span>
+                                      </div>
+                                      {s.meals && <div style={{marginBottom:4}}>{s.meals}{s.texture ? " · " + s.texture.split(".")[0] : ""}</div>}
+                                      {s.portions && <div style={{fontSize:10,color:C.lt,fontStyle:"italic"}}>🍽️ Portions: {s.portions.split(".")[0]}</div>}
+                                      {(()=>{
+                                        const _counts = {};
+                                        _weanLog.forEach(w => { const f = (w.food||"").toLowerCase().trim(); if(f) _counts[f] = (_counts[f]||0)+1; });
+                                        const _underExposed = Object.entries(_counts).filter(([,c])=>c<10).sort((a,b)=>a[1]-b[1]).slice(0,3);
+                                        return _underExposed.length > 0 ? (
+                                          <div style={{fontSize:10,color:C.lt,marginTop:4}}>🔄 Keep offering: {_underExposed.map(([f,c])=>f+" ("+c+"/10)").join(", ")}</div>
+                                        ) : null;
+                                      })()}
+                                    </div>
+                                  )}
+                                  {i > _stageIdx && s.meals && <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{s.meals}</div>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Weaning Report. only 6mo+ and once there are entries */}
                     {age && ((age.predictiveWeeks??age.totalWeeks)) >= 26 && (weaning||[]).length > 0 && (
