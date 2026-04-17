@@ -32447,6 +32447,172 @@ function App(){
                 );
               })()}
 
+              {/* ═══ Yesterday at a glance — plain-English recap ═══ */}
+              {!insightFilter && (()=>{
+                try {
+                  const _yDk = yesterdayStr();
+                  const _yArr = days[_yDk] || [];
+                  if (_yArr.length < 2) return null;
+                  const _name = babyName || "Baby";
+
+                  // Compute yesterday's stats
+                  const _naps = _yArr.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.start !== e.end);
+                  const _napCount = _naps.length;
+                  const _napTotal = _naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+
+                  // Night wakes FROM yesterday's night (on yesterday's date key)
+                  const _nightWakes = _yArr.filter(e => e.night && (e.type === "wake" || e.type === "feed")).length;
+                  // Also check today for wakes that happened overnight into today
+                  const _tArr = days[todayStr()] || [];
+                  const _nightWakesToday = _tArr.filter(e => e.night && (e.type === "wake" || e.type === "feed")).length;
+                  const _totalNightWakes = _nightWakes + _nightWakesToday;
+
+                  // Bedtime from yesterday
+                  const _bed = findBedtime(_yArr);
+                  const _morningWake = findMorningWake(_tArr);
+                  let _nightMins = null;
+                  if (_bed && _bed.time && _morningWake && _morningWake.time) {
+                    const [bh,bm] = _bed.time.split(":").map(Number);
+                    const [wh,wm] = _morningWake.time.split(":").map(Number);
+                    _nightMins = (wh*60+wm) + (24*60 - (bh*60+bm));
+                  }
+
+                  // Interpretation
+                  let _verdict = "";
+                  let _icon = "🌙";
+                  let _color = C.mint;
+                  if (_totalNightWakes === 0) {
+                    _verdict = "Strong night — " + _name + " slept through with no logged wakes.";
+                    _icon = "⭐";
+                  } else if (_totalNightWakes === 1) {
+                    _verdict = "Good night — just 1 wake." + (_nightMins ? " " + Math.floor(_nightMins/60) + "h " + (_nightMins%60) + "m in bed." : "");
+                    _icon = "🌙";
+                  } else if (_totalNightWakes <= 3) {
+                    _verdict = _totalNightWakes + " wakes overnight. Common for this age.";
+                    _icon = "🌙";
+                    _color = C.gold;
+                  } else {
+                    _verdict = "Rough night — " + _totalNightWakes + " wakes." + (_napTotal < 90 ? " Day sleep was short (" + hm(_napTotal) + "), which can build overtiredness." : " Worth checking for regressions, teething, or illness signs.");
+                    _icon = "🌅";
+                    _color = "#E8574A";
+                  }
+
+                  const _napSummary = _napCount === 0 ? "no naps logged" :
+                    _napCount === 1 ? "1 nap, " + hm(_napTotal) + " total" :
+                    _napCount + " naps, " + hm(_napTotal) + " total";
+
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${_color}25`,background:`linear-gradient(135deg,${_color}08,${C.blush}15)`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <span style={_S.f20}>{_icon}</span>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Yesterday at a glance</div>
+                      </div>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4,lineHeight:1.4}}>{_verdict}</div>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.55}}>
+                        ☀️ Day: {_napSummary}
+                        {_nightMins !== null && <span> · 🌙 Night: {hm(_nightMins)} in bed</span>}
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* ═══ Last week at a glance — trend-level plain English ═══ */}
+              {!insightFilter && (()=>{
+                try {
+                  const _name = babyName || "Baby";
+                  const _last7 = [];
+                  const _prev7 = [];
+                  for (let i = 1; i <= 7; i++) {
+                    const d = new Date(); d.setDate(d.getDate() - i);
+                    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                    if ((days[dk]||[]).length > 0) _last7.push(dk);
+                  }
+                  for (let i = 8; i <= 14; i++) {
+                    const d = new Date(); d.setDate(d.getDate() - i);
+                    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                    if ((days[dk]||[]).length > 0) _prev7.push(dk);
+                  }
+                  if (_last7.length < 3) return null;
+
+                  // Average night wakes
+                  const _wkAvg = arr => {
+                    if (!arr.length) return 0;
+                    const _counts = arr.map(dk => (days[dk]||[]).filter(e => e.night && (e.type === "wake" || e.type === "feed")).length);
+                    return _counts.reduce((s,v)=>s+v,0) / _counts.length;
+                  };
+                  const _avgWakes = _wkAvg(_last7);
+                  const _avgWakesPrev = _wkAvg(_prev7);
+
+                  // Bedtime consistency (std dev of bedtime minutes)
+                  const _bedMins = _last7.map(dk => {
+                    const b = findBedtime(days[dk]||[]);
+                    if (!b || !b.time) return null;
+                    const [h,m] = b.time.split(":").map(Number);
+                    return h*60 + m;
+                  }).filter(v => v !== null);
+                  let _bedStdev = 0;
+                  if (_bedMins.length >= 3) {
+                    const _mean = _bedMins.reduce((s,v)=>s+v,0) / _bedMins.length;
+                    _bedStdev = Math.sqrt(_bedMins.reduce((s,v)=>s+(v-_mean)*(v-_mean),0) / _bedMins.length);
+                  }
+
+                  // Average total sleep
+                  const _totalPerDay = _last7.map(dk => {
+                    const arr = days[dk]||[];
+                    const _naps = arr.filter(e => e.type === "nap" && !e.night && e.start && e.end);
+                    const _day = _naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                    const _bed = findBedtime(arr);
+                    const _nextDk = nextDayStr(dk);
+                    const _wake = findMorningWake(days[_nextDk]||[]);
+                    let _night = 0;
+                    if (_bed && _bed.time && _wake && _wake.time) {
+                      const [bh,bm] = _bed.time.split(":").map(Number);
+                      const [wh,wm] = _wake.time.split(":").map(Number);
+                      _night = (wh*60+wm) + (24*60 - (bh*60+bm));
+                    }
+                    return _day + _night;
+                  });
+                  const _avgTotal = _totalPerDay.reduce((s,v)=>s+v,0) / _totalPerDay.length;
+
+                  // Build narrative
+                  const _lines = [];
+                  if (_prev7.length >= 3) {
+                    const _wakeDiff = _avgWakes - _avgWakesPrev;
+                    if (_wakeDiff < -0.3) _lines.push("Night wakes are down (" + _avgWakes.toFixed(1) + "/night vs " + _avgWakesPrev.toFixed(1) + " the week before). Whatever you're doing is working.");
+                    else if (_wakeDiff > 0.3) _lines.push("Night wakes are up a bit (" + _avgWakes.toFixed(1) + "/night vs " + _avgWakesPrev.toFixed(1) + " last week). Could be a growth spurt, regression, or teething.");
+                    else _lines.push("Night wakes are holding steady at " + _avgWakes.toFixed(1) + "/night.");
+                  } else {
+                    _lines.push(_avgWakes < 0.5 ? "Very few night wakes (" + _avgWakes.toFixed(1) + "/night)." :
+                                _avgWakes < 2 ? "Low night wakes (" + _avgWakes.toFixed(1) + "/night)." :
+                                _avgWakes.toFixed(1) + " wakes/night on average.");
+                  }
+                  if (_bedMins.length >= 5) {
+                    if (_bedStdev <= 15) _lines.push("Bedtime has been remarkably consistent (within " + Math.round(_bedStdev) + " min).");
+                    else if (_bedStdev <= 30) _lines.push("Bedtime is consistent (within " + Math.round(_bedStdev) + " min).");
+                    else _lines.push("Bedtime has varied by " + Math.round(_bedStdev) + " min night-to-night. Anchoring it would help the body clock.");
+                  }
+                  if (_avgTotal > 0) {
+                    _lines.push(_name + " is averaging " + Math.floor(_avgTotal/60) + "h " + Math.round(_avgTotal%60) + "m total sleep per day.");
+                  }
+
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.sky}30`,background:`linear-gradient(135deg,${C.sky}06,${C.mint}04)`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <span style={_S.f20}>📈</span>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Last week at a glance</div>
+                        <span style={{marginLeft:"auto",fontSize:10,color:C.lt,fontFamily:_fM}}>{_last7.length} days</span>
+                      </div>
+                      <div style={{fontSize:13,color:C.deep,lineHeight:1.6}}>
+                        {_lines.map((l,i)=>(
+                          <div key={i} style={{marginBottom:i<_lines.length-1?4:0}}>• {l}</div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {/* ═══ Smart Patterns — consultant-quality personalised insights ═══ */}
               {!insightFilter && (()=>{
                 let _napLocIns=null,_optWW=null,_feedNap=null,_whatWorked=null,_debtProj=null,_napTrans=null;
