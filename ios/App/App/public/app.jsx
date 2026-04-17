@@ -2612,6 +2612,34 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
 //   ageWeeks
 //
 // Returns: {title, steps[], why} or null
+
+// ═══ NIGHT WEANING: 7-Night Guided Program ═══
+// Progressive approach based on NHS/UNICEF gentle guidance. Only surfaced
+// for babies 6mo+ who are growing well and taking enough by day.
+const NIGHT_WEAN_PROGRAM = [
+  {night:1,title:"Night 1: Baseline",goal:"Log every night feed as usual \u2014 no changes",
+   steps:["Feed baby normally at every wake","Log each feed with exact times and duration","Note how long each feed lasts","This is your baseline \u2014 we need data before making changes"],
+   tip:"Tonight is data collection. Don\u2019t change anything. Tomorrow we\u2019ll use this to build your plan."},
+  {night:2,title:"Night 2: Shorten the first feed",goal:"Reduce the first night feed by 2 min (breast) or 20ml (bottle)",
+   steps:["First night feed: reduce by 2 min or 20ml","All other feeds: keep exactly as baseline","If baby wakes again within 30 min, soothe with patting/shushing \u2014 not feeding"],
+   tip:"Baby may fuss briefly. Give it 5 minutes before offering more. You\u2019re doing brilliantly."},
+  {night:3,title:"Night 3: Reduce further",goal:"First feed now 4 min / 40ml less than baseline",
+   steps:["First feed: another 2 min / 20ml reduction","Other feeds: keep at baseline","Use your settling method if baby protests \u2014 but try not to feed within 30 min of the last feed"],
+   tip:"Consistency matters more than speed. Your body and baby\u2019s are both adjusting."},
+  {night:4,title:"Night 4: Drop the first feed",goal:"Replace the first feed with soothing only",
+   steps:["First wake: soothe without feeding (patting, shushing, hand on chest)","Give it 10\u201315 minutes. If genuinely distressed, offer a short feed","Other feeds: keep at baseline or slightly reduced"],
+   tip:"This is often the hardest night. It\u2019s OK to offer a short feed if needed \u2014 progress isn\u2019t linear."},
+  {night:5,title:"Night 5: Consolidate",goal:"First feed dropped. Start reducing the second feed",
+   steps:["First wake: soothe only (no feed)","Second feed: reduce by 2 min / 20ml from baseline","Later feeds: keep as they are"],
+   tip:"By now baby\u2019s body is adjusting. The first stretch should be getting longer naturally."},
+  {night:6,title:"Night 6: Almost there",goal:"Most feeds replaced with soothing",
+   steps:["Respond to all wakes with soothing first","Only offer a feed if baby has been awake 15+ min and is genuinely distressed","Keep any feeds short (max 5 min / 60ml)"],
+   tip:"You\u2019ve come so far. Most babies show significant improvement by night 5\u20136."},
+  {night:7,title:"Night 7: New normal",goal:"Baby may sleep through or have one brief feed",
+   steps:["Continue responding with soothing first","If baby sleeps through \u2014 celebrate! \uD83C\uDF89","If a feed is still needed, that\u2019s OK \u2014 some babies take 2\u20133 weeks to fully night wean"],
+   tip:"Progress isn\u2019t always linear. Any reduction from Night 1 is a genuine win. You did this. \uD83D\uDC9B"},
+];
+
 function getTonightsFocus(nightDiagnosis, todayEntries, ageWeeks) {
   if (!nightDiagnosis) return null;
   const _t = nightDiagnosis.type;
@@ -7053,6 +7081,22 @@ function App(){
   },[disruptionMode]);
   // Travel/timezone adaptation: gradual bedtime shift before, during, and after travel
   const[travelContext,setTravelContext]=usePersistedState("ob_travel_ctx", null);
+  // Night weaning 7-night program: per-child state {startedAt, currentNight, completedNights[]}
+  const[nightWeanProg,setNightWeanProgRaw]=useState(null);
+  React.useEffect(()=>{
+    if(!resolvedActiveId) return;
+    try{
+      const v = localStorage.getItem("ob_night_wean_prog_" + resolvedActiveId);
+      setNightWeanProgRaw(v ? JSON.parse(v) : null);
+    }catch{ setNightWeanProgRaw(null); }
+  },[resolvedActiveId]);
+  const setNightWeanProg = (v) => {
+    setNightWeanProgRaw(v);
+    try {
+      if (v === null) localStorage.removeItem("ob_night_wean_prog_" + resolvedActiveId);
+      else localStorage.setItem("ob_night_wean_prog_" + resolvedActiveId, JSON.stringify(v));
+    } catch {}
+  };
   // ── "What we noticed" observations log. app tells parents what it did/noticed, not what they must do ──
   const[observations,setObservations]=usePersistedState("ob_observations_v1", [],
     (raw)=>{try{const p=JSON.parse(raw);return Array.isArray(p)?p:[];}catch{return [];}},
@@ -32777,6 +32821,70 @@ function App(){
                             </div>
                           ))}
                         </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ═══ Night Weaning 7-Night Program ═══ */}
+              {!insightFilter && (()=>{
+                const _nwWks = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
+                // Only surface for babies 6mo+ (NHS/UNICEF guidance minimum)
+                if (_nwWks < 26 && !nightWeanProg) return null;
+                const _curNight = nightWeanProg ? Math.min(nightWeanProg.currentNight||1, 7) : 1;
+                const _curStep = NIGHT_WEAN_PROGRAM[_curNight - 1];
+                const _doneCount = nightWeanProg ? (nightWeanProg.completedNights||[]).length : 0;
+                const _isComplete = _doneCount >= 7;
+                return (
+                  <div className="glass-card" style={{..._S.card, padding:"14px 14px 12px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <span style={{fontSize:16}}>🌙</span>
+                      <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,flex:1}}>Night weaning program</div>
+                      {nightWeanProg && (
+                        <button onClick={()=>{if(confirm("Stop the night weaning program? Your progress will be cleared.")){setNightWeanProg(null);}}} style={{fontSize:10,color:C.lt,background:"none",border:"none",cursor:_cP,fontFamily:_fI}}>Stop</button>
+                      )}
+                    </div>
+                    {!nightWeanProg ? (
+                      <div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>A gentle 7-night program to reduce night feeds progressively. Based on NHS/UNICEF guidance. Works best when {babyName||"baby"} is growing well and taking enough milk during the day.</div>
+                        <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:10,padding:"8px 10px",background:`${C.gold}10`,borderRadius:8,borderLeft:`3px solid ${C.gold}`}}>⚠️ Check with your {_doctor||"health visitor"} first if {babyName||"baby"} has reflux, CMPA, faltering growth, or any other concerns.</div>
+                        <button onClick={()=>{haptic(15);setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});}} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:C.mint,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>Start tonight (Night 1: Baseline)</button>
+                      </div>
+                    ) : _isComplete ? (
+                      <div>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>🎉 Program complete — brilliant work</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>You've worked through all 7 nights. Some babies consolidate in a few more days. others take 2–3 weeks. Either way, any reduction from Night 1 is a genuine win.</div>
+                        <button onClick={()=>{haptic(15);setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});}} style={{width:"100%",padding:"9px 14px",borderRadius:10,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.mid,fontSize:12,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Restart program</button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{_curStep.title}</div>
+                          <div style={{fontSize:11,color:C.lt,fontWeight:600}}>{_doneCount}/7 complete</div>
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{height:6,background:`${C.blush}40`,borderRadius:99,marginBottom:12,overflow:"hidden"}}>
+                          <div style={{width:(_doneCount/7*100)+"%",height:"100%",background:`linear-gradient(90deg,${C.mint},${C.ter})`,transition:"width 0.5s"}}/>
+                        </div>
+                        <div style={{fontSize:12,fontWeight:600,color:C.gold,marginBottom:8}}>🎯 {_curStep.goal}</div>
+                        <div style={{marginBottom:10}}>
+                          {_curStep.steps.map((s,i)=>(
+                            <div key={i} style={{fontSize:12,color:C.mid,padding:"5px 0",display:"flex",gap:8,alignItems:"flex-start"}}>
+                              <span style={{color:C.mint,fontWeight:700,flexShrink:0}}>{i+1}.</span>
+                              <span style={{lineHeight:1.5}}>{s}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{fontSize:11,color:C.mid,lineHeight:1.5,padding:"8px 10px",background:"var(--card-bg-alt)",borderRadius:8,marginBottom:12,fontStyle:"italic"}}>💛 {_curStep.tip}</div>
+                        <button onClick={()=>{
+                          haptic(15);
+                          const _done = [...(nightWeanProg.completedNights||[]), _curNight];
+                          const _next = Math.min(_curNight + 1, 7);
+                          setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done});
+                        }} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:C.mint,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                          {_curNight === 7 ? "Finish program 🎉" : `Mark Night ${_curNight} complete → Night ${_curNight+1}`}
+                        </button>
                       </div>
                     )}
                   </div>
