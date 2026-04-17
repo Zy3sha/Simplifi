@@ -7402,6 +7402,12 @@ function App(){
     const iv = setInterval(()=>setPartnerTick(t=>t+1), 1000);
     return ()=>clearInterval(iv);
   },[days, selDay]);
+  // Minute-level UI tick so time-relative text ("Next nap in ~30m", "Awake 1h 18m")
+  // updates as the clock moves forward even when nothing else changes.
+  React.useEffect(()=>{
+    const iv = setInterval(()=>setPartnerTick(t=>t+1), 30000);
+    return ()=>clearInterval(iv);
+  },[]);
   const[napSec,setNapSec]=useState(()=>{
     try{
       const on=localStorage.getItem("nap_on")==="1";
