@@ -26125,7 +26125,7 @@ function App(){
   // React hooks must run in the SAME order every render. If we early-return below
   // (auth screen, onboarding) without calling these, React crashes with hook count
   // mismatch (error #310) on the next render when condition flips.
-  const _feedCardMemo = React.useMemo(() => feedCard(), [days, selDay, age, FU, usePersonalRecs]);
+  const _feedCardMemo = React.useMemo(() => feedCard(), [days, selDay, age, FU, usePersonalRecs, weights]);
   const _analyseTrendsMemo = React.useMemo(() => analyseTrends(), [days, selDay, age, FU]);
   const _sleepBudgetMemo = React.useMemo(() => { try { return sleepBudgetDashboard(); } catch { return null; } }, [days, selDay, age, babyName]);
   const _advancedPatternsMemo = React.useMemo(() => { try { return advancedSleepPatterns(); } catch { return null; } }, [days, selDay, age, babyName]);
@@ -26139,15 +26139,18 @@ function App(){
   // analyzeLastNight is called twice, once for the current night, once
   // for the previous night's diagnosis context. Previously the Last Night
   // card ran analyzeLastNight 8× per render (1 current + 7 dead recent7).
+  // _todayKey triggers downstream memos to refresh when the calendar day rolls over,
+  // even if nothing else in `days` has mutated yet. Compared by string value (Object.is).
+  const _todayKey = todayStr();
   const _lastNightMemo = React.useMemo(() => {
     try {
-      const _t = todayStr();
+      const _t = _todayKey;
       const _y = prevCalDay(_t);
       const _yEnt = days[_y] || [];
       const _bedDayKey = _yEnt.some(e=>e.type==="sleep"&&!e.night) ? _y : _t;
       return analyzeLastNight(days, _bedDayKey, _t);
     } catch { return null; }
-  }, [days, selDay]);
+  }, [days, selDay, _todayKey]);
   const _nightDiagnosisMemo = React.useMemo(() => {
     try { return diagnoseNightPattern(_lastNightMemo); } catch { return null; }
   }, [_lastNightMemo]);
@@ -26158,8 +26161,8 @@ function App(){
     // Only compute on Sundays so we don't burn cycles the other 6 days.
     const _d = new Date();
     if (_d.getDay() !== 0) return null;
-    try { return buildNightDigest(days, todayStr(), age ? (age.predictiveWeeks ?? age.totalWeeks) : null); } catch { return null; }
-  }, [days, selDay]);
+    try { return buildNightDigest(days, _todayKey, age ? (age.predictiveWeeks ?? age.totalWeeks) : null); } catch { return null; }
+  }, [days, selDay, _todayKey]);
   // Fire observations for bottle-fed babies: catch-up warnings AND positive wins.
   React.useEffect(() => {
     try {
@@ -33025,7 +33028,8 @@ function App(){
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.5,padding:"8px 10px",background:"var(--card-bg-alt)",borderRadius:8,marginBottom:12,fontStyle:"italic"}}>💛 {_curStep.tip}</div>
                         <button onClick={()=>{
                           haptic(15);
-                          const _done = [...(nightWeanProg.completedNights||[]), _curNight];
+                          // Dedup so repeated taps on night 7 don't inflate _doneCount
+                          const _done = Array.from(new Set([...(nightWeanProg.completedNights||[]), _curNight]));
                           const _next = Math.min(_curNight + 1, 7);
                           setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done});
                         }} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:C.mint,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
@@ -33618,9 +33622,14 @@ function App(){
                 const _todayEntries = days[selDay]||[];
                 const _bedEntry = _prevEntries.find(e=>e.type==="sleep"&&!e.night);
                 const _morningWake = findMorningWake(_todayEntries);
-                const _nightWakes = [..._prevEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")), ..._todayEntries.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&timeVal(e)<12*60)];
                 const _bedMins = _bedEntry ? timeVal(_bedEntry) : null;
                 const _wakeMins = _morningWake ? timeVal(_morningWake) : null;
+                // Only count prev-day wakes that came AFTER bedtime (same gating as sibling card at 33478).
+                // Previously unbounded, which pulled in wakes from the night before last.
+                const _nightWakes = [
+                  ..._prevEntries.filter(e=>e.night && (e.type==="wake"||e.type==="feed") && (_bedMins==null || timeVal(e) > _bedMins || timeVal(e) < 12*60)),
+                  ..._todayEntries.filter(e=>e.night && (e.type==="wake"||e.type==="feed") && timeVal(e) < 12*60)
+                ];
                 let _totalNightMins = 0;
                 if(_bedMins!==null && _wakeMins!==null) { _totalNightMins = _wakeMins - _bedMins; if(_totalNightMins<0) _totalNightMins+=1440; }
                 const _wakeCount = _nightWakes.length;
@@ -33629,7 +33638,7 @@ function App(){
                 // Sleep score (0-100)
                 const _ss = sleepScore();
                 const _score = _ss && _ss.score !== null ? _ss.score : null;
-                const _scoreColor = scoreColor(_score);
+                const _scoreColor = _score === null ? C.lt : scoreColor(_score);
 
                 // Weekly comparison
                 const _dk7 = getRecentDays(14);
@@ -34266,17 +34275,26 @@ function App(){
                       _parentTips = ["Log feeds as they happen — it helps OBubba learn " + _bn6 + "'s pattern"];
                     }
                   } else {
-                    const _todayMl = fc6.totalMlToday || 0;
+                    const _todayMl = fc6.totalMl || 0;
                     const _target = fc6.totalTarget || 600;
                     const _pct = _target > 0 ? Math.round((_todayMl / _target) * 100) : 0;
                     const _fv6 = (ml) => { try { return fmtVol(ml, FU); } catch { return ""; } };
+                    // Estimate remaining feeds roughly from remaining day (feedCard doesn't expose this)
+                    const _remFeedsGuess = (()=>{
+                      try {
+                        const _nowH = new Date().getHours();
+                        // Assume next meal slot ~every 4h, winding down after 8pm
+                        const _hoursLeft = Math.max(0, (_nowH < 20 ? 20 : 22) - _nowH);
+                        return Math.max(1, Math.round(_hoursLeft / 3.5));
+                      } catch { return 2; }
+                    })();
                     if (_pct >= 90) {
                       _statusText = _bn6 + " has had " + _fv6(_todayMl) + " today — right on target. Great feeding day.";
                       _parentTips = ["Keep following " + _bn6 + "'s lead", "Any evening feeds can be smaller top-ups"];
                     } else if (_pct >= 50) {
                       _statusText = _bn6 + " has had " + _fv6(_todayMl) + " of " + _fv6(_target) + " today (" + _pct + "%). On track to meet the daily guideline.";
-                      const _remPerFeed = Math.round((_target - _todayMl) / Math.max(1, fc6.remainingFeeds || 2));
-                      _obubbaDoing = "OBubba has calculated that " + _bn6 + " needs roughly " + _fv6(_remPerFeed) + " per remaining feed to meet the guideline.";
+                      const _remPerFeed = Math.round((_target - _todayMl) / _remFeedsGuess);
+                      _obubbaDoing = "OBubba has calculated roughly " + _fv6(_remPerFeed) + " per remaining feed would meet the guideline.";
                       _parentTips = ["Offer the next feed when " + _bn6 + " shows hunger cues", "Don't force the bottle — the guideline is an average, not a minimum"];
                     } else if (_todayMl > 0) {
                       _statusText = _bn6 + " has had " + _fv6(_todayMl) + " so far (" + _pct + "% of " + _fv6(_target) + " guideline).";
