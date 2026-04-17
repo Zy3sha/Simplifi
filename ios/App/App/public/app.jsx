@@ -33293,6 +33293,103 @@ function App(){
               {/* ── SLEEP ANALYSIS SECTION (collapsible) ── */}
               {(insightFilter==="sleep") && <div>
 
+              {/* ═══ SLEEP CONSULTANT SUMMARY ("Last Night's Debrief") ═══
+                  Plain-English summary: What happened, Why, What OBubba is doing, What you can do.
+                  Designed to feel like a sleep consultant's morning debrief. */}
+              {(()=>{
+                try {
+                  const _bn5 = babyName || "Baby";
+                  const _aw5 = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+                  const _prevDk5 = prevDayStr(selDay);
+                  const _prevEnt5 = days[_prevDk5]||[];
+                  const _todayEnt5 = days[selDay]||[];
+                  const _bed5 = _prevEnt5.find(e=>e.type==="sleep"&&!e.night);
+                  const _wake5 = findMorningWake(_todayEnt5);
+                  const _bedMins5 = _bed5 ? timeVal(_bed5) : 17*60;
+                  const _nwAll = [..._prevEnt5.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&(timeVal(e)>_bedMins5||timeVal(e)<12*60)), ..._todayEnt5.filter(e=>e.night&&(e.type==="wake"||e.type==="feed")&&timeVal(e)<12*60)];
+                  if (!_bed5) return null;
+                  const _nwCount5 = _nwAll.length;
+                  const _feedWakes = _nwAll.filter(e=>e.type==="feed").length;
+                  const _selfSettled5 = _nwAll.filter(e=>e.selfSettled).length;
+                  const _bedT5 = fmt12(_bed5.time);
+                  const _wakeT5 = _wake5 ? fmt12(_wake5.time) : null;
+                  const _nightDiag5 = _nightDiagnosisMemo;
+                  const _tonightsFocus5 = _nightDiag5 ? getTonightsFocus(_nightDiag5, _todayEnt5, _aw5) : null;
+                  let _score5 = null;
+                  try { const _ss5 = sleepScore(); if (_ss5 && typeof _ss5.score === "number") _score5 = _ss5.score; } catch {}
+
+                  let _whatHappened = "";
+                  if (_nwCount5 === 0) _whatHappened = _bn5 + " slept through the night with no wakes logged. That's a brilliant night.";
+                  else if (_nwCount5 === 1 && _feedWakes === 1) _whatHappened = _bn5 + " woke once for a feed. One feed wake is completely normal" + (_aw5 && _aw5 < 26 ? " at this age." : " and may drop naturally soon.");
+                  else if (_nwCount5 === 1) _whatHappened = _bn5 + " woke once during the night" + (_selfSettled5 === 1 ? " and self-settled — that's a great sign." : ".");
+                  else if (_nwCount5 <= 3) _whatHappened = _bn5 + " woke " + _nwCount5 + " times overnight." + (_feedWakes > 0 ? " " + _feedWakes + " of those were feed wakes." : "") + (_selfSettled5 > 0 ? " " + _selfSettled5 + " self-settled." : "");
+                  else _whatHappened = _bn5 + " had a tough night with " + _nwCount5 + " wakes." + (_feedWakes > 0 ? " " + _feedWakes + " were hunger wakes." : "") + " Rough nights happen — one bad night doesn't undo progress.";
+
+                  let _why = "";
+                  if (_nightDiag5) {
+                    const _t5 = _nightDiag5.type;
+                    if (_t5 === "great_night") _why = "The bedtime rhythm was spot on. Whatever you did yesterday, it worked.";
+                    else if (_t5 === "overtired_false_start") _why = "The last wake window before bed was too long. " + _bn5 + " was overtired, which made it hard to settle into deep sleep in that first stretch.";
+                    else if (_t5 === "overtired") _why = "The pattern suggests overtiredness — wakes clustered in the early-morning hours when light sleep is most common. Counter-intuitively, an earlier bedtime fixes this.";
+                    else if (_t5 === "undertired") _why = _bn5 + " woke within 90 minutes of bedtime, which usually means not enough sleep pressure. The last wake window may have been too short.";
+                    else if (_t5 === "hunger") _why = "Most wakes settled with milk — this looks like genuine hunger. Night feeds are developmentally normal" + (_aw5 && _aw5 < 26 ? " at " + _bn5 + "'s age." : ".");
+                    else if (_t5 === "habit") _why = "Wakes fell near the end of sleep cycles (roughly every 90 minutes) and settled quickly. " + _bn5 + " is learning to link sleep cycles — and the quick resettles show it's working.";
+                    else if (_t5 === "split_night") _why = _bn5 + " had a long awake period in the middle of the night. This usually means too much daytime sleep or bedtime was too early.";
+                    else if (_t5 === "regression_night") _why = "This looks like a sleep regression — a developmental leap is reorganising " + _bn5 + "'s brain. This is temporary and actually a sign of progress.";
+                    else if (_t5 === "normal") _why = _aw5 && _aw5 < 16 ? "Frequent waking is completely normal for a newborn. " + _bn5 + "'s sleep cycles are still maturing." : "Nothing specific stood out. One-off nights happen — watch for patterns across the week.";
+                  }
+
+                  let _obubbaAction = "";
+                  if (_nightDiag5 && _nightDiag5.bedtimeShiftMin) {
+                    const _shift = _nightDiag5.bedtimeShiftMin;
+                    _obubbaAction = "OBubba has adjusted tonight's bedtime prediction " + Math.abs(_shift) + " minutes " + (_shift < 0 ? "earlier" : "later") + " based on last night's data.";
+                  } else if (_nightDiag5 && _nightDiag5.type === "great_night") {
+                    _obubbaAction = "OBubba is keeping tonight's bedtime on the same rhythm that worked last night.";
+                  } else {
+                    _obubbaAction = "OBubba is monitoring the pattern. If this continues for 3+ nights, you'll get specific recommendations.";
+                  }
+
+                  const _parentAction = _tonightsFocus5 && Array.isArray(_tonightsFocus5.steps) ? _tonightsFocus5.steps.slice(0, 2) : ["Keep tonight's routine consistent", "Watch for tired cues and don't push past them"];
+
+                  return (
+                    <div className="glass-card" style={{padding:"18px 16px",marginBottom:14,border:"1.5px solid rgba(123,104,238,0.2)",background:"linear-gradient(135deg,rgba(123,104,238,0.04),rgba(155,184,168,0.03))"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                        <span style={{fontSize:20}}>🌙</span>
+                        <div>
+                          <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Last Night's Debrief</div>
+                          <div style={{fontSize:11,color:C.lt}}>Bed {_bedT5}{_wakeT5 ? " → Wake "+_wakeT5 : ""} · {_nwCount5} wake{_nwCount5!==1?"s":""}</div>
+                        </div>
+                        {_score5 !== null && <div style={{marginLeft:"auto",width:36,height:36,borderRadius:"50%",background:scoreColor(_score5)+"18",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:14,fontWeight:700,color:scoreColor(_score5)}}>{_score5}</span></div>}
+                      </div>
+
+                      <div style={{fontSize:13,color:C.deep,lineHeight:1.6,marginBottom:12}}>{_whatHappened}</div>
+
+                      {_why && (
+                        <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(123,104,238,0.06)",border:"1px solid rgba(123,104,238,0.12)",marginBottom:12}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Why this happened</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{_why}</div>
+                        </div>
+                      )}
+
+                      <div style={{padding:"10px 12px",borderRadius:12,background:C.mint+"08",border:"1px solid "+C.mint+"15",marginBottom:12}}>
+                        <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>What OBubba is doing</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{_obubbaAction}</div>
+                      </div>
+
+                      <div style={{padding:"10px 12px",borderRadius:12,background:C.ter+"08",border:"1px solid "+C.ter+"15"}}>
+                        <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Tonight's game plan</div>
+                        {_parentAction.map((a,i)=>(
+                          <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start",marginBottom:i<_parentAction.length-1?4:0}}>
+                            <span style={{fontSize:11,color:C.ter,fontWeight:700,flexShrink:0}}>{i+1}.</span>
+                            <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{a}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {/* ═══ SETTLE METHOD 7-DAY TREND ═══
                   Honest breakdown of which settle methods work fastest
                   across the last 7 nights. Non-judgmental, just data. */}
@@ -33955,6 +34052,119 @@ function App(){
               })()}
 
               {(insightFilter==="feeding") && <div>
+
+              {/* ═══ FEEDING CONSULTANT SUMMARY ("Feeding Check-in") ═══
+                  Plain-English: How feeding is going, what to watch, what OBubba suggests.
+                  Like having a health visitor check in on feeding. */}
+              {(()=>{
+                try {
+                  const _bn6 = babyName || "Baby";
+                  const _aw6 = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+                  const fc6 = _feedCardMemo;
+                  if (!fc6) return null;
+                  const _fdRes = (()=>{try{return diagnoseFeedPattern(days[selDay]||[], getResolvedRecentDays(days, selDay, 14), _aw6, weights, (()=>{const _e=days[selDay]||[];return _e.filter(e=>e.type==="poop"&&/wet|both/i.test(e.poopType||"")).length;})());}catch{return null;}})();
+
+                  let _statusEmoji = "💚";
+                  let _statusText = _bn6 + "'s feeding is on track today.";
+                  let _concern = "";
+                  let _obubbaDoing = "OBubba is tracking " + _bn6 + "'s feeding rhythm and will suggest the next feed when it's due.";
+                  let _parentTips = [];
+
+                  if (_fdRes && _fdRes.type === "dehydration_warning") {
+                    _statusEmoji = "💧";
+                    _statusText = "Wet nappy count is low today. This could mean " + _bn6 + " needs more fluids.";
+                    _concern = _fdRes.detail;
+                    _obubbaDoing = "OBubba has flagged this and will monitor wet nappies over the next 12 hours.";
+                    _parentTips = ["Offer a feed now — breast or bottle", "Count wet nappies for the rest of today", "If fewer than 6 wet nappies by end of day, contact your " + (_doctor||"GP")];
+                  } else if (_fdRes && _fdRes.type === "cluster_feeding") {
+                    _statusEmoji = "🌸";
+                    _statusText = _bn6 + " is cluster feeding — lots of short feeds close together. This is completely normal.";
+                    _concern = "Cluster feeding usually happens in the evening and often signals a growth spurt or the need to tank up before a longer sleep stretch.";
+                    _obubbaDoing = "OBubba won't count these as separate feeds for the daily target. Your milk supply adjusts to meet demand.";
+                    _parentTips = ["Go with it — let " + _bn6 + " feed as often as they want", "Get comfortable, have water and snacks nearby", "This phase usually passes in 1–3 days"];
+                  } else if (fc6.isBreastfeedingOnly) {
+                    const _bCount = fc6.breastCountToday || 0;
+                    const _bTarget = fc6.breastTarget ? fc6.breastTarget[0] : 6;
+                    if (_bCount >= _bTarget) {
+                      _statusText = _bn6 + " has had " + _bCount + " feeds today — that's a great day.";
+                      _parentTips = ["Keep following " + _bn6 + "'s cues", "Evening cluster feeds are normal and don't mean low supply"];
+                    } else if (_bCount > 0) {
+                      _statusText = _bn6 + " has had " + _bCount + " feed" + (_bCount!==1?"s":"") + " so far today (" + _bTarget + " is typical for this age).";
+                      _obubbaDoing = "OBubba will remind you when the next feed is due based on " + _bn6 + "'s personal rhythm.";
+                      _parentTips = ["Watch for hunger cues: rooting, hand-to-mouth, fussing", "Crying is a late hunger cue — try to catch them earlier"];
+                    } else {
+                      _statusText = "No feeds logged yet today. " + _bn6 + " typically needs " + _bTarget + "–" + (fc6.breastTarget?fc6.breastTarget[1]:(_bTarget+2)) + " feeds per day at this age.";
+                      _parentTips = ["Log feeds as they happen — it helps OBubba learn " + _bn6 + "'s pattern"];
+                    }
+                  } else {
+                    const _todayMl = fc6.totalMlToday || 0;
+                    const _target = fc6.totalTarget || 600;
+                    const _pct = _target > 0 ? Math.round((_todayMl / _target) * 100) : 0;
+                    const _fv6 = (ml) => { try { return fmtVol(ml, FU); } catch { return ""; } };
+                    if (_pct >= 90) {
+                      _statusText = _bn6 + " has had " + _fv6(_todayMl) + " today — right on target. Great feeding day.";
+                      _parentTips = ["Keep following " + _bn6 + "'s lead", "Any evening feeds can be smaller top-ups"];
+                    } else if (_pct >= 50) {
+                      _statusText = _bn6 + " has had " + _fv6(_todayMl) + " of " + _fv6(_target) + " today (" + _pct + "%). On track to meet the daily guideline.";
+                      const _remPerFeed = Math.round((_target - _todayMl) / Math.max(1, fc6.remainingFeeds || 2));
+                      _obubbaDoing = "OBubba has calculated that " + _bn6 + " needs roughly " + _fv6(_remPerFeed) + " per remaining feed to meet the guideline.";
+                      _parentTips = ["Offer the next feed when " + _bn6 + " shows hunger cues", "Don't force the bottle — the guideline is an average, not a minimum"];
+                    } else if (_todayMl > 0) {
+                      _statusText = _bn6 + " has had " + _fv6(_todayMl) + " so far (" + _pct + "% of " + _fv6(_target) + " guideline).";
+                      _obubbaDoing = "OBubba is tracking today's intake and will adjust feed suggestions to help catch up gently.";
+                      _parentTips = ["Offer feeds a little more frequently today", "If " + _bn6 + " is refusing, try a different position or a cooler/warmer temperature"];
+                    } else {
+                      const _anyFeeds = (days[selDay]||[]).filter(e=>e.type==="feed"&&e.feedType!=="pump").length;
+                      if (_anyFeeds > 0) {
+                        _statusText = _bn6 + " has had " + _anyFeeds + " feed" + (_anyFeeds!==1?"s":"") + " today. Tap a feed entry to add the amount for more detailed tracking.";
+                        _parentTips = ["Adding ml/oz amounts helps OBubba track intake accurately"];
+                      } else {
+                        _statusText = "No feeds logged yet today.";
+                        _obubbaDoing = "Once you log a feed, OBubba will start tracking " + _bn6 + "'s feeding rhythm and predict when the next one is due.";
+                        _parentTips = ["Log feeds as they happen so OBubba can learn " + _bn6 + "'s pattern"];
+                      }
+                    }
+                  }
+
+                  return (
+                    <div className="glass-card" style={{padding:"18px 16px",marginBottom:14,border:"1.5px solid rgba(192,112,136,0.2)",background:"linear-gradient(135deg,rgba(192,112,136,0.04),rgba(212,168,85,0.03))"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                        <span style={{fontSize:20}}>{_statusEmoji}</span>
+                        <div>
+                          <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Feeding Check-in</div>
+                          <div style={{fontSize:11,color:C.lt}}>Today's summary</div>
+                        </div>
+                      </div>
+
+                      <div style={{fontSize:13,color:C.deep,lineHeight:1.6,marginBottom:12}}>{_statusText}</div>
+
+                      {_concern && (
+                        <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.15)",marginBottom:12}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#E8574A",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Worth watching</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{_concern}</div>
+                        </div>
+                      )}
+
+                      <div style={{padding:"10px 12px",borderRadius:12,background:C.mint+"08",border:"1px solid "+C.mint+"15",marginBottom:12}}>
+                        <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>What OBubba is doing</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{_obubbaDoing}</div>
+                      </div>
+
+                      {_parentTips.length > 0 && (
+                        <div style={{padding:"10px 12px",borderRadius:12,background:C.ter+"08",border:"1px solid "+C.ter+"15"}}>
+                          <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>What you can do</div>
+                          {_parentTips.map((t,i)=>(
+                            <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start",marginBottom:i<_parentTips.length-1?4:0}}>
+                              <span style={{fontSize:11,color:C.ter,fontWeight:700,flexShrink:0}}>•</span>
+                              <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{t}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
 
               {/* ═══ FEED SCORE RING + TODAY'S SUMMARY ═══ */}
               {(()=>{
