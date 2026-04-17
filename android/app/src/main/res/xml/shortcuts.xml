@@ -27,6 +27,67 @@
         </intent>
     </capability>
 
+    <!-- Additional voice command shortcuts -->
+    <!-- "Hey Google, start a nap timer in OBubba" -->
+    <shortcut
+        android:shortcutId="start_nap"
+        android:enabled="true"
+        android:icon="@drawable/ic_timer"
+        android:shortcutShortLabel="@string/shortcut_start_timer"
+        android:shortcutLongLabel="@string/shortcut_start_timer_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.obubba.app"
+            android:targetClass="com.obubba.app.MainActivity">
+            <extra android:name="action" android:value="toggle_nap" />
+        </intent>
+        <capability-binding android:key="actions.intent.CREATE_THING">
+            <parameter-binding
+                android:key="thing.name"
+                android:value="nap;nap timer;sleep timer" />
+        </capability-binding>
+    </shortcut>
+
+    <!-- "Hey Google, log a nappy in OBubba" -->
+    <shortcut
+        android:shortcutId="voice_nappy"
+        android:enabled="true"
+        android:icon="@drawable/ic_nappy"
+        android:shortcutShortLabel="@string/shortcut_log_nappy"
+        android:shortcutLongLabel="@string/shortcut_log_nappy_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.obubba.app"
+            android:targetClass="com.obubba.app.MainActivity">
+            <extra android:name="action" android:value="quick_nappy" />
+        </intent>
+        <capability-binding android:key="actions.intent.CREATE_THING">
+            <parameter-binding
+                android:key="thing.name"
+                android:value="nappy;diaper;nappy change" />
+        </capability-binding>
+    </shortcut>
+
+    <!-- "Hey Google, log bedtime in OBubba" -->
+    <shortcut
+        android:shortcutId="voice_bedtime"
+        android:enabled="true"
+        android:icon="@drawable/ic_sleep"
+        android:shortcutShortLabel="@string/shortcut_log_sleep"
+        android:shortcutLongLabel="@string/shortcut_log_sleep_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.obubba.app"
+            android:targetClass="com.obubba.app.MainActivity">
+            <extra android:name="action" android:value="start_bedtime" />
+        </intent>
+        <capability-binding android:key="actions.intent.CREATE_THING">
+            <parameter-binding
+                android:key="thing.name"
+                android:value="bedtime;sleep;bed" />
+        </capability-binding>
+    </shortcut>
+
     <!-- Static shortcuts (long-press app icon) -->
     <shortcut
         android:shortcutId="log_feed"

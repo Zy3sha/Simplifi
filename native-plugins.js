@@ -366,9 +366,12 @@ var OBShare = {
           return { shared: true };
         });
       }
-      return navigator.clipboard.writeText(url || text || '').then(function() {
-        return { shared: false, copied: true };
-      });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(url || text || '').then(function() {
+          return { shared: false, copied: true };
+        });
+      }
+      return Promise.resolve({ shared: false, copied: false });
     }
     var Share = _plug('Share');
     if (!Share) return Promise.resolve({ shared: false });

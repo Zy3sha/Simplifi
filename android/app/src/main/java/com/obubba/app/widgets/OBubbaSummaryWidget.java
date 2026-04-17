@@ -63,11 +63,10 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     }
                 }
                 v.setInt(R.id.widget_root, "setBackgroundResource", bgRes);
-                // Dark theme needs white text
+                // Theme-specific text colours for readability
                 if (isDarkTheme) {
                     int white = 0xFFFFFFFF;
                     int secondary = 0xFFD0C8D0;
-                    // All text must be white/light on dark background
                     v.setTextColor(R.id.tv_baby_name, white);
                     v.setTextColor(R.id.tv_timer_dot, white);
                     v.setTextColor(R.id.tv_timer_label, secondary);
@@ -77,11 +76,27 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setTextColor(R.id.tv_feed_label, white);
                     v.setTextColor(R.id.tv_ns_label, white);
                     v.setTextColor(R.id.tv_ns_icon, white);
-                    // Breast row (if visible)
                     v.setTextColor(R.id.tv_bl_icon, white);
                     v.setTextColor(R.id.tv_bl_label, secondary);
                     v.setTextColor(R.id.tv_br_icon, white);
                     v.setTextColor(R.id.tv_br_label, secondary);
+                } else if (!"auto".equals(widgetTheme)) {
+                    // Coloured themes need darker text for contrast on tinted backgrounds
+                    int deep = 0xFF4A3F4F;
+                    int mid = 0xFF6A5F6F;
+                    v.setTextColor(R.id.tv_baby_name, deep);
+                    v.setTextColor(R.id.tv_timer_dot, deep);
+                    v.setTextColor(R.id.tv_timer_label, mid);
+                    v.setTextColor(R.id.timer_chrono, deep);
+                    v.setTextColor(R.id.tv_prediction, mid);
+                    v.setTextColor(R.id.tv_since, 0x80000000);
+                    v.setTextColor(R.id.tv_feed_label, deep);
+                    v.setTextColor(R.id.tv_ns_label, deep);
+                    v.setTextColor(R.id.tv_ns_icon, deep);
+                    v.setTextColor(R.id.tv_bl_icon, deep);
+                    v.setTextColor(R.id.tv_bl_label, mid);
+                    v.setTextColor(R.id.tv_br_icon, deep);
+                    v.setTextColor(R.id.tv_br_label, mid);
                 }
             } catch (Exception e) { /* ignore theme errors */ }
 
@@ -164,7 +179,8 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "stop_timer", 4));
 
                 } else {
-                    // Prediction
+                    // No active timer — stop Chronometer and show prediction
+                    v.setChronometer(R.id.timer_chrono, SystemClock.elapsedRealtime(), null, false);
                     v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
                     v.setViewVisibility(R.id.timer_chrono, View.GONE);
                     v.setViewVisibility(R.id.tv_prediction, View.VISIBLE);
@@ -195,6 +211,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
     }
 
     private static void hide(RemoteViews v) {
+        v.setChronometer(R.id.timer_chrono, SystemClock.elapsedRealtime(), null, false);
         v.setViewVisibility(R.id.timer_chrono, View.GONE);
         v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
         v.setViewVisibility(R.id.tv_since, View.GONE);

@@ -252,13 +252,13 @@ private func widgetThemeBackground() -> some View {
     return ZStack {
         switch theme {
         case "rose":
-            Color(hex: "#F5ECE8").opacity(0.92)
+            Color(hex: "#F0D8D0").opacity(0.88)
         case "lavender":
-            Color(hex: "#EDEAF5").opacity(0.92)
+            Color(hex: "#DDD4F0").opacity(0.88)
         case "mint":
-            Color(hex: "#EAF5F0").opacity(0.92)
+            Color(hex: "#D4F0E4").opacity(0.88)
         case "sky":
-            Color(hex: "#E8F0F5").opacity(0.92)
+            Color(hex: "#D4E4F0").opacity(0.88)
         case "dark":
             Color(hex: "#282025").opacity(0.88)
         default: // auto

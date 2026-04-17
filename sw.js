@@ -17,6 +17,8 @@ const STATIC_ASSETS = [
   '/obubba-happy.png',
   '/obubba-loading.png',
   '/sleep-baby.png',
+  '/icons/icon-192.png',
+  '/icons/badge-72.png',
 ];
 
 const CDN_ASSETS = [
@@ -103,8 +105,9 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Local assets: stale-while-revalidate
+  // Use ignoreSearch so /app.js?v=123 matches cached /app.js
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(event.request, {ignoreSearch: true}).then((cached) => {
       const fetchPromise = fetch(event.request)
         .then((response) => {
           if (response.ok) {
