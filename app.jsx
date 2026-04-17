@@ -7051,6 +7051,8 @@ function App(){
       if(_elapsed > 3*24*60*60*1000) { setDisruptionMode(null); }
     }
   },[disruptionMode]);
+  // Travel/timezone adaptation: gradual bedtime shift before, during, and after travel
+  const[travelContext,setTravelContext]=usePersistedState("ob_travel_ctx", null);
   // ── "What we noticed" observations log. app tells parents what it did/noticed, not what they must do ──
   const[observations,setObservations]=usePersistedState("ob_observations_v1", [],
     (raw)=>{try{const p=JSON.parse(raw);return Array.isArray(p)?p:[];}catch{return [];}},
@@ -15928,6 +15930,48 @@ function App(){
         }, 1000);
       }
     }
+  }
+
+  // Travel/timezone adaptation plan
+  function getTravelAdaptationPlan() {
+    if (!travelContext || !travelContext.offsetHrs) return null;
+    const offset = travelContext.offsetHrs;
+    const absOffset = Math.abs(offset);
+    const dir = offset > 0 ? "east" : "west";
+    const shiftPerDay = 30; // minutes shift per day (30–60min/day for babies)
+    const daysNeeded = Math.ceil((absOffset * 60) / shiftPerDay);
+    const preDays = Math.min(3, Math.floor(daysNeeded / 2));
+
+    const prePlan = [];
+    for (let d = 1; d <= preDays; d++) {
+      prePlan.push({
+        day: -preDays + d,
+        label: (preDays - d) + " day" + (preDays-d!==1?"s":"") + " before travel",
+        action: "Shift bedtime " + (d * shiftPerDay) + "min " + (dir === "east" ? "earlier" : "later"),
+        why: "Gradual shift prevents overtiredness on travel day"
+      });
+    }
+
+    const duringSteps = [
+      {action: "Follow destination meal times from day 1", why: "Food cues re-anchor body clock"},
+      {action: "Get bright sunlight at local wake time (within 1 hour)", why: "Light is the strongest circadian anchor"},
+      {action: "Keep nap times consistent with destination clock", why: "Naps anchor the daytime rhythm"},
+      {action: "Bedtime may be harder for " + daysNeeded + " days \u2014 stay consistent", why: "Baby\u2019s body needs " + daysNeeded + " days to adjust"},
+      {action: "Avoid screens for 2+ hours before bed (blue light suppresses melatonin)", why: "Especially important when body clock is shifting"},
+    ];
+
+    const postSteps = [
+      {action: "On return, follow home clock immediately", why: "Most babies re-adjust faster going home"},
+      {action: "Get morning sunlight at home wake time", why: "Re-anchors body clock to home timezone"},
+      {action: "Expect " + Math.ceil(daysNeeded * 0.7) + " days to fully readjust", why: "Returning is usually faster than going"},
+    ];
+
+    return {
+      strategy: absOffset <= 2 ? "quick" : absOffset <= 5 ? "gradual" : "reset",
+      title: absOffset <= 2 ? "Small shift \u2014 adjust on arrival" : "Travel plan: " + absOffset + "h " + dir,
+      offset, absOffset, dir, daysNeeded, preDays,
+      prePlan, duringSteps, postSteps
+    };
   }
 
   function circadianAnalysis() {
@@ -32659,6 +32703,84 @@ function App(){
                     </div>
                   );
                 } catch { return null; }
+              })()}
+
+              {/* ═══ Travel / timezone adaptation plan ═══ */}
+              {!insightFilter && (()=>{
+                const _plan = getTravelAdaptationPlan();
+                return (
+                  <div className="glass-card" style={{..._S.card, padding:"14px 14px 12px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <span style={{fontSize:16}}>✈️</span>
+                      <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,flex:1}}>Travel plan</div>
+                      {travelContext && (
+                        <button onClick={()=>{if(confirm("Clear travel plan?")){setTravelContext(null);}}} style={{fontSize:10,color:C.lt,background:"none",border:"none",cursor:_cP,fontFamily:_fI}}>Clear</button>
+                      )}
+                    </div>
+                    {!_plan ? (
+                      <div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>Flying or changing timezone? OBubba can build a personalised adjustment plan (before / during / after) so {babyName||"baby"}'s body clock adapts smoothly.</div>
+                        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                          <label style={{fontSize:11,color:C.lt}}>Timezone offset (hours):</label>
+                          <input type="number" min="-12" max="14" step="1" placeholder="e.g. 5"
+                            onKeyDown={e=>{
+                              if(e.key==="Enter"){
+                                const v = parseInt(e.target.value,10);
+                                if(!isNaN(v) && v!==0 && v>=-12 && v<=14){
+                                  setTravelContext({offsetHrs:v, since:new Date().toISOString()});
+                                  e.target.value="";
+                                }
+                              }
+                            }}
+                            onBlur={e=>{
+                              const v = parseInt(e.target.value,10);
+                              if(!isNaN(v) && v!==0 && v>=-12 && v<=14){
+                                setTravelContext({offsetHrs:v, since:new Date().toISOString()});
+                                e.target.value="";
+                              }
+                            }}
+                            style={{width:70,padding:"5px 8px",borderRadius:8,border:`1px solid ${C.blush}`,fontFamily:_fI,fontSize:12,background:"var(--card-bg-solid)"}}/>
+                          <div style={{fontSize:10,color:C.lt}}>positive = east, negative = west</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>{_plan.title}</div>
+                        <div style={{fontSize:11,color:C.lt,marginBottom:10}}>Strategy: <strong style={{color:C.mid}}>{_plan.strategy==="quick"?"adjust on arrival":_plan.strategy==="gradual"?"gradual pre-shift":"full reset at destination"}</strong> · Estimated {_plan.daysNeeded} day{_plan.daysNeeded!==1?"s":""} to adjust</div>
+                        {_plan.prePlan.length>0 && (
+                          <div style={{marginBottom:12}}>
+                            <div style={{fontSize:11,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Before travel</div>
+                            {_plan.prePlan.map((s,i)=>(
+                              <div key={i} style={{fontSize:12,color:C.mid,padding:"6px 0",borderBottom:i<_plan.prePlan.length-1?`1px solid ${C.blush}30`:"none"}}>
+                                <div style={{fontWeight:600}}>{s.label}</div>
+                                <div style={{marginTop:2}}>{s.action}</div>
+                                <div style={{fontSize:10,color:C.lt,marginTop:2,fontStyle:"italic"}}>{s.why}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{marginBottom:12}}>
+                          <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>At destination</div>
+                          {_plan.duringSteps.map((s,i)=>(
+                            <div key={i} style={{fontSize:12,color:C.mid,padding:"6px 0",borderBottom:i<_plan.duringSteps.length-1?`1px solid ${C.blush}30`:"none"}}>
+                              <div>{s.action}</div>
+                              <div style={{fontSize:10,color:C.lt,marginTop:2,fontStyle:"italic"}}>{s.why}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <div style={{fontSize:11,fontWeight:700,color:C.ter,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>On return home</div>
+                          {_plan.postSteps.map((s,i)=>(
+                            <div key={i} style={{fontSize:12,color:C.mid,padding:"6px 0",borderBottom:i<_plan.postSteps.length-1?`1px solid ${C.blush}30`:"none"}}>
+                              <div>{s.action}</div>
+                              <div style={{fontSize:10,color:C.lt,marginTop:2,fontStyle:"italic"}}>{s.why}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
               })()}
 
               {/* ═══ Smart Patterns — consultant-quality personalised insights ═══ */}
