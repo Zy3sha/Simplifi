@@ -29747,6 +29747,133 @@ function App(){
                     } catch { return null; }
                   })()}
 
+                  {/* ═══ Tip of the Day — moved from Insights tab ═══ */}
+                  {(()=>{
+                    const _dkAll = getRecentDays(undefined, true);
+                    // Free users: teaser card that drives to paywall
+                    if (!hasAccess()) {
+                      return (
+                        <div onClick={()=>{haptic();triggerPaywall("coach");}} className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.ter}35`,background:`linear-gradient(135deg,${C.ter}08,${C.mint}04)`,cursor:_cP}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                            <span style={_S.f20}>🎯</span>
+                            <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Tip of the day</div>
+                            <span style={{marginLeft:"auto",fontSize:10,fontFamily:_fM,padding:"2px 8px",borderRadius:99,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontWeight:700,letterSpacing:"0.05em"}}>PREMIUM</span>
+                          </div>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>Personalised daily tips for {babyName||"baby"}</div>
+                          <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:6}}>A single, priority-ranked action each day. built from your baby's sleep patterns, feeds, and rhythm. No scrolling. No decision fatigue.</div>
+                          <div style={{fontSize:11,color:C.ter,fontWeight:700}}>Unlock with Premium →</div>
+                        </div>
+                      );
+                    }
+                    const _tip = getCoachTip();
+                    if (!_tip && _dkAll.length < 3) return (
+                      <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.blush}`}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={_S.f20}>🎯</span>
+                          <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Tip of the day</div>
+                        </div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>Log a few more days and personalised tips will appear here 💛</div>
+                      </div>
+                    );
+                    if (!_tip) return null;
+                    return (
+                      <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.ter}25`,background:`linear-gradient(135deg,${C.ter}06,${C.mint}04)`}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                          <span style={_S.f20}>{_tip.icon}</span>
+                          <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Tip of the day</div>
+                        </div>
+                        <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>{_tip.title}</div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:6}}>{_tip.body}</div>
+                        <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>{_tip.source}</div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ═══ Smart Patterns — consultant-quality personalised insights (moved from Insights tab) ═══ */}
+                  {(()=>{
+                    let _napLocIns=null,_optWW=null,_feedNap=null,_whatWorked=null,_debtProj=null,_napTrans=null;
+                    try { _napLocIns = getNapLocationInsights(); } catch {}
+                    try { _optWW = getOptimalWakeWindow(); } catch {}
+                    try { _feedNap = getFeedNapSpacingInsight(); } catch {}
+                    try { _whatWorked = getWhatWorkedForNaps(); } catch {}
+                    try { _debtProj = getSleepDebtProjection(); } catch {}
+                    try { _napTrans = getNapTransitionProtocol(); } catch {}
+                    const _any = _napLocIns || _optWW || _feedNap || _whatWorked || _debtProj || _napTrans;
+                    if (!_any) return null;
+                    const _locLabels = { cot: "the cot", car: "the car", pram: "the pram", carrier: "the carrier", arms: "your arms", other: "elsewhere" };
+                    const _aidLabels = { self: "Went down alone", fed: "Fed to sleep", rocked: "Rocked/held", dummy: "Dummy/pacifier" };
+                    return (
+                      <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid rgba(123,104,238,0.2)`,background:`linear-gradient(135deg,rgba(123,104,238,0.04),rgba(111,168,152,0.03))`}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                          <span style={_S.f20}>🧠</span>
+                          <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Smart patterns</div>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                          {_optWW && (
+                            <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
+                              <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>⏱️ Optimal wake window</div>
+                              <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
+                                {babyName||"Baby"} settles fastest after <b>{hm(_optWW.optimalMin)}–{hm(_optWW.optimalMax)}</b> awake. Stay in this window for easier naps.
+                              </div>
+                              <div style={{fontSize:10,color:C.lt,marginTop:4,fontStyle:"italic"}}>Based on {_optWW.sampleSize} naps with settle times logged</div>
+                            </div>
+                          )}
+                          {_napLocIns && (
+                            <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
+                              <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>🛏️ Best nap location</div>
+                              <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
+                                {_napLocIns.best.avg > _napLocIns.worst.avg + 10 ? (
+                                  <>Naps in {_locLabels[_napLocIns.best.location]||_napLocIns.best.location} average <b>{hm(_napLocIns.best.avg)}</b> — that's <b>{hm(_napLocIns.best.avg - _napLocIns.worst.avg)}</b> longer than {_locLabels[_napLocIns.worst.location]||_napLocIns.worst.location}.</>
+                                ) : (
+                                  <>Nap duration is consistent across locations. Top: {_locLabels[_napLocIns.best.location]||_napLocIns.best.location} ({hm(_napLocIns.best.avg)}).</>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {_whatWorked && _whatWorked.top && (
+                            <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
+                              <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>✨ What's working</div>
+                              <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
+                                <b>{_aidLabels[_whatWorked.top.aid]||_whatWorked.top.aid}</b> has the best track record — {Math.round(_whatWorked.top.goodRate*100)}% good naps, avg {hm(_whatWorked.top.avgDur)}.
+                              </div>
+                            </div>
+                          )}
+                          {_feedNap && (
+                            <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
+                              <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>🍼 Feed-to-nap spacing</div>
+                              <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
+                                Best naps ({hm(_feedNap.best.avgNap)}) follow feeds <b>{_feedNap.best.gap} min</b> before sleep.
+                                {_feedNap.best.gap === "0-15" ? " Feed-to-sleep is working here, but watch for association dependence." : ""}
+                              </div>
+                            </div>
+                          )}
+                          {_napTrans && (
+                            <div style={{padding:"12px 14px",borderRadius:12,background:"rgba(212,168,85,0.06)",border:"1.5px solid rgba(212,168,85,0.3)"}}>
+                              <div style={{fontSize:12,fontFamily:_fM,color:"#D4A855",fontWeight:700,marginBottom:6}}>🔄 {_napTrans.title}</div>
+                              <div style={{fontSize:12,color:C.deep,lineHeight:1.55}}>
+                                {_napTrans.steps.map((s,i)=>(
+                                  <div key={i} style={{display:"flex",gap:6,marginBottom:4}}>
+                                    <span style={{color:"#D4A855",fontWeight:700,flexShrink:0}}>{i+1}.</span>
+                                    <span>{s}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {_debtProj && _debtProj.critical && (
+                            <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.06)",border:"1.5px solid rgba(232,87,74,0.25)"}}>
+                              <div style={{fontSize:12,fontFamily:_fM,color:"#E8574A",fontWeight:700,marginBottom:3}}>📉 Sleep debt building</div>
+                              <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
+                                {babyName||"Baby"} is carrying <b>{hm(Math.round(_debtProj.cumulative))}</b> deficit over {_debtProj.daysAnalysed} days.
+                                {_debtProj.trend > 0 ? " Debt is increasing — consider an earlier bedtime tonight." : " Debt is stable — protect today's naps."}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* This week's development. brief summary, details in Development tab */}
                   {age && (()=>{
                     const w = age.predictiveWeeks ?? age.totalWeeks;
@@ -32718,61 +32845,29 @@ function App(){
               {/* Only show insights sections when enough data */}
               {Object.keys(days).filter(d => (days[d]||[]).length > 0).length >= 3 && <div>
 
-              {/* Coach tip-of-the-day. PREMIUM. full-width card above grid */}
-              {!insightFilter && (()=>{
-                const _dkAll = getRecentDays(undefined, true);
-                // Free users: teaser card that drives to paywall
-                if (!hasAccess()) {
-                  return (
-                    <div onClick={()=>{haptic();triggerPaywall("coach");}} className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.ter}35`,background:`linear-gradient(135deg,${C.ter}08,${C.mint}04)`,cursor:_cP}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                        <span style={_S.f20}>🎯</span>
-                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Tip of the day</div>
-                        <span style={{marginLeft:"auto",fontSize:10,fontFamily:_fM,padding:"2px 8px",borderRadius:99,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontWeight:700,letterSpacing:"0.05em"}}>PREMIUM</span>
-                      </div>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>Personalised daily tips for {babyName||"baby"}</div>
-                      <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:6}}>A single, priority-ranked action each day. built from your baby's sleep patterns, feeds, and rhythm. No scrolling. No decision fatigue.</div>
-                      <div style={{fontSize:11,color:C.ter,fontWeight:700}}>Unlock with Premium →</div>
-                    </div>
-                  );
-                }
-                // Premium users: real tip
-                const _tip = getCoachTip();
-                if (!_tip && _dkAll.length < 3) return (
-                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.blush}`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                      <span style={_S.f20}>🎯</span>
-                      <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Tip of the day</div>
-                    </div>
-                    <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>Log a few more days and personalised tips will appear here 💛</div>
-                  </div>
-                );
-                if (!_tip) return null;
-                return (
-                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.ter}25`,background:`linear-gradient(135deg,${C.ter}06,${C.mint}04)`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                      <span style={_S.f20}>{_tip.icon}</span>
-                      <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Tip of the day</div>
-                    </div>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4}}>{_tip.title}</div>
-                    <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:6}}>{_tip.body}</div>
-                    <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>{_tip.source}</div>
-                  </div>
-                );
-              })()}
+              {/* Tip of the Day moved to News sub-screen in Day tab */}
 
               {/* ═══ Insights Dashboard — navigation grid (moved up so users can jump into a section first) ═══ */}
               {!insightFilter && (
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
                   {[
                     {id:"tomorrow",label:"Tomorrow",icon:"📅",color:C.gold},
                     {id:"sleep",label:"Sleep",icon:"😴",color:C.sky},
                     {id:"feeding",label:"Feeding",icon:"🍼",color:C.ter},
                     {id:"growth",label:"Growth",icon:"📏",color:"#7B68EE"},
                     {id:"safesleep",label:"Safe Sleep",icon:"🛏️",color:"#7AABC4"},
+                    {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",color:"#7B68EE",modal:true},
                     {id:"reports",label:"Reports",icon:"📊",color:C.mint},
                   ].map(f=>(
-                    <button key={f.id} onClick={()=>{haptic(8);setInsightFilter(f.id);}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:78}}>
+                    <button key={f.id} onClick={()=>{
+                      haptic(8);
+                      if (f.modal && f.id === "sleepcoach") {
+                        if (!hasAccess()) triggerPaywall("sleep_coach", true);
+                        else setShowSleepCoach(true);
+                      } else {
+                        setInsightFilter(f.id);
+                      }
+                    }} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:78}}>
                       <span style={{fontSize:22}}>{f.icon}</span>
                       <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2}}>{f.label}</div>
                     </button>
@@ -33029,102 +33124,7 @@ function App(){
                 );
               })()}
 
-              {/* ═══ Smart Patterns — consultant-quality personalised insights ═══ */}
-              {!insightFilter && (()=>{
-                let _napLocIns=null,_optWW=null,_feedNap=null,_whatWorked=null,_debtProj=null,_napTrans=null;
-                try { _napLocIns = getNapLocationInsights(); } catch {}
-                try { _optWW = getOptimalWakeWindow(); } catch {}
-                try { _feedNap = getFeedNapSpacingInsight(); } catch {}
-                try { _whatWorked = getWhatWorkedForNaps(); } catch {}
-                try { _debtProj = getSleepDebtProjection(); } catch {}
-                try { _napTrans = getNapTransitionProtocol(); } catch {}
-                const _any = _napLocIns || _optWW || _feedNap || _whatWorked || _debtProj || _napTrans;
-                if (!_any) return null;
-                const _locLabels = { cot: "the cot", car: "the car", pram: "the pram", carrier: "the carrier", arms: "your arms", other: "elsewhere" };
-                const _aidLabels = { self: "Went down alone", fed: "Fed to sleep", rocked: "Rocked/held", dummy: "Dummy/pacifier" };
-                return (
-                  <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid rgba(123,104,238,0.2)`,background:`linear-gradient(135deg,rgba(123,104,238,0.04),rgba(111,168,152,0.03))`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                      <span style={_S.f20}>🧠</span>
-                      <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Smart patterns</div>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-
-                      {/* Optimal wake window card */}
-                      {_optWW && (
-                        <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                          <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>⏱️ Optimal wake window</div>
-                          <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
-                            {babyName||"Baby"} settles fastest after <b>{hm(_optWW.optimalMin)}–{hm(_optWW.optimalMax)}</b> awake. Stay in this window for easier naps.
-                          </div>
-                          <div style={{fontSize:10,color:C.lt,marginTop:4,fontStyle:"italic"}}>Based on {_optWW.sampleSize} naps with settle times logged</div>
-                        </div>
-                      )}
-
-                      {/* Nap location insights */}
-                      {_napLocIns && (
-                        <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                          <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>🛏️ Best nap location</div>
-                          <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
-                            {_napLocIns.best.avg > _napLocIns.worst.avg + 10 ? (
-                              <>Naps in {_locLabels[_napLocIns.best.location]||_napLocIns.best.location} average <b>{hm(_napLocIns.best.avg)}</b> — that's <b>{hm(_napLocIns.best.avg - _napLocIns.worst.avg)}</b> longer than {_locLabels[_napLocIns.worst.location]||_napLocIns.worst.location}.</>
-                            ) : (
-                              <>Nap duration is consistent across locations. Top: {_locLabels[_napLocIns.best.location]||_napLocIns.best.location} ({hm(_napLocIns.best.avg)}).</>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* What worked for naps */}
-                      {_whatWorked && _whatWorked.top && (
-                        <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                          <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>✨ What's working</div>
-                          <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
-                            <b>{_aidLabels[_whatWorked.top.aid]||_whatWorked.top.aid}</b> has the best track record — {Math.round(_whatWorked.top.goodRate*100)}% good naps, avg {hm(_whatWorked.top.avgDur)}.
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Feed-nap spacing */}
-                      {_feedNap && (
-                        <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
-                          <div style={{fontSize:12,fontFamily:_fM,color:C.ter,fontWeight:700,marginBottom:3}}>🍼 Feed-to-nap spacing</div>
-                          <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
-                            Best naps ({hm(_feedNap.best.avgNap)}) follow feeds <b>{_feedNap.best.gap} min</b> before sleep.
-                            {_feedNap.best.gap === "0-15" ? " Feed-to-sleep is working here, but watch for association dependence." : ""}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Nap transition protocol */}
-                      {_napTrans && (
-                        <div style={{padding:"12px 14px",borderRadius:12,background:"rgba(212,168,85,0.06)",border:"1.5px solid rgba(212,168,85,0.3)"}}>
-                          <div style={{fontSize:12,fontFamily:_fM,color:"#D4A855",fontWeight:700,marginBottom:6}}>🔄 {_napTrans.title}</div>
-                          <div style={{fontSize:12,color:C.deep,lineHeight:1.55}}>
-                            {_napTrans.steps.map((s,i)=>(
-                              <div key={i} style={{display:"flex",gap:6,marginBottom:4}}>
-                                <span style={{color:"#D4A855",fontWeight:700,flexShrink:0}}>{i+1}.</span>
-                                <span>{s}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Sleep debt projection */}
-                      {_debtProj && _debtProj.critical && (
-                        <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.06)",border:"1.5px solid rgba(232,87,74,0.25)"}}>
-                          <div style={{fontSize:12,fontFamily:_fM,color:"#E8574A",fontWeight:700,marginBottom:3}}>📉 Sleep debt building</div>
-                          <div style={{fontSize:13,color:C.deep,lineHeight:1.5}}>
-                            {babyName||"Baby"} is carrying <b>{hm(Math.round(_debtProj.cumulative))}</b> deficit over {_debtProj.daysAnalysed} days.
-                            {_debtProj.trend > 0 ? " Debt is increasing — consider an earlier bedtime tonight." : " Debt is stable — protect today's naps."}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Smart Patterns moved to News sub-screen in Day tab */}
 
               {/* Back button + active filter label (when a section is open) */}
               {insightFilter && (
@@ -33138,37 +33138,7 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ SLEEP COACH — top of Insights, always visible ═══ */}
-              {!insightFilter && age && (age.predictiveWeeks??age.totalWeeks) >= 16 && (()=>{
-                const _scRaw2 = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
-                const _sc2 = _scRaw2 ? (()=>{try{return JSON.parse(_scRaw2);}catch{return null;}})() : null;
-                if (_sc2 && _sc2.style === "gradual") { try{localStorage.removeItem("ob_sleep_coach_v1");}catch{} }
-                const _hasActivePlan = _sc2 && _sc2.style && _sc2.style !== "gradual";
-                const _unlockedSC2 = hasAccess();
-                let _dayLabel2 = "";
-                if (_hasActivePlan) {
-                  const _start2 = new Date(_sc2.startDate + "T00:00:00");
-                  const _elapsed2 = Math.floor((new Date() - _start2) / (24*60*60*1000));
-                  _dayLabel2 = _elapsed2 >= 14 ? "Complete ✓" : "Day " + Math.min(14, Math.max(1, _elapsed2 + 1)) + "/14";
-                }
-                return (
-                  <button onClick={()=>{haptic();if(!_unlockedSC2){triggerPaywall("sleep_coach",true);}else{setShowSleepCoach(true);}}} className="glass-card" style={{..._S.card, background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))", border:"1.5px solid rgba(123,104,238,0.25)",cursor:_cP,textAlign:"left",width:"100%",fontFamily:_fI}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={{fontSize:22}}>🗓</span>
-                        <div>
-                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Sleep Coach</div>
-                          <div style={{fontSize:11,color:C.lt}}>{_hasActivePlan ? ({no_cry:"No-cry / gentle",chair:"Chair shuffle",parent_led:"Parent-led rhythm"}[_sc2.style]||_sc2.style) + " · " + _dayLabel2 : "14-day personalised plan"}</div>
-                        </div>
-                      </div>
-                      <div style={{display:"flex",alignItems:"center",gap:6}}>
-                        {!_unlockedSC2 && <span style={{fontSize:10,padding:"2px 8px",borderRadius:99,background:C.gold+"22",color:C.gold,fontWeight:700}}>PREMIUM</span>}
-                        <span style={{fontSize:16,color:C.lt}}>→</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })()}
+              {/* Sleep Coach moved into nav grid tile above */}
 
               {/* ═══ Post-trial banner. warm, never pushy ═══ */}
               {STORE_READY && trialExpired && !trialBannerDismissed && (
