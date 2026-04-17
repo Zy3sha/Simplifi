@@ -11668,11 +11668,21 @@ function App(){
       }
     } catch {}
 
-    // Weight-based per-feed target (NHS 150ml/kg/day)
+    // Weight-based per-feed target (NHS 150ml/kg/day, or custom CMPA target from dietitian)
     const _latestWeight = weights && weights.length > 0 ? weights[weights.length-1].kg : null;
-    const _feedsPerDay = _w < 4 ? 10 : _w < 8 ? 7 : _w < 13 ? 6 : _w < 26 ? 5 : _w < 39 ? 4 : 3;
-    const _perFeedTarget = _latestWeight ? Math.round((_latestWeight * 150) / _feedsPerDay) : (_w < 4 ? 60 : _w < 8 ? 90 : _w < 13 ? 125 : _w < 26 ? 180 : 200);
-    const _dailyTarget = _latestWeight ? Math.round(_latestWeight * 150) : null;
+    const _hasReflux = (activeChild.conditions||[]).includes("reflux");
+    const _customTarget = activeChild.customDailyTarget || null;
+    // Reflux babies typically need more frequent, smaller feeds
+    const _feedsPerDay = _hasReflux
+      ? (_w < 4 ? 12 : _w < 8 ? 9 : _w < 13 ? 8 : _w < 26 ? 6 : _w < 39 ? 5 : 4)
+      : (_w < 4 ? 10 : _w < 8 ? 7 : _w < 13 ? 6 : _w < 26 ? 5 : _w < 39 ? 4 : 3);
+    const _standardDaily = _latestWeight ? Math.round(_latestWeight * 150) : null;
+    const _dailyTarget = _customTarget || _standardDaily;
+    const _defaultPerFeed = _w < 4 ? 60 : _w < 8 ? 90 : _w < 13 ? 125 : _w < 26 ? 180 : 200;
+    // Reflux: smaller per-feed target (divide daily by reflux-adjusted feed count)
+    const _perFeedTarget = _dailyTarget
+      ? Math.round(_dailyTarget / _feedsPerDay)
+      : (_hasReflux ? Math.round(_defaultPerFeed * 0.7) : _defaultPerFeed);
 
     // Next feed prediction time
     const _lastFeedTime = _lastFeed ? timeVal(_lastFeed) : null;
@@ -13190,7 +13200,16 @@ function App(){
       _reasons.push(disruptionMode.reason || "off day");
     }
 
-    // 7. Developmental milestone regression window. When a baby has
+    // 7. Reflux: babies with reflux benefit from shorter wake windows to
+    //    reduce overstimulation and reflux triggers. Shrink by 10%.
+    try {
+      if ((activeChild.conditions||[]).includes("reflux")) {
+        _factors.push(0.90);
+        _reasons.push("reflux");
+      }
+    } catch {}
+
+    // 8. Developmental milestone regression window. When a baby has
     //    just achieved a major motor milestone (roll, crawl, sit, pull
     //    to stand, walk), their brain is literally practising the skill
     //    during sleep — this is well-documented and predictable. Expect
@@ -22278,13 +22297,20 @@ function App(){
       }
     }
 
-    // 3. WIND/GAS. if young baby and recently fed
+    // 3. WIND/GAS. if young baby and recently fed (reflux-aware)
     if (aw < 17 && feedGapMins < 45) {
+      const _refluxActive = (activeChild.conditions||[]).includes("reflux");
       reasons.push({
-        emoji: "💨", title: "Wind or gas",
-        detail: `Fed ${feedGapMins}min ago. common in babies under 4 months`,
-        action: "Try burping: over shoulder, sitting upright, or gentle bicycle legs",
-        urgency: "med", score: aw < 8 ? 75 : 55
+        emoji: "💨",
+        title: _refluxActive ? "Reflux discomfort" : "Wind or gas",
+        detail: _refluxActive
+          ? `Fed ${feedGapMins}min ago. reflux babies often need longer upright time after feeds`
+          : `Fed ${feedGapMins}min ago. common in babies under 4 months`,
+        action: _refluxActive
+          ? "Keep upright for 20+ min after feeds. try burping every 30ml/1oz. gentle pressure on tummy over shoulder. check if medication timing needs adjusting"
+          : "Try burping: over shoulder, sitting upright, or gentle bicycle legs",
+        urgency: "med",
+        score: _refluxActive ? 80 : (aw < 8 ? 75 : 55)
       });
     }
 
@@ -33756,7 +33782,12 @@ function App(){
                       <div className="glass-card" style={_S.card}>
                         <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-solid)",borderRadius:10,padding:"11px 13px"}}>
                           <span style={{fontSize:14,flexShrink:0}}>{fc.icon}</span>
-                          <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{fc.statusMsg}</div>
+                          <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{
+                            // Reflux-aware override: soften "below typical" warnings for reflux babies
+                            (activeChild.conditions||[]).includes("reflux") && (fc.statusTone==="attention"||fc.statusTone==="low")
+                              ? (fc.statusTone==="attention" ? "Small frequent feeds are appropriate for reflux. keep offering little and often." : "Below usual even for reflux. try offering more frequent smaller feeds.")
+                              : fc.statusMsg
+                          }</div>
                         </div>
                         <div style={{fontSize:12,color:C.lt,marginTop:10,paddingTop:10,borderTop:`1px solid ${_bColor}20`,lineHeight:1.5}}>
                           ℹ️ {fc.nhsNote}
@@ -33840,7 +33871,12 @@ function App(){
                       {/* Status message */}
                       <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-solid)",borderRadius:10,padding:"9px 11px",marginBottom:fc.sleepLink?6:0}}>
                         <span style={{fontSize:14,flexShrink:0}}>{fc.icon}</span>
-                        <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{fc.statusMsg}</div>
+                        <div style={{fontSize:13,color:C.mid,lineHeight:1.5}}>{
+                            // Reflux-aware override: soften "below typical" warnings for reflux babies
+                            (activeChild.conditions||[]).includes("reflux") && (fc.statusTone==="attention"||fc.statusTone==="low")
+                              ? (fc.statusTone==="attention" ? "Small frequent feeds are appropriate for reflux. keep offering little and often." : "Below usual even for reflux. try offering more frequent smaller feeds.")
+                              : fc.statusMsg
+                          }</div>
                       </div>
                       {fc.sleepLink && (
                         <div style={{display:"flex",alignItems:"flex-start",gap:8,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:10,padding:"9px 11px"}}>
