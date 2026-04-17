@@ -3412,6 +3412,23 @@ const GAGGING_VS_CHOKING = {
   prevention:["Always supervise mealtimes. never leave baby alone with food","Baby must sit upright in highchair, never reclined","Cut round foods (grapes, cherry tomatoes, sausages) lengthways into quarters","Avoid whole nuts, popcorn, raw hard vegetables, raw apple chunks","Remove pips, stones, and bones","Food should be soft enough to squash between your fingers","Consider a baby first aid course before starting weaning"],
 };
 
+const TOG_GUIDE = [
+  {temp:"27°C+",range:[27,99],tog:"0.5 or less",clothing:"Nappy or vest only",emoji:"🥵",color:"#E8574A"},
+  {temp:"24–27°C",range:[24,27],tog:"0.5–1.0",clothing:"Short-sleeve bodysuit",emoji:"☀️",color:"#D4A855"},
+  {temp:"21–23°C",range:[21,23],tog:"1.0",clothing:"Long-sleeve bodysuit",emoji:"🌤️",color:"#7BA68C"},
+  {temp:"18–20°C",range:[18,20],tog:"2.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"🌙",color:"#7B68EE"},
+  {temp:"16–17°C",range:[16,17],tog:"2.5–3.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"❄️",color:"#7AABC4"},
+  {temp:"Under 16°C",range:[0,16],tog:"3.5+",clothing:"Add extra layers or blanket",emoji:"🧊",color:"#A898AC"},
+];
+const TOG_SAFETY = [
+  "Room temperature 16–20°C is ideal for baby sleep (NHS)",
+  "Feel baby's chest or back of neck to check temperature — hands and feet are often cool and not reliable",
+  "Never use a duvet, pillow, or hot water bottle for under 12 months",
+  "Remove hats indoors — babies lose excess heat through their heads",
+  "If baby is sweating, has damp hair, or flushed cheeks, they may be too warm — reduce layers",
+  "Sleeping bag replaces blankets — never use both together",
+];
+
 const WATER_GUIDE = {
   when:"From around 6 months, when solids are introduced. Offer small sips with meals.",
   cups:"NHS recommends an open cup or free-flow cup without a valve. These teach sipping and are better for dental health than sippy cups. Aim to stop bottles by 12 months.",
@@ -9109,18 +9126,18 @@ function App(){
 
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
-  async function verifyLogin(username, pin) {
+  async function verifyLogin(username, pin, preHashed) {
     if(!window._fb) { setAuthError("Not connected. check your internet"); return false; }
     const {db, doc, getDoc} = window._fb;
     const key = normaliseUsername(username);
     if(!key) { setAuthError("Enter a username"); return false; }
-    if(pin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
+    if(!preHashed && pin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
     try {
       const snap = await fsGet("usernames", key);
       if(!snap.exists()) { setAuthError("Username not found"); return false; }
       const data = snap.data();
       if(data.deleted) { setAuthError("Username not found"); return false; }
-      if(data.pinHash !== hashPin(pin)) { setAuthError("Incorrect PIN"); return false; }
+      if(data.pinHash !== (preHashed ? pin : hashPin(pin))) { setAuthError("Incorrect PIN"); return false; }
       const resolvedBackup = data.backupCode || null;
 
       // ACCOUNT-SWITCH GUARD. If the user is signing in while already
@@ -9503,9 +9520,8 @@ function App(){
       await new Promise(r => { let t=0; const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200); });
     }
     if(!window._fb) return false;
+    if(!pin || !/^\d{4}$/.test(pin)) return false; // reject empty or non-4-digit PINs
     // Disconnect any previous listener to prevent data crossover
-    if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
-    // Disconnect any previous account's listener to prevent data crossover
     if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
     const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const key = normaliseUsername(username);
@@ -9553,7 +9569,7 @@ function App(){
         try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:newCode, updatedAt:serverTimestamp()}, true); }catch(e){ console.warn("OBubba uid_to_backup write error",e); }
       }
       await fsSet("usernames", key, {
-        pinHash: hashPin(pin||"0000"),
+        pinHash: hashPin(pin),
         backupCode: newCode,
         familyCode: null,
         createdAt: serverTimestamp(),
@@ -9570,7 +9586,7 @@ function App(){
   }
   // Claim account: link username+PIN to EXISTING backup code. no data wipe, no new code
   async function claimAccount(username, pin) {
-    if(!username.trim() || !pin || pin.length < 4) return {ok:false, error:"Username and 4+ digit PIN required"};
+    if(!username.trim() || !pin || pin.length !== 4) return {ok:false, error:"Username and exactly 4-digit PIN required"};
     // Wait for Firebase if not ready yet (module may still be loading)
     if(!window._fb) {
       await new Promise(r => { let t=0; const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200); });
@@ -25861,16 +25877,22 @@ function App(){
         // Read credentials from secure storage (iOS Keychain / Android EncryptedSharedPreferences)
         const _Prefs = window.Capacitor?.Plugins?.Preferences;
         if(!_Prefs) return;
-        const [{value:bioUser},{value:bioPin}] = await Promise.all([
+        const [{value:bioUser},{value:bioPinStored}] = await Promise.all([
           _Prefs.get({key:"bio_user"}),
           _Prefs.get({key:"bio_pin"})
         ]);
-        if(!bioUser || !bioPin) return;
+        if(!bioUser || !bioPinStored) return;
+        // Migrate plaintext PIN → hash (existing users stored raw 4-digit PIN)
+        let bioPin = bioPinStored;
+        if(/^\d{4}$/.test(bioPin)){
+          bioPin = hashPin(bioPin);
+          try{ _Prefs.set({key:"bio_pin",value:bioPin}).catch(()=>{}); }catch{}
+        }
         setAuthUsername(bioUser);
         const result = await window._biometricAuth.authenticate();
         if(result.success){
           setAuthLoading(true);
-          const ok = await verifyLogin(bioUser, bioPin);
+          const ok = await verifyLogin(bioUser, bioPin, true);
           if(ok){
             try{localStorage.setItem("onboarded_v2","1");}catch{}
             setOnboarded(true); setAuthScreen(null); setTab("day"); setSelDay(todayStr());
@@ -27388,7 +27410,7 @@ function App(){
               const _Prefs = window.Capacitor?.Plugins?.Preferences;
               if(_Prefs){
                 _Prefs.set({key:"bio_user",value:authUsername}).catch(()=>{});
-                _Prefs.set({key:"bio_pin",value:pin}).catch(()=>{});
+                _Prefs.set({key:"bio_pin",value:hashPin(pin)}).catch(()=>{});
                 _Prefs.set({key:"bio_enabled",value:"1"}).catch(()=>{});
               }
               // Keep localStorage flag so we know biometric is set up (non-sensitive)
@@ -32447,6 +32469,172 @@ function App(){
                 );
               })()}
 
+              {/* ═══ Yesterday at a glance — plain-English recap ═══ */}
+              {!insightFilter && (()=>{
+                try {
+                  const _yDk = yesterdayStr();
+                  const _yArr = days[_yDk] || [];
+                  if (_yArr.length < 2) return null;
+                  const _name = babyName || "Baby";
+
+                  // Compute yesterday's stats
+                  const _naps = _yArr.filter(e => e.type === "nap" && !e.night && e.start && e.end && e.start !== e.end);
+                  const _napCount = _naps.length;
+                  const _napTotal = _naps.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+
+                  // Night wakes FROM yesterday's night (on yesterday's date key)
+                  const _nightWakes = _yArr.filter(e => e.night && (e.type === "wake" || e.type === "feed")).length;
+                  // Also check today for wakes that happened overnight into today
+                  const _tArr = days[todayStr()] || [];
+                  const _nightWakesToday = _tArr.filter(e => e.night && (e.type === "wake" || e.type === "feed")).length;
+                  const _totalNightWakes = _nightWakes + _nightWakesToday;
+
+                  // Bedtime from yesterday
+                  const _bed = findBedtime(_yArr);
+                  const _morningWake = findMorningWake(_tArr);
+                  let _nightMins = null;
+                  if (_bed && _bed.time && _morningWake && _morningWake.time) {
+                    const [bh,bm] = _bed.time.split(":").map(Number);
+                    const [wh,wm] = _morningWake.time.split(":").map(Number);
+                    _nightMins = (wh*60+wm) + (24*60 - (bh*60+bm));
+                  }
+
+                  // Interpretation
+                  let _verdict = "";
+                  let _icon = "🌙";
+                  let _color = C.mint;
+                  if (_totalNightWakes === 0) {
+                    _verdict = "Strong night — " + _name + " slept through with no logged wakes.";
+                    _icon = "⭐";
+                  } else if (_totalNightWakes === 1) {
+                    _verdict = "Good night — just 1 wake." + (_nightMins ? " " + Math.floor(_nightMins/60) + "h " + (_nightMins%60) + "m in bed." : "");
+                    _icon = "🌙";
+                  } else if (_totalNightWakes <= 3) {
+                    _verdict = _totalNightWakes + " wakes overnight. Common for this age.";
+                    _icon = "🌙";
+                    _color = C.gold;
+                  } else {
+                    _verdict = "Rough night — " + _totalNightWakes + " wakes." + (_napTotal < 90 ? " Day sleep was short (" + hm(_napTotal) + "), which can build overtiredness." : " Worth checking for regressions, teething, or illness signs.");
+                    _icon = "🌅";
+                    _color = "#E8574A";
+                  }
+
+                  const _napSummary = _napCount === 0 ? "no naps logged" :
+                    _napCount === 1 ? "1 nap, " + hm(_napTotal) + " total" :
+                    _napCount + " naps, " + hm(_napTotal) + " total";
+
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${_color}25`,background:`linear-gradient(135deg,${_color}08,${C.blush}15)`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <span style={_S.f20}>{_icon}</span>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Yesterday at a glance</div>
+                      </div>
+                      <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:4,lineHeight:1.4}}>{_verdict}</div>
+                      <div style={{fontSize:12,color:C.mid,lineHeight:1.55}}>
+                        ☀️ Day: {_napSummary}
+                        {_nightMins !== null && <span> · 🌙 Night: {hm(_nightMins)} in bed</span>}
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {/* ═══ Last week at a glance — trend-level plain English ═══ */}
+              {!insightFilter && (()=>{
+                try {
+                  const _name = babyName || "Baby";
+                  const _last7 = [];
+                  const _prev7 = [];
+                  for (let i = 1; i <= 7; i++) {
+                    const d = new Date(); d.setDate(d.getDate() - i);
+                    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                    if ((days[dk]||[]).length > 0) _last7.push(dk);
+                  }
+                  for (let i = 8; i <= 14; i++) {
+                    const d = new Date(); d.setDate(d.getDate() - i);
+                    const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+                    if ((days[dk]||[]).length > 0) _prev7.push(dk);
+                  }
+                  if (_last7.length < 3) return null;
+
+                  // Average night wakes
+                  const _wkAvg = arr => {
+                    if (!arr.length) return 0;
+                    const _counts = arr.map(dk => (days[dk]||[]).filter(e => e.night && (e.type === "wake" || e.type === "feed")).length);
+                    return _counts.reduce((s,v)=>s+v,0) / _counts.length;
+                  };
+                  const _avgWakes = _wkAvg(_last7);
+                  const _avgWakesPrev = _wkAvg(_prev7);
+
+                  // Bedtime consistency (std dev of bedtime minutes)
+                  const _bedMins = _last7.map(dk => {
+                    const b = findBedtime(days[dk]||[]);
+                    if (!b || !b.time) return null;
+                    const [h,m] = b.time.split(":").map(Number);
+                    return h*60 + m;
+                  }).filter(v => v !== null);
+                  let _bedStdev = 0;
+                  if (_bedMins.length >= 3) {
+                    const _mean = _bedMins.reduce((s,v)=>s+v,0) / _bedMins.length;
+                    _bedStdev = Math.sqrt(_bedMins.reduce((s,v)=>s+(v-_mean)*(v-_mean),0) / _bedMins.length);
+                  }
+
+                  // Average total sleep
+                  const _totalPerDay = _last7.map(dk => {
+                    const arr = days[dk]||[];
+                    const _naps = arr.filter(e => e.type === "nap" && !e.night && e.start && e.end);
+                    const _day = _naps.reduce((s,n)=>s+minDiff(n.start,n.end),0);
+                    const _bed = findBedtime(arr);
+                    const _nextDk = nextDayStr(dk);
+                    const _wake = findMorningWake(days[_nextDk]||[]);
+                    let _night = 0;
+                    if (_bed && _bed.time && _wake && _wake.time) {
+                      const [bh,bm] = _bed.time.split(":").map(Number);
+                      const [wh,wm] = _wake.time.split(":").map(Number);
+                      _night = (wh*60+wm) + (24*60 - (bh*60+bm));
+                    }
+                    return _day + _night;
+                  });
+                  const _avgTotal = _totalPerDay.reduce((s,v)=>s+v,0) / _totalPerDay.length;
+
+                  // Build narrative
+                  const _lines = [];
+                  if (_prev7.length >= 3) {
+                    const _wakeDiff = _avgWakes - _avgWakesPrev;
+                    if (_wakeDiff < -0.3) _lines.push("Night wakes are down (" + _avgWakes.toFixed(1) + "/night vs " + _avgWakesPrev.toFixed(1) + " the week before). Whatever you're doing is working.");
+                    else if (_wakeDiff > 0.3) _lines.push("Night wakes are up a bit (" + _avgWakes.toFixed(1) + "/night vs " + _avgWakesPrev.toFixed(1) + " last week). Could be a growth spurt, regression, or teething.");
+                    else _lines.push("Night wakes are holding steady at " + _avgWakes.toFixed(1) + "/night.");
+                  } else {
+                    _lines.push(_avgWakes < 0.5 ? "Very few night wakes (" + _avgWakes.toFixed(1) + "/night)." :
+                                _avgWakes < 2 ? "Low night wakes (" + _avgWakes.toFixed(1) + "/night)." :
+                                _avgWakes.toFixed(1) + " wakes/night on average.");
+                  }
+                  if (_bedMins.length >= 5) {
+                    if (_bedStdev <= 15) _lines.push("Bedtime has been remarkably consistent (within " + Math.round(_bedStdev) + " min).");
+                    else if (_bedStdev <= 30) _lines.push("Bedtime is consistent (within " + Math.round(_bedStdev) + " min).");
+                    else _lines.push("Bedtime has varied by " + Math.round(_bedStdev) + " min night-to-night. Anchoring it would help the body clock.");
+                  }
+                  if (_avgTotal > 0) {
+                    _lines.push(_name + " is averaging " + Math.floor(_avgTotal/60) + "h " + Math.round(_avgTotal%60) + "m total sleep per day.");
+                  }
+
+                  return (
+                    <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${C.sky}30`,background:`linear-gradient(135deg,${C.sky}06,${C.mint}04)`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <span style={_S.f20}>📈</span>
+                        <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Last week at a glance</div>
+                        <span style={{marginLeft:"auto",fontSize:10,color:C.lt,fontFamily:_fM}}>{_last7.length} days</span>
+                      </div>
+                      <div style={{fontSize:13,color:C.deep,lineHeight:1.6}}>
+                        {_lines.map((l,i)=>(
+                          <div key={i} style={{marginBottom:i<_lines.length-1?4:0}}>• {l}</div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {/* ═══ Smart Patterns — consultant-quality personalised insights ═══ */}
               {!insightFilter && (()=>{
                 let _napLocIns=null,_optWW=null,_feedNap=null,_whatWorked=null,_debtProj=null,_napTrans=null;
@@ -32551,6 +32739,7 @@ function App(){
                     {id:"sleep",label:"Sleep",icon:"😴",sub:"Score, patterns & trends",color:C.sky},
                     {id:"feeding",label:"Feeding",icon:"🍼",sub:"Intake, rhythm & insights",color:C.ter},
                     {id:"growth",label:"Growth",icon:"📏",sub:"Weight, height & percentiles",color:"#7B68EE"},
+                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️",sub:"TOG guide & safety",color:"#7AABC4"},
                     {id:"reports",label:"Reports",icon:"📊",sub:"Day score & patterns",color:C.mint},
                   ].map(f=>(
                     <button key={f.id} onClick={()=>{haptic(8);setInsightFilter(f.id);}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"16px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:110}}>
@@ -32569,7 +32758,7 @@ function App(){
                     <span style={_S.f16}>‹</span> Back
                   </button>
                   <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>
-                    {insightFilter==="sleep"?"😴 Sleep":insightFilter==="feeding"?"🍼 Feeding":insightFilter==="growth"?"📏 Growth":"📊 Reports"}
+                    {insightFilter==="sleep"?"😴 Sleep":insightFilter==="feeding"?"🍼 Feeding":insightFilter==="growth"?"📏 Growth":insightFilter==="safesleep"?"🛏️ Safe Sleep":"📊 Reports"}
                   </div>
                 </div>
               )}
@@ -34194,8 +34383,188 @@ function App(){
 
               {/* removed: Share Recap consolidated into Send to Family on Day tab */}
 
+              {/* ── SAFE SLEEP TAB (TOG guide + essentials + emergency) ── */}
+              {(insightFilter==="safesleep") && <div>
+                <div className="glass-card" style={{padding:"18px 16px",marginBottom:14,border:"1.5px solid rgba(122,171,196,0.25)",background:"linear-gradient(135deg,rgba(122,171,196,0.06),rgba(123,104,238,0.03))"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                    <span style={{fontSize:22}}>🛏️</span>
+                    <div>
+                      <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Safe Sleep Essentials</div>
+                      <div style={{fontSize:11,color:C.lt}}>Based on NHS &amp; The Lullaby Trust safer sleep guidance</div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {[
+                      {icon:"↩️",text:"Always on their back — for every sleep, day and night",detail:"Back sleeping reduces SIDS risk by up to 6x. If baby rolls onto their tummy independently, you don't need to turn them back."},
+                      {icon:"🛏️",text:"Firm, flat mattress — no memory foam, no wedges",detail:"The mattress should be firm enough that it doesn't dip when baby lies on it. Use a fitted sheet only."},
+                      {icon:"🌡️",text:"Room temperature 16–20°C (61–68°F)",detail:"Overheating is a risk factor for SIDS. Feel baby's chest or back of neck — if hot or sweaty, remove a layer."},
+                      {icon:"🧸",text:"Clear cot — no toys, pillows, bumpers or loose blankets",detail:"Nothing in the cot except baby and a fitted sheet. Sleeping bags are safer than blankets."},
+                      {icon:"🏠",text:"Same room as you for the first 6 months",detail:"Room-sharing (not bed-sharing) halves the risk of SIDS. Baby should sleep in their own cot or Moses basket."},
+                      {icon:"🚭",text:"Smoke-free environment",detail:"Don't smoke around baby or let anyone else. This includes e-cigarettes. Never share a bed if you smoke."},
+                    ].map((item,i)=>(
+                      <div key={i} style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                          <span style={{fontSize:14}}>{item.icon}</span>
+                          <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{item.text}</div>
+                        </div>
+                        <div style={{fontSize:11,color:C.lt,lineHeight:1.5,paddingLeft:22}}>{item.detail}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:10,textAlign:"center"}}>Source: NHS &amp; The Lullaby Trust</div>
+                </div>
+
+                {/* TOG Guide */}
+                <div className="glass-card" style={{padding:"16px",marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <span style={{fontSize:18}}>🌡️</span>
+                    <div>
+                      <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>What TOG Should {babyName||"Baby"} Wear?</div>
+                      <div style={{fontSize:11,color:C.lt}}>Match sleeping bag TOG to room temperature</div>
+                    </div>
+                  </div>
+                  {TOG_GUIDE.map((t,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:i?"1px solid "+C.blush+"40":"none"}}>
+                      <span style={{fontSize:18,width:28,textAlign:"center"}}>{t.emoji}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:t.color||C.deep}}>{t.temp}</div>
+                        <div style={{fontSize:12,color:C.mid}}>TOG {t.tog} — {t.clothing}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{marginTop:10,padding:"10px 12px",borderRadius:10,background:"rgba(123,104,238,0.04)",border:"1px solid rgba(123,104,238,0.12)"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",marginBottom:6}}>✅ Safety checklist</div>
+                    {TOG_SAFETY.map((s,i)=>(
+                      <div key={i} style={{fontSize:11,color:C.mid,lineHeight:1.6,paddingLeft:14,position:"relative"}}>
+                        <span style={{position:"absolute",left:0,color:C.mint}}>•</span>{s}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:8,textAlign:"center"}}>Source: The Lullaby Trust</div>
+                </div>
+
+                {/* When to worry */}
+                <div className="glass-card" style={{padding:"16px",marginBottom:14}}>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:10}}>🚨 When to Get Help</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>Call 999 immediately if {babyName||"baby"}:</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                    {[
+                      "Stops breathing or turns blue/grey",
+                      "Is unresponsive or unusually floppy",
+                      "Has a fit or seizure for the first time",
+                      "Has a temperature of 38°C+ and is under 3 months",
+                    ].map((item,i)=>(
+                      <div key={i} style={{fontSize:12,color:"#E8574A",fontWeight:600,paddingLeft:14,position:"relative"}}>
+                        <span style={{position:"absolute",left:0}}>⚠</span>{item}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:10,fontSize:12,color:C.mid,lineHeight:1.6}}>For non-emergency concerns, call 111 (NHS) or your GP.</div>
+                </div>
+              </div>}
+
               {/* ── REPORTS & TRENDS (collapsible) ── */}
               {(insightFilter==="reports") && <div>
+
+              {/* ═══ OBubba INTELLIGENCE REPORT — weekly summary card ═══ */}
+              {(()=>{
+                try {
+                  const _bn7 = babyName || "Baby";
+                  const _aw7 = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+                  const _dk14 = getRecentDays(14);
+                  const _dk7 = _dk14.slice(-7);
+                  if (_dk7.length < 3) return null;
+
+                  const _weekFeeds = _dk7.reduce((s,d)=>(days[d]||[]).filter(e=>e.type==="feed").length+s,0);
+                  const _weekNaps = _dk7.reduce((s,d)=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).length+s,0);
+                  const _weekNightWakes = _dk7.reduce((s,d)=>(days[d]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length+s,0);
+                  const _avgWakes7 = Math.round(_weekNightWakes / _dk7.length * 10) / 10;
+                  const _prevWeek = _dk14.slice(0,7);
+                  const _prevAvgWakes = _prevWeek.length >= 3 ? Math.round(_prevWeek.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0)/_prevWeek.length*10)/10 : null;
+
+                  const _weekNapMins = _dk7.map(d=>(days[d]||[]).filter(e=>e.type==="nap"&&e.start&&e.end&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0));
+                  const _avgNapMins = Math.round(_weekNapMins.reduce((a,b)=>a+b,0)/_weekNapMins.length);
+
+                  const _wins = [];
+                  const _watchItems = [];
+                  const _obubbaDid = [];
+                  const _comingNext = [];
+
+                  if (_prevAvgWakes !== null) {
+                    if (_avgWakes7 < _prevAvgWakes - 0.5) _wins.push("Night wakes dropped from " + _prevAvgWakes + " to " + _avgWakes7 + " per night — real progress");
+                    else if (_avgWakes7 > _prevAvgWakes + 0.5) _watchItems.push("Night wakes increased from " + _prevAvgWakes + " to " + _avgWakes7 + " — could be a regression, growth spurt, or schedule shift");
+                    else _wins.push("Sleep has been consistent this week (" + _avgWakes7 + " avg wakes/night)");
+                  }
+
+                  const _avgFeeds = Math.round(_weekFeeds / _dk7.length * 10) / 10;
+                  _wins.push(_bn7 + " averaged " + _avgFeeds + " feeds and " + Math.round(_weekNaps/_dk7.length*10)/10 + " naps per day");
+
+                  if (_avgNapMins > 0) {
+                    if (_avgNapMins >= 60) _wins.push("Average nap duration: " + hm(_avgNapMins) + " — solid naps");
+                    else if (_avgNapMins >= 30) _obubbaDid.push("Naps averaging " + hm(_avgNapMins) + " — adjusting wake windows to help extend them");
+                    else _watchItems.push("Short naps (" + hm(_avgNapMins) + " avg) — common at this age. Fine-tuning wake windows");
+                  }
+
+                  _obubbaDid.push("Tracked " + _weekFeeds + " feeds, " + _weekNaps + " naps, and " + _weekNightWakes + " night events this week");
+                  _obubbaDid.push("Refined " + _bn7 + "'s personal wake windows and bedtime predictions from this week's data");
+
+                  if (_aw7 !== null) {
+                    if (_aw7 >= 14 && _aw7 <= 20) _comingNext.push("4-month sleep regression window — some disruption is normal and temporary");
+                    else if (_aw7 >= 22 && _aw7 <= 26) _comingNext.push("Weaning readiness — watch for signs and first-food guidance will appear");
+                    else if (_aw7 >= 32 && _aw7 <= 39) _comingNext.push("8-month regression — separation anxiety may cause more wakes temporarily");
+                    else if (_aw7 >= 48 && _aw7 <= 55) _comingNext.push("12-month regression — walking milestone may disrupt sleep briefly");
+                    else _comingNext.push("Watching " + _bn7 + "'s patterns — alerts will appear for anything needing attention");
+                  }
+
+                  return (
+                    <div className="glass-card" style={{padding:"20px 18px",marginBottom:16,border:"1.5px solid rgba(123,104,238,0.25)",background:"linear-gradient(135deg,rgba(123,104,238,0.05),rgba(155,184,168,0.03))"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                        <span style={{fontSize:24}}>📋</span>
+                        <div>
+                          <div style={{fontSize:17,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>This Week with {_bn7}</div>
+                          <div style={{fontSize:11,color:C.lt}}>Intelligence report · {_dk7.length} days analysed</div>
+                        </div>
+                      </div>
+                      {_wins.length > 0 && (
+                        <div style={{marginBottom:14}}>
+                          <div style={{fontSize:12,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>💚 What's going well</div>
+                          {_wins.slice(0,3).map((w,i)=>(
+                            <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start",marginBottom:5}}>
+                              <span style={{color:C.mint,fontSize:12,flexShrink:0}}>✓</span>
+                              <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{w}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {_watchItems.length > 0 && (
+                        <div style={{marginBottom:14}}>
+                          <div style={{fontSize:12,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>👀 Worth watching</div>
+                          {_watchItems.slice(0,2).map((w,i)=>(
+                            <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start",marginBottom:5}}>
+                              <span style={{color:C.gold,fontSize:12,flexShrink:0}}>•</span>
+                              <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{w}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{padding:"12px",borderRadius:12,background:C.mint+"08",border:"1px solid "+C.mint+"15",marginBottom:14}}>
+                        <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>What we did this week</div>
+                        {_obubbaDid.slice(0,3).map((d,i)=>(
+                          <div key={i} style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:3}}>🤖 {d}</div>
+                        ))}
+                      </div>
+                      {_comingNext.length > 0 && (
+                        <div style={{padding:"12px",borderRadius:12,background:"rgba(123,104,238,0.05)",border:"1px solid rgba(123,104,238,0.12)"}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Looking ahead</div>
+                          {_comingNext.map((c,i)=>(
+                            <div key={i} style={{fontSize:12,color:C.mid,lineHeight:1.5}}>🔮 {c}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
 
               {/* ═══ QUICK ACTIONS. Health Report + Export + Print ═══ */}
               <div className="glass-card" style={_S.card16}>

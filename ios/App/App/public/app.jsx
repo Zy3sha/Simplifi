@@ -9126,18 +9126,18 @@ function App(){
 
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
-  async function verifyLogin(username, pin) {
+  async function verifyLogin(username, pin, preHashed) {
     if(!window._fb) { setAuthError("Not connected. check your internet"); return false; }
     const {db, doc, getDoc} = window._fb;
     const key = normaliseUsername(username);
     if(!key) { setAuthError("Enter a username"); return false; }
-    if(pin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
+    if(!preHashed && pin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
     try {
       const snap = await fsGet("usernames", key);
       if(!snap.exists()) { setAuthError("Username not found"); return false; }
       const data = snap.data();
       if(data.deleted) { setAuthError("Username not found"); return false; }
-      if(data.pinHash !== hashPin(pin)) { setAuthError("Incorrect PIN"); return false; }
+      if(data.pinHash !== (preHashed ? pin : hashPin(pin))) { setAuthError("Incorrect PIN"); return false; }
       const resolvedBackup = data.backupCode || null;
 
       // ACCOUNT-SWITCH GUARD. If the user is signing in while already
@@ -9520,9 +9520,8 @@ function App(){
       await new Promise(r => { let t=0; const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200); });
     }
     if(!window._fb) return false;
+    if(!pin || !/^\d{4}$/.test(pin)) return false; // reject empty or non-4-digit PINs
     // Disconnect any previous listener to prevent data crossover
-    if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
-    // Disconnect any previous account's listener to prevent data crossover
     if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
     const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const key = normaliseUsername(username);
@@ -9570,7 +9569,7 @@ function App(){
         try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:newCode, updatedAt:serverTimestamp()}, true); }catch(e){ console.warn("OBubba uid_to_backup write error",e); }
       }
       await fsSet("usernames", key, {
-        pinHash: hashPin(pin||"0000"),
+        pinHash: hashPin(pin),
         backupCode: newCode,
         familyCode: null,
         createdAt: serverTimestamp(),
@@ -9587,7 +9586,7 @@ function App(){
   }
   // Claim account: link username+PIN to EXISTING backup code. no data wipe, no new code
   async function claimAccount(username, pin) {
-    if(!username.trim() || !pin || pin.length < 4) return {ok:false, error:"Username and 4+ digit PIN required"};
+    if(!username.trim() || !pin || pin.length !== 4) return {ok:false, error:"Username and exactly 4-digit PIN required"};
     // Wait for Firebase if not ready yet (module may still be loading)
     if(!window._fb) {
       await new Promise(r => { let t=0; const p=setInterval(()=>{t+=200;if(window._fb||t>=5000){clearInterval(p);r();}},200); });
@@ -25878,16 +25877,22 @@ function App(){
         // Read credentials from secure storage (iOS Keychain / Android EncryptedSharedPreferences)
         const _Prefs = window.Capacitor?.Plugins?.Preferences;
         if(!_Prefs) return;
-        const [{value:bioUser},{value:bioPin}] = await Promise.all([
+        const [{value:bioUser},{value:bioPinStored}] = await Promise.all([
           _Prefs.get({key:"bio_user"}),
           _Prefs.get({key:"bio_pin"})
         ]);
-        if(!bioUser || !bioPin) return;
+        if(!bioUser || !bioPinStored) return;
+        // Migrate plaintext PIN → hash (existing users stored raw 4-digit PIN)
+        let bioPin = bioPinStored;
+        if(/^\d{4}$/.test(bioPin)){
+          bioPin = hashPin(bioPin);
+          try{ _Prefs.set({key:"bio_pin",value:bioPin}).catch(()=>{}); }catch{}
+        }
         setAuthUsername(bioUser);
         const result = await window._biometricAuth.authenticate();
         if(result.success){
           setAuthLoading(true);
-          const ok = await verifyLogin(bioUser, bioPin);
+          const ok = await verifyLogin(bioUser, bioPin, true);
           if(ok){
             try{localStorage.setItem("onboarded_v2","1");}catch{}
             setOnboarded(true); setAuthScreen(null); setTab("day"); setSelDay(todayStr());
@@ -27405,7 +27410,7 @@ function App(){
               const _Prefs = window.Capacitor?.Plugins?.Preferences;
               if(_Prefs){
                 _Prefs.set({key:"bio_user",value:authUsername}).catch(()=>{});
-                _Prefs.set({key:"bio_pin",value:pin}).catch(()=>{});
+                _Prefs.set({key:"bio_pin",value:hashPin(pin)}).catch(()=>{});
                 _Prefs.set({key:"bio_enabled",value:"1"}).catch(()=>{});
               }
               // Keep localStorage flag so we know biometric is set up (non-sensitive)
