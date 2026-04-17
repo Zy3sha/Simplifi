@@ -34461,6 +34461,106 @@ function App(){
               {/* ── REPORTS & TRENDS (collapsible) ── */}
               {(insightFilter==="reports") && <div>
 
+              {/* ═══ OBubba INTELLIGENCE REPORT — weekly summary card ═══ */}
+              {(()=>{
+                try {
+                  const _bn7 = babyName || "Baby";
+                  const _aw7 = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+                  const _dk14 = getRecentDays(14);
+                  const _dk7 = _dk14.slice(-7);
+                  if (_dk7.length < 3) return null;
+
+                  const _weekFeeds = _dk7.reduce((s,d)=>(days[d]||[]).filter(e=>e.type==="feed").length+s,0);
+                  const _weekNaps = _dk7.reduce((s,d)=>(days[d]||[]).filter(e=>e.type==="nap"&&!e.night).length+s,0);
+                  const _weekNightWakes = _dk7.reduce((s,d)=>(days[d]||[]).filter(e=>e.night&&(e.type==="wake"||e.type==="feed")).length+s,0);
+                  const _avgWakes7 = Math.round(_weekNightWakes / _dk7.length * 10) / 10;
+                  const _prevWeek = _dk14.slice(0,7);
+                  const _prevAvgWakes = _prevWeek.length >= 3 ? Math.round(_prevWeek.reduce((s,d)=>(days[d]||[]).filter(e=>e.night).length+s,0)/_prevWeek.length*10)/10 : null;
+
+                  const _weekNapMins = _dk7.map(d=>(days[d]||[]).filter(e=>e.type==="nap"&&e.start&&e.end&&!e.night).reduce((s,n)=>s+minDiff(n.start,n.end),0));
+                  const _avgNapMins = Math.round(_weekNapMins.reduce((a,b)=>a+b,0)/_weekNapMins.length);
+
+                  const _wins = [];
+                  const _watchItems = [];
+                  const _obubbaDid = [];
+                  const _comingNext = [];
+
+                  if (_prevAvgWakes !== null) {
+                    if (_avgWakes7 < _prevAvgWakes - 0.5) _wins.push("Night wakes dropped from " + _prevAvgWakes + " to " + _avgWakes7 + " per night — real progress");
+                    else if (_avgWakes7 > _prevAvgWakes + 0.5) _watchItems.push("Night wakes increased from " + _prevAvgWakes + " to " + _avgWakes7 + " — could be a regression, growth spurt, or schedule shift");
+                    else _wins.push("Sleep has been consistent this week (" + _avgWakes7 + " avg wakes/night)");
+                  }
+
+                  const _avgFeeds = Math.round(_weekFeeds / _dk7.length * 10) / 10;
+                  _wins.push(_bn7 + " averaged " + _avgFeeds + " feeds and " + Math.round(_weekNaps/_dk7.length*10)/10 + " naps per day");
+
+                  if (_avgNapMins > 0) {
+                    if (_avgNapMins >= 60) _wins.push("Average nap duration: " + hm(_avgNapMins) + " — solid naps");
+                    else if (_avgNapMins >= 30) _obubbaDid.push("Naps averaging " + hm(_avgNapMins) + " — adjusting wake windows to help extend them");
+                    else _watchItems.push("Short naps (" + hm(_avgNapMins) + " avg) — common at this age. Fine-tuning wake windows");
+                  }
+
+                  _obubbaDid.push("Tracked " + _weekFeeds + " feeds, " + _weekNaps + " naps, and " + _weekNightWakes + " night events this week");
+                  _obubbaDid.push("Refined " + _bn7 + "'s personal wake windows and bedtime predictions from this week's data");
+
+                  if (_aw7 !== null) {
+                    if (_aw7 >= 14 && _aw7 <= 20) _comingNext.push("4-month sleep regression window — some disruption is normal and temporary");
+                    else if (_aw7 >= 22 && _aw7 <= 26) _comingNext.push("Weaning readiness — watch for signs and first-food guidance will appear");
+                    else if (_aw7 >= 32 && _aw7 <= 39) _comingNext.push("8-month regression — separation anxiety may cause more wakes temporarily");
+                    else if (_aw7 >= 48 && _aw7 <= 55) _comingNext.push("12-month regression — walking milestone may disrupt sleep briefly");
+                    else _comingNext.push("Watching " + _bn7 + "'s patterns — alerts will appear for anything needing attention");
+                  }
+
+                  return (
+                    <div className="glass-card" style={{padding:"20px 18px",marginBottom:16,border:"1.5px solid rgba(123,104,238,0.25)",background:"linear-gradient(135deg,rgba(123,104,238,0.05),rgba(155,184,168,0.03))"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+                        <span style={{fontSize:24}}>📋</span>
+                        <div>
+                          <div style={{fontSize:17,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>This Week with {_bn7}</div>
+                          <div style={{fontSize:11,color:C.lt}}>Intelligence report · {_dk7.length} days analysed</div>
+                        </div>
+                      </div>
+                      {_wins.length > 0 && (
+                        <div style={{marginBottom:14}}>
+                          <div style={{fontSize:12,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>💚 What's going well</div>
+                          {_wins.slice(0,3).map((w,i)=>(
+                            <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start",marginBottom:5}}>
+                              <span style={{color:C.mint,fontSize:12,flexShrink:0}}>✓</span>
+                              <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{w}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {_watchItems.length > 0 && (
+                        <div style={{marginBottom:14}}>
+                          <div style={{fontSize:12,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>👀 Worth watching</div>
+                          {_watchItems.slice(0,2).map((w,i)=>(
+                            <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start",marginBottom:5}}>
+                              <span style={{color:C.gold,fontSize:12,flexShrink:0}}>•</span>
+                              <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}>{w}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{padding:"12px",borderRadius:12,background:C.mint+"08",border:"1px solid "+C.mint+"15",marginBottom:14}}>
+                        <div style={{fontSize:11,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>What we did this week</div>
+                        {_obubbaDid.slice(0,3).map((d,i)=>(
+                          <div key={i} style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:3}}>🤖 {d}</div>
+                        ))}
+                      </div>
+                      {_comingNext.length > 0 && (
+                        <div style={{padding:"12px",borderRadius:12,background:"rgba(123,104,238,0.05)",border:"1px solid rgba(123,104,238,0.12)"}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>Looking ahead</div>
+                          {_comingNext.map((c,i)=>(
+                            <div key={i} style={{fontSize:12,color:C.mid,lineHeight:1.5}}>🔮 {c}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {/* ═══ QUICK ACTIONS. Health Report + Export + Print ═══ */}
               <div className="glass-card" style={_S.card16}>
                 <div style={{display:"flex",gap:8,marginBottom:10}}>
