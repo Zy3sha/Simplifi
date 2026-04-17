@@ -3412,6 +3412,23 @@ const GAGGING_VS_CHOKING = {
   prevention:["Always supervise mealtimes. never leave baby alone with food","Baby must sit upright in highchair, never reclined","Cut round foods (grapes, cherry tomatoes, sausages) lengthways into quarters","Avoid whole nuts, popcorn, raw hard vegetables, raw apple chunks","Remove pips, stones, and bones","Food should be soft enough to squash between your fingers","Consider a baby first aid course before starting weaning"],
 };
 
+const TOG_GUIDE = [
+  {temp:"27°C+",range:[27,99],tog:"0.5 or less",clothing:"Nappy or vest only",emoji:"🥵",color:"#E8574A"},
+  {temp:"24–27°C",range:[24,27],tog:"0.5–1.0",clothing:"Short-sleeve bodysuit",emoji:"☀️",color:"#D4A855"},
+  {temp:"21–23°C",range:[21,23],tog:"1.0",clothing:"Long-sleeve bodysuit",emoji:"🌤️",color:"#7BA68C"},
+  {temp:"18–20°C",range:[18,20],tog:"2.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"🌙",color:"#7B68EE"},
+  {temp:"16–17°C",range:[16,17],tog:"2.5–3.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"❄️",color:"#7AABC4"},
+  {temp:"Under 16°C",range:[0,16],tog:"3.5+",clothing:"Add extra layers or blanket",emoji:"🧊",color:"#A898AC"},
+];
+const TOG_SAFETY = [
+  "Room temperature 16–20°C is ideal for baby sleep (NHS)",
+  "Feel baby's chest or back of neck to check temperature — hands and feet are often cool and not reliable",
+  "Never use a duvet, pillow, or hot water bottle for under 12 months",
+  "Remove hats indoors — babies lose excess heat through their heads",
+  "If baby is sweating, has damp hair, or flushed cheeks, they may be too warm — reduce layers",
+  "Sleeping bag replaces blankets — never use both together",
+];
+
 const WATER_GUIDE = {
   when:"From around 6 months, when solids are introduced. Offer small sips with meals.",
   cups:"NHS recommends an open cup or free-flow cup without a valve. These teach sipping and are better for dental health than sippy cups. Aim to stop bottles by 12 months.",
@@ -32717,6 +32734,7 @@ function App(){
                     {id:"sleep",label:"Sleep",icon:"😴",sub:"Score, patterns & trends",color:C.sky},
                     {id:"feeding",label:"Feeding",icon:"🍼",sub:"Intake, rhythm & insights",color:C.ter},
                     {id:"growth",label:"Growth",icon:"📏",sub:"Weight, height & percentiles",color:"#7B68EE"},
+                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️",sub:"TOG guide & safety",color:"#7AABC4"},
                     {id:"reports",label:"Reports",icon:"📊",sub:"Day score & patterns",color:C.mint},
                   ].map(f=>(
                     <button key={f.id} onClick={()=>{haptic(8);setInsightFilter(f.id);}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"16px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:110}}>
@@ -32735,7 +32753,7 @@ function App(){
                     <span style={_S.f16}>‹</span> Back
                   </button>
                   <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>
-                    {insightFilter==="sleep"?"😴 Sleep":insightFilter==="feeding"?"🍼 Feeding":insightFilter==="growth"?"📏 Growth":"📊 Reports"}
+                    {insightFilter==="sleep"?"😴 Sleep":insightFilter==="feeding"?"🍼 Feeding":insightFilter==="growth"?"📏 Growth":insightFilter==="safesleep"?"🛏️ Safe Sleep":"📊 Reports"}
                   </div>
                 </div>
               )}
@@ -34359,6 +34377,86 @@ function App(){
 
 
               {/* removed: Share Recap consolidated into Send to Family on Day tab */}
+
+              {/* ── SAFE SLEEP TAB (TOG guide + essentials + emergency) ── */}
+              {(insightFilter==="safesleep") && <div>
+                <div className="glass-card" style={{padding:"18px 16px",marginBottom:14,border:"1.5px solid rgba(122,171,196,0.25)",background:"linear-gradient(135deg,rgba(122,171,196,0.06),rgba(123,104,238,0.03))"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                    <span style={{fontSize:22}}>🛏️</span>
+                    <div>
+                      <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>Safe Sleep Essentials</div>
+                      <div style={{fontSize:11,color:C.lt}}>Based on NHS &amp; The Lullaby Trust safer sleep guidance</div>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {[
+                      {icon:"↩️",text:"Always on their back — for every sleep, day and night",detail:"Back sleeping reduces SIDS risk by up to 6x. If baby rolls onto their tummy independently, you don't need to turn them back."},
+                      {icon:"🛏️",text:"Firm, flat mattress — no memory foam, no wedges",detail:"The mattress should be firm enough that it doesn't dip when baby lies on it. Use a fitted sheet only."},
+                      {icon:"🌡️",text:"Room temperature 16–20°C (61–68°F)",detail:"Overheating is a risk factor for SIDS. Feel baby's chest or back of neck — if hot or sweaty, remove a layer."},
+                      {icon:"🧸",text:"Clear cot — no toys, pillows, bumpers or loose blankets",detail:"Nothing in the cot except baby and a fitted sheet. Sleeping bags are safer than blankets."},
+                      {icon:"🏠",text:"Same room as you for the first 6 months",detail:"Room-sharing (not bed-sharing) halves the risk of SIDS. Baby should sleep in their own cot or Moses basket."},
+                      {icon:"🚭",text:"Smoke-free environment",detail:"Don't smoke around baby or let anyone else. This includes e-cigarettes. Never share a bed if you smoke."},
+                    ].map((item,i)=>(
+                      <div key={i} style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                          <span style={{fontSize:14}}>{item.icon}</span>
+                          <div style={{fontSize:13,fontWeight:600,color:C.deep}}>{item.text}</div>
+                        </div>
+                        <div style={{fontSize:11,color:C.lt,lineHeight:1.5,paddingLeft:22}}>{item.detail}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:10,textAlign:"center"}}>Source: NHS &amp; The Lullaby Trust</div>
+                </div>
+
+                {/* TOG Guide */}
+                <div className="glass-card" style={{padding:"16px",marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <span style={{fontSize:18}}>🌡️</span>
+                    <div>
+                      <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif"}}>What TOG Should {babyName||"Baby"} Wear?</div>
+                      <div style={{fontSize:11,color:C.lt}}>Match sleeping bag TOG to room temperature</div>
+                    </div>
+                  </div>
+                  {TOG_GUIDE.map((t,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:i?"1px solid "+C.blush+"40":"none"}}>
+                      <span style={{fontSize:18,width:28,textAlign:"center"}}>{t.emoji}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:t.color||C.deep}}>{t.temp}</div>
+                        <div style={{fontSize:12,color:C.mid}}>TOG {t.tog} — {t.clothing}</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{marginTop:10,padding:"10px 12px",borderRadius:10,background:"rgba(123,104,238,0.04)",border:"1px solid rgba(123,104,238,0.12)"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",marginBottom:6}}>✅ Safety checklist</div>
+                    {TOG_SAFETY.map((s,i)=>(
+                      <div key={i} style={{fontSize:11,color:C.mid,lineHeight:1.6,paddingLeft:14,position:"relative"}}>
+                        <span style={{position:"absolute",left:0,color:C.mint}}>•</span>{s}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:8,textAlign:"center"}}>Source: The Lullaby Trust</div>
+                </div>
+
+                {/* When to worry */}
+                <div className="glass-card" style={{padding:"16px",marginBottom:14}}>
+                  <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:10}}>🚨 When to Get Help</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>Call 999 immediately if {babyName||"baby"}:</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                    {[
+                      "Stops breathing or turns blue/grey",
+                      "Is unresponsive or unusually floppy",
+                      "Has a fit or seizure for the first time",
+                      "Has a temperature of 38°C+ and is under 3 months",
+                    ].map((item,i)=>(
+                      <div key={i} style={{fontSize:12,color:"#E8574A",fontWeight:600,paddingLeft:14,position:"relative"}}>
+                        <span style={{position:"absolute",left:0}}>⚠</span>{item}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{marginTop:10,fontSize:12,color:C.mid,lineHeight:1.6}}>For non-emergency concerns, call 111 (NHS) or your GP.</div>
+                </div>
+              </div>}
 
               {/* ── REPORTS & TRENDS (collapsible) ── */}
               {(insightFilter==="reports") && <div>
