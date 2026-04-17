@@ -3440,6 +3440,24 @@ const GAGGING_VS_CHOKING = {
   prevention:["Always supervise mealtimes. never leave baby alone with food","Baby must sit upright in highchair, never reclined","Cut round foods (grapes, cherry tomatoes, sausages) lengthways into quarters","Avoid whole nuts, popcorn, raw hard vegetables, raw apple chunks","Remove pips, stones, and bones","Food should be soft enough to squash between your fingers","Consider a baby first aid course before starting weaning"],
 };
 
+// Auto-classify recipe dietary tags from allergens + ingredients
+function _classifyDietary(recipe) {
+  const a = recipe.allergens || [];
+  const ing = ((recipe.ingredients||"")+(recipe.name||"")).toLowerCase();
+  const hasMeat = /beef|lamb|chicken|turkey|pork|bacon|sausage|mince|liver|ham/i.test(ing);
+  const hasFish = a.includes("fish") || a.includes("shellfish") || /salmon|cod|tuna|fish|prawn|shrimp/i.test(ing);
+  const hasDairy = a.includes("milk") || /cheese|yoghurt|yogurt|cream|butter/i.test(ing);
+  const hasEgg = a.includes("eggs") || /egg/i.test(ing);
+  const hasPork = /pork|bacon|ham|sausage/i.test(ing);
+  const d = [];
+  if (!hasMeat && !hasFish) d.push("vegetarian");
+  if (!hasMeat && !hasFish && !hasDairy && !hasEgg) d.push("vegan");
+  if (!hasDairy) d.push("cmpa"); // dairy-free = safe for CMPA babies
+  if (!hasPork) d.push("halal");
+  if (!hasPork && !(hasMeat && hasDairy)) d.push("kosher");
+  return d;
+}
+
 const TOG_GUIDE = [
   {temp:"27°C+",range:[27,99],tog:"0.5 or less",clothing:"Nappy or vest only",emoji:"🥵",color:"#E8574A"},
   {temp:"24–27°C",range:[24,27],tog:"0.5–1.0",clothing:"Short-sleeve bodysuit",emoji:"☀️",color:"#D4A855"},
@@ -3914,6 +3932,37 @@ function getHeightPercentile(cm, ageMonths, sex) {
   let table;
   if (_s === "girl" || _s === "female" || _s === "f") table = WHO_LENGTH_LMS_GIRLS;
   else if (_s === "boy" || _s === "male" || _s === "m") table = WHO_LENGTH_LMS_BOYS;
+  else return null;
+  return _pctFromLMS(cm, _lmsInterpolated(table, ageMonths));
+}
+
+// WHO Head Circumference-for-age LMS (0-24 months)
+// Source: WHO Child Growth Standards (2006), hc-for-age tables
+const WHO_HC_LMS_BOYS = [
+  [0,1,34.46,0.03686],[1,1,37.28,0.03133],[2,1,39.13,0.02997],[3,1,40.51,0.02918],
+  [4,1,41.63,0.02868],[5,1,42.56,0.02837],[6,1,43.30,0.02817],[7,1,43.95,0.02804],
+  [8,1,44.53,0.02796],[9,1,45.04,0.02792],[10,1,45.50,0.02790],[11,1,45.91,0.02790],
+  [12,1,46.28,0.02791],[13,1,46.61,0.02793],[14,1,46.90,0.02795],[15,1,47.17,0.02798],
+  [16,1,47.41,0.02800],[17,1,47.63,0.02803],[18,1,47.82,0.02806],[19,1,48.00,0.02808],
+  [20,1,48.17,0.02811],[21,1,48.32,0.02813],[22,1,48.46,0.02815],[23,1,48.59,0.02817],
+  [24,1,48.72,0.02819]
+];
+const WHO_HC_LMS_GIRLS = [
+  [0,1,33.88,0.03496],[1,1,36.55,0.03065],[2,1,38.25,0.02997],[3,1,39.53,0.02949],
+  [4,1,40.58,0.02916],[5,1,41.45,0.02894],[6,1,42.17,0.02880],[7,1,42.78,0.02870],
+  [8,1,43.31,0.02864],[9,1,43.78,0.02860],[10,1,44.19,0.02858],[11,1,44.55,0.02857],
+  [12,1,44.87,0.02857],[13,1,45.16,0.02858],[14,1,45.42,0.02859],[15,1,45.65,0.02860],
+  [16,1,45.86,0.02862],[17,1,46.05,0.02863],[18,1,46.22,0.02865],[19,1,46.38,0.02866],
+  [20,1,46.53,0.02868],[21,1,46.67,0.02869],[22,1,46.80,0.02871],[23,1,46.92,0.02872],
+  [24,1,47.04,0.02873]
+];
+
+function getHCPercentile(cm, ageMonths, sex) {
+  if (cm == null || isNaN(cm) || cm <= 0 || ageMonths == null || isNaN(ageMonths) || ageMonths < 0) return null;
+  const _s = (sex || "").toString().toLowerCase().trim();
+  let table;
+  if (_s === "girl" || _s === "female" || _s === "f") table = WHO_HC_LMS_GIRLS;
+  else if (_s === "boy" || _s === "male" || _s === "m") table = WHO_HC_LMS_BOYS;
   else return null;
   return _pctFromLMS(cm, _lmsInterpolated(table, ageMonths));
 }
@@ -7081,6 +7130,8 @@ function App(){
   },[disruptionMode]);
   // Travel/timezone adaptation: gradual bedtime shift before, during, and after travel
   const[travelContext,setTravelContext]=usePersistedState("ob_travel_ctx", null);
+  // Recipe dietary filter chips (vegetarian/vegan/cmpa/halal/kosher) — persisted across sessions
+  const[dietaryPrefs,setDietaryPrefs]=usePersistedState("ob_dietary_prefs", []);
   // Night weaning 7-night program: per-child state {startedAt, currentNight, completedNights[]}
   const[nightWeanProg,setNightWeanProgRaw]=useState(null);
   React.useEffect(()=>{
@@ -37799,7 +37850,7 @@ function App(){
               {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && daySubScreen!=="weaning_before" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_journey") && (devFilter==="weaning" || daySubScreen==="weaning_journey") && (()=>{
                 const _currentStage = WEANING_STAGES.find(s=>age.totalWeeks>=s.weeksRange[0]&&age.totalWeeks<=s.weeksRange[1]) || WEANING_STAGES[0];
                 const _recipesBase = WEANING_RECIPES.filter(r=>r.stage===_recipeStage);
-                const _recipes = recipeNutrientFilter === "all" ? _recipesBase
+                const _recipesNut = recipeNutrientFilter === "all" ? _recipesBase
                   : recipeNutrientFilter === "iron" ? _recipesBase.filter(r=>r.iron)
                   : recipeNutrientFilter === "allergen" ? _recipesBase.filter(r=>r.allergens&&r.allergens.length>0)
                   : recipeNutrientFilter === "quick" ? _recipesBase.filter(r=>r.tags&&r.tags.includes("quick"))
@@ -37807,6 +37858,9 @@ function App(){
                   : recipeNutrientFilter === "veg" ? _recipesBase.filter(r=>r.tags&&r.tags.includes("veg"))
                   : recipeNutrientFilter === "vitC" ? _recipesBase.filter(r=>r.vitC)
                   : _recipesBase;
+                const _recipes = (dietaryPrefs && dietaryPrefs.length > 0)
+                  ? _recipesNut.filter(r => { const d = _classifyDietary(r); return dietaryPrefs.every(p => d.includes(p)); })
+                  : _recipesNut;
                 const _canAccess = hasAccess();
                 const _freeLimit = 2;
 
@@ -37831,13 +37885,23 @@ function App(){
                       ))}
                     </div>
                     {/* Nutrient filter chips */}
-                    <div style={{display:"flex",gap:5,marginBottom:10,overflowX:"auto",paddingBottom:2}}>
+                    <div style={{display:"flex",gap:5,marginBottom:6,overflowX:"auto",paddingBottom:2}}>
                       {[{id:"all",label:"All",emoji:"🍽"},{id:"iron",label:"Iron-rich",emoji:"💪"},{id:"allergen",label:"Allergens",emoji:"⚠️"},{id:"quick",label:"Quick",emoji:"⚡"},{id:"protein",label:"Protein",emoji:"🥩"},{id:"veg",label:"Veg",emoji:"🥕"},{id:"vitC",label:"Vitamin C",emoji:"🍊"}].map(f=>(
                         <button key={f.id} onClick={()=>{haptic(8);setRecipeNutrientFilter(prev=>prev===f.id?"all":f.id);}}
                           style={{padding:"5px 10px",borderRadius:99,border:`1px solid ${recipeNutrientFilter===f.id?C.mint:C.blush}`,background:recipeNutrientFilter===f.id?C.mint+"15":"transparent",color:recipeNutrientFilter===f.id?C.mint:C.lt,fontSize:10,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0}}>
                           {f.emoji} {f.label}
                         </button>
                       ))}
+                    </div>
+                    {/* Dietary filter chips (toggle multiple) */}
+                    <div style={{display:"flex",gap:5,marginBottom:10,overflowX:"auto",paddingBottom:2,alignItems:"center"}}>
+                      {[{id:"vegetarian",label:"Vegetarian",emoji:"🥦"},{id:"vegan",label:"Vegan",emoji:"🌱"},{id:"cmpa",label:"Dairy-free / CMPA",emoji:"🚫🥛"},{id:"halal",label:"Halal",emoji:"☪️"},{id:"kosher",label:"Kosher",emoji:"✡️"}].map(f=>(
+                        <button key={f.id} onClick={()=>{haptic(8);setDietaryPrefs(prev=>prev.includes(f.id)?prev.filter(x=>x!==f.id):[...prev,f.id]);}}
+                          style={{padding:"5px 10px",borderRadius:99,border:`1px solid ${dietaryPrefs.includes(f.id)?C.gold:C.blush}`,background:dietaryPrefs.includes(f.id)?C.gold+"15":"transparent",color:dietaryPrefs.includes(f.id)?C.gold:C.lt,fontSize:10,fontWeight:600,cursor:_cP,whiteSpace:"nowrap",flexShrink:0}}>
+                          {f.emoji} {f.label}
+                        </button>
+                      ))}
+                      {dietaryPrefs.length > 0 && <div style={{fontSize:9,color:C.lt,alignSelf:"center",fontStyle:"italic",marginLeft:4}}>Approximate. Always check ingredients.</div>}
                     </div>
 
                     {/* Recipe cards */}
