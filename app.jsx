@@ -7132,6 +7132,8 @@ function App(){
   const[travelContext,setTravelContext]=usePersistedState("ob_travel_ctx", null);
   // Recipe dietary filter chips (vegetarian/vegan/cmpa/halal/kosher) — persisted across sessions
   const[dietaryPrefs,setDietaryPrefs]=usePersistedState("ob_dietary_prefs", []);
+  // In-app reminder popup: shown when fireEventReminders triggers a reminder
+  const[reminderPopup,setReminderPopup]=useState(null); // {text, type, reminders}
   // Night weaning 7-night program: per-child state {startedAt, currentNight, completedNights[]}
   const[nightWeanProg,setNightWeanProgRaw]=useState(null);
   React.useEffect(()=>{
@@ -21646,23 +21648,25 @@ function App(){
   function fireEventReminders(eventType){
     const active = reminders.filter(r => !r.done && r.trigger === eventType);
     if (!active.length) return;
-    active.forEach(r => {
-      showToast(`🔔 ${r.text}`, 4000, 1);
-      haptic("success");
-      // Also fire a native local notification so it appears even if app is backgrounded
-      if(_isNative && window.Capacitor?.Plugins?.LocalNotifications){
+    const _typeLabels = {after_feed:"After Feed",after_nap:"After Nap",after_wake:"After Wake",after_nappy:"After Nappy",after_bedtime:"Bedtime"};
+    // Show in-app popup for the first active reminder (more prominent than toast)
+    setReminderPopup({text: active[0].text, type: _typeLabels[eventType] || "Reminder", reminders: active});
+    haptic("success");
+    // Fire native notification for ALL active reminders (shows on lock screen even if app is in foreground)
+    if(_isNative && window.Capacitor?.Plugins?.LocalNotifications){
+      active.forEach(r => {
         try{
           window.Capacitor.Plugins.LocalNotifications.schedule({notifications:[{
-            title:"🔔 "+({after_feed:"After Feed",after_nap:"After Nap",after_wake:"After Wake",after_nappy:"After Nappy",after_bedtime:"Bedtime"}[eventType]||"Reminder"),
+            title:"🔔 "+(_typeLabels[eventType]||"Reminder"),
             body:r.text,
             id:Math.abs(("evt_"+r.id).split("").reduce(function(h,c){return(h*31+c.charCodeAt(0))|0;},0)%90000)+10000,
-            schedule:{at:new Date(Date.now()+3000)},
+            schedule:{at:new Date(Date.now()+500)},
             sound:"notification.wav",
             channelId:"obubba_reminders"
           }]});
         }catch(ex){}
-      }
-    });
+      });
+    }
   }
 
   function toggleReminder(id){
@@ -42358,6 +42362,27 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             </div>
 
             <div style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginTop:40}}>Tap anywhere to stop</div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ REMINDER POPUP ═══ */}
+      {reminderPopup && (
+        <div role="dialog" aria-modal="true" aria-label="Reminder" style={{position:"fixed",inset:0,zIndex:9997,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setReminderPopup(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:340,boxShadow:"0 20px 60px rgba(0,0,0,0.25)",textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:10}}>🔔</div>
+            <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{reminderPopup.type}</div>
+            <div style={{fontSize:17,fontWeight:700,color:C.deep,fontFamily:"'Playfair Display',serif",marginBottom:8,lineHeight:1.4}}>{reminderPopup.text}</div>
+            {reminderPopup.reminders && reminderPopup.reminders.length > 1 && (
+              <div style={{marginTop:8,marginBottom:8}}>
+                {reminderPopup.reminders.slice(1).map((r,i) => (
+                  <div key={i} style={{fontSize:13,color:C.mid,padding:"4px 0",borderTop:"1px solid "+C.blush}}>🔔 {r.text}</div>
+                ))}
+              </div>
+            )}
+            <button onClick={()=>setReminderPopup(null)} style={{marginTop:12,padding:"12px 32px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#3a8870)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP,boxShadow:"0 4px 16px rgba(111,168,152,0.3)"}}>
+              Got it
+            </button>
           </div>
         </div>
       )}
