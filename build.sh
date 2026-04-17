@@ -8,6 +8,7 @@ echo "→ Syncing app.js + app.jsx to all bundle paths"
 cp app.js public/app.js
 cp app.js ios/App/App/public/app.js 2>/dev/null || true
 cp app.js android/app/src/main/assets/public/app.js 2>/dev/null || true
+cp app.js dist/app.js
 cp app.jsx dist/app.jsx
 echo "→ Running cap sync"
 LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 npx cap sync 2>&1 | tail -5
