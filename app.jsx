@@ -29322,7 +29322,7 @@ function App(){
                 {[
                   {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
                   {emoji:"🤱",label:"Breast",longAction:()=>openLogPanel("feed"),action:()=>{haptic();startBreastTimer("L");}},
-                  {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
+                  {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>{const _btd=bedTimerDay||(()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();const _isNight=!!_btd;return(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:_isNight,note:""});}},
                   {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?null:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
                   {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
@@ -39220,7 +39220,7 @@ function App(){
               <div>
                 <div style={{fontSize:13,color:C.lt,marginBottom:10,fontFamily:_fM}}>What type?</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:8}}>
-                  <button onClick={()=>{const t=nappyTime||nowTime();quickAddLog("poop",{type:"poop",time:t,poopType:"wet",note:""});setNappyMode(null);setNappyTime("");}}
+                  <button onClick={()=>{const t=nappyTime||nowTime();const _btd=bedTimerDay||(()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();quickAddLog("poop",{type:"poop",time:t,poopType:"wet",night:!!_btd,note:""});setNappyMode(null);setNappyTime("");}}
                     style={{padding:"18px 10px",borderRadius:16,border:`2px solid ${C.blush}`,background:"var(--card-bg-alt)",fontSize:32,cursor:_cP,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
                     <span>💧</span>
                     <span style={{fontSize:13,fontWeight:700,color:C.mid}}>Wet</span>
@@ -39265,11 +39265,12 @@ function App(){
                     const t=nappyTime||nowTime();
                     const typeStr = selectedPoopTypes.join(", ");
                     const pType=nappyMode==="dirty"?"wet + "+typeStr:typeStr;
-                    quickAddLog("poop",{type:"poop",time:t,poopType:pType,note:""});
+                    const _btd=bedTimerDay||(()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
+                    quickAddLog("poop",{type:"poop",time:t,poopType:pType,night:!!_btd,note:""});
                     setNappyMode(null);setNappyTime("");setSelectedPoopTypes([]);
                   }}>Log {nappyMode==="dirty"?"dirty":"poop"} ({selectedPoopTypes.length} type{selectedPoopTypes.length!==1?"s":""})</PBtn>
                 )}
-                <PBtn v="ghost" onClick={()=>{const t=nappyTime||nowTime();const pType=nappyMode==="dirty"?"wet + dirty":"dirty";quickAddLog("poop",{type:"poop",time:t,poopType:pType,note:""});setNappyMode(null);setNappyTime("");setSelectedPoopTypes([]);}}>Just log without type</PBtn>
+                <PBtn v="ghost" onClick={()=>{const t=nappyTime||nowTime();const pType=nappyMode==="dirty"?"wet + dirty":"dirty";const _btd=bedTimerDay||(()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();quickAddLog("poop",{type:"poop",time:t,poopType:pType,night:!!_btd,note:""});setNappyMode(null);setNappyTime("");setSelectedPoopTypes([]);}}>Just log without type</PBtn>
               </div>
             )}
           </div>
@@ -41269,7 +41270,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         style={{marginTop:6,padding:"5px 12px",borderRadius:99,border:`1px solid ${C.mint}40`,background:C.mint+"0A",fontSize:11,fontWeight:700,color:C.mint,cursor:_cP}}>😴 Start nap timer</button>
                     )}
                     {(r.title==="Wet/Dirty Nappy"||r.title.includes("Nappy"))&&(
-                      <button onClick={()=>{quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""});setShowCryingHelper(false);setCryingResult(null);setCryingHelps(prev=>({...prev,wet_or_dirty_nappy:(prev.wet_or_dirty_nappy||0)+1}));}}
+                      <button onClick={()=>{const _btd=bedTimerDay||(()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:!!_btd,note:""});setShowCryingHelper(false);setCryingResult(null);setCryingHelps(prev=>({...prev,wet_or_dirty_nappy:(prev.wet_or_dirty_nappy||0)+1}));}}
                         style={{marginTop:6,padding:"5px 12px",borderRadius:99,border:`1px solid ${C.gold}40`,background:C.gold+"0A",fontSize:11,fontWeight:700,color:C.gold,cursor:_cP}}>💩 Log nappy change</button>
                     )}
                   </div>
