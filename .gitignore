@@ -28,3 +28,6 @@ ios/App/App/.claude/
 android/key.properties
 android/app/obubba-release.jks
 .firebase/
+
+# Claude-generated session backups
+.claude-backups/

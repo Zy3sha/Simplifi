@@ -20,6 +20,13 @@
 // Keep in sync with app.jsx whenever sleep-engine functions change.
 
 function getWakeWindow(ageWeeks) {
+  // Kept in sync with app.jsx: defensive guard for NaN/undefined/negative age.
+  // Without this, NaN comparisons always return false → findIndex returns -1 →
+  // idx pins at the 36mo+ stage (6–12h wake window) — catastrophic for a
+  // newborn during a calcAge glitch.
+  if (typeof ageWeeks !== "number" || isNaN(ageWeeks) || ageWeeks < 0) {
+    return { min: 60, max: 90, midpoint: 75, label: "~60–90 min" };
+  }
   const months = ageWeeks / 4.33;
   let min, max, label;
   const stages = [
@@ -37,6 +44,8 @@ function getWakeWindow(ageWeeks) {
   let idx = stages.findIndex(s => months < s[0]);
   if (idx < 0) idx = stages.length - 1;
   min = stages[idx][1]; max = stages[idx][2];
+  // Two-sided blending (matches app.jsx): smooth both approaching and leaving
+  // a stage boundary so week-to-week changes stay under ~30 min.
   if (idx < stages.length - 1) {
     const boundaryMo = stages[idx][0];
     const weeksUntil = (boundaryMo - months) * 4.33;
@@ -45,6 +54,16 @@ function getWakeWindow(ageWeeks) {
       const blend = Math.max(0, Math.min(0.5, (2 - weeksUntil) / 4));
       min = Math.round(min * (1 - blend) + nxt[1] * blend);
       max = Math.round(max * (1 - blend) + nxt[2] * blend);
+    }
+  }
+  if (idx > 0) {
+    const prevBoundaryMo = stages[idx - 1][0];
+    const weeksSince = (months - prevBoundaryMo) * 4.33;
+    if (weeksSince >= 0 && weeksSince <= 2) {
+      const prev = stages[idx - 1];
+      const blend = Math.max(0, Math.min(0.5, (2 - weeksSince) / 4));
+      min = Math.round(min * (1 - blend) + prev[1] * blend);
+      max = Math.round(max * (1 - blend) + prev[2] * blend);
     }
   }
   label = max <= 90 ? `${min}–${max} min` : `${(min/60).toFixed(1).replace('.0','')}–${(max/60).toFixed(1).replace('.0','')} hrs`;
@@ -660,5 +679,230 @@ if (criticals.length) {
     console.log();
   });
 }
+
+// ═══════════════════════════════════════════════════════════════
+// COMBINATORIAL SWEEP — exhaust every age × wake × nap-duration × bedtime
+// ═══════════════════════════════════════════════════════════════
+// The scenario matrix above is hand-picked real-life cases. This sweep
+// walks every plausible input combination and asserts INVARIANTS that must
+// hold regardless of input. Finds: age-boundary glitches, off-by-one in the
+// WW blending, NaN producers, nap-count/duration mismatches, and so on.
+console.log("\n═══════════════════════════════════════════════════════════════");
+console.log("  COMBINATORIAL SWEEP — every age × wake × nap pattern");
+console.log("═══════════════════════════════════════════════════════════════\n");
+
+const _sweepFailures = [];
+const _sweepWarns = [];
+let _sweepTotal = 0;
+
+function _sweepFail(bucket, msg, ctx) {
+  const entry = { bucket, msg, ctx };
+  if (_sweepFailures.length < 200) _sweepFailures.push(entry);
+}
+function _sweepWarn(bucket, msg, ctx) {
+  if (_sweepWarns.length < 100) _sweepWarns.push({ bucket, msg, ctx });
+}
+
+// ─── Audit 1: raw helper outputs across every age in weeks ──────────────
+for (let aw = 0; aw <= 156; aw++) { // 0 → 3 years
+  const ww = getWakeWindow(aw);
+  const np = getAgeNapProfile(aw);
+
+  if (typeof ww.min !== "number" || typeof ww.max !== "number" || typeof ww.midpoint !== "number") {
+    _sweepFail("getWakeWindow", "non-numeric field", { aw, ww });
+  }
+  if (isNaN(ww.min) || isNaN(ww.max) || isNaN(ww.midpoint)) {
+    _sweepFail("getWakeWindow", "NaN field", { aw, ww });
+  }
+  if (ww.min <= 0 || ww.max <= 0) {
+    _sweepFail("getWakeWindow", "non-positive WW", { aw, ww });
+  }
+  if (ww.min > ww.max) {
+    _sweepFail("getWakeWindow", "min > max", { aw, ww });
+  }
+  if (ww.midpoint < ww.min || ww.midpoint > ww.max) {
+    _sweepFail("getWakeWindow", "midpoint outside [min,max]", { aw, ww });
+  }
+  if (typeof ww.label !== "string" || ww.label.length === 0) {
+    _sweepFail("getWakeWindow", "missing label", { aw, ww });
+  }
+
+  // Nap profile invariants
+  if (typeof np.expectedNaps !== "number" || np.expectedNaps < 0 || np.expectedNaps > 6) {
+    _sweepFail("getAgeNapProfile", "bad expectedNaps", { aw, np });
+  }
+  if (np.idealNapDurMin > np.idealNapDurMax) {
+    _sweepFail("getAgeNapProfile", "dur min > max", { aw, np });
+  }
+  if (np.idealTotalMin > np.idealTotalMax) {
+    _sweepFail("getAgeNapProfile", "total min > max", { aw, np });
+  }
+  if (np.idealNapDurMin <= 0 || np.idealTotalMin < 0) {
+    _sweepFail("getAgeNapProfile", "non-positive duration", { aw, np });
+  }
+  // Sanity: if you take every nap at max duration you shouldn't exceed total max by >2x
+  const _maxBudget = np.expectedNaps * np.idealNapDurMax;
+  if (np.expectedNaps > 0 && _maxBudget < np.idealTotalMin) {
+    _sweepFail("getAgeNapProfile", "expectedNaps × idealNapDurMax < idealTotalMin (impossible to hit target)", { aw, np });
+  }
+  _sweepTotal++;
+}
+
+// ─── Audit 2: age-to-age transitions never jolt WW by more than 30 min ──
+// A tiny week-to-week change shouldn't flip wake window by 60+ minutes —
+// that'd be a transition cliff that surprises the prediction engine.
+let _prevWW = null;
+for (let aw = 0; aw <= 156; aw++) {
+  const ww = getWakeWindow(aw);
+  if (_prevWW) {
+    const dMin = Math.abs(ww.min - _prevWW.min);
+    const dMax = Math.abs(ww.max - _prevWW.max);
+    // Age-boundary transitions use 2-week blending so a single week shouldn't jump >30min
+    if (dMin > 30 || dMax > 60) {
+      _sweepWarn("WW-transition", "week→week jump > 30/60 min (possible boundary cliff)", {
+        aw, prev: _prevWW, now: ww, dMin, dMax
+      });
+    }
+  }
+  _prevWW = ww;
+}
+
+// ─── Audit 3: progressiveWW never returns NaN/negative, respects bounds ─
+for (let aw = 2; aw <= 120; aw += 2) {
+  for (let totalNaps = 1; totalNaps <= 5; totalNaps++) {
+    for (let napIdx = 0; napIdx < totalNaps; napIdx++) {
+      for (const disrupt of [false, true]) {
+        const v = progressiveWW(aw, napIdx, totalNaps, disrupt);
+        if (typeof v !== "number" || isNaN(v)) {
+          _sweepFail("progressiveWW", "NaN/non-number", { aw, napIdx, totalNaps, disrupt, v });
+        }
+        if (v <= 0) _sweepFail("progressiveWW", "non-positive", { aw, napIdx, totalNaps, disrupt, v });
+        if (v > 720) _sweepFail("progressiveWW", "absurd value > 12h", { aw, napIdx, totalNaps, disrupt, v });
+        _sweepTotal++;
+      }
+    }
+  }
+}
+
+// ─── Audit 4: defensive guard — NaN/undefined/null age doesn't crash ────
+for (const bad of [null, undefined, NaN, -1, -10, "abc", {}]) {
+  try {
+    const ww = getWakeWindow(bad);
+    if (!ww || typeof ww.min !== "number" || isNaN(ww.min)) {
+      _sweepFail("getWakeWindow-defensive", "bad input produced bad output", { bad, ww });
+    }
+  } catch (e) {
+    _sweepFail("getWakeWindow-defensive", "threw: " + e.message, { bad });
+  }
+  try {
+    const np = getAgeNapProfile(bad);
+    if (!np || typeof np.expectedNaps !== "number" || isNaN(np.expectedNaps)) {
+      _sweepFail("getAgeNapProfile-defensive", "bad input produced bad output", { bad, np });
+    }
+  } catch (e) {
+    _sweepFail("getAgeNapProfile-defensive", "threw: " + e.message, { bad });
+  }
+  _sweepTotal += 2;
+}
+
+// ─── Audit 5: projectDayPlan invariant sweep ────────────────────────────
+// For every plausible combination, the projected plan must have:
+//   • wake is first, bed is last
+//   • all times in [0, 1440)
+//   • nap starts after previous nap ends (for completed naps)
+//   • no NaN times
+for (let aw = 2; aw <= 120; aw += 4) {
+  for (let wakeH = 5; wakeH <= 9; wakeH++) {
+    for (const wakeM of [0, 30]) {
+      const wakeMins = wakeH * 60 + wakeM;
+      for (const avgNapDur of [30, 45, 60, 90, 120]) {
+        for (const bedH of [18, 19, 20, 21]) {
+          const targetBedMins = bedH * 60;
+          for (const disrupt of [false, true]) {
+            _sweepTotal++;
+            let plan;
+            try {
+              plan = projectDayPlan({ ageWeeks: aw, wakeMins, avgNapDur, targetBedMins, disruptionMode: disrupt });
+            } catch (e) {
+              _sweepFail("projectDayPlan", "threw: " + e.message, { aw, wakeMins, avgNapDur, targetBedMins, disrupt });
+              continue;
+            }
+            if (!plan || !Array.isArray(plan.items) || plan.items.length === 0) {
+              _sweepFail("projectDayPlan", "no items", { aw, wakeMins, avgNapDur, targetBedMins, disrupt });
+              continue;
+            }
+            const first = plan.items[0];
+            const last = plan.items[plan.items.length - 1];
+            if (first.type !== "wake") _sweepFail("projectDayPlan", "first item not wake", { aw, wakeMins, avgNapDur, targetBedMins, first });
+            if (last.type !== "bed")   _sweepFail("projectDayPlan", "last item not bed",   { aw, wakeMins, avgNapDur, targetBedMins, last });
+            // Every time field is a sane number
+            plan.items.forEach((it, i) => {
+              const t = it.time != null ? it.time : (it.start != null ? it.start : null);
+              if (t == null || typeof t !== "number" || isNaN(t) || t < 0 || t >= 1440) {
+                _sweepFail("projectDayPlan", "invalid time field", { aw, wakeMins, avgNapDur, targetBedMins, i, it });
+              }
+              if (it.type === "nap") {
+                if (typeof it.end !== "number" || isNaN(it.end)) {
+                  _sweepFail("projectDayPlan", "nap end NaN", { aw, wakeMins, avgNapDur, targetBedMins, i, it });
+                } else if (it.end < it.start) {
+                  // Allow cross-midnight wrap for end, but only if end+1440 > start and end < 360
+                  if (!(it.end < 360 && it.start >= 360)) {
+                    _sweepFail("projectDayPlan", "nap end before start", { aw, wakeMins, avgNapDur, targetBedMins, i, it });
+                  }
+                }
+              }
+            });
+            // Naps in order (no overlap)
+            const naps = plan.items.filter(i => i.type === "nap");
+            for (let i = 1; i < naps.length; i++) {
+              if (naps[i].start < naps[i-1].end && !(naps[i].start < 360 && naps[i-1].end >= 360)) {
+                _sweepFail("projectDayPlan", "nap overlaps previous", { aw, wakeMins, avgNapDur, targetBedMins, naps });
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ─── Report ─────────────────────────────────────────────────────────────
+console.log(`  Combinations tested: ${_sweepTotal}`);
+console.log(`  Hard failures:       ${_sweepFailures.length}`);
+console.log(`  Warnings:            ${_sweepWarns.length}`);
+
+if (_sweepFailures.length > 0) {
+  // Group by bucket for readability
+  const byBucket = {};
+  _sweepFailures.forEach(f => { byBucket[f.bucket] = (byBucket[f.bucket] || []); byBucket[f.bucket].push(f); });
+  console.log("\n  Failure buckets:");
+  Object.entries(byBucket).forEach(([b, arr]) => {
+    console.log(`    🚨 ${b}: ${arr.length}`);
+    // Show first 3 examples per bucket
+    arr.slice(0, 3).forEach(f => {
+      console.log(`       - ${f.msg} | ${JSON.stringify(f.ctx).slice(0, 200)}`);
+    });
+    if (arr.length > 3) console.log(`       … and ${arr.length - 3} more`);
+  });
+}
+
+if (_sweepWarns.length > 0 && _sweepFailures.length === 0) {
+  const byBucket = {};
+  _sweepWarns.forEach(f => { byBucket[f.bucket] = (byBucket[f.bucket] || []); byBucket[f.bucket].push(f); });
+  console.log("\n  Warning buckets:");
+  Object.entries(byBucket).forEach(([b, arr]) => {
+    console.log(`    ⚠️  ${b}: ${arr.length}`);
+    arr.slice(0, 3).forEach(f => {
+      console.log(`       - ${f.msg} | ${JSON.stringify(f.ctx).slice(0, 200)}`);
+    });
+    if (arr.length > 3) console.log(`       … and ${arr.length - 3} more`);
+  });
+}
+
+console.log("═══════════════════════════════════════════════════════════════\n");
+
+// Non-zero exit on hard failures so CI / npm test catches them
+if (_sweepFailures.length > 0 || criticals.length > 0) process.exit(1);
 
 process.exit(criticalIssues > 0 ? 1 : 0);

@@ -7,7 +7,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 html,body{height:100%;overscroll-behavior:none}
 html{background:var(--bg-solid, #FFF8F2)}
-body{font-family:'Spectral',-apple-system,'SF Pro Display',system-ui,serif;-webkit-font-smoothing:antialiased}
+body{font-family:'DM Sans',-apple-system,'SF Pro Display',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{display:none}
 input,select,button{font-family:inherit}
 input::placeholder{opacity:1}
@@ -20,8 +20,11 @@ input::placeholder{opacity:1}
   --card-bg-solid:rgba(255,255,255,0.60);
   --card-bg-alt:rgba(255,252,248,0.44);
   --card-border:rgba(255,255,255,0.50);
-  --card-shadow:0 0 24px rgba(255,255,255,0.65),0 0 48px rgba(245,218,210,0.28),0 0 72px rgba(240,210,200,0.16),inset 0 1.5px 0 rgba(255,255,255,0.80);
-  --card-shadow-elevated:0 0 30px rgba(255,255,255,0.75),0 0 56px rgba(245,218,210,0.35),0 0 84px rgba(240,210,200,0.20),inset 0 2px 0 rgba(255,255,255,0.85);
+  /* v2 card shadow — deeper warmth + physical lift. Existing glow layers kept,
+     with an added 0 8px 24px drop so cards read as lifted off the background
+     instead of painted onto it. This is the "premium depth" pass. */
+  --card-shadow:0 0 24px rgba(255,255,255,0.65),0 0 48px rgba(245,218,210,0.32),0 0 80px rgba(240,210,200,0.18),0 8px 24px rgba(200,150,130,0.12),inset 0 1.5px 0 rgba(255,255,255,0.85);
+  --card-shadow-elevated:0 0 30px rgba(255,255,255,0.75),0 0 60px rgba(245,218,210,0.40),0 0 96px rgba(240,210,200,0.22),0 12px 32px rgba(200,150,130,0.18),inset 0 2px 0 rgba(255,255,255,0.90);
   --specular:linear-gradient(105deg,transparent 2%,rgba(255,242,235,0.35) 15%,rgba(255,255,255,0.55) 42%,rgba(255,255,255,0.55) 58%,rgba(250,235,228,0.35) 85%,transparent 98%);
   --text-deep:#5B4F4F;--text-mid:#7A6B6B;--text-lt:#A89898;
   --blush:#F0D0C8;--rose:#E8B8B0;--cream:#FFF8F2;--warm:#FFFAF6;
@@ -45,8 +48,10 @@ body.dark-mode{
   --bg-solid:#080e1c;
   --card-bg:rgba(18,30,52,0.50);--card-bg-solid:rgba(20,34,58,0.68);
   --card-bg-alt:rgba(24,38,62,0.48);--card-border:rgba(255,190,90,0.25);
-  --card-shadow:0 0 20px rgba(255,180,70,0.14),inset 0 1.5px 0 rgba(255,200,120,0.18),0 4px 14px rgba(0,0,0,0.25),0 12px 32px rgba(0,0,0,0.18);
-  --card-shadow-elevated:0 0 28px rgba(255,180,70,0.20),inset 0 2px 0 rgba(255,200,120,0.24),0 8px 22px rgba(0,0,0,0.30);
+  /* v2 card shadow (dark mode) — deeper physical lift so cards float above
+     the warm night gradient rather than merging with it. */
+  --card-shadow:0 0 20px rgba(255,180,70,0.16),inset 0 1.5px 0 rgba(255,200,120,0.20),0 6px 18px rgba(0,0,0,0.32),0 16px 40px rgba(0,0,0,0.24);
+  --card-shadow-elevated:0 0 28px rgba(255,180,70,0.22),inset 0 2px 0 rgba(255,200,120,0.26),0 10px 28px rgba(0,0,0,0.38),0 20px 48px rgba(0,0,0,0.28);
   --specular:linear-gradient(105deg,transparent 2%,rgba(255,190,90,0.10) 15%,rgba(255,210,130,0.22) 42%,rgba(255,220,150,0.24) 58%,rgba(255,190,90,0.10) 85%,transparent 98%);
   --text-deep:#F0F2F5;--text-mid:#B0BEC9;--text-lt:#7E8FA0;
   --blush:rgba(255,190,90,0.22);--rose:rgba(255,180,70,0.16);
@@ -183,6 +188,88 @@ body.dark-mode input::placeholder{color:#4a5a72!important}
 button,a,[role="button"]{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 button:active{transform:scale(0.96)!important;transition:transform 0.06s ease!important}
 button{position:relative!important;overflow:visible!important}
+
+/* ═══ CARD ENTRANCE — subtle fade + rise on mount ═══
+   One motion primitive: cards settle into place rather than appearing.
+   Short (260ms), ease-out, only triggered once per mount. Purposeful, not
+   flashy. Honours prefers-reduced-motion so vestibular-sensitive parents
+   (or anyone fighting nausea at 3am) get instant appearance. */
+@keyframes obCardEnter{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.ob-card-enter{animation:obCardEnter 0.26s cubic-bezier(0.22,1,0.36,1) both}
+@media (prefers-reduced-motion: reduce){
+  .ob-card-enter{animation:none}
+}
+
+/* ═══ HERO CARD — the signature surface ═══
+   Upgrades .glass-card with a warm radial wash, thicker rounded corners,
+   and generous padding. Not a different card — a promoted one. Every
+   hero state inherits this automatically since they all pass through
+   className="glass-card" style={{padding:"20px 18px"…}} — we layer .ob-hero
+   on top to make the hero visibly distinct from every other card.
+*/
+body.light-mode .ob-hero, body:not(.dark-mode) .ob-hero{
+  /* Background gradient + shape only. Deliberately does NOT set !important on
+     box-shadow or border — those are animated by .prio-glow when applied, and
+     an !important rule here would kill the colourful glow cycle. For non-glow
+     hero states (sleeping, fallback), .glass-card's base shadow still applies. */
+  background:
+    radial-gradient(ellipse 140% 90% at 50% 0%, rgba(245,218,210,0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 60% at 0% 100%, rgba(255,225,200,0.35) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(246,221,227,0.40) 0%, transparent 60%),
+    var(--card-bg) !important;
+  border-radius: 24px !important;
+  padding: 22px 20px !important;
+}
+/* Boost the default hero shadow for heroes WITHOUT prio-glow so they still
+   read as lifted. prio-glow heroes animate their own shadow via keyframes. */
+body.light-mode .ob-hero:not(.prio-glow), body:not(.dark-mode) .ob-hero:not(.prio-glow){
+  border: 1.5px solid rgba(255,230,215,0.65);
+  box-shadow:
+    0 0 32px rgba(255,255,255,0.75),
+    0 0 64px rgba(245,218,210,0.40),
+    0 14px 38px rgba(200,150,130,0.18),
+    inset 0 1.5px 0 rgba(255,255,255,0.90);
+}
+body.dark-mode .ob-hero{
+  background:
+    radial-gradient(ellipse 140% 90% at 50% 0%, rgba(255,180,70,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 60% at 0% 100%, rgba(255,150,60,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(255,200,120,0.12) 0%, transparent 60%),
+    var(--card-bg) !important;
+  border-radius: 24px !important;
+  padding: 22px 20px !important;
+}
+body.dark-mode .ob-hero:not(.prio-glow){
+  border: 1.5px solid rgba(255,190,90,0.35);
+  box-shadow:
+    0 0 28px rgba(255,180,70,0.18),
+    0 14px 40px rgba(0,0,0,0.32),
+    inset 0 1.5px 0 rgba(255,200,120,0.22);
+}
+
+/* ═══ HERO NUMBER — pulse when the underlying value changes ═══
+   Used around any <span class="ob-hero-num"> that wraps a headline number.
+   Keyed remount (key={value}) re-triggers the animation on change, giving
+   parents a small delight moment when logging a feed updates the card. */
+@keyframes obNumPulse{
+  0%  {transform:scale(1);         text-shadow:0 0 0 rgba(192,112,136,0);}
+  30% {transform:scale(1.10);      text-shadow:0 0 12px rgba(192,112,136,0.35);}
+  60% {transform:scale(0.98);}
+  100%{transform:scale(1);         text-shadow:0 0 0 rgba(192,112,136,0);}
+}
+.ob-hero-num{display:inline-block;animation:obNumPulse 0.6s cubic-bezier(0.34,1.56,0.64,1) both}
+@media (prefers-reduced-motion: reduce){
+  .ob-hero-num{animation:none}
+}
+
+/* The global button{position:relative!important} rule above would otherwise
+   pin buttons to their inline flow. The hero's "?" tour button needs to be
+   absolutely positioned inside the hero (top-right corner), so it opts out
+   via this dedicated class. */
+button.ob-hero-help{position:absolute!important;top:14px!important;right:14px!important}
 
 /* ═══ EDGE GLOW — light concentrated at the border, not filling interior ═══ */
 @keyframes candlePulse{

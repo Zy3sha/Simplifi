@@ -653,10 +653,11 @@ struct OBubbaSmallWidgetView: View {
                         .monospacedDigit()
 
                     if let pred = d.nextPrediction, !pred.isEmpty {
-                        let timeOnly = pred.replacingOccurrences(of: "Nap \\d+ ~", with: "", options: .regularExpression)
-                            .replacingOccurrences(of: "Bed ~", with: "")
+                        // Strip any leading label up to and including "~ "
+                        // e.g. "Nap 3 ~3:30pm", "Bed ~7:15pm", "Bridge nap ~4:00pm"
+                        let timeOnly = pred.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
                             .trimmingCharacters(in: .whitespaces)
-                        if !timeOnly.isEmpty {
+                        if !timeOnly.isEmpty && timeOnly != pred {
                             Text("~\(timeOnly)")
                                 .font(.system(size: 10, weight: .medium))
                                 .foregroundColor(brandPurple.opacity(0.7))
@@ -794,10 +795,10 @@ struct OBubbaMediumWidgetView: View {
                                 .monospacedDigit()
                             // Show predicted time next to countdown
                             if let pred = d.nextPrediction, !pred.isEmpty {
-                                let timeOnly = pred.replacingOccurrences(of: "Nap \\d+ ~", with: "", options: .regularExpression)
-                                    .replacingOccurrences(of: "Bed ~", with: "")
+                                // Strip any leading label up to and including "~ "
+                                let timeOnly = pred.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
                                     .trimmingCharacters(in: .whitespaces)
-                                if !timeOnly.isEmpty {
+                                if !timeOnly.isEmpty && timeOnly != pred {
                                     Text(timeOnly)
                                         .font(.system(size: 9, weight: .semibold))
                                         .foregroundColor(brandPurple.opacity(0.7))

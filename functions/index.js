@@ -57,20 +57,36 @@ async function sendPush(uid, { title, body, data = {} }) {
   }
 }
 
-// Helper: get today's date string in user's timezone (approximate — default UTC)
-function todayKey() {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
+// Helper: get the user's LOCAL `YYYY-MM-DD` key. `tzOffsetMin` is what JS's
+// getTimezoneOffset() returns — minutes west of UTC (so Europe/London DST is
+// -60, Asia/Tokyo is -540, Los Angeles is 420). A push_log dedupe key keyed
+// on server UTC would roll over at UTC midnight instead of the user's local
+// midnight and produce duplicate reminders on DST and at timezone boundaries.
+function todayKeyForUser(tzOffsetMin) {
+  const offset = typeof tzOffsetMin === "number" ? tzOffsetMin : 0;
+  const local = new Date(Date.now() - offset * 60 * 1000);
+  return local.toISOString().split("T")[0];
 }
 
-// Helper: check if a timestamp is from today
-function isToday(timestamp) {
+// Helper: user-local hour of the day (0–23). Used to gate the 7am-10pm
+// "daytime only" reminder window on the USER's wall clock, not the
+// function's server region.
+function userLocalHour(tzOffsetMin) {
+  const offset = typeof tzOffsetMin === "number" ? tzOffsetMin : 0;
+  const local = new Date(Date.now() - offset * 60 * 1000);
+  return local.getUTCHours();
+}
+
+// Helper: check if a Firestore timestamp is from the user's local "today".
+function isToday(timestamp, tzOffsetMin) {
   if (!timestamp) return false;
   const ts = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const today = new Date();
-  return ts.getFullYear() === today.getFullYear() &&
-    ts.getMonth() === today.getMonth() &&
-    ts.getDate() === today.getDate();
+  const offset = typeof tzOffsetMin === "number" ? tzOffsetMin : 0;
+  const tsLocal = new Date(ts.getTime() - offset * 60 * 1000);
+  const nowLocal = new Date(Date.now() - offset * 60 * 1000);
+  return tsLocal.getUTCFullYear() === nowLocal.getUTCFullYear()
+      && tsLocal.getUTCMonth() === nowLocal.getUTCMonth()
+      && tsLocal.getUTCDate() === nowLocal.getUTCDate();
 }
 
 // ── Feed reminder: notify if no feed logged in 4+ hours ─────────
@@ -86,15 +102,16 @@ exports.feedReminder = onSchedule("every 30 minutes", async () => {
 
       const data = actDoc.data();
       const lastFeedTime = data.lastFeedTimestamp;
+      const tzOff = typeof data.tzOffsetMin === "number" ? data.tzOffsetMin : 0;
 
-      // Only alert during daytime hours (7am-10pm) and if last feed was 4+ hours ago
-      const hour = new Date().getHours();
+      // Daytime gate + dedupe key both computed in the USER's local timezone.
+      const hour = userLocalHour(tzOff);
       if (hour < 7 || hour > 22) continue;
 
       if (lastFeedTime && lastFeedTime.toMillis() < cutoff) {
         const hoursSince = Math.round((Date.now() - lastFeedTime.toMillis()) / 3600000);
-        // Don't spam — check if we already sent a feed reminder today
-        const sentKey = `feedReminder_${todayKey()}_${uid}`;
+        // Don't spam — check if we already sent a feed reminder today (user-local)
+        const sentKey = `feedReminder_${todayKeyForUser(tzOff)}_${uid}`;
         const sentDoc = await db.collection("push_log").doc(sentKey).get();
         if (sentDoc.exists) continue;
 
@@ -113,10 +130,11 @@ exports.feedReminder = onSchedule("every 30 minutes", async () => {
 
 // ── No feed all day: alert if it's past 10am and zero feeds logged today ──
 exports.noFeedAlert = onSchedule("every 1 hours", async () => {
-  const hour = new Date().getHours();
-  // Only check between 10am and 8pm
-  if (hour < 10 || hour > 20) return;
-
+  // No server-wide time gate — the scheduled function runs every hour UTC,
+  // and we compute each user's local hour inside the loop below using their
+  // stored tzOffsetMin. Without this, a UTC-scheduled 10am-8pm gate meant
+  // users outside UTC were either silenced for most of their day or spammed
+  // at the wrong local times.
   const tokens = await db.collection("fcm_tokens").get();
 
   for (const doc of tokens.docs) {
@@ -127,11 +145,14 @@ exports.noFeedAlert = onSchedule("every 1 hours", async () => {
 
       const data = actDoc.data();
       const lastFeed = data.lastFeedTimestamp;
+      const tzOff = typeof data.tzOffsetMin === "number" ? data.tzOffsetMin : 0;
+      const localHour = userLocalHour(tzOff);
+      if (localHour < 10 || localHour > 20) continue;
 
-      // If no feed today at all
-      if (!lastFeed || !isToday(lastFeed)) {
-        // Don't spam — one alert per day
-        const sentKey = `noFeed_${todayKey()}_${uid}`;
+      // If no feed today (in user's local timezone)
+      if (!lastFeed || !isToday(lastFeed, tzOff)) {
+        // Don't spam — one alert per user-local day
+        const sentKey = `noFeed_${todayKeyForUser(tzOff)}_${uid}`;
         const sentDoc = await db.collection("push_log").doc(sentKey).get();
         if (sentDoc.exists) continue;
 
@@ -151,10 +172,7 @@ exports.noFeedAlert = onSchedule("every 1 hours", async () => {
 // ── Morning wake reminder: feed logged but no wake ──────────────
 // If a feed is logged today but no morning wake, nudge the parent
 exports.noWakeAlert = onSchedule("every 1 hours", async () => {
-  const hour = new Date().getHours();
-  // Only check between 8am and 12pm — after that, wake was probably just missed
-  if (hour < 8 || hour > 12) return;
-
+  // Per-user local-time gate: see feedReminder/noFeedAlert comments.
   const tokens = await db.collection("fcm_tokens").get();
 
   for (const doc of tokens.docs) {
@@ -166,13 +184,17 @@ exports.noWakeAlert = onSchedule("every 1 hours", async () => {
       const data = actDoc.data();
       const lastFeed = data.lastFeedTimestamp;
       const lastWake = data.lastWakeTimestamp;
+      const tzOff = typeof data.tzOffsetMin === "number" ? data.tzOffsetMin : 0;
+      const hour = userLocalHour(tzOff);
+      // Only check between 8am and 12pm — after that, wake was probably just missed.
+      if (hour < 8 || hour > 12) continue;
 
-      // Feed logged today but no wake today
-      const feedToday = lastFeed && isToday(lastFeed);
-      const wakeToday = lastWake && isToday(lastWake);
+      // Feed logged today but no wake today (both in user-local tz)
+      const feedToday = lastFeed && isToday(lastFeed, tzOff);
+      const wakeToday = lastWake && isToday(lastWake, tzOff);
 
       if (feedToday && !wakeToday) {
-        const sentKey = `noWake_${todayKey()}_${uid}`;
+        const sentKey = `noWake_${todayKeyForUser(tzOff)}_${uid}`;
         const sentDoc = await db.collection("push_log").doc(sentKey).get();
         if (sentDoc.exists) continue;
 
