@@ -163,9 +163,9 @@ body:not(.dark-mode) .glass-card,body:not(.dark-mode) .glass-entry{color:#5B4F5F
 body.dark-mode .glass-card,body.dark-mode .glass-entry{color:#F0F2F5}
 
 /* Force header text visible in BOTH modes immediately */
-body.light-mode div[style*="fontFamily:\"'Playfair Display'"],
-body:not(.dark-mode) div[style*="fontFamily:\"'Playfair Display'"]{color:#5B4F5F!important}
-body.dark-mode div[style*="fontFamily:\"'Playfair Display'"]{color:#F0F2F5!important}
+body.light-mode div[style*="fontFamily:\"Georgia"],
+body:not(.dark-mode) div[style*="fontFamily:\"Georgia"]{color:#5B4F5F!important}
+body.dark-mode div[style*="fontFamily:\"Georgia"]{color:#F0F2F5!important}
 
 /* Log entry text — force readable */
 body.light-mode div[data-entry-id],body.light-mode div[data-entry-id] div,body.light-mode div[data-entry-id] span,
@@ -497,7 +497,7 @@ body.dark-mode button[style*="color:\"white\""] *,
 body.dark-mode button[style*="color:\"white\""]{color:white!important}
 
 /* Stat numbers keep their accent colors */
-div[style*="fontFamily:\"'Playfair Display'"] div[style*="color"]{color:inherit}
+div[style*="fontFamily:\"Georgia"] div[style*="color"]{color:inherit}
 
 /* Header background instant */
 body.light-mode [style*="backdropFilter"]{background-color:rgba(255,252,250,0.30)}
