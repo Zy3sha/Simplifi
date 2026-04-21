@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OBubba — Welcome</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Parisienne&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rose:#C07088;--rose-dk:#A85A44;
+    --gold:#D4A855;--gold-dk:#B8892B;--gold-lt:#F3D98A;
+    --lilac:#9C7FBF;--lilac-dk:#7A5FA0;
+    --sage:#6FA898;--cream:#FFF8F2;
+    --ink:#4A3B35;--ink-mid:#7A6B6B;--ink-lt:#A89898;
+  }
+  html,body{margin:0;min-height:100vh;font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(ellipse 70% 55% at 15% 8%,rgba(245,218,210,0.55),transparent 70%),
+      radial-gradient(ellipse 50% 45% at 85% 12%,rgba(240,210,200,0.45),transparent 65%),
+      radial-gradient(ellipse 55% 50% at 50% 95%,rgba(246,221,227,0.35),transparent 60%),
+      linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 45%,#F0DDD6 100%);
+    background-attachment:fixed;
+    scroll-behavior:smooth;
+  }
+  .stage{max-width:1400px;margin:0 auto;padding:24px 20px 80px}
+  .hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:4px}
+  .brand{font:400 52px/1 'Parisienne',cursive;color:var(--ink)}
+  .brand::first-letter{color:var(--gold-dk)}
+  .sub{font:600 11px/1 'DM Sans';color:var(--ink-lt);text-transform:uppercase;letter-spacing:0.18em}
+  .intro{font:italic 400 14px/1.55 'Playfair Display',serif;color:var(--ink-mid);max-width:720px;margin:6px 0 22px}
+  .intro b{font-style:normal;font-weight:700;color:var(--ink)}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:24px}
+  .seg{display:inline-flex;padding:3px;border-radius:99px;background:rgba(255,255,255,0.62);border:1px solid rgba(212,168,85,0.3);box-shadow:0 1.5px 0 rgba(255,255,255,0.9) inset}
+  .seg button{background:none;border:none;padding:7px 13px;border-radius:99px;cursor:pointer;font:700 12px 'DM Sans';color:var(--ink)}
+  .seg button.on{background:linear-gradient(135deg,var(--gold),var(--gold-dk));color:#fff;box-shadow:0 2px 6px rgba(184,137,43,0.35)}
+  .lbl{font:700 10px 'DM Sans';letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-lt);margin-right:6px}
+
+  .layout{display:flex;gap:40px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+  .col{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .col-cap{font:600 10px 'DM Sans';color:var(--ink-lt);text-transform:uppercase;letter-spacing:0.14em;text-align:center}
+  .col-cap b{color:var(--ink);font-weight:700}
+
+  /* Landing page — wider browser-frame */
+  .landing-frame{width:760px;height:900px;border-radius:18px;overflow:hidden;position:relative;
+    background:#FFF8F2;
+    box-shadow:0 24px 60px rgba(60,40,30,0.22),0 8px 24px rgba(60,40,30,0.10);
+    border:1px solid rgba(212,168,85,0.3);
+  }
+  .chrome{height:36px;background:linear-gradient(180deg,#F7EDE4,#F0DDD0);border-bottom:1px solid rgba(212,168,85,0.3);display:flex;align-items:center;gap:6px;padding:0 14px}
+  .dot{width:10px;height:10px;border-radius:99px}
+  .url{flex:1;margin:0 auto;max-width:320px;padding:4px 12px;border-radius:99px;background:rgba(255,252,248,0.8);font:600 10px 'DM Sans';color:var(--ink-mid);text-align:center;border:1px solid rgba(212,168,85,0.22)}
+  .scroll{position:absolute;top:36px;left:0;right:0;bottom:0;overflow-y:auto;overflow-x:hidden}
+
+  /* Phone frame */
+  .phone{width:390px;height:844px;border-radius:44px;overflow:hidden;position:relative;
+    box-shadow:0 24px 60px rgba(60,40,30,0.22),0 8px 24px rgba(60,40,30,0.12),inset 0 0 0 8px #1a1a1a,inset 0 0 0 9px rgba(255,255,255,0.08);
+    background:radial-gradient(ellipse 65% 55% at 15% 10%,rgba(245,218,210,0.35),transparent 70%),linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%);
+    color:var(--ink);
+  }
+  .island{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:32px;border-radius:20px;background:#000;z-index:100}
+  .statusbar{position:absolute;top:14px;left:0;right:0;display:flex;justify-content:space-between;padding:0 28px;font-size:15px;font-weight:600;z-index:101}
+
+  /* Animations */
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes pulse{0%,100%{opacity:0.4;transform:scale(0.8)}50%{opacity:1;transform:scale(1.05)}}
+  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+  .breathe{animation:breathe 4s ease-in-out infinite}
+  .float{animation:float 5s ease-in-out infinite}
+
+  /* Landing internals */
+  .l-hero{position:relative;padding:48px 48px 60px;min-height:560px;display:flex;flex-direction:column;justify-content:center;
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 20%,rgba(246,221,227,0.55),transparent 65%),
+      radial-gradient(ellipse 50% 40% at 15% 85%,rgba(240,210,200,0.4),transparent 65%),
+      linear-gradient(135deg,#FFF8F2 0%,#FAEEE5 50%,#F5E1D8 100%);
+  }
+  .l-section{padding:60px 48px;position:relative}
+  .eyebrow{font:700 10px 'DM Sans';letter-spacing:0.22em;text-transform:uppercase;color:var(--gold-dk)}
+  .display{font:700 56px/1.02 'Playfair Display',serif;color:var(--ink);letter-spacing:-0.02em;text-wrap:pretty;margin:14px 0 14px}
+  .display em{font-style:italic;color:var(--rose-dk)}
+  .lede{font:italic 400 18px/1.55 'Playfair Display',serif;color:var(--ink-mid);max-width:480px}
+  .l-cta{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:99px;border:none;cursor:pointer;
+    background:linear-gradient(135deg,var(--rose),var(--rose-dk));color:#fff;
+    font:700 13px 'DM Sans';letter-spacing:0.02em;
+    box-shadow:0 2px 6px rgba(168,90,68,0.35),0 0 0 1px rgba(255,200,190,0.25) inset;
+    margin-top:24px;
+  }
+  .l-cta:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(168,90,68,0.4),0 0 0 1px rgba(255,200,190,0.3) inset}
+  .l-quiet{font:500 11px 'DM Sans';color:var(--ink-lt);margin-top:10px;letter-spacing:0.04em}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="hdr"><div class="brand">Welcome & Onboarding</div><div class="sub">· One coherent journey</div></div>
+  <p class="intro">
+    The journey at <b>obubba.com</b>. Editorial long-scroll landing, mascot-led <b>welcome</b>, and a calm <b>3-step onboarding</b> (profile · sleep · confirm) that lands you on Today. Change the accent from the toolbar; the whole system recolours.
+  </p>
+  <div id="root"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
+  "accent": "rose"
+}/*EDITMODE-END*/;
+
+const ACCENTS = {
+  rose:  { main:"#C07088", dk:"#A85A44", lt:"#F5E1D8", glow:"rgba(217,168,192,0.45)", name:"Rose" },
+  gold:  { main:"#D4A855", dk:"#B8892B", lt:"#F3D98A", glow:"rgba(224,184,106,0.45)", name:"Gold" },
+  lilac: { main:"#9C7FBF", dk:"#7A5FA0", lt:"#DDD0ED", glow:"rgba(156,127,191,0.40)", name:"Lilac" },
+};
+
+// ─────────────── LANDING PAGE (browser) ───────────────
+function Landing({ accent, onInstall }){
+  const a = ACCENTS[accent];
+  return (
+    <div className="landing-frame">
+      <div className="chrome">
+        <span className="dot" style={{background:"#FF5F57"}}/><span className="dot" style={{background:"#FEBC2E"}}/><span className="dot" style={{background:"#28C840"}}/>
+        <div className="url">🔒 obubba.com</div>
+        <div style={{width:40}}/>
+      </div>
+      <div className="scroll">
+        {/* HERO */}
+        <div className="l-hero">
+          {/* decorative mascot */}
+          <div className="float" style={{position:"absolute",top:64,right:52,filter:`drop-shadow(0 18px 40px ${a.glow})`}}>
+            <div className="breathe">
+              <img src="assets/obubba-happy.png" alt="" style={{width:220,height:220,display:"block"}}/>
+            </div>
+          </div>
+          <div style={{position:"absolute",top:32,right:260,fontFamily:"'Parisienne',cursive",fontSize:28,color:a.dk,transform:"rotate(-4deg)",opacity:0.8}}>
+            hi, I'm OBubba ✨
+          </div>
+
+          <div style={{maxWidth:420,position:"relative",zIndex:2}}>
+            <div className="eyebrow" style={{color:a.dk}}>A quiet companion for the first years</div>
+            <div className="display">The baby app that <em>actually</em> cares for you.</div>
+            <div className="lede">Log the day with one tap. Spot the patterns. Share with whoever's watching baby tonight — no app install on their end.</div>
+            <button className="l-cta" onClick={onInstall} style={{background:`linear-gradient(135deg,${a.main},${a.dk})`,boxShadow:`0 2px 6px ${a.glow},0 0 0 1px rgba(255,255,255,0.2) inset`}}>
+              Start for free · 14-day trial <span>→</span>
+            </button>
+            <div className="l-quiet">No card needed · works offline · your data stays yours 💛</div>
+          </div>
+        </div>
+
+        {/* Section 1: WHY */}
+        <div className="l-section" style={{background:"rgba(255,252,248,0.6)",borderTop:`1px solid ${a.main}22`,borderBottom:`1px solid ${a.main}22`}}>
+          <div className="eyebrow" style={{color:a.dk}}>The premise</div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:32,lineHeight:1.2,color:"var(--ink)",margin:"10px 0 14px",maxWidth:540}}>
+            Baby apps ask you to type. <em style={{color:a.dk}}>We ask you to tap.</em>
+          </div>
+          <div style={{fontSize:14,lineHeight:1.65,color:"var(--ink-mid)",maxWidth:540,fontFamily:"'Playfair Display',serif",fontStyle:"italic"}}>
+            You're already holding a feeding bottle, a squirming baby, and a dwindling coffee. The last thing you need is a form. One tap logs a feed. The app learns what's normal for <em>your</em> baby, and tells you when something's worth a look.
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:18,marginTop:32}}>
+            {[
+              {h:"One-tap log",    b:"Feed. Sleep. Nappy. Done.",     e:"🍼"},
+              {h:"Quiet insights", b:"No panic numbers. Patterns that matter.", e:"📊"},
+              {h:"For the village", b:"Sitters & grandparents get their own calm view.",e:"💛"},
+            ].map((f,i)=>(
+              <div key={i} style={{padding:"18px 18px 20px",borderRadius:18,background:"rgba(255,255,255,0.7)",border:`1px solid ${a.main}33`,boxShadow:"0 1.5px 0 rgba(255,255,255,0.95) inset,0 6px 18px rgba(200,150,130,0.10)"}}>
+                <div style={{fontSize:28,marginBottom:8}}>{f.e}</div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18,color:"var(--ink)",marginBottom:4}}>{f.h}</div>
+                <div style={{fontSize:12,lineHeight:1.5,color:"var(--ink-mid)",fontStyle:"italic",fontFamily:"'Playfair Display',serif"}}>{f.b}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 2: PULL QUOTE */}
+        <div className="l-section" style={{textAlign:"center",padding:"70px 60px"}}>
+          <div style={{fontFamily:"'Parisienne',cursive",fontSize:42,color:a.main,lineHeight:1,marginBottom:16}}>from a real parent</div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontWeight:400,fontSize:26,lineHeight:1.4,color:"var(--ink)",maxWidth:560,margin:"0 auto"}}>
+            "I stopped <em style={{color:a.dk}}>fighting</em> the app and started <em style={{color:a.dk}}>using</em> it. It's the one that feels like someone who's been there."
+          </div>
+          <div style={{marginTop:18,fontSize:11,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)",fontWeight:700}}>— Sarah, Mum of two</div>
+        </div>
+
+        {/* Section 3: FEATURE STRIP */}
+        <div className="l-section" style={{background:`linear-gradient(135deg,${a.lt}88,rgba(255,248,242,0.7))`,borderTop:`1px solid ${a.main}22`,borderBottom:`1px solid ${a.main}22`}}>
+          <div style={{display:"flex",gap:32,alignItems:"center"}}>
+            <div style={{flex:1}}>
+              <div className="eyebrow" style={{color:a.dk}}>BubbaCare</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:32,lineHeight:1.15,color:"var(--ink)",margin:"10px 0 12px"}}>
+                A link for <em style={{color:a.dk}}>grandma</em>. A link for <em style={{color:a.dk}}>the nursery</em>.
+              </div>
+              <div style={{fontSize:14,lineHeight:1.6,color:"var(--ink-mid)",fontFamily:"'Playfair Display',serif",fontStyle:"italic",maxWidth:320}}>
+                Share a read-mostly view with whoever's watching baby today. They open it on their phone — no app, no sign-up. Feeds, naps, allergies, emergency contacts, all calm and findable.
+              </div>
+            </div>
+            <div style={{flexShrink:0,width:180,padding:"20px 16px",borderRadius:22,background:"rgba(255,252,248,0.85)",border:`1px solid ${a.main}55`,boxShadow:`0 0 0 1px ${a.main}22,0 12px 30px rgba(200,150,130,0.2)`,textAlign:"center"}}>
+              <div style={{width:100,height:100,margin:"0 auto 10px",borderRadius:14,background:`repeating-linear-gradient(90deg,#1a1a1a 0 2px,#FFF8F2 2px 4px),repeating-linear-gradient(0deg,#1a1a1a 0 2px,transparent 2px 4px)`,backgroundBlendMode:"multiply",boxShadow:"inset 0 0 0 3px #FFF8F2"}}/>
+              <div style={{fontFamily:"'Parisienne',cursive",fontSize:22,color:a.dk,lineHeight:1}}>scan me</div>
+              <div style={{fontSize:10,color:"var(--ink-lt)",marginTop:2,fontStyle:"italic"}}>for Gran's view</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 4: CLOSE */}
+        <div className="l-section" style={{textAlign:"center",padding:"70px 48px 90px"}}>
+          <div className="breathe" style={{display:"inline-block",filter:`drop-shadow(0 12px 28px ${a.glow})`,marginBottom:6}}>
+            <img src="assets/obubba-celebration.png" alt="" style={{width:100,height:100}}/>
+          </div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:34,lineHeight:1.2,color:"var(--ink)",marginBottom:10}}>
+            Start the calmest bit of your day.
+          </div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:14,color:"var(--ink-mid)",maxWidth:420,margin:"0 auto 22px",lineHeight:1.55}}>
+            Two minutes to set up. No card needed. We'll guide you.
+          </div>
+          <button className="l-cta" onClick={onInstall} style={{background:`linear-gradient(135deg,${a.main},${a.dk})`,fontSize:14,padding:"14px 26px"}}>
+            Let's begin <span>→</span>
+          </button>
+          <div style={{marginTop:26,fontSize:10,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)",fontWeight:700}}>
+            OBubba · made with care · london
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── PHONE FRAME ───────────────
+function Phone({ children }){
+  return (
+    <div className="phone">
+      <div className="island"/>
+      <div className="statusbar"><span>9:41</span><span style={{letterSpacing:"2px"}}>●●●● 􀙇 􀛨</span></div>
+      <div style={{position:"absolute",inset:0,paddingTop:54}}>{children}</div>
+    </div>
+  );
+}
+
+// ─────────────── WELCOME SCREEN ───────────────
+function Welcome({ accent, onBegin }){
+  const a = ACCENTS[accent];
+  return (
+    <div style={{padding:"12px 0",height:"100%",display:"flex",flexDirection:"column",position:"relative"}}>
+      {/* ambient glow behind mascot */}
+      <div style={{position:"absolute",top:80,left:"50%",transform:"translateX(-50%)",width:340,height:340,borderRadius:"50%",background:`radial-gradient(circle,${a.glow} 0%,transparent 65%)`,filter:"blur(8px)",opacity:0.8,pointerEvents:"none"}}/>
+
+      {/* brand */}
+      <div style={{textAlign:"center",paddingTop:4}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:42,lineHeight:1,color:"var(--ink)"}}>
+          <span style={{color:a.dk}}>O</span>Bubba
+        </div>
+      </div>
+
+      {/* hero mascot */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"relative",zIndex:2,padding:"0 24px"}}>
+        <div className="float" style={{filter:`drop-shadow(0 20px 40px ${a.glow})`,marginBottom:22}}>
+          <div className="breathe">
+            <img src="assets/obubba-happy.png" alt="" style={{width:240,height:240,display:"block"}}/>
+          </div>
+        </div>
+
+        <div style={{textAlign:"center",animation:"fadeInUp 0.6s 0.2s both"}}>
+          <div style={{fontFamily:"'Parisienne',cursive",fontSize:34,color:a.main,lineHeight:1,marginBottom:8}}>Hello, you.</div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:26,lineHeight:1.15,color:"var(--ink)",marginBottom:12,letterSpacing:"-0.01em"}}>
+            Let's get to know your <em style={{color:a.dk}}>little one</em>.
+          </div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:14,color:"var(--ink-mid)",lineHeight:1.55,maxWidth:280,margin:"0 auto"}}>
+            Three short questions. You can change any answer later.
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{padding:"0 24px 32px",animation:"fadeInUp 0.6s 0.4s both"}}>
+        <button onClick={onBegin} style={{
+          width:"100%",padding:"16px 0",borderRadius:99,border:"none",cursor:"pointer",
+          background:`linear-gradient(135deg,${a.main},${a.dk})`,color:"#fff",
+          fontSize:15,fontWeight:700,letterSpacing:"0.02em",
+          boxShadow:`0 0 0 1px rgba(255,255,255,0.25) inset,0 2px 6px ${a.glow},0 10px 22px ${a.glow}`,
+        }}>Begin →</button>
+        <div style={{textAlign:"center",fontSize:11,color:"var(--ink-lt)",marginTop:10,fontStyle:"italic"}}>
+          No account needed. Your data stays on this device. 💛
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── ONBOARDING — shared chrome ───────────────
+function OnboardStep({ accent, step, total, onBack, onNext, canNext, nextLabel="Continue", title, eyebrow, hint, children }){
+  const a = ACCENTS[accent];
+  return (
+    <div style={{padding:"12px 0",height:"100%",display:"flex",flexDirection:"column"}}>
+      {/* progress + back */}
+      <div style={{padding:"0 18px",display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
+        <button onClick={onBack} disabled={step===0} style={{
+          width:34,height:34,borderRadius:99,border:`1px solid ${a.main}40`,
+          background:step===0?"transparent":"rgba(255,255,255,0.65)",
+          cursor:step===0?"default":"pointer",color:"var(--ink)",fontSize:16,opacity:step===0?0.3:1,
+        }}>‹</button>
+        <div style={{flex:1,display:"flex",gap:5}}>
+          {Array.from({length:total}).map((_,i)=>(
+            <div key={i} style={{
+              flex:1,height:4,borderRadius:99,
+              background: i<=step ? `linear-gradient(90deg,${a.main},${a.dk})` : "rgba(91,79,79,0.15)",
+              boxShadow: i<=step ? `0 0 8px ${a.glow}` : "none",
+              transition:"background 300ms",
+            }}/>
+          ))}
+        </div>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",color:"var(--ink-lt)"}}>{step+1}/{total}</div>
+      </div>
+
+      {/* header */}
+      <div style={{padding:"0 24px",marginBottom:24}}>
+        <div className="eyebrow" style={{color:a.dk,marginBottom:8}}>{eyebrow}</div>
+        <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:28,lineHeight:1.15,color:"var(--ink)",letterSpacing:"-0.01em"}}>{title}</div>
+        {hint && <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:13,color:"var(--ink-mid)",marginTop:8,lineHeight:1.5}}>{hint}</div>}
+      </div>
+
+      {/* body — scrollable */}
+      <div style={{flex:1,padding:"0 24px 12px",overflowY:"auto"}}>
+        {children}
+      </div>
+
+      {/* CTA */}
+      <div style={{padding:"12px 24px 26px"}}>
+        <button onClick={onNext} disabled={!canNext} style={{
+          width:"100%",padding:"15px 0",borderRadius:99,border:"none",
+          cursor:canNext?"pointer":"default",
+          background: canNext ? `linear-gradient(135deg,${a.main},${a.dk})` : "rgba(91,79,79,0.12)",
+          color: canNext?"#fff":"var(--ink-lt)",
+          fontSize:14,fontWeight:700,letterSpacing:"0.02em",
+          boxShadow: canNext ? `0 2px 6px ${a.glow},0 8px 20px ${a.glow}` : "none",
+          transition:"all 200ms",
+        }}>{nextLabel} →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────── STEP 1: PROFILE ───────────────
+function StepProfile({ accent, value, onChange, onBack, onNext }){
+  const a = ACCENTS[accent];
+  const canNext = value.name.trim().length>0 && value.dob;
+  const genders = [
+    {v:"girl",  l:"Girl",  e:"👧🏻"},
+    {v:"boy",   l:"Boy",   e:"👦🏻"},
+    {v:"either",l:"Prefer not to say", e:"👶"},
+  ];
+  return (
+    <OnboardStep accent={accent} step={0} total={3} onBack={onBack} onNext={onNext} canNext={canNext}
+      eyebrow="Step 1 of 3 · About baby"
+      title={<>What should we call <em style={{color:a.dk,fontStyle:"italic"}}>them</em>?</>}
+      hint="A first name is perfect. Nicknames work too."
+    >
+      {/* name */}
+      <label style={{display:"block",marginBottom:20}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)",marginBottom:6}}>Name</div>
+        <input value={value.name} onChange={e=>onChange({...value,name:e.target.value})} placeholder="e.g. Oliver" style={{
+          width:"100%",padding:"14px 16px",borderRadius:14,
+          border:`1.5px solid ${value.name?a.main:"rgba(212,168,85,0.3)"}`,
+          background:"rgba(255,252,248,0.75)",fontFamily:"'Playfair Display',serif",fontSize:18,
+          color:"var(--ink)",outline:"none",boxSizing:"border-box",
+          boxShadow: value.name ? `0 0 0 3px ${a.glow}` : "0 1.5px 0 rgba(255,255,255,0.85) inset",
+          transition:"all 200ms",
+        }}/>
+      </label>
+
+      {/* DOB */}
+      <label style={{display:"block",marginBottom:20}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)",marginBottom:6}}>Date of birth</div>
+        <input type="date" value={value.dob} onChange={e=>onChange({...value,dob:e.target.value})} style={{
+          width:"100%",padding:"14px 16px",borderRadius:14,
+          border:`1.5px solid ${value.dob?a.main:"rgba(212,168,85,0.3)"}`,
+          background:"rgba(255,252,248,0.75)",fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,
+          color:"var(--ink)",outline:"none",boxSizing:"border-box",
+          boxShadow: value.dob ? `0 0 0 3px ${a.glow}` : "0 1.5px 0 rgba(255,255,255,0.85) inset",
+          transition:"all 200ms",
+        }}/>
+      </label>
+
+      {/* gender */}
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)",marginBottom:8}}>Pronouns</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {genders.slice(0,2).map(g=>(
+            <button key={g.v} onClick={()=>onChange({...value,gender:g.v})} style={{
+              padding:"14px 8px",borderRadius:14,cursor:"pointer",
+              border:`1.5px solid ${value.gender===g.v?a.main:"rgba(212,168,85,0.3)"}`,
+              background:value.gender===g.v?`${a.main}18`:"rgba(255,252,248,0.65)",
+              display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+              boxShadow: value.gender===g.v ? `0 0 0 3px ${a.glow}` : "none",
+              transition:"all 150ms",
+            }}>
+              <span style={{fontSize:26}}>{g.e}</span>
+              <span style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:14,color:"var(--ink)"}}>{g.l}</span>
+            </button>
+          ))}
+        </div>
+        <button onClick={()=>onChange({...value,gender:"either"})} style={{
+          width:"100%",marginTop:8,padding:"11px 8px",borderRadius:14,cursor:"pointer",
+          border:`1.5px solid ${value.gender==="either"?a.main:"rgba(212,168,85,0.3)"}`,
+          background:value.gender==="either"?`${a.main}18`:"rgba(255,252,248,0.55)",
+          fontSize:13,fontWeight:600,color:"var(--ink-mid)",fontFamily:"'DM Sans',sans-serif",fontStyle:"italic",
+          boxShadow: value.gender==="either" ? `0 0 0 3px ${a.glow}` : "none",
+        }}>Prefer not to say</button>
+      </div>
+    </OnboardStep>
+  );
+}
+
+// ─────────────── STEP 2: SLEEP ───────────────
+function StepSleep({ accent, value, onChange, onBack, onNext }){
+  const a = ACCENTS[accent];
+  const where = [
+    {v:"cot",     l:"Own cot",         e:"🛏️",  sub:"In a separate room"},
+    {v:"cot_room",l:"Cot, our room",   e:"🛋️",  sub:"Next to us"},
+    {v:"bedshare",l:"Bedsharing",      e:"💤",  sub:"In our bed"},
+    {v:"moses",   l:"Moses basket",    e:"🧺",  sub:"For now"},
+  ];
+  const temper = [
+    {v:"easy",   l:"A breeze"},
+    {v:"ok",     l:"Mostly good"},
+    {v:"tough",  l:"We're tired"},
+    {v:"chaos",  l:"Help."},
+  ];
+  return (
+    <OnboardStep accent={accent} step={1} total={3} onBack={onBack} onNext={onNext} canNext={!!(value.where && value.temper)}
+      eyebrow="Step 2 of 3 · Sleep"
+      title={<>How's <em style={{color:a.dk,fontStyle:"italic"}}>sleep</em> going?</>}
+      hint="Honest answers help OBubba spot what's worth celebrating — and what might be worth a nudge."
+    >
+      <div style={{marginBottom:22}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)",marginBottom:8}}>Where does baby sleep?</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {where.map(w=>(
+            <button key={w.v} onClick={()=>onChange({...value,where:w.v})} style={{
+              padding:"14px 10px",borderRadius:14,cursor:"pointer",
+              border:`1.5px solid ${value.where===w.v?a.main:"rgba(212,168,85,0.3)"}`,
+              background:value.where===w.v?`${a.main}18`:"rgba(255,252,248,0.65)",
+              display:"flex",flexDirection:"column",alignItems:"flex-start",gap:4,textAlign:"left",
+              boxShadow: value.where===w.v ? `0 0 0 3px ${a.glow}` : "none",
+              transition:"all 150ms",
+            }}>
+              <span style={{fontSize:22}}>{w.e}</span>
+              <span style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:14,color:"var(--ink)",lineHeight:1.15}}>{w.l}</span>
+              <span style={{fontSize:10,color:"var(--ink-lt)",fontStyle:"italic"}}>{w.sub}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)",marginBottom:8}}>How's it feeling overall?</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {temper.map((t,i)=>(
+            <button key={t.v} onClick={()=>onChange({...value,temper:t.v})} style={{
+              padding:"13px 14px",borderRadius:14,cursor:"pointer",display:"flex",alignItems:"center",gap:12,
+              border:`1.5px solid ${value.temper===t.v?a.main:"rgba(212,168,85,0.3)"}`,
+              background:value.temper===t.v?`${a.main}18`:"rgba(255,252,248,0.65)",
+              boxShadow: value.temper===t.v ? `0 0 0 3px ${a.glow}` : "none",
+              transition:"all 150ms",textAlign:"left",
+            }}>
+              <div style={{width:26,height:26,borderRadius:99,background:`linear-gradient(135deg,${a.main},${a.dk})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Playfair Display',serif"}}>{i+1}</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:15,color:"var(--ink)",flex:1}}>{t.l}</div>
+              {value.temper===t.v && <span style={{color:a.main,fontWeight:700,fontSize:14}}>✓</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+    </OnboardStep>
+  );
+}
+
+// ─────────────── STEP 3: CONFIRM ───────────────
+function StepConfirm({ accent, profile, sleep, onBack, onFinish }){
+  const a = ACCENTS[accent];
+  const ageStr = (()=>{
+    if (!profile.dob) return "—";
+    const d = new Date(profile.dob); const now = new Date();
+    const months = (now.getFullYear()-d.getFullYear())*12 + (now.getMonth()-d.getMonth());
+    if (months < 1) {
+      const days = Math.floor((now-d)/(1000*60*60*24));
+      return days <= 0 ? "newborn" : `${days} days old`;
+    }
+    return `${months} ${months===1?"month":"months"} old`;
+  })();
+  const whereLabel = {cot:"own cot",cot_room:"cot in your room",bedshare:"bedsharing",moses:"moses basket"}[sleep.where] || "—";
+
+  return (
+    <OnboardStep accent={accent} step={2} total={3} onBack={onBack} onNext={onFinish} canNext={true} nextLabel="Enter OBubba"
+      eyebrow="Step 3 of 3 · Lovely"
+      title={<>Ready, when you <em style={{color:a.dk,fontStyle:"italic"}}>are</em>.</>}
+      hint="A quick check. You can edit any of this from Account later."
+    >
+      <div style={{padding:"16px 18px",borderRadius:20,background:`linear-gradient(180deg,rgba(255,255,255,0.75),rgba(255,252,248,0.55))`,border:`1px solid ${a.main}55`,boxShadow:`0 0 0 1px ${a.main}22,0 1.5px 0 rgba(255,255,255,0.95) inset,0 8px 22px ${a.glow}`,marginBottom:14}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+          <div className="breathe" style={{filter:`drop-shadow(0 6px 18px ${a.glow})`}}>
+            <img src="assets/obubba-happy.png" alt="" style={{width:56,height:56,display:"block"}}/>
+          </div>
+          <div>
+            <div style={{fontFamily:"'Parisienne',cursive",fontSize:26,color:a.dk,lineHeight:1}}>Hello, {profile.name||"little one"}.</div>
+            <div style={{fontSize:11,color:"var(--ink-lt)",fontStyle:"italic",marginTop:2}}>{ageStr}</div>
+          </div>
+        </div>
+
+        {[
+          {k:"Name",    v:profile.name||"—"},
+          {k:"Born",    v:profile.dob ? new Date(profile.dob).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}) : "—"},
+          {k:"Pronouns",v:{girl:"She/her",boy:"He/him",either:"Prefer not to say"}[profile.gender]||"—"},
+          {k:"Sleeps",  v:whereLabel},
+          {k:"Feeling", v:{easy:"A breeze",ok:"Mostly good",tough:"Tired",chaos:"Need help"}[sleep.temper]||"—"},
+        ].map((r,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom: i<4 ? `1px dashed ${a.main}33` : "none"}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"var(--ink-lt)"}}>{r.k}</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:600,color:"var(--ink)",textAlign:"right",maxWidth:200}}>{r.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{padding:"12px 14px",borderRadius:14,background:`${a.main}10`,border:`1px dashed ${a.main}55`}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:a.dk,marginBottom:4}}>What happens next</div>
+        <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:13,color:"var(--ink-mid)",lineHeight:1.5}}>
+          OBubba learns from the first week of logs. Until then, its guesses are gentle. You can always tell it when it's wrong.
+        </div>
+      </div>
+    </OnboardStep>
+  );
+}
+
+// ─────────────── DONE (landing pad into Today teaser) ───────────────
+function Arrived({ accent, profile, onRestart }){
+  const a = ACCENTS[accent];
+  React.useEffect(()=>{
+    // auto-scroll would happen here; for the demo we just sit on the celebratory screen
+  },[]);
+  return (
+    <div style={{padding:"60px 24px",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"relative",textAlign:"center"}}>
+      <div style={{position:"absolute",top:60,left:"50%",transform:"translateX(-50%)",width:320,height:320,borderRadius:"50%",background:`radial-gradient(circle,${a.glow} 0%,transparent 65%)`,filter:"blur(12px)"}}/>
+      <div className="breathe" style={{position:"relative",zIndex:2,filter:`drop-shadow(0 20px 40px ${a.glow})`,marginBottom:20}}>
+        <img src="assets/obubba-celebration.png" alt="" style={{width:180,height:180}}/>
+      </div>
+      <div style={{fontFamily:"'Parisienne',cursive",fontSize:34,color:a.dk,lineHeight:1,marginBottom:6,position:"relative",zIndex:2}}>You're in.</div>
+      <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:22,lineHeight:1.2,color:"var(--ink)",marginBottom:10,position:"relative",zIndex:2}}>
+        Welcome, <em style={{color:a.dk,fontStyle:"italic"}}>{profile.name||"friend"}</em>.
+      </div>
+      <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:13,color:"var(--ink-mid)",maxWidth:260,lineHeight:1.55,position:"relative",zIndex:2,marginBottom:26}}>
+        The app opens to <b style={{fontStyle:"normal"}}>Today</b>. Tap a quick action to log your first thing.
+      </div>
+      <button onClick={onRestart} style={{
+        padding:"10px 18px",borderRadius:99,border:`1px solid ${a.main}55`,background:"rgba(255,255,255,0.7)",
+        color:"var(--ink)",fontSize:12,fontWeight:700,cursor:"pointer",position:"relative",zIndex:2,
+      }}>↺ Replay the journey</button>
+    </div>
+  );
+}
+
+// ─────────────── ROOT ───────────────
+function Root(){
+  const [tweaks,setTweaks] = React.useState(()=>{try{return {...DEFAULT_TWEAKS,...JSON.parse(localStorage.getItem("ob-onb-tweaks")||"{}")};}catch{return DEFAULT_TWEAKS;}});
+  const [step,setStep] = React.useState(()=>localStorage.getItem("ob-onb-step")||"welcome");
+  const [profile,setProfile] = React.useState(()=>{try{return JSON.parse(localStorage.getItem("ob-onb-profile")||'{"name":"","dob":"","gender":""}');}catch{return {name:"",dob:"",gender:""};}});
+  const [sleep,setSleep] = React.useState(()=>{try{return JSON.parse(localStorage.getItem("ob-onb-sleep")||'{"where":"","temper":""}');}catch{return {where:"",temper:""};}});
+  const [hostEdit,setHostEdit] = React.useState(false);
+  const a = ACCENTS[tweaks.accent] || ACCENTS.rose;
+
+  React.useEffect(()=>localStorage.setItem("ob-onb-tweaks",JSON.stringify(tweaks)),[tweaks]);
+  React.useEffect(()=>localStorage.setItem("ob-onb-step",step),[step]);
+  React.useEffect(()=>localStorage.setItem("ob-onb-profile",JSON.stringify(profile)),[profile]);
+  React.useEffect(()=>localStorage.setItem("ob-onb-sleep",JSON.stringify(sleep)),[sleep]);
+
+  React.useEffect(()=>{
+    const h=(e)=>{if(!e.data||typeof e.data!=="object")return;if(e.data.type==="__activate_edit_mode"){setHostEdit(true);}if(e.data.type==="__deactivate_edit_mode"){setHostEdit(false);}};
+    window.addEventListener("message",h);
+    try{window.parent.postMessage({type:"__edit_mode_available"},"*");}catch(e){}
+    return()=>window.removeEventListener("message",h);
+  },[]);
+
+  const update=(next)=>{setTweaks(next);if(hostEdit){try{window.parent.postMessage({type:"__edit_mode_set_keys",edits:next},"*");}catch(e){}}};
+
+  return (
+    <>
+      <div className="controls">
+        <span className="lbl">Jump to</span>
+        <div className="seg">
+          <button className={step==="welcome"?"on":""} onClick={()=>setStep("welcome")}>1 · Welcome</button>
+          <button className={step==="profile"?"on":""} onClick={()=>setStep("profile")}>2 · Profile</button>
+          <button className={step==="sleep"?"on":""} onClick={()=>setStep("sleep")}>3 · Sleep</button>
+          <button className={step==="confirm"?"on":""} onClick={()=>setStep("confirm")}>4 · Confirm</button>
+          <button className={step==="done"?"on":""} onClick={()=>setStep("done")}>5 · Arrived</button>
+        </div>
+        <span className="lbl" style={{marginLeft:14}}>Accent</span>
+        <div className="seg">
+          {Object.entries(ACCENTS).map(([k,v])=>(
+            <button key={k} className={tweaks.accent===k?"on":""} onClick={()=>update({...tweaks,accent:k})} style={tweaks.accent===k?{background:`linear-gradient(135deg,${v.main},${v.dk})`}:{}}>
+              <span style={{display:"inline-block",width:8,height:8,borderRadius:99,background:v.main,marginRight:6,verticalAlign:"middle"}}/>{v.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="layout">
+        {/* Landing */}
+        <div className="col">
+          <Landing accent={tweaks.accent} onInstall={()=>setStep("welcome")}/>
+          <div className="col-cap"><b>obubba.com</b> · long-scroll landing</div>
+        </div>
+
+        {/* Phone journey */}
+        <div className="col">
+          <Phone>
+            {step==="welcome"  && <Welcome  accent={tweaks.accent} onBegin={()=>setStep("profile")}/>}
+            {step==="profile"  && <StepProfile accent={tweaks.accent} value={profile} onChange={setProfile} onBack={()=>setStep("welcome")} onNext={()=>setStep("sleep")}/>}
+            {step==="sleep"    && <StepSleep   accent={tweaks.accent} value={sleep}   onChange={setSleep}   onBack={()=>setStep("profile")} onNext={()=>setStep("confirm")}/>}
+            {step==="confirm"  && <StepConfirm accent={tweaks.accent} profile={profile} sleep={sleep} onBack={()=>setStep("sleep")} onFinish={()=>setStep("done")}/>}
+            {step==="done"     && <Arrived    accent={tweaks.accent} profile={profile} onRestart={()=>{setStep("welcome");setProfile({name:"",dob:"",gender:""});setSleep({where:"",temper:""});}}/>}
+          </Phone>
+          <div className="col-cap">
+            Step: <b>{ {welcome:"Welcome",profile:"Profile",sleep:"Sleep",confirm:"Confirm",done:"Arrived"}[step] }</b> · {a.name.toLowerCase()} accent
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
+</script>
+</body>
+</html>

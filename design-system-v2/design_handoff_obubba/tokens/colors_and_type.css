@@ -1,0 +1,158 @@
+/* ═══════════════════════════════════════════════════════════
+   OBubba Design System — Colors & Type
+   Powder pink · lilac · cream · amber (night)
+   Source: extracted from Zy3sha/Simplifi styles.css + theme.js
+   ═══════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Parisienne&display=swap');
+
+:root {
+  /* ── Base palette (light mode) ── */
+  --ob-cream:        #FFF8F2;  /* primary bg, warmest point */
+  --ob-cream-deep:   #FFFEFD;  /* splash / html bg */
+  --ob-blush:        #F0D0C8;  /* soft pink wash */
+  --ob-rose-50:      #F5E1D8;  /* mid gradient stop */
+  --ob-rose-100:     #F0DDD6;  /* theme-color pink */
+  --ob-rose-200:     #E8B8B0;  /* rose token */
+  --ob-lilac:        #D9CFF3;  /* sleepy Z purple */
+  --ob-lilac-soft:   #C0A0DC;  /* button glow accent */
+  --ob-mist-pink:    #D9A8C0;  /* corner glow accent */
+
+  /* ── Semantic accents ── */
+  --ob-ter:          #C07088;  /* primary CTA rose */
+  --ob-ter-deep:     #A85A44;  /* CTA gradient end */
+  --ob-mint:         #6FA898;  /* calm / success / reassurance */
+  --ob-sky:          #7AABC4;  /* info / boy accent */
+  --ob-gold:         #D4A855;  /* premium / warning */
+  --ob-alert:        #C94030;  /* allergy banner red */
+
+  /* ── Text (light) ── */
+  --ob-text-deep:    #5B4F4F;
+  --ob-text-mid:     #7A6B6B;
+  --ob-text-lt:      #A89898;
+  --ob-text-care:    #4A3B35;  /* care.html darker text */
+  --ob-text-care-sub:#7A5C52;
+  --ob-placeholder:  #C8B8B4;
+
+  /* ── Surface (light) ── */
+  --ob-card-bg:         rgba(255,255,255,0.40);
+  --ob-card-bg-solid:   rgba(255,255,255,0.60);
+  --ob-card-bg-alt:     rgba(255,252,248,0.44);
+  --ob-card-border:     rgba(255,255,255,0.50);
+  --ob-chip-bg:         rgba(255,255,255,0.44);
+  --ob-chip-bg-active:  rgba(245,218,210,0.48);
+  --ob-input-bg:        rgba(255,253,248,0.52);
+  --ob-sheet-bg:        rgba(255,252,248,0.94);
+
+  /* ── Gradients ── */
+  --ob-bg-grad: linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%);
+  --ob-cta-grad: linear-gradient(135deg,#C07088 0%,#A85A44 100%);
+  --ob-specular: linear-gradient(105deg,transparent 2%,rgba(255,242,235,0.35) 15%,rgba(255,255,255,0.55) 42%,rgba(255,255,255,0.55) 58%,rgba(250,235,228,0.35) 85%,transparent 98%);
+
+  /* ── Shadows (the signature "corner glow") ── */
+  --ob-shadow-card:    0 0 24px rgba(255,255,255,0.65),0 0 48px rgba(245,218,210,0.32),0 0 80px rgba(240,210,200,0.18),0 8px 24px rgba(200,150,130,0.12),inset 0 1.5px 0 rgba(255,255,255,0.85);
+  --ob-shadow-card-hi: 0 0 30px rgba(255,255,255,0.75),0 0 60px rgba(245,218,210,0.40),0 0 96px rgba(240,210,200,0.22),0 12px 32px rgba(200,150,130,0.18),inset 0 2px 0 rgba(255,255,255,0.90);
+  --ob-shadow-corner:  -5px -5px 7px -5px rgba(217,168,192,0.45), 5px 5px 7px -5px rgba(192,160,220,0.35);
+  --ob-shadow-corner-sm: -4px -4px 6px -5px rgba(217,168,192,0.42), 4px 4px 6px -5px rgba(192,160,220,0.32);
+  --ob-shadow-cta:     -8px -8px 12px -7px rgba(217,168,192,0.55), 8px 8px 12px -7px rgba(192,160,220,0.45);
+
+  /* ── Radii ── */
+  --ob-r-xs: 10px;
+  --ob-r-sm: 14px;
+  --ob-r-md: 16px;
+  --ob-r-lg: 22px;   /* .glass-card */
+  --ob-r-xl: 24px;   /* hero card */
+  --ob-r-pill: 99px;
+  --ob-r-sheet: 24px 24px 0 0;
+
+  /* ── Glass ── */
+  --ob-glass-blur: 20px;
+  --ob-glass-sat:  1.6;
+
+  /* ── Spacing scale ── */
+  --ob-s-1: 4px;
+  --ob-s-2: 8px;
+  --ob-s-3: 12px;
+  --ob-s-4: 14px;
+  --ob-s-5: 16px;
+  --ob-s-6: 18px;
+  --ob-s-7: 22px;
+  --ob-s-8: 28px;
+
+  /* ── Type families ── */
+  --ob-font-display: 'Playfair Display', 'Spectral', Georgia, serif;
+  --ob-font-brand:   'Parisienne', 'Playfair Display', cursive;
+  --ob-font-body:    'DM Sans', -apple-system, 'SF Pro Display', system-ui, sans-serif;
+  --ob-font-mono:    ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ── Semantic type tokens ── */
+  --ob-h1: 700 28px/1.2 var(--ob-font-display);        /* hero headers, "OBubba" logo */
+  --ob-h2: 700 22px/1.25 var(--ob-font-display);       /* sheet titles */
+  --ob-h3: 700 18px/1.3 var(--ob-font-body);           /* card headers */
+  --ob-hero-num: 700 54px/1 var(--ob-font-display);    /* big stat / timer */
+  --ob-body: 400 15px/1.55 var(--ob-font-body);
+  --ob-body-sm: 400 14px/1.55 var(--ob-font-body);
+  --ob-caption: 600 13px/1.4 var(--ob-font-body);
+  --ob-meta: 600 12px/1.4 var(--ob-font-body);
+  --ob-label: 700 10px/1.4 var(--ob-font-body);        /* uppercase eyebrow */
+  --ob-mono: 400 14px/1.4 var(--ob-font-mono);
+  --ob-label-tracking: 0.1em;
+}
+
+/* ═══ DARK MODE (night / bedtime) ═══ */
+.ob-dark, [data-theme="dark"] {
+  --ob-cream:        #080e1c;
+  --ob-cream-deep:   #080e1c;
+  --ob-blush:        rgba(255,190,90,0.22);
+  --ob-rose-100:     #101d35;
+  --ob-lilac:        #ffbe5a;
+  --ob-ter:          #D98B72;
+  --ob-mint:         #7BC4AD;
+  --ob-sky:          #8DBDD5;
+  --ob-gold:         #E0B86A;
+
+  --ob-text-deep:    #F0F2F5;
+  --ob-text-mid:     #B0BEC9;
+  --ob-text-lt:      #7E8FA0;
+  --ob-placeholder:  #4A5A72;
+
+  --ob-card-bg:         rgba(18,30,52,0.50);
+  --ob-card-bg-solid:   rgba(20,34,58,0.68);
+  --ob-card-bg-alt:     rgba(24,38,62,0.48);
+  --ob-card-border:     rgba(255,190,90,0.25);
+  --ob-chip-bg:         rgba(18,30,52,0.55);
+  --ob-chip-bg-active:  rgba(60,45,30,0.55);
+  --ob-input-bg:        rgba(24,38,62,0.60);
+  --ob-sheet-bg:        rgba(12,22,40,0.94);
+
+  --ob-bg-grad: linear-gradient(170deg,#080e1c 0%,#0c1628 30%,#101d35 55%,#0c1628 100%);
+  --ob-cta-grad: linear-gradient(135deg,#D98B72 0%,#A85A44 100%);
+
+  --ob-shadow-card: 0 0 20px rgba(255,180,70,0.16),inset 0 1.5px 0 rgba(255,200,120,0.20),0 6px 18px rgba(0,0,0,0.32),0 16px 40px rgba(0,0,0,0.24);
+  --ob-shadow-corner: -4px -4px 6px -5px rgba(255,170,60,0.35), 4px 4px 6px -5px rgba(255,150,40,0.25);
+  --ob-shadow-cta:    -8px -8px 12px -7px rgba(255,170,60,0.50), 8px 8px 12px -7px rgba(255,150,40,0.40);
+}
+
+/* ═══ Base semantic element styles ═══ */
+.ob-h1   { font: var(--ob-h1);   color: var(--ob-text-deep); letter-spacing:-0.01em }
+.ob-h2   { font: var(--ob-h2);   color: var(--ob-text-deep); }
+.ob-h3   { font: var(--ob-h3);   color: var(--ob-text-deep); }
+.ob-hero-num { font: var(--ob-hero-num); color: var(--ob-ter); font-family: var(--ob-font-mono); }
+.ob-body { font: var(--ob-body); color: var(--ob-text-deep); }
+.ob-body-sm { font: var(--ob-body-sm); color: var(--ob-text-mid); }
+.ob-caption { font: var(--ob-caption); color: var(--ob-text-mid); }
+.ob-meta    { font: var(--ob-meta); color: var(--ob-text-lt); }
+.ob-label   { font: var(--ob-label); color: var(--ob-text-mid); text-transform: uppercase; letter-spacing: var(--ob-label-tracking); }
+.ob-mono    { font: var(--ob-mono); color: var(--ob-text-mid); }
+
+/* Body default */
+.ob-body-bg {
+  font-family: var(--ob-font-body);
+  color: var(--ob-text-deep);
+  background: var(--ob-cream);
+  background-image: var(--ob-bg-grad);
+  -webkit-font-smoothing: antialiased;
+}

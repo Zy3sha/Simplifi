@@ -1,0 +1,1012 @@
+
+// ═══════ PhoneFrame.jsx ═══════
+// Mobile frame that wraps an OBubba app screen.
+// 390×844 iPhone-ish proportions, with the watercolour body background baked in.
+function PhoneFrame({ children, dark = false }) {
+  const bg = dark
+    ? {
+        background:
+          "radial-gradient(ellipse 65% 55% at 20% 20%,rgba(255,160,60,0.09),transparent 65%)," +
+          "radial-gradient(ellipse 50% 45% at 75% 60%,rgba(255,140,40,0.06),transparent 60%)," +
+          "linear-gradient(170deg,#080e1c 0%,#0c1628 30%,#101d35 55%,#0c1628 100%)",
+      }
+    : {
+        background:
+          "radial-gradient(ellipse 65% 55% at 15% 10%,rgba(245,218,210,0.35),transparent 70%)," +
+          "radial-gradient(ellipse 50% 45% at 80% 15%,rgba(240,210,200,0.28),transparent 65%)," +
+          "radial-gradient(ellipse 70% 50% at 55% 45%,rgba(255,248,242,0.45),transparent 60%)," +
+          "radial-gradient(ellipse 55% 60% at 25% 70%,rgba(238,215,208,0.25),transparent 65%)," +
+          "radial-gradient(ellipse 60% 45% at 75% 65%,rgba(240,208,200,0.28),transparent 60%)," +
+          "linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%)",
+      };
+  return (
+    <div
+      style={{
+        width: 390,
+        height: 844,
+        borderRadius: 44,
+        overflow: "hidden",
+        position: "relative",
+        fontFamily: "'DM Sans',system-ui,sans-serif",
+        color: dark ? "#F0F2F5" : "#5B4F4F",
+        boxShadow:
+          "0 24px 60px rgba(60,40,30,0.22), 0 8px 24px rgba(60,40,30,0.12), inset 0 0 0 8px #1a1a1a, inset 0 0 0 9px rgba(255,255,255,0.08)",
+        ...bg,
+      }}
+    >
+      {/* Dynamic island */}
+      <div
+        style={{
+          position: "absolute",
+          top: 10,
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 110,
+          height: 32,
+          borderRadius: 20,
+          background: "#000",
+          zIndex: 100,
+        }}
+      />
+      {/* Status bar */}
+      <div
+        style={{
+          position: "absolute",
+          top: 14,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "space-between",
+          padding: "0 28px",
+          fontSize: 15,
+          fontWeight: 600,
+          color: dark ? "#F0F2F5" : "#5B4F4F",
+          zIndex: 101,
+        }}
+      >
+        <span>9:41</span>
+        <span style={{ letterSpacing: "2px" }}>●●●● 􀙇 􀛨</span>
+      </div>
+      <div style={{ position: "absolute", inset: 0, paddingTop: 54 }}>{children}</div>
+    </div>
+  );
+}
+
+window.PhoneFrame = PhoneFrame;
+
+
+// ═══════ PremiumCard.jsx ═══════
+// Premium glass card — thicker materials, deeper shadow, optional gold edge.
+// Use tier="hero" for the signature surface, tier="card" for standard, tier="inset" for sub-surfaces.
+function PremiumCard({ children, dark = false, tier = "card", gold = false, padding = "18px 20px", style, radius }) {
+  const r = radius ?? (tier === "hero" ? 26 : tier === "inset" ? 16 : 20);
+  const goldEdge = gold
+    ? dark
+      ? "0 0 0 1px rgba(212,168,85,0.55), 0 0 0 2px rgba(224,184,106,0.22)"
+      : "0 0 0 1px rgba(212,168,85,0.40), 0 0 0 2px rgba(224,184,106,0.18)"
+    : "0 0 0 0 transparent";
+
+  const shadows = {
+    hero: dark
+      ? `${goldEdge}, 0 1px 0 rgba(255,210,140,0.28) inset, 0 -1px 0 rgba(0,0,0,0.4) inset, 0 0 32px rgba(255,180,70,0.18), 0 12px 28px rgba(0,0,0,0.42), 0 28px 56px rgba(0,0,0,0.28)`
+      : `${goldEdge}, 0 1.5px 0 rgba(255,255,255,0.95) inset, 0 -1px 0 rgba(200,150,130,0.08) inset, 0 0 40px rgba(255,255,255,0.8), 0 0 64px rgba(245,218,210,0.42), 0 14px 36px rgba(200,150,130,0.22), 0 30px 72px rgba(180,130,110,0.14)`,
+    card: dark
+      ? `${goldEdge}, 0 1px 0 rgba(255,210,140,0.20) inset, 0 0 20px rgba(255,180,70,0.14), 0 8px 20px rgba(0,0,0,0.36), 0 18px 40px rgba(0,0,0,0.22)`
+      : `${goldEdge}, 0 1.5px 0 rgba(255,255,255,0.9) inset, 0 0 24px rgba(255,255,255,0.55), 0 0 48px rgba(245,218,210,0.30), 0 8px 22px rgba(200,150,130,0.16), 0 18px 44px rgba(180,130,110,0.10)`,
+    inset: dark
+      ? `0 1px 0 rgba(255,210,140,0.14) inset, 0 2px 8px rgba(0,0,0,0.28), 0 8px 18px rgba(0,0,0,0.18)`
+      : `0 1px 0 rgba(255,255,255,0.8) inset, 0 2px 6px rgba(200,150,130,0.08), 0 8px 18px rgba(200,150,130,0.08)`,
+  }[tier];
+
+  const bg = dark
+    ? tier === "hero"
+      ? "radial-gradient(ellipse 160% 100% at 50% -20%,rgba(255,180,70,0.22),transparent 60%),radial-gradient(ellipse 90% 60% at 100% 110%,rgba(255,200,120,0.14),transparent 60%),linear-gradient(180deg,rgba(26,38,62,0.70),rgba(14,22,42,0.80))"
+      : "linear-gradient(180deg,rgba(22,34,56,0.64),rgba(14,22,42,0.72))"
+    : tier === "hero"
+    ? "radial-gradient(ellipse 160% 100% at 50% -20%,rgba(250,230,220,0.70),transparent 60%),radial-gradient(ellipse 90% 60% at 100% 110%,rgba(246,221,227,0.50),transparent 60%),linear-gradient(180deg,rgba(255,255,255,0.65),rgba(255,252,248,0.55))"
+    : "linear-gradient(180deg,rgba(255,255,255,0.58),rgba(255,252,248,0.48))";
+
+  const borderColor = dark
+    ? gold ? "rgba(224,184,106,0.45)" : "rgba(255,200,120,0.22)"
+    : gold ? "rgba(212,168,85,0.55)" : "rgba(255,255,255,0.72)";
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        borderRadius: r,
+        padding,
+        overflow: "hidden",
+        isolation: "isolate",
+        background: bg,
+        border: `1px solid ${borderColor}`,
+        backdropFilter: "blur(22px) saturate(1.7)",
+        WebkitBackdropFilter: "blur(22px) saturate(1.7)",
+        boxShadow: shadows,
+        ...style,
+      }}
+    >
+      {/* specular highlight — top */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: "55%",
+        pointerEvents: "none",
+        background: dark
+          ? "linear-gradient(180deg,rgba(255,210,140,0.14) 0%,rgba(255,200,120,0.03) 45%,transparent 100%)"
+          : "linear-gradient(180deg,rgba(255,255,255,0.55) 0%,rgba(255,255,255,0.12) 45%,transparent 100%)",
+        borderTopLeftRadius: r, borderTopRightRadius: r,
+        mixBlendMode: "overlay",
+      }} />
+      {/* bottom shimmer line */}
+      <div style={{
+        position: "absolute", bottom: 0, left: "8%", right: "8%", height: 1,
+        pointerEvents: "none",
+        background: dark
+          ? "linear-gradient(90deg,transparent,rgba(255,200,120,0.35),transparent)"
+          : "linear-gradient(90deg,transparent,rgba(212,168,85,0.35),transparent)",
+      }} />
+      <div style={{ position: "relative", zIndex: 2 }}>{children}</div>
+    </div>
+  );
+}
+
+window.PremiumCard = PremiumCard;
+
+
+// ═══════ GoldRing.jsx ═══════
+// Gold celebration ring that wraps a stat — thin circular gradient border with soft glow.
+function GoldRing({ children, size = 120, thickness = 2, intensity = 1 }) {
+  return (
+    <div style={{
+      position: "relative",
+      width: size,
+      height: size,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}>
+      {/* outer gradient ring */}
+      <div style={{
+        position: "absolute", inset: 0, borderRadius: "50%",
+        background: "conic-gradient(from 180deg at 50% 50%, #D4A855, #F3D98A, #E0B86A, #D4A855, #B8892B, #D4A855)",
+        padding: thickness,
+        WebkitMask: "radial-gradient(circle, transparent calc(50% - " + thickness + "px - 1px), #000 calc(50% - " + thickness + "px))",
+        mask: "radial-gradient(circle, transparent calc(50% - " + thickness + "px - 1px), #000 calc(50% - " + thickness + "px))",
+        filter: `drop-shadow(0 0 ${6*intensity}px rgba(212,168,85,0.55)) drop-shadow(0 0 ${16*intensity}px rgba(212,168,85,0.25))`,
+      }} />
+      {/* inner highlight pips */}
+      <div style={{
+        position: "absolute", inset: 3, borderRadius: "50%",
+        background: "radial-gradient(circle at 30% 20%, rgba(255,240,190,0.25), transparent 40%), radial-gradient(circle at 70% 80%, rgba(180,137,43,0.15), transparent 40%)",
+        pointerEvents: "none",
+      }} />
+      <div style={{ position: "relative", zIndex: 2 }}>{children}</div>
+    </div>
+  );
+}
+
+window.GoldRing = GoldRing;
+
+
+// ═══════ Confetti.jsx ═══════
+// Lightweight emoji confetti burst. Call <Confetti trigger={someKey} /> to fire on change.
+function Confetti({ trigger, pieces = 24 }) {
+  const [key, setKey] = React.useState(0);
+  const firstRun = React.useRef(true);
+  React.useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    setKey(k => k + 1);
+  }, [trigger]);
+  if (key === 0) return null;
+  const bits = Array.from({length: pieces}, (_, i) => {
+    const angle = (Math.PI * 2 * i) / pieces + Math.random() * 0.3;
+    const dist = 70 + Math.random() * 60;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist - 20;
+    const emoji = ["✨","💛","🌸","⭐","🪷"][i % 5];
+    const delay = Math.random() * 120;
+    const rot = (Math.random() - 0.5) * 540;
+    return (
+      <span key={i} style={{
+        position: "absolute",
+        left: "50%", top: "50%",
+        fontSize: 14 + Math.random() * 10,
+        transform: "translate(-50%,-50%)",
+        animation: `obConfetti-${key} ${900 + Math.random()*400}ms ${delay}ms cubic-bezier(0.22,1,0.36,1) both`,
+        ["--dx"]: dx+"px", ["--dy"]: dy+"px", ["--rot"]: rot+"deg",
+        pointerEvents: "none",
+      }}>{emoji}</span>
+    );
+  });
+  return (
+    <div key={key} style={{position:"absolute", inset:0, pointerEvents:"none", zIndex:30, overflow:"visible"}}>
+      <style>{`@keyframes obConfetti-${key}{
+        0%{transform:translate(-50%,-50%) scale(0.4) rotate(0deg);opacity:0}
+        15%{opacity:1}
+        100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1) rotate(var(--rot));opacity:0}
+      }`}</style>
+      {bits}
+    </div>
+  );
+}
+
+window.Confetti = Confetti;
+
+
+// ═══════ PremiumAppHeader.jsx ═══════
+// Premium header — Parisienne wordmark + baby chip with gold edge
+function PremiumAppHeader({ babyName="Oliver", dark, tweaks, onToggleTheme }) {
+  return (
+    <div style={{
+      position:"relative",padding:"12px 16px 10px",
+      display:"flex",alignItems:"center",justifyContent:"space-between",
+      background: dark ? "rgba(8,14,28,0.35)" : "rgba(255,252,250,0.38)",
+      backdropFilter:"blur(18px) saturate(1.6)",
+      WebkitBackdropFilter:"blur(18px) saturate(1.6)",
+      borderBottom:`1px solid ${dark?"rgba(212,168,85,0.25)":"rgba(212,168,85,0.28)"}`,
+      zIndex:10,
+    }}>
+      <div style={{
+        display:"flex",alignItems:"center",gap:8,padding:"4px 10px 4px 4px",
+        borderRadius:99,
+        background: dark ? "rgba(22,34,56,0.7)" : "rgba(255,255,255,0.65)",
+        border:`1px solid ${dark?"rgba(212,168,85,0.35)":"rgba(212,168,85,0.30)"}`,
+        boxShadow: dark
+          ? "0 0 0 1px rgba(212,168,85,0.18) inset,0 2px 6px rgba(0,0,0,0.3)"
+          : "0 0 0 1px rgba(255,255,255,0.85) inset,0 2px 6px rgba(200,150,130,0.12)",
+      }}>
+        <div style={{
+          width:24,height:24,borderRadius:99,overflow:"hidden",
+          background:"linear-gradient(135deg,#F5E1D8,#E6C4B8)",
+          boxShadow:"0 0 0 1.5px #D4A855, 0 1px 3px rgba(184,137,43,0.35)",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,
+        }}>👶</div>
+        <span style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:13,color:dark?"#F0F2F5":"#5B4F4F"}}>{babyName}</span>
+        <span style={{fontSize:9.5,color:dark?"#D4A855":"#B8892B",fontWeight:700,letterSpacing:"0.08em"}}>6 MO</span>
+      </div>
+
+      <div style={{fontFamily:"'Parisienne',cursive",fontWeight:400,fontSize:30,lineHeight:1,color:dark?"#F3D98A":"#5B4F4F",textShadow:dark?"0 2px 12px rgba(255,200,120,0.25)":"0 1px 0 rgba(255,255,255,0.8)"}}>
+        OBubba
+      </div>
+
+      <button onClick={onToggleTheme} style={{
+        width:34,height:34,borderRadius:99,cursor:"pointer",
+        border:`1px solid ${dark?"rgba(212,168,85,0.35)":"rgba(212,168,85,0.3)"}`,
+        background: dark ? "rgba(22,34,56,0.7)" : "rgba(255,255,255,0.65)",
+        fontSize:14,
+        boxShadow: dark
+          ? "0 0 0 1px rgba(212,168,85,0.18) inset,0 2px 6px rgba(0,0,0,0.3)"
+          : "0 0 0 1px rgba(255,255,255,0.85) inset,0 2px 6px rgba(200,150,130,0.12)",
+      }}>{dark?"☀️":"🌙"}</button>
+    </div>
+  );
+}
+
+window.PremiumAppHeader = PremiumAppHeader;
+
+
+// ═══════ PremiumBottomNav.jsx ═══════
+// Premium bottom nav — tactile rounded bar with gold active state
+function PremiumBottomNav({ tab, onChange, dark, tweaks }) {
+  const accent = { rose:"#C07088", gold:"#D4A855", lilac:"#9C7FBF" }[tweaks.accent];
+  const tabs = [
+    { id:"today", icon:"🏠", label:"Today" },
+    { id:"insights", icon:"📊", label:"Insights" },
+    { id:"growth", icon:"🌱", label:"Growth" },
+    { id:"account", icon:"👤", label:"Account" },
+  ];
+  return (
+    <div style={{
+      position:"absolute",left:10,right:10,bottom:14,padding:"8px 6px 8px",
+      display:"flex",justifyContent:"space-around",alignItems:"center",
+      borderRadius:26,
+      background: dark ? "rgba(10,16,32,0.80)" : "rgba(255,252,248,0.82)",
+      backdropFilter:"blur(24px) saturate(1.8)",
+      WebkitBackdropFilter:"blur(24px) saturate(1.8)",
+      border:`1px solid ${dark?"rgba(255,200,120,0.22)":"rgba(255,255,255,0.85)"}`,
+      boxShadow: dark
+        ? "0 0 0 1px rgba(212,168,85,0.15),0 1px 0 rgba(255,210,140,0.14) inset,0 12px 30px rgba(0,0,0,0.45),0 24px 54px rgba(0,0,0,0.28)"
+        : "0 0 0 1px rgba(212,168,85,0.15),0 1.5px 0 rgba(255,255,255,0.95) inset,0 12px 28px rgba(200,150,130,0.18),0 26px 54px rgba(180,130,110,0.12)",
+    }}>
+      {tabs.map(t=>{
+        const active = t.id===tab;
+        return (
+          <button key={t.id} onClick={()=>onChange(t.id)} style={{
+            flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
+            padding:"6px 0 4px",background:"none",border:"none",cursor:"pointer",
+            color:dark?"#F0F2F5":"#5B4F4F",position:"relative",
+          }}>
+            {active && (
+              <div style={{
+                position:"absolute",inset:"0 8px",borderRadius:14,
+                background: dark
+                  ? `linear-gradient(180deg,rgba(212,168,85,0.25),rgba(212,168,85,0.08))`
+                  : `linear-gradient(180deg,rgba(212,168,85,0.22),rgba(212,168,85,0.06))`,
+                boxShadow: `0 0 0 1px ${dark?"rgba(212,168,85,0.35)":"rgba(212,168,85,0.4)"}, 0 4px 10px ${dark?"rgba(212,168,85,0.18)":"rgba(212,168,85,0.22)"}`,
+                zIndex:0,
+              }}/>
+            )}
+            <span style={{fontSize:20,filter:active?"none":"grayscale(0.3)",opacity:active?1:0.55,position:"relative",zIndex:1}}>{t.icon}</span>
+            <span style={{fontSize:9.5,fontWeight:active?700:600,letterSpacing:"0.04em",opacity:active?1:0.55,position:"relative",zIndex:1,color:active?(dark?"#F3D98A":"#8A6420"):undefined}}>{t.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+window.PremiumBottomNav = PremiumBottomNav;
+
+
+// ═══════ PremiumTodayScreen.jsx ═══════
+// Premium Today screen — personal greeting + hero with gold ring + premium cards
+function PremiumTodayScreen({ dark, tweaks, onLog, babyName="Oliver" }) {
+  const accent = {
+    rose: {main:"#C07088", sec:"#A85A44", glow:"rgba(217,168,192,0.45)"},
+    gold: {main:"#D4A855", sec:"#B8892B", glow:"rgba(224,184,106,0.45)"},
+    lilac: {main:"#9C7FBF", sec:"#7A5FA0", glow:"rgba(156,127,191,0.40)"},
+  }[tweaks.accent];
+
+  const hour = new Date().getHours();
+  const greetWord = hour < 5 ? "Still up" : hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : hour < 21 ? "Good evening" : "Bedtime hours";
+  const parentName = "Amelia";
+
+  const pad = tweaks.density === "compact" ? 11 : tweaks.density === "airy" ? 18 : 14;
+  const gap = tweaks.density === "compact" ? 10 : tweaks.density === "airy" ? 18 : 14;
+
+  const entries = [
+    { icon: "🍼", title: "Bottle · 120ml", sub: "Formula · happy baby", time: "2:15pm" },
+    { icon: "😴", title: "Nap · 1h 12m", sub: "Settled in 4 min", time: "12:30pm" },
+    { icon: "💩", title: "Nappy · dirty", sub: "Normal, tidy", time: "11:58am" },
+    { icon: "🍼", title: "Breast · 18 min", sub: "Left side", time: "10:42am" },
+  ];
+
+  // Mascot sizing per tweak
+  const mascotSize = tweaks.mascot === "subtle" ? 44 : tweaks.mascot === "prominent" ? 88 : 64;
+  const mascotOpacity = tweaks.mascot === "subtle" ? 0.6 : 1;
+
+  // Animation toggle
+  const animClass = tweaks.anim === "still" ? "" : tweaks.anim === "lively" ? "ob-breathe-lively" : "ob-breathe-calm";
+
+  const [celebrateKey, setCelebrateKey] = React.useState(0);
+
+  return (
+    <div style={{ padding: `14px ${pad}px 120px`, display: "flex", flexDirection: "column", gap, height: "100%", overflowY: "auto" }}>
+      {/* Personal greeting strip */}
+      <div style={{display:"flex",alignItems:"center",gap:12,padding:"2px 4px"}}>
+        <div className={animClass} style={{
+          position:"relative",width:mascotSize,height:mascotSize,flexShrink:0,opacity:mascotOpacity,
+          filter: dark ? "drop-shadow(0 4px 12px rgba(255,180,70,0.35))" : "drop-shadow(0 4px 14px rgba(217,168,192,0.45))",
+        }}>
+          <img src="../../assets/obubba-waving.png" alt="" style={{width:"100%",height:"100%",objectFit:"contain"}}/>
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{
+            fontFamily:"'Parisienne',cursive",fontSize:22,lineHeight:1,
+            color:dark?"#F3D98A":accent.main,marginBottom:2,
+          }}>{greetWord}, {parentName}</div>
+          <div style={{
+            fontSize:13,color:dark?"#B0BEC9":"#7A6B6B",lineHeight:1.35,fontStyle:"italic",
+          }}>
+            {babyName} slept <b style={{fontStyle:"normal",color:dark?"#F0F2F5":"#4A3B35"}}>11h 45m</b> last night — a personal best.
+          </div>
+        </div>
+      </div>
+
+      {/* Premium hero with gold trim */}
+      <PremiumCard dark={dark} tier="hero" gold padding="22px 22px 20px">
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#D4A855":"#B8892B",marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
+              <span style={{width:5,height:5,borderRadius:99,background:"#C07088",boxShadow:"0 0 8px #C07088",animation: tweaks.anim!=="still" ? "obPulse 1.8s ease-in-out infinite":"none"}}/>
+              RIGHT NOW
+            </div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:28,lineHeight:1.1,color:dark?"#F0F2F5":"#4A3B35"}}>
+              {babyName} is <span style={{fontStyle:"italic",color:accent.main}}>awake</span>.
+            </div>
+            <div style={{fontSize:13,color:dark?"#B0BEC9":"#7A6B6B",fontStyle:"italic",marginTop:4}}>
+              wake window 1.5–2h · watching for cues
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:10,marginTop:4,alignItems:"stretch"}}>
+          <div style={{flex:1,padding:"10px 12px",borderRadius:14,background:dark?"rgba(14,22,42,0.35)":"rgba(255,252,248,0.45)",border:`1px solid ${dark?"rgba(255,200,120,0.18)":"rgba(255,255,255,0.6)"}`}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:dark?"#B0BEC9":"#A89A90",marginBottom:2}}>Last feed</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:20,color:accent.main,lineHeight:1}}>2<span style={{fontSize:13}}>h</span> 14<span style={{fontSize:13}}>m</span></div>
+            <div style={{fontSize:10,color:dark?"#B0BEC9":"#A89A90",marginTop:2}}>120ml formula</div>
+          </div>
+          <div style={{flex:1,padding:"10px 12px",borderRadius:14,background:dark?"rgba(14,22,42,0.35)":"rgba(255,252,248,0.45)",border:`1px solid ${dark?"rgba(255,200,120,0.18)":"rgba(255,255,255,0.6)"}`}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:dark?"#B0BEC9":"#A89A90",marginBottom:2}}>Next nap</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:20,color:dark?"#F3D98A":"#6FA898",lineHeight:1}}>~18<span style={{fontSize:13}}>m</span></div>
+            <div style={{fontSize:10,color:dark?"#B0BEC9":"#A89A90",marginTop:2}}>sleepy by 3:33pm</div>
+          </div>
+          <div style={{flex:0.8,padding:"10px 12px",borderRadius:14,background:dark?"rgba(14,22,42,0.35)":"rgba(255,252,248,0.45)",border:`1px solid ${dark?"rgba(255,200,120,0.18)":"rgba(255,255,255,0.6)"}`}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:dark?"#B0BEC9":"#A89A90",marginBottom:2}}>Mood</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:18,color:dark?"#F0F2F5":"#4A3B35",lineHeight:1}}>Sunny</div>
+            <div style={{fontSize:10,color:dark?"#B0BEC9":"#A89A90",marginTop:2}}>5th hour awake</div>
+          </div>
+        </div>
+      </PremiumCard>
+
+      {/* Premium quick actions with relief shadows */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+        {[
+          {id:"feed",icon:"🍼",label:"Feed"},
+          {id:"sleep",icon:"😴",label:"Sleep"},
+          {id:"nappy",icon:"💩",label:"Nappy"},
+          {id:"note",icon:"📋",label:"Note"},
+        ].map(a=>(
+          <button key={a.id} onClick={()=>{onLog(a.id); setCelebrateKey(k=>k+1);}} style={{
+            position:"relative",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+            gap:5,padding:"14px 4px",borderRadius:18,minHeight:78,
+            border:dark?"1px solid rgba(255,200,120,0.28)":"1px solid rgba(255,255,255,0.75)",
+            background:dark
+              ?"linear-gradient(180deg,rgba(26,38,62,0.70),rgba(14,22,42,0.80))"
+              :"linear-gradient(180deg,rgba(255,255,255,0.70),rgba(255,248,242,0.50))",
+            boxShadow:dark
+              ?"0 1px 0 rgba(255,210,140,0.16) inset,0 -1px 0 rgba(0,0,0,0.4) inset,0 0 16px rgba(255,180,70,0.14),0 6px 14px rgba(0,0,0,0.30),0 14px 28px rgba(0,0,0,0.18)"
+              :"0 1.5px 0 rgba(255,255,255,0.95) inset,0 0 20px rgba(255,255,255,0.55),0 6px 16px rgba(200,150,130,0.16),0 14px 32px rgba(180,130,110,0.10)",
+            cursor:"pointer",color:dark?"#F0F2F5":"#5B4F4F",
+            transition:"transform 120ms ease",
+          }} onMouseDown={e=>e.currentTarget.style.transform="translateY(1px) scale(0.98)"} onMouseUp={e=>e.currentTarget.style.transform=""} onMouseLeave={e=>e.currentTarget.style.transform=""}>
+            <span style={{fontSize:24,filter:"drop-shadow(0 1px 1px rgba(91,79,79,0.15))"}}>{a.icon}</span>
+            <span style={{fontSize:11,fontWeight:700,letterSpacing:"0.02em"}}>{a.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Today's card of note — editorial treatment */}
+      <PremiumCard dark={dark} tier="card" padding="16px 18px">
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+          <div style={{fontFamily:"'Parisienne',cursive",fontSize:20,color:accent.main,lineHeight:1}}>Today's note</div>
+          <div style={{flex:1,height:1,background:`linear-gradient(90deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.6)"},transparent)`}}/>
+          <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:dark?"#D4A855":"#B8892B",textTransform:"uppercase"}}>from obubba</span>
+        </div>
+        <div style={{fontSize:13.5,lineHeight:1.55,color:dark?"#E8ECF0":"#5B4F4F",fontFamily:"'Playfair Display',serif",fontStyle:"italic"}}>
+          "The 4-to-3 nap transition is coming soon — last nap is already drifting 15 min later. No rush; let {babyName} lead."
+        </div>
+      </PremiumCard>
+
+      {/* Allergy banner — premium version */}
+      <div style={{
+        position:"relative",padding:"11px 14px",borderRadius:14,
+        background:"linear-gradient(135deg,#C94030 0%,#A82820 100%)",
+        color:"#fff",display:"flex",alignItems:"center",gap:10,
+        boxShadow:"0 0 0 1px rgba(255,180,140,0.3) inset,0 2px 6px rgba(201,64,48,0.4),0 8px 20px rgba(201,64,48,0.25)",
+      }}>
+        <span style={{fontSize:18}}>⚠️</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:9.5,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",opacity:0.92}}>ALLERGY · DAIRY</div>
+          <div style={{fontSize:12,fontWeight:600,marginTop:1}}>Even a trace. Check every label.</div>
+        </div>
+        <span style={{fontSize:14,opacity:0.7}}>›</span>
+      </div>
+
+      {/* Timeline */}
+      <div>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:8,padding:"0 4px"}}>
+          <div style={{fontFamily:"'Parisienne',cursive",fontSize:20,color:dark?"#F3D98A":"#5B4F4F",lineHeight:1}}>Timeline</div>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:dark?"#B0BEC9":"#A89A90",textTransform:"uppercase"}}>Tue · 4 entries</div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {entries.map((e,i)=>(
+            <PremiumCard key={i} dark={dark} tier="inset" padding="11px 13px" radius={14}>
+              <div style={{display:"flex",alignItems:"center",gap:11}}>
+                <span style={{fontSize:20,flexShrink:0}}>{e.icon}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,lineHeight:1.2,color:dark?"#F0F2F5":"#4A3B35"}}>{e.title}</div>
+                  <div style={{fontSize:11,color:dark?"#B0BEC9":"#7A6B6B",marginTop:1}}>{e.sub}</div>
+                </div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:13,color:dark?"#D4A855":"#B8892B",fontWeight:600}}>{e.time}</div>
+              </div>
+            </PremiumCard>
+          ))}
+        </div>
+      </div>
+
+      <Confetti trigger={celebrateKey} />
+    </div>
+  );
+}
+
+window.PremiumTodayScreen = PremiumTodayScreen;
+
+
+// ═══════ PremiumInsightsScreen.jsx ═══════
+// Premium Insights with gold-ring hero stat + editorial typography
+function PremiumInsightsScreen({ dark, tweaks, babyName="Oliver" }) {
+  const accent = {
+    rose:  {main:"#C07088"},
+    gold:  {main:"#D4A855"},
+    lilac: {main:"#9C7FBF"},
+  }[tweaks.accent];
+  const pad = tweaks.density==="compact"?11:tweaks.density==="airy"?18:14;
+  const gap = tweaks.density==="compact"?10:tweaks.density==="airy"?18:14;
+
+  const stats = [
+    { label:"FEEDS", value:"6", unit:"today", color:accent.main },
+    { label:"NAPPIES", value:"5", unit:"today", color:"#7AABC4" },
+    { label:"AWAKE", value:"1h 24m", unit:"this stretch", color:"#D4A855" },
+  ];
+
+  return (
+    <div style={{ padding:`18px ${pad}px 120px`, display:"flex", flexDirection:"column", gap, height:"100%", overflowY:"auto" }}>
+      <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#D4A855":"#B8892B",marginBottom:4}}>Insights · Tuesday</div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:30,lineHeight:1,color:dark?"#F0F2F5":"#4A3B35"}}>
+            The <span style={{fontStyle:"italic",color:accent.main}}>shape</span> of today
+          </div>
+        </div>
+      </div>
+
+      {/* Gold-ring hero stat */}
+      <PremiumCard dark={dark} tier="hero" gold padding="22px 20px 18px">
+        <div style={{display:"flex",alignItems:"center",gap:18}}>
+          <GoldRing size={118} thickness={2} intensity={tweaks.anim==="still"?0.6:1}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:38,lineHeight:0.95,color:dark?"#F3D98A":"#B8892B"}}>12<span style={{fontSize:18}}>h</span></div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:14,color:dark?"#F3D98A":"#B8892B"}}>20<span style={{fontSize:10}}>m</span></div>
+            </div>
+          </GoldRing>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#B0BEC9":"#A89A90",marginBottom:4}}>Sleep · last 24h</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:22,lineHeight:1.15,color:dark?"#F0F2F5":"#4A3B35"}}>
+              A <span style={{fontStyle:"italic"}}>personal best</span>.
+            </div>
+            <div style={{fontSize:12,color:dark?"#B0BEC9":"#7A6B6B",marginTop:4,lineHeight:1.45}}>
+              42 min above the 7-day average, mostly banked overnight.
+            </div>
+          </div>
+        </div>
+      </PremiumCard>
+
+      {/* Stat trio */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+        {stats.map(s=>(
+          <PremiumCard key={s.label} dark={dark} tier="inset" padding="12px 10px" radius={16}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:dark?"#B0BEC9":"#A89A90",textTransform:"uppercase"}}>{s.label}</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:24,color:s.color,lineHeight:1.1,margin:"3px 0 2px"}}>{s.value}</div>
+              <div style={{fontSize:10,color:dark?"#B0BEC9":"#7A6B6B",fontStyle:"italic"}}>{s.unit}</div>
+            </div>
+          </PremiumCard>
+        ))}
+      </div>
+
+      {/* Sleep consultant card */}
+      <PremiumCard dark={dark} tier="card" padding="16px 18px">
+        <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:10}}>
+          <div className={tweaks.anim==="still"?"":"ob-breathe-calm"} style={{flexShrink:0,filter:dark?"drop-shadow(0 2px 8px rgba(255,180,70,0.30))":"drop-shadow(0 2px 8px rgba(217,168,192,0.4))"}}>
+            <img src="../../assets/obubba-thinking.png" alt="" style={{width:54,height:54}}/>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:9.5,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#D4A855":"#B8892B"}}>What I'm noticing</div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18,lineHeight:1.2,color:dark?"#F0F2F5":"#4A3B35",marginTop:2}}>A longer-than-usual awake window.</div>
+          </div>
+        </div>
+        <div style={{fontSize:13,lineHeight:1.55,color:dark?"#E8ECF0":"#5B4F4F"}}>
+          {babyName}'s been up <b>1h 24m</b>. His last 5 days he's settled best after 1h 40m. If you see eye-rubbing or hand-fussing, that's your window.
+        </div>
+        <div style={{marginTop:12,paddingTop:10,borderTop:`1px dashed ${dark?"rgba(212,168,85,0.35)":"rgba(212,168,85,0.45)"}`,fontSize:12,fontStyle:"italic",color:accent.main,fontWeight:600}}>
+          Always follow sleepy cues over the clock.
+        </div>
+      </PremiumCard>
+
+      {/* Feed intervals */}
+      <PremiumCard dark={dark} tier="card" padding="14px 18px">
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{fontFamily:"'Parisienne',cursive",fontSize:20,color:dark?"#F3D98A":"#5B4F4F",lineHeight:1}}>Feed intervals</div>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:dark?"#B0BEC9":"#A89A90",textTransform:"uppercase"}}>Today</div>
+        </div>
+        <div style={{display:"flex",alignItems:"flex-end",gap:6,height:70}}>
+          {[2.5, 3.2, 2.8, 3.5, 2.9, 3.1].map((h,i)=>(
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+              <div style={{
+                width:"100%",height:`${(h/4)*100}%`,borderRadius:"8px 8px 3px 3px",
+                background:`linear-gradient(180deg,${accent.main} 0%,${accent.main}44 100%)`,
+                boxShadow:`0 0 0 1px ${accent.main}33 inset, 0 1px 0 rgba(255,255,255,0.5) inset`,
+                position:"relative",
+              }}>
+                <div style={{position:"absolute",top:2,left:"25%",right:"25%",height:2,borderRadius:99,background:"rgba(255,255,255,0.5)"}}/>
+              </div>
+              <div style={{fontSize:9,color:dark?"#B0BEC9":"#A89A90",fontFamily:"ui-monospace,Menlo,monospace"}}>{h}h</div>
+            </div>
+          ))}
+        </div>
+      </PremiumCard>
+    </div>
+  );
+}
+
+window.PremiumInsightsScreen = PremiumInsightsScreen;
+
+
+// ═══════ PremiumGrowthScreen.jsx ═══════
+// Premium Growth — milestone track w/ gold markers, percentile bars
+function PremiumGrowthScreen({ dark, tweaks, babyName="Oliver" }) {
+  const accent = { rose:"#C07088", gold:"#D4A855", lilac:"#9C7FBF" }[tweaks.accent];
+  const pad = tweaks.density==="compact"?11:tweaks.density==="airy"?18:14;
+  const gap = tweaks.density==="compact"?10:tweaks.density==="airy"?18:14;
+
+  const milestones = [
+    { emoji: "😄", title: "First real giggle", date: "3 weeks ago", hit: true },
+    { emoji: "🤲", title: "Reached for a toy", date: "2 weeks ago", hit: true },
+    { emoji: "🎉", title: "Rolled over both ways", date: "5 days ago", hit: true, isNew:true },
+    { emoji: "🦷", title: "First tooth", date: "Coming up", hit: false },
+    { emoji: "🍼", title: "Starts solids", date: "In 2 weeks", hit: false },
+  ];
+
+  const Percentile = ({ label, value, unit, p }) => (
+    <div>
+      <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:4}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",textTransform:"uppercase",color:dark?"#B0BEC9":"#A89A90"}}>{label}</div>
+        <div style={{fontSize:11,color:dark?"#B0BEC9":"#A89A90",fontStyle:"italic"}}>{p}th %ile</div>
+      </div>
+      <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:30,color:accent,lineHeight:1}}>
+        {value}<span style={{fontSize:14,color:dark?"#B0BEC9":"#A89A90",marginLeft:4}}>{unit}</span>
+      </div>
+      <div style={{marginTop:10,position:"relative",height:6,borderRadius:99,background:dark?"rgba(255,255,255,0.08)":"rgba(91,79,79,0.08)",overflow:"hidden"}}>
+        <div style={{position:"absolute",inset:0,width:`${p}%`,background:`linear-gradient(90deg,${accent},#D4A855)`,borderRadius:99,boxShadow:`0 0 8px ${accent}55`}}/>
+        {/* percentile ticks */}
+        {[25,50,75].map(t=>(
+          <div key={t} style={{position:"absolute",top:-1,left:`${t}%`,width:1,height:8,background:dark?"rgba(255,255,255,0.18)":"rgba(91,79,79,0.18)"}}/>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:`18px ${pad}px 120px`, display:"flex", flexDirection:"column", gap, height:"100%", overflowY:"auto" }}>
+      <div>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#D4A855":"#B8892B",marginBottom:4}}>Growth</div>
+        <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:30,lineHeight:1,color:dark?"#F0F2F5":"#4A3B35"}}>
+          {babyName}, at <span style={{fontStyle:"italic",color:accent}}>6 months</span>
+        </div>
+      </div>
+
+      <PremiumCard dark={dark} tier="hero" gold padding="22px 22px 18px">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:22}}>
+          <Percentile label="Weight" value="7.8" unit="kg" p={50}/>
+          <Percentile label="Height" value="67" unit="cm" p={65}/>
+        </div>
+        <div style={{marginTop:14,paddingTop:12,borderTop:`1px dashed ${dark?"rgba(212,168,85,0.35)":"rgba(212,168,85,0.45)"}`,fontSize:12,lineHeight:1.5,color:dark?"#E8ECF0":"#5B4F4F",fontStyle:"italic"}}>
+          Tracking the WHO curves — steady, proportionate, a lovely line.
+        </div>
+      </PremiumCard>
+
+      {/* Milestone track */}
+      <PremiumCard dark={dark} tier="card" padding="18px 20px 14px">
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+          <div style={{fontFamily:"'Parisienne',cursive",fontSize:22,color:dark?"#F3D98A":"#5B4F4F",lineHeight:1}}>Milestones</div>
+          <div style={{flex:1,height:1,background:`linear-gradient(90deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.6)"},transparent)`}}/>
+        </div>
+
+        <div style={{position:"relative",paddingLeft:22}}>
+          {/* vertical track */}
+          <div style={{position:"absolute",left:13,top:14,bottom:14,width:2,background:`linear-gradient(180deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.5)"} 0%,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.5)"} 60%,${dark?"rgba(255,190,90,0.2)":"rgba(192,112,136,0.2)"} 60%,${dark?"rgba(255,190,90,0.2)":"rgba(192,112,136,0.2)"} 100%)`}}/>
+
+          {milestones.map((m,i)=>(
+            <div key={i} style={{position:"relative",display:"flex",alignItems:"center",gap:12,padding:"8px 0",opacity:m.hit?1:0.58}}>
+              {/* marker */}
+              <div style={{
+                position:"absolute",left:-22,width:26,height:26,borderRadius:99,
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,
+                background: m.hit
+                  ? (m.isNew
+                    ? "conic-gradient(from 180deg at 50% 50%,#D4A855,#F3D98A,#E0B86A,#D4A855,#B8892B,#D4A855)"
+                    : `linear-gradient(135deg,${accent},${accent}AA)`)
+                  : dark?"rgba(24,38,62,0.8)":"rgba(255,252,248,0.9)",
+                border: m.hit ? "none" : `1.5px dashed ${dark?"rgba(255,190,90,0.4)":"rgba(192,112,136,0.4)"}`,
+                boxShadow: m.hit
+                  ? (m.isNew
+                    ? "0 0 0 2px rgba(212,168,85,0.25),0 0 12px rgba(212,168,85,0.5),0 0 22px rgba(212,168,85,0.25)"
+                    : `0 0 0 2px ${dark?"rgba(14,22,42,1)":"rgba(255,252,248,1)"},0 2px 6px ${accent}55`)
+                  : "none",
+                animation: (m.isNew && tweaks.anim!=="still") ? "obGoldPulse 2.4s ease-in-out infinite" : "none",
+              }}>
+                <span style={{fontSize:m.hit?14:12,filter:m.hit?"drop-shadow(0 1px 0 rgba(255,255,255,0.4))":"none"}}>{m.emoji}</span>
+              </div>
+              <div style={{flex:1,paddingLeft:20}}>
+                <div style={{fontSize:14,fontWeight:700,color:dark?"#F0F2F5":"#4A3B35",display:"flex",alignItems:"center",gap:8}}>
+                  {m.title}
+                  {m.isNew && <span style={{fontSize:9,fontWeight:700,letterSpacing:"0.12em",padding:"2px 7px",borderRadius:99,background:"linear-gradient(135deg,#D4A855,#B8892B)",color:"#fff",boxShadow:"0 1px 3px rgba(184,137,43,0.4)"}}>NEW</span>}
+                </div>
+                <div style={{fontSize:11,color:dark?"#B0BEC9":"#7A6B6B",fontStyle:"italic",marginTop:1}}>{m.date}</div>
+              </div>
+              {m.hit && <span style={{fontSize:14,color:dark?"#F3D98A":"#B8892B",fontWeight:700}}>✓</span>}
+            </div>
+          ))}
+        </div>
+      </PremiumCard>
+    </div>
+  );
+}
+
+window.PremiumGrowthScreen = PremiumGrowthScreen;
+
+
+// ═══════ LogSheet.jsx ═══════
+// Bottom sheet that slides up — used for all logging forms.
+function LogSheet({ type = "feed", onClose, onSave, dark = false }) {
+  const [amount, setAmount] = React.useState(120);
+  const [side, setSide] = React.useState("right");
+  const copy = {
+    feed: { title: "Log a feed", emoji: "🍼", sub: "Bottle · right now" },
+    sleep: { title: "Starting a sleep", emoji: "😴", sub: "I'll stop the timer when baby wakes." },
+    nappy: { title: "Nappy change", emoji: "💩", sub: "Quick tap, done." },
+    note: { title: "Add a note", emoji: "📋", sub: "For anyone caring for baby today." },
+  }[type];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "absolute",
+        inset: 0,
+        background: dark ? "rgba(0,0,0,0.60)" : "rgba(91,79,79,0.35)",
+        zIndex: 50,
+        display: "flex",
+        alignItems: "flex-end",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          borderRadius: "28px 28px 0 0",
+          padding: "14px 22px 32px",
+          background: dark ? "rgba(14,22,42,0.94)" : "rgba(255,252,250,0.95)",
+          backdropFilter: "blur(30px) saturate(1.6)",
+          WebkitBackdropFilter: "blur(30px) saturate(1.6)",
+          boxShadow: dark
+            ? "0 -8px 40px rgba(0,0,0,0.40),inset 0 1px 0 rgba(255,200,120,0.16)"
+            : "0 -8px 40px rgba(246,221,227,0.25),inset 0 1px 0 rgba(255,255,255,0.70)",
+          color: dark ? "#F0F2F5" : "#5B4F4F",
+          animation: "slideUp 0.3s cubic-bezier(0.22,1,0.36,1)",
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 4,
+            borderRadius: 99,
+            background: dark ? "rgba(255,190,90,0.3)" : "rgba(91,79,79,0.25)",
+            margin: "0 auto 14px",
+          }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+          <span style={{ fontSize: 28 }}>{copy.emoji}</span>
+          <div>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 22 }}>
+              {copy.title}
+            </div>
+            <div style={{ fontSize: 12, color: dark ? "#B0BEC9" : "#7A6B6B", fontStyle: "italic" }}>
+              {copy.sub}
+            </div>
+          </div>
+        </div>
+
+        {type === "feed" && (
+          <>
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: dark ? "#B0BEC9" : "#A89898", marginBottom: 6 }}>AMOUNT</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 10 }}>
+                <span style={{ fontFamily: "ui-monospace,Menlo,monospace", fontWeight: 700, fontSize: 54, color: "#C07088", lineHeight: 1 }}>{amount}</span>
+                <span style={{ fontSize: 18, color: dark ? "#B0BEC9" : "#A89A90" }}>ml</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[30, 60, 90, 120, 150, 180].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setAmount(v)}
+                    style={{
+                      flex: 1,
+                      padding: "8px 0",
+                      borderRadius: 10,
+                      border: v === amount ? "1.5px solid #C07088" : dark ? "1.5px solid rgba(255,190,90,0.25)" : "1.5px solid rgba(255,225,235,0.5)",
+                      background: v === amount ? "rgba(245,218,210,0.48)" : dark ? "rgba(24,38,62,0.6)" : "rgba(255,255,255,0.55)",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: dark ? "#F0F2F5" : "#5B4F4F",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {type === "nappy" && (
+          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+            {["💧 Wet", "💩 Dirty", "💩💧 Both"].map((l) => (
+              <button key={l} style={{ flex: 1, padding: "16px 4px", borderRadius: 14, border: dark ? "1.5px solid rgba(255,190,90,0.25)" : "1.5px solid rgba(255,225,235,0.55)", background: dark ? "rgba(24,38,62,0.6)" : "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: 700, color: dark ? "#F0F2F5" : "#5B4F4F", cursor: "pointer" }}>{l}</button>
+            ))}
+          </div>
+        )}
+
+        {type === "sleep" && (
+          <div style={{ marginTop: 18, textAlign: "center", padding: "22px 0" }}>
+            <div style={{ fontFamily: "ui-monospace,Menlo,monospace", fontWeight: 700, fontSize: 48, color: dark ? "#e0b86a" : "#6FA898" }}>00:00</div>
+            <div style={{ fontSize: 12, color: dark ? "#B0BEC9" : "#7A6B6B", marginTop: 4 }}>Timer will start when you tap "Start sleep".</div>
+          </div>
+        )}
+
+        {type === "note" && (
+          <div style={{ marginTop: 14 }}>
+            <textarea placeholder="e.g. seemed extra clingy this morning — cutting a tooth?" style={{ width: "100%", minHeight: 90, padding: "12px 14px", borderRadius: 14, border: dark ? "1.5px solid rgba(255,190,90,0.25)" : "1.5px solid rgba(255,225,235,0.55)", background: dark ? "rgba(24,38,62,0.6)" : "rgba(255,253,248,0.6)", color: dark ? "#F0F2F5" : "#5B4F4F", fontFamily: "inherit", fontSize: 14, resize: "none", outline: "none", boxSizing: "border-box" }} />
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: "14px 0",
+              borderRadius: 99,
+              border: dark ? "1.5px solid rgba(255,190,90,0.25)" : "1.5px solid rgba(255,225,235,0.55)",
+              background: dark ? "rgba(24,38,62,0.6)" : "rgba(255,255,255,0.5)",
+              fontSize: 14,
+              fontWeight: 700,
+              color: dark ? "#F0F2F5" : "#5B4F4F",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave && onSave(type)}
+            style={{
+              flex: 2,
+              padding: "14px 0",
+              borderRadius: 99,
+              border: "none",
+              background: "linear-gradient(135deg,#C07088,#A85A44)",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "-6px -6px 8px -5px rgba(217,168,192,0.45),6px 6px 8px -5px rgba(192,160,220,0.35)",
+            }}
+          >
+            {type === "sleep" ? "Start sleep 😴" : "Save ✓"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.LogSheet = LogSheet;
+
+
+// ═══════ AccountScreen.jsx ═══════
+// Account screen — baby profile + carer QR + settings.
+function AccountScreen({ dark = false }) {
+  return (
+    <div style={{ padding: "18px 16px 120px", display: "flex", flexDirection: "column", gap: 14, height: "100%", overflowY: "auto" }}>
+      <GlassCard dark={dark} hero>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 68, height: 68, borderRadius: 99, overflow: "hidden", background: "#F0D0C8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, border: "2px solid rgba(255,255,255,0.7)" }}>
+            👶
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "'Playfair Display',serif", fontWeight: 700, fontSize: 22, color: dark ? "#F0F2F5" : "#4A3B35", lineHeight: 1.1 }}>Oliver</div>
+            <div style={{ fontSize: 13, color: dark ? "#B0BEC9" : "#7A6B6B" }}>6 months · born 20 Oct 2025</div>
+            <div style={{ fontSize: 12, color: "#C07088", marginTop: 2, fontWeight: 600 }}>He/him · 7.8kg · 67cm</div>
+          </div>
+        </div>
+      </GlassCard>
+
+      {[
+        { icon: "📱", title: "Care portal QR", sub: "Let sitters log without the app", accent: "#7AABC4" },
+        { icon: "⚠️", title: "Allergies & meds", sub: "1 allergy · 0 medications", accent: "#C94030" },
+        { icon: "📞", title: "Emergency contacts", sub: "Dad · Gran · GP", accent: "#D4A855" },
+        { icon: "📖", title: "Guides & checklists", sub: "NHS · WHO · your own", accent: "#6FA898" },
+        { icon: "⚙️", title: "Settings", sub: "Theme · units · data", accent: dark ? "#B0BEC9" : "#A89A90" },
+      ].map((row, i) => (
+        <button
+          key={i}
+          style={{
+            padding: "14px 16px",
+            borderRadius: 16,
+            background: dark ? "rgba(18,30,52,0.55)" : "rgba(255,255,255,0.55)",
+            border: dark ? "1.5px solid rgba(255,190,90,0.22)" : "1.5px solid rgba(255,225,235,0.5)",
+            boxShadow: dark
+              ? "-4px -4px 5px -5px rgba(255,170,60,0.38),4px 4px 5px -5px rgba(255,150,40,0.28)"
+              : "-4px -4px 5px -5px rgba(217,168,192,0.42),4px 4px 5px -5px rgba(192,160,220,0.32)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            cursor: "pointer",
+            textAlign: "left",
+            color: dark ? "#F0F2F5" : "#4A3B35",
+          }}
+        >
+          <div style={{ width: 38, height: 38, borderRadius: 12, background: `${row.accent}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+            {row.icon}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{row.title}</div>
+            <div style={{ fontSize: 12, color: dark ? "#B0BEC9" : "#7A6B6B", marginTop: 1 }}>{row.sub}</div>
+          </div>
+          <span style={{ fontSize: 20, color: dark ? "#B0BEC9" : "#A89898" }}>›</span>
+        </button>
+      ))}
+
+      <div style={{ textAlign: "center", fontSize: 11, color: dark ? "#B0BEC9" : "#A89A90", marginTop: 6, fontStyle: "italic" }}>
+        No ads. No selling your data. 💛
+      </div>
+    </div>
+  );
+}
+
+window.AccountScreen = AccountScreen;
+
+
+// ═══════ TweaksPanel.jsx ═══════
+// The floating Tweaks panel for the premium UI kit.
+function TweaksPanel({ tweaks, setTweaks, visible, onClose }) {
+  if (!visible) return null;
+  const Row = ({ label, children }) => (
+    <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+      <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"#7A6B6B"}}>{label}</div>
+      {children}
+    </div>
+  );
+  const Seg = ({ value, options, onChange }) => (
+    <div style={{display:"flex",gap:4,padding:3,borderRadius:99,background:"rgba(255,252,248,0.65)",border:"1px solid rgba(255,225,235,0.5)"}}>
+      {options.map(o => (
+        <button key={o.v} onClick={()=>onChange(o.v)} style={{
+          flex:1,padding:"7px 10px",borderRadius:99,border:"none",cursor:"pointer",
+          fontSize:11,fontWeight:700,fontFamily:"'DM Sans',sans-serif",
+          background: value===o.v ? "linear-gradient(135deg,#D4A855,#B8892B)" : "transparent",
+          color: value===o.v ? "#fff" : "#5B4F4F",
+          boxShadow: value===o.v ? "0 2px 6px rgba(184,137,43,0.3)" : "none",
+        }}>{o.l}</button>
+      ))}
+    </div>
+  );
+  return (
+    <div style={{
+      position:"fixed",right:20,bottom:20,zIndex:100,
+      width:280,padding:"18px 18px 14px",borderRadius:22,
+      background:"rgba(255,252,248,0.92)",
+      backdropFilter:"blur(24px) saturate(1.6)",
+      WebkitBackdropFilter:"blur(24px) saturate(1.6)",
+      border:"1px solid rgba(212,168,85,0.35)",
+      boxShadow:"0 0 0 1px rgba(212,168,85,0.25),0 20px 48px rgba(180,130,110,0.22),0 40px 96px rgba(180,130,110,0.12),0 2px 0 rgba(255,255,255,0.95) inset",
+      fontFamily:"'DM Sans',sans-serif",color:"#5B4F4F",
+    }}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:22,lineHeight:1,color:"#5B4F4F"}}>Tweaks</div>
+        <button onClick={onClose} style={{border:"none",background:"rgba(212,168,85,0.12)",width:26,height:26,borderRadius:99,cursor:"pointer",color:"#5B4F4F",fontSize:14}}>×</button>
+      </div>
+      <Row label="Density">
+        <Seg value={tweaks.density} options={[{v:"compact",l:"Compact"},{v:"cozy",l:"Cozy"},{v:"airy",l:"Airy"}]} onChange={(v)=>setTweaks({...tweaks,density:v})}/>
+      </Row>
+      <Row label="Corner radius">
+        <Seg value={tweaks.radius} options={[{v:"sharp",l:"Sharp"},{v:"soft",l:"Soft"},{v:"pillowy",l:"Pillow"}]} onChange={(v)=>setTweaks({...tweaks,radius:v})}/>
+      </Row>
+      <Row label="Accent hue">
+        <Seg value={tweaks.accent} options={[{v:"rose",l:"Rose"},{v:"gold",l:"Gold"},{v:"lilac",l:"Lilac"}]} onChange={(v)=>setTweaks({...tweaks,accent:v})}/>
+      </Row>
+      <Row label="Mascot presence">
+        <Seg value={tweaks.mascot} options={[{v:"subtle",l:"Subtle"},{v:"balanced",l:"Balanced"},{v:"prominent",l:"Star"}]} onChange={(v)=>setTweaks({...tweaks,mascot:v})}/>
+      </Row>
+      <Row label="Animation level">
+        <Seg value={tweaks.anim} options={[{v:"still",l:"Still"},{v:"calm",l:"Calm"},{v:"lively",l:"Lively"}]} onChange={(v)=>setTweaks({...tweaks,anim:v})}/>
+      </Row>
+      <div style={{fontSize:10,color:"#A89898",fontStyle:"italic",textAlign:"center",marginTop:6}}>
+        Live — affects the phone to the left.
+      </div>
+    </div>
+  );
+}
+
+window.TweaksPanel = TweaksPanel;
+

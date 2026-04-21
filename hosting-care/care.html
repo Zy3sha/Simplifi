@@ -11,22 +11,48 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <meta http-equiv="Pragma" content="no-cache"/>
 <meta http-equiv="Expires" content="0"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet"/>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { background: #FFFCF9; font-family: -apple-system, "SF Pro Display", "Inter", system-ui, sans-serif; color: #4A3B35; min-height: 100vh; }
-  body { padding: max(20px, env(safe-area-inset-top, 20px)) 16px max(20px, env(safe-area-inset-bottom, 20px)); max-width: 560px; margin: 0 auto; }
-  .header { text-align: center; margin-bottom: 18px; }
-  .logo { font-family: "Playfair Display", Georgia, serif; font-weight: 700; font-size: 26px; letter-spacing: 0.08em; color: #4A3B35; }
-  .sub { font-size: 13px; color: #7A5C52; margin-top: 2px; }
-  .card { background: #FFFDFA; border: 1.5px solid #E8DED3; border-radius: 20px; padding: 16px; margin-bottom: 14px; box-shadow: 0 4px 16px rgba(74,59,53,0.04); }
-  .caring-banner { background: rgba(155,184,168,0.1); border: 1px solid rgba(155,184,168,0.4); border-radius: 14px; padding: 12px 16px; margin-bottom: 16px; text-align: center; }
-  .caring-banner .title { font-size: 16px; font-weight: 700; color: #4A3B35; margin-bottom: 2px; }
-  .caring-banner .text { font-size: 13px; color: #6A8A7A; }
+  html, body { background: #FFFCF9; font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; color: #4A3B35; min-height: 100vh; }
+  body { background: radial-gradient(ellipse 80% 50% at 15% 8%,rgba(245,218,210,0.35),transparent 60%), radial-gradient(ellipse 60% 45% at 85% 12%,rgba(240,210,200,0.25),transparent 60%), linear-gradient(170deg,#FFFCF9 0%,#F8F0E8 50%,#F5E8E0 100%); background-attachment: fixed; padding: max(16px, env(safe-area-inset-top, 16px)) 16px max(16px, env(safe-area-inset-bottom, 16px)); max-width: 560px; margin: 0 auto; }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 0 4px; }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.8); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .header-name { font-family: "Playfair Display", Georgia, serif; font-weight: 700; font-size: 17px; color: #4A3B35; }
+  .header-age { font-size: 11px; color: #A89A90; margin-top: 1px; }
+  .logo { font-family: "Parisienne", cursive; font-weight: 400; font-size: 28px; color: #4A3B35; letter-spacing: -0.01em; }
+  .sub { font-size: 11px; color: #A89A90; margin-top: 1px; }
+  /* Sticky status bar */
+  .status-bar { position: sticky; top: 0; z-index: 50; margin: 0 -16px 14px; padding: 12px 20px; backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); border-bottom: 1px solid rgba(0,0,0,0.06); }
+  .status-bar .status-row { display: flex; align-items: center; gap: 10px; }
+  .status-bar .status-icon { font-size: 24px; }
+  .status-bar .status-text { font-size: 14px; font-weight: 700; color: #4A3B35; }
+  .status-bar .status-sub { font-size: 11px; color: #A89A90; }
+  .status-bar .status-timer { font-family: ui-monospace, monospace; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; text-align: center; margin: 6px 0 2px; }
+  .status-bar .status-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .status-bar .status-pill { padding: 4px 10px; border-radius: 99px; background: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.06); font-size: 11px; font-weight: 600; color: #4A3B35; }
+  /* Cards */
+  .card { background: rgba(255,255,255,0.55); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); border: 1px solid rgba(255,255,255,0.65); border-radius: 20px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 8px 24px -12px rgba(160,110,100,0.15); }
+  .caring-banner { background: linear-gradient(135deg,rgba(155,184,168,0.12),rgba(155,184,168,0.04)); border: 1px solid rgba(155,184,168,0.3); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; text-align: center; }
+  .caring-banner .title { font-family: "Playfair Display", serif; font-style: italic; font-size: 15px; font-weight: 700; color: #4A3B35; margin-bottom: 2px; }
+  .caring-banner .text { font-size: 12px; color: #6A8A7A; line-height: 1.5; }
   .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .action-btn { padding: 22px 12px; border-radius: 20px; border: 2px solid #E8DED3; background: #FFFDFA; cursor: pointer; font-size: 18px; font-weight: 700; color: #4A3B35; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 110px; font-family: inherit; transition: transform 0.1s, background 0.15s, border-color 0.15s; }
-  .action-btn:active { transform: scale(0.97); background: #F8F1EA; }
-  .action-btn .icon { font-size: 36px; }
-  .action-btn.active { background: rgba(155,184,168,0.15); border-color: #9BB8A8; }
+  .action-btn { padding: 20px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.7); background: rgba(255,255,255,0.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); cursor: pointer; font-size: 16px; font-weight: 700; color: #4A3B35; display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 100px; font-family: inherit; transition: transform 0.1s; box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset, 0 6px 16px -8px rgba(160,110,100,0.15); }
+  .action-btn:active { transform: scale(0.96); }
+  .action-btn .icon { font-size: 32px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1)); }
+  .action-btn .label { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+  .action-btn.active { background: rgba(192,112,136,0.08); border-color: rgba(192,112,136,0.3); }
+  /* Smart wake button adapts label */
+  .action-btn.wake-night { border-color: rgba(123,104,238,0.3); background: rgba(123,104,238,0.06); }
+  .action-btn.wake-nap { border-color: rgba(139,126,200,0.3); background: rgba(139,126,200,0.06); }
+  /* Mood chips */
+  .mood-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .mood-chip { padding: 8px 14px; border-radius: 99px; border: 1px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.5); font-size: 12px; font-weight: 600; color: #4A3B35; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+  .mood-chip:active { transform: scale(0.96); }
+  .mood-chip.selected { background: rgba(192,112,136,0.1); border-color: rgba(192,112,136,0.3); }
   .section-label { font-size: 14px; font-weight: 700; color: #7A5C52; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
   .entry { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #FBF5F0; border: 1px solid #E8DED3; margin-bottom: 6px; font-size: 14px; }
   .entry .emoji { font-size: 18px; }
@@ -351,13 +377,13 @@ async function logEntry(entry) {
   try {
     if (!code || code.length < 4) { showToast("Invalid care link. ask the parent for a new one"); return; }
     const colRef = collection(db, "carer_logs", code, "entries");
-    await addDoc(colRef, {
-      ...entry,
-      time: _entryTime,
-      start: entry.start ? _entryTime : undefined,
-      loggedAt: new Date().toISOString(),
-      loggedBy: "carer"
-    });
+    const _doc = { ...entry, time: _entryTime, loggedAt: new Date().toISOString(), loggedBy: "carer" };
+    // For naps, preserve the original start time — don't overwrite with _entryTime
+    if (entry.start && !entry.end) _doc.start = entry.start;
+    else if (entry.start) _doc.start = entry.start;
+    // Remove any undefined fields — Firestore rejects them
+    Object.keys(_doc).forEach(k => { if (_doc[k] === undefined) delete _doc[k]; });
+    await addDoc(colRef, _doc);
     showToast("✓ Saved · parents will see this");
     closeSheet();
   } catch (e) {
@@ -443,22 +469,25 @@ function openSheet(type) {
       <div class="sheet-inner">
         <div class="sheet-handle"></div>
         <div class="sheet-title">😴 Log a Nap</div>
-        <div style="display:flex;gap:12px;margin:14px 0">
-          <div style="flex:1">
-            <label style="font-size:12px;color:#8A7F87;font-weight:600;display:block;margin-bottom:4px">Started</label>
-            <input type="time" id="nap-start-input" value="${nowTime()}" style="width:100%;font-size:16px;padding:10px;border-radius:10px;border:1.5px solid #f0e8e0;background:#FFFCF9;color:#5B4F5F;font-family:inherit"/>
-          </div>
-          <div style="flex:1">
-            <label style="font-size:12px;color:#8A7F87;font-weight:600;display:block;margin-bottom:4px">Ended</label>
-            <input type="time" id="nap-end-input" value="${nowTime()}" style="width:100%;font-size:16px;padding:10px;border-radius:10px;border:1.5px solid #f0e8e0;background:#FFFCF9;color:#5B4F5F;font-family:inherit"/>
-          </div>
+        <div style="margin:14px 0">
+          <label style="font-size:12px;color:#8A7F87;font-weight:600;display:block;margin-bottom:4px">Started at</label>
+          <input type="time" id="nap-start-input" value="${nowTime()}" style="width:100%;font-size:18px;padding:12px;border-radius:10px;border:1.5px solid #f0e8e0;background:#FFFCF9;color:#5B4F5F;font-family:inherit;text-align:center"/>
         </div>
-        <div style="font-size:11px;color:#A89898;text-align:center;margin-bottom:14px">Set the start and end time, or just log the start and update later</div>
-        <button class="save-btn" id="save-nap">Save Nap ✓</button>
+        <button class="save-btn" id="nap-started-btn" style="margin-bottom:8px">😴 Nap Started</button>
+        <div style="font-size:11px;color:#A89898;text-align:center;margin:12px 0 8px;display:flex;align-items:center;gap:8px"><div style="flex:1;height:1px;background:#E8DED3"></div>or log a completed nap<div style="flex:1;height:1px;background:#E8DED3"></div></div>
+        <div style="margin-bottom:14px">
+          <label style="font-size:12px;color:#8A7F87;font-weight:600;display:block;margin-bottom:4px">Ended at</label>
+          <input type="time" id="nap-end-input" value="${nowTime()}" style="width:100%;font-size:18px;padding:12px;border-radius:10px;border:1.5px solid #f0e8e0;background:#FFFCF9;color:#5B4F5F;font-family:inherit;text-align:center"/>
+        </div>
+        <button class="save-btn" id="save-nap" style="background:linear-gradient(135deg,#8B7EC8,#6B5B95)">Save Completed Nap ✓</button>
         <button class="cancel-btn" id="cancel">Cancel</button>
       </div>`;
     sheet.innerHTML = inner;
     document.body.appendChild(sheet);
+    sheet.querySelector("#nap-started-btn").onclick = () => {
+      const s = sheet.querySelector("#nap-start-input").value;
+      logEntry({type:"nap", start:s||nowTime(), end:s||nowTime(), _active:true, note:"Nap started · logged by caregiver"});
+    };
     sheet.querySelector("#save-nap").onclick = () => {
       const s = sheet.querySelector("#nap-start-input").value;
       const e = sheet.querySelector("#nap-end-input").value;
@@ -467,6 +496,13 @@ function openSheet(type) {
     sheet.querySelector("#cancel").onclick = closeSheet;
   } else if (type === "wake") {
     logEntry({type:"wake", note:"Logged by caregiver"});
+  } else if (type === "morning-wake") {
+    logEntry({type:"wake", night:false, note:"Morning wake · logged by caregiver"});
+  } else if (type === "nap-end") {
+    // Log a wake to signal nap ended
+    logEntry({type:"wake", night:false, note:"Nap ended · logged by caregiver"});
+  } else if (type === "bedtime") {
+    logEntry({type:"sleep", night:false, note:"Bedtime · logged by caregiver"});
   }
 }
 
@@ -477,6 +513,8 @@ function _mergeCarerEntries() {
     if (!_childrenCache) return;
     const _todayStr = todayStrLocal();
     const _todayPending = recentEntries.filter(e => {
+      // Skip entries already merged by parent app — but keep active naps so timer stays visible
+      if (e._merged && !e._active) return false;
       const t = e.loggedAt || e.time || "";
       if (typeof t === "string" && t.length >= 10) return t.slice(0,10) === _todayStr;
       return true;
@@ -488,7 +526,8 @@ function _mergeCarerEntries() {
       poopType: e.poopType || "",
       start: e.start || "",
       end: e.end || "",
-      night: !!e.night
+      night: !!e.night,
+      _active: !!e._active
     }));
     familyContext.today = computeTodayStats(_childrenCache, childId, _todayPending) || {};
   } catch(e) { console.warn("merge carer entries failed", e); }
@@ -507,6 +546,31 @@ function renderApp() {
     updateRecentList();
   });
   _renderHtml();
+  // Format elapsed seconds: m:ss under 1h, h:mm:ss over 1h
+  function fmtElapsed(sec) {
+    if (sec < 0) sec = 0;
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+    if (h > 0) return h + ":" + String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+    return m + ":" + String(s).padStart(2,"0");
+  }
+
+  // Tick every second — reads start time from DOM data attribute (authoritative)
+  setInterval(()=>{
+    try {
+      const _el = document.querySelector('[data-timer-start]');
+      if (!_el) return;
+      const _startTime = _el.getAttribute('data-timer-start');
+      if (!_startTime) return;
+      const [_th,_tm] = _startTime.split(":").map(Number);
+      if (isNaN(_th)) return;
+      const _now2 = new Date();
+      let _elapsed = (_now2.getHours()*3600+_now2.getMinutes()*60+_now2.getSeconds()) - (_th*3600+_tm*60);
+      if (_elapsed < 0) _elapsed += 86400;
+      _el.textContent = fmtElapsed(_elapsed);
+    } catch {}
+  }, 1000);
+  // Full re-render every 2 mins (was 60s — less flicker)
+  setInterval(()=>{ try{_mergeCarerEntries();_renderHtml();}catch{} }, 120000);
 }
 
 function _renderHtml() {
@@ -566,6 +630,21 @@ function _renderHtml() {
   // Compute predictions, current wall-clock for "past" filtering
   const _nowD = new Date();
   const _nowMins = _nowD.getHours()*60 + _nowD.getMinutes();
+  // Baby state — computed once for use in status card + action buttons
+  const _allEntries = (_t.entries || []);
+  const _bedEntry = _allEntries.find(e=>e.type==="sleep"&&!e.night);
+  const _findActiveNap = (arr) => arr.find(e=>{
+    if(e.type!=="nap"||!e.start||e.night) return false;
+    if(e._active===true) return true;
+    if(!e.end||e.start===e.end) return true;
+    const [eh,em]=(e.end||"").split(":").map(Number);
+    if(isNaN(eh)) return false;
+    return (_nowMins-(eh*60+em)) >= 0 && (_nowMins-(eh*60+em)) <= 12;
+  });
+  // Prefer familyContext entries (parent-side, correct data), fall back to recentEntries
+  const activeNap = _findActiveNap(_t.entries || []) || _findActiveNap(recentEntries);
+  const _hasMorningWake = _allEntries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<12;})());
+  const _isNightSleep = _bedEntry && (_nowMins >= 18*60 || (_nowMins < 12*60 && !_hasMorningWake));
   const _bedtimeMins = 19*60; // 7pm, typical bedtime cutoff
   const _nightCutoff = 20*60; // 8pm, after this, baby is winding down; no more feed/nap suggestions
   const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
@@ -673,15 +752,22 @@ function _renderHtml() {
 
   $app.innerHTML = `
     <div class="header">
-      <div class="logo">OBUBBA</div>
-      <div class="sub">Care</div>
+      <div class="header-left">
+        ${familyContext.babyPhoto ? `<img class="header-photo" src="${familyContext.babyPhoto}" alt="${escapeHtml(_name)}" onerror="this.style.display='none'"/>` : ""}
+        <div>
+          <div class="header-name">${escapeHtml(_name)}</div>
+          <div class="header-age">${_ageStr||"Baby"}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="logo">OBubba</div>
+        <div class="sub">Care</div>
+      </div>
     </div>
-    ${_photoHtml}
     <div class="caring-banner">
-      <div class="title">Caring for ${escapeHtml(_name)} 💛</div>
-      <div class="text">Tap a button to log. Parents see everything in real time.</div>
-      <div class="text" style="margin-top:4px;font-style:italic;opacity:0.7">Don't worry, you can't break anything here. Just tap and go. 💛</div>
-      <div class="text" style="margin-top:4px;font-size:11px;opacity:0.5">Not in English? Your browser can translate this page automatically. 🌍</div>
+      <div class="title">Looking after ${escapeHtml(_name)} 💛</div>
+      <div class="text">Tap to log. Parents see everything live.</div>
+      <div class="text" style="margin-top:3px;font-style:italic;opacity:0.7">You can't break anything. Just tap and go.</div>
     </div>
     ${_allergyBanner}
     ${_pinnedHtml}
@@ -719,7 +805,7 @@ function _renderHtml() {
       } else if (activeNap) {
         const [sh,sm]=(activeNap.start||"").split(":").map(Number);
         const napElapsed = isNaN(sh)?0:nowM-(sh*60+sm);
-        statusIcon="😴"; statusText=_name+" is napping ("+fmtAgo(napElapsed)+")"; statusColor="#8B7EC8"; statusBg="rgba(139,126,200,0.08)";
+        statusIcon="😴"; statusText=_name+" is napping · started "+fmt12(activeNap.start); statusColor="#8B7EC8"; statusBg="rgba(139,126,200,0.08)";
         // Age-aware "long nap" threshold. Naps under 4mo cap around 90m; 4-8mo the
         // longest nap is typically 1.5-2h; older babies can happily do 2-2.5h naps.
         // Never warn before the threshold, 1h is NORMAL not long.
@@ -728,7 +814,7 @@ function _renderHtml() {
           : _weeks < 35 ? 135     // 4-8mo: 2h 15m
           : _weeks < 52 ? 150     // 8-12mo: 2h 30m
           : 180;                  // 12mo+: 3h
-        if (napElapsed < 20) nextAction = "Let "+_name+" sleep. Don't check on them unless crying, even small noises during light sleep are normal.";
+        if (napElapsed < 20) nextAction = "Let "+_name+" sleep. Check on them quietly but don't disturb. Small noises and even short crying during sleep cycles is normal. only pick up if fully awake or crying escalates.";
         else if (napElapsed < 60) nextAction = _name+" is sleeping well. Start getting a bottle ready, they'll be hungry when they wake.";
         else if (napElapsed < _longNapMin) nextAction = _name+" is having a good restorative nap. Keep the room dark and quiet.";
         else nextAction = "That's a long one! If "+_name+" is still asleep after "+Math.round(_longNapMin/30)*30+" minutes, you could gently wake them, very long naps can push bedtime late.";
@@ -755,17 +841,51 @@ function _renderHtml() {
         }
       }
 
-      return `<div class="card" style="background:${statusBg};border-color:${statusColor}30;position:relative;overflow:hidden">
-        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${statusColor};opacity:0.6"></div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:${nextAction?8:0}px">
-          <span style="font-size:28px">${statusIcon}</span>
-          <div>
-            <div style="font-size:15px;font-weight:700;color:#4A3B35">${statusText}</div>
-            <div style="font-size:14px;color:#A89A90;margin-top:2px">Live · updates automatically</div>
+      // Timer display: compute elapsed for nap or bedtime
+      let _timerHtml = "";
+      const _nowSec = _nowD.getHours()*3600 + _nowD.getMinutes()*60 + _nowD.getSeconds();
+      if (activeNap) {
+        const [_sh2,_sm2]=(activeNap.start||"").split(":").map(Number);
+        if(!isNaN(_sh2)){
+          let _napElapSec = _nowSec - (_sh2*3600+_sm2*60);
+          if(_napElapSec<0) _napElapSec+=86400;
+          const _m2=Math.floor(_napElapSec/60), _s2=_napElapSec%60;
+          const _fmtNap = (()=>{ const h=Math.floor(_napElapSec/3600),m=Math.floor((_napElapSec%3600)/60),s=_napElapSec%60; return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0"); })();
+          _timerHtml = `<div class="status-timer" data-timer-start="${activeNap.start}" data-timer-type="nap" style="color:${statusColor}">${_fmtNap}</div>`;
+        }
+      } else if (_isNightSleep && _bedEntry) {
+        const [_bh,_bm]=(_bedEntry.time||"").split(":").map(Number);
+        if(!isNaN(_bh)){
+          let _bedElapSec = _nowSec - (_bh*3600+_bm*60);
+          if(_bedElapSec<0) _bedElapSec+=86400;
+          const _fmtBed = (()=>{ const h=Math.floor(_bedElapSec/3600),m=Math.floor((_bedElapSec%3600)/60),s=_bedElapSec%60; return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0"); })();
+          _timerHtml = `<div class="status-timer" data-timer-start="${_bedEntry.time}" data-timer-type="bed" style="color:${statusColor}">${_fmtBed}</div>
+          <div style="font-size:11px;color:#A89A90;text-align:center;margin-bottom:4px">Bedtime ${fmt12(_bedEntry.time)}</div>`;
+        }
+      }
+      // Event countdown
+      let _countdownHtml = "";
+      if (!activeNap && !_isNightSleep) {
+        const _events = [];
+        if (_nextFeedStr) _events.push("🍼 Feed ~" + _nextFeedStr);
+        if (_napWindowStr) _events.push("😴 Nap window " + _napWindowStr);
+        if (_events.length) {
+          _countdownHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${_events.map(e=>`<div style="padding:5px 10px;border-radius:99px;background:rgba(255,255,255,0.6);border:1px solid ${statusColor}25;font-size:11px;font-weight:600;color:#4A3B35">${e}</div>`).join("")}</div>`;
+        }
+      }
+
+      return `<div class="status-bar" style="background:${statusBg}">
+        <div class="status-row">
+          <span class="status-icon">${statusIcon}</span>
+          <div style="flex:1">
+            <div class="status-text">${statusText}</div>
+            <div class="status-sub">Live · updates automatically</div>
           </div>
         </div>
-        ${nextAction?`<div style="padding:10px 12px;background:rgba(255,255,255,0.6);border-radius:12px;font-size:13px;color:#4A3B35;line-height:1.6">
-          <div style="font-size:10px;font-weight:700;color:${statusColor};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">👉 What to do now</div>
+        ${_timerHtml}
+        ${_countdownHtml}
+        ${nextAction?`<div style="padding:10px 12px;background:rgba(255,255,255,0.5);border-radius:12px;font-size:13px;color:#4A3B35;line-height:1.6;margin-top:6px">
+          <div style="font-size:10px;font-weight:700;color:${statusColor};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">👉 What to do</div>
           ${nextAction}
         </div>`:""}
       </div>`;
@@ -781,27 +901,55 @@ function _renderHtml() {
       <div style="font-size:13px;color:#6A584E;line-height:1.6">Parents haven't added soothing techniques yet. If ${escapeHtml(_name)} is upset, try: gentle rocking, shushing, offering a dummy, or a walk in the pram.</div>
     </div>`}
 
-    <div class="card">
+    <div class="card" style="padding:14px">
       <div class="btn-grid">
         <button class="action-btn" data-action="feed">
           <span class="icon">🍼</span>
-          <span>Log Feed</span>
+          <span class="label">Feed</span>
         </button>
+        ${activeNap ? `
+        <button class="action-btn active" data-action="nap-end">
+          <span class="icon">🌤️</span>
+          <span class="label">Nap Ended</span>
+        </button>
+        ` : _isNightSleep ? `
+        <button class="action-btn wake-night" data-action="wake">
+          <span class="icon">🌙</span>
+          <span class="label">Night Wake</span>
+        </button>
+        ` : `
         <button class="action-btn" data-action="nap-start">
           <span class="icon">😴</span>
-          <span>Nap Started</span>
+          <span class="label">Nap</span>
         </button>
+        `}
         <button class="action-btn" data-action="nappy">
           <span class="icon">💩</span>
-          <span>Log Nappy</span>
+          <span class="label">Nappy</span>
         </button>
+        ${_isNightSleep ? `
+        <button class="action-btn wake-night" data-action="morning-wake">
+          <span class="icon">☀️</span>
+          <span class="label">Morning Wake</span>
+        </button>
+        ` : activeNap ? `
+        <button class="action-btn" data-action="nappy">
+          <span class="icon">🤫</span>
+          <span class="label">Sleeping...</span>
+        </button>
+        ` : _bedEntry ? `
         <button class="action-btn" data-action="wake">
           <span class="icon">☀️</span>
-          <span>Baby Woke</span>
+          <span class="label">Baby Woke</span>
         </button>
+        ` : `
+        <button class="action-btn" data-action="bedtime">
+          <span class="icon">🌙</span>
+          <span class="label">Bedtime</span>
+        </button>
+        `}
       </div>
     </div>
-    <div style="font-size:12px;color:#A89A90;text-align:center;margin-bottom:14px">Entries go to parents for review 💛</div>
 
     ${_babyStatsHtml}
     ${_notesHtml}

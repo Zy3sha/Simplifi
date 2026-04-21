@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OBubba — Share Cards</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Parisienne&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rose:#C07088; --rose-dk:#A85A44;
+    --gold:#D4A855; --gold-dk:#B8892B; --gold-lt:#F3D98A;
+    --sage:#6FA898; --cream:#FFF8F2; --paper:#FAF3EC;
+    --ink:#4A3B35; --ink-mid:#7A6B6B; --ink-lt:#A89898;
+  }
+  html,body{margin:0;min-height:100vh;font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(ellipse 70% 55% at 15% 8%,rgba(245,218,210,0.45),transparent 70%),
+      radial-gradient(ellipse 50% 45% at 85% 12%,rgba(240,210,200,0.35),transparent 65%),
+      radial-gradient(ellipse 60% 50% at 50% 50%,rgba(255,248,242,0.4),transparent 60%),
+      linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 45%,#F0DDD6 100%);
+    background-attachment: fixed;
+  }
+  .stage{max-width:1400px;margin:0 auto;padding:32px 24px 80px}
+  .hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  .brand{font:400 56px/1 'Parisienne',cursive;color:var(--ink)}
+  .brand::first-letter{color:var(--gold-dk)}
+  .sub{font:600 11px/1 'DM Sans';color:var(--ink-lt);text-transform:uppercase;letter-spacing:0.18em}
+  .intro{font:italic 400 15px/1.55 'Playfair Display',serif;color:var(--ink-mid);max-width:640px;margin:8px 0 28px}
+  .intro b{font-style:normal;font-weight:700;color:var(--ink)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 26px;align-items:center}
+  .seg{display:inline-flex;padding:3px;border-radius:99px;background:rgba(255,255,255,0.6);border:1px solid rgba(212,168,85,0.3);
+    box-shadow:0 1.5px 0 rgba(255,255,255,0.9) inset}
+  .seg button{background:none;border:none;padding:7px 13px;border-radius:99px;cursor:pointer;font:700 12px 'DM Sans';color:var(--ink);}
+  .seg button.on{background:linear-gradient(135deg,var(--gold),var(--gold-dk));color:#fff;box-shadow:0 2px 6px rgba(184,137,43,0.35)}
+  .lbl{font:700 10px 'DM Sans';letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-lt);margin-right:6px}
+
+  .section-title{font:italic 700 26px/1 'Playfair Display',serif;color:var(--ink);margin:34px 0 14px;display:flex;align-items:baseline;gap:12px}
+  .section-title .rule{flex:1;height:1px;background:linear-gradient(90deg,rgba(212,168,85,0.55),transparent)}
+  .section-title .k{font:600 10px 'DM Sans';color:var(--ink-lt);letter-spacing:0.18em;text-transform:uppercase}
+
+  .canvas{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+  .card-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .card-cap{font:600 10px 'DM Sans';color:var(--ink-lt);letter-spacing:0.14em;text-transform:uppercase;text-align:center}
+  .card-cap b{color:var(--ink);font-weight:700}
+
+  /* Editorial card — base shared by all */
+  .scard{
+    position:relative;border-radius:22px;overflow:hidden;isolation:isolate;
+    background:
+      radial-gradient(ellipse 120% 80% at 20% 0%,rgba(250,230,220,0.6),transparent 60%),
+      radial-gradient(ellipse 100% 70% at 100% 100%,rgba(246,221,227,0.45),transparent 60%),
+      linear-gradient(150deg,#FFF8F2 0%,#F5E1D8 60%,#EFD4CB 100%);
+    box-shadow:
+      0 0 0 1px rgba(212,168,85,0.4),
+      0 0 0 2px rgba(224,184,106,0.18),
+      0 1.5px 0 rgba(255,255,255,0.95) inset,
+      0 20px 48px rgba(180,130,110,0.22),
+      0 48px 96px rgba(180,130,110,0.12);
+    color:var(--ink);
+  }
+  .scard.dark{
+    background:
+      radial-gradient(ellipse 120% 80% at 20% 0%,rgba(255,180,70,0.22),transparent 60%),
+      radial-gradient(ellipse 100% 70% at 100% 100%,rgba(255,200,120,0.16),transparent 60%),
+      linear-gradient(150deg,#0E1A2E 0%,#14243F 50%,#0B1628 100%);
+    color:#F0F2F5;
+    box-shadow:
+      0 0 0 1px rgba(212,168,85,0.5),
+      0 0 0 2px rgba(224,184,106,0.22),
+      0 1px 0 rgba(255,210,140,0.26) inset,
+      0 20px 48px rgba(0,0,0,0.5),
+      0 48px 96px rgba(0,0,0,0.32);
+  }
+  .scard .hairline{position:absolute;left:28px;right:28px;height:1px;background:linear-gradient(90deg,transparent,rgba(212,168,85,0.7),transparent)}
+  .scard .masthead{font:400 46px/1 'Parisienne',cursive;color:var(--ink);text-shadow:0 1px 0 rgba(255,255,255,0.5)}
+  .scard.dark .masthead{color:var(--gold-lt);text-shadow:0 2px 12px rgba(255,200,120,0.25)}
+  .scard .masthead::first-letter{color:var(--gold-dk)}
+  .scard.dark .masthead::first-letter{color:var(--gold)}
+  .scard .eyebrow{font:700 9.5px 'DM Sans';letter-spacing:0.24em;text-transform:uppercase;color:var(--gold-dk)}
+  .scard.dark .eyebrow{color:var(--gold)}
+  .scard .mascot-sig{position:absolute;display:flex;align-items:center;gap:6px;font:italic 400 12px 'Playfair Display';color:var(--gold-dk)}
+  .scard.dark .mascot-sig{color:var(--gold)}
+  .scard .mascot-sig img{width:22px;height:22px;filter:drop-shadow(0 2px 4px rgba(217,168,192,0.4))}
+  .playf{font-family:'Playfair Display',serif}
+  .mono{font-family:ui-monospace,Menlo,monospace}
+  .cursive{font-family:'Parisienne',cursive}
+
+  /* Decorative ornament — thin gold flourish */
+  .ornament{display:flex;align-items:center;justify-content:center;gap:6px;color:var(--gold-dk)}
+  .scard.dark .ornament{color:var(--gold-lt)}
+  .ornament::before,.ornament::after{content:"";width:36px;height:1px;background:currentColor;opacity:0.65}
+
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;font:700 10px 'DM Sans';letter-spacing:0.08em;text-transform:uppercase;
+    background:rgba(255,255,255,0.55);color:var(--ink);border:1px solid rgba(212,168,85,0.3)}
+  .scard.dark .chip{background:rgba(22,34,56,0.7);color:#F0F2F5;border-color:rgba(212,168,85,0.4)}
+  .chip.gold{background:linear-gradient(135deg,#F3D98A,#D4A855);color:#5B4F4F;border-color:transparent}
+  .chip.rose{background:rgba(217,168,192,0.25);color:var(--rose-dk);border-color:rgba(192,112,136,0.3)}
+  .scard.dark .chip.rose{background:rgba(217,168,192,0.18);color:#F0D0C8}
+
+  /* tiny dotted sparkle field */
+  .sparkles{position:absolute;inset:0;pointer-events:none;z-index:0}
+  .sparkles span{position:absolute;width:3px;height:3px;border-radius:99px;background:rgba(212,168,85,0.55);box-shadow:0 0 6px rgba(212,168,85,0.6)}
+
+  @media print { body{background:none} .controls,.intro,.hdr,.section-title{display:none} }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="hdr">
+    <div class="brand">OBubba</div>
+    <div class="sub">· Share cards</div>
+  </div>
+  <p class="intro">
+    The cards you'd actually send. <b>Editorial treatment</b> — Playfair, Parisienne, gold hairline trim, a small mascot signature bottom-right. Six share types across three formats. Tap the <b>privacy toggle</b> per card to preview how it looks with just an initial, and switch <b>Night</b> for bedtime/late logs.
+  </p>
+
+  <div class="controls">
+    <span class="lbl">Format</span>
+    <div class="seg" id="seg-format">
+      <button data-v="all" class="on">All</button>
+      <button data-v="square">Square · IG feed</button>
+      <button data-v="story">Story · 9:16</button>
+      <button data-v="landscape">Landscape · 16:9</button>
+    </div>
+    <span class="lbl" style="margin-left:14px">Privacy</span>
+    <div class="seg" id="seg-privacy">
+      <button data-v="full" class="on">Full name</button>
+      <button data-v="initial">Initial only</button>
+    </div>
+    <span class="lbl" style="margin-left:14px">Mode</span>
+    <div class="seg" id="seg-mode">
+      <button data-v="day" class="on">Day</button>
+      <button data-v="night">Night</button>
+    </div>
+  </div>
+
+  <div id="root"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+// ─────────────────────────────────────────────────────────────────────
+// Shared atoms
+// ─────────────────────────────────────────────────────────────────────
+const NAME_FULL = "Oliver";
+const NAME_SHORT = "O.";
+const name = (priv) => priv==="initial" ? NAME_SHORT : NAME_FULL;
+
+function Sparkles({n=8, seed=1}){
+  const rng = (i)=>{ const x = Math.sin(seed*1000+i*37)*9999; return x-Math.floor(x); };
+  return (
+    <div className="sparkles">
+      {Array.from({length:n}).map((_,i)=>(
+        <span key={i} style={{
+          left: (rng(i)*100).toFixed(1)+"%",
+          top: (rng(i+50)*100).toFixed(1)+"%",
+          opacity: 0.4+rng(i+100)*0.5,
+          width: 2+rng(i+200)*3,
+          height: 2+rng(i+200)*3,
+        }}/>
+      ))}
+    </div>
+  );
+}
+
+function MascotSig({dark, pose="happy", where="br"}){
+  const pos = where==="br" ? {right:24,bottom:22} : where==="bl" ? {left:24,bottom:22} : {right:24,top:22};
+  return (
+    <div className="mascot-sig" style={pos}>
+      <img src={`../../assets/obubba-${pose}.png`} alt=""/>
+      <span className="cursive" style={{fontSize:20,lineHeight:1,color:dark?"var(--gold-lt)":"var(--gold-dk)"}}>obubba</span>
+    </div>
+  );
+}
+
+function Ornament({children}){
+  return <div className="ornament" style={{margin:"10px 0"}}><span style={{letterSpacing:"0.2em"}}>{children||"✦"}</span></div>;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 1. DAILY DIGEST — Square · "the shape of today"
+// ─────────────────────────────────────────────────────────────────────
+function DailyDigest({format, privacy, dark}){
+  const W = format==="story"?540:format==="landscape"?900:540;
+  const H = format==="story"?960:format==="landscape"?506:540;
+  const dateLine = "Tuesday · 23 April";
+  return (
+    <div className={"scard"+(dark?" dark":"")} style={{width:W,height:H}}>
+      <Sparkles n={10} seed={1}/>
+      <div style={{position:"absolute",inset:28,display:"flex",flexDirection:"column"}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+          <div className="eyebrow">The daily digest · Issue N°127</div>
+          <div className="eyebrow">{dateLine}</div>
+        </div>
+        <div className="hairline" style={{position:"relative",margin:"12px 0 8px",left:0,right:0}}/>
+        <div className="masthead" style={{marginTop:4}}>{name(privacy)}'s day</div>
+        <div className="playf" style={{fontStyle:"italic",fontSize:15,color:dark?"#B0BEC9":"var(--ink-mid)",marginTop:-2,marginBottom:14}}>
+          a quiet, well-rested Tuesday.
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+          {[
+            {k:"Sleep",v:"12h 20m",sub:"+42m vs 7-day avg"},
+            {k:"Feeds",v:"6",sub:"avg every 3.0h"},
+            {k:"Nappies",v:"5",sub:"normal"},
+          ].map(s=>(
+            <div key={s.k} style={{padding:"10px 12px",borderRadius:14,background:dark?"rgba(14,22,42,0.45)":"rgba(255,252,248,0.65)",border:`1px solid ${dark?"rgba(255,200,120,0.22)":"rgba(212,168,85,0.3)"}`}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#B0BEC9":"var(--ink-lt)"}}>{s.k}</div>
+              <div className="playf" style={{fontWeight:700,fontSize:24,lineHeight:1.1,color:dark?"var(--gold-lt)":"var(--gold-dk)",marginTop:2}}>{s.v}</div>
+              <div style={{fontSize:10,color:dark?"#B0BEC9":"var(--ink-mid)",marginTop:2,fontStyle:"italic"}}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{flex:1,minHeight:0,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <Ornament/>
+          <div className="playf" style={{fontStyle:"italic",fontSize:15,lineHeight:1.5,color:dark?"#E8ECF0":"var(--ink)",textAlign:"center",padding:"0 18px"}}>
+            "Two long naps, a personal-best overnight, and one very pleased giggle at 10:42am."
+          </div>
+        </div>
+      </div>
+      <MascotSig dark={dark} pose="happy"/>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 2. MILESTONE — "rolled over!" — Story 9:16
+// ─────────────────────────────────────────────────────────────────────
+function Milestone({format, privacy, dark}){
+  const W = format==="square"?540:format==="landscape"?900:540;
+  const H = format==="square"?540:format==="landscape"?506:960;
+  return (
+    <div className={"scard"+(dark?" dark":"")} style={{width:W,height:H}}>
+      <Sparkles n={14} seed={7}/>
+      {/* big gold conic ring behind */}
+      <div style={{position:"absolute",left:"50%",top:format==="landscape"?"50%":"38%",transform:"translate(-50%,-50%)",width:format==="landscape"?280:320,height:format==="landscape"?280:320,borderRadius:"50%",
+        background:"conic-gradient(from 180deg at 50% 50%, #D4A855, #F3D98A, #E0B86A, #D4A855, #B8892B, #D4A855)",
+        padding:3,
+        WebkitMask:"radial-gradient(circle, transparent 46%, #000 47%)",
+        mask:"radial-gradient(circle, transparent 46%, #000 47%)",
+        filter:"drop-shadow(0 0 14px rgba(212,168,85,0.5)) drop-shadow(0 0 36px rgba(212,168,85,0.28))",
+        opacity:0.95,
+      }}/>
+
+      <div style={{position:"absolute",inset:28,display:"flex",flexDirection:"column"}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+          <div className="eyebrow">Milestone · unlocked</div>
+          <div className="eyebrow">6 mo · week 23</div>
+        </div>
+        <div className="hairline" style={{position:"relative",margin:"12px 0 0",left:0,right:0}}/>
+
+        <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:"0 8px"}}>
+          <div className="cursive" style={{fontSize:format==="landscape"?38:44,lineHeight:1,color:dark?"var(--gold-lt)":"var(--gold-dk)",marginBottom:8}}>
+            a first
+          </div>
+          <div className="playf" style={{fontWeight:700,fontStyle:"italic",fontSize:format==="landscape"?44:56,lineHeight:1.05,color:dark?"#F0F2F5":"var(--ink)",textWrap:"balance"}}>
+            {name(privacy)} rolled over.<br/><span style={{fontSize:format==="landscape"?22:28,fontStyle:"normal",color:dark?"#B0BEC9":"var(--ink-mid)"}}>Both sides. No fuss.</span>
+          </div>
+          <Ornament/>
+          <div style={{fontSize:12,color:dark?"#B0BEC9":"var(--ink-mid)",fontStyle:"italic",maxWidth:380,lineHeight:1.55}}>
+            "Five days ago he needed a gentle nudge. Today he did it while reaching for the dog."
+          </div>
+        </div>
+
+        <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:4}}>
+          <span className="chip gold">✦ Development</span>
+          <span className="chip">23 April · 10:42am</span>
+        </div>
+      </div>
+      <MascotSig dark={dark} pose="celebration"/>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 3. WEEKLY RECAP — Landscape · grid of 7 days
+// ─────────────────────────────────────────────────────────────────────
+function WeeklyRecap({format, privacy, dark}){
+  const W = format==="square"?540:format==="story"?540:900;
+  const H = format==="square"?540:format==="story"?960:506;
+  const days = [
+    {d:"Mon",s:11.8,f:6,n:2,note:""},
+    {d:"Tue",s:12.3,f:6,n:2,note:""},
+    {d:"Wed",s:10.9,f:7,n:3,note:"fussy"},
+    {d:"Thu",s:11.4,f:6,n:2,note:""},
+    {d:"Fri",s:12.0,f:5,n:2,note:""},
+    {d:"Sat",s:11.6,f:6,n:2,note:""},
+    {d:"Sun",s:12.3,f:6,n:2,note:"★"},
+  ];
+  const max = 13;
+  return (
+    <div className={"scard"+(dark?" dark":"")} style={{width:W,height:H}}>
+      <Sparkles n={8} seed={3}/>
+      <div style={{position:"absolute",inset:28,display:"flex",flexDirection:"column"}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+          <div className="eyebrow">Weekly recap · WEEK 23</div>
+          <div className="eyebrow">17 – 23 April</div>
+        </div>
+        <div className="hairline" style={{position:"relative",margin:"12px 0 10px",left:0,right:0}}/>
+
+        <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:10}}>
+          <div className="masthead">The week, well lived.</div>
+        </div>
+        <div className="playf" style={{fontStyle:"italic",fontSize:14,color:dark?"#B0BEC9":"var(--ink-mid)",marginBottom:18}}>
+          {name(privacy)} slept <b style={{color:dark?"var(--gold-lt)":"var(--gold-dk)"}}>82h</b> across <b style={{color:dark?"var(--gold-lt)":"var(--gold-dk)"}}>7 nights</b> — his steadiest stretch yet.
+        </div>
+
+        <div style={{flex:1,display:"flex",alignItems:"flex-end",gap:format==="story"?10:14,paddingBottom:22}}>
+          {days.map((d,i)=>(
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+              <div style={{fontSize:10,fontWeight:700,color:dark?"#B0BEC9":"var(--ink-mid)",fontStyle:"italic"}}>{d.note}</div>
+              <div style={{
+                width:"70%",height:`${(d.s/max)*100}%`,
+                borderRadius:"10px 10px 4px 4px",
+                background:`linear-gradient(180deg,var(--gold) 0%,var(--gold-dk) 70%,rgba(184,137,43,0.4) 100%)`,
+                boxShadow:`0 0 0 1px rgba(212,168,85,0.4) inset, 0 1px 0 rgba(255,255,255,0.5) inset, 0 4px 10px rgba(184,137,43,0.2)`,
+                position:"relative",
+              }}>
+                <div style={{position:"absolute",top:3,left:"22%",right:"22%",height:2,borderRadius:99,background:"rgba(255,255,255,0.55)"}}/>
+              </div>
+              <div className="mono" style={{fontSize:10,color:dark?"#F0F2F5":"var(--ink)",fontWeight:700}}>{d.s.toFixed(1)}h</div>
+              <div style={{fontSize:10,fontWeight:700,color:dark?"#B0BEC9":"var(--ink-lt)",letterSpacing:"0.1em",textTransform:"uppercase"}}>{d.d}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <MascotSig dark={dark} pose="thinking"/>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 4. GROWTH UPDATE — Square · percentile
+// ─────────────────────────────────────────────────────────────────────
+function GrowthCard({format, privacy, dark}){
+  const W = format==="story"?540:format==="landscape"?900:540;
+  const H = format==="story"?960:format==="landscape"?506:540;
+  const wp=50, hp=65;
+  return (
+    <div className={"scard"+(dark?" dark":"")} style={{width:W,height:H}}>
+      <Sparkles n={8} seed={11}/>
+      <div style={{position:"absolute",inset:28,display:"flex",flexDirection:"column"}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+          <div className="eyebrow">Growth · 6 month check-in</div>
+          <div className="eyebrow">WHO percentile · UK</div>
+        </div>
+        <div className="hairline" style={{position:"relative",margin:"12px 0 12px",left:0,right:0}}/>
+
+        <div className="playf" style={{fontWeight:700,fontSize:28,lineHeight:1.1,color:dark?"#F0F2F5":"var(--ink)"}}>
+          {name(privacy)}, half a year in.
+        </div>
+        <div className="playf" style={{fontStyle:"italic",fontSize:14,color:dark?"#B0BEC9":"var(--ink-mid)",marginTop:4,marginBottom:18}}>
+          Steady, proportionate, a lovely line.
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,flex:1}}>
+          {[
+            {k:"Weight",v:"7.8",u:"kg",p:wp,delta:"+420g · 28 days"},
+            {k:"Height",v:"67",u:"cm",p:hp,delta:"+1.8cm · 28 days"},
+          ].map(s=>(
+            <div key={s.k} style={{display:"flex",flexDirection:"column",justifyContent:"center"}}>
+              <div style={{fontSize:9.5,fontWeight:700,letterSpacing:"0.16em",textTransform:"uppercase",color:dark?"#B0BEC9":"var(--ink-lt)"}}>{s.k}</div>
+              <div className="playf" style={{fontWeight:700,fontSize:54,lineHeight:1,color:dark?"var(--gold-lt)":"var(--gold-dk)",marginTop:2}}>
+                {s.v}<span style={{fontSize:22,marginLeft:4,color:dark?"#B0BEC9":"var(--ink-mid)"}}>{s.u}</span>
+              </div>
+              <div style={{fontSize:11,fontStyle:"italic",color:dark?"#B0BEC9":"var(--ink-mid)",marginTop:4}}>{s.delta}</div>
+              <div style={{marginTop:14,position:"relative",height:6,borderRadius:99,background:dark?"rgba(255,255,255,0.08)":"rgba(91,79,79,0.08)"}}>
+                <div style={{position:"absolute",inset:0,width:`${s.p}%`,background:"linear-gradient(90deg,var(--gold),var(--gold-dk))",borderRadius:99,boxShadow:"0 0 8px rgba(212,168,85,0.5)"}}/>
+                {[25,50,75].map(t=><div key={t} style={{position:"absolute",top:-1,left:`${t}%`,width:1,height:8,background:dark?"rgba(255,255,255,0.22)":"rgba(91,79,79,0.22)"}}/>)}
+              </div>
+              <div style={{fontSize:10,color:dark?"#B0BEC9":"var(--ink-lt)",marginTop:6,fontStyle:"italic"}}>{s.p}th percentile</div>
+            </div>
+          ))}
+        </div>
+
+        <Ornament/>
+        <div style={{fontSize:11,color:dark?"#B0BEC9":"var(--ink-mid)",fontStyle:"italic",textAlign:"center"}}>
+          Tracked against WHO curves. Not medical advice — just a friendly line on the page.
+        </div>
+      </div>
+      <MascotSig dark={dark} pose="thinking"/>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 5. FIRST-OF — "first giggle" — Story 9:16
+// ─────────────────────────────────────────────────────────────────────
+function FirstOf({format, privacy, dark}){
+  const W = format==="square"?540:format==="landscape"?900:540;
+  const H = format==="square"?540:format==="landscape"?506:960;
+  const isLandscape = format==="landscape";
+  return (
+    <div className={"scard"+(dark?" dark":"")} style={{width:W,height:H}}>
+      <Sparkles n={12} seed={5}/>
+      <div style={{position:"absolute",inset:isLandscape?28:28,display:"flex",flexDirection:isLandscape?"row":"column",gap:isLandscape?24:0}}>
+        {/* Left: framed mascot */}
+        <div style={{
+          flex:isLandscape?"0 0 46%":"none",
+          width:isLandscape?"auto":"100%",
+          height:isLandscape?"100%":format==="square"?200:340,
+          borderRadius:18,overflow:"hidden",position:"relative",
+          background:"radial-gradient(ellipse at 50% 40%,#F5E1D8 0%,#E8C4B5 100%)",
+          boxShadow:"0 0 0 1px rgba(212,168,85,0.5) inset, 0 0 0 6px rgba(255,252,248,0.6) inset, 0 4px 20px rgba(180,130,110,0.25)",
+          display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:12,
+        }}>
+          <img src="../../assets/obubba-happy.png" alt="" style={{width:"78%",height:"auto",maxHeight:"90%",objectFit:"contain",filter:"drop-shadow(0 6px 16px rgba(180,130,110,0.3))"}}/>
+          <div style={{position:"absolute",top:12,left:12,right:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span className="eyebrow">The first</span>
+            <span className="eyebrow">N°1</span>
+          </div>
+        </div>
+
+        {/* Right: editorial caption */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",padding:isLandscape?"0 8px 0 4px":"16px 4px 0",color:dark?"#F0F2F5":"var(--ink)"}}>
+          <div className="eyebrow" style={{marginBottom:6}}>A First · 6 mo</div>
+          <div className="cursive" style={{fontSize:isLandscape?50:54,lineHeight:1,color:dark?"var(--gold-lt)":"var(--gold-dk)",marginBottom:8}}>
+            Giggle.
+          </div>
+          <div className="playf" style={{fontWeight:700,fontStyle:"italic",fontSize:isLandscape?22:26,lineHeight:1.2,color:dark?"#F0F2F5":"var(--ink)"}}>
+            A proper one. From the belly.
+          </div>
+          <div className="playf" style={{fontStyle:"italic",fontSize:13,lineHeight:1.55,color:dark?"#B0BEC9":"var(--ink-mid)",marginTop:12}}>
+            "Happened during peek-a-boo on the rug. Twice. Then he fell asleep on me, as if he'd done a full day's work."
+          </div>
+          <div style={{marginTop:14,display:"flex",gap:6,flexWrap:"wrap"}}>
+            <span className="chip gold">{name(privacy)}</span>
+            <span className="chip">23 April · 4:08pm</span>
+          </div>
+        </div>
+      </div>
+      <MascotSig dark={dark} pose="happy"/>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 6. RIGHT NOW — Square · status card (for quick send to partner)
+// ─────────────────────────────────────────────────────────────────────
+function RightNow({format, privacy, dark}){
+  const W = format==="story"?540:format==="landscape"?900:540;
+  const H = format==="story"?960:format==="landscape"?506:540;
+  return (
+    <div className={"scard"+(dark?" dark":"")} style={{width:W,height:H}}>
+      <Sparkles n={6} seed={9}/>
+      <div style={{position:"absolute",inset:28,display:"flex",flexDirection:"column"}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between"}}>
+          <div className="eyebrow">Right now · a quick note</div>
+          <div className="eyebrow mono">2:29pm</div>
+        </div>
+        <div className="hairline" style={{position:"relative",margin:"12px 0 16px",left:0,right:0}}/>
+
+        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:10}}>
+          <span style={{width:8,height:8,borderRadius:99,background:"var(--rose)",boxShadow:"0 0 10px var(--rose)"}}/>
+          <span className="eyebrow" style={{color:"var(--rose-dk)"}}>LIVE · AWAKE</span>
+        </div>
+
+        <div className="playf" style={{fontWeight:700,fontSize:42,lineHeight:1.02,color:dark?"#F0F2F5":"var(--ink)",textWrap:"balance"}}>
+          {name(privacy)} is <span style={{fontStyle:"italic",color:dark?"var(--gold-lt)":"var(--gold-dk)"}}>awake</span><br/>
+          <span style={{fontSize:24,fontWeight:400,fontStyle:"italic",color:dark?"#B0BEC9":"var(--ink-mid)"}}>and in a sunny little mood.</span>
+        </div>
+
+        <div style={{flex:1}}/>
+
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          {[
+            {k:"Last feed",v:"2h 14m",sub:"120ml · 12:15pm"},
+            {k:"Next nap",v:"~18m",sub:"around 3:33pm"},
+            {k:"Mood",v:"Sunny",sub:"5th hour awake",italic:true},
+          ].map(s=>(
+            <div key={s.k} style={{padding:"10px 12px",borderRadius:14,background:dark?"rgba(14,22,42,0.45)":"rgba(255,252,248,0.65)",border:`1px solid ${dark?"rgba(255,200,120,0.22)":"rgba(212,168,85,0.3)"}`}}>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#B0BEC9":"var(--ink-lt)"}}>{s.k}</div>
+              <div className="playf" style={{fontWeight:700,fontSize:22,lineHeight:1.1,color:dark?"var(--gold-lt)":"var(--gold-dk)",marginTop:2,fontStyle:s.italic?"italic":"normal"}}>{s.v}</div>
+              <div style={{fontSize:10,color:dark?"#B0BEC9":"var(--ink-mid)",marginTop:2,fontStyle:"italic"}}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <MascotSig dark={dark} pose="happy"/>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Catalogue definition
+// ─────────────────────────────────────────────────────────────────────
+const CATALOGUE = [
+  { key:"digest",    label:"Daily digest",     sub:"The shape of today",            format:"square",     Comp:DailyDigest },
+  { key:"milestone", label:"Milestone",        sub:"A first, unlocked",             format:"story",      Comp:Milestone },
+  { key:"recap",     label:"Weekly recap",     sub:"7 nights, 82 hours",            format:"landscape",  Comp:WeeklyRecap },
+  { key:"growth",    label:"Growth update",    sub:"6 month check-in",              format:"square",     Comp:GrowthCard },
+  { key:"first",     label:"First-of",         sub:"Giggle, captured",              format:"story",      Comp:FirstOf },
+  { key:"now",       label:"Right now",        sub:"A quick note to the group",     format:"square",     Comp:RightNow },
+];
+
+function Root(){
+  const [format, setFormat] = React.useState(localStorage.getItem("ob-sc-format")||"all");
+  const [privacy, setPrivacy] = React.useState(localStorage.getItem("ob-sc-priv")||"full");
+  const [mode, setMode] = React.useState(localStorage.getItem("ob-sc-mode")||"day");
+  const dark = mode==="night";
+  React.useEffect(()=>localStorage.setItem("ob-sc-format",format),[format]);
+  React.useEffect(()=>localStorage.setItem("ob-sc-priv",privacy),[privacy]);
+  React.useEffect(()=>localStorage.setItem("ob-sc-mode",mode),[mode]);
+  React.useEffect(()=>{
+    const bind=(id,set)=>{
+      document.querySelectorAll(`#${id} button`).forEach(b=>{
+        b.onclick=()=>{
+          document.querySelectorAll(`#${id} button`).forEach(x=>x.classList.remove("on"));
+          b.classList.add("on");
+          set(b.dataset.v);
+        };
+      });
+    };
+    bind("seg-format",setFormat); bind("seg-privacy",setPrivacy); bind("seg-mode",setMode);
+    // Sync visual state on first paint
+    const syn=(id,v)=>document.querySelectorAll(`#${id} button`).forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+    syn("seg-format",format); syn("seg-privacy",privacy); syn("seg-mode",mode);
+  },[]);
+
+  // Each card renders in its "native" format if "all"; otherwise forces chosen format
+  const formatOf = (native) => format==="all" ? native : format;
+
+  // Group by type
+  const byType = {
+    "Daily digest": ["digest"],
+    "Milestone · unlocked": ["milestone"],
+    "Weekly recap": ["recap"],
+    "Growth update": ["growth"],
+    "First-of": ["first"],
+    "Right now": ["now"],
+  };
+
+  return (
+    <>
+      {Object.entries(byType).map(([title, keys])=>(
+        <React.Fragment key={title}>
+          <div className="section-title">
+            <span>{title}</span>
+            <span className="rule"/>
+            <span className="k">{title==="Milestone · unlocked"?"rare · cherished":title==="Daily digest"?"daily · evening send":title==="Weekly recap"?"Sunday evening":title==="Growth update"?"monthly · after weigh-in":title==="First-of"?"special · keepsake":"casual · to partner"}</span>
+          </div>
+          <div className="canvas">
+            {keys.map(k=>{
+              const item = CATALOGUE.find(c=>c.key===k);
+              const fmt = formatOf(item.format);
+              const { Comp } = item;
+              return (
+                <div className="card-wrap" key={k}>
+                  <Comp format={fmt} privacy={privacy} dark={dark}/>
+                  <div className="card-cap"><b>{fmt}</b> · {item.sub}</div>
+                </div>
+              );
+            })}
+          </div>
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
+</script>
+</body>
+</html>

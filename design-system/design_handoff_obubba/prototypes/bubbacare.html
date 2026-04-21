@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OBubba — BubbaCare</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Parisienne&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rose:#C07088;--rose-dk:#A85A44;
+    --gold:#D4A855;--gold-dk:#B8892B;--gold-lt:#F3D98A;
+    --sage:#6FA898;--cream:#FFF8F2;
+    --ink:#4A3B35;--ink-mid:#7A6B6B;--ink-lt:#A89898;
+  }
+  html,body{margin:0;min-height:100vh;font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(ellipse 70% 55% at 15% 8%,rgba(245,218,210,0.45),transparent 70%),
+      radial-gradient(ellipse 50% 45% at 85% 12%,rgba(240,210,200,0.35),transparent 65%),
+      linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 45%,#F0DDD6 100%);
+    background-attachment:fixed;
+  }
+  .stage{max-width:1400px;margin:0 auto;padding:28px 22px 80px}
+  .hdr{display:flex;align-items:baseline;gap:14px;margin-bottom:4px}
+  .brand{font:400 52px/1 'Parisienne',cursive;color:var(--ink)}
+  .brand::first-letter{color:var(--gold-dk)}
+  .sub{font:600 11px/1 'DM Sans';color:var(--ink-lt);text-transform:uppercase;letter-spacing:0.18em}
+  .intro{font:italic 400 14px/1.55 'Playfair Display',serif;color:var(--ink-mid);max-width:700px;margin:6px 0 22px}
+  .intro b{font-style:normal;font-weight:700;color:var(--ink)}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:24px}
+  .seg{display:inline-flex;padding:3px;border-radius:99px;background:rgba(255,255,255,0.62);border:1px solid rgba(212,168,85,0.3);box-shadow:0 1.5px 0 rgba(255,255,255,0.9) inset}
+  .seg button{background:none;border:none;padding:7px 13px;border-radius:99px;cursor:pointer;font:700 12px 'DM Sans';color:var(--ink)}
+  .seg button.on{background:linear-gradient(135deg,var(--gold),var(--gold-dk));color:#fff;box-shadow:0 2px 6px rgba(184,137,43,0.35)}
+  .lbl{font:700 10px 'DM Sans';letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-lt);margin-right:6px}
+
+  .grid{display:flex;gap:32px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+  .frame-label{text-align:center;font:600 10px 'DM Sans';color:var(--ink-lt);text-transform:uppercase;letter-spacing:0.14em;margin-top:12px}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes obPulse{0%,100%{opacity:0.55;transform:scale(0.85)}50%{opacity:1;transform:scale(1.1)}}
+  @keyframes obBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}
+  .breathe{animation:obBreathe 3.8s ease-in-out infinite;transform-origin:center}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="hdr">
+    <div class="brand">BubbaCare</div>
+    <div class="sub">· Portal for the people who love your baby</div>
+  </div>
+  <p class="intro">
+    The premium cut of the carer portal. Open on a phone from a QR code — the <b>grandparent</b>, <b>sitter</b>, or <b>nursery</b> tap through a calm, read-mostly view of what baby needs. Switch audience below. Every tweak on the right panel writes through to the live prototype.
+  </p>
+  <div id="root"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel">
+const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
+  "audience": "grandparent",
+  "textSize": "xl",
+  "logDetail": "one_tap",
+  "theme": "gold",
+  "language": "warm",
+  "access": "quicklog"
+}/*EDITMODE-END*/;
+
+function Phone({children, dark, textSize}){
+  const scale = textSize==="xl"?1.18:textSize==="l"?1.08:textSize==="m"?1:0.94;
+  return (
+    <div style={{
+      width:390,height:844,borderRadius:44,overflow:"hidden",position:"relative",
+      fontFamily:"'DM Sans',system-ui,sans-serif",color:dark?"#F0F2F5":"#5B4F4F",
+      fontSize:`${16*scale}px`,
+      boxShadow:"0 24px 60px rgba(60,40,30,0.22),0 8px 24px rgba(60,40,30,0.12),inset 0 0 0 8px #1a1a1a,inset 0 0 0 9px rgba(255,255,255,0.08)",
+      background: dark
+        ? "radial-gradient(ellipse 65% 55% at 20% 20%,rgba(255,160,60,0.09),transparent 65%),linear-gradient(170deg,#080e1c 0%,#101d35 55%,#0c1628 100%)"
+        : "radial-gradient(ellipse 65% 55% at 15% 10%,rgba(245,218,210,0.35),transparent 70%),linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%)",
+    }}>
+      <div style={{position:"absolute",top:10,left:"50%",transform:"translateX(-50%)",width:110,height:32,borderRadius:20,background:"#000",zIndex:100}}/>
+      <div style={{position:"absolute",top:14,left:0,right:0,display:"flex",justifyContent:"space-between",padding:"0 28px",fontSize:15,fontWeight:600,color:dark?"#F0F2F5":"#5B4F4F",zIndex:101}}>
+        <span>9:41</span><span style={{letterSpacing:"2px"}}>●●●● 􀙇 􀛨</span>
+      </div>
+      <div style={{position:"absolute",inset:0,paddingTop:54}}>{children}</div>
+    </div>
+  );
+}
+
+// Theme palette per tweak
+const THEMES = {
+  gold:  { a:"#D4A855", ad:"#B8892B", alt:"#F3D98A", grad:"linear-gradient(135deg,#D4A855,#B8892B)" },
+  rose:  { a:"#C07088", ad:"#A85A44", alt:"#E6B3C2", grad:"linear-gradient(135deg,#C07088,#A85A44)" },
+  sage:  { a:"#6FA898", ad:"#4E8878", alt:"#A8D0C3", grad:"linear-gradient(135deg,#6FA898,#4E8878)" },
+};
+
+// Language tones
+const COPY = {
+  warm: {
+    hello:"Hello",
+    openWith:"Thank you for looking after",
+    whatNext:"What's next",
+    logTitle:"A tap for each thing",
+    logHint:"Tap once, you're done. You can add detail later if you like.",
+    handoffTitle:"The quick handover",
+    whenNeedHelp:"If anything worries you",
+    emergencyLine:"Tap to call — no need to ask first.",
+    recentTitle:"Today so far",
+  },
+  plain: {
+    hello:"Hi",
+    openWith:"You are caring for",
+    whatNext:"Coming up",
+    logTitle:"Log an event",
+    logHint:"One tap to save. Details optional.",
+    handoffTitle:"Key info",
+    whenNeedHelp:"Need help",
+    emergencyLine:"Tap a name to call.",
+    recentTitle:"Recent activity",
+  },
+  formal: {
+    hello:"Good day",
+    openWith:"Carer on duty for",
+    whatNext:"Upcoming",
+    logTitle:"Record activity",
+    logHint:"Single tap records timestamp. Add notes as required.",
+    handoffTitle:"Carer briefing",
+    whenNeedHelp:"Escalation",
+    emergencyLine:"Parent contact · tap to dial.",
+    recentTitle:"Activity log",
+  },
+};
+
+const AUDIENCES = {
+  grandparent: {label:"Grandparent", emoji:"👵🏻", carerName:"Gran", vibe:"calm, big"},
+  sitter:      {label:"Sitter / Nanny", emoji:"🧑‍🍼", carerName:"Maya", vibe:"in-the-moment"},
+  nursery:     {label:"Nursery staff", emoji:"🏡", carerName:"Magnolia Room", vibe:"professional"},
+};
+
+function Household({active, onPick, dark}){
+  const kids = [
+    {id:"oliver", name:"Oliver", age:"6 mo", emoji:"👶", dot:"#C07088"},
+    {id:"mila",   name:"Mila",   age:"3 yr", emoji:"👧🏻", dot:"#D4A855"},
+  ];
+  return (
+    <div style={{display:"flex",gap:6,padding:"0 14px 10px"}}>
+      {kids.map(k=>(
+        <button key={k.id} onClick={()=>onPick(k.id)} style={{
+          flex:1,display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:14,cursor:"pointer",
+          background: active===k.id ? (dark?"rgba(22,34,56,0.85)":"rgba(255,255,255,0.85)") : (dark?"rgba(14,22,42,0.4)":"rgba(255,252,248,0.5)"),
+          border: active===k.id ? `1.5px solid ${k.dot}` : `1px solid ${dark?"rgba(212,168,85,0.22)":"rgba(212,168,85,0.25)"}`,
+          boxShadow: active===k.id ? `0 2px 8px ${k.dot}33` : "none",
+          color: dark?"#F0F2F5":"#4A3B35",
+        }}>
+          <span style={{fontSize:18}}>{k.emoji}</span>
+          <div style={{textAlign:"left",lineHeight:1.1}}>
+            <div style={{fontSize:13,fontWeight:700}}>{k.name}</div>
+            <div style={{fontSize:10,color:dark?"#B0BEC9":"#A89A90"}}>{k.age}</div>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CareCard({children, dark, gold, padding="18px 18px", style}){
+  return (
+    <div style={{
+      position:"relative",borderRadius:20,padding,overflow:"hidden",isolation:"isolate",
+      background: dark
+        ? "linear-gradient(180deg,rgba(22,34,56,0.65),rgba(14,22,42,0.78))"
+        : "linear-gradient(180deg,rgba(255,255,255,0.70),rgba(255,248,242,0.55))",
+      border: `1px solid ${gold ? (dark?"rgba(224,184,106,0.5)":"rgba(212,168,85,0.45)") : (dark?"rgba(255,200,120,0.22)":"rgba(255,255,255,0.75)")}`,
+      backdropFilter:"blur(20px) saturate(1.6)",
+      WebkitBackdropFilter:"blur(20px) saturate(1.6)",
+      boxShadow: dark
+        ? `${gold?"0 0 0 1px rgba(224,184,106,0.35),":""}0 1px 0 rgba(255,210,140,0.18) inset,0 8px 20px rgba(0,0,0,0.36)`
+        : `${gold?"0 0 0 1px rgba(212,168,85,0.3),":""}0 1.5px 0 rgba(255,255,255,0.92) inset,0 8px 22px rgba(200,150,130,0.16)`,
+      ...style,
+    }}>{children}</div>
+  );
+}
+
+// ────── Hero: "right now" summary, with carer greeting ──────
+function CareHero({audience, tweaks, dark, theme, copy, child}){
+  const carer = AUDIENCES[audience].carerName;
+  const parentNote = audience==="grandparent"
+    ? "Bottle's in the fridge — top one, pink lid. He'll want it around 4."
+    : audience==="sitter"
+    ? "Back by 6:30. Mila's pick-up is covered by Alex. Call if anything."
+    : "Drop-off 8:45. Dairy allergy — full form on file.";
+
+  return (
+    <CareCard dark={dark} gold padding="18px 18px 16px">
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+        <div className={tweaks.anim==="still"?"":"breathe"} style={{flexShrink:0,filter:dark?"drop-shadow(0 2px 10px rgba(255,180,70,0.35))":"drop-shadow(0 2px 10px rgba(217,168,192,0.45))"}}>
+          <img src="assets/obubba-happy.png" alt="" style={{width:56,height:56}}/>
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.4em",color:dark?theme.alt:theme.ad,lineHeight:1}}>{copy.hello}, {carer}</div>
+          <div style={{fontSize:"0.78em",color:dark?"#B0BEC9":"#7A6B6B",marginTop:2,lineHeight:1.35,fontStyle:"italic"}}>
+            {copy.openWith} <b style={{fontStyle:"normal",color:dark?"#F0F2F5":"#4A3B35"}}>{child.name}</b>.
+          </div>
+        </div>
+      </div>
+
+      <div style={{padding:"12px 14px",borderRadius:14,background:dark?"rgba(14,22,42,0.45)":"rgba(255,252,248,0.65)",border:`1px solid ${dark?"rgba(255,200,120,0.2)":"rgba(212,168,85,0.3)"}`}}>
+        <div style={{fontSize:"0.6em",fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?theme.alt:theme.ad,marginBottom:4}}>
+          Note from {audience==="grandparent"?"Amelia":"the parents"}
+        </div>
+        <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontSize:"0.92em",lineHeight:1.45,color:dark?"#E8ECF0":"#4A3B35"}}>
+          "{parentNote}"
+        </div>
+      </div>
+
+      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:14}}>
+        <span style={{width:8,height:8,borderRadius:99,background:"#C07088",boxShadow:"0 0 10px #C07088",animation:"obPulse 1.8s ease-in-out infinite"}}/>
+        <div style={{fontSize:"0.65em",fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?theme.alt:theme.ad}}>Right now · awake · happy</div>
+      </div>
+    </CareCard>
+  );
+}
+
+// ────── What's next ──────
+function WhatsNext({dark, theme, copy, textScale}){
+  const items = [
+    {t:"~18 min",   l:"A nap",         sub:"Sleepy cues: eye-rubbing, fussy hands"},
+    {t:"1h 45 min", l:"Bottle · 120ml", sub:"Formula — pink lid in the fridge"},
+    {t:"4:30 pm",   l:"Nappy check",   sub:"Wipes on changing table"},
+  ];
+  return (
+    <CareCard dark={dark}>
+      <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:10}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.3em",color:dark?theme.alt:theme.ad,lineHeight:1}}>{copy.whatNext}</div>
+        <div style={{flex:1,height:1,background:`linear-gradient(90deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.55)"},transparent)`}}/>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {items.map((it,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",borderRadius:14,background:dark?"rgba(14,22,42,0.35)":"rgba(255,252,248,0.6)",border:`1px solid ${dark?"rgba(255,200,120,0.18)":"rgba(212,168,85,0.22)"}`}}>
+            <div style={{width:62,textAlign:"center",fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:"0.95em",color:dark?theme.alt:theme.ad,lineHeight:1}}>{it.t}</div>
+            <div style={{width:1,height:34,background:dark?"rgba(212,168,85,0.3)":"rgba(212,168,85,0.35)"}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:"0.88em",fontWeight:700,color:dark?"#F0F2F5":"#4A3B35",lineHeight:1.15}}>{it.l}</div>
+              <div style={{fontSize:"0.7em",color:dark?"#B0BEC9":"#7A6B6B",marginTop:2,fontStyle:"italic"}}>{it.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </CareCard>
+  );
+}
+
+// ────── Log panel — tweaks between 1-tap and detailed ──────
+function LogPanel({dark, theme, copy, logDetail}){
+  const [done, setDone] = React.useState({});
+  const tap = (k)=>setDone(d=>({...d,[k]:Date.now()}));
+  const simple = [
+    {k:"feed", emoji:"🍼", label:"Fed"},
+    {k:"sleep", emoji:"😴", label:"Sleeping"},
+    {k:"wake", emoji:"☀️", label:"Woke up"},
+    {k:"nappy", emoji:"💩", label:"Nappy"},
+  ];
+  return (
+    <CareCard dark={dark}>
+      <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:6}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.3em",color:dark?theme.alt:theme.ad,lineHeight:1}}>{copy.logTitle}</div>
+        <div style={{flex:1,height:1,background:`linear-gradient(90deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.55)"},transparent)`}}/>
+      </div>
+      <div style={{fontSize:"0.7em",fontStyle:"italic",color:dark?"#B0BEC9":"#7A6B6B",marginBottom:12,lineHeight:1.4}}>{copy.logHint}</div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {simple.map(a=>{
+          const isDone = done[a.k];
+          return (
+            <button key={a.k} onClick={()=>tap(a.k)} style={{
+              display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,
+              padding:"18px 8px",minHeight:88,borderRadius:16,cursor:"pointer",
+              background: isDone
+                ? (dark?"rgba(111,168,152,0.22)":"rgba(111,168,152,0.22)")
+                : (dark?"rgba(14,22,42,0.5)":"rgba(255,252,248,0.75)"),
+              border: `1.5px solid ${isDone ? "#6FA898" : (dark?"rgba(212,168,85,0.3)":"rgba(212,168,85,0.35)")}`,
+              color: dark?"#F0F2F5":"#4A3B35",
+              boxShadow: dark
+                ? "0 1px 0 rgba(255,210,140,0.14) inset, 0 6px 14px rgba(0,0,0,0.28)"
+                : "0 1.5px 0 rgba(255,255,255,0.9) inset, 0 6px 14px rgba(200,150,130,0.12)",
+              transition:"all 120ms",
+            }}>
+              <span style={{fontSize:"1.8em"}}>{a.emoji}</span>
+              <span style={{fontSize:"0.78em",fontWeight:700}}>{isDone?"✓ Logged":a.label}</span>
+              {isDone && <span style={{fontSize:"0.6em",color:"#4E8878",fontWeight:700,letterSpacing:"0.08em"}}>JUST NOW</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {logDetail==="detailed" && (
+        <div style={{marginTop:12,padding:"10px 12px",borderRadius:12,background:dark?"rgba(14,22,42,0.35)":"rgba(255,252,248,0.55)",border:`1px dashed ${dark?"rgba(212,168,85,0.35)":"rgba(212,168,85,0.4)"}`}}>
+          <div style={{fontSize:"0.6em",fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?theme.alt:theme.ad,marginBottom:6}}>Add detail (optional)</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {["30ml","60ml","120ml","180ml","Left","Right","Wet","Dirty","Fussy","Happy"].map(t=>(
+              <span key={t} style={{padding:"5px 10px",borderRadius:99,fontSize:"0.7em",fontWeight:700,background:dark?"rgba(22,34,56,0.7)":"rgba(255,255,255,0.7)",border:`1px solid ${dark?"rgba(212,168,85,0.3)":"rgba(212,168,85,0.35)"}`,color:dark?"#F0F2F5":"#4A3B35"}}>{t}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </CareCard>
+  );
+}
+
+// ────── Handoff briefing ──────
+function Handoff({dark, theme, copy, audience, child}){
+  const items = [
+    {k:"Allergies",  v:"Dairy (trace level). Check every label.",  urg:true, emoji:"⚠️"},
+    {k:"Medications",v:"None today.",                              urg:false, emoji:"💊"},
+    {k:"Nap routine",v:"White noise on · room 19°C · sleepsack (pink).", urg:false, emoji:"😴"},
+    {k:"Feeding",    v:"120ml every 3h. Prefers the pink-lid bottle.", urg:false, emoji:"🍼"},
+    {k:"Comfort",    v:"Soft bunny. Songs work better than rocking.", urg:false, emoji:"🧸"},
+  ];
+  return (
+    <CareCard dark={dark}>
+      <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:10}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.3em",color:dark?theme.alt:theme.ad,lineHeight:1}}>{copy.handoffTitle}</div>
+        <div style={{flex:1,height:1,background:`linear-gradient(90deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.55)"},transparent)`}}/>
+        <div style={{fontSize:"0.6em",fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:dark?"#B0BEC9":"#A89A90"}}>About {child.name}</div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {items.map((it,i)=>(
+          <div key={i} style={{
+            display:"flex",alignItems:"flex-start",gap:10,padding:"9px 12px",borderRadius:12,
+            background: it.urg ? "rgba(201,64,48,0.08)" : (dark?"rgba(14,22,42,0.35)":"rgba(255,252,248,0.55)"),
+            border: it.urg ? "1px solid rgba(201,64,48,0.35)" : `1px solid ${dark?"rgba(212,168,85,0.18)":"rgba(212,168,85,0.22)"}`,
+          }}>
+            <span style={{fontSize:"1em",lineHeight:1.2}}>{it.emoji}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:"0.62em",fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:it.urg?"#C94030":(dark?"#B0BEC9":"#A89A90")}}>{it.k}</div>
+              <div style={{fontSize:"0.82em",lineHeight:1.35,color:dark?"#F0F2F5":"#4A3B35",marginTop:1}}>{it.v}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </CareCard>
+  );
+}
+
+// ────── Recent activity ──────
+function Recent({dark, theme, copy}){
+  const ent = [
+    {icon:"🍼", t:"Bottle · 120ml",    sub:"By Mum", time:"2:15pm"},
+    {icon:"😴", t:"Nap · 1h 12m",       sub:"By Mum", time:"12:30pm"},
+    {icon:"💩", t:"Nappy · dirty",      sub:"By Dad", time:"11:58am"},
+  ];
+  return (
+    <CareCard dark={dark}>
+      <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:8}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.3em",color:dark?theme.alt:theme.ad,lineHeight:1}}>{copy.recentTitle}</div>
+        <div style={{flex:1,height:1,background:`linear-gradient(90deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.55)"},transparent)`}}/>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+        {ent.map((e,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:12,background:dark?"rgba(14,22,42,0.3)":"rgba(255,252,248,0.5)",border:`1px solid ${dark?"rgba(212,168,85,0.15)":"rgba(212,168,85,0.2)"}`}}>
+            <span style={{fontSize:"1.1em"}}>{e.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:"0.8em",fontWeight:700,color:dark?"#F0F2F5":"#4A3B35"}}>{e.t}</div>
+              <div style={{fontSize:"0.65em",color:dark?"#B0BEC9":"#7A6B6B",fontStyle:"italic"}}>{e.sub}</div>
+            </div>
+            <div style={{fontFamily:"'Playfair Display',serif",fontStyle:"italic",fontWeight:600,fontSize:"0.8em",color:dark?theme.alt:theme.ad}}>{e.time}</div>
+          </div>
+        ))}
+      </div>
+    </CareCard>
+  );
+}
+
+// ────── Emergency ──────
+function Emergency({dark, theme, copy}){
+  const contacts = [
+    {n:"Amelia (Mum)", r:"Always try first",  num:"07…482"},
+    {n:"Ben (Dad)",     r:"Backup",            num:"07…317"},
+    {n:"GP · Dr Shah", r:"Medical",           num:"020…"},
+  ];
+  return (
+    <CareCard dark={dark} style={{borderColor:"rgba(201,64,48,0.4)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.3em",color:"#C94030",lineHeight:1}}>{copy.whenNeedHelp}</div>
+        <div style={{flex:1,height:1,background:"linear-gradient(90deg,rgba(201,64,48,0.45),transparent)"}}/>
+      </div>
+      <div style={{fontSize:"0.7em",fontStyle:"italic",color:dark?"#B0BEC9":"#7A6B6B",marginBottom:10}}>{copy.emergencyLine}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        {contacts.map((c,i)=>(
+          <button key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",borderRadius:14,cursor:"pointer",textAlign:"left",
+            background:"linear-gradient(135deg,#C94030 0%,#A82820 100%)",color:"#fff",border:"none",
+            boxShadow:"0 0 0 1px rgba(255,180,140,0.3) inset,0 2px 6px rgba(201,64,48,0.4)"}}>
+            <span style={{fontSize:"1.1em"}}>📞</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:"0.85em",fontWeight:700,lineHeight:1.1}}>{c.n}</div>
+              <div style={{fontSize:"0.65em",opacity:0.85}}>{c.r}</div>
+            </div>
+            <div style={{fontFamily:"ui-monospace,Menlo,monospace",fontSize:"0.78em",opacity:0.9}}>{c.num}</div>
+          </button>
+        ))}
+      </div>
+    </CareCard>
+  );
+}
+
+// ────── Nursery-only: multi-child roster ──────
+function NurseryRoster({dark, theme}){
+  const kids = [
+    {n:"Oliver P.", r:"Magnolia · 6 mo", status:"Napping", color:"#6FA898", t:"00:42"},
+    {n:"Mila P.",   r:"Willow · 3 yr",   status:"Snack",   color:"#D4A855", t:"Now"},
+    {n:"Theo K.",   r:"Magnolia · 7 mo", status:"Crying",  color:"#C94030", t:"2m"},
+    {n:"Ava L.",    r:"Magnolia · 5 mo", status:"Feeding", color:"#C07088", t:"00:04"},
+  ];
+  return (
+    <CareCard dark={dark}>
+      <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:10}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.3em",color:dark?theme.alt:theme.ad,lineHeight:1}}>Today's cohort</div>
+        <div style={{flex:1,height:1,background:`linear-gradient(90deg,${dark?"rgba(212,168,85,0.5)":"rgba(212,168,85,0.55)"},transparent)`}}/>
+        <div style={{fontSize:"0.6em",fontWeight:700,letterSpacing:"0.14em",color:dark?"#B0BEC9":"#A89A90"}}>4 · MAG. ROOM</div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+        {kids.map((k,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:12,background:dark?"rgba(14,22,42,0.35)":"rgba(255,252,248,0.6)",border:`1px solid ${dark?"rgba(212,168,85,0.18)":"rgba(212,168,85,0.2)"}`}}>
+            <div style={{width:26,height:26,borderRadius:99,background:k.color+"33",border:`2px solid ${k.color}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7em",fontWeight:700,color:dark?"#F0F2F5":"#4A3B35"}}>{k.n[0]}</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:"0.82em",fontWeight:700,color:dark?"#F0F2F5":"#4A3B35"}}>{k.n}</div>
+              <div style={{fontSize:"0.65em",color:dark?"#B0BEC9":"#7A6B6B",fontStyle:"italic"}}>{k.r}</div>
+            </div>
+            <span style={{padding:"3px 8px",borderRadius:99,fontSize:"0.62em",fontWeight:700,background:k.color+"22",color:k.color,letterSpacing:"0.08em",textTransform:"uppercase"}}>{k.status}</span>
+            <div style={{fontFamily:"ui-monospace,Menlo,monospace",fontSize:"0.7em",color:dark?"#B0BEC9":"#A89A90"}}>{k.t}</div>
+          </div>
+        ))}
+      </div>
+    </CareCard>
+  );
+}
+
+// ────── Screen composition ──────
+function CareScreen({tweaks, dark}){
+  const theme = THEMES[tweaks.theme] || THEMES.gold;
+  const copy = COPY[tweaks.language] || COPY.warm;
+  const audience = tweaks.audience;
+  const [childId, setChildId] = React.useState("oliver");
+  const child = childId==="oliver" ? {name:"Oliver", age:"6 mo"} : {name:"Mila", age:"3 yr"};
+
+  return (
+    <div style={{padding:"14px 0 32px",display:"flex",flexDirection:"column",gap:12,height:"100%",overflowY:"auto"}}>
+      {/* Header */}
+      <div style={{padding:"0 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:"1.8em",color:dark?theme.alt:"#5B4F4F",lineHeight:1}}>BubbaCare</div>
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:99,background:dark?"rgba(22,34,56,0.65)":"rgba(255,255,255,0.6)",border:`1px solid ${dark?"rgba(212,168,85,0.3)":"rgba(212,168,85,0.3)"}`}}>
+          <span style={{fontSize:"0.9em"}}>{AUDIENCES[audience].emoji}</span>
+          <span style={{fontSize:"0.7em",fontWeight:700,color:dark?"#F0F2F5":"#4A3B35"}}>{AUDIENCES[audience].carerName}</span>
+        </div>
+      </div>
+
+      <Household active={childId} onPick={setChildId} dark={dark}/>
+
+      <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:10}}>
+        <CareHero audience={audience} tweaks={tweaks} dark={dark} theme={theme} copy={copy} child={child}/>
+
+        {audience==="nursery" && <NurseryRoster dark={dark} theme={theme}/>}
+
+        <WhatsNext dark={dark} theme={theme} copy={copy} textScale={1}/>
+
+        {(tweaks.access==="quicklog" || tweaks.access==="full") && (
+          <LogPanel dark={dark} theme={theme} copy={copy} logDetail={tweaks.logDetail}/>
+        )}
+        {tweaks.access==="readonly" && (
+          <CareCard dark={dark}>
+            <div style={{fontSize:"0.7em",fontStyle:"italic",color:dark?"#B0BEC9":"#7A6B6B",textAlign:"center",padding:"4px 0"}}>
+              View only — parents haven't enabled logging for this share link.
+            </div>
+          </CareCard>
+        )}
+
+        <Handoff dark={dark} theme={theme} copy={copy} audience={audience} child={child}/>
+        <Recent dark={dark} theme={theme} copy={copy}/>
+        <Emergency dark={dark} theme={theme} copy={copy}/>
+
+        <div style={{textAlign:"center",fontSize:"0.65em",fontStyle:"italic",color:dark?"#B0BEC9":"#A89A90",marginTop:4}}>
+          Share link expires at 8pm tonight · No data stored on this device 💛
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────── Tweaks panel ──────
+function Panel({tweaks, setTweaks, visible, onClose}){
+  if(!visible) return null;
+  const Row=({label,children})=>(<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}><div style={{fontSize:10,fontWeight:700,letterSpacing:"0.14em",textTransform:"uppercase",color:"#7A6B6B"}}>{label}</div>{children}</div>);
+  const Seg=({value,options,onChange})=>(
+    <div style={{display:"flex",gap:4,padding:3,borderRadius:99,background:"rgba(255,252,248,0.7)",border:"1px solid rgba(212,168,85,0.3)"}}>
+      {options.map(o=>(
+        <button key={o.v} onClick={()=>onChange(o.v)} style={{flex:1,padding:"7px 8px",borderRadius:99,border:"none",cursor:"pointer",fontSize:11,fontWeight:700,background:value===o.v?"linear-gradient(135deg,#D4A855,#B8892B)":"transparent",color:value===o.v?"#fff":"#5B4F4F",boxShadow:value===o.v?"0 2px 6px rgba(184,137,43,0.3)":"none"}}>{o.l}</button>
+      ))}
+    </div>
+  );
+  return (
+    <div style={{position:"fixed",right:20,top:80,width:300,padding:"16px 18px 12px",borderRadius:22,background:"rgba(255,252,248,0.94)",backdropFilter:"blur(22px) saturate(1.6)",border:"1px solid rgba(212,168,85,0.4)",boxShadow:"0 0 0 1px rgba(212,168,85,0.25),0 20px 48px rgba(180,130,110,0.22),0 2px 0 rgba(255,255,255,0.95) inset",fontFamily:"'DM Sans',sans-serif",color:"#5B4F4F",zIndex:100}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div style={{fontFamily:"'Parisienne',cursive",fontSize:22,color:"#5B4F4F",lineHeight:1}}>Tweaks</div>
+        <button onClick={onClose} style={{border:"none",background:"rgba(212,168,85,0.14)",width:26,height:26,borderRadius:99,cursor:"pointer",color:"#5B4F4F",fontSize:14}}>×</button>
+      </div>
+      <Row label="Audience"><Seg value={tweaks.audience} options={[{v:"grandparent",l:"Grandparent"},{v:"sitter",l:"Sitter"},{v:"nursery",l:"Nursery"}]} onChange={v=>setTweaks({...tweaks,audience:v})}/></Row>
+      <Row label="Text size"><Seg value={tweaks.textSize} options={[{v:"m",l:"Medium"},{v:"l",l:"Large"},{v:"xl",l:"XL · Gran"}]} onChange={v=>setTweaks({...tweaks,textSize:v})}/></Row>
+      <Row label="Log detail"><Seg value={tweaks.logDetail} options={[{v:"one_tap",l:"One-tap"},{v:"detailed",l:"Detailed"}]} onChange={v=>setTweaks({...tweaks,logDetail:v})}/></Row>
+      <Row label="Colour theme"><Seg value={tweaks.theme} options={[{v:"gold",l:"Gold"},{v:"rose",l:"Rose"},{v:"sage",l:"Sage"}]} onChange={v=>setTweaks({...tweaks,theme:v})}/></Row>
+      <Row label="Language / tone"><Seg value={tweaks.language} options={[{v:"warm",l:"Warm"},{v:"plain",l:"Plain"},{v:"formal",l:"Formal"}]} onChange={v=>setTweaks({...tweaks,language:v})}/></Row>
+      <Row label="Access"><Seg value={tweaks.access} options={[{v:"readonly",l:"Read-only"},{v:"quicklog",l:"Quick-log"},{v:"full",l:"Full"}]} onChange={v=>setTweaks({...tweaks,access:v})}/></Row>
+      <div style={{fontSize:10,color:"#A89898",fontStyle:"italic",textAlign:"center",marginTop:6}}>Live — edits apply to the phone.</div>
+    </div>
+  );
+}
+
+function Root(){
+  const [tweaks,setTweaks] = React.useState(()=>{try{return {...DEFAULT_TWEAKS,...JSON.parse(localStorage.getItem("ob-bc-tweaks")||"{}")};}catch{return DEFAULT_TWEAKS;}});
+  const [dark,setDark] = React.useState(()=>localStorage.getItem("ob-bc-dark")==="1");
+  const [panelOpen,setPanelOpen] = React.useState(true);
+  const [hostEdit,setHostEdit] = React.useState(false);
+  React.useEffect(()=>localStorage.setItem("ob-bc-tweaks",JSON.stringify(tweaks)),[tweaks]);
+  React.useEffect(()=>localStorage.setItem("ob-bc-dark",dark?"1":"0"),[dark]);
+  React.useEffect(()=>{
+    const h=(e)=>{if(!e.data||typeof e.data!=="object")return;if(e.data.type==="__activate_edit_mode"){setHostEdit(true);setPanelOpen(true);}if(e.data.type==="__deactivate_edit_mode"){setHostEdit(false);setPanelOpen(false);}};
+    window.addEventListener("message",h);
+    try{window.parent.postMessage({type:"__edit_mode_available"},"*");}catch(e){}
+    return()=>window.removeEventListener("message",h);
+  },[]);
+  const update=(next)=>{setTweaks(next);if(hostEdit){try{window.parent.postMessage({type:"__edit_mode_set_keys",edits:next},"*");}catch(e){}}};
+
+  return (
+    <>
+      <div className="controls">
+        <span className="lbl">Audience</span>
+        <div className="seg">
+          {Object.entries(AUDIENCES).map(([k,a])=>(
+            <button key={k} className={tweaks.audience===k?"on":""} onClick={()=>update({...tweaks,audience:k})}>{a.emoji} {a.label}</button>
+          ))}
+        </div>
+        <span className="lbl" style={{marginLeft:14}}>Mode</span>
+        <div className="seg">
+          <button className={!dark?"on":""} onClick={()=>setDark(false)}>☀️ Day</button>
+          <button className={dark?"on":""} onClick={()=>setDark(true)}>🌙 Night</button>
+        </div>
+        <div style={{flex:1}}/>
+        <button className="seg" onClick={()=>setPanelOpen(v=>!v)} style={{background:"linear-gradient(135deg,#C07088,#A85A44)",border:"none",padding:"8px 14px",color:"#fff",fontWeight:700,fontSize:12,borderRadius:99,cursor:"pointer",boxShadow:"0 2px 6px rgba(168,90,68,0.35)"}}>
+          ✨ {panelOpen?"Close tweaks":"Open tweaks"}
+        </button>
+      </div>
+      <div className="grid">
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+          <Phone dark={dark} textSize={tweaks.textSize}>
+            <CareScreen tweaks={tweaks} dark={dark}/>
+          </Phone>
+          <div className="frame-label">Live · {AUDIENCES[tweaks.audience].label} · {dark?"night":"day"} · {tweaks.textSize}-text · {tweaks.theme}</div>
+        </div>
+      </div>
+      <Panel tweaks={tweaks} setTweaks={update} visible={panelOpen} onClose={()=>setPanelOpen(false)}/>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
+</script>
+</body>
+</html>

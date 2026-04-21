@@ -9241,6 +9241,19 @@ function App(){
           // Parent can still undo via the review banner.
           // Skip anything already marked merged in the cloud doc (another
           // device merged it first) OR in our local persistent set.
+          // Also re-process if start time changed on an active nap (carer edited time)
+          const _isUpdatedNap = _e.type==="nap" && _e._active && _autoMergedIds.has(d.id) && napOn && napEntryId;
+          if (_isUpdatedNap && _e.start && _e.start !== napStartT) {
+            // Carer changed the nap start time — update the timer
+            const [_ush,_usm] = _e.start.split(":").map(Number);
+            const _uNow = new Date();
+            let _uElapsed = (_uNow.getHours()*3600+_uNow.getMinutes()*60+_uNow.getSeconds()) - (_ush*3600+_usm*60);
+            if(_uElapsed<0) _uElapsed+=86400;
+            setNapStartT(_e.start); setNapSec(_uElapsed);
+            try{localStorage.setItem("nap_startT",_e.start);}catch{}
+            // Update the entry in days too
+            setDays(d2=>{const existing=d2[todayStr()]||[];return{...d2,[todayStr()]:existing.map(x=>x.carerEntryId===d.id?{...x,start:_e.start}:x)};});
+          }
           if (!_autoMergedIds.has(d.id) && !_e._merged && _e.type && _e.time) {
             _autoMergedIds.add(d.id);
             _pushPersist(d.id);
@@ -9249,8 +9262,26 @@ function App(){
             const _newEntry = {id:uid(), type:_e.type, time:_e.time, note:((_e.note||"")+" (from carer)").trim(), loggedBy:"carer", carerEntryId:d.id, modifiedAt:Date.now()};
             if(_e.type==="feed") { _newEntry.amount=_e.amount||0; _newEntry.feedType=_e.feedType||"bottle"; }
             if(_e.type==="poop"||_e.type==="nappy") { _newEntry.type="poop"; _newEntry.poopType=_e.poopType||"wet"; }
-            if(_e.type==="nap") { _newEntry.start=_e.start; _newEntry.end=_e.end; _newEntry.duration=_e.duration||0; }
+            if(_e.type==="nap") {
+              _newEntry.start=_e.start; _newEntry.end=_e.end; _newEntry.duration=_e.duration||0;
+              // If carer started a nap (active/ongoing), start the timer in the parent app
+              if(_e._active || !_e.end || _e.start===_e.end) {
+                _newEntry._active = true;
+                const _napStartTime = _e.start||nowTime();
+                const [_nsh,_nsm] = _napStartTime.split(":").map(Number);
+                const _nowDate = new Date();
+                let _elapsedSec = (_nowDate.getHours()*3600+_nowDate.getMinutes()*60+_nowDate.getSeconds()) - (_nsh*3600+_nsm*60);
+                if(_elapsedSec<0) _elapsedSec+=86400;
+                setNapOn(true); setNapStartT(_napStartTime); setNapSec(_elapsedSec); setNapEntryId(_newEntry.id);
+                setTimerMode("activeSleep");
+                try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",_e.start||nowTime());localStorage.setItem("nap_entry_id",_newEntry.id);localStorage.setItem("timer_mode_v1","activeSleep");}catch{}
+              }
+            }
             if(_e.type==="wake") { _newEntry.night = !!_e.night; }
+            // If carer logged a wake or nap-end while nap timer is running, stop it
+            if(_e.type==="wake" && napOn) {
+              setNapOn(false); endNap();
+            }
             setDays(d2=>({...d2,[_dayKey]:[...(d2[_dayKey]||[]),_newEntry]}));
             // Mark as merged but DON'T delete immediately — carer portal
             // reads from carer_logs for its "Recent" list. Deleting instantly
@@ -13276,8 +13307,26 @@ function App(){
         _timing = _napsDone + " naps done · Aim for bedtime ~" + (_earlyBedStr || "6:30pm");
         _rightNow = "An early bedtime protects overnight sleep better than a late nap.";
       } else {
-        _dot = "#7BA68C"; _label = "All good right now";
-        _timing = "Awake " + hm(_awakeMin) + " · Nap " + (_napsDone+1) + " still to come" + _longNapNote;
+        // Check if nap is overdue
+        const _napOverdue = (()=>{
+          try {
+            if (!_ww || !_naps.length) return false;
+            const _lastN2 = _naps.sort((a,b)=>timeVal({time:b.end||b.start})-timeVal({time:a.end||a.start}))[0];
+            const _le2 = _lastN2 && _lastN2.end ? timeVal({time:_lastN2.end}) : null;
+            if (_le2 === null) return false;
+            return _nowM > _le2 + _ww.max;
+          } catch { return false; }
+        })();
+        if (_napOverdue && _awakeMin > _ww.max) {
+          _dot = "#E8937A"; _label = "Nap " + (_napsDone+1) + " overdue";
+          _timing = "Awake " + hm(_awakeMin) + " · past the wake window (" + _ww.label + ")";
+          _reassure = "Watch for overtired signs. if " + _name + " won't settle, tap below.";
+          // Add "Nap not happening?" pill that opens the nap refused card
+          _secondary = (<button onClick={()=>{haptic();const _el=document.querySelector('[data-nap-refused-card]');if(_el){_el.scrollIntoView({behavior:'smooth',block:'center'});}else{setNapRefusedChoice(null);try{localStorage.removeItem("ob_nap_refused_choice_v1");}catch{}}}} style={{marginTop:6,padding:"8px 16px",borderRadius:99,border:"1.5px solid rgba(232,147,122,0.4)",background:"rgba(232,147,122,0.08)",color:"#E8937A",fontSize:12,fontWeight:700,cursor:_cP}}>😴 Nap not happening?</button>);
+        } else {
+          _dot = "#7BA68C"; _label = "All good right now";
+          _timing = "Awake " + hm(_awakeMin) + " · Nap " + (_napsDone+1) + " still to come" + _longNapNote;
+        }
       }
     }
     // ── PRIORITY 5c: All naps done. bedtime context ──
@@ -30411,44 +30460,52 @@ function App(){
         WebkitBackdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))"
       }}>
         {!nameEdit ? (
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,marginBottom:8}}>
-            {/* Avatar row: child dots left · avatar · add button right */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,width:"100%"}}>
-              {/* Child switcher dots. left of avatar. When 2+ kids exist,
-                  a small "compare" pill sits alongside the dots so parents
-                  of twins / close-age siblings can jump to the side-by-side
-                  view without digging through menus. */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:5,flex:1}}>
-                {childIds.map(cid=>(
-                  <button key={cid} aria-label={"Switch to child "+cid} onClick={e=>{e.stopPropagation();haptic();setActiveChildId(cid);}} style={{
-                    width:cid===resolvedActiveId?22:14,height:14,borderRadius:99,border:_bN,cursor:_cP,
-                    background:cid===resolvedActiveId?C.ter:"rgba(0,0,0,0.12)",transition:"all 0.25s",padding:0
-                  }}/>
-                ))}
-                {childIds.length >= 2 && (
-                  <button aria-label="Compare children" onClick={e=>{e.stopPropagation();haptic();setShowCompareKids(true);}}
-                    style={{marginLeft:4,padding:"3px 8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"rgba(255,255,255,0.6)",color:C.mid,cursor:_cP,fontSize:10,fontFamily:_fM,fontWeight:700,letterSpacing:"0.02em"}}>
-                    ⇄ Compare
-                  </button>
-                )}
+          <div style={{marginBottom:8}}>
+            {/* Compact header: photo+name left · OBubba centre · +Add right */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,width:"100%"}}>
+              {/* Left: avatar + name/age */}
+              <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} aria-label="Change baby photo" style={{width:44,height:44,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.7)",boxShadow:"0 2px 10px rgba(0,0,0,0.12)",cursor:_cP}}>
+                  <img src={activeChild.photo||"obubba-happy.png"} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
+                    onError={e=>{e.target.src="obubba-happy.png";}}/>
+                </div>
+                <div style={{cursor:_cP,minWidth:0}} onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}}>
+                  <div style={{fontSize:17,color:C.deep,fontWeight:700,lineHeight:1.2}}>{babyName || "Baby"}</div>
+                  {age && <div style={{fontSize:11,color:C.mid,fontFamily:_fM,marginTop:1}}>{fmtAge(age)}</div>}
+                  {!age && babyUnborn && babyDob && (()=>{
+                    const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
+                    return <div style={{fontSize:11,color:C.ter,fontWeight:600,fontFamily:_fM,marginTop:1}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
+                  })()}
+                  {!age && !babyUnborn && <div style={{fontSize:11,color:C.mid,fontFamily:_fM,marginTop:1,fontStyle:"italic"}}>Tap to set DOB</div>}
+                </div>
               </div>
-              {/* Avatar. centred */}
-              <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} aria-label="Change baby photo" style={{width:60,height:60,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.92)",boxShadow:"0 4px 14px rgba(0,0,0,0.12)",cursor:_cP}}>
-                <img src={activeChild.photo||"obubba-happy.png"} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
-                  onError={e=>{e.target.src="obubba-happy.png";}}/>
-              </div>
-              {/* Add child pill. right of avatar */}
-              <div style={{display:"flex",alignItems:"center",flex:1}}>
+              {/* Centre: OBubba wordmark */}
+              <div style={{fontFamily:"'Parisienne',cursive",fontSize:28,color:C.deep,letterSpacing:"-0.01em",flexShrink:0}}>OBubba</div>
+              {/* Right: +Add child */}
+              <div style={{display:"flex",alignItems:"center",flex:1,justifyContent:"flex-end"}}>
                 <button aria-label="Add child" onClick={e=>{
                   e.stopPropagation();
                   const childCount = Object.keys(childrenRef.current || {}).length;
                   if (!hasAccess() && childCount >= 1) { triggerPaywall("multi_baby"); return; }
                   setShowAddChild(true);
-                }} style={{display:"flex",alignItems:"center",gap:3,padding:"3px 8px 3px 6px",borderRadius:99,border:"1px dashed rgba(0,0,0,0.18)",background:"rgba(255,255,255,0.35)",color:C.lt,cursor:_cP,fontSize:10,fontFamily:_fM,fontWeight:600,letterSpacing:"0.02em"}}>
+                }} style={{display:"flex",alignItems:"center",gap:3,padding:"4px 10px 4px 7px",borderRadius:99,border:"1px dashed rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",color:C.lt,cursor:_cP,fontSize:10,fontFamily:_fM,fontWeight:600,letterSpacing:"0.03em",whiteSpace:"nowrap"}}>
                   <span style={{fontSize:12,lineHeight:1}}>+</span><span>Add child</span>
                 </button>
               </div>
             </div>
+            {/* Child switcher dots + compare */}
+            {childIds.length > 1 && <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:5,marginTop:8}}>
+              {childIds.map(cid=>(
+                <button key={cid} aria-label={"Switch to child "+cid} onClick={e=>{e.stopPropagation();haptic();setActiveChildId(cid);}} style={{
+                  width:cid===resolvedActiveId?18:7,height:7,borderRadius:99,border:_bN,cursor:_cP,
+                  background:cid===resolvedActiveId?C.ter:"rgba(255,255,255,0.15)",transition:"all 0.25s",padding:0
+                }}/>
+              ))}
+              <button aria-label="Compare children" onClick={e=>{e.stopPropagation();haptic();setShowCompareKids(true);}}
+                style={{marginLeft:4,padding:"3px 8px",borderRadius:99,border:`1px solid ${C.blush}`,background:"rgba(255,255,255,0.4)",color:C.mid,cursor:_cP,fontSize:10,fontFamily:_fM,fontWeight:700,letterSpacing:"0.02em"}}>
+                ⇄ Compare
+              </button>
+            </div>}
             <input ref={childPhotoInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
               const file=e.target.files?.[0];if(!file)return;
               const reader=new FileReader();
@@ -30459,21 +30516,6 @@ function App(){
               };reader.readAsDataURL(file);
               e.target.value="";
             }}/>
-            {/* Name. centred */}
-            <div style={{textAlign:"center",cursor:_cP}} onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:24,color:C.deep,fontWeight:700,lineHeight:1.1,letterSpacing:"-0.01em"}}>
-                {babyName || "Baby"}
-              </div>
-              {(()=>{
-                if (!age && !babyUnborn) return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:3,fontStyle:"italic"}}>Tap to add date of birth</div>;
-                if (babyUnborn && babyDob) {
-                  const daysUntil = Math.ceil((new Date(babyDob) - new Date()) / (1000*60*60*24));
-                  return <div style={{fontSize:12,color:C.ter,fontWeight:600,fontFamily:_fM,marginTop:3,letterSpacing:"0.02em"}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
-                }
-                if (!age) return null;
-                return <div style={{fontSize:12,color:C.mid,fontFamily:_fM,marginTop:3,letterSpacing:"0.03em",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><span>{fmtAge(age)}{age.months >= 1 ? ` \u00B7 ${age.totalWeeks}wk` : ""}</span>{age.totalWeeks < 6 && <span style={{fontSize:10,fontFamily:_fM,color:"#7b68ee",background:"rgba(123,104,238,0.08)",padding:"2px 8px",borderRadius:99}}>Newborn</span>}</div>;
-              })()}
-            </div>
           </div>
         ) : (
           <form onSubmit={e=>{e.preventDefault();setBabyName(nameIn.trim());setNameEdit(false);}} style={{display:"flex",gap:8,alignItems:"center",marginBottom:8}}>
@@ -31182,8 +31224,8 @@ function App(){
                   const _ww = getWakeWindow(_w);
                   const _projNextStart = _lastEndMins + _ww.min;
                   const _nowM = (()=>{const d=new Date();return d.getHours()*60+d.getMinutes();})();
-                  // Not overdue yet (within the window) — don't show the card.
-                  if (_nowM <= _projNextStart + 20) return null;
+                  // Show card when nap is 10+ min overdue (was 20 — too late, parent already frustrated)
+                  if (_nowM <= _projNextStart + 10) return null;
                   // Compute the three proposed bedtime scenarios.
                   const _earlyBedMins = clampBedtime(_lastEndMins + _ww.max, _w);
                   const _earlyBedStr = fmt12(`${String(Math.floor(_earlyBedMins/60)%24).padStart(2,"0")}:${String(_earlyBedMins%60).padStart(2,"0")}`);
@@ -31194,7 +31236,7 @@ function App(){
                   const _rescueBedStr = fmt12(`${String(Math.floor(_rescueBedMins/60)%24).padStart(2,"0")}:${String(_rescueBedMins%60).padStart(2,"0")}`);
                   const _name = babyName || "Baby";
                   return (
-                    <div className="ob-card-enter" style={{..._CARD.base, ..._CARD.tintLilac, padding:"16px 18px"}}>
+                    <div data-nap-refused-card className="ob-card-enter" style={{..._CARD.base, ..._CARD.tintLilac, padding:"16px 18px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                         <span style={_S.f20}>💭</span>
                         <div style={{..._TYPE.title, color:C.deep, fontSize:15}}>Nap not happening?</div>
@@ -31203,6 +31245,14 @@ function App(){
                         Common around this age as {_name}'s daytime sleep starts consolidating. Sleep consultants offer three paths — pick whichever fits today.
                       </div>
                       <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        <button onClick={()=>{haptic();pickNapRefusedChoice("retry");showToast("⏱ Try again in 15 min. change scenery first",2500,1);setTimeout(()=>{setNapRefusedChoice(null);try{localStorage.removeItem("ob_nap_refused_choice_v1");}catch{}},15*60*1000);}}
+                          style={{..._CARD.base, ..._CARD.tintWarm, margin:0, padding:"11px 14px", display:"flex", alignItems:"center", gap:10, cursor:_cP, border:"1.5px solid rgba(212,168,85,0.35)", textAlign:"left"}}>
+                          <span style={_S.f20}>🔄</span>
+                          <div style={{flex:1}}>
+                            <div style={{..._TYPE.title, color:C.deep}}>Try again in 15 min</div>
+                            <div style={{..._TYPE.caption, color:C.lt, marginTop:2}}>Change scenery · short walk · then try settling again</div>
+                          </div>
+                        </button>
                         <button onClick={()=>{haptic();pickNapRefusedChoice("rescue");setBridgeNap(true);setTimeout(()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},200);}}
                           style={{..._CARD.base, ..._CARD.tintMint, margin:0, padding:"11px 14px", display:"flex", alignItems:"center", gap:10, cursor:_cP, border:"1.5px solid rgba(111,168,152,0.35)", textAlign:"left"}}>
                           <span style={_S.f20}>🚶</span>
@@ -31224,12 +31274,12 @@ function App(){
                           <span style={_S.f20}>🌙</span>
                           <div style={{flex:1}}>
                             <div style={{..._TYPE.title, color:C.deep}}>Skip &amp; early bedtime</div>
-                            <div style={{..._TYPE.caption, color:C.lt, marginTop:2}}>Start routine now · bedtime ~{_earlyBedStr}</div>
+                            <div style={{..._TYPE.caption, color:C.lt, marginTop:2}}>Bedtime ~{_earlyBedStr} · pull forward 30-45 min</div>
                           </div>
                         </button>
                       </div>
                       <div style={{..._TYPE.caption, color:C.lt, marginTop:10, fontStyle:"italic", opacity:0.8}}>
-                        Not sure? Sleep consultants generally pick early bedtime after two+ failed attempts.
+                        Try once more first. Sleep consultants pick early bedtime after two failed attempts.
                       </div>
                     </div>
                   );
@@ -34576,7 +34626,8 @@ function App(){
 
               {/* 7. Daily timeline */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",color:C.mid,fontSize:14}}>Daytime</span>
+                <span style={{fontFamily:"'Playfair Display',Georgia,serif",fontStyle:"italic",fontWeight:700,fontSize:17,color:C.deep,lineHeight:1.1}}><em style={{color:C.ter,fontStyle:"italic"}}>Today</em>, at a glance</span>
+                <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:C.lt,textTransform:"uppercase"}}>{dayE.length} {dayE.length===1?"entry":"entries"}</span>
                 {dayE.length > 0 && <span style={{fontSize:11,color:C.lt,fontStyle:"italic"}}>press & hold to edit</span>}
               </div>
               {/* Swipe tutorial: show once per device after update */}
@@ -34661,8 +34712,20 @@ function App(){
                     // bottle. ml shown in badge chip, no subtitle needed
                     subDetail=null;
                   } else if(e.type==="nap"&&e.start){
-                    // Duration shown in badge chip; sub-detail is empty to avoid duplication
-                    subDetail = null;
+                    // Show wake window + sleep duration
+                    const _prevEntries = [...dayE].filter(p => { const pt = timeVal(p); const nt = timeVal(e); return pt < nt; }).sort((a,b)=>timeVal(a)-timeVal(b));
+                    let _wwAnchor = null;
+                    for (let j = _prevEntries.length - 1; j >= 0; j--) {
+                      if (_prevEntries[j].type === "nap" && _prevEntries[j].end) { _wwAnchor = _prevEntries[j].end; break; }
+                      if (_prevEntries[j].type === "wake" && !_prevEntries[j].night) { _wwAnchor = _prevEntries[j].time; break; }
+                    }
+                    const _napDur = e.start && e.end && e.end !== e.start ? minDiff(e.start, e.end) : null;
+                    const _wwMin = _wwAnchor ? (()=>{ const [ah,am]=_wwAnchor.split(":").map(Number); const [nh,nm]=e.start.split(":").map(Number); let d=(nh*60+nm)-(ah*60+am); if(d<0)d+=1440; return d>0&&d<720?d:null; })() : null;
+                    const parts = [];
+                    if (_wwMin) parts.push(`WW ${hm(_wwMin)}`);
+                    if (_napDur && _napDur > 0) parts.push(`Slept ${hm(_napDur)}`);
+                    if (e.napLocation) parts.push(e.napLocation);
+                    subDetail = parts.length ? parts.join(" · ") : null;
                   } else if(e.type==="poop"){
                     // Type shown in badge chip only. no subtitle duplication
                     // Also suppress notes that just describe the nappy type
@@ -34682,8 +34745,8 @@ function App(){
                     if(e._active || !e.end || e.start===e.end){
                       badgeVal='ongoing ⏱';
                     } else {
-                      const dur=e.start&&e.end?minDiff(e.start,e.end):0;
-                      badgeVal=dur>0?hm(dur):null;
+                      // Show location if available, otherwise duration
+                      badgeVal = e.napLocation || (e.start&&e.end?hm(minDiff(e.start,e.end)):null);
                     }
                   } else if(e.type==="poop"){
                     const raw = e.poopType||"";
@@ -34697,6 +34760,21 @@ function App(){
                     badgeVal=null; // time is already in actLabel
                   }
 
+                  // Premium timeline format
+                  const _entryTime = e.time || e.start || "";
+                  const _entryTimeEnd = e.type==="nap" && e.end && e.end !== e.start ? e.end : null;
+                  const _timeTop = _entryTime ? fmt12(_entryTime).replace(/(am|pm)/i,"") : "";
+                  const _timeSub = _entryTime ? (_entryTimeEnd ? "– "+fmt12(_entryTimeEnd).replace(/(am|pm)/i,"") : (fmt12(_entryTime).match(/(am|pm)/i)||[""])[0].toUpperCase()) : "";
+                  const _entryName = e.type==="feed"
+                    ? (e.feedType==="solids"?"Solids":e.feedType==="breast"?"Breast":e.feedType==="pump"?"Pump":"Bottle")
+                    : e.type==="nap"?(e.isBridge?"Bridge Nap":"Nap")
+                    : e.type==="sleep"?"Bedtime"
+                    : e.type==="wake"?"Wake"
+                    : e.type==="poop"?"Nappy"
+                    : NAMES[e.type]||e.type;
+                  const _isNapFeat = e.type==="nap" && e.end && e.end !== e.start;
+                  const _emoji = e.type==="feed"&&e.feedType==="solids"?"🥣":e.type==="feed"&&e.feedType==="breast"?"🤱":e.type==="nap"?"🌙":e.type==="poop"?"💧":ICONS[e.type]||"📝";
+
                   return(
                     <SwipeableEntry key={e.id} entryId={e.id} onEdit={()=>openEdit(e)} onDelete={()=>delEntry(e.id)}>
                       <div
@@ -34706,24 +34784,36 @@ function App(){
                         onDragOver={ev=>{ev.preventDefault();setDragOver(e.id);}}
                         onDragEnd={()=>{if(dragId&&dragOver&&dragId!==dragOver)reorderEntry(dragId,dragOver);setDragId(null);setDragOver(null);}}
                         onDrop={ev=>{ev.preventDefault();}}
-                        style={{background:isOver?"var(--card-bg-solid)":"var(--card-bg)",borderRadius:16,padding:"12px",border:`1px solid ${isOver?C.ter:C.blush}`,borderLeft:`3px solid ${accentCol}`,opacity:isDragging?0.45:1,backdropFilter:"blur(16px) saturate(1.6)",WebkitBackdropFilter:"blur(16px) saturate(1.6)",boxShadow:"var(--card-shadow)"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-                            <span style={{fontSize:16,flexShrink:0}}>{e.type==="feed"&&e.feedType==="solids"?"🥣":e.type==="feed"&&e.feedType==="breast"?"🤱":ICONS[e.type]||"📝"}</span>
-                            <div style={{minWidth:0}}>
-                              <div style={{fontSize:14,fontWeight:600,color:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"flex",alignItems:"center",gap:6}}>
-                                <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{actLabel}</span>
-                                {e.loggedBy==="grandparent" && <span title="Logged by caregiver" style={{fontSize:11,padding:"1px 6px",borderRadius:99,background:"rgba(123,166,140,0.15)",color:C.mint,fontWeight:700,flexShrink:0}}>👵</span>}
-                                {e.loggedBy==="carer" && <span title="Auto-added from Bubba Care" style={{fontSize:10,padding:"2px 6px",borderRadius:99,background:"rgba(123,104,238,0.12)",color:"#7B68EE",fontWeight:700,flexShrink:0,fontFamily:_fM}}>CARER</span>}
-                              </div>
-                              {subDetail&&<div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subDetail}</div>}
+                        style={{
+                          display:"flex",alignItems:"center",gap:12,
+                          padding:_isNapFeat?"14px":"11px 14px",borderRadius:_isNapFeat?18:14,
+                          background:_isNapFeat
+                            ?"radial-gradient(ellipse 100% 140% at 0% 0%,"+accentCol+"12,transparent 55%),var(--card-bg)"
+                            :"var(--card-bg)",
+                          border:`1px solid ${_isNapFeat?accentCol+"30":isOver?C.ter:C.blush}`,
+                          opacity:isDragging?0.45:1,
+                          backdropFilter:"blur(16px) saturate(1.6)",WebkitBackdropFilter:"blur(16px) saturate(1.6)",
+                          boxShadow:_isNapFeat?"0 0 0 1px "+accentCol+"15,var(--card-shadow)":"var(--card-shadow)",
+                        }}>
+                        {/* Time column */}
+                          <div style={{width:50,flexShrink:0,textAlign:"left"}}>
+                            <div style={{fontSize:12,fontWeight:600,color:C.ter,letterSpacing:"0.04em",fontVariantNumeric:"tabular-nums"}}>{_timeTop}</div>
+                            {_timeSub&&<div style={{fontSize:9,fontWeight:400,color:C.lt,marginTop:2,letterSpacing:"0.08em"}}>{_timeSub}</div>}
+                          </div>
+                          {/* Icon */}
+                          <div style={{width:30,height:30,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,borderRadius:99,background:accentCol+"08",border:"1px solid "+accentCol+"12"}}>{_emoji}</div>
+                          {/* Body */}
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:700,color:C.deep,lineHeight:1.2,display:"flex",alignItems:"center",gap:6}}>
+                              {_entryName}
+                              {e.loggedBy==="grandparent" && <span style={{fontSize:10,padding:"1px 6px",borderRadius:99,background:"rgba(123,166,140,0.15)",color:C.mint,fontWeight:700,flexShrink:0}}>👵</span>}
+                              {e.loggedBy==="carer" && <span style={{fontSize:9,padding:"2px 6px",borderRadius:99,background:"rgba(123,104,238,0.12)",color:"#7B68EE",fontWeight:700,flexShrink:0,fontFamily:_fM}}>CARER</span>}
                             </div>
+                            {subDetail&&<div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{subDetail}</div>}
                           </div>
-                          <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                            {badgeVal&&<Badge type={e.type}>{badgeVal}</Badge>}
-                          </div>
+                          {/* Badge */}
+                          {badgeVal&&<div style={{fontWeight:700,fontSize:13,color:e.type==="nap"?C.ter:C.deep,fontVariantNumeric:"tabular-nums",textAlign:"right",flexShrink:0}}>{badgeVal}</div>}
                         </div>
-                      </div>
                     </SwipeableEntry>
                   );
                 })}
