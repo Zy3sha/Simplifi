@@ -22,6 +22,8 @@ cp app.js public/app.js
 echo "Copying to dist/..."
 cp -f app.js dist/app.js
 cp -f app.jsx dist/app.jsx
+# Ensure font is in dist so cap copy includes it
+cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || true
 
 # Cache-bust: update ?v= on all index.html script tags
 echo "Cache busting..."

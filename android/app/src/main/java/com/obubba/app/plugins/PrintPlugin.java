@@ -1,5 +1,6 @@
 package com.obubba.app.plugins;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -32,7 +33,9 @@ public class PrintPlugin extends Plugin {
         String jobName = call.getString("jobName", "OBubba Document");
         if (html == null) { call.reject("html required"); return; }
 
-        getActivity().runOnUiThread(() -> {
+        Activity act = getActivity();
+        if (act == null) { call.reject("Activity not available"); return; }
+        act.runOnUiThread(() -> {
             try {
                 WebView webView = new WebView(getContext());
                 webView.getSettings().setJavaScriptEnabled(true);
@@ -46,6 +49,8 @@ public class PrintPlugin extends Plugin {
                             call.resolve();
                         } catch (Exception e) {
                             call.reject("Print failed: " + e.getMessage());
+                        } finally {
+                            view.destroy();
                         }
                     }
                 });
@@ -62,7 +67,9 @@ public class PrintPlugin extends Plugin {
         String fileName = call.getString("fileName", "document.pdf");
         if (html == null) { call.reject("html required"); return; }
 
-        getActivity().runOnUiThread(() -> {
+        Activity act = getActivity();
+        if (act == null) { call.reject("Activity not available"); return; }
+        act.runOnUiThread(() -> {
             try {
                 WebView webView = new WebView(getContext());
                 webView.getSettings().setJavaScriptEnabled(true);
@@ -87,6 +94,8 @@ public class PrintPlugin extends Plugin {
                             call.resolve(ret);
                         } catch (Exception e) {
                             call.reject("PDF generation failed: " + e.getMessage());
+                        } finally {
+                            view.destroy();
                         }
                     }
                 });

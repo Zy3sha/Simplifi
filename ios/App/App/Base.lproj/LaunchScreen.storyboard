@@ -14,32 +14,14 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="img-01">
-                                <rect key="frame" x="126.5" y="226" width="140" height="210"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="140" id="w01"/>
-                                    <constraint firstAttribute="height" constant="210" id="h01"/>
-                                </constraints>
-                            </imageView>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="OBubba" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="lbl-01">
-                                <rect key="frame" x="146.5" y="450" width="100" height="28"/>
-                                <fontDescription key="fontDescription" name="Georgia-Bold" family="Georgia" pointSize="22"/>
-                                <color key="textColor" red="0.357" green="0.310" blue="0.373" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                            </label>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Getting everything ready..." textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="lbl-02">
-                                <rect key="frame" x="96.5" y="486" width="200" height="18"/>
-                                <fontDescription key="fontDescription" type="system" pointSize="13"/>
-                                <color key="textColor" red="0.659" green="0.596" blue="0.596" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                            </label>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="img-01"/>
                         </subviews>
                         <color key="backgroundColor" red="0.941" green="0.867" blue="0.839" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                         <constraints>
-                            <constraint firstItem="img-01" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="cx01"/>
-                            <constraint firstItem="img-01" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" constant="-80" id="cy01"/>
-                            <constraint firstItem="lbl-01" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="cx02"/>
-                            <constraint firstItem="lbl-01" firstAttribute="top" secondItem="img-01" secondAttribute="bottom" constant="14" id="t01"/>
-                            <constraint firstItem="lbl-02" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="cx03"/>
-                            <constraint firstItem="lbl-02" firstAttribute="top" secondItem="lbl-01" secondAttribute="bottom" constant="8" id="t02"/>
+                            <constraint firstItem="img-01" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="t01"/>
+                            <constraint firstItem="img-01" firstAttribute="bottom" secondItem="Ze5-6b-2t3" secondAttribute="bottom" id="b01"/>
+                            <constraint firstItem="img-01" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="l01"/>
+                            <constraint firstItem="img-01" firstAttribute="trailing" secondItem="Ze5-6b-2t3" secondAttribute="trailing" id="r01"/>
                         </constraints>
                     </view>
                 </viewController>

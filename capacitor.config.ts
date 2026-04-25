@@ -4,7 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.obubba.app',
   appName: 'OBubba',
   webDir: 'dist',
-  bundledWebRuntime: false,
 
   // Server config for dev
   server: {
@@ -28,18 +27,11 @@ const config: CapacitorConfig = {
 
     // ── Splash Screen ──
     SplashScreen: {
-      launchShowDuration: 4000,
-      launchAutoHide: true, // Native failsafe: auto-hide after launchShowDuration even if JS errors
+      launchShowDuration: 0,
+      launchAutoHide: false,
+      launchFadeOutDuration: 300,
       backgroundColor: '#F0DDD6',
-      androidSplashResourceName: 'splash',
-      androidScaleType: 'CENTER_CROP',
       showSpinner: false,
-      iosSpinnerStyle: 'small',
-      spinnerColor: '#C07088',
-      splashFullScreen: true,
-      splashImmersive: true,
-      layoutName: 'launch_screen',
-      useDialog: false,
     },
 
     // ── Keyboard ──

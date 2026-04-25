@@ -154,6 +154,11 @@ private func clearActiveTimer() {
            let updatedJson = String(data: updated, encoding: .utf8) {
             defaults.set(updatedJson, forKey: "widgetData")
             defaults.synchronize()
+            // Also update the shared file so the widget reads the cleared timer immediately
+            if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: widgetAppGroupId) {
+                let fileURL = containerURL.appendingPathComponent("widgetData.json")
+                try? updatedJson.write(to: fileURL, atomically: true, encoding: .utf8)
+            }
         }
     }
     // End any Live Activity
@@ -429,8 +434,9 @@ struct OBubbaTimelineProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<OBubbaEntry>) -> Void) {
         let entry = loadEntry()
-        let interval = entry.data.activeTimer != nil ? 1 : 15
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: interval, to: Date())!
+        let hasActiveTimer = entry.data.activeTimer != nil && !entry.data.activeTimer!.isEmpty
+        let interval = hasActiveTimer ? 1 : 15
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: interval, to: Date()) ?? Date().addingTimeInterval(TimeInterval(interval * 60))
         completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
     }
 
@@ -1272,13 +1278,28 @@ struct OBubbaSummaryWidget: Widget {
 }
 
 @available(iOS 16.0, *)
+struct OBubbaLockScreenSwitcher: View {
+    let entry: OBubbaEntry
+    @Environment(\.widgetFamily) var family
+
+    var body: some View {
+        switch family {
+        case .accessoryInline:
+            OBubbaLockScreenInline(entry: entry)
+        default:
+            OBubbaLockScreenRectangular(entry: entry)
+        }
+    }
+}
+
+@available(iOS 16.0, *)
 struct OBubbaLockScreenAccessoryWidget: Widget {
     let kind: String = "OBubbaLockScreen"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: OBubbaTimelineProvider()) { entry in
             if #available(iOS 16.0, *) {
-                OBubbaLockScreenRectangular(entry: entry)
+                OBubbaLockScreenSwitcher(entry: entry)
             }
         }
         .configurationDisplayName("Baby Stats")

@@ -227,6 +227,8 @@ let sheet = null;
 let recentEntries = [];
 let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, babyPhoto: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [] };
 let _childrenCache = null; // used to recompute stats when carer entries arrive
+let _napEndedLocally = null; // set to end time when carer taps "Nap Ended" — forces render to treat nap as done
+let _nightWakePausedAt = null; // timestamp when carer tapped Night Wake — pauses timer display
 
 function todayStrLocal() {
   const d = new Date();
@@ -326,6 +328,15 @@ function _applyFamilyDoc(data) {
     familyContext.carerComfort = ci.carerComfort || "";
     familyContext.emergencyContacts = Array.isArray(ci.emergencyContacts) ? ci.emergencyContacts : [];
   } catch {}
+  // Parse prediction data from parent app
+  try {
+    const pred = JSON.parse(data.prediction || "{}");
+    familyContext.prediction = pred || {};
+  } catch { familyContext.prediction = {}; }
+  // Parse today's medicines from parent app
+  try {
+    familyContext.todayMeds = JSON.parse(data.todayMeds || "[]");
+  } catch { familyContext.todayMeds = []; }
   // Stamp the sync time so we can show "live · updated just now"
   familyContext._lastSyncedAt = Date.now();
 }
@@ -344,17 +355,24 @@ async function loadFamilyContext() {
 // portal showed whatever snapshot was current at page load and went
 // silent until the carer hard-refreshed.
 let _familyUnsub = null;
+// Debounced render — coalesces rapid onSnapshot/setInterval calls into a single paint
+let _renderTimer = null;
+function _debouncedRender() {
+  clearTimeout(_renderTimer); // trailing debounce — always uses latest state
+  _renderTimer = setTimeout(() => {
+    _renderTimer = null;
+    try { _mergeCarerEntries(); } catch(_) {}
+    try { _renderHtml(); } catch(_) {}
+    try { if (typeof updateRecentList === "function") updateRecentList(); } catch(_) {}
+  }, 80);
+}
 function subscribeFamilyContext() {
   if (_familyUnsub) return; // already subscribed
   try {
     _familyUnsub = onSnapshot(doc(db, "families", code), (snap) => {
       if (!snap.exists()) return;
       _applyFamilyDoc(snap.data());
-      // Re-merge any pending carer entries and re-render so the UI
-      // reflects the latest parent-side state in real time.
-      try { _mergeCarerEntries(); } catch(_) {}
-      try { _renderHtml(); } catch(_) {}
-      try { if (typeof updateRecentList === "function") updateRecentList(); } catch(_) {}
+      _debouncedRender();
     }, (err) => {
       console.warn("Family context subscription failed", err);
     });
@@ -495,12 +513,43 @@ function openSheet(type) {
     };
     sheet.querySelector("#cancel").onclick = closeSheet;
   } else if (type === "wake") {
-    logEntry({type:"wake", note:"Logged by caregiver"});
+    // Step 1: Pause the timer — mark night wake in progress
+    _nightWakePausedAt = Date.now();
+    _debouncedRender();
+    closeSheet();
+    return; // don't open a sheet yet — the render will show inline settle buttons
+  } else if (type === "night-settle") {
+    // Step 2: Carer chose how baby settled — log + resume timer
+    // This is called from inline settle buttons rendered in _renderHtml
+    return; // handled inline
   } else if (type === "morning-wake") {
+    _nightWakePausedAt = null; // clear any active night wake
     logEntry({type:"wake", night:false, note:"Morning wake · logged by caregiver"});
   } else if (type === "nap-end") {
-    // Log a wake to signal nap ended
-    logEntry({type:"wake", night:false, note:"Nap ended · logged by caregiver"});
+    const _endT = nowTime();
+    _napEndedLocally = _endT;
+    // Close the active nap in recentEntries so awake time calculates correctly
+    for (let i = 0; i < recentEntries.length; i++) {
+      if (recentEntries[i].type === "nap" && (recentEntries[i]._active || !recentEntries[i].end || recentEntries[i].start === recentEntries[i].end)) {
+        recentEntries[i].end = _endT;
+        recentEntries[i]._active = false;
+        break;
+      }
+    }
+    // Also close in familyContext entries
+    try {
+      const _fEntries = familyContext?.today?.entries || [];
+      for (let i = 0; i < _fEntries.length; i++) {
+        if (_fEntries[i].type === "nap" && (_fEntries[i]._active || !_fEntries[i].end || _fEntries[i].start === _fEntries[i].end)) {
+          _fEntries[i].end = _endT;
+          _fEntries[i]._active = false;
+          break;
+        }
+      }
+    } catch {}
+    logEntry({type:"nap-end", end:_endT, note:"Nap ended · logged by caregiver"});
+    // Re-render immediately so timer disappears and awake time recalculates
+    setTimeout(()=>{ try{_mergeCarerEntries();_renderHtml();}catch{} }, 100);
   } else if (type === "bedtime") {
     logEntry({type:"sleep", night:false, note:"Bedtime · logged by caregiver"});
   }
@@ -540,10 +589,7 @@ function renderApp() {
   onSnapshot(q, (snap) => {
     recentEntries = [];
     snap.forEach(d => recentEntries.push({id:d.id, ...d.data()}));
-    // Recompute today stats with pending entries merged, then re-render everything
-    _mergeCarerEntries();
-    _renderHtml();
-    updateRecentList();
+    _debouncedRender();
   });
   _renderHtml();
   // Format elapsed seconds: m:ss under 1h, h:mm:ss over 1h
@@ -570,7 +616,7 @@ function renderApp() {
     } catch {}
   }, 1000);
   // Full re-render every 2 mins (was 60s — less flicker)
-  setInterval(()=>{ try{_mergeCarerEntries();_renderHtml();}catch{} }, 120000);
+  setInterval(()=>{ _debouncedRender(); }, 120000);
 }
 
 function _renderHtml() {
@@ -642,47 +688,60 @@ function _renderHtml() {
     return (_nowMins-(eh*60+em)) >= 0 && (_nowMins-(eh*60+em)) <= 12;
   });
   // Prefer familyContext entries (parent-side, correct data), fall back to recentEntries
-  const activeNap = _findActiveNap(_t.entries || []) || _findActiveNap(recentEntries);
+  const activeNap = _napEndedLocally ? null : (_findActiveNap(_t.entries || []) || _findActiveNap(recentEntries));
   const _hasMorningWake = _allEntries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<12;})());
-  const _isNightSleep = _bedEntry && (_nowMins >= 18*60 || (_nowMins < 12*60 && !_hasMorningWake));
+  const _outerBedTimeMins = _bedEntry ? (parseInt((_bedEntry.time||"19:00").split(":")[0])*60+parseInt((_bedEntry.time||"19:00").split(":")[1]||0)) : 0;
+  const _isNightSleep = _bedEntry && ((_outerBedTimeMins >= 16*60 && _nowMins >= _outerBedTimeMins) || _nowMins >= 18*60 || (_nowMins < 12*60 && !_hasMorningWake));
   const _bedtimeMins = 19*60; // 7pm, typical bedtime cutoff
   const _nightCutoff = 20*60; // 8pm, after this, baby is winding down; no more feed/nap suggestions
   const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
   const _lastFeedTimeMins = _t.lastFeed ? (parseInt(_t.lastFeed.time.split(":")[0])*60 + parseInt(_t.lastFeed.time.split(":")[1])) : null;
+  // Parent prediction: is bedtime the next event?
+  const _pred0 = familyContext.prediction || {};
+  const _predIsBed = _pred0.nextPredictionLabel ? _pred0.nextPredictionLabel.toLowerCase().includes("bed") : false;
+  const _predBedMins = _predIsBed && _pred0.nextPrediction ? (()=>{try{const _p=_pred0.nextPrediction.replace(/[ap]m/i,"").split(":").map(Number);let h=_p[0];if(/pm/i.test(_pred0.nextPrediction)&&h<12)h+=12;if(/am/i.test(_pred0.nextPrediction)&&h===12)h=0;return h*60+(_p[1]||0);}catch{return null;}})() : null;
   // Feed interval: 3h for babies under 6mo, 3.5h from 6mo
   const _feedInterval = _weeks==null ? 180 : (_weeks<26 ? 180 : 210);
   let _nextFeedMins = _lastFeedTimeMins!=null ? (_lastFeedTimeMins + _feedInterval) : null;
   let _nextFeedStr = null;
-  // Only show if we're still in the active day (before night cutoff)
+  let _feedOverdue = false;
+  // Use predicted bedtime as cutoff when available, else fall back to generic 8pm
+  const _effectiveCutoff = _predBedMins || _nightCutoff;
   if (_nextFeedMins != null && _nowMins <= _nightCutoff) {
-    // Roll forward past-time predictions until they're in the future
-    let _guard = 0;
-    while (_nextFeedMins < _nowMins - 10 && _guard++ < 12) {
-      _nextFeedMins += _feedInterval;
-    }
-    // Only show if the rolled-forward time is still before night cutoff
-    if (_nextFeedMins <= _nightCutoff && _nextFeedMins < 1440) {
+    if (_nextFeedMins < _nowMins - 10) {
+      // Feed is overdue — tell carer to offer now, don't roll forward
+      _feedOverdue = true;
+      _nextFeedStr = "now";
+    } else if (_nextFeedMins <= _effectiveCutoff && _nextFeedMins < 1440) {
       _nextFeedStr = fmt12(String(Math.floor(_nextFeedMins/60)%24).padStart(2,"0")+":"+String(_nextFeedMins%60).padStart(2,"0"));
     }
   }
-  // Last nap end → next nap window
+  // Last nap end → next nap window (check both parent naps + carer-logged naps)
+  const _allCompletedNaps = [...(_t.naps||[]), ...recentEntries.filter(e=>e.type==="nap"&&e.end&&e.start!==e.end)];
+  const _lastNapForWindow = _allCompletedNaps.sort((a,b)=>(a.end||"").localeCompare(b.end||"")).pop() || _t.lastNap;
   let _napWindowStr = null;
-  if (_t.lastNap && _ww && _nowMins <= _nightCutoff) {
-    const [eh,em] = (_t.lastNap.end||"").split(":").map(Number);
+  if (_lastNapForWindow && _lastNapForWindow.end && _ww && _nowMins <= _nightCutoff) {
+    const [eh,em] = (_lastNapForWindow.end||"").split(":").map(Number);
     if(!isNaN(eh)) {
       const endMins = eh*60+em;
       const minStart = endMins + _ww.min;
       const maxStart = endMins + _ww.max;
-      // Hide if already past OR if it would start at/after typical bedtime
+      // Hide if already past, after bedtime, or nap would push past bedtime
       const _alreadyPast = maxStart <= _nowMins;
       const _afterBedtime = minStart >= _bedtimeMins;
-      if (minStart < 1440 && !_alreadyPast && !_afterBedtime) {
+      // If nap start + min nap duration (30m) + wind-down (30m) > bedtime, skip — bedtime wins
+      const _napWouldPushBedtime = (minStart + 60) >= _bedtimeMins;
+      // Also skip if baby already had age-appropriate nap count
+      const _napCount = _allCompletedNaps.length;
+      const _expectedNaps = _weeks == null ? 3 : _weeks < 17 ? 4 : _weeks < 26 ? 3 : _weeks < 39 ? 2 : _weeks < 65 ? 1 : 1;
+      const _enoughNaps = _napCount >= _expectedNaps;
+      if (minStart < 1440 && !_alreadyPast && !_afterBedtime && !_napWouldPushBedtime && !_enoughNaps) {
         const _fmt = (m)=>fmt12(String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0"));
         _napWindowStr = `${_fmt(minStart)} – ${_fmt(maxStart)}`;
       }
     }
   }
-  const _lastNapAgo = _t.lastNap && _t.lastNap.end ? agoMin(_t.lastNap.end) : null;
+  const _lastNapAgo = _lastNapForWindow && _lastNapForWindow.end ? agoMin(_lastNapForWindow.end) : (_t.lastNap && _t.lastNap.end ? agoMin(_t.lastNap.end) : null);
   const _lastNappyAgo = _t.lastPoop ? agoMin(_t.lastPoop.time) : null;
   // Build rich context cards
   const _babyStatsHtml = `<div class="card" style="background:linear-gradient(135deg,rgba(212,168,133,0.06),rgba(155,184,168,0.04))">
@@ -706,7 +765,8 @@ function _renderHtml() {
         ${_t.wetCount ? `<div style="font-size:14px;color:#6A584E;margin-top:1px">${_t.wetCount} wet</div>` : ""}
       </div>
     </div>
-    ${(_nextFeedStr || _napWindowStr) ? `<div style="padding:10px 12px;background:rgba(192,112,136,0.06);border:1px solid rgba(192,112,136,0.15);border-radius:12px;font-size:12px;color:#6A584E;line-height:1.7">
+    ${/* Hide own feed/nap calcs when parent prediction is live — prevents dual-display conflict */
+      !_pred0.nextPrediction && (_nextFeedStr || _napWindowStr) ? `<div style="padding:10px 12px;background:rgba(192,112,136,0.06);border:1px solid rgba(192,112,136,0.15);border-radius:12px;font-size:12px;color:#6A584E;line-height:1.7">
       <div style="font-size:10px;color:#A88848;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:6px">Coming up</div>
       ${_nextFeedStr ? `<div>🍼 Next feed around <strong style="color:#4A3B35">${_nextFeedStr}</strong>${_t.avgMl?` (~${_t.avgMl}ml typical)`:""}</div>` : ""}
       ${_napWindowStr ? `<div>💤 Next nap window <strong style="color:#4A3B35">${_napWindowStr}</strong>${_ww?` · wake window ${_ww.label}`:""}</div>` : ""}
@@ -780,7 +840,7 @@ function _renderHtml() {
       // Active nap: explicit _active flag (authoritative), missing/equal end,
       // OR end within last 12 min. Carer page updates every few minutes over network,
       // so generous window prevents "just woke up" flicker while baby is still sleeping.
-      const activeNap = entries.find(e=>{
+      const activeNap = _napEndedLocally ? null : entries.find(e=>{
         if(e.type!=="nap"||!e.start||e.night) return false;
         if(e._active===true) return true;
         if(!e.end||e.start===e.end) return true;
@@ -790,14 +850,17 @@ function _renderHtml() {
         const diff = nowM - endMins;
         return diff >= 0 && diff <= 12;
       });
-      const lastCompletedNap = (_t.naps||[]).filter(n=>n.end&&n.start!==n.end).pop();
+      const _allNaps = [...(_t.naps||[]), ...recentEntries.filter(e=>e.type==="nap")];
+      const lastCompletedNap = _allNaps.filter(n=>n.end&&n.start!==n.end).sort((a,b)=>(a.end||"").localeCompare(b.end||"")).pop();
       const wakeEntry = entries.find(e=>e.type==="wake"&&!e.night);
       let statusIcon="☀️", statusText=_name+" is awake", statusColor="#6A8A7A", statusBg="rgba(155,184,168,0.1)";
       let nextAction = "";
 
-      // Baby is sleeping if: bedtime logged AND (it's evening OR it's early AM with no morning wake)
+      // Baby is sleeping if: bedtime logged AND (afternoon/evening OR early AM with no morning wake)
       const _hasMorningWake = entries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<12;})());
-      const _isNightSleep = bedEntry && (nowM >= 18*60 || (nowM < 12*60 && !_hasMorningWake));
+      const _bedTimeMins = bedEntry ? (parseInt((bedEntry.time||"19:00").split(":")[0])*60+parseInt((bedEntry.time||"19:00").split(":")[1]||0)) : 0;
+      // Recognise bedtime from 4pm onwards (many babies bed at 5-6pm), or overnight
+      const _isNightSleep = bedEntry && ((_bedTimeMins >= 16*60 && nowM >= _bedTimeMins) || nowM >= 18*60 || (nowM < 12*60 && !_hasMorningWake));
       if (_isNightSleep) {
         // Baby is sleeping for the night
         statusIcon="🌙"; statusText=_name+" is sleeping for the night"; statusColor="#7B68EE"; statusBg="rgba(123,104,238,0.08)";
@@ -828,16 +891,41 @@ function _renderHtml() {
         const wakeM = parseInt(wakeEntry.time.split(":")[0])*60+parseInt(wakeEntry.time.split(":")[1]);
         const lastSleepEnd = lastCompletedNap ? parseInt(lastCompletedNap.end.split(":")[0])*60+parseInt(lastCompletedNap.end.split(":")[1]) : wakeM;
         const awakeMin = nowM - lastSleepEnd;
-        if (awakeMin >= _ww.max) {
+        // Check if naps are done: parent prediction says bedtime, or nap count met
+        const _allNaps2 = [...(_t.naps||[]), ...recentEntries.filter(e=>e.type==="nap"&&e.end&&e.start!==e.end)];
+        const _napCount2 = _allNaps2.length;
+        const _expectedNaps2 = _weeks == null ? 3 : _weeks < 17 ? 4 : _weeks < 26 ? 3 : _weeks < 39 ? 2 : _weeks < 65 ? 1 : 1;
+        const _napsAreDone = _predIsBed || (_napCount2 >= _expectedNaps2) || (familyContext.prediction||{}).napsComplete;
+        // Bedtime estimate: from parent prediction, or 7pm fallback when naps are done
+        const _bedEstMins = _predBedMins || (_napsAreDone ? _bedtimeMins : null);
+        const _minsUntilBed2 = _bedEstMins ? Math.max(0, _bedEstMins - nowM) : null;
+        // Afternoon + naps done = bedtime territory (even without prediction)
+        const _isAfternoon = nowM >= 15*60;
+        if (_napsAreDone && (_isAfternoon || (_minsUntilBed2 !== null && _minsUntilBed2 <= 90))) {
+          // Naps complete, bedtime approaching — show bedtime countdown, not "overtired"
+          statusIcon="🌙"; statusText=_name+" is heading towards bedtime"; statusColor="#7B68EE"; statusBg="rgba(123,104,238,0.08)";
+          const _bedTimeStr = _predBedMins ? fmt12(String(Math.floor(_predBedMins/60)%24).padStart(2,"0")+":"+String(_predBedMins%60).padStart(2,"0")) : null;
+          if (_minsUntilBed2 !== null && _minsUntilBed2 <= 30) {
+            nextAction = "Wind-down time. Dim the lights, quiet play, start the bedtime routine.";
+          } else if (_bedTimeStr) {
+            nextAction = "Bedtime around "+_bedTimeStr+". Calm activities, start dimming lights soon."+(_feedOverdue?" Offer a feed before bed.":"");
+          } else {
+            nextAction = "All naps done. Calm play until bedtime."+(_feedOverdue?" Offer a feed before bed.":"");
+          }
+        } else if (awakeMin >= _ww.max && !_napsAreDone) {
           statusIcon="😫"; statusText=_name+" is getting overtired ("+fmtAgo(awakeMin)+" awake)"; statusColor="#E8937A"; statusBg="rgba(232,147,122,0.08)";
           nextAction = "Try settling "+_name+" for a nap now. Dark room, gentle rocking or shushing. If they fight it for 15+ minutes, try a pram walk or car ride.";
-        } else if (awakeMin >= _ww.min) {
+        } else if (awakeMin >= _ww.min && !_napsAreDone) {
           statusIcon="🥱"; statusText=_name+" is getting sleepy ("+fmtAgo(awakeMin)+" awake)"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
           nextAction = "Watch for sleepy cues: yawning, eye rubbing, looking away. Start the nap routine, dark room, sleeping bag, white noise.";
+        } else if (_napsAreDone) {
+          // Naps done but bedtime not imminent — show "all naps done" status
+          statusText = _name+" is awake · all naps done ("+fmtAgo(awakeMin)+")";
+          nextAction = "Play time until bedtime."+(_feedOverdue?" Offer a feed now — it's been "+fmtAgo(_lastFeedAgo)+" since the last one.":((_nextFeedStr && _lastFeedAgo > 90)?" Feed coming up around "+_nextFeedStr+".":""));
         } else {
           statusText = _name+" is awake and happy ("+fmtAgo(awakeMin)+")";
           const minsToNap = _ww.min - awakeMin;
-          nextAction = "Play time! "+_name+" has about "+minsToNap+" minutes before they'll start getting sleepy."+((_nextFeedStr && _lastFeedAgo > 90)?" Feed coming up around "+_nextFeedStr+".":"");
+          nextAction = "Play time! "+_name+" has about "+minsToNap+" minutes before they'll start getting sleepy."+(_feedOverdue?" Offer a feed now — it's been "+fmtAgo(_lastFeedAgo)+" since the last one.":((_nextFeedStr && _lastFeedAgo > 90)?" Feed coming up around "+_nextFeedStr+".":""));
         }
       }
 
@@ -863,12 +951,37 @@ function _renderHtml() {
           <div style="font-size:11px;color:#A89A90;text-align:center;margin-bottom:4px">Bedtime ${fmt12(_bedEntry.time)}</div>`;
         }
       }
-      // Event countdown
+      // Night wake override — when carer has paused the timer
+      if (_nightWakePausedAt && _isNightSleep) {
+        const _wakeMins = Math.max(0, Math.round((Date.now() - _nightWakePausedAt) / 60000));
+        statusIcon="🌙"; statusText=_name+" · Night wake in progress"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
+        nextAction = "";
+        _timerHtml = `<div style="text-align:center;padding:8px 0;margin-bottom:4px">
+          <div style="font-size:13px;color:#D4A855;font-weight:700;margin-bottom:4px">🌙 Night wake</div>
+          <div style="font-size:22px;font-weight:700;color:#4A3B35;font-family:monospace">${_wakeMins < 1 ? "just now" : _wakeMins+"m awake"}</div>
+        </div>`;
+      }
+
+      // Event countdown — parent app's prediction only (no fallback calculations)
       let _countdownHtml = "";
       if (!activeNap && !_isNightSleep) {
         const _events = [];
-        if (_nextFeedStr) _events.push("🍼 Feed ~" + _nextFeedStr);
-        if (_napWindowStr) _events.push("😴 Nap window " + _napWindowStr);
+        const _pred = familyContext.prediction || {};
+        if (_pred.nextPrediction) {
+          const _predLabel = _pred.nextPredictionLabel || "Next";
+          const _isBed = _predLabel.toLowerCase().includes("bed");
+          const _isNap2 = _predLabel.toLowerCase().includes("nap");
+          const _icon = _isBed ? "🌙" : _isNap2 ? "😴" : "⏰";
+          _events.push(_icon + " " + (_isBed ? "Bedtime" : _predLabel) + " ~" + _pred.nextPrediction);
+          // Feed: only show if before bedtime
+          if (_isBed && _feedOverdue) {
+            _events.push("🍼 Offer feed before bed");
+          } else if (!_isBed && _feedOverdue) {
+            _events.push("🍼 Feed overdue — offer now");
+          } else if (!_isBed && _pred.nextFeedEstimate) {
+            _events.push("🍼 Feed ~" + _pred.nextFeedEstimate);
+          }
+        }
         if (_events.length) {
           _countdownHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${_events.map(e=>`<div style="padding:5px 10px;border-radius:99px;background:rgba(255,255,255,0.6);border:1px solid ${statusColor}25;font-size:11px;font-weight:600;color:#4A3B35">${e}</div>`).join("")}</div>`;
         }
@@ -902,7 +1015,27 @@ function _renderHtml() {
     </div>`}
 
     <div class="card" style="padding:14px">
+      ${_nightWakePausedAt && _isNightSleep ? `
+      <div style="text-align:center;font-size:12px;color:#8A7F87;font-weight:600;margin-bottom:10px">How did ${escapeHtml(_name)} settle?</div>
       <div class="btn-grid">
+        <button class="action-btn" data-action="night-settle" data-settle="feed">
+          <span class="icon">🍼</span>
+          <span class="label">Fed + back to sleep</span>
+        </button>
+        <button class="action-btn" data-action="night-settle" data-settle="soothe">
+          <span class="icon">🤲</span>
+          <span class="label">Soothed</span>
+        </button>
+        <button class="action-btn" data-action="night-settle" data-settle="self">
+          <span class="icon">😴</span>
+          <span class="label">Self settled</span>
+        </button>
+        <button class="action-btn wake-night" data-action="morning-wake">
+          <span class="icon">☀️</span>
+          <span class="label">Morning Wake</span>
+        </button>
+      </div>
+      ` : `<div class="btn-grid">
         <button class="action-btn" data-action="feed">
           <span class="icon">🍼</span>
           <span class="label">Feed</span>
@@ -916,6 +1049,11 @@ function _renderHtml() {
         <button class="action-btn wake-night" data-action="wake">
           <span class="icon">🌙</span>
           <span class="label">Night Wake</span>
+        </button>
+        ` : _predIsBed ? `
+        <button class="action-btn" data-action="bedtime">
+          <span class="icon">🌙</span>
+          <span class="label">Bedtime</span>
         </button>
         ` : `
         <button class="action-btn" data-action="nap-start">
@@ -942,16 +1080,44 @@ function _renderHtml() {
           <span class="icon">☀️</span>
           <span class="label">Baby Woke</span>
         </button>
+        ` : _predIsBed ? `
+        <button class="action-btn" data-action="wake">
+          <span class="icon">☀️</span>
+          <span class="label">Baby Woke</span>
+        </button>
         ` : `
         <button class="action-btn" data-action="bedtime">
           <span class="icon">🌙</span>
           <span class="label">Bedtime</span>
         </button>
         `}
-      </div>
+      </div>`}
     </div>
 
     ${_babyStatsHtml}
+
+    ${/* Medicine banner — shows today's doses so carers know what's been given */
+      (familyContext.todayMeds||[]).length ? `<div class="card" style="border-color:rgba(212,168,85,0.3);background:linear-gradient(135deg,rgba(212,168,85,0.06),rgba(212,168,85,0.02))">
+      <div style="font-size:10px;color:#A88848;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:8px">💊 Medicine today</div>
+      ${(familyContext.todayMeds||[]).map(function(m){
+        var _isP = (m.name||"").toLowerCase().match(/paracetamol|calpol|tylenol|acetaminophen/);
+        var _isI = (m.name||"").toLowerCase().match(/ibuprofen|nurofen|advil|motrin/);
+        var _minH = _isI ? 6 : _isP ? 4 : 0;
+        var _nextSafe = "";
+        if (_minH && m.time) {
+          var _p = m.time.split(":").map(Number);
+          var _nh = (_p[0] + _minH) % 24;
+          _nextSafe = " · next safe dose after " + (String(_nh).padStart(2,"0")) + ":" + String(_p[1]||0).padStart(2,"0");
+        }
+        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(212,168,85,0.1);font-size:13px">' +
+          '<span style="font-weight:700;color:#4A3B35">' + fmt12(m.time||"") + '</span>' +
+          '<span style="color:#6A584E">' + escapeHtml(m.name||"") + (m.dose ? " (" + escapeHtml(m.dose) + ")" : "") + '</span>' +
+          (_nextSafe ? '<span style="font-size:11px;color:#A88848">' + _nextSafe + '</span>' : '') +
+          '</div>';
+      }).join("")}
+      <div style="font-size:10px;color:#A89A90;margin-top:6px;font-style:italic">Always check with parents before giving any medicine.</div>
+    </div>` : ""}
+
     ${_notesHtml}
     ${_comfortHtml}
 
@@ -1097,7 +1263,20 @@ function _renderHtml() {
     `;
 
   document.querySelectorAll(".action-btn").forEach(b => {
-    b.onclick = () => openSheet(b.dataset.action);
+    b.onclick = () => {
+      if (b.dataset.action === "night-settle" && b.dataset.settle) {
+        // Night wake settle — log the wake entry + resume timer
+        const _settle = b.dataset.settle;
+        const _note = _settle === "feed" ? "Night feed · logged by caregiver"
+          : _settle === "soothe" ? "Soothed back to sleep · logged by caregiver"
+          : "Self settled · logged by caregiver";
+        logEntry({type:"wake", night:true, assistedType: _settle === "feed" ? "milk" : _settle, note: _note});
+        _nightWakePausedAt = null;
+        setTimeout(()=>{ _debouncedRender(); }, 200);
+        return;
+      }
+      openSheet(b.dataset.action);
+    };
   });
 }
 

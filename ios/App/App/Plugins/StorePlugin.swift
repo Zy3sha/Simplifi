@@ -16,10 +16,14 @@ public class StorePlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     // Product IDs — must match App Store Connect
+    // v1 kept for existing subscribers (Apple grandfathers their price)
     private let productIds: Set<String> = [
         "com.obubba.premium.monthly",
         "com.obubba.premium.annual",
-        "com.obubba.premium.lifetime"
+        "com.obubba.premium.lifetime",
+        "com.obubba.premium.monthly.v2",
+        "com.obubba.premium.annual.v2",
+        "com.obubba.premium.lifetime.v2"
     ]
 
     /// Fetch products from App Store and return pricing info

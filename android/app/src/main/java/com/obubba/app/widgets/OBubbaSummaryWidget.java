@@ -114,7 +114,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 String lastSide = d.optString("lastBreastSide", "");
                 String side = d.optString("breastSide", "");
                 long startMs = 0;
-                try { if (!d.isNull("timerStartMs")) startMs = (long) d.optDouble("timerStartMs", 0); } catch (Exception x) {}
+                try { if (!d.isNull("timerStartMs")) startMs = d.optLong("timerStartMs", 0); } catch (Exception x) {}
 
                 v.setTextViewText(R.id.tv_baby_name, "\uD83E\uDDF8 " + name);
 

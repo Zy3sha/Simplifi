@@ -12,6 +12,7 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "setData", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "reloadAll", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setTheme", returnType: CAPPluginReturnPromise),
     ]
 
     private let appGroupId = "group.com.obubba.app"
@@ -52,6 +53,23 @@ public class WidgetBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         call.resolve(["saved": true])
+    }
+
+    @objc func setTheme(_ call: CAPPluginCall) {
+        let theme = call.getString("theme") ?? "auto"
+
+        if let defaults = UserDefaults(suiteName: appGroupId) {
+            defaults.set(theme, forKey: "ob_widget_theme")
+            defaults.synchronize()
+            print("[OBWidgetBridge] Widget theme set to: \(theme)")
+        }
+
+        // Reload widgets so they pick up the new theme
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+
+        call.resolve(["theme": theme])
     }
 
     @objc func reloadAll(_ call: CAPPluginCall) {

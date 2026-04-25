@@ -92,11 +92,29 @@ public class SiriShortcutsPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func checkPendingEntry(_ call: CAPPluginCall) {
-        // Try UserDefaults first (used by Siri intents in main app process)
         if let defaults = UserDefaults(suiteName: appGroupId) {
             defaults.synchronize()
+            // Check queue first (multiple Siri commands while driving)
+            if let queueJson = defaults.string(forKey: "pendingSiriQueue"),
+               let qData = queueJson.data(using: .utf8),
+               var queue = try? JSONSerialization.jsonObject(with: qData) as? [String],
+               !queue.isEmpty {
+                let first = queue.removeFirst()
+                print("[OBSiriShortcuts] Dequeued entry (\(queue.count) remaining): \(first)")
+                if queue.isEmpty {
+                    defaults.removeObject(forKey: "pendingSiriQueue")
+                } else if let updated = try? JSONSerialization.data(withJSONObject: queue),
+                          let updatedJson = String(data: updated, encoding: .utf8) {
+                    defaults.set(updatedJson, forKey: "pendingSiriQueue")
+                }
+                defaults.removeObject(forKey: "pendingSiriEntry")
+                defaults.synchronize()
+                call.resolve(["entry": first])
+                return
+            }
+            // Fallback: single entry (backwards compat)
             if let json = defaults.string(forKey: "pendingSiriEntry") {
-                print("[OBSiriShortcuts] Found entry in UserDefaults: \(json)")
+                print("[OBSiriShortcuts] Found single entry: \(json)")
                 defaults.removeObject(forKey: "pendingSiriEntry")
                 defaults.synchronize()
                 call.resolve(["entry": json])
@@ -104,18 +122,14 @@ public class SiriShortcutsPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
 
-        // Fallback: check shared file (used by widget extension — more reliable cross-process)
+        // Fallback: check shared file (used by widget extension)
         if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId) {
             let fileURL = containerURL.appendingPathComponent("pendingWidgetEntry.json")
             if FileManager.default.fileExists(atPath: fileURL.path) {
-                print("[OBSiriShortcuts] Found pending file at: \(fileURL.path)")
                 if let json = try? String(contentsOf: fileURL, encoding: .utf8), !json.isEmpty {
-                    print("[OBSiriShortcuts] File entry: \(json)")
                     try? FileManager.default.removeItem(at: fileURL)
                     call.resolve(["entry": json])
                     return
-                } else {
-                    print("[OBSiriShortcuts] File exists but empty or unreadable")
                 }
             }
         }
@@ -139,6 +153,19 @@ private func storePendingSiriEntry(_ dict: [String: Any]) {
     guard let data = try? JSONSerialization.data(withJSONObject: entry),
           let json = String(data: data, encoding: .utf8),
           let defaults = UserDefaults(suiteName: siriAppGroup) else { return }
+    // Queue entries so multiple Siri commands while driving don't overwrite each other
+    var queue: [String] = []
+    if let existing = defaults.string(forKey: "pendingSiriQueue"),
+       let qData = existing.data(using: .utf8),
+       let arr = try? JSONSerialization.jsonObject(with: qData) as? [String] {
+        queue = arr
+    }
+    queue.append(json)
+    if let queueData = try? JSONSerialization.data(withJSONObject: queue),
+       let queueJson = String(data: queueData, encoding: .utf8) {
+        defaults.set(queueJson, forKey: "pendingSiriQueue")
+    }
+    // Also set the single key for backwards compatibility
     defaults.set(json, forKey: "pendingSiriEntry")
     defaults.synchronize()
 }
@@ -164,7 +191,7 @@ private func siriBabyName() -> String {
 struct OBLogFeedAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log a Feed"
     static var description = IntentDescription("Log a feed for baby in OBubba")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "feed", "feedType": "bottle", "source": "siri"])
         return .result(dialog: "Feed logged for \(siriBabyName()) ✓")
@@ -176,7 +203,7 @@ struct OBLogFeedAppIntent: AppIntent {
 struct OBLogFeedAmountAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log a Feed with Amount"
     static var description = IntentDescription("Log a feed with specific ml amount")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     @Parameter(title: "Amount in ml")
     var amount: Int
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -190,7 +217,7 @@ struct OBLogFeedAmountAppIntent: AppIntent {
 struct OBLogWakeAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Morning Wake"
     static var description = IntentDescription("Log morning wake up time")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "wake", "source": "siri"])
         return .result(dialog: "Morning wake logged for \(siriBabyName()) ✓")
@@ -202,7 +229,7 @@ struct OBLogWakeAppIntent: AppIntent {
 struct OBStartNapAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Nap Timer"
     static var description = IntentDescription("Start a nap timer")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "nap_start", "source": "siri"])
         return .result(dialog: "Nap timer started for \(siriBabyName()) ✓")
@@ -214,7 +241,7 @@ struct OBStartNapAppIntent: AppIntent {
 struct OBStopNapAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Stop Nap Timer"
     static var description = IntentDescription("Stop the nap timer")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "nap_stop", "source": "siri"])
         return .result(dialog: "Nap stopped for \(siriBabyName()) ✓")
@@ -226,7 +253,7 @@ struct OBStopNapAppIntent: AppIntent {
 struct OBLogBedtimeAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Bedtime"
     static var description = IntentDescription("Log bedtime for baby")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "sleep", "source": "siri"])
         return .result(dialog: "Bedtime logged for \(siriBabyName()) ✓")
@@ -238,7 +265,7 @@ struct OBLogBedtimeAppIntent: AppIntent {
 struct OBLogNappyAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log a Nappy"
     static var description = IntentDescription("Log a nappy change")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "poop", "poopType": "wet", "source": "siri"])
         return .result(dialog: "Nappy logged for \(siriBabyName()) ✓")
@@ -250,7 +277,7 @@ struct OBLogNappyAppIntent: AppIntent {
 struct OBLogWetNappyAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Wet Nappy"
     static var description = IntentDescription("Log a wet nappy")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "poop", "poopType": "wet", "source": "siri"])
         return .result(dialog: "Wet nappy logged for \(siriBabyName()) ✓")
@@ -262,7 +289,7 @@ struct OBLogWetNappyAppIntent: AppIntent {
 struct OBLogDirtyNappyAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Dirty Nappy"
     static var description = IntentDescription("Log a dirty nappy with colour")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     @Parameter(title: "Colour", default: "mustard")
     var colour: String?
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -277,7 +304,7 @@ struct OBLogDirtyNappyAppIntent: AppIntent {
 struct OBLogNightWakeSelfAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Night Wake Self-Settled"
     static var description = IntentDescription("Log a night wake where baby self-settled")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "night_wake", "selfSettled": true, "source": "siri"])
         return .result(dialog: "Night wake (self-settled) logged for \(siriBabyName()) ✓")
@@ -289,7 +316,7 @@ struct OBLogNightWakeSelfAppIntent: AppIntent {
 struct OBLogNightWakeMilkAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Night Wake with Milk"
     static var description = IntentDescription("Log a night wake where baby was given milk")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     @Parameter(title: "Amount in ml", default: 0)
     var amount: Int
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -304,7 +331,7 @@ struct OBLogNightWakeMilkAppIntent: AppIntent {
 struct OBLogNightWakeRockingAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Night Wake Rocking"
     static var description = IntentDescription("Log a night wake where baby was rocked back to sleep")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ProvidesDialog {
         storePendingSiriEntry(["type": "night_wake", "selfSettled": false, "assisted": true, "assistedType": "rocking", "source": "siri"])
         return .result(dialog: "Night wake (rocking) logged for \(siriBabyName()) ✓")
@@ -316,7 +343,7 @@ struct OBLogNightWakeRockingAppIntent: AppIntent {
 struct OBLogNightWakeAssistedAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Log Night Wake Assisted"
     static var description = IntentDescription("Log a night wake with assisted soothing")
-    static var openAppWhenRun: Bool = true
+    static var openAppWhenRun: Bool = false
     @Parameter(title: "Soothing method", default: "soothing")
     var method: String?
     func perform() async throws -> some IntentResult & ProvidesDialog {

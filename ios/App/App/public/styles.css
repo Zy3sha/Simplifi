@@ -32,13 +32,13 @@ input::placeholder{opacity:1}
   --placeholder:#C8B8B4;
   --glow-primary:rgba(245,218,210,0.40);--glow-under:rgba(240,210,200,0.25);
   --sheet-bg:rgba(255,252,248,0.94);--sheet-overlay:rgba(91,79,79,0.35);
-  --nav-bg:rgba(255,252,248,0.50);--nav-border:rgba(255,255,255,0.48);
+  --nav-bg:rgba(255,252,248,0.65);--nav-border:rgba(255,255,255,0.55);
   --nav-shadow:0 -2px 20px rgba(245,218,210,0.18);
   --chip-bg:rgba(255,255,255,0.44);--chip-bg-active:rgba(245,218,210,0.48);
   --chip-shadow:0 0 16px rgba(255,255,255,0.50),0 0 32px rgba(245,218,210,0.20),0 0 48px rgba(240,210,200,0.10);
   --chip-shadow-active:0 0 24px rgba(240,208,200,0.38),0 0 48px rgba(245,218,210,0.20);
   --input-bg:rgba(255,253,248,0.52);--picker-bg:rgba(255,252,248,0.95);
-  --glass-blur:20px;--glass-sat:1.6;--sparkle-opacity:0.40;
+  --glass-blur:24px;--glass-sat:1.8;--sparkle-opacity:0.40;
   color-scheme:light;
 }
 
@@ -126,9 +126,11 @@ body.dark-mode.girl header{background:rgba(45,31,42,0.60)!important}
   background:var(--card-bg);
   backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
   -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
-  border:1px solid var(--card-border);border-radius:22px;
+  border:1px solid var(--card-border);border-radius:min(22px, 5.5vw);
   box-shadow:var(--card-shadow);
   contain:content;
+  transition:box-shadow 0.2s cubic-bezier(0.23,1,0.32,1), border-color 0.2s ease;
+  padding:min(16px, 4vw);margin-bottom:min(12px, 3vw);
 }
 .glass-card::before{content:"";position:absolute;top:0;left:0;right:0;height:48%;pointer-events:none;z-index:3;
   background:linear-gradient(180deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.05) 40%,transparent 100%);border-radius:22px 22px 0 0;mix-blend-mode:overlay}
@@ -186,8 +188,9 @@ body.dark-mode input::placeholder{color:#4a5a72!important}
    BUTTONS — no backdrop-filter, just glow shadows
    ═══════════════════════════════════════════════════════════ */
 button,a,[role="button"]{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-button:active{transform:scale(0.96)!important;transition:transform 0.06s ease!important}
-button{position:relative!important;overflow:visible!important}
+/* Premium tap feedback: transition on resting state so release animates smoothly */
+button{position:relative!important;overflow:visible!important;transition:transform 160ms cubic-bezier(0.23,1,0.32,1)!important}
+button:active{transform:scale(0.97)!important}
 
 /* ═══ CARD ENTRANCE — subtle fade + rise on mount ═══
    One motion primitive: cards settle into place rather than appearing.
@@ -282,16 +285,14 @@ body.light-mode button,body:not(.dark-mode) button{
   border:1.5px solid rgba(255,225,235,0.35)!important;
   box-shadow:
     -4px -4px 5px -4px rgba(217,168,192,0.40),
-    4px 4px 5px -4px rgba(192,160,220,0.30)!important;
-  animation:candlePulse 4s ease-in-out infinite!important}
+    4px 4px 5px -4px rgba(192,160,220,0.30)!important}
 
 /* Dark mode — corner glow: top-left + bottom-right amber */
 body.dark-mode button{
   border:1.5px solid rgba(255,190,90,0.25)!important;
   box-shadow:
     -4px -4px 5px -4px rgba(255,170,60,0.38),
-    4px 4px 5px -4px rgba(255,150,40,0.28)!important;
-  animation:candlePulse 4s ease-in-out infinite!important}
+    4px 4px 5px -4px rgba(255,150,40,0.28)!important}
 
 /* CTA gradient buttons — corner glow, slightly stronger */
 body.light-mode button[style*="linear-gradient(135deg"],body:not(.dark-mode) button[style*="linear-gradient(135deg"]{
@@ -584,4 +585,45 @@ body.dark-mode input[style*="borderRadius"],body.dark-mode select[style*="border
 }
 body.dark-mode .prio-glow {
   animation: prioGlowDark 6s ease-in-out infinite;
+}
+
+/* ═══ PREMIUM POLISH — Apple-style sheet, toast, transitions ═══ */
+
+/* Sheet slide-up entrance */
+@keyframes sheetSlideUp{
+  from{transform:translateY(100%);opacity:0.8}
+  to{transform:translateY(0);opacity:1}
+}
+@keyframes overlayFadeIn{
+  from{opacity:0}
+  to{opacity:1}
+}
+.ob-sheet-overlay{animation:overlayFadeIn 0.2s ease both}
+.ob-sheet-content{animation:sheetSlideUp 0.28s cubic-bezier(0.23,1,0.32,1) both}
+
+/* Toast entrance + exit */
+@keyframes toastEnter{
+  from{opacity:0;transform:translateY(12px) scale(0.96)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes toastExit{
+  from{opacity:1;transform:translateY(0) scale(1)}
+  to{opacity:0;transform:translateY(8px) scale(0.97)}
+}
+.ob-toast-enter{animation:toastEnter 0.22s cubic-bezier(0.23,1,0.32,1) both}
+.ob-toast-exit{animation:toastExit 0.18s cubic-bezier(0.4,0,1,1) both}
+
+/* Card stagger — cascading reveal */
+.ob-card-enter:nth-child(2){animation-delay:40ms}
+.ob-card-enter:nth-child(3){animation-delay:80ms}
+.ob-card-enter:nth-child(4){animation-delay:120ms}
+.ob-card-enter:nth-child(5){animation-delay:160ms}
+
+/* Reduced motion — respect user preference for ALL animations */
+@media(prefers-reduced-motion:reduce){
+  .ob-sheet-content{animation:none}
+  .ob-sheet-overlay{animation:none}
+  .ob-toast-enter,.ob-toast-exit{animation:none}
+  .prio-glow,.prio-glow-dark{animation:none}
+  button{transition:none!important}
 }

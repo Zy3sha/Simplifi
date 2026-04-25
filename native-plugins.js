@@ -417,6 +417,7 @@ var OBDatabase = {
     if (!SQL) { this._initInProgress = false; return Promise.resolve(false); }
     var self = this;
     try {
+      // Use unencrypted for existing users — encryption requires migration which risks data loss
       return SQL.createConnection({ database: 'obubba', version: 1, encrypted: false, mode: 'no-encryption' })
         .then(function() { return SQL.open({ database: 'obubba' }); })
         .then(function() {
@@ -531,36 +532,108 @@ var OBWidgets = {
   }
 };
 
-// ── 14. LIVE ACTIVITIES (iOS) ───────────────────────────────────
+// ── 14. LIVE ACTIVITIES (iOS) / FOREGROUND TIMER SERVICE (Android) ──
 var OBLiveActivity = {
   startTimer: function(opts) {
-    if (getPlatform() !== 'ios') return Promise.resolve();
-    var LA = _plug('OBLiveActivity');
-    if (!LA) return Promise.resolve();
-    try {
-      return LA.start({
-        type: opts.type,
-        startTime: opts.startTime || Date.now(),
-        babyName: opts.babyName || 'Baby',
-        side: opts.side || null
-      }).catch(function(){});
-    } catch(e) { return Promise.resolve(); }
+    var platform = getPlatform();
+    if (platform === 'ios') {
+      var LA = _plug('OBLiveActivity');
+      if (!LA) return Promise.resolve();
+      try {
+        return LA.start({
+          type: opts.type,
+          startTime: opts.startTime || Date.now(),
+          babyName: opts.babyName || 'Baby',
+          side: opts.side || null
+        }).catch(function(){});
+      } catch(e) { return Promise.resolve(); }
+    }
+    if (platform === 'android') {
+      var TS = _plug('OBTimerService');
+      if (!TS) return Promise.resolve();
+      try {
+        return TS.startTimer({
+          type: opts.type || 'feed',
+          startTime: opts.startTime || Date.now(),
+          babyName: opts.babyName || 'Baby',
+          side: opts.side || null
+        }).catch(function(){});
+      } catch(e) { return Promise.resolve(); }
+    }
+    return Promise.resolve();
   },
 
   updateTimer: function(opts) {
-    if (getPlatform() !== 'ios') return Promise.resolve();
-    var LA = _plug('OBLiveActivity');
-    if (!LA) return Promise.resolve();
-    try { return LA.update({ elapsed: opts.elapsed, side: opts.side }).catch(function(){}); }
-    catch(e) { return Promise.resolve(); }
+    var platform = getPlatform();
+    if (platform === 'ios') {
+      var LA = _plug('OBLiveActivity');
+      if (!LA) return Promise.resolve();
+      try { return LA.update({ elapsed: opts.elapsed, side: opts.side }).catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    if (platform === 'android') {
+      var TS = _plug('OBTimerService');
+      if (!TS) return Promise.resolve();
+      try { return TS.updateTimer({ side: opts.side, babyName: opts.babyName }).catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    return Promise.resolve();
   },
 
   stopTimer: function() {
-    if (getPlatform() !== 'ios') return Promise.resolve();
-    var LA = _plug('OBLiveActivity');
-    if (!LA) return Promise.resolve();
-    try { return LA.stop().catch(function(){}); }
-    catch(e) { return Promise.resolve(); }
+    var platform = getPlatform();
+    if (platform === 'ios') {
+      var LA = _plug('OBLiveActivity');
+      if (!LA) return Promise.resolve();
+      try { return LA.stop().catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    if (platform === 'android') {
+      var TS = _plug('OBTimerService');
+      if (!TS) return Promise.resolve();
+      try { return TS.stopTimer().catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    return Promise.resolve();
+  },
+
+  startPrediction: function(opts) {
+    var platform = getPlatform();
+    if (platform === 'ios') {
+      var LA = _plug('OBLiveActivity');
+      if (!LA || !LA.startPrediction) return Promise.resolve();
+      try { return LA.startPrediction(opts).catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    if (platform === 'android') {
+      var TS = _plug('OBTimerService');
+      if (!TS) return Promise.resolve();
+      try { return TS.startPrediction({
+        targetTime: opts.targetTime || 0,
+        label: opts.label || 'Next event',
+        babyName: opts.babyName || 'Baby',
+        timeFormatted: opts.timeFormatted || null
+      }).catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    return Promise.resolve();
+  },
+
+  stopPrediction: function() {
+    var platform = getPlatform();
+    if (platform === 'ios') {
+      var LA = _plug('OBLiveActivity');
+      if (!LA || !LA.stopPrediction) return Promise.resolve();
+      try { return LA.stopPrediction().catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    if (platform === 'android') {
+      var TS = _plug('OBTimerService');
+      if (!TS) return Promise.resolve();
+      try { return TS.stopPrediction().catch(function(){}); }
+      catch(e) { return Promise.resolve(); }
+    }
+    return Promise.resolve();
   }
 };
 
@@ -708,7 +781,115 @@ var OBStatusBar = {
   }
 };
 
-// ── 20. PREFERENCES (Key-Value, replaces localStorage on native) ─
+// ── 20. IN-APP PURCHASES (StoreKit 2 / Google Play Billing) ────
+// Bridges to the native OBStore Capacitor plugin on both iOS and Android.
+// Sets window._purchases for the app to use.
+var OBStore = {
+  _products: null,
+
+  // Load all products from the store
+  getProducts: function() {
+    if (!isNative()) return Promise.resolve([]);
+    var Store = _plug('OBStore');
+    if (!Store) return Promise.resolve([]);
+    try {
+      return Store.getProducts().then(function(result) {
+        var products = result.products || [];
+        OBStore._products = products;
+        return products;
+      }).catch(function(e) {
+        console.warn('[OBStore] getProducts error:', e);
+        return [];
+      });
+    } catch(e) { return Promise.resolve([]); }
+  },
+
+  // Get a single product by period (monthly/annual/lifetime)
+  // Prefers v2 products (new pricing) over v1 for new subscribers
+  getProduct: function(period) {
+    var _findProduct = function(products) {
+      if (!products || !products.length) return null;
+      var fallback = null;
+      for (var i = 0; i < products.length; i++) {
+        var p = products[i];
+        var match = (period === 'monthly' && p.period === 'monthly') ||
+                    (period === 'annual' && p.period === 'annual') ||
+                    (period === 'lifetime' && p.type === 'nonConsumable');
+        if (match) {
+          if (p.id && p.id.indexOf('.v2') !== -1) return p; // prefer v2
+          if (!fallback) fallback = p;
+        }
+      }
+      return fallback;
+    };
+
+    // Use cached products if available
+    if (OBStore._products) return Promise.resolve(_findProduct(OBStore._products));
+
+    // Otherwise load first
+    return OBStore.getProducts().then(function(products) {
+      return _findProduct(products);
+    });
+  },
+
+  // Purchase a product (pass the product object from getProduct)
+  purchase: function(product) {
+    if (!isNative() || !product) return Promise.resolve({ success: false });
+    var Store = _plug('OBStore');
+    if (!Store) return Promise.resolve({ success: false });
+    try {
+      return Store.purchase({ productId: product.id }).then(function(result) {
+        return result;
+      }).catch(function(e) {
+        console.warn('[OBStore] purchase error:', e);
+        return { success: false, error: (e && e.message) || 'purchase_failed' };
+      });
+    } catch(e) { return Promise.resolve({ success: false, error: 'error' }); }
+  },
+
+  // Restore purchases
+  restore: function() {
+    if (!isNative()) return Promise.resolve({ isPremium: false });
+    var Store = _plug('OBStore');
+    if (!Store) return Promise.resolve({ isPremium: false });
+    try {
+      return Store.restore().then(function(result) {
+        return result;
+      }).catch(function(e) {
+        console.warn('[OBStore] restore error:', e);
+        return { isPremium: false };
+      });
+    } catch(e) { return Promise.resolve({ isPremium: false }); }
+  },
+
+  // Check active entitlements (returns boolean)
+  checkEntitlements: function() {
+    if (!isNative()) return Promise.resolve(false);
+    var Store = _plug('OBStore');
+    if (!Store) return Promise.resolve(false);
+    try {
+      return Store.getEntitlements().then(function(result) {
+        return !!(result && result.isPremium);
+      }).catch(function() { return false; });
+    } catch(e) { return Promise.resolve(false); }
+  }
+};
+
+// ── 22. APP REVIEW (SKStoreReviewController / Google Play Review) ─
+var OBReview = {
+  requestReview: function() {
+    if (!isNative()) return Promise.resolve({ requested: false });
+    var Review = _plug('OBReview');
+    if (!Review) return Promise.resolve({ requested: false });
+    try {
+      return Review.requestReview().then(function(result) {
+        return result || { requested: true };
+      }).catch(function() { return { requested: false }; });
+    } catch(e) { return Promise.resolve({ requested: false }); }
+  }
+};
+
+// ── 21. PREFERENCES (Key-Value, replaces localStorage on native) ─
 var OBPreferences = {
   get: function(key) {
     if (!isNative()) return Promise.resolve(localStorage.getItem(key));
@@ -753,8 +934,22 @@ window.OBNative = {
   lifecycle: OBAppLifecycle,
   screen: OBScreen,
   statusBar: OBStatusBar,
-  preferences: OBPreferences
+  preferences: OBPreferences,
+  store: OBStore,
+  review: OBReview
 };
+
+// ── Set up window._purchases for app.jsx to consume ────────────
+// The app uses window._purchases.checkEntitlements(), .getProduct(), .purchase(), .restore()
+if (isNative()) {
+  window._purchases = {
+    checkEntitlements: OBStore.checkEntitlements,
+    getProduct: OBStore.getProduct,
+    purchase: OBStore.purchase,
+    restore: OBStore.restore,
+    getProducts: OBStore.getProducts
+  };
+}
 
 // ── AUTO-INIT on native ─────────────────────────────────────────
 // Guard: only run once per page load to prevent double-init
@@ -781,6 +976,8 @@ if (isNative() && !window.__obNativeInitDone) {
         OBSiri.donateAllShortcuts();
       }
       // Widget data managed by main app — skip legacy sender
+      // Preload store products so paywall opens instantly
+      OBStore.getProducts();
     } catch(e) {
       console.warn('Native init error:', e);
     }

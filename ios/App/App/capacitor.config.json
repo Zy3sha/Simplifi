@@ -2,7 +2,6 @@
 	"appId": "com.obubba.app",
 	"appName": "OBubba",
 	"webDir": "dist",
-	"bundledWebRuntime": false,
 	"server": {
 		"androidScheme": "https",
 		"iosScheme": "https",
@@ -22,18 +21,11 @@
 			"sound": "notification.wav"
 		},
 		"SplashScreen": {
-			"launchShowDuration": 4000,
-			"launchAutoHide": true,
+			"launchShowDuration": 0,
+			"launchAutoHide": false,
+			"launchFadeOutDuration": 300,
 			"backgroundColor": "#F0DDD6",
-			"androidSplashResourceName": "splash",
-			"androidScaleType": "CENTER_CROP",
-			"showSpinner": false,
-			"iosSpinnerStyle": "small",
-			"spinnerColor": "#C07088",
-			"splashFullScreen": true,
-			"splashImmersive": true,
-			"layoutName": "launch_screen",
-			"useDialog": false
+			"showSpinner": false
 		},
 		"Keyboard": {
 			"resize": "none",

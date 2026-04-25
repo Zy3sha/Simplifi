@@ -19,16 +19,25 @@ import java.util.List;
 public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
 
     private static final String TAG = "OBStore";
+    // v1 kept for existing subscribers (Google grandfathers their price)
     private static final List<String> PRODUCT_IDS = Arrays.asList(
         "com.obubba.premium.monthly",
         "com.obubba.premium.annual",
-        "com.obubba.premium.lifetime"
+        "com.obubba.premium.lifetime",
+        "com.obubba.premium.monthly.v2",
+        "com.obubba.premium.annual.v2",
+        "com.obubba.premium.lifetime.v2"
     );
     private static final List<String> SUB_IDS = Arrays.asList(
         "com.obubba.premium.monthly",
-        "com.obubba.premium.annual"
+        "com.obubba.premium.annual",
+        "com.obubba.premium.monthly.v2",
+        "com.obubba.premium.annual.v2"
     );
-    private static final String LIFETIME_ID = "com.obubba.premium.lifetime";
+    private static final List<String> LIFETIME_IDS = Arrays.asList(
+        "com.obubba.premium.lifetime",
+        "com.obubba.premium.lifetime.v2"
+    );
 
     private BillingClient billingClient;
     private PluginCall pendingPurchaseCall;
@@ -74,7 +83,7 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                 .build();
 
             QueryProductDetailsParams inappParams = QueryProductDetailsParams.newBuilder()
-                .setProductList(buildProductList(Arrays.asList(LIFETIME_ID), BillingClient.ProductType.INAPP))
+                .setProductList(buildProductList(LIFETIME_IDS, BillingClient.ProductType.INAPP))
                 .build();
 
             billingClient.queryProductDetailsAsync(subParams, (subResult, subDetails) -> {
@@ -127,14 +136,43 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
         String productId = call.getString("productId");
         if (productId == null) { call.reject("productId required"); return; }
 
-        ProductDetails target = null;
-        for (ProductDetails pd : cachedProducts) {
-            if (pd.getProductId().equals(productId)) { target = pd; break; }
-        }
-        if (target == null) { call.reject("Product not found: " + productId); return; }
+        connectBilling(() -> {
+            ProductDetails target = null;
+            for (ProductDetails pd : cachedProducts) {
+                if (pd.getProductId().equals(productId)) { target = pd; break; }
+            }
+            if (target != null) {
+                launchPurchaseFlow(call, target);
+            } else {
+                // Product not cached — query on-demand before purchasing
+                String productType = SUB_IDS.contains(productId)
+                    ? BillingClient.ProductType.SUBS : BillingClient.ProductType.INAPP;
+                QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
+                    .setProductList(Arrays.asList(
+                        QueryProductDetailsParams.Product.newBuilder()
+                            .setProductId(productId)
+                            .setProductType(productType)
+                            .build()))
+                    .build();
+                billingClient.queryProductDetailsAsync(params, (result, detailsList) -> {
+                    if (result.getResponseCode() == BillingClient.BillingResponseCode.OK
+                            && detailsList != null && !detailsList.isEmpty()) {
+                        ProductDetails fetched = detailsList.get(0);
+                        cachedProducts.add(fetched);
+                        launchPurchaseFlow(call, fetched);
+                    } else {
+                        call.reject("Product not found: " + productId);
+                    }
+                });
+            }
+        });
+    }
+
+    private void launchPurchaseFlow(PluginCall call, ProductDetails target) {
+        Activity activity = getActivity();
+        if (activity == null) { call.reject("Activity not available"); return; }
 
         pendingPurchaseCall = call;
-        Activity activity = getActivity();
 
         BillingFlowParams.ProductDetailsParams.Builder pdpBuilder =
             BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(target);
@@ -150,7 +188,11 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
             .setProductDetailsParamsList(Arrays.asList(pdpBuilder.build()))
             .build();
 
-        billingClient.launchBillingFlow(activity, flowParams);
+        BillingResult flowResult = billingClient.launchBillingFlow(activity, flowParams);
+        if (flowResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+            pendingPurchaseCall = null;
+            call.reject("Failed to launch billing: " + flowResult.getDebugMessage());
+        }
     }
 
     @Override
@@ -218,7 +260,7 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                             for (Purchase p : inappPurchases) {
                                 if (p.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
                                     for (String pid : p.getProducts()) {
-                                        if (pid.equals(LIFETIME_ID)) { found[0] = true; break; }
+                                        if (LIFETIME_IDS.contains(pid)) { found[0] = true; break; }
                                     }
                                 }
                             }
