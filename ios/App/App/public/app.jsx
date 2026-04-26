@@ -31132,26 +31132,32 @@ function App(){
                     ✕
                   </button>
                 </div>
-                <button onClick={()=>{
-                  haptic();
-                  const newTime = prompt("Started earlier? Enter time (e.g. 6:15pm, 18:15):");
-                  if(newTime){
-                    const parsed = parseTimeFree(newTime);
-                    if(parsed){
-                      setBreastStartTime(parsed);
-                      try{localStorage.setItem("breast_startTime",parsed);}catch{}
-                      // Recalculate elapsed seconds
-                      const [h,m]=parsed.split(":").map(Number);
-                      const now=new Date();
-                      let elapsed=Math.max(0,Math.floor((now.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime())/1000));
-                      if(elapsed>86400) elapsed=0;
-                      setBreastSec({L:breastSide==="L"?elapsed:0, R:breastSide==="R"?elapsed:0});
-                      showToast("🤱 Start time updated to "+fmt12(parsed),1500,1);
-                    } else { showToast("Couldn't parse that time",1500,2); }
-                  }
-                }} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textAlign:"center",width:"100%",marginTop:2,fontFamily:_fI}}>
+                <button onClick={()=>{haptic();setShowBreastStartPicker(true);setBreastCustomStart(breastStartTime||nowTime());}} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textAlign:"center",width:"100%",marginTop:2,fontFamily:_fI}}>
                   Started earlier? Tap to edit
                 </button>
+                {showBreastStartPicker && (
+                  <div style={{marginTop:6,padding:"10px 12px",borderRadius:12,background:"var(--card-bg)",border:`1.5px solid ${C.gold}30`,animation:"popIn 0.2s ease"}}>
+                    <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:6}}>🤱 Edit start time</div>
+                    <div style={_S.flexCenter10}>
+                      <TimeInput value={breastCustomStart} onChange={t=>setBreastCustomStart(t)} style={_S.flex1} inputStyle={{fontSize:16,padding:"10px 12px",borderRadius:12,textAlign:"center"}}/>
+                      <button onClick={()=>{
+                        haptic();
+                        const t=breastCustomStart||nowTime();
+                        if(!t||!t.includes(":")) return;
+                        setBreastStartTime(t);
+                        try{localStorage.setItem("breast_startTime",t);}catch{}
+                        const [h,m]=t.split(":").map(Number);
+                        const now=new Date();
+                        let elapsed=Math.max(0,Math.floor((now.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime())/1000));
+                        if(elapsed>86400) elapsed=0;
+                        setBreastSec({L:breastSide==="L"?elapsed:0, R:breastSide==="R"?elapsed:0});
+                        setShowBreastStartPicker(false);
+                        showToast("🤱 Start time updated to "+fmt12(t),1500,1);
+                      }} style={{padding:"10px 18px",borderRadius:12,border:"none",background:C.gold,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>Set</button>
+                    </div>
+                    <button onClick={()=>setShowBreastStartPicker(false)} style={{background:"none",border:"none",color:C.lt,fontSize:11,cursor:_cP,marginTop:6,width:"100%",textAlign:"center"}}>Cancel</button>
+                  </div>
+                )}
               </div>
             ) : (
               _hasBreast && (
