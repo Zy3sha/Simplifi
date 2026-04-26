@@ -15831,8 +15831,9 @@ function App(){
         _bedRecentDays.forEach(rd => {
           const _naps = rd.entries.filter(e => e.type==="nap" && !e.night && e.start && e.end && minDiff(e.start,e.end) >= 5);
           const _bed = rd.entries.find(e => e.type==="sleep" && !e.night);
-          if (!_naps.length || !_bed) return;
+          if (!_naps.length || !_bed || !_bed.time || !_bed.time.includes(":")) return;
           const _lastNap = _naps[_naps.length - 1];
+          if (!_lastNap.end || !_lastNap.end.includes(":")) return;
           const [_lnh,_lnm] = _lastNap.end.split(":").map(Number);
           const [_bh2,_bm2] = _bed.time.split(":").map(Number);
           let _gap = (_bh2*60+_bm2) - (_lnh*60+_lnm);
@@ -17471,7 +17472,7 @@ function App(){
 
     // Check bedtime approaching. two-stage alert (suppress if bed timer already active)
     const bed = tickDataRef.current.bed;
-    if (bed && !bed.estimated && !bedTimerDay) {
+    if (bed && !bed.estimated && !bedTimerDay && bed.time && bed.time.includes(":")) {
       const [bh, bm] = bed.time.split(":").map(Number);
       const minsUntilBed = bh * 60 + bm - nowMins;
       if (minsUntilBed > 0 && minsUntilBed <= 10) return { emoji: "🌙", text: `Bedtime in ~${minsUntilBed} minutes. ${name} should be in the cot soon.`, priority: "high", why: `Melatonin (the sleep hormone) peaks between 7–7:30pm for most babies. Putting baby down during this window means they'll fall asleep faster. Missing it triggers cortisol, which fights sleep.` };
@@ -21900,7 +21901,7 @@ function App(){
     // Bedtime approaching. ONLY if all expected naps are done
     if (_naps.length >= _profile.expectedNaps) {
       const _bed = tickDataRef.current.bed;
-      if (_bed && !_bed.estimated) {
+      if (_bed && !_bed.estimated && _bed.time && _bed.time.includes(":")) {
         const _bP = _bed.time.split(":").map(Number);
         const _mBed = Math.max(0, _bP[0] * 60 + _bP[1] - _nowM);
         if (_mBed <= 10) return { text: "Bedtime. into the cot", priority: "high" };
