@@ -8805,6 +8805,12 @@ function App(){
     // Safety: never push blank/empty state to cloud (would wipe real data)
     const _hasData = Object.values(allChildren).some(c => c.name || Object.values(c.days||{}).some(d => d && d.length > 0));
     if(!_hasData) return;
+    // Safety: never overwrite cloud with significantly fewer entries (data loss guard)
+    const _localTotal = Object.values(allChildren).reduce((s, c) => s + Object.values(c.days||{}).reduce((s2, d) => s2 + (d ? d.length : 0), 0), 0);
+    if (_localTotal < cloudEntryCountRef.current * 0.7 && cloudEntryCountRef.current > 30) {
+      console.warn("[OBubba] pushToCloud BLOCKED: local", _localTotal, "entries vs cloud", cloudEntryCountRef.current, "— refusing overwrite to prevent data loss");
+      return;
+    }
 
     // OWNERSHIP GUARD. This is the hard safety net that stops an account
     // switch from leaking the previous account's children into the new
@@ -9713,12 +9719,11 @@ function App(){
         } else {
           let foundExisting = false;
           if(!foundExisting) {
-            // SAFETY: Only generate a new backup code for genuinely new users
-            // who have no username. If they have a username, verifyLogin will
-            // fetch their correct backup code when they sign in.
-            const hasUsername = familyUsername || localStorage.getItem("family_username");
-            const hasVerified = localStorage.getItem("auth_verified");
-            if(!hasUsername && !hasVerified) {
+            // SAFETY: Always generate a backup code if user doesn't have one.
+            // Previously this was gated on !hasUsername which meant users who
+            // set a username but never verified were left without a backup.
+            // Now: if no backup code exists after all restore attempts, create one.
+            {
               const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
               let newCode, exists = true;
               while(exists){
@@ -10997,7 +11002,7 @@ function App(){
   // No auto-generation or child_code_map needed. user remembers their code.
   async function pushChildSync(childId, code, childData) {
     if(!window._fb || !code) return;
-    const {db, doc, setDoc, serverTimestamp} = window._fb;
+    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const child = childData || children[childId];
     if(!child) return;
     if(!window._fbUid) {
@@ -11010,6 +11015,20 @@ function App(){
       });
     }
     try {
+      // SAFETY: never overwrite cloud with fewer entries than it already has.
+      // This prevents data loss from merge bugs, cache clears, or stale state.
+      const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+      try {
+        const existing = await fsGet("child_syncs", code);
+        if (existing.exists()) {
+          const cloudChild = JSON.parse(existing.data().child || "{}");
+          const cloudEntryCount = Object.values(cloudChild.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+          if (localEntryCount < cloudEntryCount * 0.7 && cloudEntryCount > 20) {
+            console.warn("[OBubba] pushChildSync BLOCKED: local has", localEntryCount, "entries vs cloud", cloudEntryCount, "— refusing to overwrite");
+            return;
+          }
+        }
+      } catch(e2) { /* proceed if check fails */ }
       await fsSet("child_syncs", code, {
         child: JSON.stringify(child),
         childName: child.name || "",
