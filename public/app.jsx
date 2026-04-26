@@ -9865,7 +9865,7 @@ function App(){
 
     // Clear ALL localStorage
     const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
-      "children_v1","active_child","tut_v2","install_date_v1",
+      "children_v1","active_child","tut_v2","install_date_v1","onboarded_v2",
       "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",
       // Ownership stamp MUST be cleared on logout so the next login
       // starts with pushToCloud's guard fully armed.
@@ -9889,7 +9889,7 @@ function App(){
     setFamilyCode(null);
     setFamilyUsername(null);
     setSyncStatus("idle");
-    setOnboarded(true);
+    setOnboarded(false);
     setNeedsChildSetup(false);
     setTab("day");
     // Reset premium state so account B doesn't inherit account A's premium

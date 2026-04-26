@@ -1746,7 +1746,7 @@ if(unsubscribeRef.current){unsubscribeRef.current();unsubscribeRef.current=null;
 try{Object.values(childSubsRef.current||{}).forEach(unsub=>{try{typeof unsub==="function"&&unsub();}catch{}});childSubsRef.current={};}catch{}// CRITICAL: Stop cloud push BEFORE resetting children. otherwise the blank state
 // gets pushed to cloud, wiping the user's real data
 clearTimeout(cloudPushRef.current);cloudSyncedRef.current=false;// Clear ALL localStorage
-const keysToRemove=["auth_verified","family_username","backup_code","family_code","children_v1","active_child","tut_v2","install_date_v1","use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",// Ownership stamp MUST be cleared on logout so the next login
+const keysToRemove=["auth_verified","family_username","backup_code","family_code","children_v1","active_child","tut_v2","install_date_v1","onboarded_v2","use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",// Ownership stamp MUST be cleared on logout so the next login
 // starts with pushToCloud's guard fully armed.
 "ob_children_owner","ob_children_owner_code",// Premium-feature state that's scoped to a specific child's
 // sleep-training run. Carrying this across accounts would show
@@ -1755,7 +1755,7 @@ const keysToRemove=["auth_verified","family_username","backup_code","family_code
 "ob_sleep_coach_v1","ob_last_import_batch",// Premium state MUST be cleared to prevent account A's premium
 // leaking to account B on the same device.
 "ob_premium","ob_village_end","ob_village_unlocked","ob_trial_start","ob_trial_duration"];keysToRemove.forEach(k=>{try{localStorage.removeItem(k);}catch{}});// Reset ALL app state. blank slate
-const blankChild={id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};setChildren({[blankChild.id]:blankChild});setActiveChildId(blankChild.id);setBackupCode(null);setFamilyCode(null);setFamilyUsername(null);setSyncStatus("idle");setOnboarded(true);setNeedsChildSetup(false);setTab("day");// Reset premium state so account B doesn't inherit account A's premium
+const blankChild={id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};setChildren({[blankChild.id]:blankChild});setActiveChildId(blankChild.id);setBackupCode(null);setFamilyCode(null);setFamilyUsername(null);setSyncStatus("idle");setOnboarded(false);setNeedsChildSetup(false);setTab("day");// Reset premium state so account B doesn't inherit account A's premium
 setIsPremium(false);paywallShownRef.current=false;// Clear child-sync per-code state and participants so a later login
 // starts fresh and can't see the previous account's joiners.
 setChildSyncCodes({});setChildSyncParticipants({});// Also drop the deletion blacklists that are scoped to "what this
