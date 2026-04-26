@@ -6912,12 +6912,14 @@ function App(){
   const yearlySaving = isLegacyUser ? "33" : "17";
   // Trial banner dismissed today?
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
+  const _trialDismissedRef = useRef(trialBannerDismissed);
+  useEffect(()=>{_trialDismissedRef.current=trialBannerDismissed;},[trialBannerDismissed]);
   // Reset at midnight if app stays open across the day boundary
   React.useEffect(()=>{
-    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&trialBannerDismissed){setTrialBannerDismissed(false);}}catch{}};
+    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&_trialDismissedRef.current){setTrialBannerDismissed(false);}}catch{}};
     const _mid=setInterval(checkMidnight, 5*60*1000); // check every 5 min
     return ()=>clearInterval(_mid);
-  },[trialBannerDismissed]);
+  },[]);
 
   // triggerPaywall is called from two kinds of event:
   //   1. AUTOMATIC (curiosity gap, soft nudges, background triggers) —
@@ -8069,8 +8071,12 @@ function App(){
     if (_entryStartMs) {
       _startDate = new Date(_entryStartMs);
     } else {
-      const [_rsh,_rsm] = _active.start.split(":").map(Number);
-      _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      if (_active.start && _active.start.includes(":")) {
+        const [_rsh,_rsm] = _active.start.split(":").map(Number);
+        _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      } else {
+        _startDate = new Date();
+      }
       _entryStartMs = _startDate.getTime();
     }
     const _elapsedMs = Date.now() - _entryStartMs;
@@ -12238,7 +12244,7 @@ function App(){
       if (nightWakes.length) {
         const lw = nightWakes[nightWakes.length-1];
         const sm = lw.assistedDuration ? parseInt(lw.assistedDuration) : 0;
-        if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
+        if (sm > 0 && lw.time && lw.time.includes(":")) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
         else lastNightEvent = lw.time;
       }
       // ═══ NEXT EVENT, single source of truth for hero, pill, coming up, widget ═══
@@ -12473,7 +12479,7 @@ function App(){
       if(_nightWakes.length) {
         const _lw = _nightWakes[_nightWakes.length-1];
         const _sm = _lw.assistedDuration ? parseInt(_lw.assistedDuration) : 0;
-        if(_sm > 0) {
+        if(_sm > 0 && _lw.time && _lw.time.includes(":")) {
           const [_wh,_wm] = _lw.time.split(":").map(Number);
           const _tm = _wh*60+_wm+_sm;
           _lastNightEvent = `${String(Math.floor(_tm/60)%24).padStart(2,"0")}:${String(_tm%60).padStart(2,"0")}`;
@@ -23579,13 +23585,13 @@ function App(){
           showToast("✅ Logged for all " + ids.length + " children", 1800, 1);
         }
 
-        var _qlRetries = 0;
-        function quickAddLog(type, data){
+        function quickAddLog(type, data, _retries){
+    _retries = _retries || 0;
     // Guard: if children data hasn't loaded yet (cold launch from widget), queue for later
     if (!children || !children[resolvedActiveId] || !children[resolvedActiveId].days) {
-      if (++_qlRetries > 10) { console.warn("[OBubba] quickAddLog: gave up after 10 retries"); _qlRetries = 0; return; }
+      if (_retries >= 10) { console.warn("[OBubba] quickAddLog gave up"); showToast("Entry not saved — try again", 2500, 2); return; }
       const _snapId = resolvedActiveId;
-      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data); }, 500);
+      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data, _retries + 1); }, 500);
       return;
     }
     ensureTrialStarted();
@@ -27079,6 +27085,7 @@ function App(){
     const prevDk = allDk.length > 7 ? allDk.slice(-14, -7) : [];
 
     function weekStats(keys) {
+      if (!keys.length) return null;
       let tFeeds=0, tMl=0, tNaps=0, tNapMins=0, tNightWakes=0, beds=[], wakes=[], stretches=[];
       let _tBreastMin=0, _tBreastCount=0;
       keys.forEach(d => {
@@ -27096,9 +27103,9 @@ function App(){
         tNaps += napList.length;
         tNapMins += napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
         const bed = dayE.find(e=>e.type==="sleep");
-        if(bed){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
+        if(bed && bed.time && bed.time.includes(":")){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
         const wake = dayE.find(e=>e.type==="wake");
-        if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
+        if(wake && wake.time && wake.time.includes(":")){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
         const next=nextDayStr(d);
         // Count "wake events", not raw entries. Previously:
         //   - counted BOTH wake and feed entries → a parent logging a wake +
