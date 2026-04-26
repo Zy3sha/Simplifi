@@ -2011,10 +2011,9 @@ function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
   let _wakeAnchorMin = null;
   for (let i = _priorEntries.length - 1; i >= 0; i--) {
     const e = _priorEntries[i];
-    if (e.type === "nap" && e.end) {
+    if (e.type === "nap" && e.end && e.end.includes(":")) {
       const [h,m] = e.end.split(":").map(Number);
-      _wakeAnchorMin = h*60+m;
-      break;
+      if (!isNaN(h) && !isNaN(m)) { _wakeAnchorMin = h*60+m; break; }
     }
     if (e.type === "wake" && !e.night) {
       const [h,m] = (e.time || "").split(":").map(Number);
