@@ -180,40 +180,45 @@ if (!rawCode || rawCode.length < 4) {
       } catch(e) { console.warn("CT token lookup failed", e); }
     }
     // BK codes work directly — no lookup needed
-    await loadFamilyContext();
-    renderApp();
-    // Subscribe AFTER initial render so first paint is instant, then
-    // keep it live for all subsequent parent-side writes.
-    subscribeFamilyContext();
-    // Listen for session end — parent can lock the portal remotely
-    // Check on load if already locked
+
+    // ═══ CHECK SESSION LOCK BEFORE RENDERING ═══
     var _sessionLocked = false;
+    var _lockedHtml = `
+      <div style="text-align:center;padding:80px 24px;min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div style="font-size:48px;margin-bottom:16px">🔒</div>
+        <h2 style="font-family:'Playfair Display',Georgia,serif;font-size:22px;color:#4A3B35;margin-bottom:8px">Session ended</h2>
+        <p style="font-size:14px;color:#A89A90;line-height:1.6;max-width:280px">The parent has ended this Bubba Care session. Thank you for looking after their little one.</p>
+      </div>`;
     function _lockPortal() {
       _sessionLocked = true;
-      try { sessionStorage.setItem("ob_care_locked", "1"); } catch{}
-      document.getElementById("app").innerHTML = `
-        <div style="text-align:center;padding:80px 24px;min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center">
-          <div style="font-size:48px;margin-bottom:16px">🔒</div>
-          <h2 style="font-family:'Playfair Display',Georgia,serif;font-size:22px;color:#4A3B35;margin-bottom:8px">Session ended</h2>
-          <p style="font-size:14px;color:#A89A90;line-height:1.6;max-width:280px">The parent has ended this Bubba Care session. Thank you for looking after their little one.</p>
-        </div>`;
+      document.getElementById("app").innerHTML = _lockedHtml;
       if (_familyUnsub) { _familyUnsub(); _familyUnsub = null; }
     }
-    // Check Firestore for session status (also handles refresh)
+    // Check session doc BEFORE loading any data
     try {
-      getDoc(doc(db, "carer_logs", code, "_meta", "session")).then(function(snap) {
-        if (snap.exists() && snap.data().ended) { _lockPortal(); return; }
-        // If not locked on load, check sessionStorage (covers race between delete + refresh)
-        try { if (sessionStorage.getItem("ob_care_locked") === "1") { _lockPortal(); return; } } catch{}
-      }).catch(function(){});
-      // Live listener for real-time lock/unlock
+      var _sessionSnap = await getDoc(doc(db, "carer_logs", code, "_meta", "session"));
+      if (_sessionSnap.exists() && _sessionSnap.data().ended) {
+        _lockPortal();
+        // Still listen for reopen
+        onSnapshot(doc(db, "carer_logs", code, "_meta", "session"), (snap) => {
+          if (!snap.exists() && _sessionLocked) { _sessionLocked = false; location.reload(); }
+        });
+        return; // Don't load or render anything
+      }
+    } catch(e) { console.warn("Session check error", e); }
+
+    // Session is open — proceed with loading
+    await loadFamilyContext();
+    renderApp();
+    subscribeFamilyContext();
+
+    // Live listener for real-time lock while portal is open
+    try {
       onSnapshot(doc(db, "carer_logs", code, "_meta", "session"), (snap) => {
         if (snap.exists() && snap.data().ended) {
           _lockPortal();
         } else if (!snap.exists() && _sessionLocked) {
-          // Parent reopened — unlock
           _sessionLocked = false;
-          try { sessionStorage.removeItem("ob_care_locked"); } catch{}
           location.reload();
         }
       });
