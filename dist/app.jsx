@@ -11442,7 +11442,8 @@ function App(){
           }
           if(corrected%30===0 && napEntryId){
             setDays(d=>{
-              const _sd = selDayRef.current;
+              // Use nap_start_day (not selDay) so tick works even if user switched child/day
+              const _sd = (()=>{try{return localStorage.getItem("nap_start_day");}catch{return null;}})() || selDayRef.current;
               const entries=d[_sd]||[];
               if(!entries.some(e=>e.id===napEntryId)) return d;
               const now=nowTime();
@@ -25095,7 +25096,7 @@ function App(){
       localStorage.setItem("nap_on","1");
       localStorage.setItem("nap_sec","0");
       localStorage.setItem("nap_entry_id",entryId);
-      localStorage.setItem("nap_start_day",todayStr());
+      localStorage.setItem("nap_start_day",selDay);
     }catch{}
     setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
@@ -32224,7 +32225,7 @@ function App(){
                       setNapSec(elapsed);
                       setNapPaused(false);
                       setTimerMode("activeSleep");
-                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",todayStr());}catch{}
+                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",selDay);}catch{}
                       // Create in-progress entry
                       const entryId = uid();
                       setNapEntryId(entryId);
@@ -43409,7 +43410,7 @@ function App(){
                   const nowM=new Date().getHours()*60+new Date().getMinutes();
                   let elapsedSec=(nowM-startMins)*60+new Date().getSeconds();
                   if(elapsedSec<0) elapsedSec+=86400;
-                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",todayStr());}catch{}
+                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",selDay);}catch{}
                   setNapStartT(startT);setNapSec(elapsedSec);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
                   setModal(null);setEditEntry(null);
                   showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);

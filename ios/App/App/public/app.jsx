@@ -6912,12 +6912,14 @@ function App(){
   const yearlySaving = isLegacyUser ? "33" : "17";
   // Trial banner dismissed today?
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
+  const _trialDismissedRef = useRef(trialBannerDismissed);
+  useEffect(()=>{_trialDismissedRef.current=trialBannerDismissed;},[trialBannerDismissed]);
   // Reset at midnight if app stays open across the day boundary
   React.useEffect(()=>{
-    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&trialBannerDismissed){setTrialBannerDismissed(false);}}catch{}};
+    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&_trialDismissedRef.current){setTrialBannerDismissed(false);}}catch{}};
     const _mid=setInterval(checkMidnight, 5*60*1000); // check every 5 min
     return ()=>clearInterval(_mid);
-  },[trialBannerDismissed]);
+  },[]);
 
   // triggerPaywall is called from two kinds of event:
   //   1. AUTOMATIC (curiosity gap, soft nudges, background triggers) —
@@ -8069,8 +8071,12 @@ function App(){
     if (_entryStartMs) {
       _startDate = new Date(_entryStartMs);
     } else {
-      const [_rsh,_rsm] = _active.start.split(":").map(Number);
-      _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      if (_active.start && _active.start.includes(":")) {
+        const [_rsh,_rsm] = _active.start.split(":").map(Number);
+        _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      } else {
+        _startDate = new Date();
+      }
       _entryStartMs = _startDate.getTime();
     }
     const _elapsedMs = Date.now() - _entryStartMs;
@@ -9865,7 +9871,7 @@ function App(){
 
     // Clear ALL localStorage
     const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
-      "children_v1","active_child","tut_v2","install_date_v1",
+      "children_v1","active_child","tut_v2","install_date_v1","onboarded_v2",
       "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",
       // Ownership stamp MUST be cleared on logout so the next login
       // starts with pushToCloud's guard fully armed.
@@ -9889,7 +9895,7 @@ function App(){
     setFamilyCode(null);
     setFamilyUsername(null);
     setSyncStatus("idle");
-    setOnboarded(true);
+    setOnboarded(false);
     setNeedsChildSetup(false);
     setTab("day");
     // Reset premium state so account B doesn't inherit account A's premium
@@ -11436,7 +11442,8 @@ function App(){
           }
           if(corrected%30===0 && napEntryId){
             setDays(d=>{
-              const _sd = selDayRef.current;
+              // Use nap_start_day (not selDay) so tick works even if user switched child/day
+              const _sd = (()=>{try{return localStorage.getItem("nap_start_day");}catch{return null;}})() || selDayRef.current;
               const entries=d[_sd]||[];
               if(!entries.some(e=>e.id===napEntryId)) return d;
               const now=nowTime();
@@ -12238,7 +12245,7 @@ function App(){
       if (nightWakes.length) {
         const lw = nightWakes[nightWakes.length-1];
         const sm = lw.assistedDuration ? parseInt(lw.assistedDuration) : 0;
-        if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
+        if (sm > 0 && lw.time && lw.time.includes(":")) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
         else lastNightEvent = lw.time;
       }
       // ═══ NEXT EVENT, single source of truth for hero, pill, coming up, widget ═══
@@ -12473,7 +12480,7 @@ function App(){
       if(_nightWakes.length) {
         const _lw = _nightWakes[_nightWakes.length-1];
         const _sm = _lw.assistedDuration ? parseInt(_lw.assistedDuration) : 0;
-        if(_sm > 0) {
+        if(_sm > 0 && _lw.time && _lw.time.includes(":")) {
           const [_wh,_wm] = _lw.time.split(":").map(Number);
           const _tm = _wh*60+_wm+_sm;
           _lastNightEvent = `${String(Math.floor(_tm/60)%24).padStart(2,"0")}:${String(_tm%60).padStart(2,"0")}`;
@@ -23579,13 +23586,13 @@ function App(){
           showToast("✅ Logged for all " + ids.length + " children", 1800, 1);
         }
 
-        var _qlRetries = 0;
-        function quickAddLog(type, data){
+        function quickAddLog(type, data, _retries){
+    _retries = _retries || 0;
     // Guard: if children data hasn't loaded yet (cold launch from widget), queue for later
     if (!children || !children[resolvedActiveId] || !children[resolvedActiveId].days) {
-      if (++_qlRetries > 10) { console.warn("[OBubba] quickAddLog: gave up after 10 retries"); _qlRetries = 0; return; }
+      if (_retries >= 10) { console.warn("[OBubba] quickAddLog gave up"); showToast("Entry not saved — try again", 2500, 2); return; }
       const _snapId = resolvedActiveId;
-      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data); }, 500);
+      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data, _retries + 1); }, 500);
       return;
     }
     ensureTrialStarted();
@@ -25089,7 +25096,7 @@ function App(){
       localStorage.setItem("nap_on","1");
       localStorage.setItem("nap_sec","0");
       localStorage.setItem("nap_entry_id",entryId);
-      localStorage.setItem("nap_start_day",todayStr());
+      localStorage.setItem("nap_start_day",selDay);
     }catch{}
     setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
@@ -27079,6 +27086,7 @@ function App(){
     const prevDk = allDk.length > 7 ? allDk.slice(-14, -7) : [];
 
     function weekStats(keys) {
+      if (!keys.length) return null;
       let tFeeds=0, tMl=0, tNaps=0, tNapMins=0, tNightWakes=0, beds=[], wakes=[], stretches=[];
       let _tBreastMin=0, _tBreastCount=0;
       keys.forEach(d => {
@@ -27096,9 +27104,9 @@ function App(){
         tNaps += napList.length;
         tNapMins += napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
         const bed = dayE.find(e=>e.type==="sleep");
-        if(bed){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
+        if(bed && bed.time && bed.time.includes(":")){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
         const wake = dayE.find(e=>e.type==="wake");
-        if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
+        if(wake && wake.time && wake.time.includes(":")){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
         const next=nextDayStr(d);
         // Count "wake events", not raw entries. Previously:
         //   - counted BOTH wake and feed entries → a parent logging a wake +
@@ -47523,12 +47531,23 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {/* ── Section 2: Cloud Backup ── */}
             <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:16}}>☁️ Cloud Backup</div>
-            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
-              <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
-              <div>
-                <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
-                <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
+                  <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+                </div>
               </div>
+              {backupCode && (
+                <div style={{marginTop:10,padding:"10px 12px",background:"rgba(255,255,255,0.7)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#4a9a70",fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Your backup code</div>
+                    <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#2a7a50",letterSpacing:"0.1em"}}>{backupCode}</div>
+                  </div>
+                  <button onClick={()=>{try{navigator.clipboard.writeText(backupCode);showToast("📋 Code copied!",1500,1);}catch{}haptic();}} style={{padding:"6px 14px",borderRadius:99,border:"none",background:"#2a7a50",color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>Copy</button>
+                </div>
+              )}
             </div>
             <RestoreDataForm restoreFromBackup={restoreFromBackup} setShowFamilyModal={setShowFamilyModal} familyUsername={familyUsername} backupCode={backupCode} C={C} />
 
