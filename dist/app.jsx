@@ -30516,7 +30516,7 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflowY:"auto",overflowX:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}

@@ -3874,14 +3874,22 @@ const _fM="monospace",_fI="inherit",_cP="pointer",_bBB="border-box",_ls1="0.1em"
 const _isTablet = typeof window!=="undefined" && window.innerWidth >= 768;
 const _isLargeTablet = typeof window!=="undefined" && window.innerWidth >= 1024;
 const _maxW = _isLargeTablet ? 840 : _isTablet ? 760 : 520;
-// ── Responsive scaling system ──
-// Detects viewport width and provides scale-aware values for fonts, padding, spacing.
-// iPhone 15 (390px) = baseline 1.0. Samsung A series (360px) = 0.92. Pro Max (430px) = 1.1.
-const _vw = typeof window!=="undefined" ? window.innerWidth : 390;
-const _sf = Math.max(0.82, Math.min(1.15, _vw / 390)); // scale factor
-// Responsive helpers — use instead of hardcoded px for key UI elements
-const _rs = (base) => Math.round(base * _sf); // responsive size
-const _rf = (base) => Math.round(base * _sf * 10) / 10; // responsive font (1 decimal)
+// Screen-adaptive scaling: detect viewport and set CSS custom properties
+// so components can use vw-relative sizing. Also sets a scale factor
+// that the welcome page and key UI elements use.
+(function(){
+  if(typeof window==="undefined") return;
+  var vw = window.innerWidth;
+  var vh = window.innerHeight;
+  if(vw >= 768) return; // tablets don't need scaling
+  // Set CSS vars for viewport-aware sizing throughout the app
+  var r = document.documentElement;
+  r.style.setProperty("--vw", vw + "px");
+  r.style.setProperty("--vh", vh + "px");
+  // Scale factor: 390px = 1.0 baseline
+  var sf = Math.max(0.75, Math.min(1.15, vw / 390));
+  r.style.setProperty("--scale", String(sf));
+})();
 function Sheet({onClose,title,children}){
   const[kbH,setKbH]=React.useState(()=>typeof _kbHeight!=="undefined"?_kbHeight:0);
   const sheetRef=React.useRef(null);
@@ -30516,7 +30524,7 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflowY:"auto",overflowX:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,height:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
@@ -31548,17 +31556,17 @@ function App(){
         <div style={{paddingBottom:2,position:"relative",zIndex:2}}>
           {/* Day navigation bar: compact arrows + date + search */}
           <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:showSearch?6:0}}>
-            <button aria-label="Previous day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(16),color:C.mid,flexShrink:0}}>{"\u2039"}</button>
+            <button aria-label="Previous day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:16,color:C.mid,flexShrink:0}}>{"\u2039"}</button>
             <button aria-label="Open calendar" onClick={()=>{setCalMonth(selDay.slice(0,7));setShowCalendar(true);}}
               onContextMenu={e=>{e.preventDefault();haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");}}
               onTouchStart={e=>{e.currentTarget._lp=setTimeout(()=>{haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");},600);}}
               onTouchEnd={e=>{clearTimeout(e.currentTarget._lp);}}
               onTouchMove={e=>{clearTimeout(e.currentTarget._lp);}}
               style={{flex:1,background:selDay>todayStr()?"rgba(232,87,74,0.06)":"var(--card-bg-solid)",border:`1.5px solid ${selDay>todayStr()?"#e8574a":C.ter}`,borderRadius:10,padding:"4px 10px",cursor:_cP,textAlign:"center"}}>
-              <div style={{fontSize:_rf(13),fontWeight:700,color:selDay>todayStr()?"#e8574a":C.deep,fontFamily:"Georgia,serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:_rf(9),color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>TODAY</span>:selDay>todayStr()?<span style={{fontSize:_rf(9),color:"#e8574a",fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>FUTURE</span>:null}</div>
+              <div style={{fontSize:13,fontWeight:700,color:selDay>todayStr()?"#e8574a":C.deep,fontFamily:"Georgia,serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:9,color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>TODAY</span>:selDay>todayStr()?<span style={{fontSize:9,color:"#e8574a",fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>FUTURE</span>:null}</div>
             </button>
-            <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(16),color:C.mid,flexShrink:0}}>{"\u203A"}</button>
-            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(13),color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
+            <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:16,color:C.mid,flexShrink:0}}>{"\u203A"}</button>
+            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:8,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:13,color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
           </div>
           {/* Future date warning banner */}
           {selDay > todayStr() && (
@@ -31613,7 +31621,7 @@ function App(){
         </div>
       )}
 
-      <div style={{padding:tab==="settings"?`0 ${_rs(14)}px 90px`:`${_rs(16)}px ${_rs(14)}px 90px`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
+      <div style={{padding:tab==="settings"?"0 14px 90px":"16px 14px 90px",maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
           // Only show the "No day selected" fallback when selDay itself is
           // missing (which should basically never happen, useState initialises
@@ -32169,8 +32177,8 @@ function App(){
                     onTouchEndCapture={(e)=>{ try { const el=e.currentTarget; setTimeout(()=>{ if(el){el.style.transform=""; el.style.background="transparent";} },140); } catch{} }}
                     onTouchCancelCapture={(e)=>{ try { e.currentTarget.style.transform=""; e.currentTarget.style.background="transparent"; } catch{} }}
                   >
-                    <span style={{fontSize:_rs(26),lineHeight:1}}>{emoji}</span>
-                    <span style={{fontSize:_rf(11),fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
+                    <span style={{fontSize:26,lineHeight:1}}>{emoji}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
                     {longAction && <div style={{width:4,height:4,borderRadius:"50%",background:C.blush,marginTop:2,opacity:0.6}}/>}
                   </button>
                   );
@@ -34583,10 +34591,10 @@ function App(){
                     {big:napOn?(()=>{const total=napMins*60+napSec;const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;})():(naps.length===0?"--":hm(napMins)),unit:"",label:"Nap Time",color:C.sky,bg:"var(--card-bg)"},
                   ];
                 })().map((s,i)=>(
-                  <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:_rs(16),padding:`${_rs(10)}px ${_rs(4)}px`,textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)"}}>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:_rf(String(s.big).length>4?15:20),fontWeight:700,color:s.color,lineHeight:1.2}}>{s.big}</div>
-                    {s.unit&&<div style={{fontSize:_rf(12),fontFamily:_fM,color:s.color,opacity:0.65,marginTop:1}}>{s.unit}</div>}
-                    <div style={{fontSize:_rf(10),color:C.lt,marginTop:2,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
+                  <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:16,padding:"10px 4px",textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)"}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:String(s.big).length>4?15:20,fontWeight:700,color:s.color,lineHeight:1.2}}>{s.big}</div>
+                    {s.unit&&<div style={{fontSize:12,fontFamily:_fM,color:s.color,opacity:0.65,marginTop:1}}>{s.unit}</div>}
+                    <div style={{fontSize:11,color:C.lt,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -35912,7 +35920,7 @@ function App(){
 
               {/* 7. Daily timeline */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontFamily:"'Playfair Display',Georgia,serif",fontStyle:"italic",fontWeight:700,fontSize:_rf(17),color:C.deep,lineHeight:1.1,whiteSpace:"nowrap"}}><em style={{color:C.ter,fontStyle:"italic"}}>Today</em>, at a glance</span>
+                <span style={{fontFamily:"'Playfair Display',Georgia,serif",fontStyle:"italic",fontWeight:700,fontSize:17,color:C.deep,lineHeight:1.1}}><em style={{color:C.ter,fontStyle:"italic"}}>Today</em>, at a glance</span>
                 <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:C.lt,textTransform:"uppercase"}}>{dayE.length} {dayE.length===1?"entry":"entries"}</span>
                 {dayE.length > 0 && <span style={{fontSize:11,color:C.lt,fontStyle:"italic"}}>press & hold to edit</span>}
               </div>
