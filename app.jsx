@@ -8021,6 +8021,8 @@ function App(){
   const[breastSec,setBreastSec]=useState(()=>{try{const s=localStorage.getItem("breast_sec");return s?JSON.parse(s):{L:0,R:0};}catch{return {L:0,R:0};}});
   const[breastActive,setBreastActive]=useState(()=>{try{return localStorage.getItem("breast_active")==="1";}catch{return false;}});
   const[breastStartTime,setBreastStartTime]=useState(()=>{try{return localStorage.getItem("breast_startTime")||null;}catch{return null;}});
+  const[showBreastStartPicker,setShowBreastStartPicker]=useState(false);
+  const[breastCustomStart,setBreastCustomStart]=useState("");
   const breastRef=React.useRef(null);
   const[bedCountdown,setBedCountdown]=useState(null);
   const[nightElapsed,setNightElapsed]=useState(null);
@@ -9532,10 +9534,17 @@ function App(){
   }
 
   function endCarerSession() {
-    if (!backupCode || !window._fb) return;
+    const _code = backupCode || (()=>{try{return localStorage.getItem("backup_code");}catch{return null;}})();
+    if (!_code) { showToast("No backup code found. try again after syncing", 2000, 2); return; }
+    if (!window._fb) {
+      // Firebase not ready — wait and retry
+      showToast("Connecting...", 1500, 1);
+      setTimeout(()=>endCarerSession(), 2000);
+      return;
+    }
     try {
       const {db, doc, setDoc, serverTimestamp} = window._fb;
-      setDoc(doc(db, "carer_logs", backupCode, "_meta", "session"), {
+      setDoc(doc(db, "carer_logs", _code, "_meta", "session"), {
         ended: true,
         endedAt: serverTimestamp(),
         endedBy: window._fbUid || "parent"
@@ -9549,10 +9558,11 @@ function App(){
   }
 
   function restartCarerSession() {
-    if (!backupCode || !window._fb) return;
+    const _code = backupCode || (()=>{try{return localStorage.getItem("backup_code");}catch{return null;}})();
+    if (!_code || !window._fb) return;
     try {
       const {db, doc, deleteDoc} = window._fb;
-      deleteDoc(doc(db, "carer_logs", backupCode, "_meta", "session")).then(() => {
+      deleteDoc(doc(db, "carer_logs", _code, "_meta", "session")).then(() => {
         showToast("✓ Carer portal is open again", 2000, 1);
       }).catch(() => {});
     } catch(e) {}
@@ -32154,7 +32164,7 @@ function App(){
               {!daySubScreen && <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:12,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
                 {[
                   {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
-                  {emoji:"🤱",label:"Breast",longAction:()=>openLogPanel("feed"),action:()=>{haptic();startBreastTimer("L");}},
+                  {emoji:"🤱",label:"Breast",longAction:()=>{if(breastActive){openLogPanel("feed");}else{setShowBreastStartPicker(true);setBreastCustomStart(nowTime());}},action:()=>{haptic();startBreastTimer("L");}},
                   {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
                   {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?()=>{showConfirm("Discard nap attempt?",(babyName||"Baby")+" didn't actually settle? Discarding won't save any nap minutes, so today's predictions stay clean.",()=>{cancelNap();setConfirmDialog(null);},"Discard");}:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
                   {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
@@ -32246,6 +32256,33 @@ function App(){
                     <button onClick={()=>setShowNapStartPicker(false)} style={{padding:"10px",borderRadius:"50%",border:"none",background:"var(--card-bg-alt)",color:C.lt,fontSize:14,cursor:_cP}}>✕</button>
                   </div>
                   <div style={{fontSize:11,color:C.lt,fontStyle:"italic",marginTop:6}}>Timer will show elapsed time from this start time</div>
+                </div>
+              )}
+
+              {/* ═══ Breast Backdated Start Picker ═══ */}
+              {showBreastStartPicker && !breastActive && (
+                <div style={{background:"var(--card-bg)",border:"1.5px solid rgba(212,168,85,0.3)",borderRadius:16,padding:"14px 16px",marginBottom:10,animation:"popIn 0.2s ease",boxShadow:"var(--card-shadow)"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>🤱 When did the feed start?</div>
+                  <div style={{fontSize:11,color:C.lt,marginBottom:8}}>Forgot to tap? Pick the time you actually started.</div>
+                  <div style={_S.flexCenter10}>
+                    <TimeInput value={breastCustomStart} onChange={t=>setBreastCustomStart(t)} style={_S.flex1} inputStyle={{fontSize:16,padding:"10px 12px",borderRadius:12,textAlign:"center"}}/>
+                    <button onClick={()=>{
+                      haptic();
+                      const t = breastCustomStart || nowTime();
+                      setBreastStartTime(t);
+                      try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));localStorage.setItem("breast_active","1");}catch{}
+                      setBreastActive(true);
+                      setBreastSide("L");
+                      setShowBreastStartPicker(false);
+                      showToast("🤱 Feed started from " + fmt12(t), 1500, 1);
+                      if(_isNative) _laStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:'left'});
+                      _androidTimerStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:'left'});
+                    }} style={{padding:"10px 20px",borderRadius:12,border:"none",background:C.gold,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>Start</button>
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:10}}>
+                    <button onClick={()=>{haptic();const t=breastCustomStart||nowTime();setBreastStartTime(t);try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));localStorage.setItem("breast_active","1");localStorage.setItem("breast_side","R");}catch{}setBreastActive(true);setBreastSide("R");setShowBreastStartPicker(false);showToast("🤱 Feed started (Right) from "+fmt12(t),1500,1);if(_isNative)_laStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:'right'});_androidTimerStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:'right'});}} style={{flex:1,padding:"8px",borderRadius:10,border:`1px solid ${C.gold}40`,background:`${C.gold}08`,color:C.deep,fontSize:12,fontWeight:600,cursor:_cP}}>Start Right side →</button>
+                    <button onClick={()=>setShowBreastStartPicker(false)} style={{padding:"8px 14px",borderRadius:10,border:`1px solid ${C.blush}`,background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>Cancel</button>
+                  </div>
                 </div>
               )}
 
