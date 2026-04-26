@@ -13310,6 +13310,25 @@ function App(){
                             Done + back to sleep
                           </button>
                         </div>
+                        <button onClick={()=>{
+                          haptic();
+                          const newTime = prompt("Started earlier? Enter time (e.g. 2:15am, 02:15):");
+                          if(newTime){
+                            const parsed = parseTimeFree(newTime);
+                            if(parsed){
+                              setBreastStartTime(parsed);
+                              try{localStorage.setItem("breast_startTime",parsed);}catch{}
+                              const [h,m]=parsed.split(":").map(Number);
+                              const now=new Date();
+                              let elapsed=Math.max(0,Math.floor((now.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime())/1000));
+                              if(elapsed>86400) elapsed=0;
+                              setBreastSec({L:breastSide==="L"?elapsed:0, R:breastSide==="R"?elapsed:0});
+                              showToast("🤱 Start time updated to "+fmt12(parsed),1500,1);
+                            } else { showToast("Couldn't parse that time",1500,2); }
+                          }
+                        }} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textAlign:"center",width:"100%",marginTop:4,fontFamily:_fI}}>
+                          Started earlier? Tap to edit
+                        </button>
                       </div>
                     );
                   }
@@ -13384,7 +13403,6 @@ function App(){
               })()}
             </div>
           )}
-          <div style={{fontSize:11,color:C.lt,marginTop:8,textAlign:"center",lineHeight:1.5}}>{_nightFeedHint}</div>
           {(()=>{
             const _nwCount = (_nwCtx && _nwCtx.wakeNum) || 0;
             const _isDeepNight = _h >= 23 || _h < 6;
@@ -31114,6 +31132,26 @@ function App(){
                     ✕
                   </button>
                 </div>
+                <button onClick={()=>{
+                  haptic();
+                  const newTime = prompt("Started earlier? Enter time (e.g. 6:15pm, 18:15):");
+                  if(newTime){
+                    const parsed = parseTimeFree(newTime);
+                    if(parsed){
+                      setBreastStartTime(parsed);
+                      try{localStorage.setItem("breast_startTime",parsed);}catch{}
+                      // Recalculate elapsed seconds
+                      const [h,m]=parsed.split(":").map(Number);
+                      const now=new Date();
+                      let elapsed=Math.max(0,Math.floor((now.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime())/1000));
+                      if(elapsed>86400) elapsed=0;
+                      setBreastSec({L:breastSide==="L"?elapsed:0, R:breastSide==="R"?elapsed:0});
+                      showToast("🤱 Start time updated to "+fmt12(parsed),1500,1);
+                    } else { showToast("Couldn't parse that time",1500,2); }
+                  }
+                }} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textAlign:"center",width:"100%",marginTop:2,fontFamily:_fI}}>
+                  Started earlier? Tap to edit
+                </button>
               </div>
             ) : (
               _hasBreast && (
