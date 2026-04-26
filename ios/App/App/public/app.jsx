@@ -9431,7 +9431,7 @@ function App(){
             // Update the entry in days too
             setDays(d2=>{const existing=d2[todayStr()]||[];return{...d2,[todayStr()]:existing.map(x=>x.carerEntryId===d.id?{...x,start:_e.start}:x)};});
           }
-          if (!_autoMergedIds.has(d.id) && !_e._merged && _e.type && _e.time) {
+          if (!_autoMergedIds.has(d.id) && !_e._merged && !_e._rejected && _e.type && _e.time) {
             _autoMergedIds.add(d.id);
             _pushPersist(d.id);
             // Build the entry for the day log
@@ -9500,7 +9500,8 @@ function App(){
           }
         });
         entries.sort((a,b) => (b.loggedAt||"").localeCompare(a.loggedAt||""));
-        setCarerEntries(entries);
+        // Filter out merged/rejected entries so they don't show in the review badge
+        setCarerEntries(entries.filter(e => !e._merged && !e._rejected));
       }, (err)=>{ console.warn("Carer log listener error:",err); });
     } catch(e) { console.warn("Carer logs not available:",e); }
     return ()=>{ if(carerUnsubRef.current) carerUnsubRef.current(); };
