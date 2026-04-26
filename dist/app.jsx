@@ -47523,12 +47523,23 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {/* ── Section 2: Cloud Backup ── */}
             <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:16}}>☁️ Cloud Backup</div>
-            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
-              <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
-              <div>
-                <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
-                <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
+                  <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+                </div>
               </div>
+              {backupCode && (
+                <div style={{marginTop:10,padding:"10px 12px",background:"rgba(255,255,255,0.7)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#4a9a70",fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Your backup code</div>
+                    <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#2a7a50",letterSpacing:"0.1em"}}>{backupCode}</div>
+                  </div>
+                  <button onClick={()=>{try{navigator.clipboard.writeText(backupCode);showToast("📋 Code copied!",1500,1);}catch{}haptic();}} style={{padding:"6px 14px",borderRadius:99,border:"none",background:"#2a7a50",color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>Copy</button>
+                </div>
+              )}
             </div>
             <RestoreDataForm restoreFromBackup={restoreFromBackup} setShowFamilyModal={setShowFamilyModal} familyUsername={familyUsername} backupCode={backupCode} C={C} />
 

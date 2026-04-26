@@ -8805,6 +8805,12 @@ function App(){
     // Safety: never push blank/empty state to cloud (would wipe real data)
     const _hasData = Object.values(allChildren).some(c => c.name || Object.values(c.days||{}).some(d => d && d.length > 0));
     if(!_hasData) return;
+    // Safety: never overwrite cloud with significantly fewer entries (data loss guard)
+    const _localTotal = Object.values(allChildren).reduce((s, c) => s + Object.values(c.days||{}).reduce((s2, d) => s2 + (d ? d.length : 0), 0), 0);
+    if (_localTotal < cloudEntryCountRef.current * 0.7 && cloudEntryCountRef.current > 30) {
+      console.warn("[OBubba] pushToCloud BLOCKED: local", _localTotal, "entries vs cloud", cloudEntryCountRef.current, "— refusing overwrite to prevent data loss");
+      return;
+    }
 
     // OWNERSHIP GUARD. This is the hard safety net that stops an account
     // switch from leaking the previous account's children into the new
@@ -9713,12 +9719,11 @@ function App(){
         } else {
           let foundExisting = false;
           if(!foundExisting) {
-            // SAFETY: Only generate a new backup code for genuinely new users
-            // who have no username. If they have a username, verifyLogin will
-            // fetch their correct backup code when they sign in.
-            const hasUsername = familyUsername || localStorage.getItem("family_username");
-            const hasVerified = localStorage.getItem("auth_verified");
-            if(!hasUsername && !hasVerified) {
+            // SAFETY: Always generate a backup code if user doesn't have one.
+            // Previously this was gated on !hasUsername which meant users who
+            // set a username but never verified were left without a backup.
+            // Now: if no backup code exists after all restore attempts, create one.
+            {
               const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
               let newCode, exists = true;
               while(exists){
@@ -10997,7 +11002,7 @@ function App(){
   // No auto-generation or child_code_map needed. user remembers their code.
   async function pushChildSync(childId, code, childData) {
     if(!window._fb || !code) return;
-    const {db, doc, setDoc, serverTimestamp} = window._fb;
+    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const child = childData || children[childId];
     if(!child) return;
     if(!window._fbUid) {
@@ -11010,6 +11015,20 @@ function App(){
       });
     }
     try {
+      // SAFETY: never overwrite cloud with fewer entries than it already has.
+      // This prevents data loss from merge bugs, cache clears, or stale state.
+      const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+      try {
+        const existing = await fsGet("child_syncs", code);
+        if (existing.exists()) {
+          const cloudChild = JSON.parse(existing.data().child || "{}");
+          const cloudEntryCount = Object.values(cloudChild.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+          if (localEntryCount < cloudEntryCount * 0.7 && cloudEntryCount > 20) {
+            console.warn("[OBubba] pushChildSync BLOCKED: local has", localEntryCount, "entries vs cloud", cloudEntryCount, "— refusing to overwrite");
+            return;
+          }
+        }
+      } catch(e2) { /* proceed if check fails */ }
       await fsSet("child_syncs", code, {
         child: JSON.stringify(child),
         childName: child.name || "",
@@ -26905,7 +26924,9 @@ function App(){
         await navigator.share({ title: name + "'s Bubba Care", files: [file] });
       } else if (navigator.share) {
         _method = "native_share_text";
-        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba" });
+        const _ctShare = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
+        const _careUrl = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ctShare)+"&child="+encodeURIComponent(resolvedActiveId||"");
+        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba\n\n" + _careUrl });
       } else {
         // Web fallback: download the file
         _method = "download";
@@ -30516,7 +30537,7 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflowY:"auto",overflowX:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
@@ -46604,8 +46625,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
               const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
-              if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
-              else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
+              if(navigator.share){
+                try{await navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg});}
+                catch(e3){if(e3.name!=="AbortError"){try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}}
+              } else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
               🔗 Send Link (no QR needed)
             </button>
