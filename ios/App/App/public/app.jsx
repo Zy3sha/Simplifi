@@ -26905,7 +26905,9 @@ function App(){
         await navigator.share({ title: name + "'s Bubba Care", files: [file] });
       } else if (navigator.share) {
         _method = "native_share_text";
-        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba" });
+        const _ctShare = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
+        const _careUrl = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ctShare)+"&child="+encodeURIComponent(resolvedActiveId||"");
+        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba\n\n" + _careUrl });
       } else {
         // Web fallback: download the file
         _method = "download";
@@ -30516,7 +30518,7 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflowY:"auto",overflowX:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
@@ -46604,8 +46606,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
               const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
-              if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
-              else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
+              if(navigator.share){
+                try{await navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg});}
+                catch(e3){if(e3.name!=="AbortError"){try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}}
+              } else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
               🔗 Send Link (no QR needed)
             </button>

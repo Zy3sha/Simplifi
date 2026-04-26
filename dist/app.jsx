@@ -26905,7 +26905,9 @@ function App(){
         await navigator.share({ title: name + "'s Bubba Care", files: [file] });
       } else if (navigator.share) {
         _method = "native_share_text";
-        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba" });
+        const _ctShare = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
+        const _careUrl = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ctShare)+"&child="+encodeURIComponent(resolvedActiveId||"");
+        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba\n\n" + _careUrl });
       } else {
         // Web fallback: download the file
         _method = "download";
@@ -46604,8 +46606,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
               const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
-              if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
-              else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
+              if(navigator.share){
+                try{await navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg});}
+                catch(e3){if(e3.name!=="AbortError"){try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}}
+              } else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
               🔗 Send Link (no QR needed)
             </button>
