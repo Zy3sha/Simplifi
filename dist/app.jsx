@@ -26096,10 +26096,7 @@ function App(){
       const t=nowTime();
       setBreastStartTime(t);
       try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));}catch{}
-      // One-time hint: long-press to edit start time
-      try{if(!localStorage.getItem("ob_breast_hint_dismissed")){
-        setTimeout(()=>showConfirm("Tip: long-press to edit","Started feeding earlier? Long-press the Breast button next time to pick the actual start time.",()=>{try{localStorage.setItem("ob_breast_hint_dismissed","1");}catch{}setConfirmDialog(null);},"Don't show again"),800);
-      }}catch{}
+      // Hint removed — edit option is visible on the timer itself
       // Auto-pause an active nap so the timers don't clash
       if(napOn && !napPaused){
         pauseNap();
@@ -30579,40 +30576,40 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflowY:"auto",overflowX:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,height:"100vh",height:"100dvh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
             {!_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(circle at 20% 18%,rgba(200,155,90,0.08) 0%,transparent 4%),radial-gradient(circle at 78% 32%,rgba(168,90,112,0.06) 0%,transparent 5%),radial-gradient(circle at 35% 72%,rgba(168,90,112,0.05) 0%,transparent 4%)"}}/>}
 
-            {/* Mascot medallion — scales with viewport height */}
-            <div style={{display:"flex",justifyContent:"center",margin:"1.5vh 0",position:"relative",zIndex:2}}>
-              {_isNight&&<div style={{position:"absolute",inset:-20,left:"50%",width:"38vw",height:"38vw",maxWidth:200,maxHeight:200,transform:"translateX(-50%)",borderRadius:"50%",background:"conic-gradient(from 180deg,transparent 0deg,rgba(232,200,150,0.22) 30deg,transparent 80deg)",filter:"blur(8px)",zIndex:-1}}/>}
-              <div style={{width:"36vw",height:"36vw",maxWidth:186,maxHeight:186,borderRadius:"50%",position:"relative",background:_wMedalBg,boxShadow:_wMedalShadow,display:"grid",placeItems:"center"}}>
+            {/* Mascot medallion — uses vh so it shrinks on small screens */}
+            <div style={{display:"flex",justifyContent:"center",margin:"2vh 0 1vh",position:"relative",zIndex:2,flex:"0 0 auto"}}>
+              {_isNight&&<div style={{position:"absolute",inset:-20,left:"50%",width:"28vh",height:"28vh",maxWidth:200,maxHeight:200,transform:"translateX(-50%)",borderRadius:"50%",background:"conic-gradient(from 180deg,transparent 0deg,rgba(232,200,150,0.22) 30deg,transparent 80deg)",filter:"blur(8px)",zIndex:-1}}/>}
+              <div style={{width:"22vh",height:"22vh",maxWidth:170,maxHeight:170,borderRadius:"50%",position:"relative",background:_wMedalBg,boxShadow:_wMedalShadow,display:"grid",placeItems:"center"}}>
                 <div style={{position:"absolute",inset:-6,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.55:0.4,pointerEvents:"none"}}/>
                 <div style={{position:"absolute",inset:-12,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.2:0.15,pointerEvents:"none"}}/>
                 <img src="obubba-happy.png" alt="OBubba" style={{width:"80%",height:"80%",objectFit:"contain",filter:_isNight?"drop-shadow(0 8px 24px rgba(232,200,150,0.38))":"drop-shadow(0 8px 18px rgba(60,47,44,0.18))"}} onError={e=>{e.target.style.display="none";}}/>
               </div>
             </div>
 
-            {/* Hero text — font sizes scale with viewport */}
-            <div style={{textAlign:"center",padding:"0 2vw",position:"relative",zIndex:2}}>
-              <div style={{fontFamily:"'Parisienne',cursive",fontSize:"clamp(40px, 14vw, 56px)",lineHeight:0.9,color:_wInk}}><span style={{color:_isNight?_nGold:_dCta2}}>O</span>Bubba</div>
-              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(11px, 3.3vw, 14px)",color:_wInk2,marginTop:4}}>parenthood in your pocket</div>
-              <div style={{fontFamily:"Georgia,serif",fontWeight:400,fontSize:"clamp(22px, 7vw, 29px)",lineHeight:1.1,letterSpacing:"-0.015em",color:_wInk,marginTop:"2vh"}}>Take the guesswork out of <em style={{fontStyle:"italic",color:_isNight?_nGold:_dCta2}}>parenting.</em></div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:"clamp(12px, 3.5vw, 14px)",lineHeight:1.55,color:_wInk2,marginTop:"1.5vh",maxWidth:"30ch",marginLeft:"auto",marginRight:"auto"}}>Personalised sleep, feeding and growth guidance that learns your baby's rhythm {"\u2014"} gently.</div>
+            {/* Hero text — all vh-based so it compresses on small screens */}
+            <div style={{textAlign:"center",padding:"0 2vw",position:"relative",zIndex:2,flex:"0 0 auto"}}>
+              <div style={{fontFamily:"'Parisienne',cursive",fontSize:"clamp(36px, 8vh, 56px)",lineHeight:0.9,color:_wInk}}><span style={{color:_isNight?_nGold:_dCta2}}>O</span>Bubba</div>
+              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(10px, 1.8vh, 14px)",color:_wInk2,marginTop:"0.5vh"}}>parenthood in your pocket</div>
+              <div style={{fontFamily:"Georgia,serif",fontWeight:400,fontSize:"clamp(20px, 3.8vh, 29px)",lineHeight:1.1,letterSpacing:"-0.015em",color:_wInk,marginTop:"1.5vh"}}>Take the guesswork out of <em style={{fontStyle:"italic",color:_isNight?_nGold:_dCta2}}>parenting.</em></div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:"clamp(11px, 1.8vh, 14px)",lineHeight:1.5,color:_wInk2,marginTop:"1vh",maxWidth:"30ch",marginLeft:"auto",marginRight:"auto"}}>Personalised sleep, feeding and growth guidance that learns your baby's rhythm {"\u2014"} gently.</div>
             </div>
 
-            {/* Signature trust line */}
-            <div style={{margin:"auto 0 0",position:"relative",zIndex:2,padding:"1.5vh 0",borderTop:`1px solid ${_wLine}`,borderBottom:`1px solid ${_wLine}`,textAlign:"center"}}>
-              <div style={{fontWeight:500,fontSize:10,letterSpacing:"0.24em",textTransform:"uppercase",color:_wInk3,marginBottom:4}}>Guided by</div>
-              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(12px, 3.8vw, 15px)",lineHeight:1.5,color:_wInk}}><b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>NHS</b>, <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>WHO</b> & <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>AASM</b> standards {"\u2014"} never prescriptive, always kind.</div>
+            {/* Signature trust line — pushed to bottom by flex auto margin */}
+            <div style={{margin:"auto 0 0",position:"relative",zIndex:2,padding:"1.2vh 0",borderTop:`1px solid ${_wLine}`,borderBottom:`1px solid ${_wLine}`,textAlign:"center",flex:"0 0 auto"}}>
+              <div style={{fontWeight:500,fontSize:"clamp(8px, 1.4vh, 10px)",letterSpacing:"0.24em",textTransform:"uppercase",color:_wInk3,marginBottom:"0.5vh"}}>Guided by</div>
+              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(11px, 2vh, 15px)",lineHeight:1.4,color:_wInk}}><b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>NHS</b>, <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>WHO</b> & <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>AASM</b> standards {"\u2014"} never prescriptive, always kind.</div>
             </div>
 
-            {/* CTAs */}
-            <div style={{marginTop:"1.5vh",position:"relative",zIndex:2,paddingBottom:"1.5vh"}}>
-              <button onClick={()=>setObStep(1)} style={{display:"block",width:"100%",padding:17,borderRadius:999,border:_bN,fontWeight:600,fontSize:15,letterSpacing:"0.02em",cursor:_cP,background:`linear-gradient(135deg,${_wCta1} 0%,${_wCta2} 100%)`,color:_wCtaColor,boxShadow:_wCtaShadow,fontFamily:_fI}}>Start tracking <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",marginLeft:6}}>{"\u2192"}</span></button>
-              <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{display:"block",width:"100%",marginTop:10,padding:17,borderRadius:999,border:_bN,background:"transparent",fontWeight:500,fontSize:15,color:_wInk,boxShadow:_wSecShadow,cursor:_cP,fontFamily:_fI}}>I already have an account</button>
+            {/* CTAs — always visible at bottom */}
+            <div style={{position:"relative",zIndex:2,paddingTop:"1.2vh",paddingBottom:"1.5vh",flex:"0 0 auto"}}>
+              <button onClick={()=>setObStep(1)} style={{display:"block",width:"100%",padding:"clamp(12px, 2.2vh, 17px)",borderRadius:999,border:_bN,fontWeight:600,fontSize:"clamp(13px, 2vh, 15px)",letterSpacing:"0.02em",cursor:_cP,background:`linear-gradient(135deg,${_wCta1} 0%,${_wCta2} 100%)`,color:_wCtaColor,boxShadow:_wCtaShadow,fontFamily:_fI}}>Start tracking <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",marginLeft:6}}>{"\u2192"}</span></button>
+              <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{display:"block",width:"100%",marginTop:"1vh",padding:"clamp(12px, 2.2vh, 17px)",borderRadius:999,border:_bN,background:"transparent",fontWeight:500,fontSize:"clamp(13px, 2vh, 15px)",color:_wInk,boxShadow:_wSecShadow,cursor:_cP,fontFamily:_fI}}>I already have an account</button>
             </div>
 
           </div>
@@ -31135,29 +31132,6 @@ function App(){
                 <button onClick={()=>{haptic();setShowBreastStartPicker(true);setBreastCustomStart(breastStartTime||nowTime());}} style={{background:"none",border:"none",color:C.lt,fontSize:10,cursor:_cP,textAlign:"center",width:"100%",marginTop:2,fontFamily:_fI}}>
                   Started earlier? Tap to edit
                 </button>
-                {showBreastStartPicker && (
-                  <div style={{marginTop:6,padding:"10px 12px",borderRadius:12,background:"var(--card-bg)",border:`1.5px solid ${C.gold}30`,animation:"popIn 0.2s ease"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:6}}>🤱 Edit start time</div>
-                    <div style={_S.flexCenter10}>
-                      <TimeInput value={breastCustomStart} onChange={t=>setBreastCustomStart(t)} style={_S.flex1} inputStyle={{fontSize:16,padding:"10px 12px",borderRadius:12,textAlign:"center"}}/>
-                      <button onClick={()=>{
-                        haptic();
-                        const t=breastCustomStart||nowTime();
-                        if(!t||!t.includes(":")) return;
-                        setBreastStartTime(t);
-                        try{localStorage.setItem("breast_startTime",t);}catch{}
-                        const [h,m]=t.split(":").map(Number);
-                        const now=new Date();
-                        let elapsed=Math.max(0,Math.floor((now.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime())/1000));
-                        if(elapsed>86400) elapsed=0;
-                        setBreastSec({L:breastSide==="L"?elapsed:0, R:breastSide==="R"?elapsed:0});
-                        setShowBreastStartPicker(false);
-                        showToast("🤱 Start time updated to "+fmt12(t),1500,1);
-                      }} style={{padding:"10px 18px",borderRadius:12,border:"none",background:C.gold,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>Set</button>
-                    </div>
-                    <button onClick={()=>setShowBreastStartPicker(false)} style={{background:"none",border:"none",color:C.lt,fontSize:11,cursor:_cP,marginTop:6,width:"100%",textAlign:"center"}}>Cancel</button>
-                  </div>
-                )}
               </div>
             ) : (
               _hasBreast && (
@@ -43176,6 +43150,38 @@ function App(){
           )}
           <PBtn onClick={saveLogFeed}>✓ Log Feed</PBtn>
           
+        </Sheet>
+      )}
+
+      {/* ═══ Breast Timer Edit Sheet ═══ */}
+      {showBreastStartPicker && breastActive && (
+        <Sheet onClose={()=>setShowBreastStartPicker(false)} title="🤱 Edit Feed Start Time">
+          <div>
+            <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:12}}>When did you actually start feeding? Pick the time and side.</div>
+            <TimeInput value={breastCustomStart} onChange={t=>setBreastCustomStart(t)} label="Start time" inputStyle={{fontSize:18,padding:"12px",borderRadius:14,textAlign:"center"}}/>
+            <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6,marginTop:4}}>Which side?</div>
+            <div style={{display:"flex",gap:10,marginBottom:16}}>
+              {[{s:"L",label:"⬅️ Left"},{s:"R",label:"Right ➡️"}].map(({s,label})=>(
+                <button key={s} onClick={()=>setBreastSide(s)} style={{flex:1,padding:"14px",borderRadius:14,border:breastSide===s?`2px solid ${C.gold}`:`1.5px solid ${C.blush}`,background:breastSide===s?`${C.gold}10`:"transparent",fontSize:15,fontWeight:700,color:breastSide===s?C.gold:C.mid,cursor:_cP}}>{label}</button>
+              ))}
+            </div>
+            <button onClick={()=>{
+              haptic();
+              const t=breastCustomStart||nowTime();
+              if(!t||!t.includes(":")) return;
+              setBreastStartTime(t);
+              try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_side",breastSide);}catch{}
+              const [h,m]=t.split(":").map(Number);
+              const now=new Date();
+              let elapsed=Math.max(0,Math.floor((now.getTime()-new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0).getTime())/1000));
+              if(elapsed>86400) elapsed=0;
+              setBreastSec({L:breastSide==="L"?elapsed:0, R:breastSide==="R"?elapsed:0});
+              setShowBreastStartPicker(false);
+              showToast("🤱 Start time updated to "+fmt12(t),1500,1);
+            }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.gold},#C49545)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP}}>
+              Update start time
+            </button>
+          </div>
         </Sheet>
       )}
 
