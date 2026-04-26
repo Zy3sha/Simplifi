@@ -26078,6 +26078,10 @@ function App(){
       const t=nowTime();
       setBreastStartTime(t);
       try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));}catch{}
+      // One-time hint: long-press to edit start time
+      try{if(!localStorage.getItem("ob_breast_hint_dismissed")){
+        setTimeout(()=>showConfirm("Tip: long-press to edit","Started feeding earlier? Long-press the Breast button next time to pick the actual start time.",()=>{try{localStorage.setItem("ob_breast_hint_dismissed","1");}catch{}setConfirmDialog(null);},"Don't show again"),800);
+      }}catch{}
       // Auto-pause an active nap so the timers don't clash
       if(napOn && !napPaused){
         pauseNap();
