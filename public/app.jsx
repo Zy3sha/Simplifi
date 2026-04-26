@@ -5010,7 +5010,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
           {/* ── Regenerate code (one tap) ── */}
           {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>{showConfirm("Generate a new code? This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
+            <button onClick={()=>{showConfirm("Generate a new code?","This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
               {loading?"Generating...":"Regenerate code"}
             </button>
           </div>
@@ -31149,9 +31149,10 @@ function App(){
                       setNapStartT(newT);
                       setNapSec(elapsed);
                       if(napEntryId){
+                        const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
                         setDays(d=>{
-                          const existing = d[selDay]||[];
-                          return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                          const existing = d[_napEditDay]||[];
+                          return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
                         });
                       }
                       try{localStorage.setItem("nap_startT",newT);}catch{}
@@ -31172,9 +31173,10 @@ function App(){
                           setNapStartT(newT);
                           setNapSec(elapsed);
                           if(napEntryId){
+                            const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
                             setDays(d=>{
-                              const existing = d[selDay]||[];
-                              return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                              const existing = d[_napEditDay]||[];
+                              return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
                             });
                           }
                           try{localStorage.setItem("nap_startT",newT);}catch{}
@@ -42906,7 +42908,7 @@ function App(){
                   const existing = d[nextDay] || [];
                   const hasWake = hasMorningWake(existing);
                   if (hasWake) return d;
-                  const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:""}];
+                  const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:"",modifiedAt:Date.now()}];
                   return {...d, [nextDay]: updated};
                 });
                 setSelDay(nextDayStr(selDay));
@@ -43262,7 +43264,7 @@ function App(){
                 <PBtn onClick={()=>{
                   const t = logForm.feedTime || nowTime();
                   const nextDay = nextDayStr(selDay);
-                  const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
+                  const entry = {id:uid(),type:"wake",time:t,night:false,note:"",modifiedAt:Date.now()};
                   setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
                   setLogPanel(null);
                   setSelDay(nextDay);
@@ -46529,14 +46531,15 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         // End nap
                         const _endT = _nowTime;
                         if(napStartT && napEntryId) {
+                          const _napDay = localStorage.getItem("nap_start_day") || selDay;
                           setDays(d=>{
-                            const td = d[selDay]||[];
+                            const td = d[_napDay]||[];
                             const updated = td.map(e=>e.id===napEntryId?{...e,end:_endT,_active:false,loggedBy:"grandparent",modifiedAt:Date.now()}:e);
-                            return {...d,[selDay]:updated};
+                            return {...d,[_napDay]:updated};
                           });
                         }
                         setNapOn(false);setNapStartT(null);setNapSec(0);setNapEntryId(null);
-                        try{localStorage.removeItem("nap_active");localStorage.removeItem("nap_startT");localStorage.removeItem("nap_entry_id");}catch{}
+                        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
                         showToast("💤 Nap ended. saved",2000,1);
                       } else {
                         // Start nap
@@ -46544,7 +46547,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         const _entry = {id:_eid,type:"nap",start:_nowTime,end:_nowTime,night:false,loggedBy:"grandparent",_active:true,modifiedAt:Date.now()};
                         setDays(d=>({...d,[selDay]:[...(d[selDay]||[]),_entry]}));
                         setNapStartT(_nowTime);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
-                        try{localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);}catch{}
+                        try{localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_startMs",String(Date.now()));localStorage.setItem("nap_start_day",selDay);}catch{}
                         showToast("💤 Nap started. saved",2000,1);
                       }
                     }} style={{..._btn,background:napOn?"rgba(123,166,140,0.15)":"var(--card-bg)",borderColor:napOn?C.mint:C.blush}}>
@@ -46766,7 +46769,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 const entry = wakeEditEntry;
                 delEntry(entry.id);
                 const nextDay = nextDayStr(selDay);
-                const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||""};
+                const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||"",modifiedAt:Date.now()};
                 setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),newEntry]}));
                 setWakeEditEntry(null);
                 setSelDay(nextDay);

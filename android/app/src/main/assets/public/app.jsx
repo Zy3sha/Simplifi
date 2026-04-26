@@ -2011,10 +2011,9 @@ function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
   let _wakeAnchorMin = null;
   for (let i = _priorEntries.length - 1; i >= 0; i--) {
     const e = _priorEntries[i];
-    if (e.type === "nap" && e.end) {
+    if (e.type === "nap" && e.end && e.end.includes(":")) {
       const [h,m] = e.end.split(":").map(Number);
-      _wakeAnchorMin = h*60+m;
-      break;
+      if (!isNaN(h) && !isNaN(m)) { _wakeAnchorMin = h*60+m; break; }
     }
     if (e.type === "wake" && !e.night) {
       const [h,m] = (e.time || "").split(":").map(Number);
@@ -5011,7 +5010,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
           {/* ── Regenerate code (one tap) ── */}
           {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>{showConfirm("Generate a new code? This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
+            <button onClick={()=>{showConfirm("Generate a new code?","This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
               {loading?"Generating...":"Regenerate code"}
             </button>
           </div>
@@ -11442,7 +11441,8 @@ function App(){
           }
           if(corrected%30===0 && napEntryId){
             setDays(d=>{
-              const _sd = selDayRef.current;
+              // Use nap_start_day (not selDay) so tick works even if user switched child/day
+              const _sd = (()=>{try{return localStorage.getItem("nap_start_day");}catch{return null;}})() || selDayRef.current;
               const entries=d[_sd]||[];
               if(!entries.some(e=>e.id===napEntryId)) return d;
               const now=nowTime();
@@ -15830,8 +15830,9 @@ function App(){
         _bedRecentDays.forEach(rd => {
           const _naps = rd.entries.filter(e => e.type==="nap" && !e.night && e.start && e.end && minDiff(e.start,e.end) >= 5);
           const _bed = rd.entries.find(e => e.type==="sleep" && !e.night);
-          if (!_naps.length || !_bed) return;
+          if (!_naps.length || !_bed || !_bed.time || !_bed.time.includes(":")) return;
           const _lastNap = _naps[_naps.length - 1];
+          if (!_lastNap.end || !_lastNap.end.includes(":")) return;
           const [_lnh,_lnm] = _lastNap.end.split(":").map(Number);
           const [_bh2,_bm2] = _bed.time.split(":").map(Number);
           let _gap = (_bh2*60+_bm2) - (_lnh*60+_lnm);
@@ -17470,7 +17471,7 @@ function App(){
 
     // Check bedtime approaching. two-stage alert (suppress if bed timer already active)
     const bed = tickDataRef.current.bed;
-    if (bed && !bed.estimated && !bedTimerDay) {
+    if (bed && !bed.estimated && !bedTimerDay && bed.time && bed.time.includes(":")) {
       const [bh, bm] = bed.time.split(":").map(Number);
       const minsUntilBed = bh * 60 + bm - nowMins;
       if (minsUntilBed > 0 && minsUntilBed <= 10) return { emoji: "🌙", text: `Bedtime in ~${minsUntilBed} minutes. ${name} should be in the cot soon.`, priority: "high", why: `Melatonin (the sleep hormone) peaks between 7–7:30pm for most babies. Putting baby down during this window means they'll fall asleep faster. Missing it triggers cortisol, which fights sleep.` };
@@ -21899,7 +21900,7 @@ function App(){
     // Bedtime approaching. ONLY if all expected naps are done
     if (_naps.length >= _profile.expectedNaps) {
       const _bed = tickDataRef.current.bed;
-      if (_bed && !_bed.estimated) {
+      if (_bed && !_bed.estimated && _bed.time && _bed.time.includes(":")) {
         const _bP = _bed.time.split(":").map(Number);
         const _mBed = Math.max(0, _bP[0] * 60 + _bP[1] - _nowM);
         if (_mBed <= 10) return { text: "Bedtime. into the cot", priority: "high" };
@@ -24189,7 +24190,10 @@ function App(){
       : null;
     if(editEntry){
       setDays(d=>{
-        const updated = (d[selDay]||[]).map(x=>x.id===editEntry.id?e:x);
+        // Find which day the entry actually lives on (may differ from selDay for night entries)
+        let _entryDay = selDay;
+        Object.keys(d).forEach(dk=>{ if((d[dk]||[]).some(x=>x.id===editEntry.id)) _entryDay = dk; });
+        const updated = (d[_entryDay]||[]).map(x=>x.id===editEntry.id?e:x);
         // Add morning wake entry to today's log if provided
         const _todayKey = todayStr();
         const _wakeDay = (() => {
@@ -24202,9 +24206,9 @@ function App(){
           return selDay;
         })();
         let result = {...d};
-        // Always run autoClassifyNight on any day. ensures correct day/night classification
-        const _pd=prevDayStr(selDay);
-        result = {...result,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+        // Always run autoClassifyNight on the entry's actual day
+        const _pd=prevDayStr(_entryDay);
+        result = {...result,[_entryDay]:autoClassifyNight(updated,d[_pd]||null)};
         if(_wakeEntry && _wakeDay) {
           const _existing = result[_wakeDay]||[];
           const _withWake = [..._existing.filter(x=>!(x.type==="wake"&&x.time===form.wakeTime)), _wakeEntry];
@@ -25095,7 +25099,7 @@ function App(){
       localStorage.setItem("nap_on","1");
       localStorage.setItem("nap_sec","0");
       localStorage.setItem("nap_entry_id",entryId);
-      localStorage.setItem("nap_start_day",todayStr());
+      localStorage.setItem("nap_start_day",selDay);
     }catch{}
     setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
@@ -31145,9 +31149,10 @@ function App(){
                       setNapStartT(newT);
                       setNapSec(elapsed);
                       if(napEntryId){
+                        const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
                         setDays(d=>{
-                          const existing = d[selDay]||[];
-                          return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                          const existing = d[_napEditDay]||[];
+                          return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
                         });
                       }
                       try{localStorage.setItem("nap_startT",newT);}catch{}
@@ -31168,9 +31173,10 @@ function App(){
                           setNapStartT(newT);
                           setNapSec(elapsed);
                           if(napEntryId){
+                            const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
                             setDays(d=>{
-                              const existing = d[selDay]||[];
-                              return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                              const existing = d[_napEditDay]||[];
+                              return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
                             });
                           }
                           try{localStorage.setItem("nap_startT",newT);}catch{}
@@ -32224,7 +32230,7 @@ function App(){
                       setNapSec(elapsed);
                       setNapPaused(false);
                       setTimerMode("activeSleep");
-                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",todayStr());}catch{}
+                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",selDay);}catch{}
                       // Create in-progress entry
                       const entryId = uid();
                       setNapEntryId(entryId);
@@ -42902,7 +42908,7 @@ function App(){
                   const existing = d[nextDay] || [];
                   const hasWake = hasMorningWake(existing);
                   if (hasWake) return d;
-                  const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:""}];
+                  const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:"",modifiedAt:Date.now()}];
                   return {...d, [nextDay]: updated};
                 });
                 setSelDay(nextDayStr(selDay));
@@ -43258,7 +43264,7 @@ function App(){
                 <PBtn onClick={()=>{
                   const t = logForm.feedTime || nowTime();
                   const nextDay = nextDayStr(selDay);
-                  const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
+                  const entry = {id:uid(),type:"wake",time:t,night:false,note:"",modifiedAt:Date.now()};
                   setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
                   setLogPanel(null);
                   setSelDay(nextDay);
@@ -43409,7 +43415,7 @@ function App(){
                   const nowM=new Date().getHours()*60+new Date().getMinutes();
                   let elapsedSec=(nowM-startMins)*60+new Date().getSeconds();
                   if(elapsedSec<0) elapsedSec+=86400;
-                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",todayStr());}catch{}
+                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",selDay);}catch{}
                   setNapStartT(startT);setNapSec(elapsedSec);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
                   setModal(null);setEditEntry(null);
                   showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);
@@ -43534,10 +43540,17 @@ function App(){
             <button onClick={()=>{
               haptic();
               showConfirm("Delete this entry?", "This will remove the " + (NAMES[eType]||"entry").toLowerCase() + " at " + fmt12(editEntry.time||editEntry.start||"") + " from today's log.", ()=>{
+                // Search ALL days for the entry (not just selDay) — night entries may live on bedTimerDay
                 setDays(d=>{
-                  const updated = (d[selDay]||[]).filter(x=>x.id!==editEntry.id);
-                  return{...d,[selDay]:updated};
+                  const result = {...d};
+                  Object.keys(result).forEach(dk=>{
+                    if((result[dk]||[]).some(x=>x.id===editEntry.id)){
+                      result[dk] = result[dk].filter(x=>x.id!==editEntry.id);
+                    }
+                  });
+                  return result;
                 });
+                try { deletedEntryIdsRef.current.add(editEntry.id); _capAndPersistDeletedIds(); } catch {}
                 setModal(null);setEditEntry(null);
                 showToast("Entry deleted",1500,1);
               });
@@ -46518,14 +46531,15 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         // End nap
                         const _endT = _nowTime;
                         if(napStartT && napEntryId) {
+                          const _napDay = localStorage.getItem("nap_start_day") || selDay;
                           setDays(d=>{
-                            const td = d[selDay]||[];
+                            const td = d[_napDay]||[];
                             const updated = td.map(e=>e.id===napEntryId?{...e,end:_endT,_active:false,loggedBy:"grandparent",modifiedAt:Date.now()}:e);
-                            return {...d,[selDay]:updated};
+                            return {...d,[_napDay]:updated};
                           });
                         }
                         setNapOn(false);setNapStartT(null);setNapSec(0);setNapEntryId(null);
-                        try{localStorage.removeItem("nap_active");localStorage.removeItem("nap_startT");localStorage.removeItem("nap_entry_id");}catch{}
+                        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
                         showToast("💤 Nap ended. saved",2000,1);
                       } else {
                         // Start nap
@@ -46533,7 +46547,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         const _entry = {id:_eid,type:"nap",start:_nowTime,end:_nowTime,night:false,loggedBy:"grandparent",_active:true,modifiedAt:Date.now()};
                         setDays(d=>({...d,[selDay]:[...(d[selDay]||[]),_entry]}));
                         setNapStartT(_nowTime);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
-                        try{localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);}catch{}
+                        try{localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_startMs",String(Date.now()));localStorage.setItem("nap_start_day",selDay);}catch{}
                         showToast("💤 Nap started. saved",2000,1);
                       }
                     }} style={{..._btn,background:napOn?"rgba(123,166,140,0.15)":"var(--card-bg)",borderColor:napOn?C.mint:C.blush}}>
@@ -46755,7 +46769,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 const entry = wakeEditEntry;
                 delEntry(entry.id);
                 const nextDay = nextDayStr(selDay);
-                const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||""};
+                const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||"",modifiedAt:Date.now()};
                 setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),newEntry]}));
                 setWakeEditEntry(null);
                 setSelDay(nextDay);

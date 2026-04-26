@@ -2011,10 +2011,9 @@ function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
   let _wakeAnchorMin = null;
   for (let i = _priorEntries.length - 1; i >= 0; i--) {
     const e = _priorEntries[i];
-    if (e.type === "nap" && e.end) {
+    if (e.type === "nap" && e.end && e.end.includes(":")) {
       const [h,m] = e.end.split(":").map(Number);
-      _wakeAnchorMin = h*60+m;
-      break;
+      if (!isNaN(h) && !isNaN(m)) { _wakeAnchorMin = h*60+m; break; }
     }
     if (e.type === "wake" && !e.night) {
       const [h,m] = (e.time || "").split(":").map(Number);
@@ -3874,6 +3873,14 @@ const _fM="monospace",_fI="inherit",_cP="pointer",_bBB="border-box",_ls1="0.1em"
 const _isTablet = typeof window!=="undefined" && window.innerWidth >= 768;
 const _isLargeTablet = typeof window!=="undefined" && window.innerWidth >= 1024;
 const _maxW = _isLargeTablet ? 840 : _isTablet ? 760 : 520;
+// ── Responsive scaling system ──
+// Detects viewport width and provides scale-aware values for fonts, padding, spacing.
+// iPhone 15 (390px) = baseline 1.0. Samsung A series (360px) = 0.92. Pro Max (430px) = 1.1.
+const _vw = typeof window!=="undefined" ? window.innerWidth : 390;
+const _sf = Math.max(0.82, Math.min(1.15, _vw / 390)); // scale factor
+// Responsive helpers — use instead of hardcoded px for key UI elements
+const _rs = (base) => Math.round(base * _sf); // responsive size
+const _rf = (base) => Math.round(base * _sf * 10) / 10; // responsive font (1 decimal)
 function Sheet({onClose,title,children}){
   const[kbH,setKbH]=React.useState(()=>typeof _kbHeight!=="undefined"?_kbHeight:0);
   const sheetRef=React.useRef(null);
@@ -3919,8 +3926,8 @@ function Sheet({onClose,title,children}){
     };
   },[]);
   return(
-    <div ref={overlayRef} onClick={onClose} style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center",transition:"bottom 0.25s ease"}}>
-      <div ref={sheetRef} onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(24px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease",position:"relative",zIndex:501}}>
+    <div ref={overlayRef} onClick={onClose} className="ob-sheet-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center",transition:"bottom 0.25s ease"}}>
+      <div ref={sheetRef} onClick={e=>e.stopPropagation()} className="ob-sheet-content" style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(24px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease",position:"relative",zIndex:501,border:"1px solid var(--card-border)",borderBottom:"none"}}>
         <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
         {title&&<div style={{fontFamily:"Georgia,serif",fontSize:20,marginBottom:16}}>{title}</div>}
         {children}
@@ -5052,7 +5059,7 @@ function LinkChildForm({ joinChildByCode, C }) {
         const result = await joinChildByCode(linkCode);
         if(result.ok) { setLinkStatus("ok"); setLinkName(result.childName); setLinkCode(""); setTimeout(()=>setLinkStatus(""),2500); }
         else { setLinkStatus("error"); setLinkError(result.error); }
-      }} disabled={linkCode.length!==6||linkStatus==="loading"} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:linkCode.length===6?C.mint:"#e0f0ea",color:linkCode.length===6?"white":"#a0c8b0",fontSize:15,fontWeight:700,cursor:linkCode.length===6?"pointer":"not-allowed",fontFamily:_fI,transition:"all 0.2s"}}>
+      }} disabled={linkCode.length!==6||linkStatus==="loading"} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:linkCode.length===6?C.mint:"#e0f0ea",color:linkCode.length===6?"white":"#a0c8b0",fontSize:15,fontWeight:700,cursor:linkCode.length===6?"pointer":"not-allowed",fontFamily:_fI,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
         {linkStatus==="loading"?"⏳ Linking…":"Link child"}
       </button>
     </div>
@@ -5301,16 +5308,38 @@ function App(){
               setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
               ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
               if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+              _androidTimerStop();
+              // Immediately push cleared timer to widget so it stops showing the running timer
+              try {
+                var _wdCached = JSON.parse(localStorage.getItem("ob_widget_data_v1")||"{}");
+                _wdCached.activeTimer = null; _wdCached.timerStartTime = null; _wdCached.timerStartMs = null; _wdCached.timerLabel = null;
+                _wdCached.updatedAt = Date.now();
+                localStorage.setItem("ob_widget_data_v1", JSON.stringify(_wdCached));
+                if(window.Capacitor?.Plugins?.OBWidgetBridge) window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(_wdCached) }).catch(()=>{});
+              } catch{}
               showToast("😴 Nap stopped via Widget ✓", 3000, 1);
             } catch(e) { console.warn("[OBubba] Widget nap stop failed:", e); }
           } else if(_breastActive) {
             // Stop breast timer. trigger the same flow as tapping stop in-app
             window.dispatchEvent(new CustomEvent('nativeAction',{detail:{action:'end_breast_timer'}}));
+            // Immediately push cleared timer to widget
+            try {
+              var _wdCached2 = JSON.parse(localStorage.getItem("ob_widget_data_v1")||"{}");
+              _wdCached2.activeTimer = null; _wdCached2.timerStartTime = null; _wdCached2.timerStartMs = null; _wdCached2.timerLabel = null; _wdCached2.breastSide = null; _wdCached2.showNursing = false;
+              _wdCached2.updatedAt = Date.now();
+              localStorage.setItem("ob_widget_data_v1", JSON.stringify(_wdCached2));
+              if(window.Capacitor?.Plugins?.OBWidgetBridge) window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(_wdCached2) }).catch(()=>{});
+            } catch{}
             showToast("🤱 Feed stopped via Widget ✓", 3000, 1);
           } else if (_isStopOnly) {
-            // Widget "Stop" tapped but nothing is active — no-op (idempotent).
-            // This prevents the accidental nap-start when the Stop deep link
-            // fires twice or the widget state was already cleared.
+            // Widget "Stop" tapped but nothing is active — clear widget timer state anyway
+            try {
+              var _wdCached3 = JSON.parse(localStorage.getItem("ob_widget_data_v1")||"{}");
+              _wdCached3.activeTimer = null; _wdCached3.timerStartTime = null; _wdCached3.timerStartMs = null; _wdCached3.timerLabel = null;
+              _wdCached3.updatedAt = Date.now();
+              localStorage.setItem("ob_widget_data_v1", JSON.stringify(_wdCached3));
+              if(window.Capacitor?.Plugins?.OBWidgetBridge) window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(_wdCached3) }).catch(()=>{});
+            } catch{}
             break;
           } else {
             // No nap or breast active. start a nap (using LOCAL day key, not UTC).
@@ -6882,12 +6911,14 @@ function App(){
   const yearlySaving = isLegacyUser ? "33" : "17";
   // Trial banner dismissed today?
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
+  const _trialDismissedRef = useRef(trialBannerDismissed);
+  useEffect(()=>{_trialDismissedRef.current=trialBannerDismissed;},[trialBannerDismissed]);
   // Reset at midnight if app stays open across the day boundary
   React.useEffect(()=>{
-    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&trialBannerDismissed){setTrialBannerDismissed(false);}}catch{}};
+    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&_trialDismissedRef.current){setTrialBannerDismissed(false);}}catch{}};
     const _mid=setInterval(checkMidnight, 5*60*1000); // check every 5 min
     return ()=>clearInterval(_mid);
-  },[trialBannerDismissed]);
+  },[]);
 
   // triggerPaywall is called from two kinds of event:
   //   1. AUTOMATIC (curiosity gap, soft nudges, background triggers) —
@@ -8039,8 +8070,12 @@ function App(){
     if (_entryStartMs) {
       _startDate = new Date(_entryStartMs);
     } else {
-      const [_rsh,_rsm] = _active.start.split(":").map(Number);
-      _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      if (_active.start && _active.start.includes(":")) {
+        const [_rsh,_rsm] = _active.start.split(":").map(Number);
+        _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      } else {
+        _startDate = new Date();
+      }
       _entryStartMs = _startDate.getTime();
     }
     const _elapsedMs = Date.now() - _entryStartMs;
@@ -8775,6 +8810,12 @@ function App(){
     // Safety: never push blank/empty state to cloud (would wipe real data)
     const _hasData = Object.values(allChildren).some(c => c.name || Object.values(c.days||{}).some(d => d && d.length > 0));
     if(!_hasData) return;
+    // Safety: never overwrite cloud with significantly fewer entries (data loss guard)
+    const _localTotal = Object.values(allChildren).reduce((s, c) => s + Object.values(c.days||{}).reduce((s2, d) => s2 + (d ? d.length : 0), 0), 0);
+    if (_localTotal < cloudEntryCountRef.current * 0.7 && cloudEntryCountRef.current > 30) {
+      console.warn("[OBubba] pushToCloud BLOCKED: local", _localTotal, "entries vs cloud", cloudEntryCountRef.current, "— refusing overwrite to prevent data loss");
+      return;
+    }
 
     // OWNERSHIP GUARD. This is the hard safety net that stops an account
     // switch from leaking the previous account's children into the new
@@ -9628,7 +9669,7 @@ function App(){
                   const cloudIds = Object.keys(cloud);
                   if(cloudIds.length) {
                     setChildren(prev => {
-                      const merged = mergeChildren(prev, cloud);
+                      let merged = mergeChildren(prev, cloud);
                       const cloudHasNamedChild = cloudIds.some(id => cloud[id] && cloud[id].name);
                       if (cloudHasNamedChild) {
 
@@ -9683,12 +9724,11 @@ function App(){
         } else {
           let foundExisting = false;
           if(!foundExisting) {
-            // SAFETY: Only generate a new backup code for genuinely new users
-            // who have no username. If they have a username, verifyLogin will
-            // fetch their correct backup code when they sign in.
-            const hasUsername = familyUsername || localStorage.getItem("family_username");
-            const hasVerified = localStorage.getItem("auth_verified");
-            if(!hasUsername && !hasVerified) {
+            // SAFETY: Always generate a backup code if user doesn't have one.
+            // Previously this was gated on !hasUsername which meant users who
+            // set a username but never verified were left without a backup.
+            // Now: if no backup code exists after all restore attempts, create one.
+            {
               const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
               let newCode, exists = true;
               while(exists){
@@ -9830,7 +9870,7 @@ function App(){
 
     // Clear ALL localStorage
     const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
-      "children_v1","active_child","tut_v2","install_date_v1",
+      "children_v1","active_child","tut_v2","install_date_v1","onboarded_v2",
       "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",
       // Ownership stamp MUST be cleared on logout so the next login
       // starts with pushToCloud's guard fully armed.
@@ -9854,7 +9894,7 @@ function App(){
     setFamilyCode(null);
     setFamilyUsername(null);
     setSyncStatus("idle");
-    setOnboarded(true);
+    setOnboarded(false);
     setNeedsChildSetup(false);
     setTab("day");
     // Reset premium state so account B doesn't inherit account A's premium
@@ -10092,7 +10132,7 @@ function App(){
                 setChildren(prev => {
                   // On an account switch we've already blanked prev, so
                   // mergeChildren effectively becomes "use cloud".
-                  const merged = mergeChildren(prev, cloud);
+                  let merged = mergeChildren(prev, cloud);
                   const cloudHasNamedChild = cloudIds.some(id => cloud[id] && cloud[id].name);
                   if (cloudHasNamedChild) {
                     const cleaned2 = {};
@@ -10967,7 +11007,7 @@ function App(){
   // No auto-generation or child_code_map needed. user remembers their code.
   async function pushChildSync(childId, code, childData) {
     if(!window._fb || !code) return;
-    const {db, doc, setDoc, serverTimestamp} = window._fb;
+    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const child = childData || children[childId];
     if(!child) return;
     if(!window._fbUid) {
@@ -10980,6 +11020,20 @@ function App(){
       });
     }
     try {
+      // SAFETY: never overwrite cloud with fewer entries than it already has.
+      // This prevents data loss from merge bugs, cache clears, or stale state.
+      const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+      try {
+        const existing = await fsGet("child_syncs", code);
+        if (existing.exists()) {
+          const cloudChild = JSON.parse(existing.data().child || "{}");
+          const cloudEntryCount = Object.values(cloudChild.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+          if (localEntryCount < cloudEntryCount * 0.7 && cloudEntryCount > 20) {
+            console.warn("[OBubba] pushChildSync BLOCKED: local has", localEntryCount, "entries vs cloud", cloudEntryCount, "— refusing to overwrite");
+            return;
+          }
+        }
+      } catch(e2) { /* proceed if check fails */ }
       await fsSet("child_syncs", code, {
         child: JSON.stringify(child),
         childName: child.name || "",
@@ -11387,7 +11441,8 @@ function App(){
           }
           if(corrected%30===0 && napEntryId){
             setDays(d=>{
-              const _sd = selDayRef.current;
+              // Use nap_start_day (not selDay) so tick works even if user switched child/day
+              const _sd = (()=>{try{return localStorage.getItem("nap_start_day");}catch{return null;}})() || selDayRef.current;
               const entries=d[_sd]||[];
               if(!entries.some(e=>e.id===napEntryId)) return d;
               const now=nowTime();
@@ -12189,7 +12244,7 @@ function App(){
       if (nightWakes.length) {
         const lw = nightWakes[nightWakes.length-1];
         const sm = lw.assistedDuration ? parseInt(lw.assistedDuration) : 0;
-        if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
+        if (sm > 0 && lw.time && lw.time.includes(":")) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
         else lastNightEvent = lw.time;
       }
       // ═══ NEXT EVENT, single source of truth for hero, pill, coming up, widget ═══
@@ -12424,7 +12479,7 @@ function App(){
       if(_nightWakes.length) {
         const _lw = _nightWakes[_nightWakes.length-1];
         const _sm = _lw.assistedDuration ? parseInt(_lw.assistedDuration) : 0;
-        if(_sm > 0) {
+        if(_sm > 0 && _lw.time && _lw.time.includes(":")) {
           const [_wh,_wm] = _lw.time.split(":").map(Number);
           const _tm = _wh*60+_wm+_sm;
           _lastNightEvent = `${String(Math.floor(_tm/60)%24).padStart(2,"0")}:${String(_tm%60).padStart(2,"0")}`;
@@ -15775,8 +15830,9 @@ function App(){
         _bedRecentDays.forEach(rd => {
           const _naps = rd.entries.filter(e => e.type==="nap" && !e.night && e.start && e.end && minDiff(e.start,e.end) >= 5);
           const _bed = rd.entries.find(e => e.type==="sleep" && !e.night);
-          if (!_naps.length || !_bed) return;
+          if (!_naps.length || !_bed || !_bed.time || !_bed.time.includes(":")) return;
           const _lastNap = _naps[_naps.length - 1];
+          if (!_lastNap.end || !_lastNap.end.includes(":")) return;
           const [_lnh,_lnm] = _lastNap.end.split(":").map(Number);
           const [_bh2,_bm2] = _bed.time.split(":").map(Number);
           let _gap = (_bh2*60+_bm2) - (_lnh*60+_lnm);
@@ -17415,7 +17471,7 @@ function App(){
 
     // Check bedtime approaching. two-stage alert (suppress if bed timer already active)
     const bed = tickDataRef.current.bed;
-    if (bed && !bed.estimated && !bedTimerDay) {
+    if (bed && !bed.estimated && !bedTimerDay && bed.time && bed.time.includes(":")) {
       const [bh, bm] = bed.time.split(":").map(Number);
       const minsUntilBed = bh * 60 + bm - nowMins;
       if (minsUntilBed > 0 && minsUntilBed <= 10) return { emoji: "🌙", text: `Bedtime in ~${minsUntilBed} minutes. ${name} should be in the cot soon.`, priority: "high", why: `Melatonin (the sleep hormone) peaks between 7–7:30pm for most babies. Putting baby down during this window means they'll fall asleep faster. Missing it triggers cortisol, which fights sleep.` };
@@ -21844,7 +21900,7 @@ function App(){
     // Bedtime approaching. ONLY if all expected naps are done
     if (_naps.length >= _profile.expectedNaps) {
       const _bed = tickDataRef.current.bed;
-      if (_bed && !_bed.estimated) {
+      if (_bed && !_bed.estimated && _bed.time && _bed.time.includes(":")) {
         const _bP = _bed.time.split(":").map(Number);
         const _mBed = Math.max(0, _bP[0] * 60 + _bP[1] - _nowM);
         if (_mBed <= 10) return { text: "Bedtime. into the cot", priority: "high" };
@@ -23530,13 +23586,13 @@ function App(){
           showToast("✅ Logged for all " + ids.length + " children", 1800, 1);
         }
 
-        var _qlRetries = 0;
-        function quickAddLog(type, data){
+        function quickAddLog(type, data, _retries){
+    _retries = _retries || 0;
     // Guard: if children data hasn't loaded yet (cold launch from widget), queue for later
     if (!children || !children[resolvedActiveId] || !children[resolvedActiveId].days) {
-      if (++_qlRetries > 10) { console.warn("[OBubba] quickAddLog: gave up after 10 retries"); _qlRetries = 0; return; }
+      if (_retries >= 10) { console.warn("[OBubba] quickAddLog gave up"); showToast("Entry not saved — try again", 2500, 2); return; }
       const _snapId = resolvedActiveId;
-      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data); }, 500);
+      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data, _retries + 1); }, 500);
       return;
     }
     ensureTrialStarted();
@@ -24134,7 +24190,10 @@ function App(){
       : null;
     if(editEntry){
       setDays(d=>{
-        const updated = (d[selDay]||[]).map(x=>x.id===editEntry.id?e:x);
+        // Find which day the entry actually lives on (may differ from selDay for night entries)
+        let _entryDay = selDay;
+        Object.keys(d).forEach(dk=>{ if((d[dk]||[]).some(x=>x.id===editEntry.id)) _entryDay = dk; });
+        const updated = (d[_entryDay]||[]).map(x=>x.id===editEntry.id?e:x);
         // Add morning wake entry to today's log if provided
         const _todayKey = todayStr();
         const _wakeDay = (() => {
@@ -24147,9 +24206,9 @@ function App(){
           return selDay;
         })();
         let result = {...d};
-        // Always run autoClassifyNight on any day. ensures correct day/night classification
-        const _pd=prevDayStr(selDay);
-        result = {...result,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+        // Always run autoClassifyNight on the entry's actual day
+        const _pd=prevDayStr(_entryDay);
+        result = {...result,[_entryDay]:autoClassifyNight(updated,d[_pd]||null)};
         if(_wakeEntry && _wakeDay) {
           const _existing = result[_wakeDay]||[];
           const _withWake = [..._existing.filter(x=>!(x.type==="wake"&&x.time===form.wakeTime)), _wakeEntry];
@@ -25040,7 +25099,7 @@ function App(){
       localStorage.setItem("nap_on","1");
       localStorage.setItem("nap_sec","0");
       localStorage.setItem("nap_entry_id",entryId);
-      localStorage.setItem("nap_start_day",todayStr());
+      localStorage.setItem("nap_start_day",selDay);
     }catch{}
     setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
@@ -26282,9 +26341,18 @@ function App(){
     const _wasBridgeNap = napEntryId && (days[_napDay]||[]).some(e => e.id === napEntryId && e.isBridge);
     setNapStartT(null);setNapSec(0);setNapEntryId(null);
     setTimerMode("prediction");
-    // Stop Live Activity on iOS
+    // Stop Live Activity on iOS + Android sticky notification
     if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+    _androidTimerStop();
     try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
+    // Immediately push cleared timer to widget
+    try {
+      var _wdEnd = JSON.parse(localStorage.getItem("ob_widget_data_v1")||"{}");
+      _wdEnd.activeTimer = null; _wdEnd.timerStartTime = null; _wdEnd.timerStartMs = null; _wdEnd.timerLabel = null;
+      _wdEnd.updatedAt = Date.now();
+      localStorage.setItem("ob_widget_data_v1", JSON.stringify(_wdEnd));
+      if(window.Capacitor?.Plugins?.OBWidgetBridge) window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(_wdEnd) }).catch(()=>{});
+    } catch{}
 
     // Log what we noticed. parent can read in the "What we noticed" sheet when ready
     if (durMins > 0 && !isNightTime && !hasBedtime && age) {
@@ -26866,7 +26934,9 @@ function App(){
         await navigator.share({ title: name + "'s Bubba Care", files: [file] });
       } else if (navigator.share) {
         _method = "native_share_text";
-        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba" });
+        const _ctShare = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
+        const _careUrl = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ctShare)+"&child="+encodeURIComponent(resolvedActiveId||"");
+        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba\n\n" + _careUrl });
       } else {
         // Web fallback: download the file
         _method = "download";
@@ -27019,6 +27089,7 @@ function App(){
     const prevDk = allDk.length > 7 ? allDk.slice(-14, -7) : [];
 
     function weekStats(keys) {
+      if (!keys.length) return null;
       let tFeeds=0, tMl=0, tNaps=0, tNapMins=0, tNightWakes=0, beds=[], wakes=[], stretches=[];
       let _tBreastMin=0, _tBreastCount=0;
       keys.forEach(d => {
@@ -27036,9 +27107,9 @@ function App(){
         tNaps += napList.length;
         tNapMins += napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
         const bed = dayE.find(e=>e.type==="sleep");
-        if(bed){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
+        if(bed && bed.time && bed.time.includes(":")){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
         const wake = dayE.find(e=>e.type==="wake");
-        if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
+        if(wake && wake.time && wake.time.includes(":")){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
         const next=nextDayStr(d);
         // Count "wake events", not raw entries. Previously:
         //   - counted BOTH wake and feed entries → a parent logging a wake +
@@ -30029,7 +30100,7 @@ function App(){
         <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:99,padding:4,marginBottom:16,gap:4,flexShrink:0}}>
           {[["login","Sign In"],["create","Create Account"]].map(([m,l])=>(
             <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");setAuthUsernameStatus("idle");setAgreedToTerms(false);}}
-              style={{padding:"7px 18px",borderRadius:99,border:_bN,background:authMode===m?"var(--card-bg-solid)":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"all 0.2s",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none",whiteSpace:"nowrap",flexShrink:0}}>
+              style={{padding:"7px 18px",borderRadius:99,border:_bN,background:authMode===m?"var(--card-bg-solid)":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none",whiteSpace:"nowrap",flexShrink:0}}>
               {l}
             </button>
           ))}
@@ -30086,7 +30157,7 @@ function App(){
               style={{width:"100%",marginTop:10,background:authPin.length===4?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",
                 border:_bN,borderRadius:99,padding:"13px",color:authPin.length===4?"white":"rgba(155,139,184,0.5)",
                 fontSize:15,fontWeight:700,cursor:authPin.length===4?"pointer":"not-allowed",fontFamily:_fI,
-                boxShadow:authPin.length===4?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"all 0.2s"}}>
+                boxShadow:authPin.length===4?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
               Sign In {"\u2192"}
             </button>
           ) : !isLogin && !authLoading ? (
@@ -30102,7 +30173,7 @@ function App(){
                 style={{width:"100%",background:canSubmit?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",
                   border:_bN,borderRadius:99,padding:"13px",color:canSubmit?"white":"rgba(155,139,184,0.5)",
                   fontSize:15,fontWeight:700,cursor:canSubmit?"pointer":"not-allowed",fontFamily:_fI,
-                  boxShadow:canSubmit?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"all 0.2s"}}>
+                  boxShadow:canSubmit?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                 Create Account
               </button>
             </div>
@@ -30351,7 +30422,7 @@ function App(){
               ))}
             </div>
             <div style={{marginTop:16,display:"flex",alignItems:"center",gap:10,cursor:_cP}} onClick={()=>setObDueDate(obDueDate===null?"":null)}>
-              <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${obDueDate!==null?"#9BB8A8":C.blush}`,background:obDueDate!==null?"rgba(155,184,168,0.15)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+              <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${obDueDate!==null?"#9BB8A8":C.blush}`,background:obDueDate!==null?"rgba(155,184,168,0.15)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                 {obDueDate!==null&&<span style={{fontSize:12,color:"#7BA68C",fontWeight:700}}>{"\u2713"}</span>}
               </div>
               <span style={{fontSize:13,color:C.mid}}>Born early (premature)</span>
@@ -30477,39 +30548,38 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 28px env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflowY:"auto",overflowX:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
             {!_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(circle at 20% 18%,rgba(200,155,90,0.08) 0%,transparent 4%),radial-gradient(circle at 78% 32%,rgba(168,90,112,0.06) 0%,transparent 5%),radial-gradient(circle at 35% 72%,rgba(168,90,112,0.05) 0%,transparent 4%)"}}/>}
 
-            {/* Mascot medallion */}
-            <div style={{display:"flex",justifyContent:"center",margin:"16px 0 18px",position:"relative",zIndex:2}}>
-              {_isNight&&<div style={{position:"absolute",inset:-24,left:"50%",width:220,height:220,transform:"translateX(-50%)",borderRadius:"50%",background:"conic-gradient(from 180deg,transparent 0deg,rgba(232,200,150,0.22) 30deg,transparent 80deg)",filter:"blur(8px)",zIndex:-1}}/>}
-              <div style={{width:186,height:186,borderRadius:"50%",position:"relative",background:_wMedalBg,boxShadow:_wMedalShadow,display:"grid",placeItems:"center"}}>
-                {/* Gold hairline rings */}
-                <div style={{position:"absolute",inset:-7,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.55:0.4,pointerEvents:"none"}}/>
-                <div style={{position:"absolute",inset:-14,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.2:0.15,pointerEvents:"none"}}/>
-                <img src="obubba-happy.png" alt="OBubba" style={{width:160,height:160,objectFit:"contain",filter:_isNight?"drop-shadow(0 8px 24px rgba(232,200,150,0.38))":"drop-shadow(0 8px 18px rgba(60,47,44,0.18))"}} onError={e=>{e.target.style.display="none";}}/>
+            {/* Mascot medallion — scales with viewport height */}
+            <div style={{display:"flex",justifyContent:"center",margin:"1.5vh 0",position:"relative",zIndex:2}}>
+              {_isNight&&<div style={{position:"absolute",inset:-20,left:"50%",width:"38vw",height:"38vw",maxWidth:200,maxHeight:200,transform:"translateX(-50%)",borderRadius:"50%",background:"conic-gradient(from 180deg,transparent 0deg,rgba(232,200,150,0.22) 30deg,transparent 80deg)",filter:"blur(8px)",zIndex:-1}}/>}
+              <div style={{width:"36vw",height:"36vw",maxWidth:186,maxHeight:186,borderRadius:"50%",position:"relative",background:_wMedalBg,boxShadow:_wMedalShadow,display:"grid",placeItems:"center"}}>
+                <div style={{position:"absolute",inset:-6,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.55:0.4,pointerEvents:"none"}}/>
+                <div style={{position:"absolute",inset:-12,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.2:0.15,pointerEvents:"none"}}/>
+                <img src="obubba-happy.png" alt="OBubba" style={{width:"80%",height:"80%",objectFit:"contain",filter:_isNight?"drop-shadow(0 8px 24px rgba(232,200,150,0.38))":"drop-shadow(0 8px 18px rgba(60,47,44,0.18))"}} onError={e=>{e.target.style.display="none";}}/>
               </div>
             </div>
 
-            {/* Hero text */}
-            <div style={{textAlign:"center",padding:"0 6px",position:"relative",zIndex:2}}>
-              <div style={{fontFamily:"'Parisienne',cursive",fontSize:56,lineHeight:0.9,color:_wInk}}><span style={{color:_isNight?_nGold:_dCta2}}>O</span>Bubba</div>
-              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:13,color:_wInk2,marginTop:4}}>parenthood in your pocket</div>
-              <div style={{fontFamily:"Georgia,serif",fontWeight:400,fontSize:29,lineHeight:1.1,letterSpacing:"-0.015em",color:_wInk,marginTop:22}}>Take the guesswork out of <em style={{fontStyle:"italic",color:_isNight?_nGold:_dCta2}}>parenting.</em></div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:14,lineHeight:1.55,color:_wInk2,marginTop:12,maxWidth:"30ch",marginLeft:"auto",marginRight:"auto"}}>Personalised sleep, feeding and growth guidance that learns your baby's rhythm {"\u2014"} gently.</div>
+            {/* Hero text — font sizes scale with viewport */}
+            <div style={{textAlign:"center",padding:"0 2vw",position:"relative",zIndex:2}}>
+              <div style={{fontFamily:"'Parisienne',cursive",fontSize:"clamp(40px, 14vw, 56px)",lineHeight:0.9,color:_wInk}}><span style={{color:_isNight?_nGold:_dCta2}}>O</span>Bubba</div>
+              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(11px, 3.3vw, 14px)",color:_wInk2,marginTop:4}}>parenthood in your pocket</div>
+              <div style={{fontFamily:"Georgia,serif",fontWeight:400,fontSize:"clamp(22px, 7vw, 29px)",lineHeight:1.1,letterSpacing:"-0.015em",color:_wInk,marginTop:"2vh"}}>Take the guesswork out of <em style={{fontStyle:"italic",color:_isNight?_nGold:_dCta2}}>parenting.</em></div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:"clamp(12px, 3.5vw, 14px)",lineHeight:1.55,color:_wInk2,marginTop:"1.5vh",maxWidth:"30ch",marginLeft:"auto",marginRight:"auto"}}>Personalised sleep, feeding and growth guidance that learns your baby's rhythm {"\u2014"} gently.</div>
             </div>
 
             {/* Signature trust line */}
-            <div style={{margin:"28px 0 auto",position:"relative",zIndex:2,padding:"16px 0",borderTop:`1px solid ${_wLine}`,borderBottom:`1px solid ${_wLine}`,textAlign:"center"}}>
-              <div style={{fontWeight:500,fontSize:10,letterSpacing:"0.24em",textTransform:"uppercase",color:_wInk3,marginBottom:8}}>Guided by</div>
-              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:15,lineHeight:1.5,color:_wInk}}><b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>NHS</b>, <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>WHO</b> & <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>AASM</b> standards {"\u2014"} never prescriptive, always kind.</div>
+            <div style={{margin:"auto 0 0",position:"relative",zIndex:2,padding:"1.5vh 0",borderTop:`1px solid ${_wLine}`,borderBottom:`1px solid ${_wLine}`,textAlign:"center"}}>
+              <div style={{fontWeight:500,fontSize:10,letterSpacing:"0.24em",textTransform:"uppercase",color:_wInk3,marginBottom:4}}>Guided by</div>
+              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(12px, 3.8vw, 15px)",lineHeight:1.5,color:_wInk}}><b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>NHS</b>, <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>WHO</b> & <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>AASM</b> standards {"\u2014"} never prescriptive, always kind.</div>
             </div>
 
             {/* CTAs */}
-            <div style={{marginTop:"auto",position:"relative",zIndex:2,paddingBottom:10}}>
+            <div style={{marginTop:"1.5vh",position:"relative",zIndex:2,paddingBottom:"1.5vh"}}>
               <button onClick={()=>setObStep(1)} style={{display:"block",width:"100%",padding:17,borderRadius:999,border:_bN,fontWeight:600,fontSize:15,letterSpacing:"0.02em",cursor:_cP,background:`linear-gradient(135deg,${_wCta1} 0%,${_wCta2} 100%)`,color:_wCtaColor,boxShadow:_wCtaShadow,fontFamily:_fI}}>Start tracking <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",marginLeft:6}}>{"\u2192"}</span></button>
               <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{display:"block",width:"100%",marginTop:10,padding:17,borderRadius:999,border:_bN,background:"transparent",fontWeight:500,fontSize:15,color:_wInk,boxShadow:_wSecShadow,cursor:_cP,fontFamily:_fI}}>I already have an account</button>
             </div>
@@ -30559,7 +30629,7 @@ function App(){
           <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:99,padding:3,marginBottom:18,gap:3}}>
             {[["new","👶 Add my baby"],["link","🔗 Join via share code"]].map(([m,l])=>(
               <button key={m} onClick={()=>{setObChildMode(m);setObLinkStatus("");setObLinkError("");}}
-                style={{flex:1,padding:"9px 6px",borderRadius:99,border:_bN,background:obChildMode===m?"white":"transparent",color:obChildMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"all 0.2s",boxShadow:obChildMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
+                style={{flex:1,padding:"9px 6px",borderRadius:99,border:_bN,background:obChildMode===m?"white":"transparent",color:obChildMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease",boxShadow:obChildMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none"}}>
                 {l}
               </button>
             ))}
@@ -30576,7 +30646,7 @@ function App(){
                 style={{width:"100%",fontSize:18,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",marginBottom:10,boxSizing:_bBB}}/>
               <div style={{display:"flex",gap:8,marginBottom:10}}>
                 {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
-                  <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"var(--chip-bg-active)":"white",textAlign:"center",cursor:_cP,fontSize:13,fontWeight:700,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"all 0.2s"}}>
+                  <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"var(--chip-bg-active)":"white",textAlign:"center",cursor:_cP,fontSize:13,fontWeight:700,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                     {l}
                   </div>
                 ))}
@@ -30627,7 +30697,7 @@ function App(){
                   setObLinkError(result.error||"Code not found. check with the other parent");
                 }
               }} disabled={obLinkCode.length!==6||obLinkStatus==="loading"||obLinkStatus==="ok"}
-                style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:obLinkCode.length===6&&obLinkStatus!=="ok"?`linear-gradient(135deg,#50c878,#3aa860)`:"#e0f0ea",color:obLinkCode.length===6&&obLinkStatus!=="ok"?"white":"#a0c8b0",fontSize:16,fontWeight:700,cursor:obLinkCode.length===6&&obLinkStatus!=="ok"?"pointer":"not-allowed",fontFamily:_fI,transition:"all 0.2s",marginBottom:10}}>
+                style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:obLinkCode.length===6&&obLinkStatus!=="ok"?`linear-gradient(135deg,#50c878,#3aa860)`:"#e0f0ea",color:obLinkCode.length===6&&obLinkStatus!=="ok"?"white":"#a0c8b0",fontSize:16,fontWeight:700,cursor:obLinkCode.length===6&&obLinkStatus!=="ok"?"pointer":"not-allowed",fontFamily:_fI,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease",marginBottom:10}}>
                 {obLinkStatus==="loading"?"⏳ Linking…":"Link child →"}
               </button>
               <button onClick={()=>finishChildSetup(null)} style={{width:"100%",background:_bN,border:_bN,color:C.lt,fontSize:14,cursor:_cP,fontFamily:_fI}}>
@@ -30649,7 +30719,7 @@ function App(){
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
         @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         button,a,[role="button"]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
-        @keyframes popIn{from{opacity:0;transform:scale(0.6)}to{opacity:1;transform:scale(1)}}
+        @keyframes popIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}
         @keyframes tutPop{from{opacity:0;transform:translate(-50%,-50%) scale(0.93)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
         @keyframes tutPulse{0%,100%{box-shadow:0 0 0 0 rgba(201,112,90,0.5)}70%{box-shadow:0 0 0 14px rgba(201,112,90,0)}}
       `}</style>
@@ -30788,7 +30858,7 @@ function App(){
                   <div key={i} onClick={()=>setTutStep(i)} style={{
                     width:i===tutStep?18:5,height:5,borderRadius:99,
                     background:i<tutStep?"#c9705a":i===tutStep?C.ter:C.blush,
-                    transition:"all 0.3s",cursor:_cP,flexShrink:0
+                    transition:"background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease",cursor:_cP,flexShrink:0
                   }}/>
                 ))}
               </div>
@@ -30883,7 +30953,7 @@ function App(){
                   <div key={i} onClick={()=>setDayTutStep(i)} style={{
                     width:i===dayTutStep?18:5,height:5,borderRadius:99,
                     background:i<dayTutStep?"#c9705a":i===dayTutStep?C.ter:C.blush,
-                    transition:"all 0.3s",cursor:_cP,flexShrink:0
+                    transition:"background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease",cursor:_cP,flexShrink:0
                   }}/>
                 ))}
               </div>
@@ -31053,7 +31123,7 @@ function App(){
               const cautionLabel = _isBridgeTimer && napCaution && !napWarn ? "Gently wake" : (napCaution && !napPaused ? "Tap to stop" : "");
               return (
               <div style={{position:"relative",zIndex:showNapStartEdit?9999:1}}>
-              <div onClick={()=>{haptic();setShowEndNapConfirm(true);}} style={{display:"flex",alignItems:"center",gap:5,background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 6px 5px 14px",transition:"all 0.2s",cursor:_cP,animation:napWarn?"pulse 1s infinite":"none"}}>
+              <div onClick={()=>{haptic();setShowEndNapConfirm(true);}} style={{display:"flex",alignItems:"center",gap:5,background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 6px 5px 14px",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease",cursor:_cP,animation:napWarn?"pulse 1s infinite":"none"}}>
                 <span style={{fontSize:13,fontFamily:_fM,fontWeight:700,color:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"white"}}>{napPaused?"⏸":napWarn?"⏰":napCaution?"⏰":(_isBridgeTimer?"🌉":"😴")} {fmtSec(napSec)}</span>
                 {cautionLabel && !napPaused && <span style={{fontSize:10,color:"rgba(255,255,255,0.8)",fontFamily:_fM}}>{cautionLabel}</span>}
                 <button onClick={(e)=>{e.stopPropagation();haptic();setShowNapStartEdit(!showNapStartEdit);}} style={{background:napPaused?(napCaution?C.gold+"30":"rgba(111,168,152,0.15)"):"rgba(255,255,255,0.2)",border:_bN,borderRadius:99,padding:"10px 12px",fontSize:11,color:napPaused?(napCaution?C.gold:(_isBridgeTimer?"#D4A855":C.mint)):"white",cursor:_cP,fontWeight:600,minWidth:36,minHeight:36,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -31510,17 +31580,17 @@ function App(){
         <div style={{paddingBottom:2,position:"relative",zIndex:2}}>
           {/* Day navigation bar: compact arrows + date + search */}
           <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:showSearch?6:0}}>
-            <button aria-label="Previous day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:16,color:C.mid,flexShrink:0}}>{"\u2039"}</button>
+            <button aria-label="Previous day" onClick={()=>navigateDay(-1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(16),color:C.mid,flexShrink:0}}>{"\u2039"}</button>
             <button aria-label="Open calendar" onClick={()=>{setCalMonth(selDay.slice(0,7));setShowCalendar(true);}}
               onContextMenu={e=>{e.preventDefault();haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");}}
               onTouchStart={e=>{e.currentTarget._lp=setTimeout(()=>{haptic();setMenuDay(selDay);setEditDate(selDay);setModal("dayMenu");},600);}}
               onTouchEnd={e=>{clearTimeout(e.currentTarget._lp);}}
               onTouchMove={e=>{clearTimeout(e.currentTarget._lp);}}
               style={{flex:1,background:selDay>todayStr()?"rgba(232,87,74,0.06)":"var(--card-bg-solid)",border:`1.5px solid ${selDay>todayStr()?"#e8574a":C.ter}`,borderRadius:10,padding:"4px 10px",cursor:_cP,textAlign:"center"}}>
-              <div style={{fontSize:13,fontWeight:700,color:selDay>todayStr()?"#e8574a":C.deep,fontFamily:"Georgia,serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:9,color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>TODAY</span>:selDay>todayStr()?<span style={{fontSize:9,color:"#e8574a",fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>FUTURE</span>:null}</div>
+              <div style={{fontSize:_rf(13),fontWeight:700,color:selDay>todayStr()?"#e8574a":C.deep,fontFamily:"Georgia,serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:_rf(9),color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>TODAY</span>:selDay>todayStr()?<span style={{fontSize:_rf(9),color:"#e8574a",fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>FUTURE</span>:null}</div>
             </button>
-            <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:16,color:C.mid,flexShrink:0}}>{"\u203A"}</button>
-            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:8,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:13,color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
+            <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(16),color:C.mid,flexShrink:0}}>{"\u203A"}</button>
+            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(13),color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
           </div>
           {/* Future date warning banner */}
           {selDay > todayStr() && (
@@ -31575,7 +31645,7 @@ function App(){
         </div>
       )}
 
-      <div style={{padding:tab==="settings"?"0 14px 90px":"16px 14px 90px",maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
+      <div style={{padding:tab==="settings"?`0 ${_rs(14)}px 90px`:`${_rs(16)}px ${_rs(14)}px 90px`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
           // Only show the "No day selected" fallback when selDay itself is
           // missing (which should basically never happen, useState initialises
@@ -32131,8 +32201,8 @@ function App(){
                     onTouchEndCapture={(e)=>{ try { const el=e.currentTarget; setTimeout(()=>{ if(el){el.style.transform=""; el.style.background="transparent";} },140); } catch{} }}
                     onTouchCancelCapture={(e)=>{ try { e.currentTarget.style.transform=""; e.currentTarget.style.background="transparent"; } catch{} }}
                   >
-                    <span style={{fontSize:26,lineHeight:1}}>{emoji}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
+                    <span style={{fontSize:_rs(26),lineHeight:1}}>{emoji}</span>
+                    <span style={{fontSize:_rf(11),fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
                     {longAction && <div style={{width:4,height:4,borderRadius:"50%",background:C.blush,marginTop:2,opacity:0.6}}/>}
                   </button>
                   );
@@ -32158,7 +32228,7 @@ function App(){
                       setNapSec(elapsed);
                       setNapPaused(false);
                       setTimerMode("activeSleep");
-                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",todayStr());}catch{}
+                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",selDay);}catch{}
                       // Create in-progress entry
                       const entryId = uid();
                       setNapEntryId(entryId);
@@ -33799,7 +33869,7 @@ function App(){
                               try { localStorage.setItem(_scKey, JSON.stringify(_d)); } catch {}
                               setPartnerTick(t=>t+1);
                               if (_newCount > _waterCount) showToast("💧 "+_newCount+"/8 glasses",1000,1);
-                            }} aria-label={_filled?"Remove glass "+n:"Add glass "+n} style={{flex:1,height:36,borderRadius:8,background:_filled?"linear-gradient(135deg,#7BA68C,#5A8A6C)":"var(--card-bg-alt)",border:"1px solid "+(_filled?C.mint+"40":C.blush),transition:"all 0.2s",cursor:_cP,padding:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+                            }} aria-label={_filled?"Remove glass "+n:"Add glass "+n} style={{flex:1,height:36,borderRadius:8,background:_filled?"linear-gradient(135deg,#7BA68C,#5A8A6C)":"var(--card-bg-alt)",border:"1px solid "+(_filled?C.mint+"40":C.blush),transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease",cursor:_cP,padding:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
                               {_filled && <span style={{opacity:0.9}}>💧</span>}
                             </button>
                           );
@@ -33845,7 +33915,7 @@ function App(){
                     </div>
                     {_dailyItems.map(item=>(
                       <button key={item.id} onClick={()=>_toggleSc(item.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid "+C.blush,background:"none",border:"none",borderBottom:"1px solid "+C.blush,cursor:_cP,textAlign:"left"}}>
-                        <div style={{width:24,height:24,borderRadius:8,border:"2px solid "+(_scData[item.id]?C.mint:C.blush),background:_scData[item.id]?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                        <div style={{width:24,height:24,borderRadius:8,border:"2px solid "+(_scData[item.id]?C.mint:C.blush),background:_scData[item.id]?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                           {_scData[item.id] && <span style={{color:"white",fontSize:12,fontWeight:700}}>✓</span>}
                         </div>
                         <span style={_S.f13}>{item.emoji}</span>
@@ -33863,7 +33933,7 @@ function App(){
                     </div>
                     {_weeklyItems.map(item=>(
                       <button key={item.id} onClick={()=>_toggleScW(item.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 0",background:"none",border:"none",borderBottom:"1px solid "+C.blush,cursor:_cP,textAlign:"left"}}>
-                        <div style={{width:24,height:24,borderRadius:8,border:"2px solid "+(_scWeek[item.id]?C.mint:C.blush),background:_scWeek[item.id]?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                        <div style={{width:24,height:24,borderRadius:8,border:"2px solid "+(_scWeek[item.id]?C.mint:C.blush),background:_scWeek[item.id]?C.mint:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                           {_scWeek[item.id] && <span style={{color:"white",fontSize:12,fontWeight:700}}>✓</span>}
                         </div>
                         <span style={_S.f13}>{item.emoji}</span>
@@ -34545,10 +34615,10 @@ function App(){
                     {big:napOn?(()=>{const total=napMins*60+napSec;const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;})():(naps.length===0?"--":hm(napMins)),unit:"",label:"Nap Time",color:C.sky,bg:"var(--card-bg)"},
                   ];
                 })().map((s,i)=>(
-                  <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:16,padding:"10px 4px",textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)"}}>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:String(s.big).length>4?15:20,fontWeight:700,color:s.color,lineHeight:1.2}}>{s.big}</div>
-                    {s.unit&&<div style={{fontSize:12,fontFamily:_fM,color:s.color,opacity:0.65,marginTop:1}}>{s.unit}</div>}
-                    <div style={{fontSize:11,color:C.lt,marginTop:3,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
+                  <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:_rs(16),padding:`${_rs(10)}px ${_rs(4)}px`,textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)"}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:_rf(String(s.big).length>4?15:20),fontWeight:700,color:s.color,lineHeight:1.2}}>{s.big}</div>
+                    {s.unit&&<div style={{fontSize:_rf(12),fontFamily:_fM,color:s.color,opacity:0.65,marginTop:1}}>{s.unit}</div>}
+                    <div style={{fontSize:_rf(10),color:C.lt,marginTop:2,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM}}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -35874,7 +35944,7 @@ function App(){
 
               {/* 7. Daily timeline */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <span style={{fontFamily:"'Playfair Display',Georgia,serif",fontStyle:"italic",fontWeight:700,fontSize:17,color:C.deep,lineHeight:1.1}}><em style={{color:C.ter,fontStyle:"italic"}}>Today</em>, at a glance</span>
+                <span style={{fontFamily:"'Playfair Display',Georgia,serif",fontStyle:"italic",fontWeight:700,fontSize:_rf(17),color:C.deep,lineHeight:1.1,whiteSpace:"nowrap"}}><em style={{color:C.ter,fontStyle:"italic"}}>Today</em>, at a glance</span>
                 <span style={{fontSize:10,fontWeight:700,letterSpacing:"0.1em",color:C.lt,textTransform:"uppercase"}}>{dayE.length} {dayE.length===1?"entry":"entries"}</span>
                 {dayE.length > 0 && <span style={{fontSize:11,color:C.lt,fontStyle:"italic"}}>press & hold to edit</span>}
               </div>
@@ -36397,7 +36467,7 @@ function App(){
                     <div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:8}}>
                       {[1,2,3].map(n=>(
                         <div key={n} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-                          <div style={{width:44,height:44,borderRadius:"50%",border:`2px solid ${n<=daysLogged?C.mint:C.blush}`,background:n<=daysLogged?C.mint+"15":"var(--card-bg)",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.3s"}}>
+                          <div style={{width:44,height:44,borderRadius:"50%",border:`2px solid ${n<=daysLogged?C.mint:C.blush}`,background:n<=daysLogged?C.mint+"15":"var(--card-bg)",display:"flex",alignItems:"center",justifyContent:"center",transition:"background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease"}}>
                             {n<=daysLogged?<span style={{fontSize:16,color:C.mint}}>✓</span>:<span style={{fontSize:14,color:C.lt}}>{ n}</span>}
                           </div>
                           <span style={{fontSize:10,color:n<=daysLogged?C.mint:C.lt,fontFamily:_fM}}>Day {n}</span>
@@ -40128,8 +40198,8 @@ function App(){
                         style={{width:"100%",display:"flex",gap:10,padding:"12px",marginBottom:6,borderRadius:14,
                           border:`1.5px solid ${_checks[sign.id]?C.mint+"50":C.blush}`,
                           background:_checks[sign.id]?`${C.mint}08`:"var(--card-bg)",
-                          cursor:_cP,textAlign:"left",transition:"all 0.2s"}}>
-                        <div style={{width:28,height:28,borderRadius:8,border:`2px solid ${_checks[sign.id]?C.mint:C.blush}`,background:_checks[sign.id]?C.mint:"var(--card-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                          cursor:_cP,textAlign:"left",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
+                        <div style={{width:28,height:28,borderRadius:8,border:`2px solid ${_checks[sign.id]?C.mint:C.blush}`,background:_checks[sign.id]?C.mint:"var(--card-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                           {_checks[sign.id] && <span style={{color:"white",fontSize:16,fontWeight:700}}>✓</span>}
                         </div>
                         <div style={_S.flex1}>
@@ -43059,8 +43129,8 @@ function App(){
                   <div style={{fontSize:13,fontFamily:_fM,color:C.mid,fontWeight:600}}>{nappyMode==="dirty"?"💧💩":"💩"} What did it look like?</div>
                   <button onClick={()=>{setNappyMode(null);setSelectedPoopTypes([]);setSelectedPoopColour("");}} style={{fontSize:12,color:C.lt,background:_bN,border:_bN,cursor:_cP,fontFamily:_fI}}>← Back</button>
                 </div>
-                <div style={{fontSize:11,color:C.lt,marginBottom:8}}>Tap one or more types · press & hold for info</div>
-                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+                <div style={{fontSize:10,color:C.lt,marginBottom:6}}>Tap one or more · hold for info</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:8}}>
                   {POOP_TYPES.map(pt=>{
                     const isSelected = selectedPoopTypes.includes(pt);
                     const hasSafety = POOP_SAFETY_FLAGS[pt];
@@ -43073,16 +43143,18 @@ function App(){
                       onTouchStart={e=>{const _t=setTimeout(()=>{e.preventDefault();const info=POOP_TYPE_INFO[pt];if(info) showToast((info.normal?"✅ Normal: ":"⚠️ Flag: ")+info.desc,6000,info.normal?1:2);},500);e.currentTarget._lp=_t;}}
                       onTouchEnd={e=>{if(e.currentTarget._lp) clearTimeout(e.currentTarget._lp);}}
                       onTouchMove={e=>{if(e.currentTarget._lp) clearTimeout(e.currentTarget._lp);}}
-                      style={{padding:"7px 14px",borderRadius:99,border:`1.5px solid ${isSelected?(hasSafety?"#e8574a":"#8a7060"):hasSafety?"rgba(232,87,74,0.4)":C.blush}`,background:isSelected?(hasSafety?"rgba(232,87,74,0.15)":"#e8e0d4"):hasSafety?"rgba(232,87,74,0.06)":"var(--card-bg-alt)",fontSize:13,color:isSelected?"#5a4030":hasSafety?"#c44":"var(--text-mid)",cursor:_cP,fontFamily:_fI,fontWeight:isSelected?700:400}}>
+                      style={{padding:"5px 10px",borderRadius:99,border:`1.5px solid ${isSelected?(hasSafety?"#e8574a":"#8a7060"):hasSafety?"rgba(232,87,74,0.4)":C.blush}`,background:isSelected?(hasSafety?"rgba(232,87,74,0.15)":"#e8e0d4"):hasSafety?"rgba(232,87,74,0.06)":"var(--card-bg-alt)",fontSize:12,color:isSelected?"#5a4030":hasSafety?"#c44":"var(--text-mid)",cursor:_cP,fontFamily:_fI,fontWeight:isSelected?700:400}}>
                       {isSelected?"✓ ":""}{pt}{hasSafety?" ⚠":""}
                     </button>
                     );
                   })}
                 </div>
                 {/* ── Poop colour picker ── */}
-                <div style={{marginTop:12,marginBottom:10}}>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                    {[["Yellow/Mustard","#D4A855"],["Brown/Tan","#8B6914"],["Orange","#D4872E"],["Green","#6B8E23"],["Dark/Black","#2C1F1A"],["Pale/White","#F5E6D3"],["Red-tinged","#C75050"]].map(([label,hex])=>{
+                <div style={{marginTop:8,marginBottom:6}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+                    {[["Yellow","#D4A855"],["Brown","#8B6914"],["Orange","#D4872E"],["Green","#6B8E23"],["Dark","#2C1F1A"],["Pale","#F5E6D3"],["Red","#C75050"]].map(([shortLabel,hex])=>{
+                      const _labelMap={"Yellow":"Yellow/Mustard","Brown":"Brown/Tan","Orange":"Orange","Green":"Green","Dark":"Dark/Black","Pale":"Pale/White","Red":"Red-tinged"};
+                      const label = _labelMap[shortLabel];
                       const isSel = selectedPoopColour === hex;
                       const _flagged = POOP_COLOUR_INFO[label] && !POOP_COLOUR_INFO[label].normal;
                       return (
@@ -43090,11 +43162,11 @@ function App(){
                           onTouchStart={e=>{const _t=setTimeout(()=>{e.preventDefault();const info=POOP_COLOUR_INFO[label];if(info) showToast((info.normal?"✅ Normal: ":"⚠️ Flag: ")+info.desc,6000,info.normal?1:2);},500);e.currentTarget._lp=_t;}}
                           onTouchEnd={e=>{if(e.currentTarget._lp) clearTimeout(e.currentTarget._lp);}}
                           onTouchMove={e=>{if(e.currentTarget._lp) clearTimeout(e.currentTarget._lp);}}
-                          style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:_cP,padding:4}}>
-                          <div style={{width:28,height:28,borderRadius:99,background:hex,border:isSel?`3px solid ${C.ter}`:_flagged?`2px solid rgba(232,87,74,0.5)`:`2px solid ${C.blush}`,boxSizing:"border-box",position:"relative"}}>
-                            {_flagged&&<span style={{position:"absolute",top:-4,right:-4,fontSize:10,lineHeight:1}}>⚠</span>}
+                          style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:_cP,padding:2}}>
+                          <div style={{width:26,height:26,borderRadius:99,background:hex,border:isSel?`3px solid ${C.ter}`:_flagged?`2px solid rgba(232,87,74,0.5)`:`2px solid ${C.blush}`,boxSizing:"border-box",position:"relative"}}>
+                            {_flagged&&<span style={{position:"absolute",top:-4,right:-4,fontSize:8,lineHeight:1}}>⚠</span>}
                           </div>
-                          <span style={{fontSize:9,color:isSel?C.ter:C.deep,fontWeight:isSel?700:500,fontFamily:_fI,maxWidth:48,textAlign:"center",lineHeight:1.2}}>{label}</span>
+                          <span style={{fontSize:9,color:isSel?C.ter:C.deep,fontWeight:isSel?700:500,fontFamily:_fI,textAlign:"center",lineHeight:1.1}}>{shortLabel}</span>
                         </button>
                       );
                     })}
@@ -43341,7 +43413,7 @@ function App(){
                   const nowM=new Date().getHours()*60+new Date().getMinutes();
                   let elapsedSec=(nowM-startMins)*60+new Date().getSeconds();
                   if(elapsedSec<0) elapsedSec+=86400;
-                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",todayStr());}catch{}
+                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",selDay);}catch{}
                   setNapStartT(startT);setNapSec(elapsedSec);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
                   setModal(null);setEditEntry(null);
                   showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);
@@ -43466,10 +43538,17 @@ function App(){
             <button onClick={()=>{
               haptic();
               showConfirm("Delete this entry?", "This will remove the " + (NAMES[eType]||"entry").toLowerCase() + " at " + fmt12(editEntry.time||editEntry.start||"") + " from today's log.", ()=>{
+                // Search ALL days for the entry (not just selDay) — night entries may live on bedTimerDay
                 setDays(d=>{
-                  const updated = (d[selDay]||[]).filter(x=>x.id!==editEntry.id);
-                  return{...d,[selDay]:updated};
+                  const result = {...d};
+                  Object.keys(result).forEach(dk=>{
+                    if((result[dk]||[]).some(x=>x.id===editEntry.id)){
+                      result[dk] = result[dk].filter(x=>x.id!==editEntry.id);
+                    }
+                  });
+                  return result;
                 });
+                try { deletedEntryIdsRef.current.add(editEntry.id); _capAndPersistDeletedIds(); } catch {}
                 setModal(null);setEditEntry(null);
                 showToast("Entry deleted",1500,1);
               });
@@ -43827,7 +43906,7 @@ function App(){
               ].map(plan=>{
                 const _sel = (paywallPlan||"annual") === plan.key;
                 return (
-                  <button key={plan.key} onClick={()=>setPaywallPlan(plan.key)} style={{flex:1,padding:"10px 6px",borderRadius:14,border:_sel?`2px solid ${C.ter}`:`1.5px solid ${C.blush||"#e8d5cf"}`,background:_sel?(C.ter+"0C"):"transparent",cursor:_cP,textAlign:"center",position:"relative",transition:"all 0.2s"}}>
+                  <button key={plan.key} onClick={()=>setPaywallPlan(plan.key)} style={{flex:1,padding:"10px 6px",borderRadius:14,border:_sel?`2px solid ${C.ter}`:`1.5px solid ${C.blush||"#e8d5cf"}`,background:_sel?(C.ter+"0C"):"transparent",cursor:_cP,textAlign:"center",position:"relative",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                     {plan.badge && <div style={{position:"absolute",top:-8,left:"50%",transform:"translateX(-50%)",fontSize:10,fontWeight:700,color:"white",background:plan.key==="lifetime"?C.mint||"#6FA898":C.ter,padding:"2px 7px",borderRadius:99,whiteSpace:"nowrap"}}>{plan.badge}</div>}
                     <div style={{fontSize:10,fontWeight:600,color:C.mid,marginBottom:2}}>{plan.label}</div>
                     <div style={{fontSize:16,fontWeight:800,color:_sel?C.ter:C.deep}}>{plan.price}</div>
@@ -43912,78 +43991,35 @@ function App(){
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",textAlign:"center",position:"relative"}}>
             <button onClick={()=>dismissReview(false)} aria-label="Close" style={{position:"absolute",top:14,right:14,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP}}>✕</button>
 
-            {reviewStep==="ask" && (
-              <div>
+            <div>
                 <div style={{fontSize:40,marginBottom:12}}>💛</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:10,lineHeight:1.3}}>What do you think of OBubba?</div>
                 <div style={{fontSize:13,color:C.mid,lineHeight:1.65,marginBottom:16,maxWidth:300,marginLeft:"auto",marginRight:"auto"}}>
-                  Your review helps other tired parents find us. A few words about what OBubba has meant for your family makes all the difference.
+                  Your review helps other tired parents find us. It only takes a moment and makes all the difference.
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  <button onClick={()=>{haptic();setReviewStep("write");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#3a8870)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,boxShadow:`0 4px 16px ${C.mint}30`}}>
+                  <button onClick={()=>{
+                    dismissReview(true);
+                    haptic();
+                    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                    if (isIOS) window.location.href = "https://apps.apple.com/app/id6760968757?action=write-review";
+                    else window.location.href = "https://play.google.com/store/apps/details?id=com.obubba.app";
+                  }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#3a8870)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,boxShadow:`0 4px 16px ${C.mint}30`}}>
                     💚 Love it!
                   </button>
-                  <button onClick={()=>{haptic();setReviewStep("feedback");}} style={{width:"100%",padding:"14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:15,fontWeight:600,cursor:_cP}}>
+                  <button onClick={()=>{
+                    haptic();
+                    dismissReview(true);
+                    const subject = encodeURIComponent("OBubba Feedback");
+                    const body = encodeURIComponent("Hi OBubba team,\n\nHere's what I'd love to see improved:\n\n\n\n---\nBaby: " + (babyName||"") + "\nPlatform: " + (/iPhone|iPad/i.test(navigator.userAgent) ? "iOS" : /Android/i.test(navigator.userAgent) ? "Android" : "Web"));
+                    window.location.href = "mailto:hello@obubba.com?subject=" + subject + "&body=" + body;
+                    showToast("Thank you for your feedback 💛", 2500, 1);
+                  }} style={{width:"100%",padding:"14px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:15,fontWeight:600,cursor:_cP}}>
                     🛠️ It needs some work
                   </button>
                 </div>
-                <div style={{fontSize:11,color:C.lt,marginTop:14,fontStyle:"italic",lineHeight:1.45}}>Your honest feedback helps us build something better for every parent.</div>
+                <button onClick={()=>{dismissReview(false);}} style={{background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP,marginTop:14,fontStyle:"italic"}}>Maybe later</button>
               </div>
-            )}
-
-            {reviewStep==="write" && (
-              <div>
-                <div style={{fontSize:40,marginBottom:12}}>✍️</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8,lineHeight:1.3}}>You'd make our day</div>
-                <div style={{fontSize:13,color:C.mid,lineHeight:1.65,marginBottom:12}}>
-                  Stars are great, but a sentence or two helps other parents decide. Here are some ideas:
-                </div>
-                <div style={{textAlign:"left",fontSize:12,color:C.lt,lineHeight:1.7,marginBottom:16,padding:"10px 14px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
-                  <div style={{marginBottom:4}}>💤 <em>"The sleep predictions actually work..."</em></div>
-                  <div style={{marginBottom:4}}>🍼 <em>"Finally one app instead of five..."</em></div>
-                  <div>👶 <em>"Built by a mum who gets it..."</em></div>
-                </div>
-                <button onClick={()=>{
-                  dismissReview(true);
-                  haptic();
-                  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-                  if (isIOS) window.location.href = "https://apps.apple.com/app/id6760968757?action=write-review";
-                  else window.location.href = "https://play.google.com/store/apps/details?id=com.obubba.app";
-                }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#3a8870)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,boxShadow:`0 4px 16px ${C.mint}30`,marginBottom:8}}>
-                  Write a review 💛
-                </button>
-                <button onClick={()=>{dismissReview(false);haptic();}} style={{width:"100%",padding:"12px",borderRadius:99,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:13,fontWeight:600,cursor:_cP}}>
-                  Maybe later
-                </button>
-              </div>
-            )}
-
-            {reviewStep==="feedback" && (
-              <div>
-                <div style={{fontSize:32,marginBottom:10}}>🛠️</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8,lineHeight:1.3}}>We want to get it right</div>
-                <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:14}}>Tell us what would make OBubba better for you and {babyName||"your family"}. Every suggestion is read personally.</div>
-                <textarea
-                  value={reviewFeedback}
-                  onChange={e=>setReviewFeedback(e.target.value)}
-                  placeholder={"What would make OBubba more helpful?\n\nE.g. \"I wish it could...\", \"The nap predictions need...\", \"I'd love to see...\""}
-                  style={{width:"100%",minHeight:120,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,lineHeight:1.5,resize:"vertical",boxSizing:"border-box",outline:"none"}}
-                />
-                <button onClick={()=>{
-                  if (!reviewFeedback.trim()) { showToast("Please share your thoughts. we read every one", 2000, 1); return; }
-                  // Send feedback via email
-                  const subject = encodeURIComponent("OBubba Feedback from " + (babyName ? possessive(babyName) + " parent" : "a founding supporter"));
-                  const body = encodeURIComponent("Feedback:\n\n" + reviewFeedback + "\n\n---\nFrom: Founding supporter\nBaby: " + (babyName||"Not set") + "\nAge: " + (age ? fmtAge(age) : "Unknown") + "\nDays logged: " + Object.keys(days).filter(d=>(days[d]||[]).length>0).length + "\nPlatform: " + (/iPhone|iPad/i.test(navigator.userAgent) ? "iOS" : /Android/i.test(navigator.userAgent) ? "Android" : "Web"));
-                  window.location.href = "mailto:hello@obubba.com?subject=" + subject + "&body=" + body;
-                  dismissReview(true);
-                  haptic();
-                  showToast("Thank you. your feedback helps us build something better 💛", 3000, 1);
-                }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,marginTop:12,boxShadow:`0 4px 16px ${C.ter}30`}}>
-                  Send feedback 💌
-                </button>
-                <button onClick={()=>{setReviewStep("ask");}} style={{background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP,marginTop:10,textDecoration:"underline"}}>← Go back</button>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -45998,7 +46034,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           { emoji: "🥣", title: "Late nap < 4pm", body: "A nap that runs past 4pm eats into sleep pressure, making bedtime harder. If baby is asleep at 4pm, it's okay to gently wake them, the tradeoff is worth it for an easier settle." },
           { emoji: "🫖", title: "Avoid the 'rescue nap'", body: "If baby is exhausted at 5pm, resist putting them down 'just for 20 minutes'. A catnap after 4pm almost always pushes bedtime past 9pm. Better to push through with calm activity." },
           { emoji: "📱", title: "No screens in the hour before bed", body: "Blue light suppresses melatonin for up to an hour. This goes for baby (no screen time) AND for you in the same room, a bright phone near a baby delays their sleep too." },
-          { emoji: "🌿", title: "Lavender oil, the research", body: "Small studies show lavender-scented bath or diffuser can reduce crying and improve sleep quality. Not a miracle, but it's a cheap, low-risk addition. Use a tiny amount, well-ventilated room." },
+          { emoji: "🌿", title: "Calming scents — a note on safety", body: "Essential oils (including lavender) are NOT recommended for babies under 6 months — they can irritate skin, airways, and lungs. For older babies, never apply directly to skin or use in enclosed spaces. NHS advises a warm bath with a gentle, fragrance-free baby wash instead. The routine itself (not the scent) is what helps baby wind down." },
           { emoji: "⏳", title: "Don't rush the cry", body: "Babies often make noises, grunting, fussing, even brief cries, BETWEEN sleep cycles without fully waking. If you wait 2 minutes before rushing in, many will drift back on their own." },
           { emoji: "🌡️", title: "Check the back of the neck", body: "To tell if baby is warm enough, feel the back of their neck (not hands or feet, which always run cool). Should feel warm but not sweaty. This is the single best temperature check." },
           { emoji: "🎨", title: "Keep the nursery boring", body: "Bright colours and busy mobiles stimulate the brain. For the sleep space, less is more: one muted colour, one mobile MAX, no toys in the cot. Save the stimulation for daytime." },
@@ -46607,8 +46643,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
               const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
-              if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
-              else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
+              if(navigator.share){
+                try{await navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg});}
+                catch(e3){if(e3.name!=="AbortError"){try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}}
+              } else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
               🔗 Send Link (no QR needed)
             </button>
@@ -46861,8 +46899,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
               {/* Self settled */}
               <div onClick={()=>setNwForm(f=>({...f,selfSettled:!f.selfSettled,assisted:false}))}
-                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"rgba(80,200,120,0.08)":C.warm,cursor:_cP,transition:"all 0.2s"}}>
-                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"#50c878":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"rgba(80,200,120,0.08)":C.warm,cursor:_cP,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
+                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.selfSettled?"#50c878":C.blush}`,background:nwForm.selfSettled?"#50c878":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                   {nwForm.selfSettled&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
                 </div>
                 <div>
@@ -46879,8 +46917,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               )}
               {/* Assisted soothing */}
               <div onClick={()=>setNwForm(f=>({...f,assisted:!f.assisted,selfSettled:false,ml:""}))}
-                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.assisted?"#7b68ee":C.blush}`,background:nwForm.assisted?"rgba(123,104,238,0.08)":C.warm,cursor:_cP,transition:"all 0.2s"}}>
-                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.assisted?"#7b68ee":C.blush}`,background:nwForm.assisted?"#7b68ee":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+                style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:14,border:`1.5px solid ${nwForm.assisted?"#7b68ee":C.blush}`,background:nwForm.assisted?"rgba(123,104,238,0.08)":C.warm,cursor:_cP,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
+                <div style={{width:22,height:22,borderRadius:"50%",border:`2px solid ${nwForm.assisted?"#7b68ee":C.blush}`,background:nwForm.assisted?"#7b68ee":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                   {nwForm.assisted&&<span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>}
                 </div>
                 <div>
@@ -47503,12 +47541,23 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {/* ── Section 2: Cloud Backup ── */}
             <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:16}}>☁️ Cloud Backup</div>
-            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
-              <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
-              <div>
-                <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
-                <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
+                  <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+                </div>
               </div>
+              {backupCode && (
+                <div style={{marginTop:10,padding:"10px 12px",background:"rgba(255,255,255,0.7)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#4a9a70",fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Your backup code</div>
+                    <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#2a7a50",letterSpacing:"0.1em"}}>{backupCode}</div>
+                  </div>
+                  <button onClick={()=>{try{navigator.clipboard.writeText(backupCode);showToast("📋 Code copied!",1500,1);}catch{}haptic();}} style={{padding:"6px 14px",borderRadius:99,border:"none",background:"#2a7a50",color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>Copy</button>
+                </div>
+              )}
             </div>
             <RestoreDataForm restoreFromBackup={restoreFromBackup} setShowFamilyModal={setShowFamilyModal} familyUsername={familyUsername} backupCode={backupCode} C={C} />
 
