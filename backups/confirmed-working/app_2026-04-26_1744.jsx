@@ -2011,10 +2011,9 @@ function diagnoseNapPattern(nap, prevEntries, ageWeeks, wwForAge) {
   let _wakeAnchorMin = null;
   for (let i = _priorEntries.length - 1; i >= 0; i--) {
     const e = _priorEntries[i];
-    if (e.type === "nap" && e.end) {
+    if (e.type === "nap" && e.end && e.end.includes(":")) {
       const [h,m] = e.end.split(":").map(Number);
-      _wakeAnchorMin = h*60+m;
-      break;
+      if (!isNaN(h) && !isNaN(m)) { _wakeAnchorMin = h*60+m; break; }
     }
     if (e.type === "wake" && !e.night) {
       const [h,m] = (e.time || "").split(":").map(Number);
@@ -5011,7 +5010,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
           {/* ── Regenerate code (one tap) ── */}
           {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>{showConfirm("Generate a new code? This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
+            <button onClick={()=>{showConfirm("Generate a new code?","This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
               {loading?"Generating...":"Regenerate code"}
             </button>
           </div>
@@ -6912,12 +6911,14 @@ function App(){
   const yearlySaving = isLegacyUser ? "33" : "17";
   // Trial banner dismissed today?
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
+  const _trialDismissedRef = useRef(trialBannerDismissed);
+  useEffect(()=>{_trialDismissedRef.current=trialBannerDismissed;},[trialBannerDismissed]);
   // Reset at midnight if app stays open across the day boundary
   React.useEffect(()=>{
-    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&trialBannerDismissed){setTrialBannerDismissed(false);}}catch{}};
+    const checkMidnight=()=>{try{const stored=localStorage.getItem("trial_banner_date");if(stored&&stored!==todayStr()&&_trialDismissedRef.current){setTrialBannerDismissed(false);}}catch{}};
     const _mid=setInterval(checkMidnight, 5*60*1000); // check every 5 min
     return ()=>clearInterval(_mid);
-  },[trialBannerDismissed]);
+  },[]);
 
   // triggerPaywall is called from two kinds of event:
   //   1. AUTOMATIC (curiosity gap, soft nudges, background triggers) —
@@ -8069,8 +8070,12 @@ function App(){
     if (_entryStartMs) {
       _startDate = new Date(_entryStartMs);
     } else {
-      const [_rsh,_rsm] = _active.start.split(":").map(Number);
-      _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      if (_active.start && _active.start.includes(":")) {
+        const [_rsh,_rsm] = _active.start.split(":").map(Number);
+        _startDate = new Date(); _startDate.setHours(_rsh,_rsm,0,0);
+      } else {
+        _startDate = new Date();
+      }
       _entryStartMs = _startDate.getTime();
     }
     const _elapsedMs = Date.now() - _entryStartMs;
@@ -8805,6 +8810,12 @@ function App(){
     // Safety: never push blank/empty state to cloud (would wipe real data)
     const _hasData = Object.values(allChildren).some(c => c.name || Object.values(c.days||{}).some(d => d && d.length > 0));
     if(!_hasData) return;
+    // Safety: never overwrite cloud with significantly fewer entries (data loss guard)
+    const _localTotal = Object.values(allChildren).reduce((s, c) => s + Object.values(c.days||{}).reduce((s2, d) => s2 + (d ? d.length : 0), 0), 0);
+    if (_localTotal < cloudEntryCountRef.current * 0.7 && cloudEntryCountRef.current > 30) {
+      console.warn("[OBubba] pushToCloud BLOCKED: local", _localTotal, "entries vs cloud", cloudEntryCountRef.current, "— refusing overwrite to prevent data loss");
+      return;
+    }
 
     // OWNERSHIP GUARD. This is the hard safety net that stops an account
     // switch from leaking the previous account's children into the new
@@ -9713,12 +9724,11 @@ function App(){
         } else {
           let foundExisting = false;
           if(!foundExisting) {
-            // SAFETY: Only generate a new backup code for genuinely new users
-            // who have no username. If they have a username, verifyLogin will
-            // fetch their correct backup code when they sign in.
-            const hasUsername = familyUsername || localStorage.getItem("family_username");
-            const hasVerified = localStorage.getItem("auth_verified");
-            if(!hasUsername && !hasVerified) {
+            // SAFETY: Always generate a backup code if user doesn't have one.
+            // Previously this was gated on !hasUsername which meant users who
+            // set a username but never verified were left without a backup.
+            // Now: if no backup code exists after all restore attempts, create one.
+            {
               const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
               let newCode, exists = true;
               while(exists){
@@ -9840,43 +9850,34 @@ function App(){
   },[]);
 
   function logout() {
-    // Unsubscribe from Firestore listener. prevents old data leaking to new account
+    // ═══ TEAR DOWN ALL LISTENERS ═══
+    // Main family doc listener
     if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
-    // Also tear down every per-child sync listener — logout used to
-    // leave these running in the background, which meant (a) a memory
-    // leak for each linked child, and (b) snapshots arriving for the
-    // logged-out account that could write into the new account's state
-    // if the listener closure was stale. Fully unsubscribe and reset.
-    try {
-      Object.values(childSubsRef.current || {}).forEach(unsub => {
-        try { typeof unsub === "function" && unsub(); } catch {}
-      });
-      childSubsRef.current = {};
-    } catch {}
-    // CRITICAL: Stop cloud push BEFORE resetting children. otherwise the blank state
-    // gets pushed to cloud, wiping the user's real data
+    // Per-child sync listeners
+    try { Object.values(childSubsRef.current || {}).forEach(unsub => { try { typeof unsub === "function" && unsub(); } catch {} }); childSubsRef.current = {}; } catch {}
+    // Carer log listener (was missing — Account A's carer entries leaked to Account B)
+    try { if(carerUnsubRef.current){ carerUnsubRef.current(); carerUnsubRef.current=null; } } catch {}
+
+    // ═══ STOP ALL TIMERS AND CLOUD PUSH ═══
     clearTimeout(cloudPushRef.current);
+    try { clearTimeout(syncTimerRef?.current); } catch {}
     cloudSyncedRef.current = false;
 
-    // Clear ALL localStorage
-    const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
-      "children_v1","active_child","tut_v2","install_date_v1",
-      "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",
-      // Ownership stamp MUST be cleared on logout so the next login
-      // starts with pushToCloud's guard fully armed.
-      "ob_children_owner","ob_children_owner_code",
-      // Premium-feature state that's scoped to a specific child's
-      // sleep-training run. Carrying this across accounts would show
-      // a different parent's "Day 5 of gradual" plan as if it was
-      // their own.
-      "ob_sleep_coach_v1","ob_last_import_batch",
-      // Premium state MUST be cleared to prevent account A's premium
-      // leaking to account B on the same device.
-      "ob_premium","ob_village_end","ob_village_unlocked",
-      "ob_trial_start","ob_trial_duration"];
-    keysToRemove.forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
+    // ═══ CLEAR ALL localStorage — comprehensive wipe ═══
+    // Instead of maintaining an incomplete key list, clear everything that starts
+    // with known prefixes + all explicit keys. This prevents Account A's data
+    // from ever leaking to Account B.
+    try {
+      const allKeys = [];
+      for (let i = 0; i < localStorage.length; i++) allKeys.push(localStorage.key(i));
+      allKeys.forEach(k => {
+        // Keep only device-level prefs that aren't account-specific
+        const keep = k === "ob_theme" || k === "ob_widget_theme" || k === "ob_locale";
+        if (!keep) { try { localStorage.removeItem(k); } catch {} }
+      });
+    } catch {}
 
-    // Reset ALL app state. blank slate
+    // ═══ RESET ALL REACT STATE ═══
     const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
     setChildren({[blankChild.id]:blankChild});
     setActiveChildId(blankChild.id);
@@ -9884,26 +9885,29 @@ function App(){
     setFamilyCode(null);
     setFamilyUsername(null);
     setSyncStatus("idle");
-    setOnboarded(true);
+    setOnboarded(false);
     setNeedsChildSetup(false);
     setTab("day");
-    // Reset premium state so account B doesn't inherit account A's premium
+    // Premium
     setIsPremium(false);
     paywallShownRef.current = false;
-    // Clear child-sync per-code state and participants so a later login
-    // starts fresh and can't see the previous account's joiners.
+    // Sync
     setChildSyncCodes({});
     setChildSyncParticipants({});
-    // Also drop the deletion blacklists that are scoped to "what this
-    // device has deleted from THIS account" — carrying them to a new
-    // account would silently hide children/entries that happen to
-    // share an ID with the old account's deletions.
-    try {
-      deletedEntryIdsRef.current = new Set();
-      deletedDaysRef.current = new Set();
-    } catch {}
+    setCarerEntries([]);
+    // Timers — reset ALL timer state so Account B doesn't see Account A's running timers
+    setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
+    setBreastActive(false); setBreastSide(null); setBreastSec({L:0,R:0}); setBreastStartTime(null);
+    setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(null); setBedTotalPausedSec(0);
+    setTimerMode("prediction");
+    // Meds and carer data
+    setMeds({}); setEmergencyContacts([]); setCarerNotes(""); setCarerComfort("");
+    // Deletion blacklists
+    try { deletedEntryIdsRef.current = new Set(); deletedDaysRef.current = new Set(); } catch {}
+    // Resurrection guards — reset so Account B's timers can resurrect
+    try { timerResurrectedRef.current = false; bedTimerResurrectedRef.current = false; reviewShownRef.current = false; } catch {}
 
-    // Show auth screen with Sign In / Create Account
+    // ═══ SHOW AUTH SCREEN ═══
     setAuthScreen("login");
     setAuthMode("login");
     setAuthUsername("");
@@ -10997,7 +11001,7 @@ function App(){
   // No auto-generation or child_code_map needed. user remembers their code.
   async function pushChildSync(childId, code, childData) {
     if(!window._fb || !code) return;
-    const {db, doc, setDoc, serverTimestamp} = window._fb;
+    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
     const child = childData || children[childId];
     if(!child) return;
     if(!window._fbUid) {
@@ -11010,6 +11014,20 @@ function App(){
       });
     }
     try {
+      // SAFETY: never overwrite cloud with fewer entries than it already has.
+      // This prevents data loss from merge bugs, cache clears, or stale state.
+      const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+      try {
+        const existing = await fsGet("child_syncs", code);
+        if (existing.exists()) {
+          const cloudChild = JSON.parse(existing.data().child || "{}");
+          const cloudEntryCount = Object.values(cloudChild.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
+          if (localEntryCount < cloudEntryCount * 0.7 && cloudEntryCount > 20) {
+            console.warn("[OBubba] pushChildSync BLOCKED: local has", localEntryCount, "entries vs cloud", cloudEntryCount, "— refusing to overwrite");
+            return;
+          }
+        }
+      } catch(e2) { /* proceed if check fails */ }
       await fsSet("child_syncs", code, {
         child: JSON.stringify(child),
         childName: child.name || "",
@@ -11417,7 +11435,8 @@ function App(){
           }
           if(corrected%30===0 && napEntryId){
             setDays(d=>{
-              const _sd = selDayRef.current;
+              // Use nap_start_day (not selDay) so tick works even if user switched child/day
+              const _sd = (()=>{try{return localStorage.getItem("nap_start_day");}catch{return null;}})() || selDayRef.current;
               const entries=d[_sd]||[];
               if(!entries.some(e=>e.id===napEntryId)) return d;
               const now=nowTime();
@@ -12219,7 +12238,7 @@ function App(){
       if (nightWakes.length) {
         const lw = nightWakes[nightWakes.length-1];
         const sm = lw.assistedDuration ? parseInt(lw.assistedDuration) : 0;
-        if (sm > 0) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
+        if (sm > 0 && lw.time && lw.time.includes(":")) { const [wh,wm]=lw.time.split(":").map(Number); const tm=wh*60+wm+sm; lastNightEvent=`${String(Math.floor(tm/60)%24).padStart(2,"0")}:${String(tm%60).padStart(2,"0")}`; }
         else lastNightEvent = lw.time;
       }
       // ═══ NEXT EVENT, single source of truth for hero, pill, coming up, widget ═══
@@ -12454,7 +12473,7 @@ function App(){
       if(_nightWakes.length) {
         const _lw = _nightWakes[_nightWakes.length-1];
         const _sm = _lw.assistedDuration ? parseInt(_lw.assistedDuration) : 0;
-        if(_sm > 0) {
+        if(_sm > 0 && _lw.time && _lw.time.includes(":")) {
           const [_wh,_wm] = _lw.time.split(":").map(Number);
           const _tm = _wh*60+_wm+_sm;
           _lastNightEvent = `${String(Math.floor(_tm/60)%24).padStart(2,"0")}:${String(_tm%60).padStart(2,"0")}`;
@@ -15805,8 +15824,9 @@ function App(){
         _bedRecentDays.forEach(rd => {
           const _naps = rd.entries.filter(e => e.type==="nap" && !e.night && e.start && e.end && minDiff(e.start,e.end) >= 5);
           const _bed = rd.entries.find(e => e.type==="sleep" && !e.night);
-          if (!_naps.length || !_bed) return;
+          if (!_naps.length || !_bed || !_bed.time || !_bed.time.includes(":")) return;
           const _lastNap = _naps[_naps.length - 1];
+          if (!_lastNap.end || !_lastNap.end.includes(":")) return;
           const [_lnh,_lnm] = _lastNap.end.split(":").map(Number);
           const [_bh2,_bm2] = _bed.time.split(":").map(Number);
           let _gap = (_bh2*60+_bm2) - (_lnh*60+_lnm);
@@ -17445,7 +17465,7 @@ function App(){
 
     // Check bedtime approaching. two-stage alert (suppress if bed timer already active)
     const bed = tickDataRef.current.bed;
-    if (bed && !bed.estimated && !bedTimerDay) {
+    if (bed && !bed.estimated && !bedTimerDay && bed.time && bed.time.includes(":")) {
       const [bh, bm] = bed.time.split(":").map(Number);
       const minsUntilBed = bh * 60 + bm - nowMins;
       if (minsUntilBed > 0 && minsUntilBed <= 10) return { emoji: "🌙", text: `Bedtime in ~${minsUntilBed} minutes. ${name} should be in the cot soon.`, priority: "high", why: `Melatonin (the sleep hormone) peaks between 7–7:30pm for most babies. Putting baby down during this window means they'll fall asleep faster. Missing it triggers cortisol, which fights sleep.` };
@@ -21874,7 +21894,7 @@ function App(){
     // Bedtime approaching. ONLY if all expected naps are done
     if (_naps.length >= _profile.expectedNaps) {
       const _bed = tickDataRef.current.bed;
-      if (_bed && !_bed.estimated) {
+      if (_bed && !_bed.estimated && _bed.time && _bed.time.includes(":")) {
         const _bP = _bed.time.split(":").map(Number);
         const _mBed = Math.max(0, _bP[0] * 60 + _bP[1] - _nowM);
         if (_mBed <= 10) return { text: "Bedtime. into the cot", priority: "high" };
@@ -23560,13 +23580,13 @@ function App(){
           showToast("✅ Logged for all " + ids.length + " children", 1800, 1);
         }
 
-        var _qlRetries = 0;
-        function quickAddLog(type, data){
+        function quickAddLog(type, data, _retries){
+    _retries = _retries || 0;
     // Guard: if children data hasn't loaded yet (cold launch from widget), queue for later
     if (!children || !children[resolvedActiveId] || !children[resolvedActiveId].days) {
-      if (++_qlRetries > 10) { console.warn("[OBubba] quickAddLog: gave up after 10 retries"); _qlRetries = 0; return; }
+      if (_retries >= 10) { console.warn("[OBubba] quickAddLog gave up"); showToast("Entry not saved — try again", 2500, 2); return; }
       const _snapId = resolvedActiveId;
-      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data); }, 500);
+      setTimeout(() => { if (resolvedActiveId === _snapId) quickAddLog(type, data, _retries + 1); }, 500);
       return;
     }
     ensureTrialStarted();
@@ -24164,7 +24184,10 @@ function App(){
       : null;
     if(editEntry){
       setDays(d=>{
-        const updated = (d[selDay]||[]).map(x=>x.id===editEntry.id?e:x);
+        // Find which day the entry actually lives on (may differ from selDay for night entries)
+        let _entryDay = selDay;
+        Object.keys(d).forEach(dk=>{ if((d[dk]||[]).some(x=>x.id===editEntry.id)) _entryDay = dk; });
+        const updated = (d[_entryDay]||[]).map(x=>x.id===editEntry.id?e:x);
         // Add morning wake entry to today's log if provided
         const _todayKey = todayStr();
         const _wakeDay = (() => {
@@ -24177,9 +24200,9 @@ function App(){
           return selDay;
         })();
         let result = {...d};
-        // Always run autoClassifyNight on any day. ensures correct day/night classification
-        const _pd=prevDayStr(selDay);
-        result = {...result,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+        // Always run autoClassifyNight on the entry's actual day
+        const _pd=prevDayStr(_entryDay);
+        result = {...result,[_entryDay]:autoClassifyNight(updated,d[_pd]||null)};
         if(_wakeEntry && _wakeDay) {
           const _existing = result[_wakeDay]||[];
           const _withWake = [..._existing.filter(x=>!(x.type==="wake"&&x.time===form.wakeTime)), _wakeEntry];
@@ -25070,7 +25093,7 @@ function App(){
       localStorage.setItem("nap_on","1");
       localStorage.setItem("nap_sec","0");
       localStorage.setItem("nap_entry_id",entryId);
-      localStorage.setItem("nap_start_day",todayStr());
+      localStorage.setItem("nap_start_day",selDay);
     }catch{}
     setNapStartT(t);setNapStartMs(_nowMs);setNapSec(0);setNapOn(true);setNapEntryId(entryId);
     setTimerMode("activeSleep");
@@ -26905,7 +26928,9 @@ function App(){
         await navigator.share({ title: name + "'s Bubba Care", files: [file] });
       } else if (navigator.share) {
         _method = "native_share_text";
-        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba" });
+        const _ctShare = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
+        const _careUrl = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ctShare)+"&child="+encodeURIComponent(resolvedActiveId||"");
+        await navigator.share({ title: name + "'s Bubba Care", text: name + "'s care guide from OBubba\n\n" + _careUrl });
       } else {
         // Web fallback: download the file
         _method = "download";
@@ -27058,6 +27083,7 @@ function App(){
     const prevDk = allDk.length > 7 ? allDk.slice(-14, -7) : [];
 
     function weekStats(keys) {
+      if (!keys.length) return null;
       let tFeeds=0, tMl=0, tNaps=0, tNapMins=0, tNightWakes=0, beds=[], wakes=[], stretches=[];
       let _tBreastMin=0, _tBreastCount=0;
       keys.forEach(d => {
@@ -27075,9 +27101,9 @@ function App(){
         tNaps += napList.length;
         tNapMins += napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
         const bed = dayE.find(e=>e.type==="sleep");
-        if(bed){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
+        if(bed && bed.time && bed.time.includes(":")){const[h,m]=bed.time.split(":").map(Number);beds.push(h*60+m);}
         const wake = dayE.find(e=>e.type==="wake");
-        if(wake){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
+        if(wake && wake.time && wake.time.includes(":")){const[h,m]=wake.time.split(":").map(Number);wakes.push(h*60+m);}
         const next=nextDayStr(d);
         // Count "wake events", not raw entries. Previously:
         //   - counted BOTH wake and feed entries → a parent logging a wake +
@@ -30516,7 +30542,7 @@ function App(){
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,minHeight:"100vh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflowY:"auto",overflowX:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
@@ -31117,9 +31143,10 @@ function App(){
                       setNapStartT(newT);
                       setNapSec(elapsed);
                       if(napEntryId){
+                        const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
                         setDays(d=>{
-                          const existing = d[selDay]||[];
-                          return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                          const existing = d[_napEditDay]||[];
+                          return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
                         });
                       }
                       try{localStorage.setItem("nap_startT",newT);}catch{}
@@ -31140,9 +31167,10 @@ function App(){
                           setNapStartT(newT);
                           setNapSec(elapsed);
                           if(napEntryId){
+                            const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
                             setDays(d=>{
-                              const existing = d[selDay]||[];
-                              return {...d,[selDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
+                              const existing = d[_napEditDay]||[];
+                              return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT}:x)};
                             });
                           }
                           try{localStorage.setItem("nap_startT",newT);}catch{}
@@ -32196,7 +32224,7 @@ function App(){
                       setNapSec(elapsed);
                       setNapPaused(false);
                       setTimerMode("activeSleep");
-                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",todayStr());}catch{}
+                      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",selDay);}catch{}
                       // Create in-progress entry
                       const entryId = uid();
                       setNapEntryId(entryId);
@@ -42874,7 +42902,7 @@ function App(){
                   const existing = d[nextDay] || [];
                   const hasWake = hasMorningWake(existing);
                   if (hasWake) return d;
-                  const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:""}];
+                  const updated = [...existing, {id:uid(),type:"wake",time:timerEndPrompt.end,night:false,note:"",modifiedAt:Date.now()}];
                   return {...d, [nextDay]: updated};
                 });
                 setSelDay(nextDayStr(selDay));
@@ -43230,7 +43258,7 @@ function App(){
                 <PBtn onClick={()=>{
                   const t = logForm.feedTime || nowTime();
                   const nextDay = nextDayStr(selDay);
-                  const entry = {id:uid(),type:"wake",time:t,night:false,note:""};
+                  const entry = {id:uid(),type:"wake",time:t,night:false,note:"",modifiedAt:Date.now()};
                   setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),entry]}));
                   setLogPanel(null);
                   setSelDay(nextDay);
@@ -43381,7 +43409,7 @@ function App(){
                   const nowM=new Date().getHours()*60+new Date().getMinutes();
                   let elapsedSec=(nowM-startMins)*60+new Date().getSeconds();
                   if(elapsedSec<0) elapsedSec+=86400;
-                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",todayStr());}catch{}
+                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",selDay);}catch{}
                   setNapStartT(startT);setNapSec(elapsedSec);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
                   setModal(null);setEditEntry(null);
                   showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);
@@ -43506,10 +43534,17 @@ function App(){
             <button onClick={()=>{
               haptic();
               showConfirm("Delete this entry?", "This will remove the " + (NAMES[eType]||"entry").toLowerCase() + " at " + fmt12(editEntry.time||editEntry.start||"") + " from today's log.", ()=>{
+                // Search ALL days for the entry (not just selDay) — night entries may live on bedTimerDay
                 setDays(d=>{
-                  const updated = (d[selDay]||[]).filter(x=>x.id!==editEntry.id);
-                  return{...d,[selDay]:updated};
+                  const result = {...d};
+                  Object.keys(result).forEach(dk=>{
+                    if((result[dk]||[]).some(x=>x.id===editEntry.id)){
+                      result[dk] = result[dk].filter(x=>x.id!==editEntry.id);
+                    }
+                  });
+                  return result;
                 });
+                try { deletedEntryIdsRef.current.add(editEntry.id); _capAndPersistDeletedIds(); } catch {}
                 setModal(null);setEditEntry(null);
                 showToast("Entry deleted",1500,1);
               });
@@ -46490,14 +46525,15 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         // End nap
                         const _endT = _nowTime;
                         if(napStartT && napEntryId) {
+                          const _napDay = localStorage.getItem("nap_start_day") || selDay;
                           setDays(d=>{
-                            const td = d[selDay]||[];
+                            const td = d[_napDay]||[];
                             const updated = td.map(e=>e.id===napEntryId?{...e,end:_endT,_active:false,loggedBy:"grandparent",modifiedAt:Date.now()}:e);
-                            return {...d,[selDay]:updated};
+                            return {...d,[_napDay]:updated};
                           });
                         }
                         setNapOn(false);setNapStartT(null);setNapSec(0);setNapEntryId(null);
-                        try{localStorage.removeItem("nap_active");localStorage.removeItem("nap_startT");localStorage.removeItem("nap_entry_id");}catch{}
+                        ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
                         showToast("💤 Nap ended. saved",2000,1);
                       } else {
                         // Start nap
@@ -46505,7 +46541,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         const _entry = {id:_eid,type:"nap",start:_nowTime,end:_nowTime,night:false,loggedBy:"grandparent",_active:true,modifiedAt:Date.now()};
                         setDays(d=>({...d,[selDay]:[...(d[selDay]||[]),_entry]}));
                         setNapStartT(_nowTime);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
-                        try{localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);}catch{}
+                        try{localStorage.setItem("nap_startT",_nowTime);localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_startMs",String(Date.now()));localStorage.setItem("nap_start_day",selDay);}catch{}
                         showToast("💤 Nap started. saved",2000,1);
                       }
                     }} style={{..._btn,background:napOn?"rgba(123,166,140,0.15)":"var(--card-bg)",borderColor:napOn?C.mint:C.blush}}>
@@ -46604,8 +46640,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               const _ct = (()=>{try{const d=JSON.parse(localStorage.getItem("ob_carer_token_v1")||"null");return d&&d.token?d.token:(backupCode||"");}catch{return backupCode||"";}})();
               const _url = "https://obubba-d9ccc.web.app/care.html?code="+encodeURIComponent(_ct)+"&child="+encodeURIComponent(resolvedActiveId||"");
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
-              if(navigator.share){navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg,url:_url}).catch(()=>{});}
-              else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
+              if(navigator.share){
+                try{await navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg});}
+                catch(e3){if(e3.name!=="AbortError"){try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}}
+              } else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
               🔗 Send Link (no QR needed)
             </button>
@@ -46725,7 +46763,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 const entry = wakeEditEntry;
                 delEntry(entry.id);
                 const nextDay = nextDayStr(selDay);
-                const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||""};
+                const newEntry = {id:uid(),type:"wake",time:entry.time,night:false,note:entry.note||"",modifiedAt:Date.now()};
                 setDays(d=>({...d,[nextDay]:[...(d[nextDay]||[]),newEntry]}));
                 setWakeEditEntry(null);
                 setSelDay(nextDay);
@@ -47500,12 +47538,23 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {/* ── Section 2: Cloud Backup ── */}
             <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8,marginTop:16}}>☁️ Cloud Backup</div>
-            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,display:"flex",alignItems:"center",gap:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
-              <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
-              <div>
-                <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
-                <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+            <div style={{background: backupCode?"#e8f7f0":"#fff8e8",borderRadius:14,padding:"14px 16px",marginBottom:10,border:`1px solid ${backupCode?"#b0e8cc":"#f0d890"}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={_S.f20}>{backupCode?"🛡️":"⏳"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:backupCode?"#2a7a50":"#8a6a10"}}>{backupCode?"Auto-backup active":"Setting up backup…"}</div>
+                  <div style={{fontSize:12,color:backupCode?"#4a9a70":"#9a7a20",marginTop:1}}>{backupCode?"Your data saves to the cloud and restores on any device":"Firebase is connecting, backup will begin shortly"}</div>
+                </div>
               </div>
+              {backupCode && (
+                <div style={{marginTop:10,padding:"10px 12px",background:"rgba(255,255,255,0.7)",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div>
+                    <div style={{fontSize:10,color:"#4a9a70",fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Your backup code</div>
+                    <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#2a7a50",letterSpacing:"0.1em"}}>{backupCode}</div>
+                  </div>
+                  <button onClick={()=>{try{navigator.clipboard.writeText(backupCode);showToast("📋 Code copied!",1500,1);}catch{}haptic();}} style={{padding:"6px 14px",borderRadius:99,border:"none",background:"#2a7a50",color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>Copy</button>
+                </div>
+              )}
             </div>
             <RestoreDataForm restoreFromBackup={restoreFromBackup} setShowFamilyModal={setShowFamilyModal} familyUsername={familyUsername} backupCode={backupCode} C={C} />
 

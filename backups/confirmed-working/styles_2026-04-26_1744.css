@@ -130,7 +130,6 @@ body.dark-mode.girl header{background:rgba(45,31,42,0.60)!important}
   box-shadow:var(--card-shadow);
   contain:content;
   transition:box-shadow 0.2s cubic-bezier(0.23,1,0.32,1), border-color 0.2s ease;
-  padding:min(16px, 4vw);margin-bottom:min(12px, 3vw);
 }
 .glass-card::before{content:"";position:absolute;top:0;left:0;right:0;height:48%;pointer-events:none;z-index:3;
   background:linear-gradient(180deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0.05) 40%,transparent 100%);border-radius:22px 22px 0 0;mix-blend-mode:overlay}

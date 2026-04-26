@@ -9850,43 +9850,34 @@ function App(){
   },[]);
 
   function logout() {
-    // Unsubscribe from Firestore listener. prevents old data leaking to new account
+    // ═══ TEAR DOWN ALL LISTENERS ═══
+    // Main family doc listener
     if(unsubscribeRef.current){ unsubscribeRef.current(); unsubscribeRef.current=null; }
-    // Also tear down every per-child sync listener — logout used to
-    // leave these running in the background, which meant (a) a memory
-    // leak for each linked child, and (b) snapshots arriving for the
-    // logged-out account that could write into the new account's state
-    // if the listener closure was stale. Fully unsubscribe and reset.
-    try {
-      Object.values(childSubsRef.current || {}).forEach(unsub => {
-        try { typeof unsub === "function" && unsub(); } catch {}
-      });
-      childSubsRef.current = {};
-    } catch {}
-    // CRITICAL: Stop cloud push BEFORE resetting children. otherwise the blank state
-    // gets pushed to cloud, wiping the user's real data
+    // Per-child sync listeners
+    try { Object.values(childSubsRef.current || {}).forEach(unsub => { try { typeof unsub === "function" && unsub(); } catch {} }); childSubsRef.current = {}; } catch {}
+    // Carer log listener (was missing — Account A's carer entries leaked to Account B)
+    try { if(carerUnsubRef.current){ carerUnsubRef.current(); carerUnsubRef.current=null; } } catch {}
+
+    // ═══ STOP ALL TIMERS AND CLOUD PUSH ═══
     clearTimeout(cloudPushRef.current);
+    try { clearTimeout(syncTimerRef?.current); } catch {}
     cloudSyncedRef.current = false;
 
-    // Clear ALL localStorage
-    const keysToRemove = ["auth_verified","family_username","backup_code","family_code",
-      "children_v1","active_child","tut_v2","install_date_v1","onboarded_v2",
-      "use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1",
-      // Ownership stamp MUST be cleared on logout so the next login
-      // starts with pushToCloud's guard fully armed.
-      "ob_children_owner","ob_children_owner_code",
-      // Premium-feature state that's scoped to a specific child's
-      // sleep-training run. Carrying this across accounts would show
-      // a different parent's "Day 5 of gradual" plan as if it was
-      // their own.
-      "ob_sleep_coach_v1","ob_last_import_batch",
-      // Premium state MUST be cleared to prevent account A's premium
-      // leaking to account B on the same device.
-      "ob_premium","ob_village_end","ob_village_unlocked",
-      "ob_trial_start","ob_trial_duration"];
-    keysToRemove.forEach(k=>{ try{localStorage.removeItem(k);}catch{} });
+    // ═══ CLEAR ALL localStorage — comprehensive wipe ═══
+    // Instead of maintaining an incomplete key list, clear everything that starts
+    // with known prefixes + all explicit keys. This prevents Account A's data
+    // from ever leaking to Account B.
+    try {
+      const allKeys = [];
+      for (let i = 0; i < localStorage.length; i++) allKeys.push(localStorage.key(i));
+      allKeys.forEach(k => {
+        // Keep only device-level prefs that aren't account-specific
+        const keep = k === "ob_theme" || k === "ob_widget_theme" || k === "ob_locale";
+        if (!keep) { try { localStorage.removeItem(k); } catch {} }
+      });
+    } catch {}
 
-    // Reset ALL app state. blank slate
+    // ═══ RESET ALL REACT STATE ═══
     const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
     setChildren({[blankChild.id]:blankChild});
     setActiveChildId(blankChild.id);
@@ -9897,23 +9888,26 @@ function App(){
     setOnboarded(false);
     setNeedsChildSetup(false);
     setTab("day");
-    // Reset premium state so account B doesn't inherit account A's premium
+    // Premium
     setIsPremium(false);
     paywallShownRef.current = false;
-    // Clear child-sync per-code state and participants so a later login
-    // starts fresh and can't see the previous account's joiners.
+    // Sync
     setChildSyncCodes({});
     setChildSyncParticipants({});
-    // Also drop the deletion blacklists that are scoped to "what this
-    // device has deleted from THIS account" — carrying them to a new
-    // account would silently hide children/entries that happen to
-    // share an ID with the old account's deletions.
-    try {
-      deletedEntryIdsRef.current = new Set();
-      deletedDaysRef.current = new Set();
-    } catch {}
+    setCarerEntries([]);
+    // Timers — reset ALL timer state so Account B doesn't see Account A's running timers
+    setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
+    setBreastActive(false); setBreastSide(null); setBreastSec({L:0,R:0}); setBreastStartTime(null);
+    setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(null); setBedTotalPausedSec(0);
+    setTimerMode("prediction");
+    // Meds and carer data
+    setMeds({}); setEmergencyContacts([]); setCarerNotes(""); setCarerComfort("");
+    // Deletion blacklists
+    try { deletedEntryIdsRef.current = new Set(); deletedDaysRef.current = new Set(); } catch {}
+    // Resurrection guards — reset so Account B's timers can resurrect
+    try { timerResurrectedRef.current = false; bedTimerResurrectedRef.current = false; reviewShownRef.current = false; } catch {}
 
-    // Show auth screen with Sign In / Create Account
+    // ═══ SHOW AUTH SCREEN ═══
     setAuthScreen("login");
     setAuthMode("login");
     setAuthUsername("");

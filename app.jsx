@@ -5254,7 +5254,12 @@ function App(){
         case 'log_feed': openLogPanel("feed"); break;
         case 'log_sleep': openLogPanel("sleep"); break;
         case 'log_nappy': openLogPanel("nappy"); break;
-        case 'start_timer': startBreastTimer("L"); break;
+        case 'start_timer': {
+          // Read from localStorage (not stale closure) to check if timer already running
+          const _ba = localStorage.getItem("breast_active") === "1";
+          if (!_ba) startBreastTimer("L");
+          break;
+        }
         case 'log_temperature': setShowMedForm(true); break;
         case 'log_medicine': setShowMedForm(true); break;
         case 'baby_summary': setTab("insights"); break;
@@ -43871,7 +43876,7 @@ function App(){
         return (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"backdrop",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"26px 20px 22px",width:"100%",maxWidth:_isTablet?520:380,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",textAlign:"center",position:"relative",maxHeight:"90vh",overflowY:"auto"}}>
-            <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"close_button",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}} style={{position:"absolute",top:12,right:12,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP,zIndex:1}}>✕</button>
+            <button aria-label="Close" onTouchEnd={e=>e.stopPropagation()} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"close_button",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}} style={{position:"absolute",top:8,right:8,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP,zIndex:1,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
             <div style={{fontSize:32,marginBottom:8}}>💛</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8,lineHeight:1.3}}>{_msg.title}</div>
             <div style={{fontSize:12.5,color:C.mid,lineHeight:1.6,marginBottom:14,maxWidth:300,marginLeft:"auto",marginRight:"auto"}}>{_msg.body}</div>
@@ -44091,9 +44096,9 @@ function App(){
 
       {showSoundMachine&&(
         <div role="dialog" aria-modal="true" onClick={()=>setShowSoundMachine(false)} style={{position:"fixed",inset:0,background:"rgba(20,15,30,0.7)",backdropFilter:"blur(8px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 32px",maxWidth:420,width:"100%",boxShadow:"0 -10px 40px rgba(0,0,0,0.3)",position:"relative"}}>
-            <div style={{position:"absolute",top:16,right:16}}>
-              <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowSoundMachine(false)} style={{width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 32px",maxWidth:420,width:"100%",maxHeight:"88vh",overflowY:"auto",boxShadow:"0 -10px 40px rgba(0,0,0,0.3)",position:"relative"}}>
+            <div style={{position:"absolute",top:16,right:16,zIndex:2}}>
+              <button aria-label="Close sound machine" onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowSoundMachine(false)} style={{width:44,height:44,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
             </div>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
