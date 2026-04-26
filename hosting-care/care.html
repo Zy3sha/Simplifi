@@ -185,6 +185,21 @@ if (!rawCode || rawCode.length < 4) {
     // Subscribe AFTER initial render so first paint is instant, then
     // keep it live for all subsequent parent-side writes.
     subscribeFamilyContext();
+    // Listen for session end — parent can lock the portal remotely
+    try {
+      onSnapshot(doc(db, "carer_logs", code, "_meta", "session"), (snap) => {
+        if (snap.exists() && snap.data().ended) {
+          document.getElementById("app").innerHTML = `
+            <div style="text-align:center;padding:80px 24px;min-height:80vh;display:flex;flex-direction:column;align-items:center;justify-content:center">
+              <div style="font-size:48px;margin-bottom:16px">🔒</div>
+              <h2 style="font-family:'Playfair Display',Georgia,serif;font-size:22px;color:#4A3B35;margin-bottom:8px">Session ended</h2>
+              <p style="font-size:14px;color:#A89A90;line-height:1.6;max-width:280px">The parent has ended this Bubba Care session. Thank you for looking after their little one.</p>
+            </div>`;
+          // Unsubscribe from family context
+          if (_familyUnsub) { _familyUnsub(); _familyUnsub = null; }
+        }
+      });
+    } catch(e) { console.warn("Session listener error", e); }
   }).catch((err) => {
     console.error("Auth failed", err);
     $app.innerHTML = `
