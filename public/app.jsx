@@ -24190,7 +24190,10 @@ function App(){
       : null;
     if(editEntry){
       setDays(d=>{
-        const updated = (d[selDay]||[]).map(x=>x.id===editEntry.id?e:x);
+        // Find which day the entry actually lives on (may differ from selDay for night entries)
+        let _entryDay = selDay;
+        Object.keys(d).forEach(dk=>{ if((d[dk]||[]).some(x=>x.id===editEntry.id)) _entryDay = dk; });
+        const updated = (d[_entryDay]||[]).map(x=>x.id===editEntry.id?e:x);
         // Add morning wake entry to today's log if provided
         const _todayKey = todayStr();
         const _wakeDay = (() => {
@@ -24203,9 +24206,9 @@ function App(){
           return selDay;
         })();
         let result = {...d};
-        // Always run autoClassifyNight on any day. ensures correct day/night classification
-        const _pd=prevDayStr(selDay);
-        result = {...result,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
+        // Always run autoClassifyNight on the entry's actual day
+        const _pd=prevDayStr(_entryDay);
+        result = {...result,[_entryDay]:autoClassifyNight(updated,d[_pd]||null)};
         if(_wakeEntry && _wakeDay) {
           const _existing = result[_wakeDay]||[];
           const _withWake = [..._existing.filter(x=>!(x.type==="wake"&&x.time===form.wakeTime)), _wakeEntry];
@@ -43535,10 +43538,17 @@ function App(){
             <button onClick={()=>{
               haptic();
               showConfirm("Delete this entry?", "This will remove the " + (NAMES[eType]||"entry").toLowerCase() + " at " + fmt12(editEntry.time||editEntry.start||"") + " from today's log.", ()=>{
+                // Search ALL days for the entry (not just selDay) — night entries may live on bedTimerDay
                 setDays(d=>{
-                  const updated = (d[selDay]||[]).filter(x=>x.id!==editEntry.id);
-                  return{...d,[selDay]:updated};
+                  const result = {...d};
+                  Object.keys(result).forEach(dk=>{
+                    if((result[dk]||[]).some(x=>x.id===editEntry.id)){
+                      result[dk] = result[dk].filter(x=>x.id!==editEntry.id);
+                    }
+                  });
+                  return result;
                 });
+                try { deletedEntryIdsRef.current.add(editEntry.id); _capAndPersistDeletedIds(); } catch {}
                 setModal(null);setEditEntry(null);
                 showToast("Entry deleted",1500,1);
               });
