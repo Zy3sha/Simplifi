@@ -9523,14 +9523,19 @@ function App(){
     showToast("✓ Added to "+fmtDate(dayKey),2000,1);
   }
 
-  // Reject carer entry. just delete
+  // Reject carer entry. just delete from Firestore + local state
   function rejectCarerEntry(entry) {
-    try {
-      const {db, doc, deleteDoc} = window._fb;
-      deleteDoc(doc(db,"carer_logs",backupCode,"entries",entry.id)).catch(()=>{});
-    } catch(e){}
+    const _code = backupCode || (()=>{try{return localStorage.getItem("backup_code");}catch{return null;}})();
+    if (_code && window._fb) {
+      try {
+        const {db, doc, deleteDoc} = window._fb;
+        deleteDoc(doc(db,"carer_logs",_code,"entries",entry.id)).catch(e=>console.warn("Carer entry delete failed:",e));
+      } catch(e){ console.warn("rejectCarerEntry error:",e); }
+    }
+    // Also mark as merged so the listener doesn't re-add it
+    try { if(_code && window._fb) { const {db,doc,setDoc}=window._fb; setDoc(doc(db,"carer_logs",_code,"entries",entry.id),{_merged:true,_rejected:true},{merge:true}).catch(()=>{}); } } catch{}
     setCarerEntries(prev=>prev.filter(e=>e.id!==entry.id));
-    showToast("Entry removed",1500,0);
+    showToast("Entry dismissed",1500,1);
   }
 
   function endCarerSession() {
@@ -42215,7 +42220,7 @@ function App(){
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Share & Sync</div>
                 <div style={{fontSize:10,color:C.lt}}>{familyCode?"Manage":"Connect"}</div>
               </button>
-              <button onClick={()=>{setShowCarerCard(true);restartCarerSession();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
+              <button onClick={()=>{setShowCarerCard(true);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
                 <span style={_S.f24}>👩‍🍼</span>
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Bubba Care</div>
                 <div style={{fontSize:10,color:C.lt}}>Share routine</div>
@@ -42295,15 +42300,24 @@ function App(){
             </div>
           )}
 
-          {/* End Carer Session (only if active) */}
+          {/* End / Reopen Carer Session */}
           {backupCode&&(
-            <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care. your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} className="glass-card" style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",marginBottom:12,cursor:_cP,textAlign:"left",width:"100%",border:"1.5px solid rgba(224,96,112,0.15)",background:"rgba(224,96,112,0.03)"}}>
-              <span style={_S.f18}>🔒</span>
-              <div style={_S.flex1}>
-                <div style={{fontSize:13,fontWeight:700,color:C.deep}}>End Carer Session</div>
-                <div style={{fontSize:10,color:C.lt}}>Lock the Bubba Care</div>
-              </div>
-            </button>
+            <div style={{display:"flex",gap:8,marginBottom:12}}>
+              <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} className="glass-card" style={{flex:1,display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid rgba(224,96,112,0.15)",background:"rgba(224,96,112,0.03)"}}>
+                <span style={{fontSize:16}}>🔒</span>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>End Session</div>
+                  <div style={{fontSize:9,color:C.lt}}>Lock portal</div>
+                </div>
+              </button>
+              <button onClick={()=>{haptic();restartCarerSession();}} className="glass-card" style={{flex:1,display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid rgba(155,184,168,0.2)",background:"rgba(155,184,168,0.04)"}}>
+                <span style={{fontSize:16}}>🔓</span>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Reopen</div>
+                  <div style={{fontSize:9,color:C.lt}}>Unlock portal</div>
+                </div>
+              </button>
+            </div>
           )}
 
           {/* ═══ 3. PREFERENCES. single glass card ═══ */}
