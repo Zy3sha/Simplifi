@@ -44183,7 +44183,6 @@ function App(){
                     🛠️ It needs some work
                   </button>
                 </div>
-                <button onClick={()=>{dismissReview(false);}} style={{background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP,marginTop:14,fontStyle:"italic"}}>Maybe later</button>
               </div>
           </div>
         </div>
