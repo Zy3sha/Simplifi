@@ -15266,6 +15266,21 @@ function App(){
           blended = posAvg;
         }
       }
+      // ── Optimal WW from settle-time correlation ──
+      // If we have enough settle-time data, bias the prediction toward the
+      // wake window range that produces the fastest settling (= best naps).
+      // This is the "learn what works for YOUR baby" intelligence.
+      if (_usePersonal) {
+        try {
+          const _optWW = getOptimalWakeWindow();
+          if (_optWW && _optWW.sampleSize >= 10 && _optWW.bestBucket.count >= 3) {
+            const _optMid = (_optWW.optimalMin + _optWW.optimalMax) / 2;
+            // Blend: 70% rhythm-based prediction + 30% settle-time-optimal
+            // This gently steers toward the WW that gives best naps
+            blended = Math.round(blended * 0.7 + _optMid * 0.3);
+          }
+        } catch {}
+      }
       const floor = _usePersonal ? Math.max(ww.min - 20, 30) : ww.min;
       const clamped = Math.max(floor, Math.min(ww.max + 10, blended));
       wakeWindowMin = Math.max(floor, Math.round(clamped * 0.9));

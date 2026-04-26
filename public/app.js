@@ -2711,7 +2711,13 @@ const _isFreeUser=!hasAccess();const _usePersonal=_isFreeUser?false:usePersonalR
 let blended;if(!_usePersonal||posAvg===null){blended=nhsProgressive;}else{const nhsMin=ww.min;const nhsMax=ww.max;if(posAvg<nhsMin){// Below NHS range. nudge up gently (max +10 min per day)
 blended=Math.min(nhsMin,posAvg+10);}else if(posAvg>nhsMax){// Above NHS range. nudge down gently (max -10 min per day)
 blended=Math.max(nhsMax,posAvg-10);}else{// Within NHS range. trust baby's rhythm
-blended=posAvg;}}const floor=_usePersonal?Math.max(ww.min-20,30):ww.min;const clamped=Math.max(floor,Math.min(ww.max+10,blended));wakeWindowMin=Math.max(floor,Math.round(clamped*0.9));wakeWindowMax=Math.min(ww.max+10,Math.round(clamped*1.1));const nudgeNote=_usePersonal&&posAvg!==null&&(posAvg<ww.min||posAvg>ww.max)?` (gently ${posAvg<ww.min?"stretching":"shortening"} toward NHS range)`:"";sourceLabel=_usePersonal&&posAvg!==null?`${possessive(babyName||"Baby")} personal rhythm (${posAvg}min avg)${nudgeNote}`:`OBubba Sleep Engine for ${fmtAge(age)}`;}else{// Fall back to progressive NHS
+blended=posAvg;}}// ── Optimal WW from settle-time correlation ──
+// If we have enough settle-time data, bias the prediction toward the
+// wake window range that produces the fastest settling (= best naps).
+// This is the "learn what works for YOUR baby" intelligence.
+if(_usePersonal){try{const _optWW=getOptimalWakeWindow();if(_optWW&&_optWW.sampleSize>=10&&_optWW.bestBucket.count>=3){const _optMid=(_optWW.optimalMin+_optWW.optimalMax)/2;// Blend: 70% rhythm-based prediction + 30% settle-time-optimal
+// This gently steers toward the WW that gives best naps
+blended=Math.round(blended*0.7+_optMid*0.3);}}catch{}}const floor=_usePersonal?Math.max(ww.min-20,30):ww.min;const clamped=Math.max(floor,Math.min(ww.max+10,blended));wakeWindowMin=Math.max(floor,Math.round(clamped*0.9));wakeWindowMax=Math.min(ww.max+10,Math.round(clamped*1.1));const nudgeNote=_usePersonal&&posAvg!==null&&(posAvg<ww.min||posAvg>ww.max)?` (gently ${posAvg<ww.min?"stretching":"shortening"} toward NHS range)`:"";sourceLabel=_usePersonal&&posAvg!==null?`${possessive(babyName||"Baby")} personal rhythm (${posAvg}min avg)${nudgeNote}`:`OBubba Sleep Engine for ${fmtAge(age)}`;}else{// Fall back to progressive NHS
 const clamped=Math.max(ww.min,Math.min(ww.max,nhsProgressive));wakeWindowMin=Math.max(ww.min,Math.round(clamped*0.9));wakeWindowMax=Math.min(ww.max,Math.round(clamped*1.1));sourceLabel=`age-appropriate wake windows for ${fmtAge(age)}`;}// New user: err on shorter side. better to offer nap early than too late
 if(_recentWithNaps.length<3){wakeWindowMin=Math.max(ww.min,wakeWindowMin-10);wakeWindowMax=Math.max(wakeWindowMin+10,wakeWindowMax-10);}// ── Sleep pressure adjustment: short nap = shorter next WW ──
 // Research consensus (evidence-based infant sleep research):
