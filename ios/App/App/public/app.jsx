@@ -15266,6 +15266,47 @@ function App(){
           blended = posAvg;
         }
       }
+      // ── Optimal WW from settle-time correlation ──
+      // If we have enough settle-time data, bias the prediction toward the
+      // wake window range that produces the fastest settling (= best naps).
+      // This is the "learn what works for YOUR baby" intelligence.
+      if (_usePersonal) {
+        try {
+          const _optWW = getOptimalWakeWindow();
+          if (_optWW && _optWW.sampleSize >= 10 && _optWW.bestBucket.count >= 3) {
+            const _optMid = (_optWW.optimalMin + _optWW.optimalMax) / 2;
+            // Blend: 70% rhythm-based prediction + 30% settle-time-optimal
+            // This gently steers toward the WW that gives best naps
+            blended = Math.round(blended * 0.7 + _optMid * 0.3);
+          }
+        } catch {}
+        // ── Short-nap diagnosis → WW adjustment ──
+        // If the last nap was diagnosed as undertired/overtired, apply the
+        // recommended shift so the prediction matches the advice text
+        try {
+          if (_todayCompNaps.length > 0) {
+            const _lastCompNap = _todayCompNaps[_todayCompNaps.length - 1];
+            const _priorEntries = entries.filter(e => !e.night && timeVal(e) < timeVal(_lastCompNap)).sort((a,b) => timeVal(a) - timeVal(b));
+            const _napDx = diagnoseNapPattern(_lastCompNap, _priorEntries, ageWeeks, ww);
+            if (_napDx) {
+              if (_napDx.type === "undertired") blended = Math.min(ww.max, blended + 15);
+              else if (_napDx.type === "overtired") blended = Math.max(ww.min, blended - 10);
+            }
+          }
+        } catch {}
+        // ── Growth spurt → relax predictions ──
+        // Auto-detected growth spurts get the same accommodation as teething
+        try {
+          const _todayFeeds = entries.filter(e => (e.type === "feed" || e.feedType) && !e.night);
+          const _todayMl = _todayFeeds.reduce((s, f) => s + (f.amount || 0), 0);
+          const _last7 = Object.keys(days).filter(k => k < selDay).sort().slice(-7);
+          const _avgMl = _last7.length >= 3 ? Math.round(_last7.reduce((s, k) => s + (days[k] || []).filter(e => e.type === "feed" && !e.night).reduce((s2, f) => s2 + (f.amount || 0), 0), 0) / _last7.length) : 0;
+          if (_avgMl > 0 && _todayMl > _avgMl * 1.3) {
+            // Growth spurt detected — shorten WW by 10% (baby needs more sleep)
+            blended = Math.round(blended * 0.9);
+          }
+        } catch {}
+      }
       const floor = _usePersonal ? Math.max(ww.min - 20, 30) : ww.min;
       const clamped = Math.max(floor, Math.min(ww.max + 10, blended));
       wakeWindowMin = Math.max(floor, Math.round(clamped * 0.9));
@@ -15682,11 +15723,38 @@ function App(){
       try { return (_getNightAdjustments(selDay) || {}).bedtimeShiftMin || 0; }
       catch { return 0; }
     })();
+    // ── Best-night bedtime anchor ──
+    // Blend the predicted bedtime with the average bedtime from the baby's
+    // 3 best nights (fewest wakes). This steers toward what actually works.
+    const _bestNightBed = (()=>{
+      try {
+        if (!hasAccess()) return null;
+        const _dk = Object.keys(days).sort().slice(-21);
+        const _scores = [];
+        _dk.forEach(dk => {
+          const ent = days[dk] || [];
+          if (ent.length < 4) return;
+          const bed = ent.find(e => e.type === "sleep" && !e.night && e.time && e.time.includes(":"));
+          if (!bed) return;
+          const nightWakes = ent.filter(e => e.night).length;
+          _scores.push({ bedMins: timeVal(bed), nightWakes });
+        });
+        if (_scores.length < 10) return null;
+        const _best3 = [..._scores].sort((a, b) => a.nightWakes - b.nightWakes).slice(0, 3);
+        return Math.round(_best3.reduce((s, d) => s + d.bedMins, 0) / _best3.length);
+      } catch { return null; }
+    })();
     const _applyNightShift = (result) => {
-      if (!result || !result.time || !_nightShift) return result;
+      if (!result || !result.time) return result;
       try {
         const [_bh, _bm] = result.time.split(":").map(Number);
-        let _mins = _bh * 60 + _bm + _nightShift;
+        let _mins = _bh * 60 + _bm;
+        // Blend with best-night bedtime (80% prediction + 20% best-night)
+        if (_bestNightBed && Math.abs(_mins - _bestNightBed) < 90) {
+          _mins = Math.round(_mins * 0.8 + _bestNightBed * 0.2);
+        }
+        // Apply night diagnosis shift
+        _mins += _nightShift || 0;
         // Clamp to sane bedtime window (17:00 to 23:30) so an aggressive
         // adjustment can't push baby past midnight or before 5pm.
         if (_mins < 17 * 60) _mins = 17 * 60;
