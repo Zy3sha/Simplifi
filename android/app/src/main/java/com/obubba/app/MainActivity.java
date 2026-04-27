@@ -16,6 +16,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(com.obubba.app.plugins.StorePlugin.class);
         registerPlugin(com.obubba.app.plugins.ReviewPlugin.class);
         registerPlugin(com.obubba.app.plugins.TimerServicePlugin.class);
+        registerPlugin(com.obubba.app.plugins.CalendarPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Clear WebView cache to ensure latest web assets are loaded

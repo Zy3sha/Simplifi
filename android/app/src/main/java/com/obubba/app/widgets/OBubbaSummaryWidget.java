@@ -42,9 +42,9 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
             // Apply user-chosen widget colour theme
             // All theming is done in Java — no drawable-night folder
             // so the user's chosen colour always wins
+            boolean isDarkTheme = false;
             try {
                 int bgRes = R.drawable.widget_bg_gradient; // default light
-                boolean isDarkTheme = false;
 
                 // "auto" checks time: dark between 7pm-6am
                 if ("auto".equals(widgetTheme)) {
@@ -68,13 +68,16 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     int white = 0xFFFFFFFF;
                     int secondary = 0xFFD0C8D0;
                     // All text must be white/light on dark background
+                    v.setTextColor(R.id.tv_widget_kicker, secondary);
                     v.setTextColor(R.id.tv_baby_name, white);
+                    v.setTextColor(R.id.tv_status_hint, 0xFFF0DDE6);
                     v.setTextColor(R.id.tv_timer_dot, white);
                     v.setTextColor(R.id.tv_timer_label, secondary);
                     v.setTextColor(R.id.timer_chrono, white);
                     v.setTextColor(R.id.tv_prediction, secondary);
                     v.setTextColor(R.id.tv_since, 0x90FFFFFF);
                     v.setTextColor(R.id.tv_feed_label, white);
+                    v.setTextColor(R.id.tv_nappy_label, white);
                     v.setTextColor(R.id.tv_ns_label, white);
                     v.setTextColor(R.id.tv_ns_icon, white);
                     // Breast row (if visible)
@@ -97,9 +100,11 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
             v.setOnClickPendingIntent(R.id.btn_feed, makeIntent(context, "quick_feed", 1));
 
             if (json == null) {
-                v.setTextViewText(R.id.tv_baby_name, "OBubba");
-                v.setTextViewText(R.id.tv_prediction, "Open app");
-                hide(v); defaults(v, context);
+                v.setTextViewText(R.id.tv_widget_kicker, "OBUBBA");
+                v.setTextViewText(R.id.tv_baby_name, "Open OBubba");
+                v.setTextViewText(R.id.tv_status_hint, "Start");
+                v.setTextViewText(R.id.tv_prediction, "Log a day");
+                hide(v); defaults(v, context, isDarkTheme);
                 mgr.updateAppWidget(id, v); continue;
             }
 
@@ -116,7 +121,8 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 long startMs = 0;
                 try { if (!d.isNull("timerStartMs")) startMs = d.optLong("timerStartMs", 0); } catch (Exception x) {}
 
-                v.setTextViewText(R.id.tv_baby_name, "\uD83E\uDDF8 " + name);
+                v.setTextViewText(R.id.tv_widget_kicker, "OBUBBA");
+                v.setTextViewText(R.id.tv_baby_name, name);
 
                 boolean active = timer != null && !timer.isEmpty() && !timer.equals("null") && startMs > 1000000000000L;
 
@@ -134,14 +140,15 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
 
                 if (active) {
                     // Timer pill
+                    v.setTextViewText(R.id.tv_status_hint, "Now");
                     v.setViewVisibility(R.id.tv_timer_dot, View.VISIBLE);
-                    v.setTextViewText(R.id.tv_timer_dot, "\u25CF ");
+                    v.setTextViewText(R.id.tv_timer_dot, "\u25CF");
                     v.setViewVisibility(R.id.timer_chrono, View.VISIBLE);
                     v.setViewVisibility(R.id.tv_prediction, View.GONE);
                     long elapsed = System.currentTimeMillis() - startMs;
                     v.setChronometer(R.id.timer_chrono, SystemClock.elapsedRealtime() - elapsed, null, true);
                     String lbl = (label != null && !label.isEmpty() && !label.equals("null")) ? label : "Timer";
-                    v.setTextViewText(R.id.tv_timer_label, lbl + " ");
+                    v.setTextViewText(R.id.tv_timer_label, lbl);
 
                     // Since time
                     if (startT != null && !startT.isEmpty() && !startT.equals("null")) {
@@ -160,11 +167,14 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     // Nap/Stop → Stop
                     v.setTextViewText(R.id.tv_ns_icon, "\u25A0");
                     v.setTextViewText(R.id.tv_ns_label, "Stop");
+                    v.setTextColor(R.id.tv_ns_icon, 0xFFFFFFFF);
+                    v.setTextColor(R.id.tv_ns_label, 0xFFFFFFFF);
                     v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_stop);
                     v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "stop_timer", 4));
 
                 } else {
                     // Prediction
+                    v.setTextViewText(R.id.tv_status_hint, "Next");
                     v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
                     v.setViewVisibility(R.id.timer_chrono, View.GONE);
                     v.setViewVisibility(R.id.tv_prediction, View.VISIBLE);
@@ -172,22 +182,32 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setTextViewText(R.id.tv_timer_label, "");
 
                     if (pred != null && !pred.isEmpty() && !pred.equals("null")) {
-                        v.setTextViewText(R.id.tv_prediction, pred);
+                        v.setTextViewText(R.id.tv_prediction, cleanPrediction(pred));
                     } else {
                         String feed = d.optString("lastFeedTime", "");
-                        v.setTextViewText(R.id.tv_prediction, (feed != null && !feed.isEmpty() && !feed.equals("null")) ? "Fed " + feed : "");
+                        if (feed != null && !feed.isEmpty() && !feed.equals("null")) {
+                            v.setTextViewText(R.id.tv_status_hint, "Last");
+                            v.setTextViewText(R.id.tv_prediction, "Feed " + feed);
+                        } else {
+                            v.setTextViewText(R.id.tv_status_hint, "Today");
+                            v.setTextViewText(R.id.tv_prediction, "Ready");
+                        }
                     }
 
                     // Nap button
                     v.setTextViewText(R.id.tv_ns_icon, "\u25B6");
                     v.setTextViewText(R.id.tv_ns_label, "Nap");
+                    v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF8B7EC8);
+                    v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF5B4F5F);
                     v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_nap);
                     v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "toggle_nap", 4));
                 }
             } catch (Exception e) {
-                v.setTextViewText(R.id.tv_baby_name, "OBubba");
-                v.setTextViewText(R.id.tv_prediction, "Open app");
-                hide(v); defaults(v, context);
+                v.setTextViewText(R.id.tv_widget_kicker, "OBUBBA");
+                v.setTextViewText(R.id.tv_baby_name, "Open OBubba");
+                v.setTextViewText(R.id.tv_status_hint, "Start");
+                v.setTextViewText(R.id.tv_prediction, "Log a day");
+                hide(v); defaults(v, context, isDarkTheme);
             }
 
             mgr.updateAppWidget(id, v);
@@ -201,10 +221,18 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
         v.setViewVisibility(R.id.breast_row, View.GONE);
     }
 
-    private static void defaults(RemoteViews v, Context ctx) {
+    private static void defaults(RemoteViews v, Context ctx, boolean isDarkTheme) {
         v.setTextViewText(R.id.tv_ns_icon, "\u25B6");
         v.setTextViewText(R.id.tv_ns_label, "Nap");
+        v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF8B7EC8);
+        v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF5B4F5F);
         v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_nap);
         v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(ctx, "toggle_nap", 4));
+    }
+
+    private static String cleanPrediction(String prediction) {
+        if (prediction == null) return "";
+        String cleaned = prediction.replace("~", " · ").replaceAll("\\s+", " ").trim();
+        return cleaned.length() > 28 ? cleaned.substring(0, 27) + "…" : cleaned;
     }
 }

@@ -21,6 +21,7 @@ cp app.js public/app.js
 cp app.jsx public/app.jsx
 cp -f styles.css public/styles.css
 cp -f loader.js public/loader.js
+cp -f native-plugins.js public/native-plugins.js
 
 echo "Copying vendored runtime..."
 mkdir -p public/vendor dist/vendor
@@ -34,6 +35,7 @@ cp -f app.js dist/app.js
 cp -f app.jsx dist/app.jsx
 cp -f styles.css dist/styles.css
 cp -f loader.js dist/loader.js
+cp -f native-plugins.js dist/native-plugins.js
 # Ensure font is in dist so cap copy includes it
 cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || true
 

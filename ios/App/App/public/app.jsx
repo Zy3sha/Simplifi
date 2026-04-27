@@ -464,6 +464,9 @@ async function showTimerNotification(title, body) {
     if (!LN) return;
     // Only on Android (iOS uses Live Activities)
     if (window.Capacitor?.getPlatform?.() !== 'android') return;
+    // Native Android builds use OBTimerService for the real sticky foreground notification.
+    // Keep LocalNotifications as a fallback only to avoid duplicate bedtime notifications.
+    if (window.Capacitor?.Plugins?.OBTimerService) return;
     // Ensure notification permission granted (Android 13+)
     try { const p = await LN.checkPermissions(); if (p.display !== 'granted') { await LN.requestPermissions(); } } catch {}
     // Ensure channel exists with HIGH importance (shows on lock screen)
@@ -507,12 +510,15 @@ function _laStop() { try { const la = window.Capacitor?.Plugins?.OBLiveActivity;
 function _laStart(opts) { _laStop(); setTimeout(()=>{ try{window.Capacitor?.Plugins?.OBLiveActivity?.start?.(opts).catch(()=>{});}catch{} },200); }
 function _laStartPred(opts) { _laStop(); setTimeout(()=>{ try{window.Capacitor?.Plugins?.OBLiveActivity?.startPrediction?.(opts).catch(()=>{});}catch{} _androidPredStart(opts); },200); }
 // Android foreground timer service helpers (persistent notification that survives app kill)
-var _isAndroid = _isNative && window.Capacitor?.getPlatform?.() === 'android';
-function _androidTimerStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroid) ts.startTimer(opts).catch(()=>{}); } catch{} }
-function _androidTimerStop() { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroid) { ts.stopTimer().catch(()=>{}); ts.stopPrediction().catch(()=>{}); } } catch{} }
-function _androidTimerUpdate(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroid) ts.updateTimer(opts).catch(()=>{}); } catch{} }
-function _androidPredStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroid) ts.startPrediction(opts).catch(()=>{}); } catch{} }
-function _androidPredStop() { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroid) ts.stopPrediction().catch(()=>{}); } catch{} }
+function _isAndroidRuntime() {
+  try { return !!(window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android'); }
+  catch { return false; }
+}
+function _androidTimerStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.startTimer(opts).catch(()=>{}); } catch{} }
+function _androidTimerStop() { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) { ts.stopTimer().catch(()=>{}); ts.stopPrediction().catch(()=>{}); } } catch{} }
+function _androidTimerUpdate(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.updateTimer(opts).catch(()=>{}); } catch{} }
+function _androidPredStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.startPrediction(opts).catch(()=>{}); } catch{} }
+function _androidPredStop() { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.stopPrediction().catch(()=>{}); } catch{} }
 window._isNative = _isNative;
 const _getPlatform = () => window.OBNative ? window.OBNative.getPlatform() : 'web';
 // Native keyboard: adjust viewport when keyboard appears
@@ -5416,14 +5422,23 @@ function App(){
             // No nap or breast active. start a nap (using LOCAL day key, not UTC).
             const _eid = uid();
             const _today = todayStr();
+            const _startMs = Date.now();
             setDays(d=>{
-              const updated=[...(d[_today]||[]),{id:_eid,type:"nap",start:timeNow,end:timeNow,duration:0,night:false,note:"via widget",_active:true,modifiedAt:Date.now()}];
+              const updated=[...(d[_today]||[]),{id:_eid,type:"nap",start:timeNow,startMs:_startMs,end:timeNow,duration:0,night:false,note:"via widget",_active:true,modifiedAt:Date.now()}];
               const _pd=(()=>{const dt=new Date(_today+"T12:00:00");dt.setDate(dt.getDate()-1);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
               return{...d,[_today]:autoClassifyNight(updated,d[_pd]||null)};
             });
-            try{localStorage.setItem("nap_startT",timeNow);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_start_day",_today);}catch{}
-            setNapStartT(timeNow);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
+            try{localStorage.setItem("nap_startT",timeNow);localStorage.setItem("nap_startMs",String(_startMs));localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_start_day",_today);}catch{}
+            setNapStartT(timeNow);setNapStartMs(_startMs);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
             setTimerMode("activeSleep");
+            try {
+              const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+              if (_la) {
+                _la.stopPrediction?.().catch(()=>{});
+                _startLA({type:'sleep',babyName:babyName||'Baby',startTime:_startMs,nextNap:"Nap"});
+              }
+            } catch {}
+            _androidTimerStart({type:'nap',startTime:_startMs,babyName:babyName||'Baby'});
             showToast("😴 Nap started via Widget ✓", 3000, 1);
           }
           break;
@@ -5439,15 +5454,19 @@ function App(){
         case 'breast_left':
           setBreastSide("left"); setBreastActive(true); setBreastSec({L:0,R:0});
           setBreastStartTime(timeNow);
-          try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side","left"); localStorage.setItem("breast_startTime",timeNow); localStorage.setItem("breast_startMs",String(Date.now())); }catch{}
-          if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side:"left"}).catch(()=>{});
+          const _leftFeedMs = Date.now();
+          try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side","left"); localStorage.setItem("breast_startTime",timeNow); localStorage.setItem("breast_startMs",String(_leftFeedMs)); }catch{}
+          if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:_leftFeedMs,side:"left"}).catch(()=>{});
+          _androidTimerStart({type:'feed',babyName:babyName||'Baby',startTime:_leftFeedMs,side:"left"});
           showToast("🤱 Nursing Left via Widget ✓", 3000, 1);
           break;
         case 'breast_right':
           setBreastSide("right"); setBreastActive(true); setBreastSec({L:0,R:0});
           setBreastStartTime(timeNow);
-          try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side","right"); localStorage.setItem("breast_startTime",timeNow); localStorage.setItem("breast_startMs",String(Date.now())); }catch{}
-          if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side:"right"}).catch(()=>{});
+          const _rightFeedMs = Date.now();
+          try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side","right"); localStorage.setItem("breast_startTime",timeNow); localStorage.setItem("breast_startMs",String(_rightFeedMs)); }catch{}
+          if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:_rightFeedMs,side:"right"}).catch(()=>{});
+          _androidTimerStart({type:'feed',babyName:babyName||'Baby',startTime:_rightFeedMs,side:"right"});
           showToast("🤱 Nursing Right via Widget ✓", 3000, 1);
           break;
       }
@@ -5491,18 +5510,20 @@ function App(){
                 if(!_napActive) {
                   const _eid = uid();
                   const _today = todayStr();
+                  const _startMs = (()=>{try{const[_sh,_sm]=time.split(":").map(Number);const _sd=new Date();_sd.setHours(_sh,_sm,0,0);if(_sd.getTime()>Date.now()+60000)_sd.setDate(_sd.getDate()-1);return _sd.getTime();}catch{return Date.now();}})();
                   setDays(d=>{
-                    const updated=[...(d[_today]||[]),{id:_eid,type:"nap",start:time,end:time,duration:0,night:false,note:"via widget",_active:true,modifiedAt:Date.now()}];
+                    const updated=[...(d[_today]||[]),{id:_eid,type:"nap",start:time,startMs:_startMs,end:time,duration:0,night:false,note:"via widget",_active:true,modifiedAt:Date.now()}];
                     const _pd=(()=>{const dt=new Date(_today+"T12:00:00");dt.setDate(dt.getDate()-1);return`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;})();
                     return{...d,[_today]:autoClassifyNight(updated,d[_pd]||null)};
                   });
-                  try{localStorage.setItem("nap_startT",time);localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_start_day",_today);}catch{}
-                  setNapStartT(time);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
+                  try{localStorage.setItem("nap_startT",time);localStorage.setItem("nap_startMs",String(_startMs));localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec","0");localStorage.setItem("nap_entry_id",_eid);localStorage.setItem("nap_start_day",_today);}catch{}
+                  setNapStartT(time);setNapStartMs(_startMs);setNapSec(0);setNapOn(true);setNapEntryId(_eid);
                   setTimerMode("activeSleep");
                   try{
                     const _la=window.Capacitor?.Plugins?.OBLiveActivity;
-                    if(_la){const[_sh,_sm]=time.split(":").map(Number);const _sd=new Date();_sd.setHours(_sh,_sm,0,0);_la.stopPrediction?.().catch(()=>{});_la.start({type:'sleep',babyName:babyName||'Baby',startTime:_sd.getTime()}).catch(()=>{});}
+                    if(_la){_la.stopPrediction?.().catch(()=>{});_la.start({type:'sleep',babyName:babyName||'Baby',startTime:_startMs}).catch(()=>{});}
                   }catch{}
+                  _androidTimerStart({type:'nap',startTime:_startMs,babyName:babyName||'Baby'});
                 }
                 showToast(entry.source==='widget' ? "😴 Nap timer started via Widget ✓" : "😴 Nap timer started via Siri ✓", 3000, 1);
               } else if(entry.type==='nap_stop') {
@@ -23513,34 +23534,140 @@ function App(){
   }
 
   // ── ICS Calendar Helper ──
+  function calendarDateFromParts(dateStr, timeStr){
+    if(!dateStr) return null;
+    const d=String(dateStr).split("-").map(Number);
+    if(d.length<3||d.some(isNaN)) return null;
+    const t=String(timeStr||"09:00").split(":").map(Number);
+    const hh=isNaN(t[0])?9:t[0], mm=isNaN(t[1])?0:t[1];
+    return new Date(d[0], d[1]-1, d[2], hh, mm, 0, 0);
+  }
+
+  function calendarDateStrFromDate(dt){
+    return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0");
+  }
+
+  function addCalendarDays(dateStr, days){
+    const dt=calendarDateFromParts(dateStr,"00:00");
+    if(!dt) return dateStr;
+    dt.setDate(dt.getDate()+days);
+    return calendarDateStrFromDate(dt);
+  }
+
+  function icsEscape(value){
+    return String(value||"")
+      .replace(/\\/g,"\\\\")
+      .replace(/\r?\n/g,"\\n")
+      .replace(/;/g,"\\;")
+      .replace(/,/g,"\\,");
+  }
+
+  function icsDateTime(dt){
+    return dt.getFullYear()+String(dt.getMonth()+1).padStart(2,"0")+String(dt.getDate()).padStart(2,"0")+
+      "T"+String(dt.getHours()).padStart(2,"0")+String(dt.getMinutes()).padStart(2,"0")+"00";
+  }
+
+  function icsDate(dateStr){
+    return String(dateStr||"").replace(/-/g,"");
+  }
+
+  function normaliseCalendarEvent(ev){
+    ev=ev||{};
+    const startDate=ev.date||todayStr();
+    const allDay=!!ev.allDay || !ev.time;
+    const endDate=ev.endDate||startDate;
+    const title=ev.title||"OBubba appointment";
+    if(allDay){
+      return {
+        ...ev,
+        title,
+        date:startDate,
+        endDate,
+        allDay:true,
+        icsStart:icsDate(startDate),
+        icsEnd:icsDate(addCalendarDays(endDate,1))
+      };
+    }
+    const start=calendarDateFromParts(startDate,ev.time||"09:00")||new Date();
+    let end=null;
+    if(ev.endTime||ev.endDate) end=calendarDateFromParts(endDate,ev.endTime||ev.time||"10:00");
+    if(!end) end=new Date(start.getTime()+60*60000);
+    if(end<=start) end=new Date(start.getTime()+60*60000);
+    return {
+      ...ev,
+      title,
+      date:startDate,
+      endDate:calendarDateStrFromDate(end),
+      allDay:false,
+      start,
+      end,
+      icsStart:icsDateTime(start),
+      icsEnd:icsDateTime(end)
+    };
+  }
+
+  function googleCalendarUrl(ev){
+    const n=normaliseCalendarEvent(ev);
+    let url="https://calendar.google.com/calendar/render?action=TEMPLATE";
+    url+="&text="+encodeURIComponent(n.title||"OBubba appointment");
+    url+="&dates="+encodeURIComponent(n.icsStart+"/"+n.icsEnd);
+    if(n.location) url+="&location="+encodeURIComponent(n.location);
+    if(n.note) url+="&details="+encodeURIComponent(n.note);
+    return url;
+  }
+
+  async function openNativeCalendarEvent(ev){
+    try{
+      const cal=window.Capacitor?.Plugins?.OBCalendar;
+      if(!cal || !window.Capacitor?.isNativePlatform?.()) return false;
+      const n=normaliseCalendarEvent(ev);
+      await cal.addEvent({
+        title:n.title||"OBubba appointment",
+        date:n.date,
+        time:n.allDay?"":(n.time||"09:00"),
+        endDate:n.endDate||n.date,
+        endTime:n.allDay?"":(n.endTime||String(n.end.getHours()).padStart(2,"0")+":"+String(n.end.getMinutes()).padStart(2,"0")),
+        allDay:!!n.allDay,
+        location:n.location||"",
+        note:n.note||""
+      });
+      return true;
+    }catch(e){
+      console.warn("Native calendar open failed:",e);
+      return false;
+    }
+  }
+
+  function downloadICS(icsString, filename){
+    const blob=new Blob([icsString],{type:"text/calendar;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=filename||"obubba-event.ics";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+  }
+
   function generateICS(events){
     // events: [{title, date, time, endTime, location, note, uid}]
     var lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//OBubba//Baby Tracker//EN","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
     events.forEach(function(ev){
-      var dtStart=ev.date.replace(/-/g,"");
-      if(ev.time) dtStart+="T"+ev.time.replace(/:/g,"")+"00";
-      var dtEnd=dtStart;
-      if(ev.endTime){
-        dtEnd=ev.date.replace(/-/g,"")+"T"+ev.endTime.replace(/:/g,"")+"00";
-      } else if(ev.time){
-        // Default 1 hour duration
-        var h=parseInt(ev.time.split(":")[0]),m=parseInt(ev.time.split(":")[1]);
-        h+=1; if(h>23){h=23;m=59;}
-        dtEnd=ev.date.replace(/-/g,"")+"T"+String(h).padStart(2,"0")+String(m).padStart(2,"0")+"00";
-      }
+      var n=normaliseCalendarEvent(ev);
       lines.push("BEGIN:VEVENT");
-      lines.push("UID:"+(ev.uid||uid())+"@obubba.app");
+      lines.push("UID:"+(n.uid||uid())+"@obubba.app");
       lines.push("DTSTAMP:"+new Date().toISOString().replace(/[-:]/g,"").split(".")[0]+"Z");
-      if(ev.time) { lines.push("DTSTART:"+dtStart); lines.push("DTEND:"+dtEnd); }
-      else { lines.push("DTSTART;VALUE=DATE:"+dtStart); lines.push("DTEND;VALUE=DATE:"+dtStart); }
-      lines.push("SUMMARY:"+ev.title.replace(/,/g,"\\,"));
-      if(ev.location) lines.push("LOCATION:"+ev.location.replace(/,/g,"\\,"));
-      if(ev.note) lines.push("DESCRIPTION:"+ev.note.replace(/\n/g,"\\n").replace(/,/g,"\\,"));
-      if(ev.alarm){
+      if(n.allDay) { lines.push("DTSTART;VALUE=DATE:"+n.icsStart); lines.push("DTEND;VALUE=DATE:"+n.icsEnd); }
+      else { lines.push("DTSTART:"+n.icsStart); lines.push("DTEND:"+n.icsEnd); }
+      lines.push("SUMMARY:"+icsEscape(n.title));
+      if(n.location) lines.push("LOCATION:"+icsEscape(n.location));
+      if(n.note) lines.push("DESCRIPTION:"+icsEscape(n.note));
+      if(n.alarm){
         lines.push("BEGIN:VALARM");
-        lines.push("TRIGGER:-PT"+ev.alarm+"M");
+        lines.push("TRIGGER:-PT"+n.alarm+"M");
         lines.push("ACTION:DISPLAY");
-        lines.push("DESCRIPTION:"+ev.title);
+        lines.push("DESCRIPTION:"+icsEscape(n.title));
         lines.push("END:VALARM");
       }
       lines.push("END:VEVENT");
@@ -24032,103 +24159,54 @@ function App(){
     }
   }
 
-  function shareICS(icsString, filename, eventData){
-    var isAndroid = _isNative && window.Capacitor?.getPlatform?.() === "android";
-    var isIOS = _isNative && !isAndroid;
-
-    if (isAndroid && eventData) {
-      // Android: open Google Calendar intent directly
-      var gcUrl = "https://www.google.com/calendar/render?action=TEMPLATE";
-      gcUrl += "&text=" + encodeURIComponent(eventData.title || "");
-      if(eventData.date){
-        var ds = eventData.date.replace(/-/g,"");
-        if(eventData.time) {
-          var endT = eventData.endTime || (()=>{ var h=parseInt(eventData.time.split(":")[0])+1; return String(Math.min(h,23)).padStart(2,"0")+":"+eventData.time.split(":")[1]; })();
-          gcUrl += "&dates=" + ds + "T" + eventData.time.replace(/:/g,"") + "00/" + ds + "T" + endT.replace(/:/g,"") + "00";
-        } else { gcUrl += "&dates=" + ds + "/" + ds; }
+  async function shareICS(icsString, filename, eventData){
+    const blob=new Blob([icsString],{type:"text/calendar;charset=utf-8"});
+    const file=new File([blob],filename||"obubba-event.ics",{type:"text/calendar"});
+    try{
+      if(navigator.canShare&&navigator.canShare({files:[file]})){
+        await navigator.share({files:[file],title:"Add to Calendar"});
+        return true;
       }
-      if(eventData.location) gcUrl += "&location=" + encodeURIComponent(eventData.location);
-      if(eventData.note) gcUrl += "&details=" + encodeURIComponent(eventData.note);
-      window.open(gcUrl, "_system");
-      return;
+    }catch(e){
+      if(e&&e.name==="AbortError") return false;
+      console.warn("Calendar share failed:",e);
     }
-
-    if (isIOS) {
-      // iOS: open the .ics inline so Calendar.app preview appears directly
-      // (big blue "Add" button, 1 tap. no share sheet carousel).
-      (async function(){
-        try {
-          var _b64 = btoa(unescape(encodeURIComponent(icsString)));
-          var _dataUri = "data:text/calendar;charset=utf-8;base64," + _b64;
-          // Strategy 1: Capacitor Browser (SFSafariViewController handles text/calendar → Calendar.app)
-          var _br = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
-          if (_br && _br.open) {
-            try {
-              // Use Filesystem URI so Safari VC can read the file
-              var _fs = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
-              if (_fs) {
-                var fname = "obubba-event-"+Date.now()+".ics";
-                var _wr = await _fs.writeFile({ path: fname, data: _b64, directory: "CACHE" });
-                if (_wr && _wr.uri) {
-                  var _webUri = window.Capacitor.convertFileSrc ? window.Capacitor.convertFileSrc(_wr.uri) : _wr.uri;
-                  try { await _br.open({ url: _webUri }); return; } catch(_){}
-                }
-              }
-              // Fallback: open data URI in Safari VC
-              try { await _br.open({ url: _dataUri }); return; } catch(_){}
-            } catch(_){}
-          }
-          // Strategy 2: anchor-click the data URI (WKWebView navigates → Calendar preview)
-          try {
-            var a = document.createElement("a");
-            a.href = _dataUri;
-            a.download = filename || "obubba-event.ics";
-            a.target = "_blank";
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(function(){ a.remove(); }, 100);
-            return;
-          } catch(_){}
-          // Strategy 3: Blob URL
-          var blob = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
-          var url = URL.createObjectURL(blob);
-          window.location.href = url;
-          setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
-        } catch(e) { console.warn("Calendar add failed", e); }
-      })();
-      return;
+    if(eventData && !Array.isArray(eventData)){
+      try{
+        const opened=window.open(googleCalendarUrl(eventData), window.Capacitor?.isNativePlatform?.() ? "_system" : "_blank");
+        if(opened!==null) return true;
+      }catch(e){ console.warn("Google Calendar fallback failed:",e); }
     }
-
-    // PWA / fallback: try navigator.share with file, then Google Calendar URL
-    var blob2 = new Blob([icsString], {type:"text/calendar;charset=utf-8"});
-    var file2 = new File([blob2], filename || "obubba-event.ics", {type:"text/calendar"});
-    if (navigator.canShare && navigator.canShare({files:[file2]})) {
-      navigator.share({files:[file2], title:"Add to Calendar"}).catch(function(){});
-    } else if (eventData) {
-      var gcUrl2 = "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(eventData.title || "");
-      if(eventData.date) { var ds2=eventData.date.replace(/-/g,""); gcUrl2+="&dates="+ds2+"/"+ds2; }
-      window.open(gcUrl2, "_blank");
-    }
+    downloadICS(icsString,filename);
+    return true;
   }
 
-  function addApptToCalendar(a){
-    var isAndroid = _isNative && window.Capacitor?.getPlatform?.() === "android";
-    if(isAndroid){
-      // Android: use Google Calendar intent URL
-      var startDate = a.date.replace(/-/g,"") + (a.time ? "T"+a.time.replace(/:/g,"")+"00" : "");
-      var endDate = startDate; // same day
-      var url = "https://www.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent(a.title)+"&dates="+startDate+"/"+endDate;
-      if(a.location) url+="&location="+encodeURIComponent(a.location);
-      if(a.note) url+="&details="+encodeURIComponent(a.note);
-      window.open(url,"_system");
-    } else {
-      // iOS: use ICS file
-      var ev={title:a.title,date:a.date,time:a.time||"",location:a.location||"",note:a.note||"",uid:"appt-"+a.id};
-      if(a.travelMins>0) ev.alarm=a.travelMins;
-      else if(a.time) ev.alarm=30;
-      shareICS(generateICS([ev]),"obubba-appointment.ics",ev);
-    }
+  function eventFromAppointment(a){
+    const ev={
+      title:a.title||"OBubba appointment",
+      date:a.date,
+      time:a.allDay?"":(a.time||""),
+      endDate:a.endDate||a.date,
+      endTime:a.allDay?"":(a.endTime||""),
+      allDay:!!a.allDay,
+      location:a.location||"",
+      note:a.note||"",
+      uid:"appt-"+a.id
+    };
+    if(a.travelMins>0) ev.alarm=a.travelMins;
+    else if(a.time&&!a.allDay) ev.alarm=30;
+    return ev;
+  }
+
+  async function addApptToCalendar(a){
+    const ev=eventFromAppointment(a);
     haptic("light");
+    if(await openNativeCalendarEvent(ev)){
+      showToast("Calendar opened - tap Add/Save when ready",2500,1);
+      return;
+    }
+    await shareICS(generateICS([ev]),"obubba-appointment.ics",ev);
+    showToast("Calendar event ready",1800,1);
   }
 
   function openInMaps(address){
@@ -24169,7 +24247,7 @@ function App(){
         uid:"phase-bloom-"+p.phase
       });
     });
-    shareICS(generateICS(events),"obubba-dev-phases.ics", events[0]);
+    shareICS(generateICS(events),"obubba-dev-phases.ics", events);
     showToast("\u{1F4C5} "+events.length+" phase events ready to add",2500,1);
     haptic("success");
   }
@@ -29135,7 +29213,7 @@ function App(){
   const tabSt=t=>({flex:"none",padding:"8px 14px 6px",border:_bN,background:"none",fontSize:10,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:"var(--text-lt)",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative",transition:"transform 0.2s cubic-bezier(.23,1,.32,1)",borderRadius:12});
   const card={background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"var(--card-shadow)",transition:"transform 0.2s cubic-bezier(.23,1,.32,1),box-shadow 0.25s ease"};
 
-  const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
+  const tabIcons={day:"📅",insights:"💡",develop:"🌱",settings:"👤"};
   const tabLabels={day:"Today",insights:"Understand",develop:"Grow",settings:"Account"};
   const _forYouCard = (()=>{
     try {
@@ -49428,7 +49506,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       return { title: "🍼 "+(s.label||"OBubba"), date: _dateStr, time: _t, endTime: _endT, note: "Part of "+(smResult.eventLabel||"schedule")+" built with OBubba" };
                     });
                     const _ics = generateICS(_events);
-                    shareICS(_ics, "obubba-schedule.ics", _events[0]);
+                    shareICS(_ics, "obubba-schedule.ics", _events);
                   } catch(e) { console.warn("Calendar export failed:", e); showToast("Couldn't export to calendar",2500,1); }
                 }} style={{width:"100%",padding:"10px",borderRadius:99,border:`1.5px solid ${C.sky}40`,background:"var(--card-bg-alt)",color:C.sky,fontSize:13,fontWeight:700,cursor:_cP}}>
                   📅 Add to Calendar (tomorrow)

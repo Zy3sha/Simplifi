@@ -42,6 +42,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>OBubba needs camera access to take photos for your baby's photo diary.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>OBubba opens Calendar only when you choose to add an appointment or schedule.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>OBubba can add appointments and schedules to your calendar when you tap Add to Calendar.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>OBubba uses Face ID to securely unlock your baby's data.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

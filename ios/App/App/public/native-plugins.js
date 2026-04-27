@@ -277,6 +277,9 @@ var OBLocalNotifications = {
 var OBAppShortcuts = {
   set: function(shortcuts) {
     if (!isNative()) return Promise.resolve();
+    // Android shortcuts are declared statically in res/xml/shortcuts.xml.
+    // Re-adding the same IDs dynamically makes Android reject the whole set.
+    if (getPlatform() === 'android') return Promise.resolve();
     var AS = _plug('AppShortcuts');
     if (!AS) return Promise.resolve();
     try {

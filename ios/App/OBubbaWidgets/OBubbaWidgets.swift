@@ -254,23 +254,24 @@ extension View {
 // Widget theme backgrounds — user can pick in Settings
 private func widgetThemeBackground() -> some View {
     let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
+    let isDark = theme == "dark"
     return ZStack {
         switch theme {
         case "rose":
-            Color(hex: "#F5ECE8").opacity(0.92)
+            LinearGradient(colors: [Color(hex: "#FFFAF8"), Color(hex: "#F6E8E4"), Color(hex: "#F2DCE5")], startPoint: .topLeading, endPoint: .bottomTrailing)
         case "lavender":
-            Color(hex: "#EDEAF5").opacity(0.92)
+            LinearGradient(colors: [Color(hex: "#FFFCFA"), Color(hex: "#EDEAF7"), Color(hex: "#E6F3F7")], startPoint: .topLeading, endPoint: .bottomTrailing)
         case "mint":
-            Color(hex: "#EAF5F0").opacity(0.92)
+            LinearGradient(colors: [Color(hex: "#FFFDF9"), Color(hex: "#EAF6F0"), Color(hex: "#F2ECE8")], startPoint: .topLeading, endPoint: .bottomTrailing)
         case "sky":
-            Color(hex: "#E8F0F5").opacity(0.92)
+            LinearGradient(colors: [Color(hex: "#FFFCFA"), Color(hex: "#EAF1F7"), Color(hex: "#F2F5F7")], startPoint: .topLeading, endPoint: .bottomTrailing)
         case "dark":
-            Color(hex: "#282025").opacity(0.88)
+            LinearGradient(colors: [Color(hex: "#2C2430"), Color(hex: "#211B24"), Color(hex: "#302A3D")], startPoint: .topLeading, endPoint: .bottomTrailing)
         default: // auto
-            Color(light: "#FFFCF9", dark: "#1C1820").opacity(0.85)
+            LinearGradient(colors: [Color(light: "#FFFCF9", dark: "#1C1820"), Color(light: "#F7ECEB", dark: "#252028"), Color(light: "#ECE7F6", dark: "#2A2433")], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         LinearGradient(
-            colors: [Color.white.opacity(theme == "dark" ? 0.06 : 0.25), Color.clear],
+            colors: [Color.white.opacity(isDark ? 0.08 : 0.42), Color.white.opacity(isDark ? 0.02 : 0.08), Color.clear],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -516,22 +517,36 @@ struct ActionBtn: View {
     }
 
     var body: some View {
-        VStack(spacing: 3) {
+        HStack(spacing: 6) {
             if let emoji = emoji {
-                Text(emoji).font(.system(size: 16))
+                Text(emoji).font(.system(size: 13))
             } else {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
             }
             Text(label)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
         }
         .foregroundColor(filled ? Color.white : color)
         .frame(maxWidth: .infinity)
-        .frame(height: 48)
+        .frame(height: 44)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(filled ? color.opacity(0.85) : color.opacity(0.25))
+                .fill(
+                    LinearGradient(
+                        colors: filled
+                            ? [color.opacity(0.92), color.opacity(0.72)]
+                            : [Color.white.opacity(0.58), color.opacity(0.12)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(filled ? 0.32 : 0.58), lineWidth: 0.8)
         )
         .environment(\.colorScheme, .light)
     }
@@ -543,21 +558,25 @@ struct BreastBtn: View {
     let isNext: Bool
 
     var body: some View {
-        VStack(spacing: 2) {
+        HStack(spacing: 5) {
             Text(letter)
                 .font(.system(size: 16, weight: .black, design: .rounded))
             if isNext {
                 Text("next")
-                    .font(.system(size: 8, weight: .bold))
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
                     .textCase(.uppercase)
             }
         }
         .foregroundColor(isNext ? Color.white : brandRose)
         .frame(maxWidth: .infinity)
-        .frame(height: 48)
+        .frame(height: 44)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isNext ? brandRose : brandRose.opacity(0.12))
+                .fill(isNext ? brandRose.opacity(0.9) : Color.white.opacity(0.58))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(isNext ? Color.white.opacity(0.28) : brandRose.opacity(0.24), lineWidth: 0.8)
         )
         .environment(\.colorScheme, .light)
     }
@@ -613,100 +632,119 @@ struct OBubbaSmallWidgetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
-            // Baby name — small, top
+        VStack(spacing: 7) {
             Text(d.babyName)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundColor(brandDeep.opacity(0.7))
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(brandDeep.opacity(0.78))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
 
-                if hasTimer, let startDate = d.timerStartDate {
-                    // ── Active timer mode ──
-                    let icon = (d.activeTimer ?? "") == "feed" ? "🍼" : "💤"
-                    let label = d.timerLabel ?? ((d.activeTimer ?? "").capitalized)
+            if hasTimer, let startDate = d.timerStartDate {
+                let systemIcon = (d.activeTimer ?? "") == "feed" ? "drop.fill" : "moon.zzz.fill"
+                let label = d.timerLabel ?? ((d.activeTimer ?? "").capitalized)
 
-                    Text(icon)
-                        .font(.system(size: 28))
-
-                    Text(label)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.56))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: systemIcon)
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(brandRose)
-
-                    Text(startDate, style: .timer)
-                        .font(.system(size: 24, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandDeep)
-                        .monospacedDigit()
-
-                    // Show "since X" for bedtime timers
-                    if label.lowercased().contains("sleep") {
-                        Text("since \(Self.formatBedtime(startDate))")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundColor(brandDeep.opacity(0.5))
-                    }
-
-                } else if let targetDate = d.predictionTargetDate,
-                          let label = d.nextPredictionLabel, !label.isEmpty {
-                    // ── Prediction countdown mode ──
-                    Text(label.hasPrefix("Nap") ? "😴" : "🌙")
-                        .font(.system(size: 28))
-
-                    Text(label)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(brandPurple)
-
-                    Text(targetDate, style: .relative)
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandDeep)
-                        .monospacedDigit()
-
-                    if let pred = d.nextPrediction, !pred.isEmpty {
-                        // Strip any leading label up to and including "~ "
-                        // e.g. "Nap 3 ~3:30pm", "Bed ~7:15pm", "Bridge nap ~4:00pm"
-                        let timeOnly = pred.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
-                            .trimmingCharacters(in: .whitespaces)
-                        if !timeOnly.isEmpty && timeOnly != pred {
-                            Text("~\(timeOnly)")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(brandPurple.opacity(0.7))
-                        }
-                    }
-
-                } else {
-                    // ── No timer, no prediction — show day at a glance ──
-                    Text("☀️")
-                        .font(.system(size: 22))
-
-                    HStack(spacing: 8) {
-                        VStack(spacing: 1) {
-                            Text("\(d.feedCount)")
-                                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                                .foregroundColor(brandRose)
-                            Text("feeds")
-                                .font(.system(size: 8, weight: .semibold))
-                                .foregroundColor(brandDeep.opacity(0.45))
-                        }
-                        VStack(spacing: 1) {
-                            Text("\(d.sleepCount)")
-                                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                                .foregroundColor(brandPurple)
-                            Text("naps")
-                                .font(.system(size: 8, weight: .semibold))
-                                .foregroundColor(brandDeep.opacity(0.45))
-                        }
-                        VStack(spacing: 1) {
-                            let wet = d.wetNappyCount ?? 0
-                            Text("\(wet)/6")
-                                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                                .foregroundColor(wet >= 6 ? brandMint : brandDeep.opacity(0.6))
-                            Text("wet")
-                                .font(.system(size: 8, weight: .semibold))
-                                .foregroundColor(brandDeep.opacity(0.45))
-                        }
-                    }
-
-                    Text("today so far")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(brandDeep.opacity(0.65))
                 }
+
+                Text(label)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(brandRose)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(startDate, style: .timer)
+                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .foregroundColor(brandDeep)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.75)
+
+                if label.lowercased().contains("sleep") {
+                    Text("since \(Self.formatBedtime(startDate))")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(brandDeep.opacity(0.5))
+                }
+
+            } else if let targetDate = d.predictionTargetDate,
+                      let label = d.nextPredictionLabel, !label.isEmpty {
+                let systemIcon = label.lowercased().contains("bed") ? "moon.stars.fill" : "moon.zzz.fill"
+
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.56))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: systemIcon)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(brandPurple)
+                }
+
+                Text(label)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(brandPurple)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Text(targetDate, style: .relative)
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .foregroundColor(brandDeep)
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.74)
+
+                if let pred = d.nextPrediction, !pred.isEmpty {
+                    let timeOnly = pred.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
+                        .trimmingCharacters(in: .whitespaces)
+                    if !timeOnly.isEmpty && timeOnly != pred {
+                        Text("around \(timeOnly)")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(brandPurple.opacity(0.72))
+                            .lineLimit(1)
+                    }
+                }
+
+            } else {
+                Text("Today")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(brandDeep.opacity(0.58))
+
+                HStack(spacing: 8) {
+                    VStack(spacing: 1) {
+                        Text("\(d.feedCount)")
+                            .font(.system(size: 18, weight: .heavy, design: .rounded))
+                            .foregroundColor(brandRose)
+                        Text("feeds")
+                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .foregroundColor(brandDeep.opacity(0.45))
+                    }
+                    VStack(spacing: 1) {
+                        Text("\(d.sleepCount)")
+                            .font(.system(size: 18, weight: .heavy, design: .rounded))
+                            .foregroundColor(brandPurple)
+                        Text("naps")
+                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .foregroundColor(brandDeep.opacity(0.45))
+                    }
+                    VStack(spacing: 1) {
+                        let wet = d.wetNappyCount ?? 0
+                        Text("\(wet)/6")
+                            .font(.system(size: 18, weight: .heavy, design: .rounded))
+                            .foregroundColor(wet >= 6 ? brandMint : brandDeep.opacity(0.6))
+                        Text("wet")
+                            .font(.system(size: 8, weight: .semibold, design: .rounded))
+                            .foregroundColor(brandDeep.opacity(0.45))
+                    }
+                }
+
+                Text("quietly keeping track")
+                    .font(.system(size: 9, weight: .medium, design: .rounded))
+                    .foregroundColor(brandDeep.opacity(0.65))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.76)
+            }
         }
         .padding(12)
         .ifLet(widgetForcedScheme()) { view, scheme in
@@ -737,13 +775,18 @@ struct OBubbaMediumWidgetView: View {
 
             // ── ROW 1: Header + Timer/Prediction ──
             HStack(alignment: .center) {
-                HStack(spacing: 6) {
-                    Text("🧸")
-                        .font(.system(size: 15))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("OBubba")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .textCase(.uppercase)
+                        .foregroundColor(brandDeep.opacity(0.44))
                     Text(d.babyName)
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(brandDeep)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
                 }
+                .frame(maxWidth: 116, alignment: .leading)
 
                 Spacer()
 
@@ -785,7 +828,11 @@ struct OBubbaMediumWidgetView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(brandRose.opacity(0.08))
+                    .background(Color.white.opacity(0.48))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(brandRose.opacity(0.2), lineWidth: 0.8)
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 } else if let targetDate = d.predictionTargetDate,
@@ -814,7 +861,11 @@ struct OBubbaMediumWidgetView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(brandPurple.opacity(0.08))
+                    .background(Color.white.opacity(0.48))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(brandPurple.opacity(0.2), lineWidth: 0.8)
+                    )
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 } else if let pred = d.nextPrediction, !pred.isEmpty {
@@ -828,7 +879,11 @@ struct OBubbaMediumWidgetView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(brandPurple.opacity(0.08))
+                    .background(Color.white.opacity(0.48))
+                    .overlay(
+                        Capsule()
+                            .stroke(brandPurple.opacity(0.18), lineWidth: 0.8)
+                    )
                     .clipShape(Capsule())
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 }
@@ -851,7 +906,7 @@ struct OBubbaMediumWidgetView: View {
                     }
                 }
                 Link(destination: URL(string: "obubba://?action=quick_nappy")!) {
-                    ActionBtn(icon: "", label: "Nappy", color: brandMint, emoji: "🧷")
+                    ActionBtn(icon: "leaf.fill", label: "Nappy", color: brandMint)
                 }
                 if d.activeTimer == "bed" && hasTimer {
                     // Bedtime active — offer morning wake
@@ -864,11 +919,11 @@ struct OBubbaMediumWidgetView: View {
                     }
                 } else if (d.nextPredictionLabel ?? "").lowercased().contains("bed") {
                     Link(destination: URL(string: "obubba://?action=start_bedtime")!) {
-                        ActionBtn(icon: "moon.fill", label: "Sleep", color: brandPurple, filled: false)
+                        ActionBtn(icon: "moon.zzz.fill", label: "Sleep", color: brandPurple, filled: false)
                     }
                 } else {
                     Link(destination: URL(string: "obubba://?action=toggle_nap")!) {
-                        ActionBtn(icon: "play.fill", label: "Nap", color: brandPurple, filled: false)
+                        ActionBtn(icon: "moon.zzz.fill", label: "Nap", color: brandPurple, filled: false)
                     }
                 }
             }
@@ -1075,12 +1130,23 @@ struct OBubbaTimerLiveActivity: Widget {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
-                LinearGradient(
-                    colors: [brandBg, brandCream],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.78), brandCream.opacity(0.72), brandBg.opacity(0.82)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.white.opacity(0.42), lineWidth: 0.8)
+            )
+            .activityBackgroundTint(
+                Color(light: "#FFFCF9", dark: "#211B24")
+            )
+            .activitySystemActionForegroundColor(brandRose)
 
         } dynamicIsland: { context in
             DynamicIsland {
@@ -1201,12 +1267,23 @@ struct OBubbaPredictionLiveActivity: Widget {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
-                LinearGradient(
-                    colors: [brandBg, brandCream],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.78), brandCream.opacity(0.72), brandBg.opacity(0.82)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(Color.white.opacity(0.42), lineWidth: 0.8)
+            )
+            .activityBackgroundTint(
+                Color(light: "#FFFCF9", dark: "#211B24")
+            )
+            .activitySystemActionForegroundColor(brandPurple)
 
         } dynamicIsland: { context in
             DynamicIsland {

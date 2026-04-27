@@ -27,6 +27,7 @@
 		OB000008000000000000001A /* TravelTimePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = OB000008000000000000001F /* TravelTimePlugin.swift */; };
 		OB000009000000000000001A /* StorePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = OB000009000000000000001F /* StorePlugin.swift */; };
 		OB000003000000000000001A /* ReviewPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = OB000003000000000000001F /* ReviewPlugin.swift */; };
+		OB000014000000000000001A /* CalendarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = OB000014000000000000001F /* CalendarPlugin.swift */; };
 		OB000020000000000000001A /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = OB000020000000000000001F /* GoogleService-Info.plist */; };
 		OB000040000000000000001A /* Parisienne-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = OB000040000000000000001F /* Parisienne-Regular.ttf */; };
 		OB000030000000000000001A /* OBubbaBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = OB000030000000000000001F /* OBubbaBridgeViewController.swift */; };
@@ -82,6 +83,7 @@
 		OB000008000000000000001F /* TravelTimePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TravelTimePlugin.swift; sourceTree = "<group>"; };
 		OB000009000000000000001F /* StorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorePlugin.swift; sourceTree = "<group>"; };
 		OB000003000000000000001F /* ReviewPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPlugin.swift; sourceTree = "<group>"; };
+		OB000014000000000000001F /* CalendarPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPlugin.swift; sourceTree = "<group>"; };
 		OB000010000000000000001F /* OBubbaWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OBubbaWidgets.swift; sourceTree = "<group>"; };
 		OB000011000000000000001F /* OBubba.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OBubba.entitlements; sourceTree = "<group>"; };
 		OB000012000000000000001F /* IntentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentHandler.swift; sourceTree = "<group>"; };
@@ -201,6 +203,7 @@
 				OB000008000000000000001F /* TravelTimePlugin.swift */,
 				OB000009000000000000001F /* StorePlugin.swift */,
 				OB000003000000000000001F /* ReviewPlugin.swift */,
+				OB000014000000000000001F /* CalendarPlugin.swift */,
 			);
 			path = Plugins;
 			sourceTree = "<group>";
@@ -414,6 +417,7 @@
 				OB000008000000000000001A /* TravelTimePlugin.swift in Sources */,
 				OB000009000000000000001A /* StorePlugin.swift in Sources */,
 				OB000003000000000000001A /* ReviewPlugin.swift in Sources */,
+				OB000014000000000000001A /* CalendarPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
