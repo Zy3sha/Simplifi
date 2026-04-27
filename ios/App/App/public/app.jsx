@@ -120,6 +120,17 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 const STORAGE_KEY = "babyTracker_v6";
 const params = new URLSearchParams(window.location.search);
 const quickAction = params.get("action");
+// Debug mode: silence console.log in production for cleaner device logs
+const OB_DEBUG = (() => {
+  try {
+    return params.get("debug") === "1" ||
+      localStorage.getItem("ob_debug") === "1" ||
+      /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || "");
+  } catch { return false; }
+})();
+if (!OB_DEBUG) {
+  try { console.log = function(){}; } catch {}
+}
 
 const uid = () => { const _id = Date.now().toString(36)+Math.random().toString(36).slice(2,5); if(window._localEntryIds) window._localEntryIds.add(_id); return _id; };
 window._localEntryIds = new Set();
@@ -5311,6 +5322,8 @@ function App(){
                 try { trackEvent("timer_stopped", { type: "nap", duration_mins: _durS, source: "widget" }); } catch {}
               }
               setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
+              // Set stop timestamp BEFORE clearing keys — orphan recovery checks this to avoid resurrection
+              try{localStorage.setItem("ob_nap_stopped_at",String(Date.now()));}catch{}
               ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
               if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
               _androidTimerStop();
@@ -5576,7 +5589,13 @@ function App(){
     // Widget button intents write to UserDefaults async. poll aggressively to catch it
     OB.lifecycle.onResume(()=>{
       OB.statusBar.setStyle(document.body.classList.contains('dark-mode'));
-      OB.widgets.updateWidgetData();
+      // Force widget refresh with current cached data on every resume
+      try {
+        var _wdResume = localStorage.getItem("ob_widget_data_v1");
+        if(_wdResume && window.Capacitor?.Plugins?.OBWidgetBridge) {
+          window.Capacitor.Plugins.OBWidgetBridge.setData({ json: _wdResume }).catch(()=>{});
+        }
+      } catch{}
       // Re-check premium on resume (subscription may have been purchased/restored externally)
       if(STORE_READY && !_isOwner && window._purchases && window._purchases.checkEntitlements){
         window._purchases.checkEntitlements().then(function(_p){
@@ -5601,9 +5620,14 @@ function App(){
       }
     });
 
-    // Listen for app pause. save widget data
+    // Listen for app pause. push widget data so it's fresh when user sees widget
     OB.lifecycle.onPause(()=>{
-      OB.widgets.updateWidgetData();
+      try {
+        var _wdPause = localStorage.getItem("ob_widget_data_v1");
+        if(_wdPause && window.Capacitor?.Plugins?.OBWidgetBridge) {
+          window.Capacitor.Plugins.OBWidgetBridge.setData({ json: _wdPause }).catch(()=>{});
+        }
+      } catch{}
     });
 
     // Handle deep links
@@ -11491,6 +11515,11 @@ function App(){
   // the timer is running — the 30s tick updates end!=start, but _active stays true).
   useEffect(()=>{
     if(napOn) return; // timer already running
+    // Don't resurrect if nap was just stopped via widget/Siri (flag set before React state updates)
+    try {
+      const _stopTs = localStorage.getItem("ob_nap_stopped_at");
+      if(_stopTs && (Date.now() - parseInt(_stopTs)) < 10000) return; // stopped within last 10s
+    } catch{}
     const todayK = todayStr();
     const todayEntries = days[todayK] || [];
     let ongoingNap = todayEntries.find(e => e.type === "nap" && e.start && (e._active || !e.end || e.end === e.start) && !e.night);
@@ -44183,7 +44212,6 @@ function App(){
                     🛠️ It needs some work
                   </button>
                 </div>
-                <button onClick={()=>{dismissReview(false);}} style={{background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP,marginTop:14,fontStyle:"italic"}}>Maybe later</button>
               </div>
           </div>
         </div>

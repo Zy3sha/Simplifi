@@ -120,6 +120,17 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 const STORAGE_KEY = "babyTracker_v6";
 const params = new URLSearchParams(window.location.search);
 const quickAction = params.get("action");
+// Debug mode: silence console.log in production for cleaner device logs
+const OB_DEBUG = (() => {
+  try {
+    return params.get("debug") === "1" ||
+      localStorage.getItem("ob_debug") === "1" ||
+      /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || "");
+  } catch { return false; }
+})();
+if (!OB_DEBUG) {
+  try { console.log = function(){}; } catch {}
+}
 
 const uid = () => { const _id = Date.now().toString(36)+Math.random().toString(36).slice(2,5); if(window._localEntryIds) window._localEntryIds.add(_id); return _id; };
 window._localEntryIds = new Set();
