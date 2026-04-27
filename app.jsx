@@ -15658,7 +15658,7 @@ function App(){
 
     // Regression adjustment: offer more sleep during active regressions
     try {
-      const _reg = detectSleepRegression();
+      const _reg = detectSleepRegression() || detectRegressionFromData();
       if (_reg) { wakeWindowMin = Math.max(30, wakeWindowMin - 10); wakeWindowMax = Math.max(45, wakeWindowMax - 10); }
     } catch {}
 
@@ -16719,6 +16719,9 @@ function App(){
       { weeks:[15,19], label:"4-Month Sleep Regression", emoji:"🌊",
         desc:`${name}'s sleep architecture is maturing from newborn cycles to adult-style 4-stage sleep. This is permanent brain development. not a setback.`,
         advice:"Expect 2–4 weeks of disrupted sleep. Keep routines consistent, offer extra feeds if needed, and avoid introducing new sleep props. This regression means the brain is developing normally. It's OK to feel exhausted. this phase passes. If you need support, your health visitor or GP is always there." },
+      { weeks:[24,28], label:"6-Month Sleep Regression", emoji:"🥄",
+        desc:`Weaning, growth spurt, and possible teething are all happening at once. ${name} may be waking more from hunger (solid food isn't replacing milk calories yet), discomfort, or just developmental excitement.`,
+        advice:"This usually lasts 2–3 weeks. Keep milk feeds consistent — solids are supplementary at this stage, not a replacement. Extra night feeds are normal and temporary. If teething, offer comfort. This phase passes." },
       { weeks:[34,42], label:"8–10 Month Sleep Regression", emoji:"🧗",
         desc:`Separation anxiety + major motor milestones (crawling, pulling up) are disrupting ${name}'s sleep. The brain is practising new skills even during sleep.`,
         advice:"Usually lasts 2–6 weeks. Practice new skills during the day, maintain bedtime routine, offer reassurance without creating new habits. Separation anxiety is a sign of healthy attachment. you're doing something right." },
@@ -16752,6 +16755,37 @@ function App(){
     const napRegression = last5avg !== null && prev10avg !== null && last5avg < prev10avg * 0.7;
     if (avgWakes < 1.5 && !napRegression) return null;
     return {...match, avgWakes: Math.round(avgWakes*10)/10, napRegression};
+  }
+  // ── Pattern-based regression (data-driven, not age-gated) ──
+  // Catches regressions that don't fall in known age windows
+  function detectRegressionFromData() {
+    if (!age) return null;
+    const w = age.predictiveWeeks ?? age.totalWeeks;
+    const name = babyName || "Baby";
+    // Already in a known regression window? skip (detectSleepRegression handles it)
+    const knownWindows = [[15,19],[24,28],[34,42],[50,54],[76,80],[102,108]];
+    if (knownWindows.some(r => w >= r[0] && w <= r[1])) return null;
+    // Compare last 5 nights vs previous 10 nights
+    const _allRecent = getResolvedRecentDays(days, selDay, 15);
+    if (_allRecent.length < 10) return null;
+    const _wakeCounts = _allRecent.map(rd => rd.entries.filter(e => e.night && (e.type === "wake" || e.type === "feed")).length);
+    const _last5 = _wakeCounts.slice(-5);
+    const _prev = _wakeCounts.slice(0, -5);
+    if (_last5.length < 3 || _prev.length < 5) return null;
+    const _avgLast = _last5.reduce((a,b)=>a+b,0) / _last5.length;
+    const _avgPrev = _prev.reduce((a,b)=>a+b,0) / _prev.length;
+    // Spike: recent wakes are 2x+ the previous average AND at least 2 more per night
+    if (_avgLast >= _avgPrev * 2 && _avgLast - _avgPrev >= 2 && _avgLast >= 2.5) {
+      return {
+        label: "Sleep disruption detected",
+        emoji: "📊",
+        desc: `${name}'s night wakes have increased significantly — from ~${Math.round(_avgPrev*10)/10} to ~${Math.round(_avgLast*10)/10} per night over the last 5 days. This could be a developmental phase, teething, illness, or a schedule adjustment needed.`,
+        advice: "Check for teething signs, illness, or recent routine changes. If nothing obvious, maintain consistent bedtime routine and give it a week. If wakes increase further or baby seems unwell, check with your " + (_doctor||"health visitor") + ".",
+        avgWakes: Math.round(_avgLast*10)/10,
+        dataDetected: true
+      };
+    }
+    return null;
   }
 
   // ── Nap transition detection ──
@@ -24843,7 +24877,7 @@ function App(){
 
     // 8. SLEEP REGRESSION. if detected
     if (age) {
-      const reg = detectSleepRegression();
+      const reg = detectSleepRegression() || detectRegressionFromData();
       if (reg) {
         reasons.push({
           emoji: "🔄", title: "Sleep regression",
