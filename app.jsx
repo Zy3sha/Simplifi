@@ -33446,35 +33446,7 @@ function App(){
 
                   {/* ═══ WEANING NAV CARDS — 2-column grid ═══ */}
                   {/* Before Weaning card always first, then Start Weaning gate OR unlocked cards */}
-                  {/* ═══ Today's meal guidance — age-appropriate ═══ */}
-                  {weaningStarted && age && (()=>{
-                    try {
-                      const _aw3 = age.predictiveWeeks ?? age.totalWeeks;
-                      const _ratio = getWeaningRatio(_aw3, days[selDay]||[]);
-                      if (!_ratio || _ratio.solidMeals <= 0) return null;
-                      const _todaySolids = (days[selDay]||[]).filter(e => e.type === "feed" && e.feedType === "solids").length;
-                      const _stage = WEANING_STAGES.find(s => _aw3 >= s.weeksRange[0] && _aw3 < s.weeksRange[1]);
-                      return (
-                        <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                            <div>
-                              <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_stage ? _stage.name : "Weaning"}</div>
-                              <div style={{fontSize:11,color:C.mid}}>{_stage ? _stage.ageRange : fmtAge(age)}</div>
-                            </div>
-                            <div style={{textAlign:"right"}}>
-                              <div style={{fontSize:22,fontWeight:800,color:_todaySolids >= _ratio.solidMeals ? C.mint : C.ter}}>{_todaySolids}/{_ratio.solidMeals}</div>
-                              <div style={{fontSize:10,color:C.lt}}>meals today</div>
-                            </div>
-                          </div>
-                          <div style={{height:4,background:C.blush+"40",borderRadius:99,overflow:"hidden",marginBottom:8}}>
-                            <div style={{width:Math.min(100,(_todaySolids/_ratio.solidMeals)*100)+"%",height:"100%",background:_todaySolids>=_ratio.solidMeals?C.mint:C.ter,borderRadius:99,transition:"width 0.4s ease"}}/>
-                          </div>
-                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5}}>{_stage ? _stage.texture : ""}</div>
-                          {_stage && <div style={{fontSize:10,color:C.lt,marginTop:4,fontStyle:"italic"}}>{_stage.milk}</div>}
-                        </div>
-                      );
-                    } catch { return null; }
-                  })()}
+                  {/* Meal guidance integrated into dashboard above */}
 
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
                     {[
@@ -42088,11 +42060,17 @@ function App(){
 
                     {/* Stats grid */}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
-                      {[
-                        {val:_uniqueFoods,label:"Foods tried",color:C.ter,icon:"🌈"},
-                        {val:_loved,label:"Loved",color:C.mint,icon:"❤️"},
-                        {val:_last7,label:"This week",color:"#7b68ee",icon:"📅"},
-                      ].map((s,i)=>(
+                      {(()=>{
+                        const _aw5 = age ? (age.predictiveWeeks ?? age.totalWeeks) : 26;
+                        const _ratio5 = getWeaningRatio(_aw5, days[selDay]||[]);
+                        const _todaySolids5 = (days[selDay]||[]).filter(e => e.type === "feed" && e.feedType === "solids").length;
+                        const _mealTarget = _ratio5 ? _ratio5.solidMeals : 1;
+                        return [
+                          {val:_todaySolids5+"/"+_mealTarget,label:"Meals today",color:_todaySolids5>=_mealTarget?C.mint:C.ter,icon:"🍽️"},
+                          {val:_uniqueFoods,label:"Foods tried",color:C.ter,icon:"🌈"},
+                          {val:_loved,label:"Loved",color:C.mint,icon:"❤️"},
+                        ];
+                      })().map((s,i)=>(
                         <div key={i} style={{padding:"10px 8px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
                           <div style={{fontSize:10,marginBottom:2}}>{s.icon}</div>
                           <div style={{fontSize:18,fontWeight:700,color:s.color}}>{s.val}</div>
