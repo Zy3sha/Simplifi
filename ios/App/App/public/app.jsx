@@ -22673,54 +22673,33 @@ function App(){
     const W=1080,H=1920;
     const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
     const ctx=canvas.getContext("2d");
+    if (!ctx.roundRect) {
+      ctx.roundRect = function(x,y,w,h,r){ if(typeof r==="number") r=[r,r,r,r]; else if(!Array.isArray(r)) r=[0,0,0,0]; this.moveTo(x+r[0],y); this.arcTo(x+w,y,x+w,y+h,r[1]); this.arcTo(x+w,y+h,x,y+h,r[2]); this.arcTo(x,y+h,x,y,r[3]); this.arcTo(x,y,x+w,y,r[0]); this.closePath(); return this; };
+    }
     const name=babyName||"Baby";
     if(!cardType) cardType="milestone";
-
-    // Use provided photo, milestone photo, or profile pic
     const imgSrc = photoUrl || (milestone && milestones[milestone]?.photo) || activeChild.photo || null;
 
-    // ═══ AUTO-FIT TEXT HELPER ═══
-    function _fitText(ctx, text, maxWidth, startSize, minSize) {
+    // ═══ SHARED HELPERS ═══
+    function _fitText(ctx, text, maxWidth, startSize, minSize, fontStyle) {
       let size = startSize;
+      const prefix = fontStyle || "700 ";
       while (size > minSize) {
-        ctx.font = "bold " + size + "px Georgia,serif";
+        ctx.font = prefix + size + "px Georgia,serif";
         if (ctx.measureText(text).width <= maxWidth) return size;
         size -= 2;
       }
       return minSize;
     }
-
-    // ═══ GLASS CARD HELPER ═══
-    function _glassCard(ctx, x, y, w, h, r) {
-      r = r || 24;
-      // Shadow
+    function _drawPhoto(ctx, img, cx, cy, radius) {
+      // Soft shadow behind circle
       ctx.save();
-      ctx.shadowColor = "rgba(0,0,0,0.25)";
-      ctx.shadowBlur = 40;
-      ctx.shadowOffsetY = 12;
-      ctx.fillStyle = "rgba(255,255,255,0.12)";
-      ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+      ctx.shadowColor = "rgba(120,80,60,0.15)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 8;
+      ctx.fillStyle = "#F5E6DA";
+      ctx.beginPath(); ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
-      // Frosted border
-      ctx.strokeStyle = "rgba(255,255,255,0.3)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.stroke();
-    }
-
-    // ═══ DRAW CIRCULAR PHOTO HELPER ═══
-    // Draws a circular photo at (cx,cy) with given radius, white ring + gold outer ring + glow
-    function _drawCirclePhoto(ctx, img, cx, cy, radius) {
-      // Glow behind photo
-      const glowGrad = ctx.createRadialGradient(cx, cy, radius * 0.8, cx, cy, radius * 1.6);
-      glowGrad.addColorStop(0, "rgba(212,168,85,0.2)");
-      glowGrad.addColorStop(0.5, "rgba(212,168,85,0.08)");
-      glowGrad.addColorStop(1, "transparent");
-      ctx.fillStyle = glowGrad; ctx.beginPath(); ctx.arc(cx, cy, radius * 1.6, 0, Math.PI * 2); ctx.fill();
-      // Gold outer ring
-      ctx.strokeStyle = "rgba(212,168,85,0.5)"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, radius + 6, 0, Math.PI * 2); ctx.stroke();
-      // White ring
-      ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 4;
+      // Warm border ring
+      ctx.strokeStyle = "rgba(192,112,136,0.3)"; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2); ctx.stroke();
       // Clipped photo
       ctx.save();
@@ -22731,54 +22710,40 @@ function App(){
       ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
       ctx.restore();
     }
-
-    // ═══ BACKGROUND — deep premium dark gradient ═══
-    const _isBadNight = cardType === "badnight";
-    if (_isBadNight) {
-      // Warmer tones for badnight
-      const grad = ctx.createLinearGradient(0, 0, W, H);
-      grad.addColorStop(0, "#1E1420"); grad.addColorStop(0.3, "#2A1A28");
-      grad.addColorStop(0.6, "#1F1525"); grad.addColorStop(1, "#16101C");
-      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
-      // Warm amber glow top
-      const amberGlow = ctx.createRadialGradient(W * 0.5, H * 0.08, 0, W * 0.5, H * 0.08, 500);
-      amberGlow.addColorStop(0, "rgba(200,140,80,0.12)"); amberGlow.addColorStop(1, "transparent");
-      ctx.fillStyle = amberGlow; ctx.fillRect(0, 0, W, H);
-      // Rose glow bottom
-      const roseGlow = ctx.createRadialGradient(W * 0.5, H * 0.85, 0, W * 0.5, H * 0.85, 400);
-      roseGlow.addColorStop(0, "rgba(180,100,120,0.1)"); roseGlow.addColorStop(1, "transparent");
-      ctx.fillStyle = roseGlow; ctx.fillRect(0, 0, W, H);
-    } else {
-      const grad = ctx.createLinearGradient(0, 0, W, H);
-      grad.addColorStop(0, "#1A1432"); grad.addColorStop(0.4, "#2A1F4E");
-      grad.addColorStop(0.7, "#1E1638"); grad.addColorStop(1, "#161028");
-      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
-      // Warm accent glow top-right
-      const warmGlow = ctx.createRadialGradient(W * 0.8, H * 0.1, 0, W * 0.8, H * 0.1, 500);
-      warmGlow.addColorStop(0, "rgba(192,112,136,0.15)"); warmGlow.addColorStop(1, "transparent");
-      ctx.fillStyle = warmGlow; ctx.fillRect(0, 0, W, H);
-      // Teal accent glow bottom-left
-      const tealGlow = ctx.createRadialGradient(W * 0.2, H * 0.85, 0, W * 0.2, H * 0.85, 400);
-      tealGlow.addColorStop(0, "rgba(80,168,136,0.1)"); tealGlow.addColorStop(1, "transparent");
-      ctx.fillStyle = tealGlow; ctx.fillRect(0, 0, W, H);
+    function _softCard(ctx, x, y, w, h, r) {
+      r = r || 28;
+      ctx.save();
+      ctx.shadowColor = "rgba(120,80,60,0.08)"; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = "rgba(192,170,160,0.2)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.stroke();
+    }
+    function _divider(ctx, x1, x2, y) {
+      ctx.strokeStyle = "rgba(192,170,160,0.2)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x2, y); ctx.stroke();
     }
 
-    // ═══ SPARKLES — refined, 60 count ═══
-    for (let i = 0; i < 60; i++) {
-      const x = Math.random() * W, y = Math.random() * H;
-      const r = Math.random() * 2.5 + 0.3;
-      const alpha = Math.random() * 0.4 + 0.1;
-      const isGold = Math.random() > 0.7;
-      ctx.fillStyle = isGold ? `rgba(212,168,85,${alpha})` : `rgba(255,255,255,${alpha})`;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      if (r > 2) {
-        ctx.strokeStyle = `rgba(255,255,255,${alpha * 0.4})`; ctx.lineWidth = 0.6;
-        ctx.beginPath(); ctx.moveTo(x - r * 2, y); ctx.lineTo(x + r * 2, y); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x, y - r * 2); ctx.lineTo(x, y + r * 2); ctx.stroke();
-      }
-    }
+    // ═══ COLOURS ═══
+    const T = { head: "#3A2A20", body: "#6A5A50", light: "#9A8A80", rose: "#C07088", gold: "#D4A855", mint: "#50A888", cream: "#FDF6F0", blush: "#F5E6DA" };
+    const _dateStr = new Date().toLocaleDateString(navigator.language || "en-GB", { day: "numeric", month: "long", year: "numeric" });
+    const _maxW = W - 160;
 
-    // ═══ LOAD BABY PHOTO IMAGE (shared across cards) ═══
+    // ═══ BACKGROUND — warm cream gradient ═══
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#FDF6F0"); bg.addColorStop(0.4, "#F8EDE4"); bg.addColorStop(0.7, "#F5E6DA"); bg.addColorStop(1, "#EFD8C8");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // Soft blush glow top
+    const g1 = ctx.createRadialGradient(W * 0.5, H * 0.08, 0, W * 0.5, H * 0.08, 600);
+    g1.addColorStop(0, "rgba(220,180,200,0.2)"); g1.addColorStop(1, "transparent");
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
+    // Warm glow bottom
+    const g2 = ctx.createRadialGradient(W * 0.5, H * 0.9, 0, W * 0.5, H * 0.9, 500);
+    g2.addColorStop(0, "rgba(212,168,85,0.08)"); g2.addColorStop(1, "transparent");
+    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+
+    // ═══ LOAD PHOTO ═══
     let _photoImg = null;
     const _babyPhoto = imgSrc || activeChild?.photo || null;
     if (_babyPhoto) {
@@ -22788,344 +22753,204 @@ function App(){
       } catch { _photoImg = null; }
     }
 
-    // ═══ "OBubba" LOGO — subtle watermark top center ═══
+    // ═══ LOAD FONT ═══
+    try { await document.fonts.load("400 52px 'Parisienne'"); } catch {}
+
+    // ═══ TOP BRANDING ═══
     ctx.textAlign = "center";
     ctx.font = "400 56px 'Parisienne',cursive";
-    ctx.fillStyle = "rgba(240,232,248,0.15)";
-    ctx.fillText("OBubba", W / 2, 60);
+    ctx.fillStyle = T.rose;
+    ctx.fillText("OBubba", W / 2, 80);
+    // Thin decorative line
+    _divider(ctx, W / 2 - 120, W / 2 + 120, 100);
 
-    // ═══ COLOUR CONSTANTS ═══
-    const COL_HEAD = "#F0E8F8";
-    const COL_BODY = "rgba(240,232,248,0.7)";
-    const COL_GOLD = "#D4A855";
-    const COL_MINT = "#50A888";
-    const COL_LABEL = "rgba(240,232,248,0.5)";
-    const COL_SUBTLE = "rgba(240,232,248,0.3)";
-    const _dateStr = new Date().toLocaleDateString(navigator.language || "en-GB", { day: "numeric", month: "long", year: "numeric" });
-    const _maxTextW = W - 160;
-
-    // ═══ CARD-TYPE SPECIFIC CONTENT ═══
+    // ═══ CARD-TYPE CONTENT ═══
     ctx.textAlign = "center";
 
     if (cardType === "sleepwin") {
-      // ── SLEEP WIN — "A beautiful little win" ──
-      let curY = 100;
-
-      // Baby photo large centered
-      if (_photoImg) {
-        _drawCirclePhoto(ctx, _photoImg, W / 2, curY + 200, 200);
-        curY += 440;
-      } else {
-        curY += 80;
+      let curY = 140;
+      if (_photoImg) { _drawPhoto(ctx, _photoImg, W / 2, curY + 180, 170); curY += 400; }
+      else curY += 60;
+      // Title
+      const sz = _fitText(ctx, title || "A beautiful little win", _maxW, 54, 30);
+      ctx.font = "700 " + sz + "px Georgia,serif"; ctx.fillStyle = T.head;
+      _wrapText(ctx, title || "A beautiful little win", _maxW).forEach(l => { ctx.fillText(l, W / 2, curY); curY += sz + 14; });
+      curY += 30;
+      // Stats card
+      const det = typeof milestone === "object" ? milestone : {};
+      const cX = 80, cW = W - 160, cH = det.stat ? 420 : 300;
+      _softCard(ctx, cX, curY, cW, cH, 28);
+      let iy = curY + 60;
+      if (det.stat) {
+        const ss = _fitText(ctx, det.stat, cW - 100, 80, 36);
+        ctx.font = "700 " + ss + "px Georgia,serif"; ctx.fillStyle = T.gold;
+        ctx.fillText(det.stat, W / 2, iy + ss * 0.35); iy += ss + 16;
+        if (det.statLabel) { ctx.font = "400 24px -apple-system,sans-serif"; ctx.fillStyle = T.light; ctx.fillText(det.statLabel, W / 2, iy); iy += 40; }
+        _divider(ctx, cX + 60, cX + cW - 60, iy); iy += 30;
       }
-
-      // Title wrapped
-      const _swTitleSize = _fitText(ctx, title || "A beautiful little win", _maxTextW, 56, 32);
-      ctx.font = "bold " + _swTitleSize + "px Georgia,serif";
-      ctx.fillStyle = COL_HEAD;
-      const _swTitleLines = _wrapText(ctx, title || "A beautiful little win", _maxTextW);
-      _swTitleLines.forEach(l => { ctx.fillText(l, W / 2, curY); curY += _swTitleSize + 16; });
-      curY += 20;
-
-      // Glass card
-      const details = typeof milestone === "object" ? milestone : {};
-      const _swCardX = 80, _swCardW = W - 160, _swCardR = 24;
-      const _swCardH = details.stat ? 460 : 340;
-      const _swCardY = curY;
-      _glassCard(ctx, _swCardX, _swCardY, _swCardW, _swCardH, _swCardR);
-      let _swInY = _swCardY + 60;
-
-      // Big stat centered
-      if (details.stat) {
-        const _statSize = _fitText(ctx, details.stat, _swCardW - 100, 96, 40);
-        ctx.font = "bold " + _statSize + "px Georgia,serif";
-        ctx.fillStyle = COL_GOLD;
-        ctx.fillText(details.stat, W / 2, _swInY + _statSize * 0.4);
-        _swInY += _statSize + 20;
-        if (details.statLabel) {
-          ctx.font = "24px sans-serif"; ctx.fillStyle = COL_LABEL;
-          ctx.fillText(details.statLabel, W / 2, _swInY);
-          _swInY += 40;
-        }
-        // Divider
-        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(_swCardX + 60, _swInY); ctx.lineTo(_swCardX + _swCardW - 60, _swInY); ctx.stroke();
-        _swInY += 30;
-      }
-
-      // Message wrapped in card
-      ctx.font = "32px sans-serif"; ctx.fillStyle = COL_BODY;
-      const _swMsgLines = _wrapText(ctx, details.message || name + "'s sleep rhythm is getting stronger!", _swCardW - 100);
-      _swMsgLines.forEach(l => { ctx.fillText(l, W / 2, _swInY); _swInY += 42; });
-
-      // Date at card bottom
-      ctx.font = "22px sans-serif"; ctx.fillStyle = COL_SUBTLE;
-      ctx.fillText(_dateStr, W / 2, _swCardY + _swCardH - 30);
+      ctx.font = "400 30px -apple-system,sans-serif"; ctx.fillStyle = T.body;
+      _wrapText(ctx, det.message || name + "'s sleep rhythm is getting stronger!", cW - 100).forEach(l => { ctx.fillText(l, W / 2, iy); iy += 40; });
+      ctx.font = "400 22px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+      ctx.fillText(_dateStr, W / 2, curY + cH - 30);
 
     } else if (cardType === "milestone") {
-      // ── MILESTONE — "A special milestone" ──
-      let curY = 100;
-
-      // Load milestone-specific photo if available
+      let curY = 140;
       let _msPhoto = _photoImg;
       const _msData = typeof milestone === "object" ? milestone : {};
       const _msEmoji = _msData.emoji || (milestones && milestones[milestone]?.emoji) || "\u2728";
       if (_msData.photo || (milestones && milestones[milestone]?.photo)) {
-        const _msSrc = _msData.photo || milestones[milestone].photo;
         try {
           const _msImg = new Image(); _msImg.crossOrigin = "anonymous";
-          await new Promise((res, rej) => { _msImg.onload = res; _msImg.onerror = rej; _msImg.src = _msSrc; setTimeout(rej, 8000); });
+          await new Promise((res, rej) => { _msImg.onload = res; _msImg.onerror = rej; _msImg.src = _msData.photo || milestones[milestone].photo; setTimeout(rej, 8000); });
           _msPhoto = _msImg;
         } catch {}
       }
-
-      // Photo large centered
       if (_msPhoto) {
-        _drawCirclePhoto(ctx, _msPhoto, W / 2, curY + 200, 200);
-        // Emoji overlay on photo (bottom-right of circle)
-        ctx.font = "80px serif";
-        ctx.fillText(_msEmoji, W / 2 + 150, curY + 340);
-        curY += 450;
+        _drawPhoto(ctx, _msPhoto, W / 2, curY + 200, 190);
+        ctx.font = "72px serif"; ctx.fillText(_msEmoji, W / 2 + 140, curY + 340);
+        curY += 440;
       } else {
-        // No photo — show large emoji
-        ctx.font = "140px serif";
-        ctx.fillText(_msEmoji, W / 2, curY + 180);
-        curY += 280;
+        ctx.font = "120px serif"; ctx.fillText(_msEmoji, W / 2, curY + 160); curY += 240;
       }
-
-      // Title wrapped
-      const _msTitleSize = _fitText(ctx, title || "A special milestone", _maxTextW, 56, 28);
-      ctx.font = "bold " + _msTitleSize + "px Georgia,serif";
-      ctx.fillStyle = COL_HEAD;
-      const _msTitleLines = _wrapText(ctx, title || "A special milestone", _maxTextW);
-      _msTitleLines.forEach(l => { ctx.fillText(l, W / 2, curY); curY += _msTitleSize + 16; });
-      curY += 20;
-
-      // Glass card with congratulatory message
-      const _msCardX = 80, _msCardW = W - 160, _msCardR = 24;
-      const _msCardH = 380;
-      _glassCard(ctx, _msCardX, curY, _msCardW, _msCardH, _msCardR);
-      let _msInY = curY + 60;
-
-      // "First [milestone]!" text
+      const sz = _fitText(ctx, title || "A special milestone", _maxW, 54, 28);
+      ctx.font = "700 " + sz + "px Georgia,serif"; ctx.fillStyle = T.head;
+      _wrapText(ctx, title || "A special milestone", _maxW).forEach(l => { ctx.fillText(l, W / 2, curY); curY += sz + 14; });
+      curY += 30;
+      const cX = 80, cW = W - 160, cH = 340;
+      _softCard(ctx, cX, curY, cW, cH, 28);
+      let iy = curY + 55;
       if (_msData.label || milestone) {
-        const _msLabel = "First " + (_msData.label || milestone || "milestone") + "!";
-        const _msLabelSize = _fitText(ctx, _msLabel, _msCardW - 100, 44, 24);
-        ctx.font = "bold " + _msLabelSize + "px Georgia,serif"; ctx.fillStyle = COL_GOLD;
-        ctx.fillText(_msLabel, W / 2, _msInY);
-        _msInY += _msLabelSize + 24;
+        const lb = "First " + (_msData.label || milestone || "milestone") + "!";
+        const ls = _fitText(ctx, lb, cW - 100, 42, 24);
+        ctx.font = "700 " + ls + "px Georgia,serif"; ctx.fillStyle = T.rose;
+        ctx.fillText(lb, W / 2, iy); iy += ls + 20;
       }
-
-      // Congratulatory message
-      ctx.font = "30px sans-serif"; ctx.fillStyle = COL_BODY;
-      const _msMsg = _msData.message || "Proud parent moment! " + name + " just reached a special milestone.";
-      const _msMsgLines = _wrapText(ctx, _msMsg, _msCardW - 100);
-      _msMsgLines.forEach(l => { ctx.fillText(l, W / 2, _msInY); _msInY += 40; });
-
-      // Date
-      ctx.font = "22px sans-serif"; ctx.fillStyle = COL_SUBTLE;
-      ctx.fillText(_dateStr, W / 2, curY + _msCardH - 30);
+      ctx.font = "400 28px -apple-system,sans-serif"; ctx.fillStyle = T.body;
+      _wrapText(ctx, _msData.message || "Proud parent moment! " + name + " just reached a special milestone.", cW - 100).forEach(l => { ctx.fillText(l, W / 2, iy); iy += 38; });
+      ctx.font = "400 22px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+      ctx.fillText(_dateStr, W / 2, curY + cH - 30);
 
     } else if (cardType === "rhythm") {
-      // ── RHYTHM — "Oliver's Week" ──
-      let curY = 100;
-
-      // Baby photo smaller, top center
-      if (_photoImg) {
-        _drawCirclePhoto(ctx, _photoImg, W / 2, curY + 130, 120);
-        curY += 290;
-      } else {
-        curY += 60;
-      }
-
-      // Title
-      const _rhTitle = name + "\u2019s Week";
-      const _rhTitleSize = _fitText(ctx, _rhTitle, _maxTextW, 58, 32);
-      ctx.font = "bold " + _rhTitleSize + "px Georgia,serif"; ctx.fillStyle = COL_HEAD;
-      ctx.fillText(_rhTitle, W / 2, curY);
-      curY += _rhTitleSize + 12;
-
-      // Spaced tracking subtitle
-      ctx.font = "bold 22px sans-serif"; ctx.fillStyle = COL_GOLD;
-      ctx.fillText("W E E K L Y   R H Y T H M", W / 2, curY);
-      curY += 50;
-
-      // 2x2 stat grid in glass cards
+      let curY = 140;
+      if (_photoImg) { _drawPhoto(ctx, _photoImg, W / 2, curY + 120, 110); curY += 270; }
+      else curY += 50;
+      const rhTitle = name + "\u2019s Week";
+      const rhs = _fitText(ctx, rhTitle, _maxW, 56, 32);
+      ctx.font = "700 " + rhs + "px Georgia,serif"; ctx.fillStyle = T.head;
+      ctx.fillText(rhTitle, W / 2, curY); curY += rhs + 10;
+      ctx.font = "600 20px -apple-system,sans-serif"; ctx.fillStyle = T.rose;
+      ctx.fillText("W E E K L Y   R H Y T H M", W / 2, curY); curY += 50;
+      // 2x2 stat grid
       const stats = typeof milestone === "object" ? milestone : {};
-      const _rhPairs = [
-        [stats.avgNaps || "--", "avg naps/day"],
-        [stats.avgNight || "--", "avg night sleep"],
-        [stats.avgDay || "--", "avg day sleep"],
-        [stats.longestStretch || "--", "longest stretch"]
-      ];
-      const _rhGap = 20, _rhColW = (W - 160 - _rhGap) / 2, _rhRowH = 200;
-      _rhPairs.forEach((s, i) => {
+      const pairs = [[stats.avgNaps || "--", "avg naps/day", T.rose], [stats.avgNight || "--", "avg night sleep", T.mint], [stats.avgDay || "--", "avg day sleep", T.gold], [stats.longestStretch || "--", "longest stretch", T.rose]];
+      const gap = 20, colW = (W - 160 - gap) / 2, rowH = 180;
+      pairs.forEach((s, i) => {
         const col = i % 2, row = Math.floor(i / 2);
-        const sx = 80 + col * (_rhColW + _rhGap), sy = curY + row * (_rhRowH + _rhGap);
-        _glassCard(ctx, sx, sy, _rhColW, _rhRowH, 20);
-        // Large stat number
-        const _rhStatSize = _fitText(ctx, String(s[0]), _rhColW - 40, 64, 28);
-        ctx.font = "bold " + _rhStatSize + "px Georgia,serif";
-        ctx.fillStyle = i % 2 === 0 ? COL_GOLD : COL_MINT;
-        ctx.fillText(s[0], sx + _rhColW / 2, sy + _rhRowH / 2 + 5);
-        // Label below
-        ctx.font = "20px sans-serif"; ctx.fillStyle = COL_LABEL;
-        ctx.fillText(s[1], sx + _rhColW / 2, sy + _rhRowH / 2 + 40);
+        const sx = 80 + col * (colW + gap), sy = curY + row * (rowH + gap);
+        _softCard(ctx, sx, sy, colW, rowH, 22);
+        const vs = _fitText(ctx, String(s[0]), colW - 40, 56, 24);
+        ctx.font = "700 " + vs + "px Georgia,serif"; ctx.fillStyle = s[2];
+        ctx.fillText(s[0], sx + colW / 2, sy + rowH / 2 + 5);
+        ctx.font = "400 20px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+        ctx.fillText(s[1], sx + colW / 2, sy + rowH / 2 + 38);
       });
-      curY += _rhRowH * 2 + _rhGap + 40;
-
-      // Vibe text at bottom
+      curY += rowH * 2 + gap + 30;
       if (stats.vibe) {
-        _glassCard(ctx, 80, curY, W - 160, 140, 24);
-        const _vibeSize = _fitText(ctx, stats.vibe, _maxTextW - 40, 40, 22);
-        ctx.font = "bold " + _vibeSize + "px Georgia,serif"; ctx.fillStyle = COL_HEAD;
-        ctx.fillText(stats.vibe, W / 2, curY + 60);
-        ctx.font = "20px sans-serif"; ctx.fillStyle = COL_LABEL;
-        ctx.fillText("This week\u2019s rhythm vibe", W / 2, curY + 100);
+        _softCard(ctx, 80, curY, W - 160, 130, 24);
+        const vs2 = _fitText(ctx, stats.vibe, _maxW - 40, 38, 22);
+        ctx.font = "italic 700 " + vs2 + "px Georgia,serif"; ctx.fillStyle = T.head;
+        ctx.fillText(stats.vibe, W / 2, curY + 55);
+        ctx.font = "400 20px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+        ctx.fillText("This week\u2019s rhythm vibe", W / 2, curY + 95);
       }
 
     } else if (cardType === "badnight") {
-      // ── BAD NIGHT — "Survived the night" (warmer tones) ──
-      let curY = 120;
-
-      // Medal emoji large and centered with warm glow
-      const _bnGlow = ctx.createRadialGradient(W / 2, curY + 160, 0, W / 2, curY + 160, 200);
-      _bnGlow.addColorStop(0, "rgba(200,140,80,0.15)"); _bnGlow.addColorStop(1, "transparent");
-      ctx.fillStyle = _bnGlow; ctx.beginPath(); ctx.arc(W / 2, curY + 160, 200, 0, Math.PI * 2); ctx.fill();
-      ctx.font = "160px serif"; ctx.textAlign = "center";
-      ctx.fillText("\u{1F3C5}", W / 2, curY + 220);
-      curY += 360;
-
-      // Title
-      ctx.font = "bold 56px Georgia,serif"; ctx.fillStyle = COL_HEAD;
-      ctx.fillText("Survived the night", W / 2, curY);
-      curY += 40;
-      ctx.font = "26px sans-serif"; ctx.fillStyle = "rgba(240,220,200,0.6)";
-      ctx.fillText("and you\u2019re still here. That counts.", W / 2, curY);
-      curY += 60;
-
-      // Wake count as big stat in glass card
-      const details = typeof milestone === "object" ? milestone : {};
-      const _bnCardX = 80, _bnCardW = W - 160, _bnCardR = 24;
-      const _bnCardH = details.wakes ? 500 : 360;
-      _glassCard(ctx, _bnCardX, curY, _bnCardW, _bnCardH, _bnCardR);
-      let _bnInY = curY + 60;
-
-      if (details.wakes) {
-        const _bnWakeStr = String(details.wakes);
-        const _bnWakeSize = _fitText(ctx, _bnWakeStr, _bnCardW - 100, 120, 48);
-        ctx.font = "bold " + _bnWakeSize + "px Georgia,serif"; ctx.fillStyle = "#E8A84C";
-        ctx.fillText(_bnWakeStr, W / 2, _bnInY + _bnWakeSize * 0.4);
-        _bnInY += _bnWakeSize + 10;
-        ctx.font = "26px sans-serif"; ctx.fillStyle = "rgba(240,220,200,0.5)";
-        ctx.fillText("wakes \u2014 and you handled every one", W / 2, _bnInY);
-        _bnInY += 50;
-        // Divider
-        ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(_bnCardX + 60, _bnInY); ctx.lineTo(_bnCardX + _bnCardW - 60, _bnInY); ctx.stroke();
-        _bnInY += 30;
+      let curY = 160;
+      // Warm glow behind medal
+      const gl = ctx.createRadialGradient(W / 2, curY + 140, 0, W / 2, curY + 140, 200);
+      gl.addColorStop(0, "rgba(212,168,85,0.12)"); gl.addColorStop(1, "transparent");
+      ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(W / 2, curY + 140, 200, 0, Math.PI * 2); ctx.fill();
+      ctx.font = "140px serif"; ctx.textAlign = "center";
+      ctx.fillText("\u{1F3C5}", W / 2, curY + 200); curY += 340;
+      ctx.font = "700 52px Georgia,serif"; ctx.fillStyle = T.head;
+      ctx.fillText("Survived the night", W / 2, curY); curY += 38;
+      ctx.font = "400 26px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+      ctx.fillText("and you\u2019re still here. That counts.", W / 2, curY); curY += 60;
+      const det = typeof milestone === "object" ? milestone : {};
+      const cX = 80, cW = W - 160, cH = det.wakes ? 440 : 320;
+      _softCard(ctx, cX, curY, cW, cH, 28);
+      let iy = curY + 55;
+      if (det.wakes) {
+        const ws = _fitText(ctx, String(det.wakes), cW - 100, 100, 44);
+        ctx.font = "700 " + ws + "px Georgia,serif"; ctx.fillStyle = T.gold;
+        ctx.fillText(String(det.wakes), W / 2, iy + ws * 0.35); iy += ws + 8;
+        ctx.font = "400 26px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+        ctx.fillText("wakes \u2014 and you handled every one", W / 2, iy); iy += 48;
+        _divider(ctx, cX + 60, cX + cW - 60, iy); iy += 28;
       }
-
-      // Supportive message wrapped
-      ctx.font = "30px sans-serif"; ctx.fillStyle = "rgba(240,220,200,0.7)";
-      const _bnMsg = details.message || "Last night was rough. You showed up anyway. That\u2019s everything.";
-      const _bnMsgLines = _wrapText(ctx, _bnMsg, _bnCardW - 100);
-      _bnMsgLines.forEach(l => { ctx.fillText(l, W / 2, _bnInY); _bnInY += 40; });
-
-      // Date
-      ctx.font = "22px sans-serif"; ctx.fillStyle = COL_SUBTLE;
-      ctx.fillText(_dateStr, W / 2, curY + _bnCardH - 30);
+      ctx.font = "400 28px -apple-system,sans-serif"; ctx.fillStyle = T.body;
+      _wrapText(ctx, det.message || "Last night was rough. You showed up anyway. That\u2019s everything.", cW - 100).forEach(l => { ctx.fillText(l, W / 2, iy); iy += 38; });
+      ctx.font = "400 22px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+      ctx.fillText(_dateStr, W / 2, curY + cH - 28);
 
     } else if (cardType === "village" || cardType === "referral") {
-      // ── VILLAGE / REFERRAL — "It takes a village" ──
-      let curY = 160;
-
-      // Title
-      const _vlTitle = cardType === "village" ? "It takes a village" : "Pass it on";
-      const _vlTitleSize = _fitText(ctx, _vlTitle, _maxTextW, 64, 36);
-      ctx.font = "bold " + _vlTitleSize + "px Georgia,serif"; ctx.fillStyle = COL_HEAD;
-      ctx.fillText(_vlTitle, W / 2, curY);
-      curY += _vlTitleSize + 16;
-
-      // Subtitle
-      ctx.font = "24px sans-serif"; ctx.fillStyle = COL_LABEL;
-      ctx.fillText(cardType === "village" ? "Share the love, grow the village" : "Give a friend a free week", W / 2, curY);
-      curY += 60;
-
-      // Baby photo if available (smaller)
-      if (_photoImg) {
-        _drawCirclePhoto(ctx, _photoImg, W / 2, curY + 120, 100);
-        curY += 270;
-      } else {
-        curY += 40;
-      }
-
-      // Glass card with invitation text
-      const _vlCardX = 80, _vlCardW = W - 160, _vlCardR = 24;
-      const _vlCardH = cardType === "referral" ? 520 : 380;
-      _glassCard(ctx, _vlCardX, curY, _vlCardW, _vlCardH, _vlCardR);
-      let _vlInY = curY + 60;
-
-      ctx.font = "30px sans-serif"; ctx.fillStyle = COL_BODY;
-      const _vlBody = cardType === "village"
-        ? "Invite friends to OBubba and you both get a week free of OBubba Pro!"
-        : "Share this referral pass with a friend and give them a free week of OBubba.";
-      const _vlBodyLines = _wrapText(ctx, _vlBody, _vlCardW - 100);
-      _vlBodyLines.forEach(l => { ctx.fillText(l, W / 2, _vlInY); _vlInY += 42; });
-
-      // Referral pass ticket with gold border
+      let curY = 180;
+      const vlTitle = cardType === "village" ? "It takes a village" : "Pass it on";
+      const vs = _fitText(ctx, vlTitle, _maxW, 60, 34);
+      ctx.font = "700 " + vs + "px Georgia,serif"; ctx.fillStyle = T.head;
+      ctx.fillText(vlTitle, W / 2, curY); curY += vs + 14;
+      ctx.font = "400 24px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+      ctx.fillText(cardType === "village" ? "Share the love, grow the village" : "Give a friend a free week", W / 2, curY); curY += 55;
+      if (_photoImg) { _drawPhoto(ctx, _photoImg, W / 2, curY + 110, 95); curY += 250; }
+      else curY += 30;
+      const cX = 80, cW = W - 160, cH = cardType === "referral" ? 480 : 340;
+      _softCard(ctx, cX, curY, cW, cH, 28);
+      let iy = curY + 55;
+      ctx.font = "400 28px -apple-system,sans-serif"; ctx.fillStyle = T.body;
+      const vlBody = cardType === "village" ? "Invite friends to OBubba and you both get a week free of OBubba Pro!" : "Share this referral pass with a friend and give them a free week of OBubba.";
+      _wrapText(ctx, vlBody, cW - 100).forEach(l => { ctx.fillText(l, W / 2, iy); iy += 40; });
       if (cardType === "referral") {
-        _vlInY += 30;
-        const _tW = 500, _tH = 160, _tX = W / 2 - _tW / 2, _tY = _vlInY;
-        // Ticket background
+        iy += 25;
+        const tW = 460, tH = 140, tX = W / 2 - tW / 2;
         ctx.fillStyle = "rgba(212,168,85,0.08)";
-        ctx.beginPath(); ctx.roundRect(_tX, _tY, _tW, _tH, 16); ctx.fill();
-        // Gold border
-        ctx.strokeStyle = "rgba(212,168,85,0.6)"; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.roundRect(_tX, _tY, _tW, _tH, 16); ctx.stroke();
-        // Dashed line left/right (ticket feel)
-        ctx.setLineDash([6, 4]); ctx.strokeStyle = "rgba(212,168,85,0.3)"; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(_tX + 40, _tY + 10); ctx.lineTo(_tX + 40, _tY + _tH - 10); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(_tX + _tW - 40, _tY + 10); ctx.lineTo(_tX + _tW - 40, _tY + _tH - 10); ctx.stroke();
+        ctx.beginPath(); ctx.roundRect(tX, iy, tW, tH, 16); ctx.fill();
+        ctx.strokeStyle = "rgba(212,168,85,0.4)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.roundRect(tX, iy, tW, tH, 16); ctx.stroke();
+        ctx.setLineDash([5, 4]); ctx.strokeStyle = "rgba(212,168,85,0.2)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(tX + 36, iy + 10); ctx.lineTo(tX + 36, iy + tH - 10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(tX + tW - 36, iy + 10); ctx.lineTo(tX + tW - 36, iy + tH - 10); ctx.stroke();
         ctx.setLineDash([]);
-        // Ticket text
-        ctx.font = "bold 26px Georgia,serif"; ctx.fillStyle = COL_GOLD;
-        ctx.fillText("Referral Pass", W / 2, _tY + 60);
-        ctx.font = "bold 40px Georgia,serif"; ctx.fillStyle = "#E8A84C";
-        ctx.fillText("1 FREE WEEK", W / 2, _tY + 115);
+        ctx.font = "700 24px Georgia,serif"; ctx.fillStyle = T.gold;
+        ctx.fillText("Referral Pass", W / 2, iy + 52);
+        ctx.font = "700 38px Georgia,serif"; ctx.fillStyle = T.rose;
+        ctx.fillText("1 FREE WEEK", W / 2, iy + 105);
       }
-
-      // Date
-      ctx.font = "22px sans-serif"; ctx.fillStyle = COL_SUBTLE;
-      ctx.fillText(_dateStr, W / 2, curY + _vlCardH - 30);
+      ctx.font = "400 22px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+      ctx.fillText(_dateStr, W / 2, curY + cH - 28);
 
     } else {
-      // ── DEFAULT / FALLBACK MILESTONE ──
-      let curY = 100;
-      if (_photoImg) {
-        _drawCirclePhoto(ctx, _photoImg, W / 2, curY + 200, 200);
-        curY += 450;
-      } else { curY += 80; }
-      const _dfTitleSize = _fitText(ctx, title || "A special milestone", _maxTextW, 56, 28);
-      ctx.font = "bold " + _dfTitleSize + "px Georgia,serif"; ctx.fillStyle = COL_HEAD;
-      const _dfTitleLines = _wrapText(ctx, title || "A special milestone", _maxTextW);
-      _dfTitleLines.forEach(l => { ctx.fillText(l, W / 2, curY); curY += _dfTitleSize + 16; });
-      curY += 20;
-      _glassCard(ctx, 80, curY, W - 160, 360, 24);
-      ctx.font = "30px sans-serif"; ctx.fillStyle = COL_BODY;
-      const _dfMsg = "Proud parent moment! " + name + " just reached a special milestone. \u{1F389}";
-      const _dfMsgLines = _wrapText(ctx, _dfMsg, W - 260);
-      let _dfInY = curY + 80;
-      _dfMsgLines.forEach(l => { ctx.fillText(l, W / 2, _dfInY); _dfInY += 42; });
-      ctx.font = "22px sans-serif"; ctx.fillStyle = COL_SUBTLE;
-      ctx.fillText(_dateStr, W / 2, curY + 330);
+      // DEFAULT / FALLBACK
+      let curY = 140;
+      if (_photoImg) { _drawPhoto(ctx, _photoImg, W / 2, curY + 190, 180); curY += 420; }
+      else curY += 70;
+      const sz = _fitText(ctx, title || "A special milestone", _maxW, 54, 28);
+      ctx.font = "700 " + sz + "px Georgia,serif"; ctx.fillStyle = T.head;
+      _wrapText(ctx, title || "A special milestone", _maxW).forEach(l => { ctx.fillText(l, W / 2, curY); curY += sz + 14; });
+      curY += 30;
+      const cX = 80, cW = W - 160, cH = 320;
+      _softCard(ctx, cX, curY, cW, cH, 28);
+      let iy = curY + 70;
+      ctx.font = "400 28px -apple-system,sans-serif"; ctx.fillStyle = T.body;
+      _wrapText(ctx, "Proud parent moment! " + name + " just reached a special milestone.", cW - 100).forEach(l => { ctx.fillText(l, W / 2, iy); iy += 40; });
+      ctx.font = "400 22px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+      ctx.fillText(_dateStr, W / 2, curY + cH - 28);
     }
 
-    // ═══ BOTTOM BRANDING — all card types ═══
+    // ═══ BOTTOM BRANDING ═══
     ctx.textAlign = "center";
-    ctx.font = "400 30px 'Parisienne',cursive"; ctx.fillStyle = "rgba(240,232,248,0.6)";
+    ctx.font = "400 34px 'Parisienne',cursive"; ctx.fillStyle = T.rose;
     ctx.fillText("Tracked with OBubba", W / 2, H - 100);
-    ctx.font = "bold 22px sans-serif"; ctx.fillStyle = "rgba(212,168,85,0.6)";
+    ctx.font = "500 22px -apple-system,sans-serif"; ctx.fillStyle = T.gold;
     ctx.fillText("obubba.com", W / 2, H - 60);
 
     let dataUrl;
@@ -23316,9 +23141,7 @@ function App(){
     return lines.join("\r\n");
   }
 
-  // ═══ SHARE CARD RENDERER ═══
-  // Generates 1080x1920 PNG share cards (Instagram Story format).
-  // Card types: "sleepwin" | "milestone" | "badnight" | "rhythm" | "village" | "referral"
+  // ═══ SHARE CARD RENDERER (Square 1080x1080) ═══
   function _wrapCanvasText(ctx, text, maxW) {
     const words = (text||"").split(" "); const lines = []; let line = "";
     words.forEach(w => {
@@ -23331,329 +23154,252 @@ function App(){
   }
 
   async function renderShareCard(cardType, title, data) {
-    // 1080×1080 square, premium dark gradient with glass-morphism and auto-fit text
     const W = 1080, H = 1080;
     const canvas = document.createElement("canvas"); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
-    // roundRect polyfill for iOS < 16 (where ctx.roundRect is undefined)
     if (!ctx.roundRect) {
-      ctx.roundRect = function(x,y,w,h,r){
-        if (typeof r === "number") r = [r,r,r,r];
-        else if (!Array.isArray(r)) r = [0,0,0,0];
-        this.moveTo(x+r[0], y);
-        this.arcTo(x+w, y,   x+w, y+h, r[1]);
-        this.arcTo(x+w, y+h, x,   y+h, r[2]);
-        this.arcTo(x,   y+h, x,   y,   r[3]);
-        this.arcTo(x,   y,   x+w, y,   r[0]);
-        this.closePath();
-        return this;
-      };
+      ctx.roundRect = function(x,y,w,h,r){ if(typeof r==="number") r=[r,r,r,r]; else if(!Array.isArray(r)) r=[0,0,0,0]; this.moveTo(x+r[0],y); this.arcTo(x+w,y,x+w,y+h,r[1]); this.arcTo(x+w,y+h,x,y+h,r[2]); this.arcTo(x,y+h,x,y,r[3]); this.arcTo(x,y,x+w,y,r[0]); this.closePath(); return this; };
     }
     const name = babyName || "Baby";
     const details = data || {};
-    const _pad = 60; // outer padding
+    const _pad = 60;
+    const T = { head: "#3A2A20", body: "#6A5A50", light: "#9A8A80", rose: "#C07088", gold: "#D4A855", mint: "#50A888" };
 
-    // ── Warm light background (matches in-app celebration card) ──
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, "#F6EDE4"); grad.addColorStop(0.5, "#F0E2D6"); grad.addColorStop(1, "#EAD8CC");
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
-    // Soft pink/lilac glow top center
-    const topGlow = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, W*0.7);
-    topGlow.addColorStop(0, "rgba(220,200,230,0.35)"); topGlow.addColorStop(1, "transparent");
-    ctx.fillStyle = topGlow; ctx.fillRect(0, 0, W, H);
+    // ── Background ──
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, "#FDF6F0"); bg.addColorStop(0.5, "#F8EDE4"); bg.addColorStop(1, "#F2DDD0");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    const glow = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, W*0.6);
+    glow.addColorStop(0, "rgba(220,190,210,0.2)"); glow.addColorStop(1, "transparent");
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
 
-    // ── Main card container (glass card with rounded corners) ──
-    const cardX = _pad, cardY = _pad, cardW = W - _pad*2, cardH = H - _pad*2, cardR = 36;
-    ctx.fillStyle = "rgba(240,230,240,0.55)";
-    ctx.shadowColor = "rgba(0,0,0,0.06)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 10;
-    ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, cardR); ctx.fill();
-    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = "rgba(200,190,220,0.4)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, cardR); ctx.stroke();
+    // ── Main card ──
+    const cX = _pad, cY = _pad, cW = W - _pad*2, cH = H - _pad*2, cR = 32;
+    ctx.save();
+    ctx.shadowColor = "rgba(120,80,60,0.08)"; ctx.shadowBlur = 30; ctx.shadowOffsetY = 8;
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.beginPath(); ctx.roundRect(cX, cY, cW, cH, cR); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = "rgba(192,170,160,0.2)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(cX, cY, cW, cH, cR); ctx.stroke();
 
-    // ── Ensure Parisienne (brand font) is loaded for canvas rendering ──
-    try { await document.fonts.load("400 52px 'Parisienne'"); } catch {}
+    try { await document.fonts.load("400 48px 'Parisienne'"); } catch {}
 
-    // ── Helper: spaced uppercase text ──
-    const _drawSpaced = (text, x, y, spacing) => {
-      const chars = text.split(""); let totalW = 0;
-      chars.forEach(c => totalW += ctx.measureText(c).width + (spacing||0)); totalW -= (spacing||0);
-      let cx = x - totalW/2; ctx.textAlign = "left";
-      chars.forEach(c => { ctx.fillText(c, cx, y); cx += ctx.measureText(c).width + (spacing||0); });
-      ctx.textAlign = "center";
-    };
+    let cursor = cY + 40;
+    const _profilePhotoSrc = activeChild?.photo || null;
 
-    // ── Layout cursor (flows top to bottom) ──
-    let cursor = cardY + 40;
-    const hasExtraPhoto = !!details.extraPhoto;
-    const _profilePhotoSrc = (activeChild && activeChild.photo) ? activeChild.photo : null;
+    // ── Logo ──
+    ctx.font = "400 44px 'Parisienne',cursive"; ctx.fillStyle = T.rose; ctx.textAlign = "center";
+    ctx.fillText("OBubba", W/2, cursor + 34); cursor += 50;
 
-    // ── OBUBBA brand logo (top of card, Parisienne script font) ──
-    ctx.font = "400 48px 'Parisienne', cursive";
-    ctx.fillStyle = "#5B4060";
-    ctx.textAlign = "center";
-    ctx.fillText("OBubba", W/2, cursor + 36);
-    cursor += 55;
-
-    // ── Profile photo (circle, below logo) ──
+    // ── Profile photo ──
     if (_profilePhotoSrc) {
-      const photoR = 80, photoCx = W/2, photoCy = cursor + photoR;
+      const pr = 70, pcx = W/2, pcy = cursor + pr;
       try {
-        const _pImg = new Image();
-        await new Promise((res,rej)=>{_pImg.onload=res; _pImg.onerror=rej; _pImg.src=_profilePhotoSrc; setTimeout(rej, 8000);});
-        ctx.save(); ctx.shadowColor = "rgba(192,112,136,0.25)"; ctx.shadowBlur = 20;
-        ctx.beginPath(); ctx.arc(photoCx, photoCy, photoR+3, 0, Math.PI*2);
-        ctx.strokeStyle = "rgba(180,170,200,0.5)"; ctx.lineWidth = 3; ctx.stroke();
+        const pImg = new Image();
+        await new Promise((res,rej)=>{pImg.onload=res;pImg.onerror=rej;pImg.src=_profilePhotoSrc;setTimeout(rej,8000);});
+        ctx.save(); ctx.shadowColor = "rgba(120,80,60,0.12)"; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+        ctx.fillStyle = "#F5E6DA";
+        ctx.beginPath(); ctx.arc(pcx, pcy, pr+3, 0, Math.PI*2); ctx.fill();
         ctx.restore();
-        ctx.save();
-        ctx.beginPath(); ctx.arc(photoCx, photoCy, photoR, 0, Math.PI*2); ctx.clip();
-        const pw = _pImg.width, ph = _pImg.height, ps = Math.max((photoR*2)/pw, (photoR*2)/ph);
-        ctx.drawImage(_pImg, photoCx-(pw*ps)/2, photoCy-(ph*ps)/2, pw*ps, ph*ps);
+        ctx.strokeStyle = "rgba(192,112,136,0.25)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(pcx, pcy, pr+1, 0, Math.PI*2); ctx.stroke();
+        ctx.save(); ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, Math.PI*2); ctx.clip();
+        const pw = pImg.width, ph = pImg.height, ps = Math.max((pr*2)/pw, (pr*2)/ph);
+        ctx.drawImage(pImg, pcx-(pw*ps)/2, pcy-(ph*ps)/2, pw*ps, ph*ps);
         ctx.restore();
-        cursor = photoCy + photoR + 30;
-      } catch(e) { cursor += 30; }
-    } else {
-      cursor += 30;
-    }
+        cursor = pcy + pr + 24;
+      } catch { cursor += 24; }
+    } else { cursor += 24; }
 
-    // ── Party popper emoji ──
-    ctx.font = "80px serif"; ctx.textAlign = "center";
-    ctx.fillText("\u{1F389}", W/2, cursor + 70);
-    cursor += 100;
+    // ── Emoji ──
+    ctx.font = "64px serif"; ctx.textAlign = "center";
+    ctx.fillText("\u{1F389}", W/2, cursor + 56); cursor += 80;
 
-    // ── Title (big, bold) ──
-    ctx.font = "700 52px 'Cormorant Garamond', Georgia, serif";
-    ctx.fillStyle = "#3A2A20";
-    ctx.textAlign = "center";
+    // ── Title ──
+    ctx.font = "700 46px Georgia,serif"; ctx.fillStyle = T.head; ctx.textAlign = "center";
     const titleText = details.message || title || name + "'s Milestone";
-    const titleLines = _wrapCanvasText(ctx, titleText, cardW - 100);
-    titleLines.forEach(l => { ctx.fillText(l, W/2, cursor + 50); cursor += 60; });
-    cursor += 10;
+    _wrapCanvasText(ctx, titleText, cW - 100).forEach(l => { ctx.fillText(l, W/2, cursor + 44); cursor += 54; });
+    cursor += 8;
 
     // ── Subtitle ──
     if (details.statLabel || title) {
-      ctx.font = "400 30px -apple-system, sans-serif";
-      ctx.fillStyle = "#6A5A50";
-      const subText = details.statLabel === "since birth" ? "Half a year of firsts. You're doing an amazing job." : (details.statLabel || "");
-      if (subText) {
-        const subLines = _wrapCanvasText(ctx, subText, cardW - 120);
-        subLines.forEach(l => { ctx.fillText(l, W/2, cursor + 30); cursor += 38; });
-        cursor += 15;
-      }
+      ctx.font = "400 26px -apple-system,sans-serif"; ctx.fillStyle = T.body;
+      const sub = details.statLabel === "since birth" ? "Half a year of firsts. You're doing an amazing job." : (details.statLabel || "");
+      if (sub) { _wrapCanvasText(ctx, sub, cW - 120).forEach(l => { ctx.fillText(l, W/2, cursor + 26); cursor += 34; }); cursor += 10; }
     }
 
-    // ── Stat boxes row (3 boxes side by side) ──
+    // ── Stat boxes ──
     const statStr = details.stat || "";
-    const statParts = statStr.split(" · ").map(s => {
-      const m = s.match(/^(\d[\d,]*)\s+(.+)$/);
-      return m ? { num: m[1], label: m[2] } : { num: s, label: "" };
-    });
+    const statParts = statStr.split(" \u00B7 ").map(s => { const m = s.match(/^(\d[\d,]*)\s+(.+)$/); return m ? {num:m[1],label:m[2]} : {num:s,label:""}; });
     if (statParts.length >= 2) {
-      const boxCount = statParts.length;
-      const boxGap = 20, totalGap = boxGap * (boxCount - 1);
-      const boxW = Math.floor((cardW - 100 - totalGap) / boxCount);
-      const boxH = 110, boxR = 18;
-      const startX = cardX + (cardW - (boxW * boxCount + totalGap)) / 2;
-      const boxY = cursor + 20;
-      const boxColors = ["#C07088", "#50A888", "#D4A855"];
+      const bc = statParts.length, bGap = 16, bW = Math.floor((cW - 80 - bGap*(bc-1)) / bc), bH = 90, bR = 16;
+      const sX = cX + (cW - (bW*bc + bGap*(bc-1))) / 2, bY = cursor + 16;
+      const cols = [T.rose, T.mint, T.gold];
       statParts.forEach((sp, i) => {
-        const bx = startX + i * (boxW + boxGap);
-        ctx.fillStyle = "rgba(255,255,255,0.65)";
-        ctx.shadowColor = "rgba(0,0,0,0.04)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
-        ctx.beginPath(); ctx.roundRect(bx, boxY, boxW, boxH, boxR); ctx.fill();
-        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-        ctx.strokeStyle = "rgba(200,190,210,0.3)"; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.roundRect(bx, boxY, boxW, boxH, boxR); ctx.stroke();
-        ctx.font = "700 42px 'Cormorant Garamond', Georgia, serif"; ctx.fillStyle = boxColors[i % 3];
-        ctx.textAlign = "center"; ctx.fillText(sp.num, bx + boxW/2, boxY + 50);
-        ctx.font = "500 20px -apple-system, sans-serif"; ctx.fillStyle = "#6A5A50";
-        ctx.fillText(sp.label, bx + boxW/2, boxY + 82);
+        const bx = sX + i*(bW+bGap);
+        ctx.save(); ctx.shadowColor = "rgba(120,80,60,0.06)"; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        ctx.beginPath(); ctx.roundRect(bx, bY, bW, bH, bR); ctx.fill(); ctx.restore();
+        ctx.strokeStyle = "rgba(192,170,160,0.15)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect(bx, bY, bW, bH, bR); ctx.stroke();
+        ctx.font = "700 36px Georgia,serif"; ctx.fillStyle = cols[i%3]; ctx.textAlign = "center";
+        ctx.fillText(sp.num, bx+bW/2, bY+40);
+        ctx.font = "500 18px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+        ctx.fillText(sp.label, bx+bW/2, bY+68);
       });
-      cursor = boxY + boxH + 25;
+      cursor = bY + bH + 20;
     }
 
-    // ── User-attached photo (via "Add Photo" / "Change Photo") ──
-    if (hasExtraPhoto) {
+    // ── Extra photo ──
+    if (details.extraPhoto) {
       try {
-        const epImg = new Image();
-        await new Promise((res,rej)=>{epImg.onload=res;epImg.onerror=rej;epImg.src=details.extraPhoto;setTimeout(rej,8000);});
-        const epR = 80, epCx = W/2, epCy = cursor + epR + 10;
-        ctx.save(); ctx.shadowColor = "rgba(192,112,136,0.2)"; ctx.shadowBlur = 16;
-        ctx.beginPath(); ctx.arc(epCx, epCy, epR+3, 0, Math.PI*2);
-        ctx.strokeStyle = "rgba(180,170,200,0.5)"; ctx.lineWidth = 3; ctx.stroke();
+        const ep = new Image();
+        await new Promise((res,rej)=>{ep.onload=res;ep.onerror=rej;ep.src=details.extraPhoto;setTimeout(rej,8000);});
+        const er = 65, ecx = W/2, ecy = cursor + er + 8;
+        ctx.save(); ctx.shadowColor = "rgba(120,80,60,0.1)"; ctx.shadowBlur = 12;
+        ctx.fillStyle = "#F5E6DA"; ctx.beginPath(); ctx.arc(ecx, ecy, er+3, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        ctx.strokeStyle = "rgba(192,112,136,0.2)"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(ecx, ecy, er+1, 0, Math.PI*2); ctx.stroke();
+        ctx.save(); ctx.beginPath(); ctx.arc(ecx, ecy, er, 0, Math.PI*2); ctx.clip();
+        const ew = ep.width, eh = ep.height, es = Math.max((er*2)/ew, (er*2)/eh);
+        ctx.drawImage(ep, ecx-(ew*es)/2, ecy-(eh*es)/2, ew*es, eh*es);
         ctx.restore();
-        ctx.save();
-        ctx.beginPath(); ctx.arc(epCx, epCy, epR, 0, Math.PI*2); ctx.clip();
-        const ew = epImg.width, eh = epImg.height, es = Math.max((epR*2)/ew, (epR*2)/eh);
-        ctx.drawImage(epImg, epCx-(ew*es)/2, epCy-(eh*es)/2, ew*es, eh*es);
-        ctx.restore();
-        cursor = epCy + epR + 20;
-      } catch(e) {}
+        cursor = ecy + er + 16;
+      } catch {}
     }
 
-    // ── Bottom branding area ──
-    const bottomY = H - _pad - 100;
-
-    // App Store + Google Play badges
-    const badgeW = 160, badgeH = 44, badgeR = 10, badgeGap = 24;
-    const badgeLX = W/2 - badgeW - badgeGap/2, badgeRX = W/2 + badgeGap/2;
-    const badgeTopY = bottomY;
-    [["Download on the", "App Store", badgeLX], ["Get it on", "Google Play", badgeRX]].forEach(([top, bot, bx]) => {
-      ctx.fillStyle = "rgba(60,40,30,0.85)";
-      ctx.beginPath(); ctx.roundRect(bx, badgeTopY, badgeW, badgeH, badgeR); ctx.fill();
-      ctx.fillStyle = "#FAF6F0"; ctx.font = "400 9px -apple-system, sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(top, bx + badgeW/2, badgeTopY + 16);
-      ctx.font = "600 15px -apple-system, sans-serif";
-      ctx.fillText(bot, bx + badgeW/2, badgeTopY + 34);
-    });
-
-    // Date + branding
+    // ── Bottom branding ──
     const dateStr = new Date().toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"});
-    ctx.font = "400 16px -apple-system, sans-serif"; ctx.fillStyle = "#8A7A70"; ctx.textAlign = "center";
-    ctx.fillText(dateStr, W/2, badgeTopY + badgeH + 25);
-    ctx.font = "400 18px 'Parisienne', cursive"; ctx.fillStyle = "#C07088";
-    ctx.fillText("Tracked with OBubba  ·  obubba.com", W/2, badgeTopY + badgeH + 48);
+    ctx.font = "400 18px -apple-system,sans-serif"; ctx.fillStyle = T.light; ctx.textAlign = "center";
+    ctx.fillText(dateStr, W/2, H - _pad - 48);
+    ctx.font = "400 22px 'Parisienne',cursive"; ctx.fillStyle = T.rose;
+    ctx.fillText("Tracked with OBubba  \u00B7  obubba.com", W/2, H - _pad - 20);
 
     return canvas;
   }
 
-  // ── Weekly Wrapped. Spotify-wrapped style recap card ──
+  // ── Weekly Wrapped card (1080x1920 story format) ──
   async function renderWeeklyWrapCard(digest) {
-    const W = 1080, H = 1920; // portrait 9:16, plays well on IG stories
+    const W = 1080, H = 1920;
     const canvas = document.createElement("canvas"); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
     if (!ctx.roundRect) {
       ctx.roundRect = function(x,y,w,h,r){ if(typeof r==="number") r=[r,r,r,r]; this.moveTo(x+r[0],y); this.arcTo(x+w,y,x+w,y+h,r[1]); this.arcTo(x+w,y+h,x,y+h,r[2]); this.arcTo(x,y+h,x,y,r[3]); this.arcTo(x,y,x+w,y,r[0]); this.closePath(); return this; };
     }
     const name = digest.name || babyName || "Baby";
+    const T = { head: "#3A2A20", body: "#6A5A50", light: "#9A8A80", rose: "#C07088", gold: "#D4A855", mint: "#50A888" };
+    try { await document.fonts.load("400 64px 'Parisienne'"); } catch {}
 
-    // ── Background: warm sunset gradient ──
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
-    bgGrad.addColorStop(0, "#F9E1D4"); bgGrad.addColorStop(0.35, "#F3C9B3"); bgGrad.addColorStop(0.7, "#E8A68C"); bgGrad.addColorStop(1, "#C97A5E");
-    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
-
-    // ── Glows for depth ──
-    [[W*0.15, H*0.05, 620, "rgba(255,230,210,0.55)"], [W*0.95, H*0.35, 520, "rgba(255,190,140,0.4)"], [W*0.1, H*0.98, 600, "rgba(180,95,70,0.3)"]].forEach(([gx,gy,gr,gc]) => {
-      const g = ctx.createRadialGradient(gx,gy,0,gx,gy,gr); g.addColorStop(0,gc); g.addColorStop(0.7,"transparent");
-      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    });
-
-    const primary = "#3A2418", secondary = "#6B3E28", accent = "#FFF8F0";
+    // ── Background ──
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#FDF6F0"); bg.addColorStop(0.3, "#F8EDE4"); bg.addColorStop(0.6, "#F5E6DA"); bg.addColorStop(1, "#EFD8C8");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    const g1 = ctx.createRadialGradient(W*0.5, H*0.06, 0, W*0.5, H*0.06, 600);
+    g1.addColorStop(0, "rgba(220,180,200,0.2)"); g1.addColorStop(1, "transparent");
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
 
     // ── Spaced text helper ──
-    const drawSpaced = (text, x, y, letterSpacing) => {
-      const chars = text.split(""); const spacing = letterSpacing||0;
-      let totalW = 0; chars.forEach(c => totalW += ctx.measureText(c).width + spacing); totalW -= spacing;
+    const drawSpaced = (text, x, y, spacing) => {
+      const chars = text.split(""); const sp = spacing||0;
+      let totalW = 0; chars.forEach(c => totalW += ctx.measureText(c).width + sp); totalW -= sp;
       let cx = x - totalW/2; ctx.textAlign = "left";
-      chars.forEach(c => { ctx.fillText(c, cx, y); cx += ctx.measureText(c).width + spacing; });
+      chars.forEach(c => { ctx.fillText(c, cx, y); cx += ctx.measureText(c).width + sp; });
+      ctx.textAlign = "center";
     };
 
-    // ── OBUBBA logo ──
-    ctx.font = "400 64px 'Parisienne', cursive";
-    ctx.fillStyle = primary; ctx.shadowColor = "rgba(255,255,255,0.4)"; ctx.shadowBlur = 30;
-    ctx.textAlign = "center"; ctx.fillText("OBubba", W/2, 115);
-    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
+    // ── Logo ──
+    ctx.font = "400 60px 'Parisienne',cursive"; ctx.fillStyle = T.rose; ctx.textAlign = "center";
+    ctx.fillText("OBubba", W/2, 100);
 
-    // ── Subtitle: WEEK RECAP ──
-    ctx.font = "600 26px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.75;
-    drawSpaced("WEEK RECAP", W/2, 160, 6);
-    ctx.globalAlpha = 1;
+    // ── Subtitle ──
+    ctx.font = "600 24px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+    drawSpaced("WEEK RECAP", W/2, 145, 5);
 
     // ── Baby name hero ──
-    ctx.font = "italic 700 96px 'Cormorant Garamond', Georgia, serif"; ctx.fillStyle = primary; ctx.textAlign = "center";
-    ctx.fillText(name + "'s Week", W/2, 290);
+    ctx.font = "italic 700 84px Georgia,serif"; ctx.fillStyle = T.head;
+    ctx.fillText(name + "\u2019s Week", W/2, 270);
 
-    // ── Period ──
-    ctx.font = "500 28px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.75;
-    ctx.fillText(digest.period || "", W/2, 340);
-    if (digest.ageStr) { ctx.font = "500 22px -apple-system, sans-serif"; ctx.fillText(digest.ageStr, W/2, 375); }
-    ctx.globalAlpha = 1;
+    // ── Period + age ──
+    ctx.font = "400 26px -apple-system,sans-serif"; ctx.fillStyle = T.body;
+    ctx.fillText(digest.period || "", W/2, 320);
+    if (digest.ageStr) { ctx.font = "400 22px -apple-system,sans-serif"; ctx.fillStyle = T.light; ctx.fillText(digest.ageStr, W/2, 355); }
 
-    // ── Sleep Quality Score. big ring-style hero ──
+    // ── Sleep Quality Score ring ──
     const sq = digest.sleepQuality || 70;
-    const ringCx = W/2, ringCy = 585, ringR = 140;
-    // Outer glass ring
-    ctx.beginPath(); ctx.arc(ringCx, ringCy, ringR+8, 0, Math.PI*2);
-    ctx.fillStyle = "rgba(255,248,240,0.25)"; ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2; ctx.stroke();
+    const ringCx = W/2, ringCy = 550, ringR = 130;
+    // Track background
+    ctx.beginPath(); ctx.arc(ringCx, ringCy, ringR, 0, Math.PI*2);
+    ctx.strokeStyle = "rgba(192,170,160,0.15)"; ctx.lineWidth = 14; ctx.stroke();
     // Progress arc
     ctx.beginPath(); ctx.arc(ringCx, ringCy, ringR, -Math.PI/2, -Math.PI/2 + (sq/100)*Math.PI*2);
-    ctx.strokeStyle = sq>=80 ? "#6fa898" : sq>=60 ? "#d4a855" : "#c97a5e"; ctx.lineWidth = 16; ctx.lineCap = "round"; ctx.stroke();
-    // Big score number
-    ctx.font = "700 110px 'Cormorant Garamond', Georgia, serif"; ctx.fillStyle = primary; ctx.textAlign = "center";
-    ctx.fillText(String(sq), ringCx, ringCy+18);
-    // "/100" suffix
-    ctx.font = "400 34px Georgia, serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.7;
-    ctx.fillText("/100", ringCx, ringCy+55);
-    ctx.globalAlpha = 1;
-    // Label under ring
-    ctx.font = "600 24px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.8;
-    drawSpaced("SLEEP QUALITY SCORE", ringCx, ringCy+ringR+45, 3);
-    ctx.globalAlpha = 1;
+    ctx.strokeStyle = sq >= 80 ? T.mint : sq >= 60 ? T.gold : T.rose; ctx.lineWidth = 14; ctx.lineCap = "round"; ctx.stroke();
+    // Score
+    ctx.font = "700 100px Georgia,serif"; ctx.fillStyle = T.head; ctx.textAlign = "center";
+    ctx.fillText(String(sq), ringCx, ringCy + 16);
+    ctx.font = "400 30px Georgia,serif"; ctx.fillStyle = T.light;
+    ctx.fillText("/100", ringCx, ringCy + 48);
+    // Label
+    ctx.font = "600 22px -apple-system,sans-serif"; ctx.fillStyle = T.light;
+    drawSpaced("SLEEP QUALITY SCORE", ringCx, ringCy + ringR + 40, 3);
 
-    // ── 2×2 stats grid ──
-    const gridY = 820, tileW = 420, tileH = 170, gapX = 40, gapY = 30;
+    // ── 2x2 stats grid ──
+    const gridY = 790, tileW = 420, tileH = 160, gapX = 40, gapY = 24;
     const col0 = W/2 - tileW - gapX/2, col1 = W/2 + gapX/2;
     const row0 = gridY, row1 = gridY + tileH + gapY;
-    const fmtStretch = digest.longestStretch ? (digest.longestStretch>=60 ? Math.floor(digest.longestStretch/60)+"h "+(digest.longestStretch%60)+"m" : digest.longestStretch+"m") : "--";
+    const fmtStretch = digest.longestStretch ? (digest.longestStretch >= 60 ? Math.floor(digest.longestStretch/60) + "h " + (digest.longestStretch%60) + "m" : digest.longestStretch + "m") : "--";
     const tiles = [
-      { x: col0, y: row0, icon: "🌙", val: fmtStretch, label: "LONGEST STRETCH" },
-      { x: col1, y: row0, icon: "🍼", val: String(digest.avgFeeds||0), label: "FEEDS PER DAY" },
-      { x: col0, y: row1, icon: "💤", val: String(digest.avgNaps||0), label: "NAPS PER DAY" },
-      { x: col1, y: row1, icon: "🔔", val: String(digest.avgNightWakes||0), label: "NIGHT WAKES" }
+      { x: col0, y: row0, icon: "\u{1F319}", val: fmtStretch, label: "LONGEST STRETCH", col: T.mint },
+      { x: col1, y: row0, icon: "\u{1F37C}", val: String(digest.avgFeeds||0), label: "FEEDS PER DAY", col: T.rose },
+      { x: col0, y: row1, icon: "\u{1F4A4}", val: String(digest.avgNaps||0), label: "NAPS PER DAY", col: T.gold },
+      { x: col1, y: row1, icon: "\u{1F514}", val: String(digest.avgNightWakes||0), label: "NIGHT WAKES", col: T.rose }
     ];
     tiles.forEach(t => {
-      // Tile background
-      ctx.fillStyle = "rgba(255,248,240,0.35)"; ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.roundRect(t.x, t.y, tileW, tileH, 22); ctx.fill(); ctx.stroke();
-      // Icon
-      ctx.font = "52px serif"; ctx.textAlign = "left"; ctx.fillStyle = primary;
-      ctx.fillText(t.icon, t.x+24, t.y+62);
-      // Value
-      ctx.font = "700 58px 'Cormorant Garamond', Georgia, serif"; ctx.fillStyle = primary;
-      ctx.textAlign = "right"; ctx.fillText(t.val, t.x+tileW-24, t.y+75);
-      // Label
-      ctx.font = "600 19px -apple-system, sans-serif"; ctx.fillStyle = secondary; ctx.globalAlpha = 0.75;
-      ctx.textAlign = "left"; const labelChars = t.label.split(""); let lx = t.x+24;
-      labelChars.forEach(c => { ctx.fillText(c, lx, t.y+tileH-28); lx += ctx.measureText(c).width + 2; });
-      ctx.globalAlpha = 1;
+      ctx.save(); ctx.shadowColor = "rgba(120,80,60,0.06)"; ctx.shadowBlur = 12; ctx.shadowOffsetY = 4;
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.beginPath(); ctx.roundRect(t.x, t.y, tileW, tileH, 20); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = "rgba(192,170,160,0.15)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(t.x, t.y, tileW, tileH, 20); ctx.stroke();
+      ctx.font = "44px serif"; ctx.textAlign = "left"; ctx.fillText(t.icon, t.x + 22, t.y + 56);
+      ctx.font = "700 50px Georgia,serif"; ctx.fillStyle = t.col; ctx.textAlign = "right";
+      ctx.fillText(t.val, t.x + tileW - 22, t.y + 65);
+      ctx.font = "600 17px -apple-system,sans-serif"; ctx.fillStyle = T.light; ctx.textAlign = "left";
+      const lc = t.label.split(""); let lx = t.x + 22;
+      lc.forEach(c => { ctx.fillText(c, lx, t.y + tileH - 24); lx += ctx.measureText(c).width + 2; });
     });
 
-    // ── Wins quote block ──
+    // ── Wins block ──
     if (digest.wins && digest.wins.length) {
-      const _wrapWin = (text, maxW) => {
-        const words = text.split(" "); const lines = []; let line = "";
-        words.forEach(w => { const t = line?line+" "+w:w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; });
-        if (line) lines.push(line); return lines;
-      };
-      const winsBoxY = 1240, winsBoxH = 260;
-      ctx.fillStyle = "rgba(58,36,24,0.88)"; ctx.beginPath(); ctx.roundRect(60, winsBoxY, W-120, winsBoxH, 26); ctx.fill();
-      // Left-aligned label (draw char-by-char with letter spacing)
-      ctx.font = "600 22px -apple-system, sans-serif"; ctx.fillStyle = "#F9D4B8"; ctx.textAlign = "left";
-      { const _c = "THIS WEEK'S WINS".split(""); let _tx = 100; _c.forEach(ch => { ctx.fillText(ch, _tx, winsBoxY+52); _tx += ctx.measureText(ch).width + 3; }); }
-      ctx.font = "italic 500 32px Georgia, serif"; ctx.fillStyle = accent; ctx.textAlign = "left";
-      let wy = winsBoxY+105;
-      digest.wins.slice(0,2).forEach(w => {
-        const lines = _wrapWin("\u201C" + w + "\u201D", W-200);
-        lines.forEach(l => { ctx.fillText(l, 100, wy); wy += 42; });
-        wy += 8;
+      const wY = 1210, wH = 240;
+      ctx.save(); ctx.shadowColor = "rgba(120,80,60,0.06)"; ctx.shadowBlur = 16;
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.beginPath(); ctx.roundRect(60, wY, W - 120, wH, 24); ctx.fill(); ctx.restore();
+      ctx.strokeStyle = "rgba(192,170,160,0.15)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(60, wY, W - 120, wH, 24); ctx.stroke();
+      ctx.font = "600 20px -apple-system,sans-serif"; ctx.fillStyle = T.rose; ctx.textAlign = "left";
+      const wLabel = "THIS WEEK\u2019S WINS"; let wx = 100;
+      wLabel.split("").forEach(c => { ctx.fillText(c, wx, wY + 44); wx += ctx.measureText(c).width + 2.5; });
+      ctx.font = "italic 400 28px Georgia,serif"; ctx.fillStyle = T.body; ctx.textAlign = "left";
+      let wy = wY + 90;
+      digest.wins.slice(0, 2).forEach(w => {
+        const lines = _wrapCanvasText(ctx, "\u201C" + w + "\u201D", W - 220);
+        lines.forEach(l => { ctx.fillText(l, 100, wy); wy += 38; });
+        wy += 6;
       });
     }
 
-    // ── Mascot + branding footer ──
-    const mascotSize = 280;
+    // ── Mascot or emoji ──
     try {
       const mascotImg = new Image();
       await new Promise((res,rej)=>{ mascotImg.onload=res; mascotImg.onerror=rej; mascotImg.src="obubba-celebration.png"; setTimeout(()=>{ try{mascotImg.src="obubba-happy.png";}catch{} },1500); setTimeout(rej, 3000); });
-      ctx.drawImage(mascotImg, W/2-mascotSize/2, H-360, mascotSize, mascotSize);
-    } catch(e) { ctx.font = "140px serif"; ctx.textAlign = "center"; ctx.fillText("\u{1F389}", W/2, H-200); }
+      ctx.drawImage(mascotImg, W/2 - 130, H - 340, 260, 260);
+    } catch { ctx.font = "120px serif"; ctx.textAlign = "center"; ctx.fillText("\u{1F389}", W/2, H - 190); }
 
-    // ── Tagline + URL ──
-    ctx.font = "italic 500 28px Georgia, serif"; ctx.fillStyle = primary; ctx.textAlign = "center"; ctx.globalAlpha = 0.85;
-    ctx.fillText("Track the small moments.", W/2, H-110);
-    ctx.globalAlpha = 1;
-    ctx.font = "400 34px 'Parisienne', cursive"; ctx.fillStyle = primary;
-    ctx.textAlign = "center"; ctx.fillText("obubba.com", W/2, H-50);
+    // ── Bottom branding ──
+    ctx.font = "italic 400 26px Georgia,serif"; ctx.fillStyle = T.body; ctx.textAlign = "center";
+    ctx.fillText("Track the small moments.", W/2, H - 100);
+    ctx.font = "400 34px 'Parisienne',cursive"; ctx.fillStyle = T.rose;
+    ctx.fillText("obubba.com", W/2, H - 55);
 
     return canvas;
   }
