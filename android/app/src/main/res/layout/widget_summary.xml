@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OBubba Widget — dark glass design matching iOS Live Activity -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -13,31 +12,53 @@
     android:gravity="center_vertical"
     android:background="@drawable/widget_bg_gradient">
 
-    <!-- Row 1: Baby name + timer/prediction pill -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/tv_baby_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Baby"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@color/widget_text_primary"
-            android:fontFamily="sans-serif-medium" />
-
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:gravity="end|center_vertical"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_widget_kicker"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OBubba"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:textColor="@color/widget_text_secondary"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/tv_baby_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Baby"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:textColor="@color/widget_text_primary"
+                android:fontFamily="sans-serif-medium" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:orientation="vertical"
+            android:gravity="end|center_vertical">
 
             <LinearLayout
+                android:id="@+id/status_pill"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -45,21 +66,36 @@
                 android:background="@drawable/widget_timer_pill"
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp">
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp">
+
+                <TextView
+                    android:id="@+id/tv_status_hint"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Next"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/widget_text_label_nap"
+                    android:fontFamily="sans-serif-medium" />
 
                 <TextView
                     android:id="@+id/tv_timer_dot"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:text="●"
                     android:textSize="8sp"
-                    android:textColor="@color/widget_text_primary"
+                    android:textColor="@color/widget_text_label_feed"
                     android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/tv_timer_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
                     android:textSize="11sp"
                     android:textColor="@color/widget_text_secondary"
                     android:fontFamily="sans-serif-medium" />
@@ -68,8 +104,8 @@
                     android:id="@+id/timer_chrono"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:textSize="20sp"
+                    android:layout_marginStart="5dp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/widget_text_primary"
                     android:fontFamily="sans-serif-medium"
@@ -79,9 +115,13 @@
                     android:id="@+id/tv_prediction"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:maxWidth="150dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    android:textColor="@color/widget_text_secondary"
+                    android:textColor="@color/widget_text_primary"
                     android:fontFamily="sans-serif-medium" />
             </LinearLayout>
 
@@ -89,15 +129,13 @@
                 android:id="@+id/tv_since"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="3dp"
                 android:textSize="10sp"
                 android:textColor="@color/widget_text_since"
                 android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Row 2: Breast L / R buttons (only visible for nursing mums) -->
     <LinearLayout
         android:id="@+id/breast_row"
         android:layout_width="match_parent"
@@ -110,27 +148,29 @@
         <LinearLayout
             android:id="@+id/btn_breast_l"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="38dp"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
             android:background="@drawable/widget_btn_feed"
             android:gravity="center"
             android:orientation="horizontal">
+
             <TextView
                 android:id="@+id/tv_bl_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="L"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="@color/widget_text_primary" />
+
             <TextView
                 android:id="@+id/tv_bl_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
                 android:text=""
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:textStyle="bold"
                 android:textColor="@color/widget_text_secondary" />
         </LinearLayout>
@@ -138,34 +178,36 @@
         <LinearLayout
             android:id="@+id/btn_breast_r"
             android:layout_width="0dp"
-            android:layout_height="40dp"
+            android:layout_height="38dp"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
             android:background="@drawable/widget_btn_feed"
             android:gravity="center"
             android:orientation="horizontal">
+
             <TextView
                 android:id="@+id/tv_br_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="R"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="@color/widget_text_primary" />
+
             <TextView
                 android:id="@+id/tv_br_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
                 android:text=""
-                android:textSize="10sp"
+                android:textSize="9sp"
                 android:textStyle="bold"
                 android:textColor="@color/widget_text_secondary" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Row 3: Feed, Nappy, Nap/Stop -->
     <LinearLayout
+        android:id="@+id/action_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -176,76 +218,95 @@
         <LinearLayout
             android:id="@+id/btn_feed"
             android:layout_width="0dp"
-            android:layout_height="52dp"
+            android:layout_height="46dp"
             android:layout_weight="1"
             android:layout_marginEnd="5dp"
             android:background="@drawable/widget_btn_feed"
             android:gravity="center"
-            android:orientation="vertical">
-            <TextView
-                android:id="@+id/tv_feed_icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🍼"
-                android:textSize="18sp" />
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_feed"
+                android:contentDescription="@string/app_name" />
+
             <TextView
                 android:id="@+id/tv_feed_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:text="Feed"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="@color/widget_text_primary" />
+                android:textColor="@color/widget_text_primary"
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/btn_nappy"
             android:layout_width="0dp"
-            android:layout_height="52dp"
+            android:layout_height="46dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
             android:layout_marginEnd="5dp"
             android:background="@drawable/widget_btn_nappy"
             android:gravity="center"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_nappy"
+                android:contentDescription="@string/app_name" />
+
             <TextView
+                android:id="@+id/tv_nappy_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🧷"
-                android:textSize="18sp" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:text="Nappy"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="@color/widget_text_primary" />
+                android:textColor="@color/widget_text_primary"
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/btn_nap_stop"
             android:layout_width="0dp"
-            android:layout_height="52dp"
+            android:layout_height="46dp"
             android:layout_weight="1"
             android:layout_marginStart="5dp"
             android:background="@drawable/widget_btn_nap"
             android:gravity="center"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
             <TextView
                 android:id="@+id/tv_ns_icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="▶"
-                android:textSize="18sp"
-                android:textColor="@color/widget_text_primary" />
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/widget_text_label_nap" />
+
             <TextView
                 android:id="@+id/tv_ns_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
                 android:text="Nap"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:textColor="@color/widget_text_primary" />
+                android:textColor="@color/widget_text_primary"
+                android:fontFamily="sans-serif-medium" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

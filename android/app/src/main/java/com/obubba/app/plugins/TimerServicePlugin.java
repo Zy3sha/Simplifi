@@ -1,6 +1,7 @@
 package com.obubba.app.plugins;
 
 import android.content.Intent;
+import android.content.Context;
 import android.os.Build;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -11,6 +12,12 @@ import com.obubba.app.services.TimerService;
 
 @CapacitorPlugin(name = "OBTimerService")
 public class TimerServicePlugin extends Plugin {
+
+    private void sendServiceAction(String action) {
+        Intent intent = new Intent(getContext(), TimerService.class);
+        intent.setAction(action);
+        getContext().startService(intent);
+    }
 
     @PluginMethod
     public void startTimer(PluginCall call) {
@@ -46,12 +53,16 @@ public class TimerServicePlugin extends Plugin {
     @PluginMethod
     public void stopTimer(PluginCall call) {
         try {
-            // Stop the service directly — don't use startForegroundService to send a stop action
-            // (startForegroundService crashes on Android 12+ Samsung if called from background)
+            // Clear persisted state before stopping so Android cannot resurrect an old timer later.
+            getContext().getSharedPreferences(TimerService.PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .clear()
+                    .apply();
+
             try {
-                getContext().stopService(new Intent(getContext(), TimerService.class));
+                sendServiceAction(TimerService.ACTION_STOP);
             } catch (Exception e) {
-                // ignore
+                getContext().stopService(new Intent(getContext(), TimerService.class));
             }
 
             JSObject ret = new JSObject();
@@ -96,15 +107,15 @@ public class TimerServicePlugin extends Plugin {
     @PluginMethod
     public void stopPrediction(PluginCall call) {
         try {
-            // Stop the service directly — don't start a foreground service just to stop it
-            // (startForegroundService crashes on Android 12+ if called from background)
-            Intent intent = new Intent(getContext(), TimerService.class);
+            boolean sent = true;
             try {
-                getContext().stopService(intent);
-            } catch (Exception e) { /* service might not be running */ }
+                sendServiceAction(TimerService.ACTION_STOP_PREDICTION);
+            } catch (Exception e) {
+                sent = false;
+            }
 
             JSObject ret = new JSObject();
-            ret.put("stopped", true);
+            ret.put("stopped", sent);
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to stop prediction: " + e.getMessage(), e);

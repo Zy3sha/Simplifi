@@ -18,13 +18,16 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import com.obubba.app.MainActivity;
 import com.obubba.app.R;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class TimerService extends Service {
 
     private static final String CHANNEL_ID = "obubba_timers";
     private static final int NOTIFICATION_ID = 99999;
     private static final long UPDATE_INTERVAL_MS = 10000; // 10 seconds
-    private static final String PREFS_NAME = "obubba_timer_state";
+    public static final String PREFS_NAME = "obubba_timer_state";
 
     public static final String ACTION_START = "com.obubba.app.TIMER_START";
     public static final String ACTION_STOP = "com.obubba.app.TIMER_STOP";
@@ -135,6 +138,10 @@ public class TimerService extends Service {
         running = true;
         acquireWakeLock();
 
+        if (handler != null && updateRunnable != null) {
+            handler.removeCallbacks(updateRunnable);
+        }
+
         // Build initial notification and start foreground
         Notification notification = buildNotification();
         startForeground(NOTIFICATION_ID, notification);
@@ -177,56 +184,81 @@ public class TimerService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        Intent stopIntent = new Intent(this, TimerService.class);
+        stopIntent.setAction(ACTION_STOP);
+        PendingIntent stopPendingIntent = PendingIntent.getService(
+                this, 2, stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
         String title = buildTitle();
-        String body = formatElapsedTime();
+        String body = buildTimerContext();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(Color.parseColor("#C07088"))
                 .setContentTitle(title)
                 .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
-                .setShowWhen(false)
-                .setUsesChronometer(false)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setSilent(true)
+                .setWhen(startTimeMs > 0 ? startTimeMs : System.currentTimeMillis())
+                .setShowWhen(true)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(false)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(R.drawable.ic_notification, "Stop", stopPendingIntent);
 
         return builder.build();
     }
 
     private String buildTitle() {
-        switch (timerType) {
+        String safeBabyName = (babyName == null || babyName.trim().isEmpty()) ? "Baby" : babyName.trim();
+        String safeTimerType = (timerType == null || timerType.trim().isEmpty()) ? "timer" : timerType.trim();
+        switch (safeTimerType) {
             case "feed":
-                String feedTitle = "\uD83C\uDF7C Feeding " + babyName;
+                String feedTitle = "Feeding " + safeBabyName;
                 if (side != null && !side.isEmpty()) {
-                    feedTitle += " \u2014 " + side + " side";
+                    feedTitle += " · " + side + " side";
                 }
                 return feedTitle;
             case "nap":
-                return "\uD83D\uDE34 " + babyName + " is napping";
+                return safeBabyName + " is napping";
             case "sleep":
-                return "\uD83C\uDF19 " + babyName + " \u2014 bedtime";
+            case "bed":
+                return safeBabyName + " is asleep";
             default:
-                return "\u23F1 Timer running for " + babyName;
+                return safeTimerType.substring(0, 1).toUpperCase(Locale.UK) + safeTimerType.substring(1) + " timer";
         }
     }
 
-    private String formatElapsedTime() {
-        long elapsedMs = System.currentTimeMillis() - startTimeMs;
-        if (elapsedMs < 0) elapsedMs = 0;
-        long totalSeconds = elapsedMs / 1000;
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        long seconds = totalSeconds % 60;
-
-        if (hours > 0) {
-            return hours + "h " + minutes + "m " + seconds + "s";
-        } else {
-            return minutes + "m " + seconds + "s";
+    private String buildTimerContext() {
+        String since = "started " + formatClock(startTimeMs);
+        String safeTimerType = (timerType == null || timerType.trim().isEmpty()) ? "timer" : timerType.trim();
+        switch (safeTimerType) {
+            case "feed":
+                if (side != null && !side.isEmpty()) {
+                    return side.substring(0, 1).toUpperCase(Locale.UK) + side.substring(1) + " side · " + since;
+                }
+                return "Feed timer · " + since;
+            case "nap":
+                return "Nap timer · " + since;
+            case "sleep":
+            case "bed":
+                return "Bedtime timer · " + since;
+            default:
+                return "Timer · " + since;
         }
+    }
+
+    private String formatClock(long timeMs) {
+        long safeTime = timeMs > 0 ? timeMs : System.currentTimeMillis();
+        SimpleDateFormat fmt = new SimpleDateFormat("h:mm a", Locale.UK);
+        return fmt.format(new Date(safeTime)).toLowerCase(Locale.UK);
     }
 
     private void startPrediction() {
@@ -276,6 +308,13 @@ public class TimerService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        Intent stopIntent = new Intent(this, TimerService.class);
+        stopIntent.setAction(ACTION_STOP_PREDICTION);
+        PendingIntent stopPendingIntent = PendingIntent.getService(
+                this, 3, stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
         long remaining = predictionTargetMs - System.currentTimeMillis();
         String countdown;
         if (remaining <= 0) {
@@ -289,21 +328,26 @@ public class TimerService extends Service {
             }
         }
 
-        String title = "\uD83D\uDD2E " + predictionLabel + " at " + (predictionTimeFormatted != null ? predictionTimeFormatted : "");
-        String body = countdown + " \u2014 " + predictionBabyName;
+        String time = predictionTimeFormatted != null ? predictionTimeFormatted : "";
+        String safeBabyName = (predictionBabyName == null || predictionBabyName.trim().isEmpty()) ? "Baby" : predictionBabyName.trim();
+        String title = predictionLabel + (time.isEmpty() ? "" : " around " + time);
+        String body = countdown + " for " + safeBabyName;
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(Color.parseColor("#C07088"))
                 .setContentTitle(title)
                 .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
+                .setSilent(true)
                 .setShowWhen(false)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_EVENT)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(R.drawable.ic_notification, "Dismiss", stopPendingIntent)
                 .build();
     }
 
