@@ -5766,6 +5766,7 @@ function App(){
         dob: oldDob||"",
         sex: oldSex||"",
         unborn: oldUnborn==="1",
+        createdAt: localStorage.getItem("obubba_trial_start") || localStorage.getItem("install_date_v1") || new Date().toISOString(),
         days: daysData,
         weights: weightsData,
         milestones: milestonesData, teething:[], weaning:[], cryingHelps:{}
@@ -5773,7 +5774,7 @@ function App(){
     } catch(e) {
       const cid = uid();
       const d = {}; d[todayStr()] = [];
-      return { [cid]: { id:cid, name:"", dob:"", sex:"", unborn:false, days:d, weights:[], heights:[], headCircs:[], photos:[], milestones:{} }};
+      return { [cid]: { id:cid, name:"", dob:"", sex:"", unborn:false, createdAt:new Date().toISOString(), days:d, weights:[], heights:[], headCircs:[], photos:[], milestones:{} }};
     }
   });
   const[activeChildId,setActiveChildId]=useState(()=>{
@@ -7488,6 +7489,8 @@ function App(){
   // show6moTransition: deferred to useEffect because `age` is declared later
   // (useMemo at ~line 10349). Using it in useState initializer causes TDZ.
   const[show6moTransition,setShow6moTransition]=useState(false);
+  const[obuddyRemind12,setObuddyRemind12]=useState(()=>{try{return localStorage.getItem("obuddy_remind_12mo_v1")==="1";}catch{return false;}});
+  const[showObuddyFarewell,setShowObuddyFarewell]=useState(false);
   const[heightForm,setHeightForm]=useState({date:todayStr(),cm:""});
   const[hcForm,setHCForm]=useState({date:todayStr(),cm:""});
   const[modal,setModal]=useState(null);
@@ -11439,7 +11442,7 @@ function App(){
     const d = {}; d[todayStr()] = [];
     setChildren(prev => ({
       ...prev,
-      [cid]: { id:cid, name, dob, sex, unborn, days:d, weights:[], heights:[], photos:[], milestones:{} }
+      [cid]: { id:cid, name, dob, sex, unborn, createdAt:new Date().toISOString(), days:d, weights:[], heights:[], photos:[], milestones:{} }
     }));
     setActiveChildId(cid);
     trackEvent("child_added");
@@ -11898,6 +11901,144 @@ function App(){
   useEffect(()=>{try{localStorage.setItem("breast_active",breastActive?"1":"0");}catch{}},[breastActive]);
   const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate), [babyDob, activeChild.dueDate]);
   const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+
+  function obuddyAgeAtDate(dob, dateLike) {
+    if (!dob || !dateLike) return "";
+    const birth = new Date(dob + "T00:00:00");
+    const when = new Date(String(dateLike).slice(0,10) + "T12:00:00");
+    if (isNaN(birth.getTime()) || isNaN(when.getTime())) return "";
+    const days = Math.floor((when - birth) / 86400000);
+    if (days < 0) return "before you arrived";
+    if (days < 1) return "a newborn";
+    if (days < 14) return days + " day" + (days === 1 ? "" : "s") + " old";
+    if (days < 56) {
+      const weeks = Math.floor(days / 7);
+      return weeks + " week" + (weeks === 1 ? "" : "s") + " old";
+    }
+    let months = (when.getFullYear() - birth.getFullYear()) * 12 + (when.getMonth() - birth.getMonth());
+    if (when.getDate() < birth.getDate()) months--;
+    if (months < 12) return months + " month" + (months === 1 ? "" : "s") + " old";
+    const years = Math.floor(months / 12);
+    const rem = months % 12;
+    return years + " year" + (years === 1 ? "" : "s") + (rem ? " " + rem + " month" + (rem === 1 ? "" : "s") : "") + " old";
+  }
+
+  function getObuddyFirstMet() {
+    const dayKeys = Object.keys(days || {}).filter(d => (days[d] || []).length > 0).sort();
+    const candidates = [
+      activeChild?.createdAt,
+      trialStart,
+      localStorage.getItem("install_date_v1"),
+      dayKeys[0],
+    ].filter(Boolean).map(v => String(v).slice(0,10)).filter(Boolean).sort();
+    const date = candidates[0] || todayStr();
+    const ageLabel = obuddyAgeAtDate(babyDob, date) || (age ? fmtAge(age) : "");
+    const daysTogether = Math.max(0, Math.floor((new Date(todayStr()+"T12:00:00") - new Date(date+"T12:00:00")) / 86400000));
+    return { date, ageLabel, daysTogether };
+  }
+
+  function getObuddyCareSnapshot() {
+    const dayKeys = Object.keys(days || {}).filter(d => (days[d] || []).length > 0);
+    const entries = dayKeys.reduce((sum, d) => sum + ((days[d] || []).length), 0);
+    const achievedMilestones = Object.values(milestones || {}).filter(m => m && m.date).length;
+    return {
+      loggedDays: dayKeys.length,
+      totalEntries: entries,
+      milestonesRecorded: achievedMilestones,
+      foodsTried: (weaning || []).length,
+      teethLogged: (teething || []).length,
+      weightsLogged: (weights || []).length,
+      heightsLogged: (heights || []).length,
+    };
+  }
+
+  function getObuddyFarewellMessage() {
+    const _name = babyName || "little one";
+    const _firstMet = getObuddyFirstMet();
+    return `Bye ${_name}. OBubba had a wonderful time growing with you. I remember when we first met, when you were ${_firstMet.ageLabel || "right at the beginning"}. I have loved keeping your care rhythm safe, and I look forward to seeing you grow through OBuddy.`;
+  }
+
+  function prepareObuddyHandoff() {
+    const _today = todayStr();
+    const _recent = getRecentDays ? getRecentDays(7) : [];
+    const _firstMet = getObuddyFirstMet();
+    const _careSnapshot = getObuddyCareSnapshot();
+    const _farewellMessage = getObuddyFarewellMessage();
+    const _handoff = {
+      source: "obubba",
+      version: 1,
+      createdAt: new Date().toISOString(),
+      child: {
+        name: babyName || "Baby",
+        dob: babyDob || "",
+        dueDate: activeChild?.dueDate || "",
+        sex: babySex || "",
+        ageLabel: age ? fmtAge(age) : "",
+      },
+      rhythm: {
+        lastSelectedDay: selDay || _today,
+        typicalWake: (() => {
+          try {
+            const wakes = _recent.map(d => (days[d]||[]).find(e => e.type==="wake" && !e.night)).filter(Boolean).map(timeVal);
+            if (!wakes.length) return "";
+            return minsToTime(Math.round(wakes.reduce((s,v)=>s+v,0)/wakes.length));
+          } catch { return ""; }
+        })(),
+        typicalBedtime: (() => {
+          try {
+            const beds = _recent.map(d => (days[d]||[]).find(e => e.type==="sleep" && !e.night)).filter(Boolean).map(timeVal);
+            if (!beds.length) return "";
+            return minsToTime(Math.round(beds.reduce((s,v)=>s+v,0)/beds.length));
+          } catch { return ""; }
+        })(),
+      },
+      transitionMemory: {
+        firstMetAt: _firstMet.date,
+        firstMetAgeLabel: _firstMet.ageLabel,
+        daysTogether: _firstMet.daysTogether,
+        farewellMessage: _farewellMessage,
+      },
+      careSnapshot: _careSnapshot,
+      obuddyStartPoint: ageWeeks !== null && ageWeeks < 52 ? "baby_bridge" : "early_toddler",
+    };
+    try {
+      localStorage.setItem("obuddy_handoff_v1", JSON.stringify(_handoff));
+    } catch {}
+    showToast("🌱 OBuddy handoff prepared. OBubba keeps care tracking; OBuddy starts life skills.", 5000, 1);
+    return _handoff;
+  }
+
+  async function shareObuddyHandoff() {
+    const _handoff = prepareObuddyHandoff();
+    let _encoded = "";
+    try {
+      _encoded = btoa(unescape(encodeURIComponent(JSON.stringify(_handoff))))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    } catch {
+      showToast("Couldn't prepare OBuddy handoff. Try again.", 3000, 2);
+      return;
+    }
+    const _code = "OBUDDY-HANDOFF:" + _encoded;
+    const _link = "obuddy:///handoff?data=" + encodeURIComponent(_encoded);
+    const _text = "Open OBuddy with this OBubba handoff:\n" + _link + "\n\nIf the link does not open, paste this code in OBuddy:\n" + _code;
+    try {
+      const _share = window.Capacitor?.Plugins?.Share;
+      if (_share) {
+        await _share.share({title:"OBuddy handoff",text:_text,dialogTitle:"Send to OBuddy"});
+        return;
+      }
+      if (navigator.share) {
+        await navigator.share({title:"OBuddy handoff",text:_text});
+        return;
+      }
+    } catch {}
+    try {
+      await navigator.clipboard.writeText(_code);
+      showToast("OBuddy handoff code copied. Paste it in OBuddy.", 3500, 1);
+    } catch {
+      showToast("OBuddy handoff is ready, but copying is not available here.", 3500, 1);
+    }
+  }
 
   // Deferred 6-month weaning transition check (age not available at useState init)
   React.useEffect(()=>{
@@ -33271,6 +33412,36 @@ function App(){
 
                   {/* ═══ WEANING NAV CARDS — 2-column grid ═══ */}
                   {/* Before Weaning card always first, then Start Weaning gate OR unlocked cards */}
+                  {/* ═══ Today's meal guidance — age-appropriate ═══ */}
+                  {weaningStarted && age && (()=>{
+                    try {
+                      const _aw3 = age.predictiveWeeks ?? age.totalWeeks;
+                      const _ratio = getWeaningRatio(_aw3, days[selDay]||[]);
+                      if (!_ratio || _ratio.solidMeals <= 0) return null;
+                      const _todaySolids = (days[selDay]||[]).filter(e => e.type === "feed" && e.feedType === "solids").length;
+                      const _stage = WEANING_STAGES.find(s => _aw3 >= s.weeksRange[0] && _aw3 < s.weeksRange[1]);
+                      return (
+                        <div className="glass-card" style={{padding:"14px 16px",marginBottom:12}}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                            <div>
+                              <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_stage ? _stage.name : "Weaning"}</div>
+                              <div style={{fontSize:11,color:C.mid}}>{_stage ? _stage.ageRange : fmtAge(age)}</div>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontSize:22,fontWeight:800,color:_todaySolids >= _ratio.solidMeals ? C.mint : C.ter}}>{_todaySolids}/{_ratio.solidMeals}</div>
+                              <div style={{fontSize:10,color:C.lt}}>meals today</div>
+                            </div>
+                          </div>
+                          <div style={{height:4,background:C.blush+"40",borderRadius:99,overflow:"hidden",marginBottom:8}}>
+                            <div style={{width:Math.min(100,(_todaySolids/_ratio.solidMeals)*100)+"%",height:"100%",background:_todaySolids>=_ratio.solidMeals?C.mint:C.ter,borderRadius:99,transition:"width 0.4s ease"}}/>
+                          </div>
+                          <div style={{fontSize:11,color:C.mid,lineHeight:1.5}}>{_stage ? _stage.texture : ""}</div>
+                          {_stage && <div style={{fontSize:10,color:C.lt,marginTop:4,fontStyle:"italic"}}>{_stage.milk}</div>}
+                        </div>
+                      );
+                    } catch { return null; }
+                  })()}
+
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
                     {[
                       {id:"before",label:"Before Weaning",sub:"What to know",emoji:"📖"},
@@ -39436,6 +39607,52 @@ function App(){
             return shuffled.slice(0, 3);
           })();
 
+          const renderOBuddyBridgeCard = () => {
+            if (tab !== "develop" || devFilter || ageWeeks === null || ageWeeks < 40) return null;
+            if (obuddyRemind12 && ageWeeks < 52) return null;
+            const _isHandoff = ageWeeks >= 52;
+            const _name = babyName || "Baby";
+            return (
+              <div className="glass-card" style={{padding:"16px 15px",marginBottom:14,border:"1.5px solid rgba(111,168,152,0.25)",background:"linear-gradient(135deg,rgba(111,168,152,0.12),rgba(255,255,255,0.55))"}}>
+                <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+                  <div style={{width:42,height:42,borderRadius:14,background:"rgba(111,168,152,0.16)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🌱</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:4}}>
+                      {_isHandoff ? "Ready for OBuddy" : "Growing into toddlerhood"}
+                    </div>
+                    <div style={{fontSize:13,color:C.mid,lineHeight:1.55,marginBottom:12}}>
+                      {_isHandoff
+                        ? `${_name} is moving from baby care into early toddler guidance. OBubba keeps tracking sleep, food, health, and carers. OBuddy adds strategies, life skills, routines, and calm scripts.`
+                        : `${_name} is starting to copy you, show preferences, and understand routines. This is the baby bridge: tiny choices, early communication, safe independence, and family rhythms.`}
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                      {[
+                        ["OBubba", "Care rhythm", "feeds · sleep · growth"],
+                        ["OBuddy", _isHandoff ? "Toddler strategy" : "Baby bridge", "choices · routines · skills"],
+                      ].map(([title,sub,meta])=>(
+                        <div key={title} style={{border:`1px solid ${C.blush}`,background:"rgba(255,255,255,0.42)",borderRadius:12,padding:"10px 9px"}}>
+                          <div style={{fontSize:12,fontWeight:800,color:title==="OBuddy"?C.mint:C.ter,marginBottom:2}}>{title}</div>
+                          <div style={{fontSize:12,fontWeight:700,color:C.deep}}>{sub}</div>
+                          <div style={{fontSize:10,color:C.lt,marginTop:2}}>{meta}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <button onClick={()=>{haptic();setShowObuddyFarewell(true); if(!_isHandoff){setDevFilter("activities");}}} style={{flex:"1 1 150px",padding:"11px 12px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#5c947f)`,color:"white",fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
+                        {_isHandoff ? "Send to OBuddy" : "Start baby bridge"}
+                      </button>
+                      {!_isHandoff && (
+                        <button onClick={()=>{haptic();try{localStorage.setItem("obuddy_remind_12mo_v1","1");}catch{}setObuddyRemind12(true);showToast("We'll bring OBuddy back at 12 months 🌱",3000,1);}} style={{flex:"1 1 120px",padding:"11px 12px",borderRadius:99,border:`1.5px solid ${C.mint}55`,background:"rgba(255,255,255,0.45)",color:C.mint,fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
+                          Remind at 12m
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
           const MILESTONE_EXERCISES = {
             m1:  ["Try gentle face-to-face time 20–30cm away and smile back whenever baby makes eye contact. mirroring is the key trigger for social smiling."],
             m2:  ["Talk and sing close to baby's face; use a calm, high-pitched voice (motherese). recognition develops through repeated, close exposure."],
@@ -39749,6 +39966,9 @@ function App(){
           return (
             <div>
               {/* ── 🧠 DEVELOPMENT HERO CARD. moved to News sub-screen on Day tab ── */}
+
+              {/* OBuddy baby-to-toddler bridge */}
+              {renderOBuddyBridgeCard()}
 
               {/* Development Dashboard. 2x2 navigation grid (hide when rendering weaning from Day tab) */}
               {tab==="develop" && !devFilter && (
@@ -48218,6 +48438,43 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           </div>
         </div>
       )}
+
+      {showObuddyFarewell&&(()=>{
+        const _memory = getObuddyFirstMet();
+        const _snapshot = getObuddyCareSnapshot();
+        const _msg = getObuddyFarewellMessage();
+        return (
+          <div role="dialog" aria-modal="true" onClick={()=>setShowObuddyFarewell(false)} style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(44,31,26,0.56)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:390,background:"linear-gradient(180deg,rgba(255,251,248,0.98),rgba(255,245,238,0.98))",borderRadius:28,padding:"26px 22px 22px",boxShadow:"0 24px 80px rgba(44,31,26,0.28)",border:"1px solid rgba(255,255,255,0.74)",textAlign:"center",position:"relative"}}>
+              <button type="button" aria-label="Close" onClick={()=>setShowObuddyFarewell(false)} style={{position:"absolute",top:12,right:12,width:34,height:34,borderRadius:"50%",border:`1px solid ${C.blush}`,background:"rgba(255,255,255,0.65)",color:C.mid,fontSize:18,cursor:_cP}}>×</button>
+              <div style={{fontSize:36,marginBottom:10}}>🌱</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:27,fontWeight:700,color:C.deep,marginBottom:10}}>A little goodbye from OBubba</div>
+              <div style={{fontSize:16,lineHeight:1.65,color:C.mid,margin:"0 auto 18px",maxWidth:330}}>
+                {_msg}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:18}}>
+                <div style={{border:`1px solid ${C.blush}`,background:"rgba(255,255,255,0.58)",borderRadius:15,padding:"10px 8px"}}>
+                  <div style={{fontSize:11,color:C.lt,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.5px"}}>First met</div>
+                  <div style={{fontSize:13,color:C.deep,fontWeight:800,marginTop:2}}>{_memory.ageLabel || "at the beginning"}</div>
+                </div>
+                <div style={{border:`1px solid ${C.blush}`,background:"rgba(255,255,255,0.58)",borderRadius:15,padding:"10px 8px"}}>
+                  <div style={{fontSize:11,color:C.lt,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.5px"}}>Care rhythm</div>
+                  <div style={{fontSize:13,color:C.deep,fontWeight:800,marginTop:2}}>{_snapshot.loggedDays} days saved</div>
+                </div>
+              </div>
+              <div style={{fontSize:13,lineHeight:1.5,color:C.mid,marginBottom:18}}>
+                OBuddy will take the helpful bits: age, rhythm clues, milestones summary, foods tried, teeth, growth counts, and this memory. OBubba will keep the detailed baby-care record here.
+              </div>
+              <button onClick={async()=>{haptic();await shareObuddyHandoff();setShowObuddyFarewell(false);}} style={{width:"100%",padding:"15px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.mint},#5c947f)`,color:"white",fontSize:16,fontWeight:800,cursor:_cP,fontFamily:_fI,boxShadow:"0 8px 24px rgba(111,168,152,0.28)"}}>
+                Take my next step in OBuddy
+              </button>
+              <button onClick={()=>setShowObuddyFarewell(false)} style={{width:"100%",padding:"11px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,marginTop:5}}>
+                Stay in OBubba for now
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {sharePreview&&(
         <div style={{position:"fixed",inset:0,zIndex:9995,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={()=>{setSharePreview(null);setRecapExtraPhoto(null);}}>
