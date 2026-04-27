@@ -40760,8 +40760,8 @@ function App(){
               {/* Flex wrapper to reorder: dashboard before first tastes */}
               <div style={{display:"flex",flexDirection:"column"}}>
 
-              {/* ═══ First Tastes + Try Tomorrow suggestion ═══ */}
-              {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && daySubScreen!=="weaning_before" && daySubScreen!=="weaning_journey" && daySubScreen!=="weaning_journal" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning") && (devFilter==="weaning"||daySubScreen==="weaning") && (()=>{
+              {/* ═══ First Tastes + Try Tomorrow — REMOVED, meal count now in dashboard ═══ */}
+              {false && age && (()=>{
                 const _wksSinceWean = Math.max(0, age.totalWeeks - 26);
                 const _allFoods = [
                   // Phase 1. first 2 weeks: veg only (NHS recommends starting with vegetables)
