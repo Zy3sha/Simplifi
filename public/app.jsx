@@ -2269,10 +2269,10 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
       return {
         type: "dehydration_warning",
         emoji: "🍼",
-        title: "Feed intake low today",
-        detail: _todayMl + "ml so far today. At this age and time of day, around " + _expectedByNow + "ml is typical. That's significantly below expected.",
-        action: "Offer a feed now. If refusing feeds, seems unwell, or has fewer wet nappies, contact your " + _doctor + ".",
-        urgency: "high",
+        title: "Feed intake low today — worth keeping an eye on",
+        detail: _todayMl + "ml so far today. At this age and time of day, around " + _expectedByNow + "ml is typical.",
+        action: "Try offering a feed. If refusing feeds or fewer wet nappies than usual, mention it to your " + _doctor + " at your next visit.",
+        urgency: "med",
         confidence: "high"
       };
     }
