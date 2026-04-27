@@ -14,6 +14,12 @@ input::placeholder{opacity:1}
 
 /* ═══ LIGHT MODE ═══ */
 :root,body,body.light-mode{
+  --ob-vw:100vw;--ob-vh:100dvh;--ob-scale:1;--ob-modal-pad:16px;
+  --ob-panel-radius:24px;--ob-app-max-w:520px;
+  --ob-sheet-max-h:calc(var(--ob-vh) - env(safe-area-inset-top,0px) - 8px);
+  --ob-dialog-max-h:calc(var(--ob-vh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 32px);
+  --ob-media-max-h:calc(var(--ob-vh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 96px);
+  --kb-height:0px;--keyboard-height:0px;
   --bg-grad:linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%);
   --bg-solid:#FFF8F2;
   --card-bg:rgba(255,255,255,0.52);
@@ -693,6 +699,11 @@ body.dark-mode .prio-glow {
 }
 .ob-sheet-overlay{animation:overlayFadeIn 0.2s ease both}
 .ob-sheet-content{animation:sheetSlideUp 0.28s cubic-bezier(0.23,1,0.32,1) both}
+.ob-sheet-content{max-height:var(--ob-sheet-max-h)!important}
+.ob-responsive-dialog{max-height:var(--ob-dialog-max-h)!important;overflow-y:auto;-webkit-overflow-scrolling:touch}
+body[data-screen-compact] .glass-card{border-radius:18px}
+body[data-screen-compact] .ob-sheet-content{border-radius:20px 20px 0 0!important}
+body[data-screen-short] .ob-sheet-content{padding-top:14px!important}
 
 /* Toast entrance + exit */
 @keyframes toastEnter{

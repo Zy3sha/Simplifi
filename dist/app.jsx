@@ -537,9 +537,58 @@ window._obShare=function(){try{var el=document.getElementById("print-overlay");i
 window._obPrint=function(){try{var el=document.getElementById("print-overlay");if(!el)return;var html=el.innerHTML;var fullHtml="<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:20px;font-size:14px;line-height:1.5}.no-print{display:none!important}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:1cm;size:A4 portrait}}</style></head><body>"+html+"</body></html>";if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.OBCareCard){window.Capacitor.Plugins.OBCareCard.printHTML({html:fullHtml,jobName:"OBubba Bubba Care"}).catch(function(){});}else{window.print();}}catch(e){console.warn("_obPrint error",e)}};
 // ── Keyboard handling: scroll focused input into view when keyboard appears ──
 // Note: Capacitor Keyboard resize:"body" handles shrinking the viewport.
-// We only need to scroll the focused input into view. no --keyboard-height needed.
+// Keep sheets synced to the visible viewport and keyboard-safe area.
 (function(){
   if(typeof window==="undefined") return;
+  function _readViewportMetrics(){
+    var vv=window.visualViewport;
+    var w=Math.round((vv&&vv.width)||window.innerWidth||390);
+    var h=Math.round((vv&&vv.height)||window.innerHeight||844);
+    w=Math.max(320,w); h=Math.max(480,h);
+    var compact=w<370;
+    var short=h<700;
+    var tablet=w>=768;
+    var largeTablet=w>=1024;
+    var scale=Math.max(0.84,Math.min(1.16,w/390));
+    var modalPad=compact?10:(w<410?12:16);
+    var panelRadius=compact?20:24;
+    var maxW=largeTablet?840:(tablet?760:520);
+    return {w:w,h:h,compact:compact,short:short,tablet:tablet,largeTablet:largeTablet,scale:scale,modalPad:modalPad,panelRadius:panelRadius,maxW:maxW};
+  }
+  function _applyViewportVars(){
+    var m=_readViewportMetrics();
+    var root=document.documentElement;
+    root.style.setProperty("--ob-vw",m.w+"px");
+    root.style.setProperty("--ob-vh",m.h+"px");
+    root.style.setProperty("--ob-scale",String(m.scale));
+    root.style.setProperty("--ob-modal-pad",m.modalPad+"px");
+    root.style.setProperty("--ob-panel-radius",m.panelRadius+"px");
+    root.style.setProperty("--ob-app-max-w",m.maxW+"px");
+    root.style.setProperty("--ob-sheet-max-h","calc("+m.h+"px - env(safe-area-inset-top,0px) - 8px)");
+    root.style.setProperty("--ob-dialog-max-h","calc("+m.h+"px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - "+(m.short?20:32)+"px)");
+    root.style.setProperty("--ob-media-max-h","calc("+m.h+"px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 96px)");
+    if(document.body){
+      document.body.toggleAttribute("data-screen-compact",m.compact);
+      document.body.toggleAttribute("data-screen-short",m.short);
+      document.body.toggleAttribute("data-screen-tablet",m.tablet);
+    }
+    return m;
+  }
+  window.__obReadViewportMetrics=_readViewportMetrics;
+  window.__obUpdateViewportVars=_applyViewportVars;
+  _applyViewportVars();
+  var _vpRaf=0;
+  function _queueViewportUpdate(){
+    if(_vpRaf) return;
+    _vpRaf=requestAnimationFrame(function(){_vpRaf=0;_applyViewportVars();window.dispatchEvent(new CustomEvent("ob-viewport",{detail:_readViewportMetrics()}));});
+  }
+  window.addEventListener("resize",_queueViewportUpdate);
+  window.addEventListener("orientationchange",_queueViewportUpdate);
+  window.addEventListener("pageshow",_queueViewportUpdate);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize",_queueViewportUpdate);
+    window.visualViewport.addEventListener("scroll",_queueViewportUpdate);
+  }
   var _lastFocused=null;
   var _kbVisible=false;
   document.addEventListener("focusin",function(ev){
@@ -568,6 +617,7 @@ window._obPrint=function(){try{var el=document.getElementById("print-overlay");i
     _kbVisible=h>0;
     _kbHeight=h;
     document.documentElement.style.setProperty("--kb-height",h+"px");
+    document.documentElement.style.setProperty("--keyboard-height",h+"px");
     if(h>0) document.body.setAttribute("data-kb-open","1");
     else document.body.removeAttribute("data-kb-open");
     // Fire custom event so React components can listen
@@ -3960,7 +4010,54 @@ const _sf = Math.max(0.82, Math.min(1.15, _vw / 390)); // scale factor
 // Responsive helpers — use instead of hardcoded px for key UI elements
 const _rs = (base) => Math.round(base * _sf); // responsive size
 const _rf = (base) => Math.round(base * _sf * 10) / 10; // responsive font (1 decimal)
+const _sheetMaxH = "var(--ob-sheet-max-h)";
+const _dialogMaxH = "var(--ob-dialog-max-h)";
+const _mediaMaxH = "var(--ob-media-max-h)";
+function readResponsiveViewport(){
+  if(typeof window==="undefined") return {w:390,h:844,compact:false,short:false,tablet:false,largeTablet:false,scale:1,modalPad:16,panelRadius:24,maxW:520};
+  try {
+    if(window.__obUpdateViewportVars) return window.__obUpdateViewportVars();
+    if(window.__obReadViewportMetrics) return window.__obReadViewportMetrics();
+  } catch {}
+  var vv=window.visualViewport;
+  var w=Math.max(320,Math.round((vv&&vv.width)||window.innerWidth||390));
+  var h=Math.max(480,Math.round((vv&&vv.height)||window.innerHeight||844));
+  var tablet=w>=768, largeTablet=w>=1024;
+  return {w,h,compact:w<370,short:h<700,tablet,largeTablet,scale:Math.max(0.84,Math.min(1.16,w/390)),modalPad:w<370?10:(w<410?12:16),panelRadius:w<370?20:24,maxW:largeTablet?840:(tablet?760:520)};
+}
+function useResponsiveViewport(){
+  const[vp,setVp]=React.useState(readResponsiveViewport);
+  React.useEffect(()=>{
+    let raf=0;
+    const update=()=>{
+      if(raf) return;
+      raf=requestAnimationFrame(()=>{raf=0;setVp(readResponsiveViewport());});
+    };
+    window.addEventListener("resize",update);
+    window.addEventListener("orientationchange",update);
+    window.addEventListener("ob-viewport",update);
+    window.addEventListener("ob-keyboard",update);
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize",update);
+      window.visualViewport.addEventListener("scroll",update);
+    }
+    update();
+    return()=>{
+      if(raf) cancelAnimationFrame(raf);
+      window.removeEventListener("resize",update);
+      window.removeEventListener("orientationchange",update);
+      window.removeEventListener("ob-viewport",update);
+      window.removeEventListener("ob-keyboard",update);
+      if(window.visualViewport){
+        window.visualViewport.removeEventListener("resize",update);
+        window.visualViewport.removeEventListener("scroll",update);
+      }
+    };
+  },[]);
+  return vp;
+}
 function Sheet({onClose,title,children}){
+  const vp=useResponsiveViewport();
   const[kbH,setKbH]=React.useState(()=>typeof _kbHeight!=="undefined"?_kbHeight:0);
   const sheetRef=React.useRef(null);
   const overlayRef=React.useRef(null);
@@ -4005,8 +4102,8 @@ function Sheet({onClose,title,children}){
     };
   },[]);
   return(
-    <div ref={overlayRef} onClick={onClose} className="ob-sheet-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center",transition:"bottom 0.25s ease"}}>
-      <div ref={sheetRef} onClick={e=>e.stopPropagation()} className="ob-sheet-content" style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(24px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:_maxW,maxHeight:kbH>0?`calc(100vh - ${kbH+20}px)`:"85vh",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease",position:"relative",zIndex:501,border:"1px solid var(--card-border)",borderBottom:"none"}}>
+    <div ref={overlayRef} onClick={onClose} className="ob-sheet-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:kbH>0?kbH:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:`0 ${vp.modalPad}px`,transition:"bottom 0.25s ease"}}>
+      <div ref={sheetRef} onClick={e=>e.stopPropagation()} className="ob-sheet-content" style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"var(--ob-panel-radius) var(--ob-panel-radius) 0 0",padding:"18px clamp(14px,4vw,20px) calc(24px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:vp.maxW,maxHeight:_sheetMaxH,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",transition:"max-height 0.25s ease",position:"relative",zIndex:501,border:"1px solid var(--card-border)",borderBottom:"none"}}>
         <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
         {title&&<div style={{fontFamily:"Georgia,serif",fontSize:20,marginBottom:16}}>{title}</div>}
         {children}
@@ -5286,6 +5383,14 @@ function usePersistedState(key, defaultValue, parse, serialize) {
 }
 
 function App(){
+  const viewport=useResponsiveViewport();
+  const _isTablet=viewport.tablet;
+  const _isLargeTablet=viewport.largeTablet;
+  const _maxW=viewport.maxW;
+  const _rs=(base)=>Math.round(base*viewport.scale);
+  const _rf=(base)=>Math.round(base*viewport.scale*10)/10;
+  const _modalPad=viewport.modalPad;
+  const _panelRadius=viewport.panelRadius;
   const timerRef = React.useRef(null);
   const[isDark,setIsDark]=useState(()=>document.body.classList.contains('dark-mode'));
   const[themeKey,setThemeKey]=useState(0);
@@ -30969,7 +31074,7 @@ function App(){
     }
 
     return (
-      <div style={{minHeight:"100dvh",minHeight:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"0 24px 40px",paddingTop:"env(safe-area-inset-top, 0px)",paddingBottom:"calc(40px + env(safe-area-inset-bottom, 0px))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"}}>
+      <div style={{minHeight:"var(--ob-vh,100dvh)",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"0 24px 40px",paddingTop:"env(safe-area-inset-top, 0px)",paddingBottom:"calc(40px + env(safe-area-inset-bottom, 0px))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"}}>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"24px 0 16px"}}>
           <img src="obubba-happy.png" style={{width:56,height:56,borderRadius:14,marginBottom:10,boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}/>
           <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:3}}>OBubba</div>
@@ -31422,11 +31527,11 @@ function App(){
     const _wCtaColor = _isNight ? "#1A0B04" : "#FFF6EE";
     const _wSecShadow = _isNight ? "inset 0 0 0 1px rgba(232,200,150,0.3)" : "inset 0 0 0 1px rgba(60,47,44,0.2)";
     return (
-      <div style={{height:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflow:"hidden",position:"relative",overscrollBehavior:"none"}}>
+      <div style={{height:"var(--ob-vh,100dvh)",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflow:"hidden",position:"relative",overscrollBehavior:"none"}}>
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
 
         {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"100vh",height:"100dvh",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+          <div style={{width:"100%",maxWidth:430,height:"var(--ob-vh,100dvh)",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
@@ -31714,7 +31819,7 @@ function App(){
               animation:"tutPop 0.3s ease",
               zIndex:1002,
               pointerEvents:"auto",
-              maxHeight:"calc(100vh - 60px)",
+              maxHeight:_dialogMaxH,
               overflowY:"auto",
             }}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
@@ -31814,7 +31919,7 @@ function App(){
               animation:"tutPop 0.3s ease",
               zIndex:1002,
               pointerEvents:"auto",
-              maxHeight:"calc(100vh - 60px)",
+              maxHeight:_dialogMaxH,
               overflowY:"auto",
             }}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
@@ -44880,7 +44985,7 @@ function App(){
         const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium helps turn logs into calmer, more personal guidance, so you can enjoy your baby instead of worrying." };
         return (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"backdrop",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"26px 20px 22px",width:"100%",maxWidth:_isTablet?520:380,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",textAlign:"center",position:"relative",maxHeight:"90vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"26px 20px 22px",width:"100%",maxWidth:_isTablet?520:380,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",textAlign:"center",position:"relative",maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <button aria-label="Close" onTouchEnd={e=>e.stopPropagation()} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"close_button",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}} style={{position:"absolute",top:8,right:8,background:"none",border:"none",fontSize:18,color:C.lt,cursor:_cP,zIndex:1,width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
             <div style={{fontSize:32,marginBottom:8}}>💛</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8,lineHeight:1.3}}>{_msg.title}</div>
@@ -45100,7 +45205,7 @@ function App(){
 
       {showSoundMachine&&(
         <div role="dialog" aria-modal="true" onClick={()=>setShowSoundMachine(false)} style={{position:"fixed",inset:0,background:"rgba(20,15,30,0.7)",backdropFilter:"blur(8px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 32px",maxWidth:420,width:"100%",maxHeight:"88vh",overflowY:"auto",boxShadow:"0 -10px 40px rgba(0,0,0,0.3)",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 32px",maxWidth:420,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",boxShadow:"0 -10px 40px rgba(0,0,0,0.3)",position:"relative"}}>
             <div style={{position:"absolute",top:16,right:16,zIndex:2}}>
               <button aria-label="Close sound machine" onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowSoundMachine(false)} style={{width:44,height:44,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
             </div>
@@ -45175,7 +45280,7 @@ function App(){
       {/* ═══ Breastfeeding Hub Modal ═══ */}
       {showBfHub&&(
         <div role="dialog" aria-modal="true" onClick={()=>setShowBfHub(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(5px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 48px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:"88vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 48px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>🤱 Breastfeeding Guide</div>
@@ -45272,7 +45377,7 @@ function App(){
         const _highRisk = _eczema === "severe" || _knownAllergy === "yes";
         return (
           <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.6)",backdropFilter:"blur(6px)",zIndex:300,display:"flex",alignItems:"flex-end"}}>
-            <div style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 44px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 44px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto"}}>
               <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
               <div style={{fontSize:24,textAlign:"center",marginBottom:8}}>🛡️</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,textAlign:"center",marginBottom:6}}>Before we suggest allergens</div>
@@ -45351,7 +45456,7 @@ function App(){
       {/* ═══ Allergen Emergency Card ═══ */}
       {showAllergenEmergency && (
         <div role="dialog" aria-modal="true" onClick={()=>setShowAllergenEmergency(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.6)",backdropFilter:"blur(6px)",zIndex:300,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 44px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:"90vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 18px 44px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
             <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:16,textAlign:"center"}}>Allergic Reaction Guide</div>
 
@@ -45406,7 +45511,7 @@ function App(){
       {/* ═══ Meal Picker Sheet (6+ months) ═══ */}
       {showMealPicker && (
         <div role="dialog" aria-modal="true" onClick={()=>setShowMealPicker(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 16px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"20px 16px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 16px"}}/>
             <div style={{fontSize:16,fontWeight:700,color:C.deep,marginBottom:4,textAlign:"center"}}>🥕 Log a Meal</div>
             <div style={{fontSize:12,color:C.lt,textAlign:"center",marginBottom:16}}>What time of day is it?</div>
@@ -45474,7 +45579,7 @@ function App(){
       {/* ═══ Wellbeing Support Popup ═══ */}
       {showWellbeing&&(
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.65)",backdropFilter:"blur(8px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 22px 48px",maxWidth:_maxW,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 22px 48px",maxWidth:_maxW,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <div style={{width:36,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 20px"}}/>
 
             <div style={{textAlign:"center",marginBottom:20}}>
@@ -45584,7 +45689,7 @@ function App(){
       {/* ═══ Teething Form ═══ */}
       {showTeethingForm&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowTeethingForm(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:_sheetMaxH,overflowY:"auto",position:"relative"}}>
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowTeethingForm(false)} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
@@ -45712,7 +45817,7 @@ function App(){
       {/* ═══ Weaning Form ═══ */}
       {showWeaningForm&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowWeaningForm(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:_sheetMaxH,overflowY:"auto",position:"relative"}}>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowWeaningForm(false)} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
@@ -45874,7 +45979,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
         return (
           <div onClick={e=>{if(e.target===e.currentTarget)setShowSleepCoach(false);}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:510,display:"flex",alignItems:"flex-end"}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
               <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
                 <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowSleepCoach(false)} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
               </div>
@@ -46096,7 +46201,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const lowConf = topScore < 50;
         return (
         <div onClick={e=>{if(e.target===e.currentTarget){setShowCryingHelper(false);setCryingResult(null);}}} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:200,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"80vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{setShowCryingHelper(false);setCryingResult(null);}} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
@@ -46478,7 +46583,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           try{localStorage.setItem("ob_observations_v1","[]");}catch{}
           setShowObservations(false);
         }} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"24px 20px 32px",width:"100%",maxWidth:_isTablet?560:420,margin:"0 auto",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 -10px 40px rgba(0,0,0,0.15)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"24px 20px 32px",width:"100%",maxWidth:_isTablet?560:420,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto",boxShadow:"0 -10px 40px rgba(0,0,0,0.15)"}}>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 18px"}}/>
             <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
               <span style={{fontSize:28}}>💭</span>
@@ -46766,7 +46871,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Catch-Up Wizard. backfill a missed day in 30 seconds ═══ */}
       {showCatchUp&&(
         <div onClick={()=>setShowCatchUp(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"24px 20px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",maxHeight:"85vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"24px 20px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:4,textAlign:"center"}}>{"\u{1F4CB}"} Catch Up</div>
             <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:16,textAlign:"center"}}>Fill in a missed day from memory. rough times are fine {"\u2014"} this helps predictions stay on track.</div>
 
@@ -46892,7 +46997,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         ];
         return (
         <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(44,31,26,0.8)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowMemorial(null)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"32px 24px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",textAlign:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"32px 24px",width:"100%",maxWidth:400,maxHeight:_sheetMaxH,overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",textAlign:"center"}}>
             {/* Photo */}
             {_mPhoto ? (
               <img src={_mPhoto} alt={_mName} style={{width:100,height:100,borderRadius:"50%",objectFit:"cover",border:"4px solid rgba(123,104,238,0.2)",boxShadow:"0 8px 24px rgba(123,104,238,0.15)",marginBottom:16}}/>
@@ -47050,7 +47155,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const _nightTip = _sleepTips[_tipIdx];
         return (
         <div style={{position:"fixed",inset:0,zIndex:9997,background:"rgba(44,31,26,0.8)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowBedRoutine(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <div style={{textAlign:"center",marginBottom:16}}>
               <div style={{fontSize:36,marginBottom:6}}>{_step.emoji}</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep}}>Bedtime Routine</div>
@@ -47178,7 +47283,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ "You Time", triggered when bedtime is logged ═══ */}
       {showYouTime&&(
         <div style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(20,15,30,0.92)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowYouTime(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:380,maxHeight:"85vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:380,maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <div style={{textAlign:"center",marginBottom:16}}>
               <div style={{fontSize:40,marginBottom:8}}>💛</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1.3}}>What a day.</div>
@@ -47283,7 +47388,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
       {showSupportModal&&(
         <div style={{position:"fixed",inset:0,zIndex:10001,background:"rgba(44,31,26,0.7)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowSupportModal(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:28,padding:"28px 22px",width:"100%",maxWidth:400,maxHeight:_sheetMaxH,overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
             <div style={{textAlign:"center",marginBottom:20}}>
               <div style={{fontSize:40,marginBottom:8}}>💜</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1.3}}>You're not failing.</div>
@@ -47416,7 +47521,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Bubba Care Modal ═══ */}
       {showCarerCard&&(
         <div onClick={e=>{if(e.target===e.currentTarget)setShowCarerCard(false);}} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:_maxW,maxHeight:"92vh",position:"relative",display:"flex",flexDirection:"column"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:_maxW,maxHeight:_sheetMaxH,position:"relative",display:"flex",flexDirection:"column"}}>
             <div style={{display:"flex",justifyContent:"flex-end",padding:"16px 16px 0",flexShrink:0}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowCarerCard(false)} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
@@ -47664,7 +47769,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Poop Info Modal ═══ */}
       {poopWhyOpen&&(
         <div onClick={()=>setPoopWhyOpen(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:400,width:"100%",maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:400,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",position:"relative"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>💩 What's normal?</div>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setPoopWhyOpen(false)} style={{width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
@@ -47686,7 +47791,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Carer Review Modal ═══ */}
       {showCarerReview&&(
         <div onClick={()=>setShowCarerReview(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:_maxW,maxHeight:"92vh",display:"flex",flexDirection:"column"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:_maxW,maxHeight:_sheetMaxH,display:"flex",flexDirection:"column"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"20px 20px 0",flexShrink:0}}>
               <div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>📋 Carer Activity</div>
@@ -47817,7 +47922,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             {showNightWake&&(()=>{
               return(
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:"var(--kb-height, 0px)",background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:510,display:"flex",alignItems:"flex-end",transition:"bottom 0.25s ease"}} onClick={e=>{if(e.target===e.currentTarget){setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;}}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",boxSizing:_bBB,maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>{setShowNightWake(false);setNightEditId(null);nwResumeAnchorRef.current=null;}} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
@@ -48124,7 +48229,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           a glanceable "are they both OK today?" reassurance. */}
       {showCompareKids && (
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:9990,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowCompareKids(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",padding:"20px 18px calc(28px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:540,maxHeight:"85vh",overflowY:"auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",padding:"20px 18px calc(28px + env(safe-area-inset-bottom, 0px))",width:"100%",maxWidth:540,maxHeight:_sheetMaxH,overflowY:"auto"}}>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 14px"}}/>
             <div style={{textAlign:"center",marginBottom:14}}>
               <div style={{fontSize:28,marginBottom:4}}>⇄</div>
@@ -48483,7 +48588,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       )}
       {showFamilyModal && (
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",zIndex:200,display:"flex",alignItems:"flex-end"}} onClick={()=>setShowFamilyModal(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxHeight:"85vh",overflowY:"auto",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"28px 24px 40px",width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",position:"relative"}}>
             <div style={{position:"sticky",top:0,zIndex:2,display:"flex",justifyContent:"flex-end",marginBottom:-16}}>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setShowFamilyModal(false)} aria-label="Close" style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>✕</button>
             </div>
@@ -48616,8 +48721,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
             {/* ═══ Add Appointment Modal ═══ */}
       {showAddAppt&&(
-        <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 12px"}} onClick={()=>{setShowAddAppt(false);setEditApptId(null);}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(34px) saturate(1.7)",WebkitBackdropFilter:"blur(34px) saturate(1.7)",borderRadius:"28px 28px 0 0",padding:"10px 16px calc(16px + env(safe-area-inset-bottom))",maxWidth:_maxW,width:"100%",maxHeight:"92vh",overflowY:"auto",boxShadow:"0 -18px 64px rgba(0,0,0,0.38)",border:"1px solid var(--card-border)",borderBottom:"none"}}>
+        <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:`0 ${_modalPad}px`}} onClick={()=>{setShowAddAppt(false);setEditApptId(null);}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(34px) saturate(1.7)",WebkitBackdropFilter:"blur(34px) saturate(1.7)",borderRadius:`${_panelRadius+4}px ${_panelRadius+4}px 0 0`,padding:"10px clamp(14px,4vw,18px) calc(16px + env(safe-area-inset-bottom))",maxWidth:_maxW,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",boxShadow:"0 -18px 64px rgba(0,0,0,0.38)",border:"1px solid var(--card-border)",borderBottom:"none"}}>
             <div style={{width:42,height:4,borderRadius:99,background:"var(--card-border)",margin:"0 auto 14px",opacity:0.9}}/>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
@@ -48762,7 +48867,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const upcomingAll=appointments.filter(a=>{const d=new Date(a.date+"T"+(a.time||"23:59")+":59");return d>=new Date();}).sort((a,b)=>(a.date+(a.time||"00:00")).localeCompare(b.date+(b.time||"00:00")));
         return (
         <div role="dialog" aria-modal="true" onClick={()=>setShowApptCalendar(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:9990,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"20px 18px",maxWidth:400,width:"100%",maxHeight:"88vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.2)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"20px 18px",maxWidth:400,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.2)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
               <button onClick={prevMo} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:34,height:34,cursor:_cP,fontSize:16,color:C.mid,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
               <div style={{fontFamily:"Georgia,serif",fontSize:17,fontWeight:700,color:C.deep}}>{monthLabel}</div>
@@ -48904,7 +49009,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ GRANDPARENT MODE. Logging Sheets ═══ */}
       {gpSheet==="feed" && (
         <div role="dialog" aria-modal="true" onClick={()=>setGpSheet(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>🍼 Log a Feed</div>
             <div style={{fontSize:15,color:C.mid,textAlign:"center",marginBottom:24}}>How much did {babyName||"baby"} drink?</div>
@@ -48933,7 +49038,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       )}
       {gpSheet==="nappy" && (
         <div role="dialog" aria-modal="true" onClick={()=>setGpSheet(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>💩 Log a Nappy</div>
             <div style={{fontSize:15,color:C.mid,textAlign:"center",marginBottom:24}}>What's in it?</div>
@@ -48956,7 +49061,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       )}
       {gpSheet==="note" && (
         <div role="dialog" aria-modal="true" onClick={()=>setGpSheet(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>📝 Leave a Note</div>
             <div style={{fontSize:15,color:C.mid,textAlign:"center",marginBottom:20}}>Anything to tell the parents?</div>
@@ -48984,7 +49089,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const _msg = getObuddyFarewellMessage();
         return (
           <div role="dialog" aria-modal="true" onClick={()=>setShowObuddyFarewell(false)} style={{position:"fixed",inset:0,zIndex:9996,background:"rgba(44,31,26,0.56)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-            <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:390,background:"linear-gradient(180deg,rgba(255,251,248,0.98),rgba(255,245,238,0.98))",borderRadius:28,padding:"26px 22px 22px",boxShadow:"0 24px 80px rgba(44,31,26,0.28)",border:"1px solid rgba(255,255,255,0.74)",textAlign:"center",position:"relative"}}>
+            <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:390,background:"linear-gradient(180deg,rgba(255,251,248,0.98),rgba(255,245,238,0.98))",borderRadius:28,padding:"26px 22px 22px",boxShadow:"0 24px 80px rgba(44,31,26,0.28)",border:"1px solid rgba(255,255,255,0.74)",textAlign:"center",position:"relative",maxHeight:_dialogMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
               <button type="button" aria-label="Close" onClick={()=>setShowObuddyFarewell(false)} style={{position:"absolute",top:12,right:12,width:34,height:34,borderRadius:"50%",border:`1px solid ${C.blush}`,background:"rgba(255,255,255,0.65)",color:C.mid,fontSize:18,cursor:_cP}}>×</button>
               <div style={{fontSize:36,marginBottom:10}}>🌱</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:27,fontWeight:700,color:C.deep,marginBottom:10}}>A little goodbye from OBubba</div>
@@ -49018,7 +49123,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {sharePreview&&(
         <div style={{position:"fixed",inset:0,zIndex:9995,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"20px 16px",overflowY:"auto",WebkitOverflowScrolling:"touch"}} onClick={()=>{setSharePreview(null);setRecapExtraPhoto(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:"min(360px, calc(100vw - 32px))",display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
-            <img src={sharePreview.dataUrl} alt="Recap card" style={{width:"100%",height:"auto",maxHeight:"60vh",objectFit:"contain",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)",display:"block"}}/>
+            <img src={sharePreview.dataUrl} alt="Recap card" style={{width:"100%",height:"auto",maxHeight:_mediaMaxH,objectFit:"contain",borderRadius:20,boxShadow:"0 20px 60px rgba(0,0,0,0.5)",display:"block"}}/>
             <div style={{display:"flex",gap:10,width:"100%"}}>
               <button onClick={()=>{haptic();if(recapPhotoRef.current)recapPhotoRef.current.click();}} style={{flex:1,padding:"14px",borderRadius:99,border:"2px solid rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.1)",color:"white",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
                 {recapExtraPhoto ? "🔄 Change Photo" : "📷 Add Photo"}
@@ -49053,7 +49158,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         for(let d=1;d<=daysInMonth;d++)cells.push(d);
         return(
           <div role="dialog" aria-modal="true" onClick={()=>setShowCalendar(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:9990,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 24px 80px rgba(0,0,0,0.2)"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",maxHeight:_dialogMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",boxShadow:"0 24px 80px rgba(0,0,0,0.2)"}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
                 <button onClick={prevMonth} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:10,width:36,height:36,cursor:_cP,fontSize:18,color:C.mid,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
                 <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif"}}>{monthName}</div>
@@ -49106,7 +49211,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         </div>;
         return (
           <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowWeeklyDigest(false)}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px)",WebkitBackdropFilter:"blur(30px)",borderRadius:24,padding:"24px 20px",maxWidth:400,width:"100%",maxHeight:"85vh",overflowY:"auto",border:"1px solid var(--card-border)"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px)",WebkitBackdropFilter:"blur(30px)",borderRadius:24,padding:"24px 20px",maxWidth:400,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",border:"1px solid var(--card-border)"}}>
               <div style={{textAlign:"center",marginBottom:16}}>
                 <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>{digest.period}</div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep,marginTop:4}}>{digest.name}'s Week</div>
@@ -49262,7 +49367,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         </div>;
         return (
           <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowHVReport(false)}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px)",WebkitBackdropFilter:"blur(30px)",borderRadius:"24px 24px 0 0",padding:"24px 20px calc(24px + env(safe-area-inset-bottom))",maxWidth:420,width:"100%",maxHeight:"90vh",overflowY:"auto",border:"1px solid var(--card-border)"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px)",WebkitBackdropFilter:"blur(30px)",borderRadius:"24px 24px 0 0",padding:"24px 20px calc(24px + env(safe-area-inset-bottom))",maxWidth:420,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",border:"1px solid var(--card-border)"}}>
               {/* Header */}
               <div style={{textAlign:"center",marginBottom:16}}>
                 <div style={{display:"inline-block",background:"linear-gradient(135deg,#e74c6f20,#7b68ee20)",borderRadius:12,padding:"6px 16px",marginBottom:8}}>
@@ -49364,7 +49469,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         {/* ═══ Schedule Maker Modal ═══ */}
       {showScheduleMaker && (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:"90vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
             <button aria-label="Close" onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",zIndex:10,touchAction:"manipulation"}}>✕</button>
             <div style={{width:48,height:4,background:"rgba(120,110,130,0.16)",borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
@@ -49670,7 +49775,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Adjust Schedule Modal ═══ */}
       {showAdjustSchedule && (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowAdjustSchedule(false)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:_maxW}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px 52px",width:"100%",maxWidth:_maxW,maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,marginBottom:4}}>⚙️ Adjust Schedule</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:12,lineHeight:1.5}}>
@@ -49771,7 +49876,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Schedule Adjustment Notice ═══ */}
       {scheduleAdjustmentNotice && (
         <div style={{position:"fixed",inset:0,zIndex:9991,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setScheduleAdjustmentNotice(null)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:24,padding:"22px 22px 20px",maxWidth:400,width:"100%",maxHeight:"85vh",overflowY:"auto",boxShadow:"0 10px 40px rgba(0,0,0,0.15)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:24,padding:"22px 22px 20px",maxWidth:400,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",boxShadow:"0 10px 40px rgba(0,0,0,0.15)"}}>
             <div style={{fontSize:32,textAlign:"center",marginBottom:8}}>⚙️</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:19,textAlign:"center",color:C.deep,marginBottom:6}}>Schedule applied with a few tweaks</div>
             <div style={{fontSize:12,color:C.lt,textAlign:"center",marginBottom:14,lineHeight:1.5}}>
@@ -49888,7 +49993,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         };
         return (
           <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowShoppingListModal(false);setShoppingDraft(null);}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
               <button onClick={()=>{setShowShoppingListModal(false);setShoppingDraft(null);}} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",zIndex:10,touchAction:"manipulation"}}>✕</button>
               <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
               <div style={{fontFamily:"Georgia,serif",fontSize:20,marginBottom:4}}>🛒 Weekly shopping plan</div>
@@ -50026,8 +50131,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             {/* ═══ Photo Viewer Overlay ═══ */}
       {viewPhoto && (
         <div onClick={()=>setViewPhoto(null)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:"100%",maxHeight:"80vh",position:"relative"}}>
-            <img src={viewPhoto.dataUrl} alt="" style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:16,objectFit:"contain",boxShadow:"0 0 40px rgba(0,0,0,0.5)"}}/>
+          <div onClick={ev=>ev.stopPropagation()} style={{maxWidth:"100%",maxHeight:_mediaMaxH,position:"relative"}}>
+            <img src={viewPhoto.dataUrl} alt="" style={{maxWidth:"100%",maxHeight:_mediaMaxH,borderRadius:16,objectFit:"contain",boxShadow:"0 0 40px rgba(0,0,0,0.5)"}}/>
           </div>
           <div style={{marginTop:16,display:"flex",alignItems:"center",gap:10}}>
             <div style={{color:"white",fontSize:13,fontFamily:_fM,opacity:0.7}}>
@@ -50084,7 +50189,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Medicine/Temperature Form ═══ */}
       {showMedForm&&(
         <div onClick={()=>setShowMedForm(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:_maxW,maxHeight:"92vh",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:"24px 24px 0 0",padding:"24px 20px 40px",width:"100%",maxWidth:_maxW,maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:12,textAlign:"center"}}>💊 Health</div>
             {/* Medicines | Vaccines tabs */}
@@ -50389,7 +50494,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             {/* ═══ Help Tip Popup ═══ */}
       {helpTip&&(
         <div onClick={()=>setHelpTip(null)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:340,boxShadow:"0 12px 40px rgba(0,0,0,0.2)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:340,maxHeight:_dialogMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",boxShadow:"0 12px 40px rgba(0,0,0,0.2)"}}>
             <div style={{fontSize:28,textAlign:"center",marginBottom:8}}>💡</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:10,textAlign:"center"}}>{helpTip.title}</div>
             <div style={{fontSize:14,color:C.mid,lineHeight:1.65}}>{helpTip.body}</div>
@@ -50434,7 +50539,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         const _isHigh = scoreDetail.val >= scoreDetail.good;
         return (
           <div role="dialog" aria-modal="true" onClick={()=>setScoreDetail(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(4px)",zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"24px 22px",maxWidth:360,width:"100%",maxHeight:"80vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",border:"1px solid var(--card-border)"}}>
+            <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:24,padding:"24px 22px",maxWidth:360,width:"100%",maxHeight:_dialogMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",boxShadow:"0 20px 60px rgba(0,0,0,0.3)",border:"1px solid var(--card-border)"}}>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
                 <div style={{fontSize:32}}>{scoreDetail.emoji}</div>
                 <div style={{flex:1}}>
@@ -50458,7 +50563,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
       {msSharePrompt&&(
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.5)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setMsSharePrompt(null)}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:24,padding:"28px 22px",width:"100%",maxWidth:320,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:24,padding:"28px 22px",width:"100%",maxWidth:320,maxHeight:_dialogMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch",boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
             <div style={{fontSize:40,marginBottom:10}}>🎉</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:6}}>{msSharePrompt.label}</div>
             <div style={{fontSize:14,color:"#7A6B7E",lineHeight:1.6,marginBottom:18}}>Would you like to capture this moment and share it?</div>
