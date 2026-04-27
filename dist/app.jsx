@@ -41043,49 +41043,7 @@ function App(){
                       </div>
                     </div>
 
-                    {/* ── PREMIUM: Weaning analyser ──
-                        Iron gaps, allergen overdue, refusal streaks,
-                        constipation risk. Free users see headline +
-                        unlock CTA. Surfaced as part of the existing
-                        Try Today card so no new UI. */}
-                    {(()=>{
-                      try {
-                        if (!age || typeof age.totalWeeks !== "number") return null;
-                        // Gather recent poop entries for constipation check
-                        const _recentPoops = [];
-                        for (let i = 0; i < 5; i++) {
-                          const d = new Date();
-                          d.setDate(d.getDate() - i);
-                          const dk = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-                          (days[dk]||[]).forEach(e => {
-                            if (e.type === "poop") _recentPoops.push(e);
-                          });
-                        }
-                        const _recentDays = Object.keys(days).sort().slice(-14);
-                        const _dw = diagnoseWeaningPattern(weaning||[], (age.predictiveWeeks??age.totalWeeks), _recentPoops, _recentDays);
-                        if (!_dw || _dw.type === "balanced_good") return null;
-                        const _unlockedW = hasAccess();
-                        return (
-                          <div style={{background:_dw.urgency==="high"?"rgba(232,87,74,0.08)":"rgba(192,112,136,0.06)",border:"1px solid "+(_dw.urgency==="high"?"rgba(232,87,74,0.35)":"rgba(192,112,136,0.25)"),borderRadius:10,padding:"10px 12px",marginBottom:10}}>
-                            <div style={{fontSize:10,fontFamily:_fM,color:C.ter,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",gap:4}}>
-                              <span>🥣 Weaning analyser</span>
-                              {!_unlockedW && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:C.gold+"22",color:C.gold}}>PREMIUM</span>}
-                            </div>
-                            <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>{_dw.emoji} {_dw.title}</div>
-                            {_unlockedW ? (
-                              <>
-                                <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:6}}>{_dw.detail}</div>
-                                <div style={{fontSize:11,color:C.deep,fontWeight:600,lineHeight:1.5,padding:"6px 8px",background:"var(--card-bg)",borderRadius:8}}>💡 {_dw.action}</div>
-                              </>
-                            ) : (
-                              <button onClick={()=>triggerPaywall("weaning_analyser", true)} style={{width:"100%",marginTop:4,padding:"8px 10px",borderRadius:8,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:11,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-                                Unlock full analysis
-                              </button>
-                            )}
-                          </div>
-                        );
-                      } catch { return null; }
-                    })()}
+                    {/* Weaning analyser removed from This Week — insights live in Report tab */}
 
                     {/* Today's food */}
                     <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
