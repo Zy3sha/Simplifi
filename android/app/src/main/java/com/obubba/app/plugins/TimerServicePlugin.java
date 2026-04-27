@@ -46,21 +46,8 @@ public class TimerServicePlugin extends Plugin {
     @PluginMethod
     public void stopTimer(PluginCall call) {
         try {
-            Intent intent = new Intent(getContext(), TimerService.class);
-            intent.setAction(TimerService.ACTION_STOP);
-
-            // Try to send the stop action; if the service isn't running, just stop it
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    getContext().startForegroundService(intent);
-                } else {
-                    getContext().startService(intent);
-                }
-            } catch (Exception e) {
-                // Service might not be running, that's fine
-            }
-
-            // Also try direct stop in case the above didn't work
+            // Stop the service directly — don't use startForegroundService to send a stop action
+            // (startForegroundService crashes on Android 12+ Samsung if called from background)
             try {
                 getContext().stopService(new Intent(getContext(), TimerService.class));
             } catch (Exception e) {
@@ -109,14 +96,11 @@ public class TimerServicePlugin extends Plugin {
     @PluginMethod
     public void stopPrediction(PluginCall call) {
         try {
+            // Stop the service directly — don't start a foreground service just to stop it
+            // (startForegroundService crashes on Android 12+ if called from background)
             Intent intent = new Intent(getContext(), TimerService.class);
-            intent.setAction(TimerService.ACTION_STOP_PREDICTION);
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    getContext().startForegroundService(intent);
-                } else {
-                    getContext().startService(intent);
-                }
+                getContext().stopService(intent);
             } catch (Exception e) { /* service might not be running */ }
 
             JSObject ret = new JSObject();
