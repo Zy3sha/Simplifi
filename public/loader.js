@@ -1,4 +1,18 @@
 // ── Global error handler — styled sleeping baby page ──
+function _obRenderBootError(title, detail) {
+  var root = document.getElementById('root');
+  if (!root || root.children.length) return;
+  root.innerHTML = '<div style="min-height:100vh;background:linear-gradient(135deg,#FFFEFD 0%,#FDFAF9 40%,#FBF9F8 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;font-family:DM Sans,sans-serif;text-align:center;position:relative;overflow:hidden">'
+    + '<style>@keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}@keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}@keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}@keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}@keyframes floatUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}</style>'
+    + '<div style="position:relative;margin-bottom:28px"><img src="sleep-baby.png" alt="" style="width:200px;height:200px;object-fit:contain;animation:babyBreathe 3.5s ease-in-out infinite;filter:drop-shadow(0 16px 32px rgba(217,207,243,0.35))"><span style="position:absolute;top:8px;right:-5px;font-size:18px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz1 2.8s ease-in-out infinite">z</span><span style="position:absolute;top:-8px;right:12px;font-size:24px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz2 2.8s ease-in-out 0.5s infinite">z</span><span style="position:absolute;top:-28px;right:28px;font-size:16px;font-weight:700;color:#D9CFF3;font-family:Playfair Display,serif;font-style:italic;animation:zzz3 2.8s ease-in-out 1s infinite">z</span></div>'
+    + '<div style="font-family:Playfair Display,serif;font-size:26px;font-weight:700;color:#5B4F5F;margin-bottom:10px">' + title + '</div>'
+    + '<div style="font-size:15px;color:#7A6B7E;line-height:1.65;max-width:300px;margin-bottom:6px">OBubba is taking longer than expected to wake up.</div>'
+    + '<div style="font-size:14px;color:#A898AC;line-height:1.5;max-width:280px;margin-bottom:28px">Refresh once. Your logs are still stored on this device.</div>'
+    + '<button onclick="window.location.reload()" style="padding:14px 36px;border-radius:99px;border:none;background:rgba(192,112,136,0.55);backdrop-filter:blur(16px);color:white;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 0 24px rgba(246,221,227,0.40),0 0 48px rgba(217,207,243,0.25);animation:floatUp 3s ease-in-out infinite">Refresh OBubba</button>'
+    + '<div style="font-size:10px;color:#C8B8C0;margin-top:24px;font-family:monospace;max-width:300px;word-break:break-all">' + detail + '</div>'
+    + '</div>';
+}
+
 window.onerror = function(msg, src, line, col, err) {
   // Ignore cross-origin "Script error" at line 0 — these are non-fatal noise
   // from Firebase/Google Analytics modules loaded from CDN
@@ -33,6 +47,17 @@ window.onerror = function(msg, src, line, col, err) {
     + '<div style="font-size:10px;color:#C8B8C0;margin-top:24px;font-family:monospace;max-width:300px;word-break:break-all">' + detail + ' (line ' + line + ')</div>'
     + '</div>';
 };
+
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    try {
+      var root = document.getElementById('root');
+      if (!window.__obReactMounted && root && (!root.children || root.children.length === 0)) {
+        _obRenderBootError('Still Loading?', 'The app shell did not mount. This usually means a stale bundle or missing runtime asset.');
+      }
+    } catch(e) {}
+  }, 4500);
+});
 
 // ── Catch unhandled promise rejections (Firebase, sync, native plugins) ──
 window.addEventListener("unhandledrejection", function(event) {
@@ -209,7 +234,14 @@ window.__obAppLoaded = true;
 
 // ── Register Service Worker for offline support (web/PWA only, not native) ──
 // On native (Capacitor), unregister any existing SW to prevent stale caches
-if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+var _obIsLocalDev = /^(localhost|127\.0\.0\.1|::1)$/.test(location.hostname);
+if (_obIsLocalDev) {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      regs.forEach(function(r) { r.unregister(); });
+    });
+  }
+} else if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(function(regs) {
       regs.forEach(function(r) { r.unregister(); });

@@ -18,20 +18,34 @@ console.log('Compiled: app.js written (' + r.code.length + ' chars)');
 
 echo "Copying to public/app.js..."
 cp app.js public/app.js
+cp app.jsx public/app.jsx
+cp -f styles.css public/styles.css
+cp -f loader.js public/loader.js
+
+echo "Copying vendored runtime..."
+mkdir -p public/vendor dist/vendor
+cp -f node_modules/react/umd/react.production.min.js public/vendor/react.production.min.js
+cp -f node_modules/react-dom/umd/react-dom.production.min.js public/vendor/react-dom.production.min.js
+cp -f public/vendor/react.production.min.js dist/vendor/react.production.min.js
+cp -f public/vendor/react-dom.production.min.js dist/vendor/react-dom.production.min.js
 
 echo "Copying to dist/..."
 cp -f app.js dist/app.js
 cp -f app.jsx dist/app.jsx
+cp -f styles.css dist/styles.css
+cp -f loader.js dist/loader.js
 # Ensure font is in dist so cap copy includes it
 cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || true
 
 # Cache-bust: update ?v= on all index.html script tags
 echo "Cache busting..."
 CACHE_V=$(date +%s)
-for f in index.html dist/index.html; do
+for f in index.html public/index.html dist/index.html; do
   if [ -f "$f" ]; then
     sed -i '' "s|/app\.js?v=[0-9]*\"|/app.js?v=${CACHE_V}\"|g" "$f"
     sed -i '' "s|/app\.js\"|/app.js?v=${CACHE_V}\"|g" "$f"
+    sed -i '' "s|styles\.css?v=[0-9]*\"|styles.css?v=${CACHE_V}\"|g" "$f"
+    sed -i '' "s|styles\.css\"|styles.css?v=${CACHE_V}\"|g" "$f"
   fi
 done
 

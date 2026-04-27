@@ -58,9 +58,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
 
-  <!-- External libraries (React loaded from CDN for PWA; Babel removed, app.js is pre-compiled) -->
-  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- External libraries (vendored locally so web, PWA, and native shells boot offline) -->
+  <script src="/vendor/react.production.min.js"></script>
+  <script src="/vendor/react-dom.production.min.js"></script>
 
   <!-- Firebase -->
   <script type="module" src="/firebase.js"></script>
@@ -69,8 +69,8 @@
   <script src="/native-plugins.js" defer></script>
 
   <!-- Styles -->
-  <script type="module" crossorigin src="/assets/index-6o0kjBe6.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-C14z41q6.css">
+  <script type="module" crossorigin src="/assets/index-C-zdywXh.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CU774_H7.css">
 <script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
 <body style="background:#FFFEFD;margin:0">
 <div id="ob-splash" style="position:fixed;inset:0;z-index:99999;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#FFFEFD 0%,#FDFAF9 40%,#FBF9F8 100%);padding:40px 24px;text-align:center">
@@ -97,8 +97,11 @@
 <!-- Theme system -->
 <script src="/theme.js"></script>
 
+<!-- App loader: installs error/mount guards before app.js executes -->
+<script src="/loader.js"></script>
+
 <!-- App (pre-compiled by Babel; see build-pwa.sh) -->
-<script defer src="/app.js?v=1777301944"></script>
+<script defer src="/app.js?v=1777309690"></script>
 
 <!-- Hide splash + failsafe -->
 <script>
@@ -107,7 +110,5 @@
   setTimeout(_hideSplash, 3000);
 </script>
 
-<!-- App loader -->
-<script src="/loader.js"></script>
 </body>
 </html>

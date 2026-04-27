@@ -1863,8 +1863,8 @@ function diagnoseNightPattern(lastNight, context) {
         type: "overtired",
         emoji: "😫",
         title: "Overtired false start",
-        detail: "Baby woke within " + earlyHardWakes[0].fromBedMin + " min of bedtime and took " + hm(earlyHardWakes[0].durationMin) + " to resettle. The last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). Cortisol from being awake too long prevents baby from linking sleep cycles.",
-        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby is overtired, an earlier bedtime works better — counter-intuitive but it helps.",
+        detail: "Baby woke within " + earlyHardWakes[0].fromBedMin + " min of bedtime and took " + hm(earlyHardWakes[0].durationMin) + " to resettle. The last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). That pattern may suggest baby was past their comfortable window, which can make linking sleep cycles harder.",
+        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby seems overtired, an earlier bedtime often helps.",
         bedtimeShiftMin: -15,
         confidence: "high",
         _lastWW
@@ -1883,8 +1883,8 @@ function diagnoseNightPattern(lastNight, context) {
         type: "overtired",
         emoji: "😫",
         title: "Looks overtired",
-        detail: "Early false start (" + earlyHardWakes[0].fromBedMin + " min after bed) AND " + _dawnWakesEarly.length + " hard wake" + (_dawnWakesEarly.length > 1 ? "s" : "") + " in the 3-5am window. Last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). Both patterns together point to overtiredness.",
-        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby is overtired, an earlier bedtime works better — counter-intuitive but it helps.",
+        detail: "Early false start (" + earlyHardWakes[0].fromBedMin + " min after bed) AND " + _dawnWakesEarly.length + " hard wake" + (_dawnWakesEarly.length > 1 ? "s" : "") + " in the 3-5am window. Last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). Together, those patterns may suggest overtiredness.",
+        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby seems overtired, an earlier bedtime often helps.",
         bedtimeShiftMin: -15,
         confidence: "high",
         _lastWW
@@ -1895,7 +1895,7 @@ function diagnoseNightPattern(lastNight, context) {
       type: "undertired",
       emoji: "⏰",
       title: "Looks undertired",
-      detail: "Baby woke within " + earlyHardWakes[0].fromBedMin + " min of bedtime and took " + hm(earlyHardWakes[0].durationMin) + " to resettle. Classic 'not enough sleep pressure' sign." + (_lastWW > 0 ? " Last wake window was " + hm(_lastWW) + "." : ""),
+      detail: "Baby woke within " + earlyHardWakes[0].fromBedMin + " min of bedtime and took " + hm(earlyHardWakes[0].durationMin) + " to resettle. This may suggest they needed a little more sleep pressure before bed." + (_lastWW > 0 ? " Last wake window was " + hm(_lastWW) + "." : ""),
       actionTaken: "I've pushed tonight's bedtime 15 minutes later so baby builds more sleep pressure before going down. Nothing else for you to change.",
       bedtimeShiftMin: 15,
       confidence: earlyHardWakes.length >= 2 ? "high" : "medium"
@@ -1911,8 +1911,8 @@ function diagnoseNightPattern(lastNight, context) {
       type: "overtired",
       emoji: "😫",
       title: "Looks overtired",
-      detail: "Multiple hard wakes in the 3-5am window. That's the cortisol spike, baby's body released stress hormones because they were overtired before bed.",
-      actionTaken: "I've brought tonight's bedtime forward by 15 minutes. Overtired babies resettle better earlier, counter-intuitive but it works.",
+      detail: "Multiple hard wakes in the 3-5am window. This can fit an overtired pattern, especially if bedtime followed a long final wake window.",
+      actionTaken: "I've brought tonight's bedtime forward by 15 minutes. If overtiredness is the driver, an earlier bedtime often helps.",
       bedtimeShiftMin: -15,
       confidence: dawnWakes.length >= 2 ? "high" : "medium"
     };
@@ -2452,7 +2452,7 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
         emoji: "🌱",
         title: "Weaning window approaching",
         detail: "Most health organisations recommend starting solids at around 6 months (26 weeks). Signs of readiness: holds head steady, sits with minimal support, grabs for food, no tongue-thrust.",
-        action: "Start with single-ingredient vegetable purees or soft finger-food sticks. Once baby has tolerated a few, introduce peanut and egg early (LEAP trial: reduces allergy risk).",
+        action: "Start with single-ingredient vegetable purees or soft finger-food sticks. Once baby has tolerated a few foods, ask your health visitor/GP how to introduce peanut and egg safely, especially if eczema or allergy risk is present.",
         urgency: "low",
         confidence: "high"
       };
@@ -2504,8 +2504,8 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
         type: "allergen_overdue",
         emoji: "🥜",
         title: "Allergens need catching up",
-        detail: "At " + Math.round(ageWeeks/4.33) + " months, only " + _triedAllergens.size + " of the 14 common allergens have been introduced. LEAP and BSACI: early exposure (before 12 months) is protective — delay increases allergy risk.",
-        action: "Prioritise peanut butter and egg this week (highest-impact pair). One allergen per 3 days, morning, watch for 2 hours.",
+        detail: "At " + Math.round(ageWeeks/4.33) + " months, only " + _triedAllergens.size + " of the 14 common allergens have been introduced. Evidence suggests early, regular exposure may help many babies build tolerance, but high-risk babies need tailored medical advice.",
+        action: "If there is no eczema/allergy concern, consider peanut and egg this week. One allergen at a time, morning, watch closely, and speak to your GP or health visitor if unsure.",
         urgency: "medium",
         confidence: "high"
       };
@@ -4942,7 +4942,7 @@ function UsernameSetForm({ normaliseUsername, reserveUsername, saveRecoveryEmail
         setSaving(true); setErr("");
         const ok = await reserveUsername(u, pin);
         if(ok) {
-          if(email.trim().includes("@")) { try{await saveRecoveryEmail(email.trim());}catch{} }
+          if(email.trim().includes("@")) { try{await saveRecoveryEmail(email.trim(), u);}catch{} }
           showToast("Account created \u2014 your data is protected \u2705",2500,1);
         } else { setErr("Username taken or connection error"); setSt("taken"); }
         setSaving(false);
@@ -8434,10 +8434,10 @@ function App(){
     const _warmHints = {
       nap_prediction: "This learns " + (babyName||"your baby") + "'s unique rhythm. it gets better every day you log.",
       bedtime: "We calculate this from " + (babyName||"your baby") + "'s actual sleep patterns, not just age charts.",
-      sleep_analysis: "Like having a sleep consultant review " + (babyName||"your baby") + "'s week with you.",
+      sleep_analysis: "A calm weekly review of " + (babyName||"your baby") + "'s sleep patterns, progress, and next best nudges.",
       today_plan: "A personalised schedule built around " + (babyName||"your baby") + "'s real nap patterns.",
       growth: "Track " + (babyName||"your baby") + "'s growth against WHO guidelines. spot trends early.",
-      activities: "Age-perfect activities chosen for exactly where " + (babyName||"your baby") + " is right now.",
+      activities: "Age-aware activities chosen for where " + (babyName||"your baby") + " is right now.",
     };
     return (
       <div style={{position:"relative",overflow:"hidden",borderRadius:16,marginBottom:12}}>
@@ -8686,6 +8686,11 @@ function App(){
   const[recoveryEmail,setRecoveryEmail]=useState("");
   const[recoveryEmailSaving,setRecoveryEmailSaving]=useState(false);
   const[recoveryEmailStatus,setRecoveryEmailStatus]=useState(null);
+  const[accountRepairStatus,setAccountRepairStatus]=useState("idle");
+  const[accountRepairPin,setAccountRepairPin]=useState("");
+  const[accountRepairLoading,setAccountRepairLoading]=useState(false);
+  const[accountRepairMsg,setAccountRepairMsg]=useState("");
+  const accountRepairCheckedRef = useRef("");
   var _fm=useState("pin"),forgotMode=_fm[0],setForgotMode=_fm[1]; // "pin" or "username"
   var _fe=useState(""),forgotEmail=_fe[0],setForgotEmail=_fe[1];
   var _fer=useState(null),forgotEmailResult=_fer[0],setForgotEmailResult=_fer[1];
@@ -8849,7 +8854,8 @@ function App(){
 
   useEffect(()=>{
     const check = setInterval(()=>{
-      if(window._fb){ setFbReady(true); clearInterval(check); }
+      const _uid = window._fbUid || window._fb?.auth?.currentUser?.uid;
+      if(window._fb && _uid){ window._fbUid = _uid; setFbReady(true); clearInterval(check); }
     }, 200);
     return ()=>clearInterval(check);
   },[]);
@@ -9452,6 +9458,9 @@ function App(){
         }
       }
       catch(e){ console.warn("Sync apply error",e); }
+    },(err)=>{
+      console.warn("OBubba family sync listener error:", err?.code || err?.message || err);
+      setSyncStatus("error");
     });
   },[]);
 
@@ -10137,6 +10146,8 @@ function App(){
 
   const normaliseUsername = (u) => u.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
+  const normaliseEmail = (email) => (email||"").trim().toLowerCase();
+  const hashRecoveryEmail = (email) => hashPin("email:" + normaliseEmail(email));
   async function verifyLogin(username, pin, preHashed) {
     if(!window._fb) { setAuthError("Not connected. check your internet"); return false; }
     const {db, doc, getDoc} = window._fb;
@@ -10145,7 +10156,19 @@ function App(){
     if(!preHashed && pin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
     try {
       const snap = await fsGet("usernames", key);
-      if(!snap.exists()) { setAuthError("Username not found"); return false; }
+      if(snap.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
+      if(!snap.exists()) {
+        try {
+          const localUsername = (localStorage.getItem("family_username") || "").trim();
+          const localCode = localStorage.getItem("backup_code") || "";
+          if(localUsername && localCode && normaliseUsername(localUsername) === key) {
+            setAuthError("This device has the account data, but the cloud sign-in record is missing. Open Account and repair sign-in.");
+            return false;
+          }
+        } catch(e) {}
+        setAuthError("Username not found");
+        return false;
+      }
       const data = snap.data();
       if(data.deleted) { setAuthError("Username not found"); return false; }
       if(data.pinHash !== (preHashed ? pin : hashPin(pin))) { setAuthError("Incorrect PIN"); return false; }
@@ -10394,26 +10417,62 @@ function App(){
     return null;
   }
 
+  async function _forceRefreshAuthToken() {
+    try {
+      const _user = window._fb?.auth?.currentUser;
+      if(_user) {
+        const _sdkToken = await _user.getIdToken(true).catch(()=>null);
+        if(_sdkToken) { window._fbUid = _user.uid; return _sdkToken; }
+      }
+    } catch(e) {}
+    try {
+      const _refresh = window._obRestRefreshToken || localStorage.getItem("ob_rest_refresh_token");
+      if(_refresh) {
+        const _restToken = await _refreshAuthToken(_refresh);
+        if(_restToken) return _restToken;
+      }
+    } catch(e) {}
+    try {
+      window._obRestToken = null;
+      window._obRestTokenExp = 0;
+      localStorage.removeItem("ob_rest_token");
+      localStorage.removeItem("ob_rest_token_exp");
+    } catch(e) {}
+    return await _ensureAuthToken();
+  }
+
   async function fsGet(collection, docId) {
     try {
       // Wait for auth to be ready (with short timeout to not hang)
       if(window._fbAuthReady) {
         await Promise.race([window._fbAuthReady, new Promise(r=>setTimeout(r,3000))]);
       }
-      const _token = await _ensureAuthToken();
+      let _token = await _ensureAuthToken();
       if(!_token) console.warn("[OBubba] fsGet: No auth token for", collection, docId);
       const _url = `https://firestore.googleapis.com/v1/projects/obubba-d9ccc/databases/(default)/documents/${collection}/${encodeURIComponent(docId)}`;
-      const _headers = _token ? {"Authorization":`Bearer ${_token}`} : {};
       const _capHttp = window.Capacitor?.Plugins?.CapacitorHttp;
-      let _data, _status;
-      if(_capHttp) {
-        const _r = await _capHttp.get({url:_url, headers:_headers}).catch(()=>null);
-        _status = _r?.status; _data = _r?.data;
-      } else {
-        const _r = await fetch(_url, {headers:_headers}).catch(()=>null);
-        _status = _r?.status; _data = _r ? await _r.json().catch(()=>null) : null;
+      const snapErr = (message, status) => ({exists:()=>false, data:()=>({}), error:true, message:message||"Firestore read failed", status});
+      const doGet = async (tok) => {
+        const _headers = tok ? {"Authorization":`Bearer ${tok}`} : {};
+        let _data, _status;
+        if(_capHttp) {
+          const _r = await _capHttp.get({url:_url, headers:_headers}).catch(()=>null);
+          _status = _r?.status; _data = _r?.data;
+        } else {
+          const _r = await fetch(_url, {headers:_headers}).catch(()=>null);
+          _status = _r?.status; _data = _r ? await _r.json().catch(()=>null) : null;
+        }
+        if(typeof _data === "string") { try { _data = JSON.parse(_data); } catch(e) {} }
+        return {_status, _data};
+      };
+      let {_status, _data} = await doGet(_token);
+      if((_status === 401 || _status === 403) && _token) {
+        const _fresh = await _forceRefreshAuthToken();
+        if(_fresh) ({_status, _data} = await doGet(_fresh));
       }
-      if(_status === 404 || !_data || _data.error) return {exists:()=>false, data:()=>({})};
+      if(_status === 404) return {exists:()=>false, data:()=>({})};
+      if(!_data) return snapErr("No response from Firestore", _status);
+      if(_data.error) return snapErr(_data.error.message || _data.error.status, _status);
       const fields = _data.fields || {};
       const parsed = {};
       for(const [k,v] of Object.entries(fields)) {
@@ -10425,7 +10484,7 @@ function App(){
         else parsed[k] = v;
       }
       return {exists:()=>true, data:()=>parsed};
-    } catch(e) { return {exists:()=>false, data:()=>({})}; }
+    } catch(e) { return {exists:()=>false, data:()=>({}), error:true, message:e?.message||"Firestore read failed"}; }
   }
 
   // Firestore REST write via CapacitorHttp. bypasses WKWebView CORS block
@@ -10474,7 +10533,7 @@ function App(){
       status = await doReq(_token);
       // If 401/403, force-refresh the token and retry once
       if(status === 401 || status === 403) {
-        const fresh = await _user.getIdToken(true).catch(()=>null);
+        const fresh = await _forceRefreshAuthToken();
         if(fresh) status = await doReq(fresh);
       }
       return status >= 200 && status < 300;
@@ -10498,6 +10557,19 @@ function App(){
       } else {
         var _r2 = await fetch(_url, {method:"DELETE", headers:_headers}).catch(function(){return null;});
         _status = _r2?.status;
+      }
+      if((_status === 401 || _status === 403) && _token) {
+        var _fresh = await _forceRefreshAuthToken();
+        if(_fresh) {
+          _headers = {"Authorization":"Bearer " + _fresh};
+          if(_capHttp) {
+            var _retry = await _capHttp.request({url:_url, method:"DELETE", headers:_headers}).catch(function(){return null;});
+            _status = _retry?.status;
+          } else {
+            var _retry2 = await fetch(_url, {method:"DELETE", headers:_headers}).catch(function(){return null;});
+            _status = _retry2?.status;
+          }
+        }
       }
       return _status >= 200 && _status < 300;
     } catch(e) { console.warn('fsDelete error', e); return false; }
@@ -10533,6 +10605,7 @@ function App(){
       const {db, doc, getDoc} = window._fb;
       try {
         const snap = await fsGet("usernames", normaliseUsername(val));
+        if(snap.error) { setAuthUsernameStatus("idle"); setAuthError("Could not check account. check your connection"); return; }
         var _usrData = snap.exists() ? snap.data() : null;
         setAuthUsernameStatus(snap.exists() && !(_usrData && _usrData.deleted) ? "found" : "notfound");
         if(snap.exists() && !(_usrData && _usrData.deleted)) try{document.activeElement.blur();}catch{}
@@ -10659,24 +10732,141 @@ function App(){
       return true;
     } catch(e) { console.warn("Save recovery word error", e); return false; }
   }
-  async function saveRecoveryEmail(email) {
-    if(!window._fb || !familyUsername || !email.trim()) return false;
-    const key = normaliseUsername(familyUsername);
+  async function saveRecoveryEmail(email, usernameOverride) {
+    const cleanEmail = normaliseEmail(email);
+    const ownerName = usernameOverride || familyUsername;
+    if(!window._fb || !ownerName || !cleanEmail) return false;
+    const key = normaliseUsername(ownerName);
     try {
-      await fsSet("usernames", key, {recoveryEmail: email.trim().toLowerCase()}, true);
+      const {serverTimestamp} = window._fb;
+      await fsSet("usernames", key, {recoveryEmail: cleanEmail}, true);
+      await fsSet("recovery_emails", hashRecoveryEmail(cleanEmail), {username:key, updatedAt:serverTimestamp()}, true);
       return true;
     } catch(e) { console.warn("Save recovery email error", e); return false; }
   }
-  async function lookupByEmail(email) {
-    // Search Firestore for a username doc with matching recoveryEmail
-    if(!window._fb || !email.trim()) return null;
-    const {db, collection, query, where, getDocs} = window._fb;
+  async function checkAccountSignInRecord(force=false) {
+    const ownerName = ((familyUsername || localStorage.getItem("family_username") || "") + "").trim();
+    const code = (backupCode || localStorage.getItem("backup_code") || "").trim();
+    if(!window._fb || !ownerName || !code) {
+      setAccountRepairStatus("idle");
+      setAccountRepairMsg("");
+      return "idle";
+    }
+    const key = normaliseUsername(ownerName);
+    const fingerprint = key + "|" + code;
+    if(!force && accountRepairCheckedRef.current === fingerprint && accountRepairStatus !== "checking") {
+      return accountRepairStatus;
+    }
+    accountRepairCheckedRef.current = fingerprint;
+    setAccountRepairStatus("checking");
+    setAccountRepairMsg("Checking the cloud sign-in record for this account...");
     try {
-      const q = query(collection(db, "usernames"), where("recoveryEmail", "==", email.trim().toLowerCase()));
-      const snap = await getDocs(q);
-      if(snap.empty) return null;
-      const doc = snap.docs[0];
-      return {username: doc.id, data: doc.data()};
+      const snap = await fsGet("usernames", key);
+      if(snap.error) {
+        setAccountRepairStatus("error");
+        setAccountRepairMsg("OBubba could not check the cloud sign-in record. Check your connection, then try again.");
+        return "error";
+      }
+      if(!snap.exists()) {
+        setAccountRepairStatus("needed");
+        setAccountRepairMsg("This device has your OBubba data and backup code, but the cloud username record is missing. Recreate it here so other devices can find your account.");
+        return "needed";
+      }
+      const data = snap.data() || {};
+      if(data.deleted || !data.pinHash || !data.backupCode || data.backupCode !== code) {
+        setAccountRepairStatus("needed");
+        setAccountRepairMsg("The cloud username record needs refreshing for this device's backup. Choose a 4-digit PIN to relink sign-in safely.");
+        return "needed";
+      }
+      setAccountRepairStatus("ok");
+      setAccountRepairMsg("");
+      setAccountRepairPin("");
+      return "ok";
+    } catch(e) {
+      console.warn("Account sign-in record check error", e);
+      setAccountRepairStatus("error");
+      setAccountRepairMsg("OBubba could not check the cloud sign-in record. Check your connection, then try again.");
+      return "error";
+    }
+  }
+  async function repairAccountSignIn(pinValue) {
+    const pin = (pinValue || accountRepairPin || "").replace(/[^0-9]/g,"").slice(0,4);
+    const ownerName = ((familyUsername || localStorage.getItem("family_username") || "") + "").trim();
+    const code = (backupCode || localStorage.getItem("backup_code") || "").trim();
+    if(!/^\d{4}$/.test(pin)) {
+      setAccountRepairStatus("needed");
+      setAccountRepairMsg("Enter the 4-digit PIN you want to use for this account.");
+      return false;
+    }
+    if(!window._fb || !ownerName || !code) {
+      setAccountRepairStatus("error");
+      setAccountRepairMsg("OBubba needs this device to be connected to the account before it can repair sign-in.");
+      return false;
+    }
+    const key = normaliseUsername(ownerName);
+    try {
+      setAccountRepairLoading(true);
+      setAccountRepairStatus("checking");
+      setAccountRepairMsg("Recreating the sign-in record...");
+      const {serverTimestamp} = window._fb;
+      const payload = {
+        pinHash: hashPin(pin),
+        backupCode: code,
+        displayName: ownerName,
+        updatedAt: serverTimestamp()
+      };
+      if(familyCode) payload.familyCode = familyCode;
+      const ok = await fsSet("usernames", key, payload, true);
+      if(!ok) {
+        setAccountRepairStatus("error");
+        setAccountRepairMsg("OBubba could not repair sign-in. Check your connection and try again.");
+        return false;
+      }
+      if(window._fbUid) {
+        try { await fsSet("uid_to_backup", window._fbUid, {backupCode: code, updatedAt: serverTimestamp()}, true); } catch(e) {}
+      }
+      if(recoveryEmail && recoveryEmail.trim().includes("@")) {
+        try { await saveRecoveryEmail(recoveryEmail.trim(), ownerName); } catch(e) {}
+      }
+      try {
+        localStorage.setItem("family_username", ownerName);
+        localStorage.setItem("backup_code", code);
+        localStorage.setItem("auth_verified","1");
+        localStorage.setItem("ob_children_owner", ownerName);
+        localStorage.setItem("ob_children_owner_code", code);
+      } catch(e) {}
+      setFamilyUsername(ownerName);
+      setBackupCode(code);
+      accountRepairCheckedRef.current = "";
+      setAccountRepairPin("");
+      setAccountRepairStatus("saved");
+      setAccountRepairMsg("Sign-in repaired. You can now sign in on another device with this username and PIN.");
+      showToast("Sign-in repaired",1800,1);
+      return true;
+    } catch(e) {
+      console.warn("Account sign-in repair error", e);
+      setAccountRepairStatus("error");
+      setAccountRepairMsg("OBubba could not repair sign-in. Check your connection and try again.");
+      return false;
+    } finally {
+      setAccountRepairLoading(false);
+    }
+  }
+  async function lookupByEmail(email) {
+    // Privacy-safe lookup: GET a hashed email doc. Firestore rules block username listing.
+    const cleanEmail = normaliseEmail(email);
+    if(!window._fb || !cleanEmail) return null;
+    try {
+      const lookup = await fsGet("recovery_emails", hashRecoveryEmail(cleanEmail));
+      if(lookup.error || !lookup.exists()) return null;
+      const username = lookup.data().username;
+      if(!username) return null;
+      const userSnap = await fsGet("usernames", username);
+      if(userSnap.error || !userSnap.exists()) return null;
+      const data = userSnap.data();
+      if(data.deleted) return null;
+      if(data.recoveryEmail && normaliseEmail(data.recoveryEmail) !== cleanEmail) return null;
+      return {username, data};
     } catch(e) { console.warn("Email lookup error", e); return null; }
   }
   async function resetPinWithCode(username, wordOrCode, newPin) {
@@ -10695,6 +10885,22 @@ function App(){
       return {ok:true};
     } catch(e) { return {ok:false, error:"Something went wrong. try again"}; }
   }
+
+  useEffect(()=>{
+    if(!familyUsername || !backupCode) {
+      accountRepairCheckedRef.current = "";
+      setAccountRepairStatus("idle");
+      setAccountRepairMsg("");
+      setAccountRepairPin("");
+    }
+  },[familyUsername, backupCode]);
+
+  useEffect(()=>{
+    if(tab !== "settings" || !fbReady || !familyUsername || !backupCode) return;
+    const fingerprint = normaliseUsername(familyUsername) + "|" + backupCode;
+    if(accountRepairCheckedRef.current === fingerprint) return;
+    checkAccountSignInRecord();
+  },[tab, fbReady, familyUsername, backupCode]);
 
   useEffect(()=>{
     if(!fbReady || !familyUsername || !familyCode) return;
@@ -11264,6 +11470,8 @@ function App(){
           });
         }
       } catch(e) { console.warn("Child sync apply error", e); }
+    },(err)=>{
+      console.warn("OBubba child sync listener error:", err?.code || err?.message || err);
     });
     childSubsRef.current[childId] = unsub;
   }, []);
@@ -13758,7 +13966,7 @@ function App(){
     // ── PRIORITY 4c: Fragmented naps detected ──
     else if (_dayStarted && !_hasBed && td.isFragmented && !_napsComplete) {
       _dot = C.gold; _label = "Rescue nap needed";
-      _rightNow = _name + " has had " + (td.shortNapCount||0) + " short naps (" + hm(td.totalNapMins||0) + " total, needs " + hm(td.napProfile?td.napProfile.idealTotalMin:120) + "+). Try a contact nap, dark room, or white noise for a longer stretch. A rescue nap will help avoid an overtired bedtime.";
+      _rightNow = _name + " has had " + (td.shortNapCount||0) + " short naps (" + hm(td.totalNapMins||0) + " total, target around " + hm(td.napProfile?td.napProfile.idealTotalMin:120) + "+). Try a contact nap, dark room, or white noise for a longer stretch. A rescue nap may help soften bedtime.";
     }
     // ── PRIORITY 5: Nap approaching / overdue ──
     else if (_dayStarted && _pred && !_hasBed && !_napsComplete) {
@@ -13914,7 +14122,7 @@ function App(){
         if (_budgetOver && _napsDone < _expectedForAge) {
           _dot = "#7BA68C"; _label = "Great naps today. skip to bedtime";
           _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + hm(_totalNapMin) + " day sleep (budget met)";
-          _rightNow = _name + " had great naps today (" + hm(_totalNapMin) + " total). Sleep consultants recommend skipping the remaining nap and going straight to an earlier bedtime. More day sleep can steal from night sleep.";
+      _rightNow = _name + " had plenty of day sleep today (" + hm(_totalNapMin) + " total). It may be better to skip the remaining nap and try a slightly earlier bedtime, because more day sleep can sometimes steal from night sleep.";
         } else {
           _dot = "#7BA68C"; _label = "All naps complete";
           _timing = "Bedtime at ~" + fmt12(_bed.time) + " · " + _napsDone + " nap" + (_napsDone !== 1 ? "s" : "") + " logged today";
@@ -13996,25 +14204,25 @@ function App(){
         } else if (_tdWhy.acute.pressure === "building") {
           _whyLines.push("⏱ " + _name + " has been awake " + hm(_awM) + ". Sleep pressure is building. adenosine (the chemical that makes us sleepy) increases the longer we're awake. " + _name + "'s typical limit is around " + hm(_wwM) + ".");
         } else if (_tdWhy.acute.pressure === "ready") {
-          _whyLines.push("⏱ " + _name + "'s sleep pressure is high. awake " + hm(_awM) + ", near the " + hm(_wwM) + " limit. Look for sleepy cues now: yawning, eye rubbing, staring. Settling " + _name + " in this window means faster settling and longer sleep.");
+          _whyLines.push("⏱ " + _name + "'s sleep pressure may be high after " + hm(_awM) + " awake, near the " + hm(_wwM) + " guideline. Look for sleepy cues now: yawning, eye rubbing, staring. Settling in this window may make sleep easier.");
         } else {
-          _whyLines.push("⏱ " + _name + " is past the usual wake window (" + hm(_awM) + " awake, limit ~" + hm(_wwM) + "). When overtired, cortisol kicks in and actually makes settling harder. A calm, dark environment will help.");
+          _whyLines.push("⏱ " + _name + " is past the usual wake window (" + hm(_awM) + " awake, guideline ~" + hm(_wwM) + "). Overtiredness can make settling harder, so a calm, dark environment may help.");
         }
         // Sleep debt
         if (_tdWhy.chronic.pressure === "none") {
-          _whyLines.push("📊 No sleep debt. " + _name + " has been getting enough total sleep recently. Keep it up.");
+          _whyLines.push("📊 No obvious sleep debt in the logged data. " + _name + " seems to be getting enough total sleep recently. Keep it up.");
         } else if (_tdWhy.chronic.pressure === "building") {
-          _whyLines.push("📊 " + _name + " is running a small sleep debt. slightly below the target over recent days. This can build up and make settling harder. An earlier bedtime tonight would help repay it.");
+          _whyLines.push("📊 " + _name + " may be running a small sleep debt: slightly below the target over recent days. This can build up and make settling harder. A slightly earlier bedtime tonight may help.");
         } else {
-          _whyLines.push("📊 " + _name + " has accumulated sleep debt over " + (_tdWhy.chronic.debt||0) + " days of below-target sleep. This makes " + _name + " harder to settle and more likely to wake at night. Prioritise an early bedtime. even 20 minutes earlier helps.");
+          _whyLines.push("📊 The logged pattern suggests sleep debt over " + (_tdWhy.chronic.debt||0) + " days of below-target sleep. This can make settling and night wakes harder. Consider a slightly earlier bedtime, even 15-20 minutes.");
         }
         // Body clock
         if (_tdWhy.circadian.state === "aligned") {
-          _whyLines.push("🕐 " + _name + "'s body clock is well-aligned. consistent wake times and bedtimes are training the circadian rhythm. This is why settling gets easier over time.");
+          _whyLines.push("🕐 " + _name + "'s body clock looks fairly well-aligned. Consistent wake times and bedtimes can support the circadian rhythm and may make settling feel easier over time.");
         } else if (_tdWhy.circadian.state === "slightly_drifted") {
-          _whyLines.push("🕐 " + _name + "'s body clock has drifted a little (" + Math.abs(_tdWhy.circadian.driftMin||0) + " min). The fastest fix is a consistent morning wake time. this anchors the entire day's rhythm.");
+          _whyLines.push("🕐 " + _name + "'s body clock may have drifted a little (" + Math.abs(_tdWhy.circadian.driftMin||0) + " min). A consistent morning wake time is often a helpful anchor for the day.");
         } else {
-          _whyLines.push("🕐 " + _name + "'s body clock has drifted. Wake and bed times have been inconsistent. Start with a fixed morning wake. the rest of the day follows from there.");
+          _whyLines.push("🕐 " + _name + "'s body clock may have drifted because wake and bed times have been inconsistent. Start gently with a consistent morning wake and let the rest of the day follow.");
         }
       } else {
         _whyLines.push("⏱ At " + fmtAge(age) + ", " + _name + " can typically handle " + _ww.label + " between sleeps. Sleep pressure (adenosine) builds the longer " + _name + " is awake. settling in the right window means easier settling and longer naps.");
@@ -14096,7 +14304,7 @@ function App(){
     const _modeColorMap = {ter:C.ter, gold:C.gold, mint:C.mint, blush:C.blush, sky:C.sky};
     const _modeHue = _modeProfile ? (_modeColorMap[_modeProfile.color]||C.ter) : null;
     return (
-      <div className="glass-card prio-glow ob-hero" style={{marginBottom:12}}>
+      <div className="glass-card prio-glow ob-hero" data-testid="today-hero" style={{marginBottom:12}}>
         {/* Day-context banner (only when tagged as non-home). Gives parents a
             felt sense that the engine knows today is different — so they don't
             stress when naps or feeds don't match the usual rhythm. */}
@@ -16111,7 +16319,7 @@ function App(){
             return _applyNightShift({
               time: `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`,
               adjustReason: _catchUpNaps.length === 1
-                ? "Bridge nap needed. bedtime would exceed safe wake window without one"
+                ? "Bridge nap may help because bedtime would stretch beyond the age-aware wake window"
                 : `${_catchUpNaps.length} catch-up naps needed. short naps left a large sleep deficit`,
               bedSource: hasAvg?"avg":"age", baseBedMins: avgBedMins, adjustMins,
               needsBridge: true, forceBridge: true,
@@ -17252,7 +17460,7 @@ function App(){
           _causeAction = "Try offering a larger or later final feed before bed. For older babies, ensure daytime feeds aren't rushed — a feed-heavy day reduces night hunger.";
         } else if (undertiredLikely) {
           _cause = "undertired";
-          _causeDetail = `Total sleep is above the AASM range. ${name} may be getting too much day sleep, leaving less sleep pressure for the night.`;
+          _causeDetail = `Total sleep is above the AASM range. ${name} may be getting more day sleep than they need, which can sometimes leave less sleep pressure for the night.`;
           _causeAction = "Try reducing total day sleep by 15-20min (cap the longest nap). This should shift sleep pressure back to night.";
         } else {
           _cause = "overtired";
@@ -18677,10 +18885,10 @@ function App(){
       const [h,m] = wakeEntry.time.split(":").map(Number);
       const wMins = h*60+m;
       if (wMins >= 6*60 && wMins <= 7*60+30) {
-        factors.push({ label: "Wake time", status: "good", note: "Morning wake is within the optimal circadian window." });
+        factors.push({ label: "Wake time", status: "good", note: "Morning wake is within a helpful circadian anchor window." });
       } else if (wMins > 7*60+45) {
         score -= 15;
-        factors.push({ label: "Wake time", status: "warn", note: `Wake time (${fmt12(wakeEntry.time)}) is later than optimal. Gradual earlier shifts can help.` });
+        factors.push({ label: "Wake time", status: "warn", note: `Wake time (${fmt12(wakeEntry.time)}) is later than the usual anchor window. Gradual earlier shifts may help.` });
       } else if (wMins < 6*60) {
         score -= 10;
         factors.push({ label: "Wake time", status: "warn", note: "Very early morning wake. Keeping a consistent anchor helps." });
@@ -19736,7 +19944,7 @@ function App(){
         sleepLink = {
           icon:"🌙",
           title:"Expect a hunger wake tonight",
-          body:`With intake a little short today, baby may wake ${expectedNightFeeds} time${expectedNightFeeds==="1"?"":"s"} from genuine hunger overnight. that's completely normal. Responding to those feeds will help make up today's shortfall. One low day is nothing to worry about; if low intake continues for several days, mention it to your ${_doctor}.`
+          body:`With intake a little short today, baby may wake ${expectedNightFeeds} time${expectedNightFeeds==="1"?"":"s"} from genuine hunger overnight. that's completely normal. Responding to those feeds can help make up today's shortfall. One low day is nothing to worry about; if low intake continues for several days, mention it to your ${_doctor}.`
         };
       }
     } else if (approachingBed) {
@@ -20754,7 +20962,7 @@ function App(){
           const tomorrow9=new Date();tomorrow9.setDate(tomorrow9.getDate()+1);tomorrow9.setHours(9,0,0,0);
           if(tomorrow9.getTime()>now){
             const msNames=upcomingMs.slice(0,3).map(m=>m.label).join(", ");
-            notifications.push({title:`New milestone${upcomingMs.length>1?"s":""} entering ${_bn}'s window`,body:`${msNames}${upcomingMs.length>3?" and "+(upcomingMs.length-3)+" more":""}. Check the Development tab for activities to try.`,id:stableId("ms",msKey),schedule:{at:tomorrow9},sound:"notification.wav"});
+            notifications.push({title:`New milestone${upcomingMs.length>1?"s":""} entering ${_bn}'s window`,body:`${msNames}${upcomingMs.length>3?" and "+(upcomingMs.length-3)+" more":""}. Check the Grow tab for activities to try.`,id:stableId("ms",msKey),schedule:{at:tomorrow9},sound:"notification.wav"});
             try{localStorage.setItem("_ms_notif_key",msKey);}catch{}
           }
         }
@@ -20772,7 +20980,7 @@ function App(){
           // New phase just started. notify at 9am tomorrow
           const tomorrow9=new Date();tomorrow9.setDate(tomorrow9.getDate()+1);tomorrow9.setHours(9,15,0,0);
           if(tomorrow9.getTime()>now){
-            notifications.push({title:`${_bn} has entered a new phase`,body:`Phase ${currentPhase.phase}: ${currentPhase.name}. ${currentPhase.fussy.split(".")[0]}. Check Development for details.`,id:stableId("phase",phaseKey),schedule:{at:tomorrow9},sound:"notification.wav"});
+            notifications.push({title:`${_bn} has entered a new phase`,body:`Phase ${currentPhase.phase}: ${currentPhase.name}. ${currentPhase.fussy.split(".")[0]}. Check Grow for details.`,id:stableId("phase",phaseKey),schedule:{at:tomorrow9},sound:"notification.wav"});
             try{localStorage.setItem("_phase_notif_key",phaseKey);}catch{}
           }
         }
@@ -21750,9 +21958,9 @@ function App(){
         let suggestedBed = _freshBedMins;
         let bedReason = "";
         if (_todayNapMins > 0 && _avgDayMins && _todayNapMins < _avgDayMins - 20) {
-          bedReason = _n + "'s naps were shorter than usual today, so an earlier bedtime will help prevent overtiredness.";
+          bedReason = _n + "'s naps were shorter than usual today, so a slightly earlier bedtime may help prevent overtiredness.";
         } else if (_budget && _budget.hasChronicDebt) {
-          bedReason = _n + " has a small sleep debt building. an earlier bedtime tonight helps the body catch up.";
+          bedReason = _n + " may have a small sleep debt building. A slightly earlier bedtime tonight may help the body catch up.";
         } else if (_todayNapMins > 0 && _avgDayMins && _todayNapMins > _avgDayMins + 30) {
           bedReason = "Naps were longer than usual, so a slightly later bedtime keeps sleep pressure balanced.";
         } else {
@@ -22670,6 +22878,31 @@ function App(){
   // cardType: "milestone" (default), "sleepwin", "village", "referral", "rhythm", "badnight"
   async function shareCard(title, milestone, photoUrl, cardType){
     if (!activeChild) return;
+    const safeType = cardType || "milestone";
+    const milestoneData = typeof milestone === "object" ? (milestone || {}) : ((milestones && milestones[milestone]) || {});
+    const headline = title || milestoneData.label || "A special milestone";
+    const isProfilePhoto = photoUrl && activeChild.photo && photoUrl === activeChild.photo;
+    const extraPhoto = (!isProfilePhoto && photoUrl) || milestoneData.photo || null;
+    const details = {
+      ...milestoneData,
+      message: milestoneData.message || ((babyName || "Baby") + " reached a moment worth remembering."),
+      stat: milestoneData.stat || "",
+      statLabel: milestoneData.statLabel || ""
+    };
+    if (extraPhoto) details.extraPhoto = extraPhoto;
+    let canvas;
+    try { canvas = await renderShareCard(safeType, headline, details); }
+    catch { showToast("\u{1F4F8} Couldn't generate share card",2500,2); return; }
+    let dataUrl;
+    try { dataUrl = canvas.toDataURL("image/png"); }
+    catch { showToast("\u{1F4F8} Couldn't generate share card",2500,2); return; }
+    setSharePreview({title:headline,milestone,dataUrl,cardType:safeType});
+    try { trackEvent("share_card_created", { cardType: safeType }); } catch {}
+  }
+
+  // Older dark story-card renderer kept for reference while legacy callers move to renderShareCard().
+  async function legacyShareCardDark(title, milestone, photoUrl, cardType){
+    if (!activeChild) return;
     const W=1080,H=1920;
     const canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
     const ctx=canvas.getContext("2d");
@@ -23331,11 +23564,10 @@ function App(){
   }
 
   async function renderShareCard(cardType, title, data) {
-    // 1080×1080 square, premium dark gradient with glass-morphism and auto-fit text
-    const W = 1080, H = 1080;
+    // 1080x1350 portrait cards: premium feed format with a keepsake-style composition.
+    const W = 1080, H = 1350;
     const canvas = document.createElement("canvas"); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
-    // roundRect polyfill for iOS < 16 (where ctx.roundRect is undefined)
     if (!ctx.roundRect) {
       ctx.roundRect = function(x,y,w,h,r){
         if (typeof r === "number") r = [r,r,r,r];
@@ -23349,170 +23581,289 @@ function App(){
         return this;
       };
     }
+
     const name = babyName || "Baby";
     const details = data || {};
-    const _pad = 60; // outer padding
+    const _type = cardType || "milestone";
+    const _themes = {
+      sleepwin:  { eyebrow:"Sleep win", accent:"#5F9B8E", accent2:"#C07088", ink:"#302636", sub:"#6E6276", quote:"A little more rest. A little more rhythm.", panel:"Tonight felt a little softer." },
+      badnight:  { eyebrow:"Honest parenthood", accent:"#C8943E", accent2:"#B86B82", ink:"#332A25", sub:"#746357", quote:"You showed up anyway. That counts.", panel:"A hard night still deserves tenderness." },
+      milestone: { eyebrow:"Milestone moment", accent:"#C07088", accent2:"#D4A855", ink:"#332637", sub:"#756375", quote:"A first worth remembering.", panel:"One tiny moment. A whole heart." },
+      daywin:    { eyebrow:"Family update", accent:"#74639E", accent2:"#5F9B8E", ink:"#30283A", sub:"#71697C", quote:"The little details, held beautifully.", panel:"A tiny day, beautifully kept." },
+      dayscore:  { eyebrow:"Day win", accent:"#74639E", accent2:"#5F9B8E", ink:"#30283A", sub:"#71697C", quote:"Small wins add up.", panel:"Today has its own quiet rhythm." },
+      rhythm:    { eyebrow:"Rhythm recap", accent:"#5F9B8E", accent2:"#74639E", ink:"#293739", sub:"#637375", quote:"Your baby's rhythm is becoming clearer.", panel:"Patterns are easier to see when they are held gently." }
+    };
+    const theme = _themes[_type] || _themes.milestone;
+    const _pad = 50;
+    const cardX = _pad, cardY = _pad, cardW = W - _pad*2, cardH = H - _pad*2, cardR = 54;
+    const dateStr = new Date().toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"});
 
-    // ── Warm light background (matches in-app celebration card) ──
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, "#F6EDE4"); grad.addColorStop(0.5, "#F0E2D6"); grad.addColorStop(1, "#EAD8CC");
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
-    // Soft pink/lilac glow top center
-    const topGlow = ctx.createRadialGradient(W/2, 0, 0, W/2, 0, W*0.7);
-    topGlow.addColorStop(0, "rgba(220,200,230,0.35)"); topGlow.addColorStop(1, "transparent");
-    ctx.fillStyle = topGlow; ctx.fillRect(0, 0, W, H);
+    try {
+      await document.fonts.load("400 56px 'Parisienne'");
+      await document.fonts.load("700 64px Georgia");
+    } catch {}
 
-    // ── Main card container (glass card with rounded corners) ──
-    const cardX = _pad, cardY = _pad, cardW = W - _pad*2, cardH = H - _pad*2, cardR = 36;
-    ctx.fillStyle = "rgba(240,230,240,0.55)";
-    ctx.shadowColor = "rgba(0,0,0,0.06)"; ctx.shadowBlur = 40; ctx.shadowOffsetY = 10;
-    ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, cardR); ctx.fill();
-    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-    ctx.strokeStyle = "rgba(200,190,220,0.4)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, cardR); ctx.stroke();
-
-    // ── Ensure Parisienne (brand font) is loaded for canvas rendering ──
-    try { await document.fonts.load("400 52px 'Parisienne'"); } catch {}
-
-    // ── Helper: spaced uppercase text ──
+    const _seedFrom = (txt) => {
+      let s = 2166136261;
+      String(txt || "").split("").forEach(ch => { s ^= ch.charCodeAt(0); s = Math.imul(s, 16777619); });
+      return s >>> 0;
+    };
+    let _seed = _seedFrom((_type || "") + "|" + (title || "") + "|" + dateStr);
+    const _rand = () => { _seed = (Math.imul(_seed, 1664525) + 1013904223) >>> 0; return _seed / 4294967296; };
+    const _loadImage = (src) => new Promise((res, rej) => {
+      const img = new Image();
+      const timer = setTimeout(() => rej(new Error("image-timeout")), 8000);
+      img.crossOrigin = "anonymous";
+      img.onload = () => { clearTimeout(timer); res(img); };
+      img.onerror = () => { clearTimeout(timer); rej(new Error("image-load")); };
+      img.src = src;
+    });
+    const _fitFont = (text, maxW, start, min, font) => {
+      let size = start;
+      while (size > min) {
+        ctx.font = font(size);
+        if (ctx.measureText(text || "").width <= maxW) return size;
+        size -= 2;
+      }
+      return min;
+    };
+    const _drawWrapped = (text, x, y, maxW, size, lineH, fill, font, maxLines, align) => {
+      ctx.font = font(size); ctx.fillStyle = fill; ctx.textAlign = align || "center";
+      let lines = _wrapCanvasText(ctx, text || "", maxW);
+      if (maxLines && lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        let last = lines[lines.length - 1] || "";
+        while (last.length > 4 && ctx.measureText(last + "...").width > maxW) last = last.slice(0, -1);
+        lines[lines.length - 1] = last.trim() + "...";
+      }
+      lines.forEach(l => { ctx.fillText(l, x, y); y += lineH; });
+      return y;
+    };
+    const _glassPanel = (x, y, w, h, r, alpha, strokeAlpha, shadowAlpha) => {
+      ctx.save();
+      ctx.shadowColor = "rgba(49,35,54," + (shadowAlpha == null ? 0.16 : shadowAlpha) + ")";
+      ctx.shadowBlur = 42; ctx.shadowOffsetY = 22;
+      ctx.fillStyle = "rgba(255,255,255," + (alpha == null ? 0.58 : alpha) + ")";
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = "rgba(255,255,255," + (strokeAlpha == null ? 0.76 : strokeAlpha) + ")";
+      ctx.lineWidth = 1.6; ctx.beginPath(); ctx.roundRect(x + 1, y + 1, w - 2, h - 2, r); ctx.stroke();
+      ctx.strokeStyle = "rgba(84,68,98,0.12)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.stroke();
+    };
     const _drawSpaced = (text, x, y, spacing) => {
-      const chars = text.split(""); let totalW = 0;
-      chars.forEach(c => totalW += ctx.measureText(c).width + (spacing||0)); totalW -= (spacing||0);
-      let cx = x - totalW/2; ctx.textAlign = "left";
-      chars.forEach(c => { ctx.fillText(c, cx, y); cx += ctx.measureText(c).width + (spacing||0); });
+      const chars = String(text || "").toUpperCase().split(""); let totalW = 0;
+      chars.forEach(c => totalW += ctx.measureText(c).width + (spacing || 0)); totalW -= (spacing || 0);
+      let cx = x - totalW / 2; ctx.textAlign = "left";
+      chars.forEach(c => { ctx.fillText(c, cx, y); cx += ctx.measureText(c).width + (spacing || 0); });
       ctx.textAlign = "center";
     };
-
-    // ── Layout cursor (flows top to bottom) ──
-    let cursor = cardY + 40;
-    const hasExtraPhoto = !!details.extraPhoto;
-    const _profilePhotoSrc = (activeChild && activeChild.photo) ? activeChild.photo : null;
-
-    // ── OBUBBA brand logo (top of card, Parisienne script font) ──
-    ctx.font = "400 48px 'Parisienne', cursive";
-    ctx.fillStyle = "#5B4060";
-    ctx.textAlign = "center";
-    ctx.fillText("OBubba", W/2, cursor + 36);
-    cursor += 55;
-
-    // ── Profile photo (circle, below logo) ──
-    if (_profilePhotoSrc) {
-      const photoR = 80, photoCx = W/2, photoCy = cursor + photoR;
-      try {
-        const _pImg = new Image();
-        await new Promise((res,rej)=>{_pImg.onload=res; _pImg.onerror=rej; _pImg.src=_profilePhotoSrc; setTimeout(rej, 8000);});
-        ctx.save(); ctx.shadowColor = "rgba(192,112,136,0.25)"; ctx.shadowBlur = 20;
-        ctx.beginPath(); ctx.arc(photoCx, photoCy, photoR+3, 0, Math.PI*2);
-        ctx.strokeStyle = "rgba(180,170,200,0.5)"; ctx.lineWidth = 3; ctx.stroke();
-        ctx.restore();
-        ctx.save();
-        ctx.beginPath(); ctx.arc(photoCx, photoCy, photoR, 0, Math.PI*2); ctx.clip();
-        const pw = _pImg.width, ph = _pImg.height, ps = Math.max((photoR*2)/pw, (photoR*2)/ph);
-        ctx.drawImage(_pImg, photoCx-(pw*ps)/2, photoCy-(ph*ps)/2, pw*ps, ph*ps);
-        ctx.restore();
-        cursor = photoCy + photoR + 30;
-      } catch(e) { cursor += 30; }
-    } else {
-      cursor += 30;
-    }
-
-    // ── Party popper emoji ──
-    ctx.font = "80px serif"; ctx.textAlign = "center";
-    ctx.fillText("\u{1F389}", W/2, cursor + 70);
-    cursor += 100;
-
-    // ── Title (big, bold) ──
-    ctx.font = "700 52px 'Cormorant Garamond', Georgia, serif";
-    ctx.fillStyle = "#3A2A20";
-    ctx.textAlign = "center";
-    const titleText = details.message || title || name + "'s Milestone";
-    const titleLines = _wrapCanvasText(ctx, titleText, cardW - 100);
-    titleLines.forEach(l => { ctx.fillText(l, W/2, cursor + 50); cursor += 60; });
-    cursor += 10;
-
-    // ── Subtitle ──
-    if (details.statLabel || title) {
-      ctx.font = "400 30px -apple-system, sans-serif";
-      ctx.fillStyle = "#6A5A50";
-      const subText = details.statLabel === "since birth" ? "Half a year of firsts. You're doing an amazing job." : (details.statLabel || "");
-      if (subText) {
-        const subLines = _wrapCanvasText(ctx, subText, cardW - 120);
-        subLines.forEach(l => { ctx.fillText(l, W/2, cursor + 30); cursor += 38; });
-        cursor += 15;
-      }
-    }
-
-    // ── Stat boxes row (3 boxes side by side) ──
-    const statStr = details.stat || "";
-    const statParts = statStr.split(" · ").map(s => {
+    const _drawSheenBand = (x, y, w, h, rotate, c1, c2) => {
+      ctx.save();
+      ctx.translate(x + w/2, y + h/2); ctx.rotate(rotate || 0);
+      const grad = ctx.createLinearGradient(-w/2, -h/2, w/2, h/2);
+      grad.addColorStop(0, c1); grad.addColorStop(0.5, "rgba(255,255,255,0.12)"); grad.addColorStop(1, c2);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.roundRect(-w/2, -h/2, w, h, h/2); ctx.fill();
+      ctx.restore();
+    };
+    const _drawCircleImage = (img, cx, cy, r) => {
+      ctx.save(); ctx.shadowColor = "rgba(49,35,54,0.22)"; ctx.shadowBlur = 34; ctx.shadowOffsetY = 16;
+      const ring = ctx.createLinearGradient(cx-r, cy-r, cx+r, cy+r);
+      ring.addColorStop(0, "rgba(255,255,255,0.94)"); ring.addColorStop(0.55, theme.accent + "55"); ring.addColorStop(1, "rgba(255,255,255,0.82)");
+      ctx.fillStyle = ring; ctx.beginPath(); ctx.arc(cx, cy, r + 14, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+      const iw = img.width, ih = img.height, scale = Math.max((r * 2) / iw, (r * 2) / ih);
+      ctx.drawImage(img, cx - (iw * scale) / 2, cy - (ih * scale) / 2, iw * scale, ih * scale);
+      ctx.restore();
+      ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2); ctx.stroke();
+    };
+    const _drawInitialMark = (cx, cy, r) => {
+      _glassPanel(cx-r, cy-r, r*2, r*2, r, 0.62, 0.8, 0.12);
+      ctx.font = "700 96px Georgia, serif"; ctx.fillStyle = theme.accent; ctx.textAlign = "center";
+      ctx.fillText((name.charAt(0) || "B").toUpperCase(), cx, cy + 34);
+    };
+    const _drawHeroPhoto = (img, x, y, w, h, r) => {
+      ctx.save(); ctx.shadowColor = "rgba(49,35,54,0.22)"; ctx.shadowBlur = 46; ctx.shadowOffsetY = 22;
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fillStyle = "rgba(255,255,255,0.74)"; ctx.fill();
+      ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.roundRect(x + 12, y + 12, w - 24, h - 24, r - 10); ctx.clip();
+      const iw = img.width, ih = img.height, scale = Math.max((w - 24) / iw, (h - 24) / ih);
+      ctx.drawImage(img, x + w/2 - (iw * scale)/2, y + h/2 - (ih * scale)/2, iw * scale, ih * scale);
+      ctx.restore();
+      const shine = ctx.createLinearGradient(x, y, x + w, y + h);
+      shine.addColorStop(0, "rgba(255,255,255,0.28)");
+      shine.addColorStop(0.45, "rgba(255,255,255,0.02)");
+      shine.addColorStop(1, "rgba(255,255,255,0.20)");
+      ctx.fillStyle = shine; ctx.beginPath(); ctx.roundRect(x + 12, y + 12, w - 24, h - 24, r - 10); ctx.fill();
+      const border = ctx.createLinearGradient(x, y, x+w, y+h);
+      border.addColorStop(0, "rgba(255,255,255,0.94)"); border.addColorStop(0.5, theme.accent + "55"); border.addColorStop(1, "rgba(255,255,255,0.86)");
+      ctx.strokeStyle = border; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.stroke();
+    };
+    const _drawCoverImage = (img, x, y, w, h) => {
+      const iw = img.width, ih = img.height, scale = Math.max(w / iw, h / ih);
+      ctx.drawImage(img, x + w/2 - (iw * scale)/2, y + h/2 - (ih * scale)/2, iw * scale, ih * scale);
+    };
+    const _parseStats = (stat) => (stat || "").split(" · ").map(s => s.trim()).filter(Boolean).map(s => {
+      if (/^\d+h(?:\s+\d+m)?$/.test(s) || /^\d+m$/.test(s)) return { value:s, label:details.statLabel || "logged" };
       const m = s.match(/^(\d[\d,]*)\s+(.+)$/);
-      return m ? { num: m[1], label: m[2] } : { num: s, label: "" };
+      return m ? { value:m[1], label:m[2] } : { value:s, label:details.statLabel || "" };
     });
+
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    if (_type === "badnight") {
+      bg.addColorStop(0, "#FAEEE2"); bg.addColorStop(0.42, "#F1E3E8"); bg.addColorStop(1, "#E5EFE9");
+    } else {
+      bg.addColorStop(0, "#FFF8F2"); bg.addColorStop(0.42, "#F0E7F4"); bg.addColorStop(1, "#E1F0EB");
+    }
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    _drawSheenBand(-180, 110, 1380, 270, -0.18, theme.accent + "2F", "rgba(255,255,255,0.05)");
+    _drawSheenBand(170, 780, 1140, 250, 0.14, theme.accent2 + "30", "rgba(255,255,255,0.04)");
+    _drawSheenBand(-270, 1030, 900, 220, -0.10, "#6FA89824", "rgba(255,255,255,0.03)");
+    for (let i = 0; i < 1150; i++) {
+      const a = 0.025 + _rand() * 0.055;
+      ctx.fillStyle = _rand() > 0.72 ? "rgba(255,255,255," + a + ")" : "rgba(68,48,80," + (a * 0.7) + ")";
+      ctx.fillRect(Math.floor(_rand()*W), Math.floor(_rand()*H), 1, 1);
+    }
+    _glassPanel(cardX, cardY, cardW, cardH, cardR, 0.34, 0.7, 0.18);
+    const edgeGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+    edgeGrad.addColorStop(0, "rgba(255,255,255,0.88)");
+    edgeGrad.addColorStop(0.46, theme.accent + "28");
+    edgeGrad.addColorStop(1, "rgba(255,255,255,0.72)");
+    ctx.strokeStyle = edgeGrad; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.roundRect(cardX + 8, cardY + 8, cardW - 16, cardH - 16, cardR - 8); ctx.stroke();
+
+    const _profilePhotoSrc = (activeChild && activeChild.photo) ? activeChild.photo : null;
+    let profileImg = null, heroImg = null;
+    try { if (_profilePhotoSrc) profileImg = await _loadImage(_profilePhotoSrc); } catch {}
+    try { if (details.extraPhoto) heroImg = await _loadImage(details.extraPhoto); } catch {}
+
+    const materialImg = heroImg || profileImg;
+    if (materialImg) {
+      ctx.save();
+      ctx.beginPath(); ctx.roundRect(cardX + 10, cardY + 10, cardW - 20, cardH - 20, cardR - 12); ctx.clip();
+      ctx.globalAlpha = 0.18;
+      try { ctx.filter = "blur(28px) saturate(1.18)"; } catch {}
+      _drawCoverImage(materialImg, cardX - 120, cardY - 80, cardW + 240, cardH + 160);
+      try { ctx.filter = "none"; } catch {}
+      ctx.globalAlpha = 1;
+      const photoVeil = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + cardH);
+      photoVeil.addColorStop(0, "rgba(255,255,255,0.64)");
+      photoVeil.addColorStop(0.48, "rgba(255,255,255,0.42)");
+      photoVeil.addColorStop(1, "rgba(255,255,255,0.70)");
+      ctx.fillStyle = photoVeil; ctx.fillRect(cardX, cardY, cardW, cardH);
+      ctx.restore();
+    }
+
+    ctx.font = "400 54px 'Parisienne', cursive"; ctx.fillStyle = theme.ink; ctx.textAlign = "center";
+    ctx.fillText("OBubba", W/2, cardY + 70);
+    ctx.font = "700 15px -apple-system, BlinkMacSystemFont, sans-serif"; ctx.fillStyle = "rgba(72,56,82,0.42)";
+    _drawSpaced("tracked with love", W/2, cardY + 100, 2.8);
+
+    const pillW = Math.min(560, Math.max(340, 124 + theme.eyebrow.length * 18));
+    _glassPanel(W/2 - pillW/2, cardY + 126, pillW, 54, 27, 0.50, 0.8, 0.08);
+    ctx.font = "800 17px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.fillStyle = theme.accent; _drawSpaced(theme.eyebrow, W/2, cardY + 160, 3.2);
+
+    const fallbackTitle = _type === "badnight" ? "You made it through"
+      : _type === "sleepwin" ? "A beautiful sleep win"
+      : _type === "daywin" || _type === "dayscore" ? name + "'s Day"
+      : "A special milestone";
+    const titleText = title || fallbackTitle;
+    let body = details.message || theme.quote;
+    const _rawStatText = details.stat || "";
+    const _allZeroDayStats = (_type === "daywin" || _type === "dayscore") && !/[1-9]/.test(_rawStatText + " " + body);
+    if (_allZeroDayStats) body = "The day is just getting started.";
+    const statParts = _parseStats(details.stat)
+      .filter(sp => !(sp.value === "0" && /feed|nap|napp|wake/i.test(sp.label || "")))
+      .slice(0, 3);
+
+    let cursor;
+    if (heroImg) {
+      _drawHeroPhoto(heroImg, cardX + 72, cardY + 198, cardW - 144, 408, 42);
+      cursor = cardY + 664;
+      const titleSize = _fitFont(titleText, cardW - 150, 58, 34, s => "700 " + s + "px Georgia, 'Spectral', serif");
+      cursor = _drawWrapped(titleText, W/2, cursor, cardW - 150, titleSize, titleSize + 12, theme.ink, s => "700 " + s + "px Georgia, 'Spectral', serif", 2);
+      cursor += 10;
+      cursor = _drawWrapped(body, W/2, cursor, cardW - 170, 29, 39, theme.sub, s => "400 " + s + "px -apple-system, BlinkMacSystemFont, sans-serif", 3);
+    } else {
+      const stageX = cardX + 74, stageY = cardY + 204, stageW = cardW - 148, stageH = profileImg ? 604 : 520;
+      _glassPanel(stageX, stageY, stageW, stageH, 48, 0.48, 0.82, 0.13);
+      _drawSheenBand(stageX - 70, stageY + 28, stageW + 140, 132, -0.10, theme.accent + "1F", "rgba(255,255,255,0.04)");
+      let textY;
+      if (profileImg) {
+        const profileSize = 360;
+        _drawHeroPhoto(profileImg, W/2 - profileSize/2, stageY + 36, profileSize, profileSize, 42);
+        _glassPanel(stageX + 82, stageY + 340, stageW - 164, 210, 38, 0.68, 0.86, 0.10);
+        ctx.font = "800 13px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillStyle = theme.accent; _drawSpaced("today's keepsake", W/2, stageY + 386, 2.5);
+        const titleSize = _fitFont(titleText, stageW - 230, 60, 34, s => "700 " + s + "px Georgia, 'Spectral', serif");
+        textY = stageY + 444;
+        textY = _drawWrapped(titleText, W/2, textY, stageW - 230, titleSize, titleSize + 10, theme.ink, s => "700 " + s + "px Georgia, 'Spectral', serif", 2);
+        textY += 10;
+        _drawWrapped(body, W/2, textY, stageW - 250, 27, 37, theme.sub, s => "400 " + s + "px -apple-system, BlinkMacSystemFont, sans-serif", 2);
+      } else {
+        const portraitY = stageY + 158;
+        _drawInitialMark(W/2, portraitY, 108);
+        ctx.font = "800 13px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.fillStyle = theme.accent; _drawSpaced("today's keepsake", W/2, stageY + 322, 2.5);
+        const titleSize = _fitFont(titleText, stageW - 120, 64, 36, s => "700 " + s + "px Georgia, 'Spectral', serif");
+        textY = stageY + 382;
+        textY = _drawWrapped(titleText, W/2, textY, stageW - 120, titleSize, titleSize + 10, theme.ink, s => "700 " + s + "px Georgia, 'Spectral', serif", 2);
+        textY += 12;
+        _drawWrapped(body, W/2, textY, stageW - 150, 28, 38, theme.sub, s => "400 " + s + "px -apple-system, BlinkMacSystemFont, sans-serif", 2);
+      }
+      cursor = stageY + stageH + 42;
+    }
+
+    const metricY = Math.min(Math.max(cursor + 24, H - 430), H - 330);
     if (statParts.length >= 2) {
-      const boxCount = statParts.length;
-      const boxGap = 20, totalGap = boxGap * (boxCount - 1);
-      const boxW = Math.floor((cardW - 100 - totalGap) / boxCount);
-      const boxH = 110, boxR = 18;
-      const startX = cardX + (cardW - (boxW * boxCount + totalGap)) / 2;
-      const boxY = cursor + 20;
-      const boxColors = ["#C07088", "#50A888", "#D4A855"];
+      const gap = 18, tileW = Math.floor((cardW - 130 - gap * (statParts.length - 1)) / statParts.length), tileH = 148;
+      const startX = cardX + (cardW - (tileW * statParts.length + gap * (statParts.length - 1))) / 2;
       statParts.forEach((sp, i) => {
-        const bx = startX + i * (boxW + boxGap);
-        ctx.fillStyle = "rgba(255,255,255,0.65)";
-        ctx.shadowColor = "rgba(0,0,0,0.04)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
-        ctx.beginPath(); ctx.roundRect(bx, boxY, boxW, boxH, boxR); ctx.fill();
-        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-        ctx.strokeStyle = "rgba(200,190,210,0.3)"; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.roundRect(bx, boxY, boxW, boxH, boxR); ctx.stroke();
-        ctx.font = "700 42px 'Cormorant Garamond', Georgia, serif"; ctx.fillStyle = boxColors[i % 3];
-        ctx.textAlign = "center"; ctx.fillText(sp.num, bx + boxW/2, boxY + 50);
-        ctx.font = "500 20px -apple-system, sans-serif"; ctx.fillStyle = "#6A5A50";
-        ctx.fillText(sp.label, bx + boxW/2, boxY + 82);
+        const x = startX + i * (tileW + gap);
+        _glassPanel(x, metricY, tileW, tileH, 28, 0.55, 0.78, 0.10);
+        ctx.font = "700 46px Georgia, 'Spectral', serif"; ctx.fillStyle = [theme.accent, theme.accent2, "#D4A855"][i % 3];
+        ctx.textAlign = "center"; ctx.fillText(sp.value, x + tileW/2, metricY + 64);
+        ctx.font = "800 16px -apple-system, BlinkMacSystemFont, sans-serif"; ctx.fillStyle = theme.sub;
+        _drawSpaced((sp.label || "logged").slice(0, 15), x + tileW/2, metricY + 108, 1.6);
       });
-      cursor = boxY + boxH + 25;
+    } else if (statParts.length === 1) {
+      _glassPanel(cardX + 104, metricY - 6, cardW - 208, 174, 34, 0.55, 0.78, 0.10);
+      const one = statParts[0];
+      const statSize = _fitFont(one.value, cardW - 300, 62, 30, s => "700 " + s + "px Georgia, 'Spectral', serif");
+      ctx.font = "700 " + statSize + "px Georgia, 'Spectral', serif";
+      ctx.fillStyle = theme.accent; ctx.textAlign = "center"; ctx.fillText(one.value, W/2, metricY + 62);
+      if (one.label) {
+        ctx.font = "800 17px -apple-system, BlinkMacSystemFont, sans-serif"; ctx.fillStyle = theme.sub;
+        _drawSpaced(one.label.slice(0, 24), W/2, metricY + 112, 2);
+      }
+    } else {
+      const panelY = Math.min(Math.max(cursor + 24, cardY + 760), H - 410);
+      _glassPanel(cardX + 92, panelY, cardW - 184, 216, 38, 0.52, 0.78, 0.10);
+      ctx.font = "800 14px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillStyle = theme.accent; _drawSpaced("for the family thread", W/2, panelY + 48, 2.6);
+      ctx.font = "700 34px Georgia, 'Spectral', serif"; ctx.fillStyle = theme.ink; ctx.textAlign = "center";
+      _drawWrapped(theme.panel, W/2, panelY + 104, cardW - 300, 34, 42, theme.ink, s => "700 " + s + "px Georgia, 'Spectral', serif", 2);
+      const lineY = panelY + 164, dotX = cardX + 220, dotGap = 160;
+      ctx.strokeStyle = "rgba(88,67,96,0.16)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(dotX, lineY); ctx.lineTo(dotX + dotGap * 3, lineY); ctx.stroke();
+      ["Today","Loved","Kept","Shared"].forEach((label, i) => {
+        const x = dotX + dotGap * i;
+        ctx.fillStyle = i === 1 ? theme.accent : "rgba(255,255,255,0.72)";
+        ctx.beginPath(); ctx.arc(x, lineY, i === 1 ? 8 : 6, 0, Math.PI * 2); ctx.fill();
+        ctx.font = "700 13px -apple-system, BlinkMacSystemFont, sans-serif"; ctx.fillStyle = theme.sub; ctx.textAlign = "center";
+        ctx.fillText(label, x, lineY + 34);
+      });
     }
 
-    // ── User-attached photo (via "Add Photo" / "Change Photo") ──
-    if (hasExtraPhoto) {
-      try {
-        const epImg = new Image();
-        await new Promise((res,rej)=>{epImg.onload=res;epImg.onerror=rej;epImg.src=details.extraPhoto;setTimeout(rej,8000);});
-        const epR = 80, epCx = W/2, epCy = cursor + epR + 10;
-        ctx.save(); ctx.shadowColor = "rgba(192,112,136,0.2)"; ctx.shadowBlur = 16;
-        ctx.beginPath(); ctx.arc(epCx, epCy, epR+3, 0, Math.PI*2);
-        ctx.strokeStyle = "rgba(180,170,200,0.5)"; ctx.lineWidth = 3; ctx.stroke();
-        ctx.restore();
-        ctx.save();
-        ctx.beginPath(); ctx.arc(epCx, epCy, epR, 0, Math.PI*2); ctx.clip();
-        const ew = epImg.width, eh = epImg.height, es = Math.max((epR*2)/ew, (epR*2)/eh);
-        ctx.drawImage(epImg, epCx-(ew*es)/2, epCy-(eh*es)/2, ew*es, eh*es);
-        ctx.restore();
-        cursor = epCy + epR + 20;
-      } catch(e) {}
-    }
-
-    // ── Bottom branding area ──
-    const bottomY = H - _pad - 100;
-
-    // App Store + Google Play badges
-    const badgeW = 160, badgeH = 44, badgeR = 10, badgeGap = 24;
-    const badgeLX = W/2 - badgeW - badgeGap/2, badgeRX = W/2 + badgeGap/2;
-    const badgeTopY = bottomY;
-    [["Download on the", "App Store", badgeLX], ["Get it on", "Google Play", badgeRX]].forEach(([top, bot, bx]) => {
-      ctx.fillStyle = "rgba(60,40,30,0.85)";
-      ctx.beginPath(); ctx.roundRect(bx, badgeTopY, badgeW, badgeH, badgeR); ctx.fill();
-      ctx.fillStyle = "#FAF6F0"; ctx.font = "400 9px -apple-system, sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(top, bx + badgeW/2, badgeTopY + 16);
-      ctx.font = "600 15px -apple-system, sans-serif";
-      ctx.fillText(bot, bx + badgeW/2, badgeTopY + 34);
-    });
-
-    // Date + branding
-    const dateStr = new Date().toLocaleDateString(navigator.language||"en-GB",{day:"numeric",month:"long",year:"numeric"});
-    ctx.font = "400 16px -apple-system, sans-serif"; ctx.fillStyle = "#8A7A70"; ctx.textAlign = "center";
-    ctx.fillText(dateStr, W/2, badgeTopY + badgeH + 25);
-    ctx.font = "400 18px 'Parisienne', cursive"; ctx.fillStyle = "#C07088";
-    ctx.fillText("Tracked with OBubba  ·  obubba.com", W/2, badgeTopY + badgeH + 48);
+    ctx.font = "italic 25px Georgia, serif"; ctx.fillStyle = theme.sub; ctx.textAlign = "center";
+    ctx.fillText(theme.quote, W/2, H - 140);
+    ctx.font = "700 15px -apple-system, BlinkMacSystemFont, sans-serif"; ctx.fillStyle = "rgba(70,55,74,0.50)";
+    ctx.fillText(dateStr + "  ·  made in OBubba", W/2, H - 98);
+    ctx.font = "400 32px 'Parisienne', cursive"; ctx.fillStyle = theme.accent;
+    ctx.fillText("obubba.com", W/2, H - 56);
 
     return canvas;
   }
@@ -26165,7 +26516,7 @@ function App(){
       if (_bud) {
         const tips = [];
         if (_bud.hasChronicDebt) tips.push({ icon: "🌙", title: "Build back the sleep budget", body: "Total sleep has been below the " + _bud.aasm.label + " range for " + _bud.debtDays + " days. Try an earlier bedtime tonight. even 15 min helps." });
-        if (_bud.belowRange && !_bud.hasChronicDebt) tips.push({ icon: "🛌", title: "A little more sleep would help", body: _name + "'s total sleep is averaging " + _bud.avgTotal + "h. The AASM range is " + _bud.aasm.label + ". An earlier bedtime is the easiest lever." });
+        if (_bud.belowRange && !_bud.hasChronicDebt) tips.push({ icon: "🛌", title: "A little more sleep may help", body: _name + "'s logged sleep is averaging " + _bud.avgTotal + "h. The AASM range is " + _bud.aasm.label + ". A slightly earlier bedtime may be one gentle lever to try." });
         if (_bud.dayTooMuch && _bud.avgDay < 600) tips.push({ icon: "\u2600\uFE0F", title: "Day naps may be stealing night sleep", body: "Day sleep is averaging " + _bud.avgDay + "min. Try capping the longest nap by 10-15 min to protect night pressure." });
         if (_bud.dayTooLittle) tips.push({ icon: "😴", title: "Naps could use more time", body: "Day sleep is under the expected range. A longer first nap often extends the ones that follow." });
         if (tips.length) { const t = _pick(tips); return { ...t, source: "Based on your last 7 days" }; }
@@ -26216,7 +26567,7 @@ function App(){
       { icon: "🌑", title: "Dark room, every sleep", body: "Light is the strongest signal to the circadian clock. Completely dark naps often extend in length." },
     ] : [
       { icon: "📅", title: "Consistent bedtime wins", body: "A bedtime within a 20-minute window most nights builds the strongest body clock. Worth the effort." },
-      { icon: "🍽️", title: "Good day feeds, better nights", body: "Protecting daytime intake (milk and solids) usually reduces hunger-driven night wakes." },
+      { icon: "🍽️", title: "Good day feeds, calmer nights", body: "Protecting daytime intake (milk and solids) may reduce hunger-driven night wakes." },
     ];
     const t = _pick(evergreen);
     return { ...t, source: "For " + (age ? fmtAge(age) : "this age") };
@@ -26383,7 +26734,7 @@ function App(){
       const _safeSleepShown = localStorage.getItem("safe_sleep_shown_v1");
       if(_aw < 26 && !_safeSleepShown) {
         localStorage.setItem("safe_sleep_shown_v1", "1");
-        setTimeout(()=>showToast("🛏️ Safe sleep guide is in Insights → Sleep tab. back to sleep, clear cot, same room for 6 months", 6000, 1), 2000);
+        setTimeout(()=>showToast("🛏️ Safe sleep guide is in Understand → Sleep tab. back to sleep, clear cot, same room for 6 months", 6000, 1), 2000);
       }
     } catch {}
     // "What went well" analysis after bedtime
@@ -28785,7 +29136,63 @@ function App(){
   const card={background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"var(--card-shadow)",transition:"transform 0.2s cubic-bezier(.23,1,.32,1),box-shadow 0.25s ease"};
 
   const tabIcons={day:"📅",insights:"💡",develop:"🧩",settings:"👤"};
-  const tabLabels={day:"Today",insights:"Insights",develop:"Development",settings:"Account"};
+  const tabLabels={day:"Today",insights:"Understand",develop:"Grow",settings:"Account"};
+  const _forYouCard = (()=>{
+    try {
+      const _dismissKey = "ob_selfcare_dismissed_" + todayStr() + "_" + resolvedActiveId;
+      if (localStorage.getItem(_dismissKey)) return null;
+      let _myLogs = 0, _totalLogs = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const dk = localDateStr(d);
+        _myLogs += parseInt(localStorage.getItem("ob_my_logs_" + dk) || "0", 10) || 0;
+        _totalLogs += (days[dk] || []).length;
+      }
+      const _isPaired = !!(childSyncCodes && childSyncCodes[resolvedActiveId]);
+      const _haveSignal = _isPaired && _totalLogs >= 14 && _myLogs >= 2;
+      const _share = _haveSignal ? (_myLogs / _totalLogs) : null;
+      const _neutral = [
+        "Parenting can feel invisible. What you are holding today counts.",
+        "Take one tiny pause before the next thing. A sip of water counts.",
+        "You are allowed to need care too. That is not failing, that is human.",
+      ];
+      const _carrying = [
+        "You've been carrying a lot of the rhythm this week. Let one small thing be shared today.",
+        "The logs suggest you've done most of the holding lately. You deserve a real pause.",
+        "You are keeping the thread of the day. Ask for the next feed, nappy, or nap to be someone else's turn.",
+      ];
+      const _lighter = [
+        "A small log from you can make the day feel shared. Next feed or nappy is a gentle place to start.",
+        "Your partner may be holding more of the mental load this week. One tiny handover helps.",
+        "No one does this alone. One small task from you can land softly.",
+      ];
+      const _sharing = [
+        "You are sharing the rhythm this week. That steadiness matters more than it looks.",
+        "Two people are keeping the day visible. That is a quiet kind of teamwork.",
+        "The load looks shared this week. Keep protecting that little rhythm.",
+      ];
+      let _pool = _neutral, _variant = "neutral";
+      if (_share !== null) {
+        if (_share > 0.65) { _pool = _carrying; _variant = "carrying"; }
+        else if (_share < 0.35) { _pool = _lighter; _variant = "lighter"; }
+        else { _pool = _sharing; _variant = "sharing"; }
+      }
+      const _idx = Math.floor((Date.now() - new Date(new Date().getFullYear(),0,0)) / 86400000) % _pool.length;
+      const _title = _variant === "carrying" ? "For you"
+                  : _variant === "lighter" ? "A small nudge"
+                  : _variant === "sharing" ? "Team " + (babyName||"Baby")
+                  : "For you";
+      const _accent = _variant === "sharing" ? C.mint : _variant === "lighter" ? C.gold : C.ter;
+      return (
+        <div className="glass-card ob-premium-hero" style={{position:"relative"}}>
+          <button onClick={()=>{haptic();try{localStorage.setItem(_dismissKey,"1");}catch{}setPartnerTick(t=>t+1);}} aria-label="Dismiss for today"
+            style={{position:"absolute",top:10,right:10,width:32,height:32,borderRadius:"50%",border:"1px solid var(--card-border)",background:"var(--card-bg-solid)",color:C.lt,fontSize:14,fontWeight:700,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",zIndex:4}}>×</button>
+          <div className="ob-premium-kicker" style={{marginBottom:7,color:_accent}}>{_title}</div>
+          <div className="ob-premium-copy" style={{paddingRight:28}}>{_pool[_idx]}</div>
+        </div>
+      );
+    } catch { return null; }
+  })();
   // Register FCM token for push notifications
   React.useEffect(()=>{
     if(!window._isNative || !window._fb || !window._fbUid || window._fbUid==="anon") return;
@@ -29122,7 +29529,7 @@ function App(){
         if (_falseStarts.length >= 3) {
           addObservation("⏰", "False start pattern detected",
             `${_name} has woken within 45-60 minutes of bedtime ${_falseStarts.length} of the last 7 nights. This is a "false start". baby completes one sleep cycle and can't link to the next.`,
-            "Common causes: overtiredness (try bedtime 15-20min earlier), undertiredness (check total day sleep isn't too high), or environmental (room too warm, light creeping in). Try adjusting bedtime first. it's the easiest lever.");
+            "This may suggest overtiredness, undertiredness, or an environmental trigger such as temperature or light. Try one small change first, such as bedtime 15-20 minutes earlier or reviewing total day sleep.");
         }
       } catch {}
 
@@ -29686,7 +30093,7 @@ function App(){
           const _w = avg(_worst);
           addObservation("🏆", _name + "'s best day recipe",
             `${_name}'s 3 best nights (${_b.wakes} avg wakes) all had: ${hm(_b.napMin)} nap time${_b.ml > 0 ? ", " + _b.ml + "ml milk" : ""}${_b.bed ? ", bedtime ~" + fmt12(minsToTime(_b.bed)) : ""}.`,
-            "Compare to rougher nights (" + _w.wakes + " avg wakes): " + hm(_w.napMin) + " nap time" + (_w.ml > 0 ? ", " + _w.ml + "ml" : "") + (_w.bed ? ", bedtime ~" + fmt12(minsToTime(_w.bed)) : "") + ".\n\nThe pattern: " + (_b.napMin > _w.napMin ? "more daytime sleep" : "less daytime sleep") + " + " + (_b.ml > _w.ml ? "bigger intake" : "smaller intake") + " + " + (_b.bed && _w.bed && _b.bed < _w.bed ? "earlier bedtime" : "consistent bedtime") + " = better nights. Use this as your target day.");
+            "Compare to rougher nights (" + _w.wakes + " avg wakes): " + hm(_w.napMin) + " nap time" + (_w.ml > 0 ? ", " + _w.ml + "ml" : "") + (_w.bed ? ", bedtime ~" + fmt12(minsToTime(_w.bed)) : "") + ".\n\nThe pattern may suggest that " + (_b.napMin > _w.napMin ? "more daytime sleep" : "less daytime sleep") + " + " + (_b.ml > _w.ml ? "bigger intake" : "smaller intake") + " + " + (_b.bed && _w.bed && _b.bed < _w.bed ? "earlier bedtime" : "consistent bedtime") + " supports calmer nights. Use this as a gentle target, not a rule.");
         }
       }
     } catch {}
@@ -30434,7 +30841,6 @@ function App(){
           }
           setOnboarded(true); setAuthScreen(null); setTab("day"); setSelDay(todayStr());
         } else {
-          setAuthError("Wrong PIN. try again");
           setAuthPin(""); setAuthLoading(false);
         }
       } else {
@@ -30443,7 +30849,7 @@ function App(){
         if(ok) {
           // Save recovery email if provided
           if(authRecoveryEmail&&authRecoveryEmail.trim().includes("@")){
-            try{await saveRecoveryEmail(authRecoveryEmail.trim());}catch{}
+            try{await saveRecoveryEmail(authRecoveryEmail.trim(), authUsername);}catch{}
           }
           try{ localStorage.setItem("onboarded_v2","1"); }catch{}
           setNeedsChildSetup(true); setOnboarded(true); setAuthScreen(null); setTab("day"); setSelDay(todayStr());
@@ -31151,12 +31557,12 @@ function App(){
           { icon:"👩‍🍼", title:"Bubba Care. your village", body:"Going out? Leaving " + _bn2 + " with someone?\n\nAccount → Bubba Care → Share or Send Link\n\nThe carer gets: live status, what to do next, emergency numbers, soothing tips, and big log buttons. They can log feeds and naps. you review when you're back.\n\nNo app install needed. just a link." },
           { icon:"💛", title:"We care about YOU too", body:"Tap the Wellbeing card for:\n\n• Daily mood check-in\n• Water tracker\n• Self-care checklist\n• If you tap 'Struggling', real helplines appear. not a generic page. real people who understand.\n\nYou matter. Not just as a parent. as a person." },
           { icon:"🥕", title:"Weaning when you're ready", body:"From 17 weeks, the Weaning hub unlocks:\n\n• Daily food suggestions (allergens every 3rd day)\n• Safety checklists for allergens\n• Iron-rich recipe library with filters\n• 'Try later' to skip without forgetting\n\nAfter 5pm it says 'meals done for today'. no pressure." },
-          { icon:"💡", title:"Insights that actually help", body:"The Insights tab shows:\n\n• 🗓 Sleep Coach. 14-day personalised plan (3 gentle methods)\n• Sleep patterns + what's improving\n• Feed trends + milk:solids balance\n• Growth charts (WHO percentiles)\n• 'Best day recipe'. what makes " + _bn2 + "'s best nights\n\nNot just data. actionable guidance." },
+          { icon:"💡", title:"Insights that actually help", body:"The Understand tab shows:\n\n• 🗓 Sleep Coach. 14-day personalised plan (3 gentle methods)\n• Sleep patterns + what's improving\n• Feed trends + milk:solids balance\n• Growth charts (WHO percentiles)\n• 'Best day recipe'. what makes " + _bn2 + "'s best nights\n\nNot just data. actionable guidance." },
           { icon:"⚙️", title:"Make it yours", body:"In Account → Preferences:\n\n• 💛 Gentle Mode. hides all scores if numbers stress you\n• 🏫 Nursery Mode. suppresses daytime warnings\n• 🫶 Parenting Style. responsive, routine, or family-led\n• 🤒 Medical conditions (reflux, CMPA)\n• 🌙 Bedtime routine timer you can customise\n\nThe app adapts to YOUR family." },
           { icon:"📱", title:"Widget, Siri & Live Activity", body:"OBubba works even when you're not in the app:\n\n• 'Hey Siri, log a feed', hands-free at 3am\n• Home screen widget shows feeds, naps, nappies\n• Lock screen timer shows active nap/sleep\n• Dynamic Island shows timer countdown\n\nAll without opening the app." },
           { icon:"👶", title:"For every family", body:"OBubba adapts to your situation:\n\n• Premature babies: adjusted age predictions\n• Twins: 'Log for all' + nap overlap window\n• Reflux/CMPA: custom targets from your dietitian\n• Partner sync: both parents see the same data\n• Archive child: memorial mode with love 🕊️\n\nEvery family is different. the app respects that." },
           { icon:"📤", title:"Share the moments", body:"Send to Family: share daily summaries as beautiful cards\n\nMorning + Evening handovers for carers\nHealth Report: one-tap formatted summary for your GP or health visitor\nShare cards for milestones and sleep wins\nWeekly digest: " + _bn2 + "'s week in review\n\nKeep everyone in the loop without retyping." },
-          { icon:"🧩", title:"Development & milestones", body:"The Development tab tracks:\n\n• 60+ milestones (social, motor, language, cognitive)\n• Teething chart (tap to log new teeth)\n• Age-appropriate play activities\n• Developmental phases + what to expect\n\nWhen milestones affect sleep, the app explains why." },
+          { icon:"🧩", title:"Grow & milestones", body:"The Grow tab tracks:\n\n• 60+ milestones (social, motor, language, cognitive)\n• Teething chart (tap to log new teeth)\n• Age-appropriate play activities\n• Developmental phases + what to expect\n\nWhen milestones affect sleep, the app explains why." },
           { icon:"🎉", title:"You're ready!", body:"Start with a morning wake. log feeds and naps as they happen. That's it.\n\nBy day 3: predictions get personal\nBy day 7: patterns emerge\nBy day 14: OBubba knows " + _bn2 + "'s rhythm\n\nReplay this tour anytime from Account.\n\nYou've got this. 💛" },
         ];
 
@@ -31259,7 +31665,7 @@ function App(){
           { icon:"🌃", title:"Logging bedtime & nights", body:"When bedtime comes, log it as a Sleep and a night timer starts.\n\nIf " + _bn3 + " wakes overnight:\n1. Tap 'Night wake' (logged instantly)\n2. Settle however works\n3. Tap 'Baby's settled' when done\n\nNight feeds and wakes belong to the day bedtime started, not the next morning. So a 3am feed is last night, not today." },
           { icon:"📋", title:"Today Card", body:"Tap the big 'Today' card to open your full log.\n\nInside you'll find two views:\n• Log — everything that's happened\n• Plan — what's predicted to come next\n\nSwipe between them or tap the tabs at the top.\n\nPress & hold any entry to edit or delete it." },
           { icon:"📝", title:"Notes & Reminders", body:"Tap 'Notes & Reminders' to:\n\n• Pin a note for the day (GP visit, teething, etc.)\n• Set a nappy or feed reminder\n• Jot down anything you want to remember\n\nPinned notes show on the hero card so you don't forget." },
-          { icon:"🌟", title:"News & Activities", body:"Tap 'News' for:\n\n• A daily story about " + _bn3 + "'s development\n• Age-appropriate play activities\n• Disruption diagnostics (why sleep might be off)\n\nNew content every day based on " + _bn3 + "'s age." },
+          { icon:"🌟", title:"News & Activities", body:"Tap 'News' for:\n\n• A daily story about " + _bn3 + "'s development\n• Age-appropriate play activities\n• Gentle pattern checks when sleep feels off\n\nNew content every day based on " + _bn3 + "'s age." },
           { icon:"🥕", title:"Weaning Hub", body:"From 17 weeks, the Weaning card unlocks.\n\n• Daily food suggestions\n• Allergen safety checklists\n• Iron-rich recipes with filters\n• Track what " + _bn3 + " has tried\n\nNo pressure. go at your own pace." },
           { icon:"💜", title:"Wellbeing & Family", body:"'Your Wellbeing' is for YOU. mood check-ins, water tracker, self-care.\n\n'Send to Family' creates a beautiful summary card to share with grandparents or partners.\n\n'Schedule Builder' lets you plan around appointments or outings.\n\nYou matter too. 💛" },
           { icon:"🎉", title:"You're all set!", body:"That's everything on your Day tab!\n\nLog a morning wake, then feeds and naps as they happen. OBubba handles the rest.\n\nBy day 3: predictions get personal\nBy day 7: nap timing gets accurate\nBy day 14: OBubba knows " + _bn3 + "'s full rhythm\n\nReplay this tour anytime from the ? button." },
@@ -32204,7 +32610,7 @@ function App(){
                         <div style={{..._TYPE.title, color:C.deep, fontSize:15}}>Nap not happening?</div>
                       </div>
                       <div style={{..._TYPE.caption, color:C.lt, lineHeight:1.5, marginBottom:12}}>
-                        Common around this age as {_name}'s daytime sleep starts consolidating. Sleep consultants offer three paths — pick whichever fits today.
+                        Common around this age as {_name}'s daytime sleep starts consolidating. Here are three gentle paths — pick whichever fits today.
                       </div>
                       <div style={{display:"flex",flexDirection:"column",gap:8}}>
                         <button onClick={()=>{haptic();pickNapRefusedChoice("retry");try{localStorage.setItem("ob_nap_retry_at",String(Date.now()+15*60*1000));}catch{}showToast("⏱ Try again in 15 min. change scenery first",2500,1);setTimeout(()=>{setNapRefusedChoice(null);try{localStorage.removeItem("ob_nap_refused_choice_v1");localStorage.removeItem("ob_nap_retry_at");}catch{}},15*60*1000);}}
@@ -32241,7 +32647,7 @@ function App(){
                         </button>
                       </div>
                       <div style={{..._TYPE.caption, color:C.lt, marginTop:10, fontStyle:"italic", opacity:0.8}}>
-                        Try once more first. Sleep consultants pick early bedtime after two failed attempts.
+                        Try once more first. If that also fails, an earlier bedtime may be the kinder option.
                       </div>
                     </div>
                   );
@@ -32516,7 +32922,7 @@ function App(){
                   room between buttons, bigger emoji so a tired parent can hit
                   them without looking. Any adjustment here should keep tap
                   targets ≥ 48px (iOS HIG). */}
-              {!daySubScreen && <div onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:12,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
+              {!daySubScreen && <div data-testid="quick-log-row" onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:12,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
                 {[
                   {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
                   {emoji:"🤱",label:"Breast",longAction:()=>{if(breastActive){openLogPanel("feed");}else{setShowBreastStartPicker(true);setBreastCustomStart(nowTime());}},action:()=>{haptic();startBreastTimer("L");}},
@@ -32734,7 +33140,7 @@ function App(){
                 const _weanEarlyReady = _weanAge >= 17;
                 const _weanSub = weaningStarted ? "Food & allergens" : _weanReady ? "Start journey" : _weanEarlyReady ? "GP approval needed" : "From 17 weeks";
                 return (
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                  <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
                     {(()=>{
                       let _badge = 0;
                       let _sub = _logSub;
@@ -32746,7 +33152,7 @@ function App(){
                         if (_activeNap && !_badge) _sub = "Nap in progress";
                       } catch {}
                       return (
-                    <button onClick={()=>{haptic();setDaySubScreen("today");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative",gridColumn:"span 2"}}>
+                    <button onClick={()=>{haptic();setDaySubScreen("today");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative",gridColumn:"span 2"}}>
                       {_badge > 0 && (
                         <span style={{position:"absolute",top:8,right:8,minWidth:20,height:20,borderRadius:99,background:"#7B68EE",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px",boxShadow:"0 2px 6px rgba(123,104,238,0.4)"}}>{_badge}</span>
                       )}
@@ -32755,12 +33161,12 @@ function App(){
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_sub}</div>
                     </button>
                     ); })()}
-                    <button onClick={()=>{haptic();setDaySubScreen("notes");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                    <button onClick={()=>{haptic();setDaySubScreen("notes");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
                       <span style={_S.f26}>📝</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Notes & Reminders</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_notesSub}</div>
                     </button>
-                    <button onClick={()=>{haptic();setDaySubScreen("news");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                    <button onClick={()=>{haptic();setDaySubScreen("news");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
                       <span style={_S.f26}>🌟</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>News</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Daily story & activities</div>
@@ -32781,22 +33187,22 @@ function App(){
                       } else {
                         showToast("🥕 Weaning opens from 17 weeks. " + (babyName||"baby") + " isn't quite there yet!",3000,1);
                       }
-                    }} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,opacity:(age&&((age.predictiveWeeks??age.totalWeeks))>=17)||weaningStarted?1:0.45}}>
+                    }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,opacity:(age&&((age.predictiveWeeks??age.totalWeeks))>=17)||weaningStarted?1:0.45}}>
                       <span style={_S.f26}>🥕</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Weaning</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_weanSub}</div>
                     </button>
-                    <button onClick={()=>{haptic();setShowShareFamily(true);}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                    <button onClick={()=>{haptic();setShowShareFamily(true);}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
                       <span style={_S.f26}>{"\u{1F46A}"}</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Send to Family</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Share {babyName||"baby"}'s day</div>
                     </button>
-                    <button onClick={()=>{haptic();if(hasAccess()){setShowScheduleMaker(true);}else{triggerPaywall("schedule_builder");}}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                    <button onClick={()=>{haptic();if(hasAccess()){setShowScheduleMaker(true);}else{triggerPaywall("schedule_builder");}}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
                       <span style={_S.f26}>🧩</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Schedule Builder</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Plan around events</div>
                     </button>
-                    <button onClick={()=>{haptic();setDaySubScreen("wellbeing");}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
+                    <button onClick={()=>{haptic();setDaySubScreen("wellbeing");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
                       <span style={_S.f26}>💜</span>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Your Wellbeing</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>You matter too</div>
@@ -34558,12 +34964,12 @@ function App(){
                   <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:6}}>
                     {["\u2713 Always on their back","\u2713 Firm, flat mattress","\u2713 Room 16\u201320\u00B0C","\u2713 Clear cot (no toys, pillows, bumpers)","\u2713 Same room as you for 6 months"].map(function(t,i){ return React.createElement("div",{key:i,style:{padding:"1px 0"}},t); })}
                   </div>
-                  <div style={{fontSize:10,color:C.lt,marginTop:6}}>Source: NHS & Lullaby Trust · Safe sleep guidance lives in Insights → Sleep tab</div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:6}}>Source: NHS & Lullaby Trust · Safe sleep guidance lives in Understand → Sleep tab</div>
                 </div>
               )}
 
               {/* Feeding confidence card REMOVED — user feedback: anxiety-inducing.
-                  Feed/hydration data still tracked in Insights tab and health
+                  Feed/hydration data still tracked in Understand tab and health
                   red-flag detector. The Today tab should feel calm, not clinical. */}
 
               {/* ── PREMIUM: Postpartum wellbeing analyser ──
@@ -35415,7 +35821,7 @@ function App(){
                 return (
                   <div style={{padding:"8px 0"}}>
                     <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>Sleep Engine Schedule for {age?fmtAge(age):""}</div>
-                    <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Powered by the OBubba Sleep Engine {"\u2014"} built from pediatric sleep research & consultant guidelines. Every baby is different {"\u2014"} always follow sleepy cues.</div>
+                    <div style={{fontSize:11,color:C.lt,marginBottom:10,fontStyle:"italic"}}>Powered by the OBubba Sleep Engine {"\u2014"} built from pediatric sleep research and age-aware guidance. Every baby is different {"\u2014"} always follow sleepy cues.</div>
                     <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
                       <div style={{flex:1,minWidth:90,padding:"6px 8px",borderRadius:8,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
                         <div style={{fontSize:10,color:C.lt}}>Wake windows</div>
@@ -36287,7 +36693,7 @@ function App(){
                       <span style={{fontSize:20}}>🗓</span>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Sleep Coach is ready</div>
-                        <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>A personalised 14-day sleep plan is waiting for you in the <strong style={{color:C.deep}}>Insights</strong> tab.</div>
+                        <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>A personalised 14-day sleep plan is waiting for you in the <strong style={{color:C.deep}}>Understand</strong> tab.</div>
                       </div>
                       <button onClick={()=>{haptic();try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setTab("insights");}} style={{padding:"6px 12px",borderRadius:99,border:"none",background:"#7b68ee",color:"white",fontSize:11,fontWeight:700,cursor:_cP,flexShrink:0}}>Go →</button>
                       <button onClick={()=>{try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
@@ -36897,7 +37303,25 @@ function App(){
 
               {/* ═══ Insights Dashboard — navigation grid (moved up so users can jump into a section first) ═══ */}
               {!insightFilter && (
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <div className="glass-card ob-premium-hero">
+                  <div className="ob-premium-kicker" style={{marginBottom:8}}>Understand</div>
+                  <div className="ob-premium-title" style={{marginBottom:6}}>
+                    {babyName||"Baby"}'s rhythm, in plain English
+                  </div>
+                  <div className="ob-premium-copy">
+                    {(() => {
+                      try {
+                        const _last = _lastNightMemo;
+                        if (_last && _last.longestStretchMin >= 240) return "Last night may suggest a steadier sleep stretch is forming. OBubba will keep watching the pattern before making bigger recommendations.";
+                        if (_last && _last.wakeCount >= 2) return "There were a few wakes in the night pattern. That can happen at this age; the sleep view can help separate hunger, timing, and habit.";
+                      } catch {}
+                      return "A calm place to see what the logs may be suggesting, without turning the day into a scorecard.";
+                    })()}
+                  </div>
+                </div>
+              )}
+              {!insightFilter && (
+                <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
                   {[
                     {id:"tomorrow",label:"Tomorrow",icon:"📅",color:C.gold},
                     {id:"sleep",label:"Sleep",icon:"😴",color:C.sky},
@@ -36916,7 +37340,7 @@ function App(){
                       } else {
                         setInsightFilter(f.id);
                       }
-                    }} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:78}}>
+                    }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:78}}>
                       <span style={{fontSize:22}}>{f.icon}</span>
                       <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2}}>{f.label}</div>
                     </button>
@@ -36972,7 +37396,7 @@ function App(){
                           const _sdN = calcRollingSleepDebt();
                           if (_sdN && _sdN.severity !== "good") {
                             if (_sdN.trajectory === "improving") _parts.push("Sleep debt is recovering.");
-                            else if (_sdN.severity === "moderate" || _sdN.severity === "high") _parts.push("Sleep debt is building (" + Math.abs(_sdN.debtH) + "h below target this week). earlier bedtime tonight would help.");
+                            else if (_sdN.severity === "moderate" || _sdN.severity === "high") _parts.push("Sleep debt may be building (" + Math.abs(_sdN.debtH) + "h below target this week). A slightly earlier bedtime tonight may help.");
                           }
                         } catch {}
                         return _parts.length > 0 ? (
@@ -37258,7 +37682,7 @@ function App(){
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",marginBottom:10,borderRadius:14,background:"linear-gradient(135deg,rgba(192,112,136,0.06),rgba(123,104,238,0.06))",border:"1.5px solid rgba(192,112,136,0.15)"}}>
                   <div style={_S.flex1}>
                     <div style={{fontSize:13,fontWeight:600,color:C.deep}}>You're doing brilliantly 💛</div>
-                    <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:2}}>For less than a coffee a month, gift yourself better nights and happier days. {babyName||"Your little one"} deserves a well-rested parent too.</div>
+                    <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:2}}>For less than a coffee a month, gift yourself calmer planning and more confidence. {babyName||"Your little one"} deserves a supported parent too.</div>
                   </div>
                   <button onClick={()=>triggerPaywall("trial")} style={{padding:"7px 14px",borderRadius:99,background:C.ter,color:"white",border:"none",fontSize:11,fontWeight:700,cursor:_cP,marginRight:8,whiteSpace:"nowrap"}}>See plans</button>
                   <button onClick={()=>{setTrialBannerDismissed(true);try{localStorage.setItem("trial_banner_date",todayStr());}catch{};}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
@@ -37276,11 +37700,11 @@ function App(){
                       ? "We hope the personalised predictions and sleep guidance have made a difference for you and " + (babyName||"your baby") + ". If bedtimes have been calmer, naps more predictable, or you've just worried a little less. that's what OBubba is for."
                       : trialDaysLeft <= 3
                         ? "Has " + (babyName||"your baby") + "'s sleep improved? Have the predictions helped you plan your day? If OBubba has made even one bedtime easier, imagine what it can do over the coming months."
-                        : "OBubba works best when it knows your baby. The longer you use personalised predictions, the more accurate they become. like having a sleep consultant who really knows " + (babyName||"your little one") + "."
+                        : "OBubba works best when it knows your baby. The longer you use personalised predictions, the more personal and useful they become."
                     }
                   </div>
                   <div style={{fontSize:11.5,color:C.ter,fontStyle:"italic",lineHeight:1.5,marginBottom:10}}>
-                    For less than a coffee a month, you can gift yourself a happier baby and better nights. You deserve to enjoy this time, not just survive it.
+                    For less than a coffee a month, you can gift yourself calmer planning and more confidence. You deserve to enjoy this time, not just survive it.
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <button onClick={()=>triggerPaywall("trial")} style={{padding:"8px 16px",borderRadius:99,background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",color:"white",fontSize:12,fontWeight:600,cursor:_cP,boxShadow:"0 2px 10px "+C.ter+"30"}}>
@@ -38235,7 +38659,7 @@ function App(){
                   if (!hasAccess()) return (
                     <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,textAlign:"center"}}>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:6}}>Feeding Check-in</div>
-                      <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:10}}>Unlock personalised feeding analysis, intake tracking, and consultant-style recommendations.</div>
+                      <div style={{fontSize:12,color:C.lt,fontStyle:"italic",marginBottom:10}}>Unlock personalised feeding analysis, intake tracking, and gentle pattern-based recommendations.</div>
                       <button onClick={()=>triggerPaywall("feeding_checkin",true)} style={{padding:"8px 20px",borderRadius:99,border:"1px solid "+C.gold+"40",background:C.gold+"10",color:C.gold,fontSize:12,fontWeight:700,cursor:_cP}}>Unlock feeding insights</button>
                     </div>
                   );
@@ -39976,16 +40400,35 @@ function App(){
               {/* OBuddy baby-to-toddler bridge */}
               {renderOBuddyBridgeCard()}
 
+              {tab==="develop" && !devFilter && (
+                <div className="glass-card ob-premium-hero">
+                  <div className="ob-premium-kicker" style={{marginBottom:8}}>Grow</div>
+                  <div className="ob-premium-title" style={{marginBottom:6}}>
+                    This week with {name}
+                  </div>
+                  <div className="ob-premium-copy">
+                    {(()=>{
+                      try {
+                        const _phase = DEV_PHASES.slice().reverse().find(p => ageWeeks !== null && ageWeeks >= p.windowStart);
+                        if (_phase) return _phase.name + " may be showing up around now. Take it gently; development shows up in small repeated moments.";
+                        if (todayActivities && todayActivities[0]) return todayActivities[0].title + " is a good little moment to try today.";
+                      } catch {}
+                      return "Tiny repetitions count. A few warm minutes of play are enough for today.";
+                    })()}
+                  </div>
+                </div>
+              )}
+
               {/* Development Dashboard. 2x2 navigation grid (hide when rendering weaning from Day tab) */}
               {tab==="develop" && !devFilter && (
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
                   {[
                     {id:"activities",label:"Activities",icon:"🎯",sub:"Age-appropriate play ideas"},
                     {id:"phases",label:"Phases",icon:"🧠",sub:"Developmental phases & growth spurts"},
                     {id:"milestones",label:"Milestones",icon:"🏆",sub:"Track firsts & memories"},
                     {id:"teething",label:"Teeth",icon:"🦷",sub:"Eruption order & comfort"},
                   ].map(f=>(
-                    <button key={f.id} onClick={()=>{haptic(8);setDevFilter(f.id);}} className="glass-card" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"16px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:110}}>
+                    <button key={f.id} onClick={()=>{haptic(8);setDevFilter(f.id);}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"16px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:110}}>
                       <span style={{fontSize:28}}>{f.icon}</span>
                       <div style={{fontSize:15,fontWeight:700,color:C.deep}}>{f.label}</div>
                       <div style={{fontSize:11,color:C.lt,lineHeight:1.4}}>{f.sub}</div>
@@ -40111,7 +40554,7 @@ function App(){
                       <span style={_S.f18}>🛏️</span>
                       <div style={_S.flex1}>
                         <div style={{fontSize:13,fontWeight:600,color:C.deep}}>Safe sleep guidance</div>
-                        <div style={{fontSize:11,color:C.lt,marginTop:2}}>Lullaby Trust guidelines. find it in Insights → Sleep tab</div>
+                        <div style={{fontSize:11,color:C.lt,marginTop:2}}>Lullaby Trust guidelines. find it in Understand → Sleep tab</div>
                       </div>
                     </div>
 
@@ -40725,7 +41168,7 @@ function App(){
                     <div style={{fontSize:48,marginBottom:12}}>🥄</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:8}}>Ready to Start Weaning?</div>
                     <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:16,maxWidth:320,margin:"0 auto 16px"}}>
-                      {babyName||"Baby"} is {fmtAge(age)}. the perfect time to explore first foods! Start weaning to unlock:
+                      {babyName||"Baby"} is {fmtAge(age)}. This may be a good time to explore first foods when your baby shows readiness signs. Start weaning to unlock:
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:20,textAlign:"left"}}>
                       {[
@@ -40751,7 +41194,7 @@ function App(){
                       🥄 Start Weaning Journey
                     </button>
                     <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
-                      You can always access weaning tools from the Development tab
+                      You can always access weaning tools from the Grow tab
                     </div>
                   </div>
                 );
@@ -42487,7 +42930,7 @@ function App(){
         <div style={{padding:"0 16px 100px",maxWidth:_maxW,margin:"0 auto",marginTop:-16}}>
 
           {/* ═══ 1. PROFILE HERO ═══ */}
-          <div className="glass-card" style={{padding:"18px 16px",marginBottom:12,marginTop:4}}>
+          <div className="glass-card ob-premium-hero" style={{padding:"18px 16px",marginBottom:12,marginTop:4}}>
             <div style={{display:"flex",alignItems:"center",gap:14}}>
               <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${C.ter}20,${C.mint}15)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0,overflow:"hidden"}}>
                 {activeChild.photo ? (
@@ -42501,6 +42944,50 @@ function App(){
               </div>
             </div>
           </div>
+          {familyUsername && backupCode && accountRepairStatus !== "idle" && accountRepairStatus !== "ok" && (
+            <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${accountRepairStatus==="saved"?C.mint:accountRepairStatus==="error"?C.gold:C.ter}33`,background:accountRepairStatus==="saved"?"rgba(123,166,140,0.08)":accountRepairStatus==="error"?"rgba(212,168,85,0.08)":"rgba(201,112,90,0.08)"}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+                <div style={{width:38,height:38,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--card-bg-solid)",fontSize:18,flexShrink:0}}>
+                  {accountRepairStatus==="saved"?"✓":accountRepairStatus==="error"?"!":"🔐"}
+                </div>
+                <div style={_S.flex1}>
+                  <div className="ob-premium-kicker" style={{marginBottom:4}}>Account sign-in</div>
+                  <div style={{fontSize:15,fontWeight:800,color:C.deep,marginBottom:4}}>
+                    {accountRepairStatus==="saved"?"Sign-in repaired":accountRepairStatus==="checking"?"Checking sign-in record":"Repair sign-in record"}
+                  </div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:accountRepairStatus==="needed"?10:0}}>
+                    {accountRepairMsg || "OBubba is checking whether this username can be found from another device."}
+                  </div>
+                  {accountRepairStatus==="needed" && (
+                    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        value={accountRepairPin}
+                        onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,4);setAccountRepairPin(v);}}
+                        placeholder="4-digit PIN"
+                        aria-label="4-digit account PIN"
+                        style={{flex:"1 1 120px",minWidth:0,fontSize:18,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${accountRepairPin.length===4?C.mint:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fM,textAlign:"center",letterSpacing:"0.18em",boxSizing:_bBB,color:C.deep}}
+                      />
+                      <button
+                        onClick={()=>repairAccountSignIn(accountRepairPin)}
+                        disabled={accountRepairLoading || accountRepairPin.length!==4}
+                        style={{padding:"11px 16px",borderRadius:99,border:"none",background:accountRepairPin.length===4?`linear-gradient(135deg,${C.ter},#a85a44)`:"#f2d9cc",color:accountRepairPin.length===4?"white":"#b89890",fontSize:13,fontWeight:800,cursor:accountRepairPin.length===4?_cP:"not-allowed",fontFamily:_fI,whiteSpace:"nowrap",boxShadow:accountRepairPin.length===4?"0 4px 16px rgba(201,112,90,0.25)":"none"}}>
+                        {accountRepairLoading?"Repairing...":"Repair"}
+                      </button>
+                    </div>
+                  )}
+                  {(accountRepairStatus==="error" || accountRepairStatus==="saved") && (
+                    <button onClick={()=>checkAccountSignInRecord(true)} style={{marginTop:10,padding:"8px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",color:C.ter,fontSize:12,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                      Check again
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {STORE_READY && (()=>{
             const _planName = isPremium ? "OBubba Premium" : trialActive ? "OBubba Premium Trial" : "OBubba Free";
             const _planIcon = isPremium ? "💛" : trialActive ? "✨" : "📋";
@@ -42557,6 +43044,7 @@ function App(){
 
           {/* ═══ 2. QUICK ACTIONS GRID ═══ */}
           <div className="glass-card" style={{padding:"14px",marginBottom:12}}>
+            <div className="ob-premium-kicker" style={{marginBottom:10}}>Family hub</div>
             <div style={_S.grid2}>
               <button onClick={()=>setShowFamilyModal(true)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
                 <span style={_S.f24}>👨‍👩‍👧</span>
@@ -42595,15 +43083,39 @@ function App(){
                   <div style={{fontSize:10,color:C.lt}}>Manual backup</div>
                 </button>
               )}
-              <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
-                <span style={_S.f24}>❓</span>
-                <div style={{fontSize:12,fontWeight:700,color:C.deep}}>App Tour</div>
-                <div style={{fontSize:10,color:C.lt}}>Replay guide</div>
+            </div>
+            {backupCode&&(
+              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginRight:"auto",whiteSpace:"nowrap"}}>Bubba Care session</div>
+                <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:99,border:"1px solid rgba(224,96,112,0.18)",background:"rgba(224,96,112,0.04)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>
+                  <span style={{fontSize:13}}>🔒</span>
+                  End
+                </button>
+                <button onClick={()=>{haptic();restartCarerSession();}} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:99,border:"1px solid rgba(155,184,168,0.24)",background:"rgba(155,184,168,0.06)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>
+                  <span style={{fontSize:13}}>🔓</span>
+                  Reopen
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* ═══ 3. GUIDES ═══ */}
+          <div className="glass-card" style={{padding:"14px",marginBottom:12}}>
+            <div className="ob-premium-kicker" style={{marginBottom:10}}>Guides</div>
+            <div style={_S.grid2}>
+              <button onClick={()=>{setTutStep(0);try{localStorage.removeItem("tut_v2");}catch{}}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 12px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left"}}>
+                <span style={{fontSize:22,flexShrink:0}}>❓</span>
+                <div style={_S.flex1}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>App Tour</div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:1}}>Replay guide</div>
+                </div>
               </button>
-              <button onClick={()=>{setDayTutStep(0);try{localStorage.removeItem("day_tut_v1");}catch{}}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
-                <span style={_S.f24}>☀️</span>
-                <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Day Tour</div>
-                <div style={{fontSize:10,color:C.lt}}>Day tab guide</div>
+              <button onClick={()=>{setDayTutStep(0);try{localStorage.removeItem("day_tut_v1");}catch{}}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 12px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left"}}>
+                <span style={{fontSize:22,flexShrink:0}}>☀️</span>
+                <div style={_S.flex1}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Day Tour</div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:1}}>Day tab guide</div>
+                </div>
               </button>
             </div>
           </div>
@@ -42643,27 +43155,7 @@ function App(){
             </div>
           )}
 
-          {/* End / Reopen Carer Session */}
-          {backupCode&&(
-            <div style={{display:"flex",gap:8,marginBottom:12}}>
-              <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} className="glass-card" style={{flex:1,display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid rgba(224,96,112,0.15)",background:"rgba(224,96,112,0.03)"}}>
-                <span style={{fontSize:16}}>🔒</span>
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>End Session</div>
-                  <div style={{fontSize:9,color:C.lt}}>Lock portal</div>
-                </div>
-              </button>
-              <button onClick={()=>{haptic();restartCarerSession();}} className="glass-card" style={{flex:1,display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:_cP,textAlign:"left",border:"1.5px solid rgba(155,184,168,0.2)",background:"rgba(155,184,168,0.04)"}}>
-                <span style={{fontSize:16}}>🔓</span>
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Reopen</div>
-                  <div style={{fontSize:9,color:C.lt}}>Unlock portal</div>
-                </div>
-              </button>
-            </div>
-          )}
-
-          {/* ═══ 3. PREFERENCES. single glass card ═══ */}
+          {/* ═══ 4. PREFERENCES. single glass card ═══ */}
           <div className="glass-card" style={_S.card16}>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:12}}>⚙️ Preferences</div>
 
@@ -42874,7 +43366,7 @@ function App(){
             <div style={_S.flexCenter10}>
               <span style={_S.f18}>{"\u{1F305}"}</span>
               <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Day starts at</span>
-              <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight stay with yesterday's bedtime until you log a morning wake. This is what sleep consultants use.\n\n\u{1F55B} Midnight. Simple calendar days. Anything logged after 12:00am midnight appears on the new day. Night wakes at 1am, 3am etc. show on today, not yesterday."}/>
+              <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight stay with yesterday's bedtime until you log a morning wake. This matches how many sleep logs are reviewed in practice.\n\n\u{1F55B} Midnight. Simple calendar days. Anything logged after 12:00am midnight appears on the new day. Night wakes at 1am, 3am etc. show on today, not yesterday."}/>
             </div>
             <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:"1px solid "+C.blush,overflow:"hidden",marginTop:8,marginBottom:8}}>
               <button onClick={()=>{setDayBoundary("wake");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"wake"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
@@ -42882,7 +43374,7 @@ function App(){
             </div>
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
               {dayBoundary==="wake"
-                ? "Night feeds belong to bedtime's day. Sleep consultant standard."
+                ? "Night feeds belong to bedtime's day. Recommended for clearer overnight patterns."
                 : "Simple calendar days. 1am entries show on today."}
             </div>
           </div>
@@ -44296,13 +44788,13 @@ function App(){
         const _bn = babyName || "your little one";
         const _warmMessages = {
           nap_prediction: { title: "Know when " + _bn + " needs sleep", body: "OBubba learns " + _bn + "'s unique rhythm. not just age charts. It's like having a friend who really knows your baby whisper \"now's a good time.\"" },
-          bedtime: { title: "Tonight's perfect bedtime", body: "We look at " + _bn + "'s naps today, their sleep pressure, and what's worked this week. No guessing, no googling. just a clear, confident time." },
+          bedtime: { title: "Tonight's suggested bedtime", body: "We look at " + _bn + "'s naps today, their sleep pressure, and what's worked this week. No frantic googling. just a clear, gentle time to try." },
           crying: { title: "When the crying won't stop", body: "We know how overwhelming it can be. OBubba ranks the most likely causes based on " + _bn + "'s actual patterns. when they last ate, slept, and what usually helps." },
           today_plan: { title: _bn + "'s day, mapped out", body: "A gentle schedule built from " + _bn + "'s own patterns. not a rigid timetable, but a guide that flexes with your day." },
-          sleep_analysis: { title: "Understand " + _bn + "'s sleep", body: "The kind of insight you'd get from a sleep consultant, but based on " + _bn + "'s actual data. patterns, progress, and what might help." },
+          sleep_analysis: { title: "Understand " + _bn + "'s sleep", body: "A calm review based on " + _bn + "'s actual data: patterns, progress, and what might help next." },
           weekly: { title: "See how far you've come", body: "Some weeks feel endless. But when you look back, the progress is real. You deserve to see you're doing a great job." },
-          activities: { title: "Play ideas for right now", body: "Age-perfect activities for exactly where " + _bn + " is developmentally. Each one takes 5 minutes and supports real brain development." },
-          tomorrow: { title: "Plan ahead, sleep easier", body: "Tomorrow's predicted schedule so you can plan your day with confidence. You'll know when naps should fall." },
+          activities: { title: "Play ideas for right now", body: "Age-aware activities for where " + _bn + " is developmentally. Each one takes 5 minutes and supports connection through play." },
+          tomorrow: { title: "Plan ahead, sleep easier", body: "Tomorrow's predicted schedule so you can plan your day with more confidence. You'll see when naps are likely to fall." },
           growth: { title: _bn + "'s growth journey", body: "Track weight and height against WHO guidelines. Something meaningful to show your health visitor." },
           partner: { title: "You're a team", body: "Share everything with your partner. logs, insights, schedules. No more \"when did they last eat?\" texts." },
           export: { title: "Your data, your way", body: "Export " + _bn + "'s full history to share with your GP or health visitor. Professional-quality reports in one tap." },
@@ -44311,16 +44803,16 @@ function App(){
           recipes: { title: "Weaning made simple", body: "Age-appropriate recipes and meal ideas, tailored to " + _bn + "'s stage. One less thing to worry about." },
           weaning_stats: { title: "Track the weaning journey", body: "See how " + _bn + "'s milk-to-solid balance is progressing against NHS guidelines." },
           // ── Analyser-suite paywall copy ──
-          nap_analyser: { title: "Why was that nap short?", body: "Most short naps have one of seven causes — undertired, overtired, fell asleep on the feed, cycle skill still developing, fragmented day, catnap by design. OBubba's nap analyser tells you which one and what to try next time." },
-          night_analyser: { title: "Why did last night go that way?", body: "Undertired? Overtired? Hunger? Habit? OBubba reads the shape of last night's wakes and explains exactly what happened, then quietly adjusts tonight's bedtime for you." },
-          feed_analyser: { title: "Is this feeding normal?", body: "Cluster feeding vs growth spurt vs reverse cycling vs supply worry — these look identical from the outside. OBubba's feed analyser looks at " + _bn + "'s 14-day pattern and tells you which one it is." },
-          weaning_analyser: { title: "Is weaning on track?", body: "Iron gaps, allergen overdue, refusal streaks, constipation — the three things that trip most parents up. OBubba watches your weaning log and tells you the one thing to fix this week." },
+          nap_analyser: { title: "Why was that nap short?", body: "Short naps can come from several patterns — undertired, overtired, feed-to-sleep, cycle skills still developing, fragmented day, or a planned catnap. OBubba looks for the most likely pattern and what to try next time." },
+          night_analyser: { title: "Why did last night go that way?", body: "Undertired? Overtired? Hunger? Habit? OBubba reads the shape of last night's wakes, explains what the pattern may suggest, then gently adjusts tonight's bedtime for you." },
+          feed_analyser: { title: "Is this feeding normal?", body: "Cluster feeding, growth spurts, reverse cycling, and supply worries can look similar from the outside. OBubba looks at " + _bn + "'s 14-day pattern and highlights what it may suggest." },
+          weaning_analyser: { title: "Is weaning on track?", body: "Iron variety, allergen rhythm, refusal streaks, and constipation are common pressure points. OBubba watches your weaning log and suggests one gentle next step for the week." },
           wellbeing_analyser: { title: "How are YOU doing?", body: "OBubba passively tracks your sleep window, mood check-ins, and support signals. When something needs attention, it tells you gently. Safety flags are always free." },
-          triage: { title: "One tap. Whole-baby answer.", body: "Tap this when baby is unsettled and you're not sure why. OBubba runs every analyser in parallel — sleep, feed, weaning, wellbeing — and ranks by urgency. The thing a consultant does in a 30-min call, in 0.3 seconds." },
-          tonights_focus: { title: "Tonight's plan", body: "Every morning, based on last night's diagnosis, OBubba gives you a concrete 4-step plan for tonight. Not advice. A plan. With the reasoning explained so you know why." },
-          sleep_coach: { title: "Your 14-day sleep coach", body: "Pick a style — no-cry, chair shuffle, or parent-led — and OBubba walks you through a 14-day plan one day at a time. The same plan a consultant charges hundreds for, tailored to " + _bn + "'s age and last night's data." },
+          triage: { title: "One tap. Whole-baby view.", body: "Tap this when baby is unsettled and you're not sure why. OBubba checks sleep, feed, weaning, and wellbeing patterns together, then ranks the most useful things to consider first." },
+          tonights_focus: { title: "Tonight's plan", body: "Every morning, based on last night's pattern, OBubba gives you a gentle 4-step focus for tonight, with the reasoning explained so you know why." },
+          sleep_coach: { title: "Your 14-day sleep coach", body: "Pick a style — no-cry, chair shuffle, or parent-led — and OBubba walks you through a gentle 14-day plan one day at a time, tailored to " + _bn + "'s age and recent sleep data." },
         };
-        const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium gives you a sleep consultant in your pocket. so you can enjoy your baby instead of worrying." };
+        const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium helps turn logs into calmer, more personal guidance, so you can enjoy your baby instead of worrying." };
         return (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(0,0,0,0.45)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>{try{trackEvent("paywall_dismissed",{via:"backdrop",context:paywallContext||"unknown"});}catch{};setShowPaywall(false);}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg,#FFFCF9)",borderRadius:28,padding:"26px 20px 22px",width:"100%",maxWidth:_isTablet?520:380,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",textAlign:"center",position:"relative",maxHeight:"90vh",overflowY:"auto"}}>
@@ -44333,7 +44825,7 @@ function App(){
             <div style={{textAlign:"left",marginBottom:14,padding:"10px 14px",borderRadius:14,background:isDark?"rgba(255,255,255,0.04)":"rgba(0,0,0,0.02)"}}>
               {[
                 ["🌙","Predictions that learn "+_bn+"'s rhythm"],
-                ["📖","Sleep consultant-style guidance"],
+                ["📖","Gentle pattern-based guidance"],
                 ["📊","Growth charts & development tracking"],
                 ["👫","Partner sync. always on the same page"],
                 ["💡","\"Why are they crying?\". ranked by data"],
@@ -44532,7 +45024,7 @@ function App(){
             </div>
             <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:14,lineHeight:1.5}}>
               Source: NHS & Lullaby Trust{"\n"}
-              You can always find this in Insights → Sleep tab
+              You can always find this in Understand → Sleep tab
             </div>
             <button onClick={()=>setShowSafeSleepPopup(false)} style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
               Got it
@@ -44889,7 +45381,7 @@ function App(){
               {babyName||"Baby"} is 6 months old. a whole new chapter begins
             </div>
             <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:16}}>
-              The app is growing with them. Weaning, allergen tracking, and solid food logging are now unlocked in the Development tab.
+              The app is growing with them. Weaning, allergen tracking, and solid food logging are now unlocked in the Grow tab.
             </div>
             <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:20}}>
               Your feeds, sleep tracking, and all your data stay exactly the same. 🤍
@@ -45306,7 +45798,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           {id:"chair", name:"Chair shuffle", icon:"🪑", source:"Gradual-distance method",
            summary:"You stay in the room with " + _name3 + ", moving your chair further from the cot each night.",
            how:"Night 1-3: sit right next to the cot, offer a reassuring hand. Night 4-6: move the chair halfway across the room. Night 7-10: sit by the door. Night 11-14: outside the door. " + _name3 + " can always see or hear you.",
-           obubba:"OBubba tells you exactly where to sit each night and tracks " + _name3 + "'s settling time. If they need you closer for an extra night, the plan adjusts automatically.",
+           obubba:"OBubba suggests where to sit each night and tracks " + _name3 + "'s settling time. If they need you closer for an extra night, the plan adjusts automatically.",
            best:"Parents who want to be physically present but help " + _name3 + " learn to settle independently."},
           {id:"parent_led", name:"Parent-led rhythm", icon:"🌿", source:"No formal method",
            summary:"No sleep training at all. Stabilise the environment, keep routines consistent, and let development do the work.",
@@ -48796,11 +49288,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {showScheduleMaker && (
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:"24px 24px 0 0",padding:"18px 18px calc(40px + var(--keyboard-height, 0px))",width:"100%",maxWidth:_maxW,maxHeight:"90vh",overflowY:"auto",WebkitOverflowScrolling:"touch",position:"relative"}}>
-            <button onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",zIndex:10,touchAction:"manipulation"}}>✕</button>
-            <div style={{width:48,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
+            <button aria-label="Close" onClick={()=>{setShowScheduleMaker(false);setSmResult(null);}} style={{position:"absolute",top:12,right:12,width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.15)",zIndex:10,touchAction:"manipulation"}}>✕</button>
+            <div style={{width:48,height:4,background:"rgba(120,110,130,0.16)",borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,marginBottom:4}}>🧩 Schedule Maker</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:16,lineHeight:1.5}}>
-              Enter a time {babyName||"baby"} needs to be awake or asleep, and we'll build the optimal day around it.
+              Enter a time {babyName||"baby"} needs to be awake or asleep, and we'll suggest a gentle day rhythm around it.
             </div>
 
             {/* Adjusted schedule. set target wake + bedtime */}
@@ -48813,16 +49305,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               <span style={{fontSize:20}}>⚙️</span>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:2}}>Set preferred wake & bedtime</div>
-                <div style={{fontSize:11,color:C.lt,fontWeight:500,lineHeight:1.4}}>Guide {babyName||"baby"} toward a healthier rhythm. Naps adjust automatically within NHS-safe wake windows.</div>
+                <div style={{fontSize:11,color:C.lt,fontWeight:500,lineHeight:1.4}}>Guide {babyName||"baby"} toward a steadier rhythm. Naps adjust automatically using age-aware wake windows.</div>
                 {scheduleOverride && <div style={{fontSize:10,color:C.gold,marginTop:4,fontWeight:600}}>⚙️ Currently active{scheduleOverride.permanent?" (every day)":scheduleOverride.gradualStart?" (gradual 3-day)":" (today only)"}</div>}
               </div>
               <span style={{fontSize:14,color:C.sky}}>›</span>
             </button>
 
             <div style={{display:"flex",alignItems:"center",gap:8,margin:"4px 0 14px"}}>
-              <div style={{flex:1,height:1,background:C.blush}}/>
+              <div style={{flex:1,height:1,background:"var(--card-border)"}}/>
               <span style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1}}>or build around an event</span>
-              <div style={{flex:1,height:1,background:C.blush}}/>
+              <div style={{flex:1,height:1,background:"var(--card-border)"}}/>
             </div>
 
             <Inp label="What's happening?" type="text" placeholder="e.g. Baby class, Doctor visit, Car journey" value={smEvent.label} onChange={e=>setSmEvent(f=>({...f,label:e.target.value}))}/>
@@ -49858,7 +50350,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             title: "Naps · 20 points",
             what: "Measures nap count plus total nap minutes against age-expected day sleep. The AASM ranges guide what's typical.",
             low: "If this is low, try: protecting the first nap (often the 'quality' nap), keeping wake windows age-appropriate, and a dim quiet room. Under-napped babies often sleep worse at night too.",
-            high: "Day sleep is well-distributed. Check it's not eating into night sleep. see the Sleep Budget in Insights."
+            high: "Day sleep is well-distributed. Check it's not eating into night sleep. see the Sleep Budget in Understand."
           },
           log: {
             title: "Logging · 20 points",
