@@ -5576,7 +5576,13 @@ function App(){
     // Widget button intents write to UserDefaults async. poll aggressively to catch it
     OB.lifecycle.onResume(()=>{
       OB.statusBar.setStyle(document.body.classList.contains('dark-mode'));
-      OB.widgets.updateWidgetData();
+      // Force widget refresh with current cached data on every resume
+      try {
+        var _wdResume = localStorage.getItem("ob_widget_data_v1");
+        if(_wdResume && window.Capacitor?.Plugins?.OBWidgetBridge) {
+          window.Capacitor.Plugins.OBWidgetBridge.setData({ json: _wdResume }).catch(()=>{});
+        }
+      } catch{}
       // Re-check premium on resume (subscription may have been purchased/restored externally)
       if(STORE_READY && !_isOwner && window._purchases && window._purchases.checkEntitlements){
         window._purchases.checkEntitlements().then(function(_p){
@@ -5601,9 +5607,14 @@ function App(){
       }
     });
 
-    // Listen for app pause. save widget data
+    // Listen for app pause. push widget data so it's fresh when user sees widget
     OB.lifecycle.onPause(()=>{
-      OB.widgets.updateWidgetData();
+      try {
+        var _wdPause = localStorage.getItem("ob_widget_data_v1");
+        if(_wdPause && window.Capacitor?.Plugins?.OBWidgetBridge) {
+          window.Capacitor.Plugins.OBWidgetBridge.setData({ json: _wdPause }).catch(()=>{});
+        }
+      } catch{}
     });
 
     // Handle deep links
