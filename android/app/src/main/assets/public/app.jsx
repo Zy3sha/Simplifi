@@ -1149,7 +1149,7 @@ const DATA_WINDOWS = {
   PATTERNS: 10,       // Advanced pattern detection
 };
 
-const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"💩",tummy:"🤸",bath:"🛁",outdoor:"🌳",play:"🧸",reading:"📖",massage:"🤲",swimming:"🏊",skintokin:"🤱",music:"🎵"};
+const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"🧷",tummy:"🤸",bath:"🛁",outdoor:"🌳",play:"🧸",reading:"📖",massage:"🤲",swimming:"🏊",skintokin:"🤱",music:"🎵"};
 const NAMES={feed:"Feed",nap:"Nap",wake:"Wake Up",sleep:"Bedtime",poop:"Nappy",tummy:"Tummy Time",bath:"Bath",outdoor:"Outdoor/Walk",play:"Play Time",reading:"Story Time",massage:"Massage",swimming:"Swimming",skintokin:"Skin to Skin",music:"Music"};
 const POOP_TYPES=["Seedy","Mucousy","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Meconium","Other"];
 const POOP_TYPE_INFO={"Seedy":{normal:true,desc:"Small seed-like bits are completely normal, especially in breastfed babies. Shows your baby is digesting milk well."},"Green":{normal:true,desc:"Usually nothing to worry about — can happen with formula, dietary changes, or more foremilk. If baby seems well, no action needed."},"Brown":{normal:true,desc:"Perfectly normal and very common, especially once your baby starts solid foods."},"Dark green":{normal:true,desc:"Usually normal — can be caused by iron in formula or supplements. If baby seems well and is feeding normally, no need to worry."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Black/tarry":{normal:false,desc:"Only normal in the first few days of life (meconium). After that, contact your GP or health visitor promptly as it may indicate blood in the stool."},"White/pale":{normal:false,desc:"Needs urgent medical attention. Contact your GP the same day — it can be a sign of a liver problem that needs checking."},"Mucousy":{normal:true,desc:"A small amount of mucus is common and often linked to teething, a cold, or drooling. If it persists, mention it to your health visitor."},"Watery":{normal:false,desc:"Can be a sign of diarrhoea. Keep baby hydrated and contact your GP if it lasts more than 24 hours, or sooner if baby is under 3 months."},"Formed/solid":{normal:true,desc:"Soft, formed poo is normal once your baby starts solids. It should be easy to pass and not hard or dry."},"Pellet-like":{normal:false,desc:"Small, hard pellets can be a sign of constipation. Try extra fluids and speak to your health visitor if it continues."},"Frothy":{normal:true,desc:"Usually harmless — can happen if a breastfed baby gets more foremilk than hindmilk. Not a concern if baby is gaining weight well."},"Bloody/streaked":{normal:false,desc:"Blood in baby's nappy should always be checked by a doctor. Small streaks can sometimes be from straining, but contact your GP to be safe."},"Meconium":{normal:true,desc:"The thick, dark, sticky poo in baby's first day or two. Completely normal — shows bowels are working. Should clear within a few days."},"Other":{normal:true,desc:"Baby poo varies a lot day to day. If something doesn't seem right, your health visitor is always happy to help."}};
@@ -5488,7 +5488,7 @@ function App(){
           break;
         case 'quick_nappy':
           quickAddLog("poop", {type:"poop", time:timeNow, poopType:"wet", note:"via widget"});
-          showToast("💩 Nappy logged via Widget ✓", 3000, 1);
+          showToast("🧷 Nappy logged via Widget ✓", 3000, 1);
           break;
         case 'stop_timer':
         case 'toggle_nap': {
@@ -5729,7 +5729,7 @@ function App(){
                 const _pColour = entry.poopColour||"";
                 const _pNote = _pColour ? `${_pColour} via Siri` : "via Siri";
                 quickAddLog("poop", {type:"poop", time, poopType:_pType, poopColour:_pColour, note:_pNote});
-                showToast(_pColour ? `💩 ${_pType} nappy (${_pColour}) logged via Siri ✓` : `💩 ${_pType} nappy logged via Siri ✓`, 3000, 1);
+                showToast(_pColour ? `🧷 ${_pType} nappy (${_pColour}) logged via Siri ✓` : `🧷 ${_pType} nappy logged via Siri ✓`, 3000, 1);
               } else if(entry.type==='night_wake') {
                 // Night wake via Siri. build the wake entry
                 const _nwSelf = entry.selfSettled === true || entry.selfSettled === "true";
@@ -24777,7 +24777,7 @@ function App(){
     } catch {}
     setLogPanel(null);
     haptic("medium")
-    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
+    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"🧷 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
     const timeLabel = data.time ? " at "+fmt12(data.time) : "";
     showToast(label+timeLabel+" · Shake to undo",3000,1);
 
@@ -27733,7 +27733,7 @@ function App(){
 
     // NAPPIES
     sections.push(`<div style="background:#FFF9F0;border:1px solid #F0E0C8;border-radius:16px;padding:16px;margin-bottom:12px">
-      <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">💩 Nappies</h2>
+      <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">🧷 Nappies</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
         <tr><td style="padding:4px 0;color:#A898AC">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
         ${lastNappy ? `<tr><td style="padding:4px 0;color:#A898AC">Last nappy</td><td style="padding:4px 0;font-weight:600">${fmt12(lastNappy.time)}. ${lastNappy.poopType||"wet"}</td></tr>` : ""}
@@ -31948,7 +31948,7 @@ function App(){
         const DAY_TUT_STEPS = [
           { icon:"☀️", title:"Your Day Dashboard", body:"This is where your day lives. Everything you need is right here, one screen, no hunting.\n\nLet's walk through each section so you feel confident from day one." },
           { icon:"🧠", title:"The Hero Card", body:"The card at the very top is " + _bn3 + "'s brain. It reads everything you've logged and tells you:\n\n• What's happening RIGHT NOW\n• What's likely coming NEXT\n• A gentle nudge if something needs attention\n\nIt updates in real-time as you log." },
-          { icon:"⚡", title:"One-Tap Log Row", body:"The button bar below the hero card is your best friend.\n\nOne tap = logged. No forms needed.\n\n• 🍼 Feed  • 🤱 Breast  • 💩 Nappy\n• 😴 Nap  • 🫙 Pump  • 😢 Crying?\n\nLong-press any button for more options (like choosing feed type or backdating a nap)." },
+          { icon:"⚡", title:"One-Tap Log Row", body:"The button bar below the hero card is your best friend.\n\nOne tap = logged. No forms needed.\n\n• 🍼 Feed  • 🤱 Breast  • 🧷 Nappy\n• 😴 Nap  • 🫙 Pump  • 😢 Crying?\n\nLong-press any button for more options (like choosing feed type or backdating a nap)." },
           { icon:"😴", title:"How naps work", body:"Tap 😴 to start a nap timer. Tap again to stop it. That's it.\n\n• Long-press 😴 to backdate (nap started 10 mins ago in the car?)\n• A live timer appears on screen while " + _bn3 + " sleeps\n• When you stop it, the nap is logged with exact duration\n\nThe app uses nap times to learn " + _bn3 + "'s rhythm and predict what comes next." },
           { icon:"⏰", title:"Wake windows", body:"A wake window is how long " + _bn3 + " can happily stay awake between sleeps.\n\nOBubba knows the right wake window for " + _bn3 + "'s age and adjusts it through the day (shorter in the morning, longer before bed).\n\nWhen " + _bn3 + " is approaching the end of a wake window, the hero card gently tells you it's nearly nap time." },
           { icon:"🔮", title:"Nap predictions", body:"After a few days of logging, OBubba starts predicting naps.\n\n• Based on " + _bn3 + "'s age, wake windows, and YOUR logged patterns\n• Shows estimated next nap time on the hero card\n• The Plan view (inside Today) shows all upcoming naps\n\nPredictions get personal by day 3 and really accurate by day 7. The more you log, the smarter they get." },
@@ -33219,7 +33219,7 @@ function App(){
                 {[
                   {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
                   {emoji:"🤱",label:"Breast",longAction:()=>{if(breastActive){openLogPanel("feed");}else{setShowBreastStartPicker(true);setBreastCustomStart(nowTime());}},action:()=>{haptic();startBreastTimer("L");}},
-                  {emoji:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
+                  {emoji:"🧷",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
                   {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?()=>{showConfirm("Discard nap attempt?",(babyName||"Baby")+" didn't actually settle? Discarding won't save any nap minutes, so today's predictions stay clean.",()=>{cancelNap();setConfirmDialog(null);},"Discard");}:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
                   {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
                   {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
@@ -35381,7 +35381,7 @@ function App(){
               <div data-actions-grid="true" id="detail-log-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
-                  {id:"nappy", icon:"💩", label:"Nappy"},
+                  {id:"nappy", icon:"🧷", label:"Nappy"},
                   {id:"sleep", icon:"😴", label:"Sleep"},
                   {id:"pump",  icon:"🫙", label:"Pump"},
                   {id:"wake",  icon:"☀️", label:"Wake Up"},
@@ -35654,9 +35654,9 @@ function App(){
                     : _w < 26 ? "🍼 Milk. Around 600–900ml total per day across 4–6 feeds. This varies a lot between babies."
                     : _w < 52 ? "🍼 Milk. Around 500–700ml per day as solids increase. Milk is still the main source of nutrition until 12 months."
                     : "🍼 Milk. Roughly 350–500ml per day alongside meals. Whole cow's milk is fine from 12 months.";
-                  const _nappyTip = _w < 6 ? "💩 Nappies. At least 6 wet nappies in 24 hours. Frequent poos are normal. some babies poo after every feed."
-                    : _w < 26 ? "💩 Nappies. 6+ wet nappies a day. Breastfed babies can go up to a week between poos after 6 weeks. completely normal if the poo is soft."
-                    : "💩 Nappies. 6+ wet nappies a day. Poo may change colour and texture with new foods. this is normal.";
+                  const _nappyTip = _w < 6 ? "🧷 Nappies. At least 6 wet nappies in 24 hours. Frequent poos are normal. some babies poo after every feed."
+                    : _w < 26 ? "🧷 Nappies. 6+ wet nappies a day. Breastfed babies can go up to a week between poos after 6 weeks. completely normal if the poo is soft."
+                    : "🧷 Nappies. 6+ wet nappies a day. Poo may change colour and texture with new foods. this is normal.";
                   const _sleepTip = _w < 6 ? "😴 Day sleep. 4–5 hours across many short naps. Newborn sleep is unpredictable and that's okay."
                     : _w < 13 ? "😴 Day sleep. 3.5–5 hours across 4–5 naps. Naps are often short (30–45 min). this is completely normal."
                     : _w < 26 ? "😴 Day sleep. 2.5–3.5 hours across 3 naps. Some naps may start lengthening around now."
@@ -35747,7 +35747,7 @@ function App(){
                   }
                   return [
                     _feedTile,
-                    {big:dayE.filter(e=>e.type==="poop").length,unit:"💩",label:"Nappies",color:C.mid,bg:"var(--card-bg)"},
+                    {big:dayE.filter(e=>e.type==="poop").length,unit:"🧷",label:"Nappies",color:C.mid,bg:"var(--card-bg)"},
                     {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"var(--card-bg)"},
                     {big:napOn?(()=>{const total=napMins*60+napSec;const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;})():(naps.length===0?"--":hm(napMins)),unit:"",label:"Nap Time",color:C.sky,bg:"var(--card-bg)"},
                   ];
@@ -43839,7 +43839,7 @@ function App(){
       )}
 
       {logPanel==="nappy"&&(
-        <Sheet onClose={()=>{setLogPanel(null);setNappyMode(null);setNappyTime("");setSelectedPoopColour("");}} title="💩 Log Nappy">
+        <Sheet onClose={()=>{setLogPanel(null);setNappyMode(null);setNappyTime("");setSelectedPoopColour("");}} title="🧷 Log Nappy">
           <div>
             <div style={_S.mb12}>
               <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Time (optional)</label>
@@ -46016,7 +46016,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     )}
                     {(r.title==="Wet/Dirty Nappy"||r.title.includes("Nappy"))&&(
                       <button onClick={()=>{quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""});setShowCryingHelper(false);setCryingResult(null);setCryingHelps(prev=>({...prev,wet_or_dirty_nappy:(prev.wet_or_dirty_nappy||0)+1}));}}
-                        style={{marginTop:6,padding:"5px 12px",borderRadius:99,border:`1px solid ${C.gold}40`,background:C.gold+"0A",fontSize:11,fontWeight:700,color:C.gold,cursor:_cP}}>💩 Log nappy change</button>
+                        style={{marginTop:6,padding:"5px 12px",borderRadius:99,border:`1px solid ${C.gold}40`,background:C.gold+"0A",fontSize:11,fontWeight:700,color:C.gold,cursor:_cP}}>🧷 Log nappy change</button>
                     )}
                   </div>
                 </div>
@@ -47241,7 +47241,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         <div style={{fontSize:13,fontWeight:700,color:napOn?C.mint:C.deep}}>{_napAgo}</div>
                       </div>
                       <div style={{textAlign:"center",padding:"8px 4px",background:"var(--card-bg-alt)",borderRadius:12}}>
-                        <div style={{fontSize:24,marginBottom:2}}>💩</div>
+                        <div style={{fontSize:24,marginBottom:2}}>🧷</div>
                         <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Nappy</div>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_gpNappyAgo}</div>
                       </div>
@@ -47293,7 +47293,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       <span>{napOn?"Baby Woke Up":"Start Nap"}</span>
                     </button>
                     <button onClick={()=>{haptic();setGpSheet("nappy");}} style={_btn}>
-                      <span style={{fontSize:36}}>💩</span>
+                      <span style={{fontSize:36}}>🧷</span>
                       <span>Log Nappy</span>
                     </button>
                     <button onClick={()=>{haptic();setGpNoteText("");setGpSheet("note");}} style={_btn}>
@@ -47405,7 +47405,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         <div onClick={()=>setPoopWhyOpen(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:400,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",position:"relative"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>💩 What's normal?</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>🧷 What's normal?</div>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setPoopWhyOpen(false)} style={{width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
             </div>
             <div style={{fontSize:13,color:C.mid,lineHeight:1.7}}>
@@ -47442,7 +47442,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               ) : (
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {carerEntries.map(entry => {
-                    const icon = entry.type==="feed"?"🍼":entry.type==="nap"?"😴":entry.type==="poop"?"💩":"📝";
+                    const icon = entry.type==="feed"?"🍼":entry.type==="nap"?"😴":entry.type==="poop"?"🧷":"📝";
                     const dotColor = entry.type==="feed"?C.ter:entry.type==="nap"?"#7B68EE":entry.type==="poop"?C.gold:C.lt;
                     let desc = "";
                     if(entry.type==="feed") desc = (entry.feedType||"bottle") + (entry.amount?". "+entry.amount+"ml":"");
@@ -48109,7 +48109,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       {importResult.breakdown.feeds>0 && <div>🍼 {importResult.breakdown.feeds} feeds</div>}
                       {importResult.breakdown.sleeps>0 && <div>🌙 {importResult.breakdown.sleeps} bedtimes</div>}
                       {importResult.breakdown.naps>0 && <div>😴 {importResult.breakdown.naps} naps</div>}
-                      {importResult.breakdown.poops>0 && <div>💩 {importResult.breakdown.poops} nappies</div>}
+                      {importResult.breakdown.poops>0 && <div>🧷 {importResult.breakdown.poops} nappies</div>}
                       {importResult.breakdown.wakes>0 && <div>☀️ {importResult.breakdown.wakes} wakes</div>}
                     </div>
                   )}
@@ -48144,7 +48144,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       {importResult.breakdown.feeds>0 && <div>🍼 {importResult.breakdown.feeds} feeds</div>}
                       {importResult.breakdown.sleeps>0 && <div>🌙 {importResult.breakdown.sleeps} bedtimes</div>}
                       {importResult.breakdown.naps>0 && <div>😴 {importResult.breakdown.naps} naps</div>}
-                      {importResult.breakdown.poops>0 && <div>💩 {importResult.breakdown.poops} nappies</div>}
+                      {importResult.breakdown.poops>0 && <div>🧷 {importResult.breakdown.poops} nappies</div>}
                       {importResult.breakdown.wakes>0 && <div>☀️ {importResult.breakdown.wakes} wakes</div>}
                     </div>
                   )}
@@ -48674,14 +48674,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         <div role="dialog" aria-modal="true" onClick={()=>setGpSheet(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
-            <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>💩 Log a Nappy</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>🧷 Log a Nappy</div>
             <div style={{fontSize:15,color:C.mid,textAlign:"center",marginBottom:24}}>What's in it?</div>
             {[{k:"wet",lbl:"Wet",icon:"💧"},{k:"dirty",lbl:"Dirty",icon:"💩"},{k:"wet + dirty",lbl:"Wet + Dirty",icon:"💧💩"}].map(opt=>(
               <button key={opt.k} onClick={()=>{
                 haptic();
                 quickAddLog("poop",{type:"poop",time:nowTime(),poopType:opt.k,loggedBy:"grandparent",note:"Logged by caregiver"});
                 setGpSheet(null);
-                showToast("💩 Nappy saved · "+opt.lbl,2000,1);
+                showToast("🧷 Nappy saved · "+opt.lbl,2000,1);
               }} style={{width:"100%",padding:"24px 20px",borderRadius:18,border:`2px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:22,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:14}}>
                 <span style={_S.f28}>{opt.icon}</span>
                 <span>{opt.lbl}</span>

@@ -1063,6 +1063,253 @@ body[data-screen-compact] .ob-main-tab-label{
   font-size:9px!important;
 }
 
+/* ═══ Apple frosted-glass final pass
+   This sits at the end of the cascade so the installed iOS/Android builds
+   match the calmer preview: translucent white edges, no amber glow, tighter
+   controls, and one-row quick logging for sleepy-parent scanning. ═══ */
+body.dark-mode{
+  --bg-solid:#07111d!important;
+  --bg-grad:linear-gradient(180deg,#07111d 0%,#0a1422 48%,#0c1728 100%)!important;
+  --card-bg:rgba(255,255,255,0.078)!important;
+  --card-bg-solid:rgba(255,255,255,0.118)!important;
+  --card-bg-alt:rgba(255,255,255,0.065)!important;
+  --card-border:rgba(255,255,255,0.12)!important;
+  --nav-bg:rgba(12,18,29,0.72)!important;
+  --nav-border:rgba(255,255,255,0.15)!important;
+  --sheet-bg:rgba(12,18,29,0.80)!important;
+  --blush:rgba(255,255,255,0.12)!important;
+  --rose:rgba(255,255,255,0.10)!important;
+  --gold:#d7b982!important;
+  --text-deep:#f4f7fb!important;
+  --text-mid:#c3ccd8!important;
+  --text-lt:#8995a5!important;
+  --glass-blur:38px!important;
+  --glass-sat:1.85!important;
+}
+body.dark-mode::before{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.045),transparent 18%),
+    radial-gradient(ellipse 110% 58% at 50% -20%,rgba(134,178,206,0.14),transparent 60%),
+    radial-gradient(ellipse 72% 44% at 84% 18%,rgba(188,206,226,0.055),transparent 64%),
+    linear-gradient(180deg,#07111d 0%,#0a1422 52%,#0c1728 100%)!important;
+}
+body.dark-mode::after{opacity:0!important}
+body.dark-mode .glass-card,
+body.dark-mode .glass-entry,
+body.dark-mode .ob-premium-tile,
+body.dark-mode .ob-quick-log-row,
+body.dark-mode .ob-day-mode-switcher,
+body.dark-mode .ob-header-glass{
+  border-color:rgba(255,255,255,0.12)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.16) inset,
+    0 -1px 0 rgba(255,255,255,0.035) inset,
+    0 18px 48px rgba(0,0,0,0.28)!important;
+}
+body.dark-mode .glass-card::before,
+body.dark-mode .ob-premium-tile::before{
+  background:linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.035) 55%,transparent 100%)!important;
+}
+body.dark-mode .glass-card::after,
+body.dark-mode .ob-premium-tile::after{
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent)!important;
+}
+body.dark-mode button{
+  text-shadow:none!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row{
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  justify-content:flex-start!important;
+  align-items:center!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scroll-snap-type:x proximity!important;
+  gap:7px!important;
+  padding:10px!important;
+  margin-bottom:12px!important;
+  border-radius:24px!important;
+  border:1px solid rgba(255,255,255,0.16)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.045)),
+    rgba(255,255,255,0.055)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.18) inset,
+    0 16px 40px rgba(0,0,0,0.24)!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+body.light-mode div[data-testid="quick-log-row"].ob-quick-log-row,
+body:not(.dark-mode) div[data-testid="quick-log-row"].ob-quick-log-row{
+  border-color:rgba(255,255,255,0.68)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.52),rgba(255,255,255,0.22)),
+    rgba(255,255,255,0.42)!important;
+}
+button.ob-quick-log-btn,
+body[data-screen-compact] button.ob-quick-log-btn{
+  flex:0 0 66px!important;
+  min-width:66px!important;
+  max-width:66px!important;
+  min-height:62px!important;
+  padding:7px 4px 6px!important;
+  border-radius:18px!important;
+  scroll-snap-align:start!important;
+  background:rgba(255,255,255,0.075)!important;
+  border:1px solid rgba(255,255,255,0.12)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.12) inset,
+    0 8px 20px rgba(0,0,0,0.18)!important;
+}
+body.light-mode button.ob-quick-log-btn,
+body:not(.dark-mode) button.ob-quick-log-btn{
+  background:rgba(255,255,255,0.46)!important;
+  border-color:rgba(255,255,255,0.74)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.86) inset,0 8px 20px rgba(91,64,54,0.08)!important;
+}
+.ob-quick-log-icon,
+body[data-screen-compact] .ob-quick-log-icon{
+  width:30px!important;
+  height:30px!important;
+  margin-bottom:1px!important;
+  border-radius:12px!important;
+  background:rgba(255,255,255,0.095)!important;
+  font-size:20px!important;
+  line-height:1!important;
+  filter:saturate(0.92) drop-shadow(0 1px 2px rgba(0,0,0,0.18))!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.13) inset!important;
+}
+body.light-mode .ob-quick-log-icon,
+body:not(.dark-mode) .ob-quick-log-icon{
+  background:rgba(255,255,255,0.50)!important;
+}
+.ob-quick-log-label{
+  font-size:10px!important;
+  font-weight:700!important;
+  color:var(--text-mid)!important;
+  letter-spacing:0!important;
+}
+.ob-quick-log-dot{
+  width:2.5px!important;
+  height:2.5px!important;
+  opacity:0.35!important;
+  background:rgba(255,255,255,0.34)!important;
+}
+.ob-day-mode-switcher{
+  border-radius:22px!important;
+  gap:5px!important;
+  padding:5px!important;
+  margin-bottom:12px!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)),
+    rgba(255,255,255,0.045)!important;
+  border:1px solid rgba(255,255,255,0.12)!important;
+}
+button.ob-day-mode-btn{
+  min-height:50px!important;
+  border-radius:16px!important;
+  background:transparent!important;
+  border:1px solid transparent!important;
+  box-shadow:none!important;
+}
+button.ob-day-mode-btn.is-active{
+  background:rgba(255,255,255,0.13)!important;
+  border-color:rgba(255,255,255,0.20)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.14) inset,0 8px 18px rgba(0,0,0,0.14)!important;
+}
+.ob-day-mode-icon{
+  font-size:15px!important;
+  filter:saturate(0.85)!important;
+}
+.ob-day-mode-label{
+  font-size:9px!important;
+  letter-spacing:0!important;
+  color:var(--text-lt)!important;
+}
+button.ob-day-mode-btn.is-active .ob-day-mode-label{
+  color:var(--text-deep)!important;
+}
+button.glass-card.ob-premium-tile{
+  min-height:92px!important;
+  border-radius:22px!important;
+  border:1px solid rgba(255,255,255,0.12)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.115),rgba(255,255,255,0.045)),
+    rgba(255,255,255,0.055)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.14) inset,
+    0 18px 44px rgba(0,0,0,0.22)!important;
+}
+body.light-mode button.glass-card.ob-premium-tile,
+body:not(.dark-mode) button.glass-card.ob-premium-tile{
+  border-color:rgba(255,255,255,0.72)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.58),rgba(255,255,255,0.26)),
+    rgba(255,255,255,0.42)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.86) inset,0 14px 34px rgba(91,64,54,0.09)!important;
+}
+button.glass-card.ob-premium-tile>span:first-child{
+  font-size:22px!important;
+  filter:saturate(0.86) drop-shadow(0 1px 2px rgba(0,0,0,0.16))!important;
+}
+button.glass-card.ob-premium-tile div[style*="font-size:14"]{
+  font-size:13px!important;
+  letter-spacing:0!important;
+}
+button.glass-card.ob-premium-tile div[style*="font-size:10"]{
+  color:var(--text-lt)!important;
+}
+div[role="navigation"][aria-label="Main navigation"]{
+  width:calc(100% - 28px)!important;
+  left:14px!important;
+  right:14px!important;
+  bottom:10px!important;
+  border-radius:26px!important;
+  padding:6px 8px calc(env(safe-area-inset-bottom,0px) + 6px)!important;
+  border:1px solid rgba(255,255,255,0.14)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.17),rgba(255,255,255,0.055)),
+    rgba(12,18,29,0.72)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.16) inset,
+    0 20px 56px rgba(0,0,0,0.34)!important;
+}
+body.light-mode div[role="navigation"][aria-label="Main navigation"],
+body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.64),rgba(255,255,255,0.30)),
+    rgba(255,255,255,0.62)!important;
+  border-color:rgba(255,255,255,0.78)!important;
+}
+button.ob-main-tab-btn{
+  min-height:46px!important;
+  border-radius:19px!important;
+  background:transparent!important;
+  border:1px solid transparent!important;
+  box-shadow:none!important;
+}
+button.ob-main-tab-btn[aria-current="page"]{
+  background:rgba(255,255,255,0.13)!important;
+  border-color:rgba(255,255,255,0.20)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.14) inset,0 8px 18px rgba(0,0,0,0.16)!important;
+}
+body.light-mode button.ob-main-tab-btn[aria-current="page"],
+body:not(.dark-mode) button.ob-main-tab-btn[aria-current="page"]{
+  background:rgba(255,255,255,0.56)!important;
+  border-color:rgba(255,255,255,0.86)!important;
+}
+.ob-main-tab-icon{
+  font-size:17px!important;
+  filter:saturate(0.88)!important;
+}
+.ob-main-tab-label{
+  font-size:10px!important;
+  font-weight:650!important;
+  letter-spacing:0!important;
+}
+body[data-screen-compact] .ob-main-content{
+  padding-bottom:calc(126px + env(safe-area-inset-bottom,0px))!important;
+}
+
 /* Toast entrance + exit */
 @keyframes toastEnter{
   from{opacity:0;transform:translateY(12px) scale(0.96)}
@@ -1088,4 +1335,238 @@ body[data-screen-compact] .ob-main-tab-label{
   .ob-toast-enter,.ob-toast-exit{animation:none}
   .prio-glow,.prio-glow-dark{animation:none}
   button{transition:none!important}
+}
+
+/* ═══ Liquid glass parity pass
+   Native screenshots were still reading as chunky dark/gold. This final layer
+   removes the old amber frame language and makes Today match the cleaner Apple
+   glass preview: translucent surfaces, hairline borders, subtle lift, compact
+   controls, and no wrapped quick-action grid. ═══ */
+body.dark-mode{
+  --bg-solid:#07101b!important;
+  --bg-grad:linear-gradient(180deg,#07101b 0%,#0b1523 42%,#0d1a2c 100%)!important;
+  --card-bg:rgba(255,255,255,0.105)!important;
+  --card-bg-solid:rgba(255,255,255,0.14)!important;
+  --card-bg-alt:rgba(255,255,255,0.085)!important;
+  --card-border:rgba(255,255,255,0.18)!important;
+  --card-shadow:0 1px 0 rgba(255,255,255,0.18) inset,0 -1px 0 rgba(255,255,255,0.05) inset,0 14px 34px rgba(0,0,0,0.24)!important;
+  --card-shadow-elevated:0 1px 0 rgba(255,255,255,0.22) inset,0 -1px 0 rgba(255,255,255,0.06) inset,0 18px 44px rgba(0,0,0,0.28)!important;
+  --nav-bg:rgba(18,25,37,0.66)!important;
+  --nav-border:rgba(255,255,255,0.20)!important;
+  --nav-shadow:0 1px 0 rgba(255,255,255,0.18) inset,0 18px 48px rgba(0,0,0,0.34)!important;
+  --sheet-bg:rgba(14,22,34,0.86)!important;
+  --input-bg:rgba(255,255,255,0.105)!important;
+  --chip-bg:rgba(255,255,255,0.10)!important;
+  --chip-bg-active:rgba(255,255,255,0.16)!important;
+  --text-deep:#f7f9fc!important;
+  --text-mid:#c8d0dc!important;
+  --text-lt:#8f9aaa!important;
+  --ter:#f0b39e!important;
+  --gold:#f2cf91!important;
+  --blush:rgba(255,255,255,0.16)!important;
+  --rose:rgba(255,255,255,0.10)!important;
+  --glow-primary:rgba(255,255,255,0.14)!important;
+  --glow-under:rgba(255,255,255,0.06)!important;
+  --glass-blur:42px!important;
+  --glass-sat:1.9!important;
+}
+body.dark-mode::before{
+  background:
+    radial-gradient(ellipse 120% 66% at 50% -20%,rgba(118,160,190,0.18),transparent 60%),
+    radial-gradient(ellipse 70% 44% at 88% 18%,rgba(255,255,255,0.055),transparent 66%),
+    linear-gradient(180deg,#07101b 0%,#0b1523 48%,#0d1a2c 100%)!important;
+}
+body.dark-mode .ob-top-shell{
+  background:linear-gradient(180deg,rgba(9,16,27,0.86),rgba(9,16,27,0.68))!important;
+}
+.ob-header-glass,
+body.dark-mode .ob-header-glass{
+  border:1px solid rgba(255,255,255,0.18)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055)),rgba(255,255,255,0.06)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset,0 12px 34px rgba(0,0,0,0.20)!important;
+}
+.glass-card,
+.glass-entry,
+.ob-premium-tile,
+.ob-quick-log-row,
+.ob-day-mode-switcher,
+div[role="navigation"][aria-label="Main navigation"]{
+  border-color:rgba(255,255,255,0.18)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset,0 -1px 0 rgba(255,255,255,0.04) inset,0 14px 34px rgba(0,0,0,0.22)!important;
+}
+body.light-mode .glass-card,
+body.light-mode .glass-entry,
+body.light-mode .ob-premium-tile,
+body.light-mode .ob-quick-log-row,
+body.light-mode .ob-day-mode-switcher,
+body.light-mode div[role="navigation"][aria-label="Main navigation"],
+body:not(.dark-mode) .glass-card,
+body:not(.dark-mode) .glass-entry,
+body:not(.dark-mode) .ob-premium-tile,
+body:not(.dark-mode) .ob-quick-log-row,
+body:not(.dark-mode) .ob-day-mode-switcher,
+body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
+  border-color:rgba(255,255,255,0.72)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.82) inset,0 -1px 0 rgba(255,255,255,0.22) inset,0 14px 30px rgba(71,54,49,0.10)!important;
+}
+.glass-card::before,
+.ob-premium-tile::before{
+  background:linear-gradient(180deg,rgba(255,255,255,0.24),rgba(255,255,255,0.055) 58%,transparent 100%)!important;
+}
+.glass-card::after,
+.ob-premium-tile::after{
+  opacity:0.42!important;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent)!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row{
+  flex-wrap:nowrap!important;
+  justify-content:flex-start!important;
+  overflow-x:auto!important;
+  gap:8px!important;
+  padding:10px!important;
+  border-radius:25px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.055)),rgba(255,255,255,0.07)!important;
+}
+button.ob-quick-log-btn,
+body[data-screen-compact] button.ob-quick-log-btn{
+  flex:0 0 61px!important;
+  min-width:61px!important;
+  max-width:61px!important;
+  min-height:58px!important;
+  padding:7px 3px 5px!important;
+  border-radius:18px!important;
+  border:1px solid rgba(255,255,255,0.15)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055))!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.16) inset,0 8px 18px rgba(0,0,0,0.16)!important;
+}
+.ob-quick-log-icon,
+body[data-screen-compact] .ob-quick-log-icon{
+  width:28px!important;
+  height:28px!important;
+  border-radius:11px!important;
+  background:rgba(255,255,255,0.10)!important;
+  font-size:19px!important;
+  filter:saturate(0.88) drop-shadow(0 1px 1px rgba(0,0,0,0.18))!important;
+}
+.ob-quick-log-label{
+  font-size:9.5px!important;
+  font-weight:700!important;
+  line-height:1.08!important;
+  color:rgba(232,237,244,0.78)!important;
+}
+.ob-quick-log-dot{
+  width:2px!important;
+  height:2px!important;
+  margin-top:0!important;
+  background:rgba(255,255,255,0.32)!important;
+}
+button.glass-card.ob-premium-tile{
+  min-height:94px!important;
+  border-radius:24px!important;
+  padding:18px 16px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.125),rgba(255,255,255,0.052)),rgba(255,255,255,0.07)!important;
+}
+button.glass-card.ob-premium-tile>span:first-child{
+  font-size:23px!important;
+  opacity:0.96!important;
+}
+button.glass-card.ob-premium-tile div[style*="font-size:14"]{
+  font-size:13.5px!important;
+  font-weight:750!important;
+  line-height:1.18!important;
+}
+button.glass-card.ob-premium-tile div[style*="font-size:10"]{
+  font-size:10.5px!important;
+  line-height:1.25!important;
+  color:rgba(205,214,226,0.62)!important;
+}
+.ob-day-mode-switcher{
+  border-radius:22px!important;
+  padding:5px!important;
+  gap:6px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.045)),rgba(255,255,255,0.06)!important;
+}
+button.ob-day-mode-btn{
+  min-height:46px!important;
+  border-radius:17px!important;
+}
+button.ob-day-mode-btn.is-active,
+button.ob-main-tab-btn[aria-current="page"]{
+  background:linear-gradient(180deg,rgba(255,255,255,0.22),rgba(255,255,255,0.11))!important;
+  border-color:rgba(255,255,255,0.24)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.22) inset,0 9px 18px rgba(0,0,0,0.16)!important;
+}
+div[role="navigation"][aria-label="Main navigation"]{
+  width:calc(100% - 24px)!important;
+  left:12px!important;
+  right:12px!important;
+  bottom:8px!important;
+  border-radius:28px!important;
+  padding:6px 7px calc(env(safe-area-inset-bottom,0px) + 6px)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07)),rgba(18,25,37,0.66)!important;
+  backdrop-filter:blur(44px) saturate(1.85)!important;
+  -webkit-backdrop-filter:blur(44px) saturate(1.85)!important;
+}
+button.ob-main-tab-btn{
+  min-height:45px!important;
+  border-radius:20px!important;
+  padding:6px 4px!important;
+}
+.ob-main-tab-icon{
+  font-size:16px!important;
+}
+.ob-main-tab-label{
+  font-size:10px!important;
+  font-weight:700!important;
+  color:rgba(226,233,242,0.62)!important;
+}
+button.ob-main-tab-btn[aria-current="page"] .ob-main-tab-label{
+  color:#f7f9fc!important;
+}
+@supports (padding:max(0px)){
+  .ob-main-content{
+    padding-top:max(0px, env(safe-area-inset-top,0px))!important;
+  }
+}
+
+/* Final native glass refinement: reduce the old warm outline/glow language on
+   inline-styled controls so phone builds match the cleaner preview. */
+body.dark-mode .glass-card,
+body.dark-mode .glass-entry,
+body.dark-mode .ob-premium-tile,
+body.dark-mode .ob-header-glass,
+body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-day-mode-switcher{
+  background:linear-gradient(180deg,rgba(255,255,255,0.145),rgba(255,255,255,0.055)),rgba(255,255,255,0.055)!important;
+  border-color:rgba(255,255,255,0.145)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.22) inset,0 -1px 0 rgba(255,255,255,0.045) inset,0 16px 38px rgba(0,0,0,0.22)!important;
+}
+body.dark-mode button{
+  text-shadow:none!important;
+  outline:none!important;
+}
+body.dark-mode button:not(.ob-quick-log-btn):not(.ob-main-tab-btn){
+  border-color:rgba(255,255,255,0.16)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset,0 -1px 0 rgba(255,255,255,0.04) inset,0 8px 20px rgba(0,0,0,0.14)!important;
+}
+body.dark-mode button:not(.ob-quick-log-btn):not(.ob-main-tab-btn):focus-visible{
+  outline:2px solid rgba(255,255,255,0.42)!important;
+  outline-offset:2px!important;
+}
+body.dark-mode button[aria-current="page"],
+body.dark-mode button.is-active,
+body.dark-mode button.ob-day-mode-btn.is-active{
+  background:linear-gradient(180deg,rgba(255,255,255,0.26),rgba(255,255,255,0.11))!important;
+  border-color:rgba(255,255,255,0.28)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.28) inset,0 10px 22px rgba(0,0,0,0.16)!important;
+}
+body.dark-mode button[style*="rgba(212,168,85"],
+body.dark-mode button[style*="#B08030"],
+body.dark-mode button[style*="C.gold"]{
+  border-color:rgba(255,255,255,0.18)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset,0 8px 20px rgba(0,0,0,0.14)!important;
+}
+body.dark-mode div[style*="rgba(212,168,85"],
+body.dark-mode div[style*="#B08030"]{
+  border-color:rgba(255,255,255,0.16)!important;
 }

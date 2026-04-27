@@ -6,6 +6,17 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def cleanMainResDir = layout.buildDirectory.dir("generated/clean-main-res")
+def prepareCleanMainRes = tasks.register('prepareCleanMainRes', Copy) {
+    from('src/main/res') {
+        // Finder/iCloud duplicate files like "config 2.xml" break aapt
+        // resource merging. Android resource names cannot contain spaces,
+        // so build from a clean generated copy without deleting local files.
+        exclude '**/* *'
+    }
+    into cleanMainResDir
+}
+
 android {
     namespace "com.obubba.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -35,6 +46,12 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    sourceSets {
+        main {
+            res.srcDirs = []
+            res.srcDir prepareCleanMainRes
         }
     }
 }

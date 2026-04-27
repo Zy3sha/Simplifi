@@ -52,12 +52,15 @@ for f in index.html public/index.html dist/index.html; do
   fi
 done
 
-# Update service worker revision hash so PWA users get the new version
+# Update service worker revision hashes so PWA users get the new version
 echo "Updating service worker hash..."
 NEW_HASH=$(md5 -q dist/app.js 2>/dev/null || md5sum dist/app.js | cut -d' ' -f1)
+NEW_STYLE_HASH=$(md5 -q dist/styles.css 2>/dev/null || md5sum dist/styles.css | cut -d' ' -f1)
 if [ -f dist/sw.js ]; then
   sed -i '' "s|{url:\"app.js\",revision:\"[a-f0-9]*\"}|{url:\"app.js\",revision:\"${NEW_HASH}\"}|g" dist/sw.js
-  echo "SW hash updated to: $NEW_HASH"
+  sed -i '' "s|{url:\"styles.css\",revision:\"[a-f0-9]*\"}|{url:\"styles.css\",revision:\"${NEW_STYLE_HASH}\"}|g" dist/sw.js
+  echo "SW app hash updated to: $NEW_HASH"
+  echo "SW styles hash updated to: $NEW_STYLE_HASH"
 fi
 
 echo "Build complete. Cache version: $CACHE_V"
