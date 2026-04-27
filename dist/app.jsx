@@ -2224,6 +2224,32 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
       confidence: "high"
     };
   }
+  // ── 1b. Low fluid intake (bottle-fed) ──
+  // For bottle-fed babies we know exact ml. Check against NHS minimums.
+  // 150ml/kg/day in first 6 months, ~120ml/kg/day at 6-12 months.
+  // Use a conservative estimate: flag if total is below 50% of expected.
+  const _bottleFeeds = _feeds.filter(e => e.feedType !== "breast" && e.amount > 0);
+  if (_bottleFeeds.length >= 3 && _ageDays !== null && _ageDays >= 3) {
+    const _todayBottle = todayEntries.filter(e => e.type === "feed" && e.feedType !== "breast" && e.amount > 0 && !e.night);
+    const _todayMl = _todayBottle.reduce((s, f) => s + (f.amount || 0), 0);
+    // NHS rough minimums by age (ml/day): 0-3mo ~450-600, 3-6mo ~600-800, 6-12mo ~500-600
+    const _minMl = _dehMonths < 3 ? 450 : _dehMonths < 6 ? 600 : _dehMonths < 12 ? 500 : 400;
+    // Only flag if it's past midday (give them time to feed) and intake is below 50% of minimum
+    const _nowH = new Date().getHours();
+    const _paceMultiplier = Math.min(1, _nowH / 18); // by 6pm expect full day, by noon expect ~67%
+    const _expectedByNow = Math.round(_minMl * _paceMultiplier);
+    if (_nowH >= 12 && _todayMl < _expectedByNow * 0.5 && _todayMl > 0) {
+      return {
+        type: "dehydration_warning",
+        emoji: "🍼",
+        title: "Feed intake low today",
+        detail: _todayMl + "ml so far today. At this age and time of day, around " + _expectedByNow + "ml is typical. That's significantly below expected.",
+        action: "Offer a feed now. If " + (babyName || "baby") + " is refusing feeds, seems unwell, or has fewer wet nappies, contact your " + _doctor + ".",
+        urgency: "high",
+        confidence: "high"
+      };
+    }
+  }
 
   // ── 2. Cluster feed detection ──
   // 3+ DAYTIME feeds within 90 min. Filter night feeds out first
@@ -17634,7 +17660,19 @@ function App(){
     const wetCount = _todayWet + _yesterdayWet;
     const poopCount = today.filter(e => e.type === "poop" && e.poopType && e.poopType !== "wet").length;
     const target = 6;
-    return { wetCount, poopCount, target, met: wetCount >= target };
+    // Cross-reference with feed intake for bottle-fed babies
+    const _todayFeeds = today.filter(e => e.type === "feed" && !e.night);
+    const _bottleFeeds = _todayFeeds.filter(e => e.feedType !== "breast" && e.amount > 0);
+    const _totalMl = _bottleFeeds.reduce((s, f) => s + (f.amount || 0), 0);
+    const _isBottleFed = _bottleFeeds.length > 0;
+    const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 12;
+    const _months = _aw / 4.33;
+    const _minMlDay = _months < 3 ? 450 : _months < 6 ? 600 : _months < 12 ? 500 : 400;
+    const _nowH = new Date().getHours();
+    const _expectedByNow = Math.round(_minMlDay * Math.min(1, _nowH / 18));
+    const _feedOk = !_isBottleFed || _totalMl >= _expectedByNow * 0.5 || _nowH < 10;
+    const _feedLow = _isBottleFed && _nowH >= 12 && _totalMl < _expectedByNow * 0.5 && _totalMl > 0;
+    return { wetCount, poopCount, target, met: wetCount >= target && !_feedLow, feedOk: _feedOk, feedLow: _feedLow, totalMl: _totalMl, expectedMl: _expectedByNow, isBottleFed: _isBottleFed };
   }
 
   // ── Feed Spacing Alert ──

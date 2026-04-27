@@ -120,17 +120,6 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 const STORAGE_KEY = "babyTracker_v6";
 const params = new URLSearchParams(window.location.search);
 const quickAction = params.get("action");
-// Debug mode: silence console.log in production for cleaner device logs
-const OB_DEBUG = (() => {
-  try {
-    return params.get("debug") === "1" ||
-      localStorage.getItem("ob_debug") === "1" ||
-      /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || "");
-  } catch { return false; }
-})();
-if (!OB_DEBUG) {
-  try { console.log = function(){}; } catch {}
-}
 
 const uid = () => { const _id = Date.now().toString(36)+Math.random().toString(36).slice(2,5); if(window._localEntryIds) window._localEntryIds.add(_id); return _id; };
 window._localEntryIds = new Set();
@@ -2223,32 +2212,6 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
       urgency: "high",
       confidence: "high"
     };
-  }
-  // ── 1b. Low fluid intake (bottle-fed) ──
-  // For bottle-fed babies we know exact ml. Check against NHS minimums.
-  // 150ml/kg/day in first 6 months, ~120ml/kg/day at 6-12 months.
-  // Use a conservative estimate: flag if total is below 50% of expected.
-  const _bottleFeeds = _feeds.filter(e => e.feedType !== "breast" && e.amount > 0);
-  if (_bottleFeeds.length >= 3 && _ageDays !== null && _ageDays >= 3) {
-    const _todayBottle = todayEntries.filter(e => e.type === "feed" && e.feedType !== "breast" && e.amount > 0 && !e.night);
-    const _todayMl = _todayBottle.reduce((s, f) => s + (f.amount || 0), 0);
-    // NHS rough minimums by age (ml/day): 0-3mo ~450-600, 3-6mo ~600-800, 6-12mo ~500-600
-    const _minMl = _dehMonths < 3 ? 450 : _dehMonths < 6 ? 600 : _dehMonths < 12 ? 500 : 400;
-    // Only flag if it's past midday (give them time to feed) and intake is below 50% of minimum
-    const _nowH = new Date().getHours();
-    const _paceMultiplier = Math.min(1, _nowH / 18); // by 6pm expect full day, by noon expect ~67%
-    const _expectedByNow = Math.round(_minMl * _paceMultiplier);
-    if (_nowH >= 12 && _todayMl < _expectedByNow * 0.5 && _todayMl > 0) {
-      return {
-        type: "dehydration_warning",
-        emoji: "🍼",
-        title: "Feed intake low today",
-        detail: _todayMl + "ml so far today. At this age and time of day, around " + _expectedByNow + "ml is typical. That's significantly below expected.",
-        action: "Offer a feed now. If " + (babyName || "baby") + " is refusing feeds, seems unwell, or has fewer wet nappies, contact your " + _doctor + ".",
-        urgency: "high",
-        confidence: "high"
-      };
-    }
   }
 
   // ── 2. Cluster feed detection ──
@@ -5348,8 +5311,6 @@ function App(){
                 try { trackEvent("timer_stopped", { type: "nap", duration_mins: _durS, source: "widget" }); } catch {}
               }
               setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
-              // Set stop timestamp BEFORE clearing keys — orphan recovery checks this to avoid resurrection
-              try{localStorage.setItem("ob_nap_stopped_at",String(Date.now()));}catch{}
               ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
               if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
               _androidTimerStop();
@@ -5615,13 +5576,7 @@ function App(){
     // Widget button intents write to UserDefaults async. poll aggressively to catch it
     OB.lifecycle.onResume(()=>{
       OB.statusBar.setStyle(document.body.classList.contains('dark-mode'));
-      // Force widget refresh with current cached data on every resume
-      try {
-        var _wdResume = localStorage.getItem("ob_widget_data_v1");
-        if(_wdResume && window.Capacitor?.Plugins?.OBWidgetBridge) {
-          window.Capacitor.Plugins.OBWidgetBridge.setData({ json: _wdResume }).catch(()=>{});
-        }
-      } catch{}
+      OB.widgets.updateWidgetData();
       // Re-check premium on resume (subscription may have been purchased/restored externally)
       if(STORE_READY && !_isOwner && window._purchases && window._purchases.checkEntitlements){
         window._purchases.checkEntitlements().then(function(_p){
@@ -5646,14 +5601,9 @@ function App(){
       }
     });
 
-    // Listen for app pause. push widget data so it's fresh when user sees widget
+    // Listen for app pause. save widget data
     OB.lifecycle.onPause(()=>{
-      try {
-        var _wdPause = localStorage.getItem("ob_widget_data_v1");
-        if(_wdPause && window.Capacitor?.Plugins?.OBWidgetBridge) {
-          window.Capacitor.Plugins.OBWidgetBridge.setData({ json: _wdPause }).catch(()=>{});
-        }
-      } catch{}
+      OB.widgets.updateWidgetData();
     });
 
     // Handle deep links
@@ -11541,11 +11491,6 @@ function App(){
   // the timer is running — the 30s tick updates end!=start, but _active stays true).
   useEffect(()=>{
     if(napOn) return; // timer already running
-    // Don't resurrect if nap was just stopped via widget/Siri (flag set before React state updates)
-    try {
-      const _stopTs = localStorage.getItem("ob_nap_stopped_at");
-      if(_stopTs && (Date.now() - parseInt(_stopTs)) < 10000) return; // stopped within last 10s
-    } catch{}
     const todayK = todayStr();
     const todayEntries = days[todayK] || [];
     let ongoingNap = todayEntries.find(e => e.type === "nap" && e.start && (e._active || !e.end || e.end === e.start) && !e.night);
@@ -17660,19 +17605,7 @@ function App(){
     const wetCount = _todayWet + _yesterdayWet;
     const poopCount = today.filter(e => e.type === "poop" && e.poopType && e.poopType !== "wet").length;
     const target = 6;
-    // Cross-reference with feed intake for bottle-fed babies
-    const _todayFeeds = today.filter(e => e.type === "feed" && !e.night);
-    const _bottleFeeds = _todayFeeds.filter(e => e.feedType !== "breast" && e.amount > 0);
-    const _totalMl = _bottleFeeds.reduce((s, f) => s + (f.amount || 0), 0);
-    const _isBottleFed = _bottleFeeds.length > 0;
-    const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 12;
-    const _months = _aw / 4.33;
-    const _minMlDay = _months < 3 ? 450 : _months < 6 ? 600 : _months < 12 ? 500 : 400;
-    const _nowH = new Date().getHours();
-    const _expectedByNow = Math.round(_minMlDay * Math.min(1, _nowH / 18));
-    const _feedOk = !_isBottleFed || _totalMl >= _expectedByNow * 0.5 || _nowH < 10;
-    const _feedLow = _isBottleFed && _nowH >= 12 && _totalMl < _expectedByNow * 0.5 && _totalMl > 0;
-    return { wetCount, poopCount, target, met: wetCount >= target && !_feedLow, feedOk: _feedOk, feedLow: _feedLow, totalMl: _totalMl, expectedMl: _expectedByNow, isBottleFed: _isBottleFed };
+    return { wetCount, poopCount, target, met: wetCount >= target };
   }
 
   // ── Feed Spacing Alert ──
@@ -44250,6 +44183,7 @@ function App(){
                     🛠️ It needs some work
                   </button>
                 </div>
+                <button onClick={()=>{dismissReview(false);}} style={{background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP,marginTop:14,fontStyle:"italic"}}>Maybe later</button>
               </div>
           </div>
         </div>
