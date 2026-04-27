@@ -4,8 +4,8 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Leaf icon for nappy -->
+    <!-- SF-symbol-style leaf for nappy -->
     <path
-        android:pathData="M17.75,3C15.87,3 14.2,3.83 13.05,5.12C11.9,3.83 10.23,3 8.35,3C4.82,3 2,5.82 2,9.35C2,13.72 6.01,17.22 12.05,22.5L13.05,21.58C19.09,16.31 23.1,12.81 23.1,8.44C23.1,5.28 20.91,3 17.75,3Z"
+        android:pathData="M20.2,3.1C13.5,3.5 8.7,6.2 6.5,10.6C5.2,13.1 5.4,15.8 6.9,17.9C8.9,14.5 12.2,11.6 16.6,9.5C12.7,12 9.5,15.2 7.8,19.2C9.8,20.9 12.8,20.7 15.3,18.9C19.4,16 21.2,10.3 20.2,3.1Z"
         android:fillColor="#7FB5A0"/>
 </vector>

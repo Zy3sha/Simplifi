@@ -31,6 +31,7 @@ cp -f public/vendor/react.production.min.js dist/vendor/react.production.min.js
 cp -f public/vendor/react-dom.production.min.js dist/vendor/react-dom.production.min.js
 
 echo "Copying to dist/..."
+cp -f public/index.html dist/index.html
 cp -f app.js dist/app.js
 cp -f app.jsx dist/app.jsx
 cp -f styles.css dist/styles.css

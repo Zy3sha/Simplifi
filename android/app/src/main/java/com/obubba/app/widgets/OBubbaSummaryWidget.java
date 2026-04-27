@@ -165,6 +165,8 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     }
 
                     // Nap/Stop → Stop
+                    v.setImageViewResource(R.id.iv_ns_icon, R.drawable.ic_stop_widget);
+                    v.setViewVisibility(R.id.iv_ns_icon, View.VISIBLE);
                     v.setTextViewText(R.id.tv_ns_icon, "\u25A0");
                     v.setTextViewText(R.id.tv_ns_label, "Stop");
                     v.setTextColor(R.id.tv_ns_icon, 0xFFFFFFFF);
@@ -195,7 +197,9 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     }
 
                     // Nap button
-                    v.setTextViewText(R.id.tv_ns_icon, "\u25B6");
+                    v.setImageViewResource(R.id.iv_ns_icon, R.drawable.ic_sleep);
+                    v.setViewVisibility(R.id.iv_ns_icon, View.VISIBLE);
+                    v.setTextViewText(R.id.tv_ns_icon, "\u263E");
                     v.setTextViewText(R.id.tv_ns_label, "Nap");
                     v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF8B7EC8);
                     v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF5B4F5F);
@@ -222,7 +226,9 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
     }
 
     private static void defaults(RemoteViews v, Context ctx, boolean isDarkTheme) {
-        v.setTextViewText(R.id.tv_ns_icon, "\u25B6");
+        v.setImageViewResource(R.id.iv_ns_icon, R.drawable.ic_sleep);
+        v.setViewVisibility(R.id.iv_ns_icon, View.VISIBLE);
+        v.setTextViewText(R.id.tv_ns_icon, "\u263E");
         v.setTextViewText(R.id.tv_ns_label, "Nap");
         v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF8B7EC8);
         v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF5B4F5F);

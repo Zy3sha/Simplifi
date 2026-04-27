@@ -458,6 +458,7 @@ var filterIllnessDays = function(recentDays, medsData) {
 // ═══ Android Persistent Timer Notification (lock screen) ═══
 // Shows a sticky notification when a timer is running, similar to Huckleberry
 const TIMER_NOTIF_ID = 99999;
+const TIMER_CHANNEL_ID = "obubba_active_timers_v2";
 const SMART_NOTIF_ID_BASE = 200000;
 const SMART_NOTIF_ID_RANGE = 90000;
 const MEDICINE_NOTIF_ID_BASE = 400000;
@@ -476,16 +477,13 @@ async function showTimerNotification(title, body) {
     // Native Android builds use OBTimerService for the real sticky foreground notification.
     // Keep LocalNotifications as a fallback only to avoid duplicate bedtime notifications.
     if (window.Capacitor?.Plugins?.OBTimerService) return;
-    // Ensure notification permission granted (Android 13+)
-    try { const p = await LN.checkPermissions(); if (p.display !== 'granted') { await LN.requestPermissions(); } } catch {}
-    // Ensure channel exists with HIGH importance (shows on lock screen)
-    try { await LN.createChannel({ id: "obubba_timers", name: "Active Timers", description: "Shows while a nap or bedtime timer is running", importance: 4, vibration: false }); } catch {}
+    await _ensureAndroidNotificationPermission();
     // Cancel any existing timer notif first
     try { await LN.cancel({ notifications: [{ id: TIMER_NOTIF_ID }] }); } catch {}
     // Schedule immediately — Capacitor requires schedule.at for Android
     await LN.schedule({ notifications: [{
       id: TIMER_NOTIF_ID, title, body,
-      channelId: "obubba_timers",
+      channelId: TIMER_CHANNEL_ID,
       smallIcon: "ic_notification",
       iconColor: "#C07088",
       schedule: { at: new Date(Date.now() + 200) },
@@ -515,18 +513,54 @@ const _isNativePlatform = () => window.OBNative && window.OBNative.isNative();
 // Global native check used by Live Activity, notifications, and widget calls
 var _isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 // Always stop existing Live Activity before starting a new one (prevents duplicates)
-function _laStop() { try { const la = window.Capacitor?.Plugins?.OBLiveActivity; if(la){la.stop?.().catch(()=>{});la.stopPrediction?.().catch(()=>{});} } catch{} _androidTimerStop(); }
-function _laStart(opts) { _laStop(); setTimeout(()=>{ try{window.Capacitor?.Plugins?.OBLiveActivity?.start?.(opts).catch(()=>{});}catch{} },200); }
-function _laStartPred(opts) { _laStop(); setTimeout(()=>{ try{window.Capacitor?.Plugins?.OBLiveActivity?.startPrediction?.(opts).catch(()=>{});}catch{} _androidPredStart(opts); },200); }
+function _laStop(stopAndroid = true) { try { const la = window.Capacitor?.Plugins?.OBLiveActivity; if(la){la.stop?.().catch(()=>{});la.stopPrediction?.().catch(()=>{});} } catch{} if(stopAndroid) _androidTimerStop(); }
+function _laStart(opts) {
+  _laStop(false);
+  return new Promise(resolve => setTimeout(()=>{
+    try { window.Capacitor?.Plugins?.OBLiveActivity?.start?.(opts).catch(()=>{}); } catch {}
+    resolve();
+  },200));
+}
+function _laStartPred(opts) {
+  _laStop(false);
+  return new Promise(resolve => setTimeout(()=>{
+    try { window.Capacitor?.Plugins?.OBLiveActivity?.startPrediction?.(opts).catch(()=>{}); } catch {}
+    _androidPredStart(opts);
+    resolve();
+  },200));
+}
 // Android foreground timer service helpers (persistent notification that survives app kill)
 function _isAndroidRuntime() {
   try { return !!(window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android'); }
   catch { return false; }
 }
-function _androidTimerStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.startTimer(opts).catch(()=>{}); } catch{} }
+async function _ensureAndroidNotificationPermission() {
+  try {
+    if (!_isAndroidRuntime()) return true;
+    const LN = window.Capacitor?.Plugins?.LocalNotifications;
+    if (!LN) return true;
+    try {
+      const p = await LN.checkPermissions();
+      if (p && p.display !== "granted") await LN.requestPermissions();
+    } catch {}
+    try {
+      await LN.createChannel({
+        id: TIMER_CHANNEL_ID,
+        name: "Active Timers",
+        description: "Shows while a feed, nap, or bedtime timer is running",
+        importance: 3,
+        visibility: 1,
+        vibration: false,
+        sound: null
+      });
+    } catch {}
+    return true;
+  } catch { return false; }
+}
+async function _androidTimerStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) { await _ensureAndroidNotificationPermission(); ts.startTimer(opts).catch(()=>{}); } } catch{} }
 function _androidTimerStop() { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) { ts.stopTimer().catch(()=>{}); ts.stopPrediction().catch(()=>{}); } } catch{} }
 function _androidTimerUpdate(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.updateTimer(opts).catch(()=>{}); } catch{} }
-function _androidPredStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.startPrediction(opts).catch(()=>{}); } catch{} }
+async function _androidPredStart(opts) { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) { await _ensureAndroidNotificationPermission(); ts.startPrediction(opts).catch(()=>{}); } } catch{} }
 function _androidPredStop() { try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && _isAndroidRuntime()) ts.stopPrediction().catch(()=>{}); } catch{} }
 window._isNative = _isNative;
 const _getPlatform = () => window.OBNative ? window.OBNative.getPlatform() : 'web';
@@ -5716,6 +5750,7 @@ function App(){
                 setBreastStartTime(time);
                 try{ localStorage.setItem("breast_active","1"); localStorage.setItem("breast_side",side); localStorage.setItem("breast_startTime",time); localStorage.setItem("breast_startMs",String(Date.now())); }catch{}
                 if(_isNative) _laStart({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side}).catch(()=>{});
+                _androidTimerStart({type:'feed',babyName:babyName||'Baby',startTime:Date.now(),side});
                 showToast("🤱 Nursing " + (side==="left"?"Left":"Right") + " via Widget ✓", 3000, 1);
               }
             } catch(e){ console.warn("Siri entry error:", e); }
@@ -7036,6 +7071,12 @@ function App(){
   const[tab,setTab]=useState("day");
   // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
   const[daySubScreen,setDaySubScreen]=useState(null);
+  useEffect(()=>{
+    if(!daySubScreen) return;
+    requestAnimationFrame(()=>{
+      try{window.scrollTo({top:0,left:0,behavior:"auto"});}catch{try{window.scrollTo(0,0);}catch{}}
+    });
+  },[daySubScreen]);
   const[todayPanel,setTodayPanel]=useState("log"); // "log" | "plan". used inside the unified Today sub-screen
   const[showShareFamily,setShowShareFamily]=useState(false);
   // Day notes (free-form per day)
@@ -7558,7 +7599,7 @@ function App(){
             try{
               await LN.createChannel({id:"obubba_reminders",name:"OBubba Reminders",description:"Nap predictions, bedtime alerts, and appointment reminders",importance:4,sound:"notification.wav",vibration:true});
               await LN.createChannel({id:"med_reminders",name:"Medicine Reminders",description:"Medicine and temperature logging reminders",importance:4,sound:"notification.wav",vibration:true});
-              await LN.createChannel({id:"obubba_timers",name:"Active Timers",description:"Shows while a nap or bedtime timer is running",importance:4,vibration:false});
+              await LN.createChannel({id:TIMER_CHANNEL_ID,name:"Active Timers",description:"Shows while a feed, nap, or bedtime timer is running",importance:3,vibration:false});
               console.log("[OBubba] Android notification channels created");
             }catch(e){console.warn("[OBubba] Channel creation error:",e);}
           }
@@ -8083,6 +8124,47 @@ function App(){
   const bedPauseStartRef = useRef(null);
   const bedTotalPausedSecRef = useRef(0);
   useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;bedTotalPausedSecRef.current=bedTotalPausedSec;},[bedPaused,bedPauseStart,bedTotalPausedSec]);
+  useEffect(()=>{
+    if(!_isAndroidRuntime()) return;
+    const timer = setTimeout(()=>{
+      try {
+        const safeName = babyName || "Baby";
+        const asMs = (dayKey, time) => {
+          try {
+            const [h,m] = (time||"").split(":").map(Number);
+            if(!dayKey || Number.isNaN(h) || Number.isNaN(m)) return Date.now();
+            const d = new Date(dayKey + "T12:00:00");
+            d.setHours(h,m,0,0);
+            return d.getTime();
+          } catch { return Date.now(); }
+        };
+        const napActive = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
+        const breastActiveLs = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
+        const bedDay = bedTimerDay || localStorage.getItem("bed_timer_day");
+        if(napActive) {
+          const startMs = parseInt(localStorage.getItem("nap_startMs")||"0",10) || asMs(todayStr(), localStorage.getItem("nap_startT") || nowTime());
+          _androidTimerStart({type:"nap", startTime:startMs, babyName:safeName});
+          return;
+        }
+        if(breastActiveLs) {
+          const startMs = parseInt(localStorage.getItem("breast_startMs")||"0",10) || asMs(todayStr(), localStorage.getItem("breast_startTime") || nowTime());
+          const side = localStorage.getItem("breast_side") || "";
+          _androidTimerStart({type:"feed", startTime:startMs, babyName:safeName, side});
+          return;
+        }
+        if(bedDay) {
+          const child = childrenRef.current?.[resolvedActiveId] || children?.[resolvedActiveId] || activeChild;
+          const entries = (child?.days?.[bedDay] || []);
+          const bedEntry = [...entries].reverse().find(e => e && e.type === "sleep" && !e.night && e.time);
+          const startTime = bedEntry?.time || localStorage.getItem("bed_timer_start") || "20:00";
+          _androidTimerStart({type:"sleep", startTime:asMs(bedDay, startTime), babyName:safeName});
+          return;
+        }
+        clearTimerNotification();
+      } catch {}
+    }, 1800);
+    return ()=>clearTimeout(timer);
+  },[babyName, bedTimerDay, resolvedActiveId]);
   // Auto-expire the "routine done" flag when bedtime gets logged or 2h pass.
   // Lives HERE (not up with the bedRoutineCompletedAt state) because it
   // reads bedTimerDay which is declared above at line ~4616. Putting this
@@ -8920,7 +9002,7 @@ function App(){
       }
     }, 2000);
     return ()=>clearTimeout(_sharedDataPushRef.current);
-  },[appointments, reminders, pinnedNotes]);
+  },[appointments, reminders, pinnedNotes, meds, savedMeds, emergencyContacts, carerNotes, carerComfort, dayBoundary]);
 
   // Native preferences backup disabled. will re-enable after testing
 
@@ -9147,23 +9229,31 @@ function App(){
         _sharedData.reminders = JSON.parse(localStorage.getItem("reminders_v1")||"[]");
         _sharedData.pinnedNotes = JSON.parse(localStorage.getItem("pinned_notes_v1")||"[]");
         _sharedData.letters = JSON.parse(localStorage.getItem("ob_letters_v1")||"[]");
+        _sharedData.meds = JSON.parse(localStorage.getItem("meds_v1")||"{}");
+        _sharedData.allergenProfile = JSON.parse(localStorage.getItem("allergen_profile_v1")||"null");
+        _sharedData.wellbeingHistory = JSON.parse(localStorage.getItem("wellbeing_history_v1")||"[]");
+        _sharedData.fluidUnit = localStorage.getItem("fluid_unit_v1") || "";
+        _sharedData.measureUnit = localStorage.getItem("measure_unit_v1") || "";
         _sharedData.dayBoundary = localStorage.getItem("ob_day_boundary_v1") || "wake";
       } catch(_) {}
       // Sync day notes and tags across devices
       try {
         const _dayNotes = {};
         const _dayTags = {};
+        const _weaningStarted = {};
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
           if (k && k.startsWith("ob_day_note_")) _dayNotes[k.replace("ob_day_note_","")] = localStorage.getItem(k);
           if (k && k.startsWith("ob_day_tag_")) _dayTags[k.replace("ob_day_tag_","")] = localStorage.getItem(k);
+          if (k && k.startsWith("weaning_started_")) _weaningStarted[k] = localStorage.getItem(k);
         }
         if (Object.keys(_dayNotes).length) _sharedData.dayNotes = _dayNotes;
         if (Object.keys(_dayTags).length) _sharedData.dayTags = _dayTags;
+        if (Object.keys(_weaningStarted).length) _sharedData.weaningStarted = _weaningStarted;
       } catch(_) {}
       // Include child sync codes so they survive UID changes + new device restores
       let _syncCodesForCloud = {};
-      try { _syncCodesForCloud = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}"); } catch {}
+      try { _syncCodesForCloud = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")); } catch {}
       // Entry-level merge: read cloud state, merge entries by ID, then write
       // This prevents two parents logging simultaneously from overwriting each other.
       //
@@ -9288,12 +9378,16 @@ function App(){
 
       if(myUid && myUid !== "anon") {
         try{
-          await fsSet("uid_to_backup", myUid, {backupCode: code, updatedAt: serverTimestamp()}, true);
+          await fsSet("uid_to_backup", myUid, {backupCode: code, childSyncCodes: _syncCodesForCloud, updatedAt: serverTimestamp()}, true);
         }catch(e){ console.warn("uid_to_backup write error",e); }
+      }
+      const _pushOwnerName = familyUsername || localStorage.getItem("family_username") || "";
+      if(_pushOwnerName) {
+        try { await fsSet("usernames", normaliseUsername(_pushOwnerName), {childSyncCodes:_syncCodesForCloud}, true); } catch(e) {}
       }
       // Belt-and-braces: also push to ALL child sync docs alongside main cloud push
       try {
-        const _csc = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
+        const _csc = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
         Object.entries(_csc).forEach(([cid, syncCode]) => {
           if(syncCode && allChildren[cid]) {
             pushChildSync(cid, syncCode, allChildren[cid]);
@@ -9519,6 +9613,33 @@ function App(){
                 localStorage.setItem("ob_letters_v1", JSON.stringify(_merged));
               } catch(_) {}
             }
+            if(sd.meds && typeof sd.meds === "object") {
+              setMeds(prev => {
+                const mergedMeds = {...(prev||{})};
+                Object.entries(sd.meds).forEach(([dayKey, entries]) => {
+                  if(!Array.isArray(entries)) return;
+                  const localEntries = Array.isArray(mergedMeds[dayKey]) ? mergedMeds[dayKey] : [];
+                  const byId = new Map(localEntries.map(m => [m.id || `${m.time}|${m.name}|${m.dose}`, m]));
+                  entries.forEach(m => {
+                    const k = m.id || `${m.time}|${m.name}|${m.dose}`;
+                    const existing = byId.get(k);
+                    if(!existing || (m.modifiedAt||0) >= (existing.modifiedAt||0)) byId.set(k, m);
+                  });
+                  mergedMeds[dayKey] = [...byId.values()];
+                });
+                if(JSON.stringify(prev||{}) === JSON.stringify(mergedMeds)) return prev;
+                try{ localStorage.setItem("meds_v1", JSON.stringify(mergedMeds)); }catch{}
+                return mergedMeds;
+              });
+            }
+            if(sd.allergenProfile && typeof sd.allergenProfile === "object") {
+              try { localStorage.setItem("allergen_profile_v1", JSON.stringify(sd.allergenProfile)); } catch(_) {}
+            }
+            if(Array.isArray(sd.wellbeingHistory)) {
+              try { localStorage.setItem("wellbeing_history_v1", JSON.stringify(sd.wellbeingHistory)); } catch(_) {}
+            }
+            if(sd.fluidUnit) { try { localStorage.setItem("fluid_unit_v1", sd.fluidUnit); } catch(_) {} }
+            if(sd.measureUnit) { try { localStorage.setItem("measure_unit_v1", sd.measureUnit); } catch(_) {} }
             // Sync day boundary preference from partner
             if(sd.dayBoundary && typeof sd.dayBoundary === "string") {
               const _localDB = localStorage.getItem("ob_day_boundary_v1");
@@ -9532,6 +9653,9 @@ function App(){
             }
             if (sd.dayTags && typeof sd.dayTags === "object") {
               try { Object.entries(sd.dayTags).forEach(([dk, tag]) => { if (tag) localStorage.setItem("ob_day_tag_" + dk, tag); }); } catch(_) {}
+            }
+            if (sd.weaningStarted && typeof sd.weaningStarted === "object") {
+              try { Object.entries(sd.weaningStarted).forEach(([k, v]) => { if (k && k.startsWith("weaning_started_")) localStorage.setItem(k, v); }); } catch(_) {}
             }
           } catch(_) {}
         }
@@ -9861,10 +9985,11 @@ function App(){
                 // parent logging into another user's account to troubleshoot), merging would
                 // inject their children's sync codes into the new account. Use cloud only.
                 // Also filter out any codes the user has explicitly blacklisted.
-                if(uData.childSyncCodes && typeof uData.childSyncCodes === "object") {
+                if(uData.childSyncCodes) {
+                  const _parsedCodes = _parseChildSyncCodes(uData.childSyncCodes);
                   const _blacklisted = (()=>{try{return JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");}catch{return [];}})();
                   const _cleanCodes = Object.fromEntries(
-                    Object.entries(uData.childSyncCodes).filter(([cid])=>!_blacklisted.includes(cid))
+                    Object.entries(_parsedCodes).filter(([cid])=>!_blacklisted.includes(cid))
                   );
                   setChildSyncCodes(_cleanCodes);
                   try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_cleanCodes)); }catch{}
@@ -9889,10 +10014,11 @@ function App(){
                 // Restore child sync links (for linked parties without username).
                 // SECURITY: Cloud is source of truth. Do not merge local codes — see
                 // the matching comment on the username path above for rationale.
-                if(_u2d.childSyncCodes && typeof _u2d.childSyncCodes === "object") {
+                if(_u2d.childSyncCodes) {
+                  const _parsedCodes2 = _parseChildSyncCodes(_u2d.childSyncCodes);
                   const _blacklisted = (()=>{try{return JSON.parse(localStorage.getItem("ob_removed_child_ids")||"[]");}catch{return [];}})();
                   const _cleanCodes = Object.fromEntries(
-                    Object.entries(_u2d.childSyncCodes).filter(([cid])=>!_blacklisted.includes(cid))
+                    Object.entries(_parsedCodes2).filter(([cid])=>!_blacklisted.includes(cid))
                   );
                   setChildSyncCodes(_cleanCodes);
                   try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_cleanCodes)); }catch{}
@@ -9942,6 +10068,7 @@ function App(){
                       if(lsSaved && cloudIds.includes(lsSaved)) return lsSaved;
                       return cloudIds[0];
                     });
+                    try{ await restoreChildSyncCodesFromCloud(cloudIds, cloud); }catch{}
                   }
                 }
               }
@@ -9951,10 +10078,10 @@ function App(){
               const _famData = snap.data();
               if(_famData.childSyncCodes) {
                 try {
-                  const _cloudSyncCodes = JSON.parse(_famData.childSyncCodes);
+                  const _cloudSyncCodes = _parseChildSyncCodes(_famData.childSyncCodes);
                   if(_cloudSyncCodes && typeof _cloudSyncCodes === "object" && Object.keys(_cloudSyncCodes).length > 0) {
-                    const _localCodes = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
-                    const _merged = {..._cloudSyncCodes, ..._localCodes};
+                    const _localCodes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+                    const _merged = {..._localCodes, ..._cloudSyncCodes};
                     setChildSyncCodes(_merged);
                     try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_merged)); }catch{}
                     Object.entries(_merged).forEach(([cid,sc])=>subscribeToChildSync(cid,sc));
@@ -10182,6 +10309,7 @@ function App(){
         if(cloudIds.length) {
           setActiveChildId(cloudIds[0]);
           try{ localStorage.setItem("active_child", cloudIds[0]); }catch{}
+          try{ await restoreChildSyncCodesFromCloud(cloudIds, cloud); }catch{}
         }
       }
 
@@ -10225,6 +10353,68 @@ function App(){
             });
             setSavedMeds(uniqueMeds);
             try{ localStorage.setItem("saved_meds_v1", JSON.stringify(uniqueMeds)); }catch{}
+          }
+        } catch(_) {}
+      }
+
+      // Restore shared parent-entered details from backup, not just the child log.
+      // This is the manual-code restore path used after reinstall, so it must
+      // bring appointments, reminders, medicine, notes, and sync links back too.
+      if(d.sharedData) {
+        try {
+          const sd = typeof d.sharedData === "string" ? JSON.parse(d.sharedData) : d.sharedData;
+          if(sd && typeof sd === "object") {
+            if(Array.isArray(sd.appointments)) {
+              setAppointments(sd.appointments);
+              try{ localStorage.setItem("appointments_v1", JSON.stringify(sd.appointments)); }catch{}
+            }
+            if(Array.isArray(sd.reminders)) {
+              setReminders(sd.reminders);
+              try{ localStorage.setItem("reminders_v1", JSON.stringify(sd.reminders)); }catch{}
+            }
+            if(Array.isArray(sd.pinnedNotes)) {
+              setPinnedNotes(sd.pinnedNotes);
+              try{ localStorage.setItem("pinned_notes_v1", JSON.stringify(sd.pinnedNotes)); }catch{}
+            }
+            if(Array.isArray(sd.letters)) {
+              try{ localStorage.setItem("ob_letters_v1", JSON.stringify(sd.letters)); }catch{}
+            }
+            if(sd.meds && typeof sd.meds === "object") {
+              setMeds(sd.meds);
+              try{ localStorage.setItem("meds_v1", JSON.stringify(sd.meds)); }catch{}
+            }
+            if(sd.dayBoundary && typeof sd.dayBoundary === "string") {
+              setDayBoundary(sd.dayBoundary);
+              try{ localStorage.setItem("ob_day_boundary_v1", sd.dayBoundary); }catch{}
+            }
+            if(sd.dayNotes && typeof sd.dayNotes === "object") {
+              try{ Object.entries(sd.dayNotes).forEach(([dk,note])=>{ if(note) localStorage.setItem("ob_day_note_"+dk,note); }); }catch{}
+            }
+            if(sd.dayTags && typeof sd.dayTags === "object") {
+              try{ Object.entries(sd.dayTags).forEach(([dk,tag])=>{ if(tag) localStorage.setItem("ob_day_tag_"+dk,tag); }); }catch{}
+            }
+            if(sd.weaningStarted && typeof sd.weaningStarted === "object") {
+              try{ Object.entries(sd.weaningStarted).forEach(([k,v])=>{ if(k && k.startsWith("weaning_started_")) localStorage.setItem(k,v); }); }catch{}
+            }
+            if(sd.allergenProfile && typeof sd.allergenProfile === "object") {
+              try{ localStorage.setItem("allergen_profile_v1", JSON.stringify(sd.allergenProfile)); }catch{}
+            }
+            if(Array.isArray(sd.wellbeingHistory)) {
+              try{ localStorage.setItem("wellbeing_history_v1", JSON.stringify(sd.wellbeingHistory)); }catch{}
+            }
+            if(sd.fluidUnit) { try{ localStorage.setItem("fluid_unit_v1", sd.fluidUnit); }catch{} }
+            if(sd.measureUnit) { try{ localStorage.setItem("measure_unit_v1", sd.measureUnit); }catch{} }
+          }
+        } catch(_) {}
+      }
+
+      if(d.childSyncCodes) {
+        try {
+          const _csc = _parseChildSyncCodes(d.childSyncCodes);
+          if(_csc && typeof _csc === "object") {
+            setChildSyncCodes(_csc);
+            try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_csc)); }catch{}
+            Object.entries(_csc).forEach(([cid,sc])=>subscribeToChildSync(cid,sc));
           }
         } catch(_) {}
       }
@@ -10283,6 +10473,16 @@ function App(){
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
   const normaliseEmail = (email) => (email||"").trim().toLowerCase();
   const hashRecoveryEmail = (email) => hashPin("email:" + normaliseEmail(email));
+  function _parseChildSyncCodes(raw) {
+    try {
+      if(!raw) return {};
+      if(typeof raw === "string") {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      }
+      return raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+    } catch { return {}; }
+  }
   async function verifyLogin(username, pin, preHashed) {
     if(!window._fb) { setAuthError("Not connected. check your internet"); return false; }
     const {db, doc, getDoc} = window._fb;
@@ -10409,11 +10609,12 @@ function App(){
                 if(cloudIds.length) {
                   setActiveChildId(cloudIds[0]);
                   try{ localStorage.setItem("active_child", cloudIds[0]); }catch{}
+                  try{ await restoreChildSyncCodesFromCloud(cloudIds, cloud); }catch{}
                 }
                 // Restore child sync codes from families doc
                 if(d.childSyncCodes) {
                   try {
-                    const _csc = typeof d.childSyncCodes === "string" ? JSON.parse(d.childSyncCodes) : d.childSyncCodes;
+                    const _csc = _parseChildSyncCodes(d.childSyncCodes);
                     if(_csc && typeof _csc === "object" && Object.keys(_csc).length > 0) {
                       setChildSyncCodes(_csc);
                       try{ localStorage.setItem("child_sync_codes_v1", JSON.stringify(_csc)); }catch{}
@@ -10798,14 +10999,16 @@ function App(){
       try{ localStorage.removeItem("family_code"); }catch{}
       setBackupCode(newCode);
       try{ localStorage.setItem("backup_code", newCode); }catch{}
+      const _existingChildSyncCodes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
       // Anchor code to Firebase UID so it survives reinstall
       if(window._fbUid) {
-        try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:newCode, updatedAt:serverTimestamp()}, true); }catch(e){ console.warn("OBubba uid_to_backup write error",e); }
+        try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:newCode, childSyncCodes:_existingChildSyncCodes, updatedAt:serverTimestamp()}, true); }catch(e){ console.warn("OBubba uid_to_backup write error",e); }
       }
       await fsSet("usernames", key, {
         pinHash: hashPin(pin),
         backupCode: newCode,
         familyCode: null,
+        childSyncCodes: _existingChildSyncCodes,
         createdAt: serverTimestamp(),
         displayName: username.trim()
       });
@@ -10841,10 +11044,12 @@ function App(){
         setBackupCode(code);
         try{ localStorage.setItem("backup_code", code); }catch{}
       }
+      const _existingChildSyncCodes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
       await fsSet("usernames", key, {
         pinHash: hashPin(pin),
         backupCode: code,
         familyCode: null,
+        childSyncCodes: _existingChildSyncCodes,
         createdAt: serverTimestamp(),
         displayName: username.trim()
       });
@@ -10852,7 +11057,7 @@ function App(){
       try{ localStorage.setItem("family_username", username.trim()); }catch{}
       try{ localStorage.setItem("auth_verified","1"); }catch{}
       if(window._fbUid) {
-        try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:code, updatedAt:serverTimestamp()}, true); }catch{}
+        try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:code, childSyncCodes:_existingChildSyncCodes, updatedAt:serverTimestamp()}, true); }catch{}
       }
       trackEvent("account_claimed_in_app");
       return {ok:true};
@@ -10944,9 +11149,11 @@ function App(){
       setAccountRepairStatus("checking");
       setAccountRepairMsg("Recreating the sign-in record...");
       const {serverTimestamp} = window._fb;
+      const _existingChildSyncCodes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
       const payload = {
         pinHash: hashPin(pin),
         backupCode: code,
+        childSyncCodes: _existingChildSyncCodes,
         displayName: ownerName,
         updatedAt: serverTimestamp()
       };
@@ -10958,7 +11165,7 @@ function App(){
         return false;
       }
       if(window._fbUid) {
-        try { await fsSet("uid_to_backup", window._fbUid, {backupCode: code, updatedAt: serverTimestamp()}, true); } catch(e) {}
+        try { await fsSet("uid_to_backup", window._fbUid, {backupCode: code, childSyncCodes: _existingChildSyncCodes, updatedAt: serverTimestamp()}, true); } catch(e) {}
       }
       if(recoveryEmail && recoveryEmail.trim().includes("@")) {
         try { await saveRecoveryEmail(recoveryEmail.trim(), ownerName); } catch(e) {}
@@ -11243,6 +11450,55 @@ function App(){
     for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
     return code;
   }
+  function _childSyncOwnerKey() {
+    const rawOwner = (familyUsername || localStorage.getItem("family_username") || window._fbUid || backupCodeRef.current || "local") + "";
+    return normaliseUsername(rawOwner) || hashPin(rawOwner || "local");
+  }
+  function _childSyncStableSignature(childId, childOverride) {
+    const child = childOverride || childrenRef.current?.[childId] || children?.[childId] || {};
+    const name = ((child.name || "baby") + "").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+    const dob = ((child.dob || child.dueDate || child.birthDate || "") + "").trim().toLowerCase();
+    return `${_childSyncOwnerKey()}|${name || "baby"}|${dob || "no-date"}`;
+  }
+  function _childCodeMapIds(childId, childOverride) {
+    const owner = _childSyncOwnerKey();
+    const sig = _childSyncStableSignature(childId, childOverride);
+    return [...new Set([
+      childId,
+      "owner_child_" + hashPin(`${owner}|${childId}`),
+      "owner_sig_" + hashPin(sig)
+    ].filter(Boolean))];
+  }
+  async function _persistChildSyncCode(childId, code, childOverride) {
+    const {serverTimestamp} = window._fb || {};
+    const child = childOverride || childrenRef.current?.[childId] || children?.[childId] || {};
+    const _allCodes = {..._parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")), [childId]: code};
+    try { localStorage.setItem("child_sync_codes_v1", JSON.stringify(_allCodes)); } catch {}
+    const ownerUsername = familyUsername || localStorage.getItem("family_username") || "";
+    const mapPayload = {
+      code,
+      childId,
+      childName: child?.name || "",
+      childDob: child?.dob || "",
+      ownerUid: window._fbUid || "",
+      ownerUsername,
+      stableSignature: _childSyncStableSignature(childId, child),
+      updatedAt: serverTimestamp ? serverTimestamp() : Date.now()
+    };
+    if(window._fbUid) {
+      try { await fsSet("uid_to_backup", window._fbUid, {childSyncCodes:_allCodes, updatedAt:serverTimestamp ? serverTimestamp() : Date.now()}, true); } catch(e){}
+    }
+    if(ownerUsername) {
+      try { const _k = normaliseUsername(ownerUsername); await fsSet("usernames", _k, {childSyncCodes:_allCodes}, true); } catch(e){}
+    }
+    if(backupCodeRef.current) {
+      try { await fsSet("families", backupCodeRef.current, {childSyncCodes:JSON.stringify(_allCodes)}, true); } catch(e){}
+    }
+    try {
+      await Promise.all(_childCodeMapIds(childId, child).map(id => fsSet("child_code_map", id, mapPayload, true)));
+    } catch(e) { console.warn("[OBubba] child sync map persist failed", e); }
+    return _allCodes;
+  }
   async function createChildSyncCode(childId, userCode) {
     if(!window._fb) return {ok:false, error:"No connection"};
     const {serverTimestamp} = window._fb;
@@ -11272,8 +11528,9 @@ function App(){
             const _uidSnap = await fsGet("uid_to_backup", window._fbUid);
             if (_uidSnap.exists()) {
               const _uidData = _uidSnap.data();
-              if (_uidData.childSyncCodes && _uidData.childSyncCodes[childId]) {
-                _existingCode = _uidData.childSyncCodes[childId];
+              const _uidCodes = _parseChildSyncCodes(_uidData.childSyncCodes);
+              if (_uidCodes[childId]) {
+                _existingCode = _uidCodes[childId];
               }
             }
           } catch {}
@@ -11286,24 +11543,50 @@ function App(){
               const _uSnap = await fsGet("usernames", _k);
               if (_uSnap.exists()) {
                 const _uData = _uSnap.data();
-                if (_uData.childSyncCodes && _uData.childSyncCodes[childId]) {
-                  _existingCode = _uData.childSyncCodes[childId];
+                const _userCodes = _parseChildSyncCodes(_uData.childSyncCodes);
+                if (_userCodes[childId]) {
+                  _existingCode = _userCodes[childId];
                 }
               }
             } catch {}
           }
         }
+        if (!_existingCode) {
+          const _child = childrenRef.current?.[childId] || children[childId];
+          for (const mapId of _childCodeMapIds(childId, _child)) {
+            try {
+              const _mapSnap = await fsGet("child_code_map", mapId);
+              if(_mapSnap.exists() && _mapSnap.data().code) {
+                _existingCode = _mapSnap.data().code;
+                break;
+              }
+            } catch {}
+          }
+        }
         if (_existingCode) {
-          // Confirm the existing code is still active on Firebase before restoring
+          // Confirm the existing code is still active on Firebase before restoring.
+          // If the map exists but the child_syncs doc was lost, recreate the doc
+          // with the same code so existing partners stay connected.
           try {
             const _snap = await fsGet("child_syncs", _existingCode);
-            if (_snap.exists() && _snap.data().isActive !== false) {
+            const _child = childrenRef.current?.[childId] || children[childId];
+            if ((!_snap.exists() || _snap.data().isActive === false) && _child) {
+              await fsSet("child_syncs", _existingCode, {
+                childId,
+                childName: _child?.name || "",
+                ownerUid: window._fbUid || "",
+                ownerUsername: familyUsername || "",
+                child: JSON.stringify(_child),
+                isActive: true,
+                replacedBy: "",
+                updatedAt: serverTimestamp(),
+                updatedBy: window._fbUid || ""
+              });
+            }
+            if ((_snap.exists() && _snap.data().isActive !== false) || _child) {
               setChildSyncCodes(prev => ({...prev, [childId]: _existingCode}));
               subscribeToChildSync(childId, _existingCode);
-              try {
-                const _allCodes = {...JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}"), [childId]: _existingCode};
-                localStorage.setItem("child_sync_codes_v1", JSON.stringify(_allCodes));
-              } catch {}
+              await _persistChildSyncCode(childId, _existingCode, _child);
               showToast("Existing sync code restored ✓", 1800, 1);
               return {ok:true, code:_existingCode, restored:true};
             }
@@ -11345,15 +11628,7 @@ function App(){
 
     setChildSyncCodes(prev => ({...prev, [childId]: code}));
     subscribeToChildSync(childId, code);
-    // Persist to cloud so it survives reinstall (save to BOTH uid_to_backup AND username doc)
-    const _allCodes = {...JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}"), [childId]: code};
-    if(window._fbUid) {
-      try { await fsSet("uid_to_backup", window._fbUid, {childSyncCodes:_allCodes,updatedAt:serverTimestamp()}, true); } catch(e){}
-    }
-    const _uname = familyUsername || localStorage.getItem("family_username");
-    if(_uname) {
-      try { const _k = _uname.toLowerCase().replace(/[^a-z0-9_]/g,""); await fsSet("usernames", _k, {childSyncCodes:_allCodes}, true); } catch(e){}
-    }
+    await _persistChildSyncCode(childId, code, child);
     trackEvent("child_sync_created");
     showToast("Sync code created ✓", 1500, 1);
     return {ok:true, code};
@@ -11394,36 +11669,34 @@ function App(){
     // Update local state and re-subscribe
     setChildSyncCodes(prev => ({...prev, [childId]: newCode}));
     subscribeToChildSync(childId, newCode);
-    // Persist to cloud (save to BOTH uid_to_backup AND username doc)
-    const _allCodes2 = {...JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}"), [childId]: newCode};
-    if(window._fbUid) {
-      try { await fsSet("uid_to_backup", window._fbUid, {childSyncCodes:_allCodes2,updatedAt:serverTimestamp()}, true); } catch(e){}
-    }
-    const _uname2 = familyUsername || localStorage.getItem("family_username");
-    if(_uname2) {
-      try { const _k2 = _uname2.toLowerCase().replace(/[^a-z0-9_]/g,""); await fsSet("usernames", _k2, {childSyncCodes:_allCodes2}, true); } catch(e){}
-    }
+    await _persistChildSyncCode(childId, newCode, child);
     trackEvent("child_sync_regenerated");
     showToast("New code set ✓", 1500, 1);
     return {ok:true, code:newCode};
   }
   // Restore sync codes from cloud when local state is lost (e.g. reinstall, new device)
   // Queries child_code_map to recover the permanent code, recreates orphaned child_syncs docs
-  async function restoreChildSyncCodesFromCloud(childIds) {
+  async function restoreChildSyncCodesFromCloud(childIds, childMap) {
     if(!window._fb || !childIds?.length) return;
     const restored = {};
     await Promise.all(childIds.map(async (cid) => {
       try {
-        const mapSnap = await fsGet("child_code_map", cid);
-        if(!mapSnap.exists()) return;
-        const mapData = mapSnap.data();
+        const child = childMap?.[cid] || childrenRef.current?.[cid] || children[cid];
+        let mapData = null;
+        for (const mapId of _childCodeMapIds(cid, child)) {
+          const mapSnap = await fsGet("child_code_map", mapId);
+          if(mapSnap.exists() && mapSnap.data().code) {
+            mapData = mapSnap.data();
+            break;
+          }
+        }
+        if(!mapData) return;
         if(!mapData.code) return;
         const codeSnap = await fsGet("child_syncs", mapData.code);
-        if(codeSnap.exists() && !codeSnap.data().replacedBy) {
+        if(codeSnap.exists() && codeSnap.data().isActive !== false && !codeSnap.data().replacedBy) {
           restored[cid] = mapData.code;
         } else {
           // child_syncs doc orphaned — recreate using the SAME permanent code
-          const child = children[cid];
           if(child) {
             const {serverTimestamp} = window._fb;
             await fsSet("child_syncs", mapData.code, {
@@ -11438,6 +11711,11 @@ function App(){
     }));
     if(Object.keys(restored).length) {
       setChildSyncCodes(prev => ({...prev, ...restored}));
+      try {
+        const merged = {..._parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")), ...restored};
+        localStorage.setItem("child_sync_codes_v1", JSON.stringify(merged));
+        await Promise.all(Object.entries(restored).map(([cid, code]) => _persistChildSyncCode(cid, code, childMap?.[cid] || childrenRef.current?.[cid] || children[cid])));
+      } catch {}
     }
   }
   // Child sync codes are now user-chosen and stored in uid_to_backup.childSyncCodes.
@@ -11480,6 +11758,7 @@ function App(){
         updatedBy: window._fbUid || "anon",
         writeToken: writeTokenRef.current
       }, true);
+      try { await _persistChildSyncCode(childId, code, child); } catch {}
     } catch(e) { console.warn("pushChildSync error", e); }
   }
   const subscribeToChildSync = React.useCallback((childId, code) => {
@@ -11652,7 +11931,7 @@ function App(){
       setChildSyncCodes(prev => ({...prev, [childId]: clean}));
       subscribeToChildSync(childId, clean);
       // Persist sync link to cloud so it survives reinstall (save to BOTH uid_to_backup AND username doc)
-      const _existingJ = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
+      const _existingJ = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
       const _allCodesJ = {..._existingJ, [childId]: clean};
       if(window._fbUid) {
         try { await fsSet("uid_to_backup", window._fbUid, {childSyncCodes:_allCodesJ,updatedAt:serverTimestamp()}, true); } catch(e){ console.warn("OBubba childSyncCodes persist error",e); }
@@ -11717,7 +11996,7 @@ function App(){
     // Persist removal to cloud so unlinked child doesn't reappear after reinstall
     (async()=>{
       try {
-        const _remaining = JSON.parse(localStorage.getItem("child_sync_codes_v1")||"{}");
+        const _remaining = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
         delete _remaining[childId];
         if(window._fbUid) {
           try { await fsSet("uid_to_backup", window._fbUid, {childSyncCodes:_remaining}, true); } catch(e){}
@@ -20893,7 +21172,7 @@ function App(){
   },[measureUnit]);
 
   React.useEffect(()=>{
-    try{const _cleanAppts=appointments.filter(a=>{const d=new Date(a.date+"T23:59:59");return d>=new Date(Date.now()-30*24*60*60*1000);});if(_cleanAppts.length!==appointments.length)setAppointments(_cleanAppts);localStorage.setItem("appointments_v1",JSON.stringify(_cleanAppts.length!==appointments.length?_cleanAppts:appointments));}catch{}
+    try{localStorage.setItem("appointments_v1",JSON.stringify(appointments));}catch{}
   },[appointments]);
 
   React.useEffect(()=>{
@@ -31491,7 +31770,7 @@ function App(){
   }
 
   return(
-    <div style={{background:"transparent",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"var(--text-deep)",paddingBottom:80,maxWidth:"100vw",overflowX:"hidden"}}>
+    <div className="ob-app-root" style={{background:"transparent",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"var(--text-deep)",paddingBottom:"calc(104px + env(safe-area-inset-bottom, 0px))",maxWidth:"100vw",overflowX:"hidden"}}>
       <style>{`
         @keyframes pulse{0%,100%{box-shadow:0 0 0 12px rgba(201,112,90,0.15)}50%{box-shadow:0 0 0 22px rgba(201,112,90,0.04)}}
         @keyframes breathe{0%,100%{transform:scale(1);opacity:0.4}28%{transform:scale(1.8);opacity:0.8}57%{transform:scale(1.8);opacity:0.8}100%{transform:scale(1);opacity:0.4}}
@@ -31761,11 +32040,12 @@ function App(){
       {/* Hidden photo input for diary/milestones */}
       <input ref={photoInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhotoCapture}/>
       <div
+        className="ob-top-shell"
         style={{background:theme.primary,padding:"6px 10px 10px",paddingTop:"max(6px, env(safe-area-inset-top, 6px))",position:"relative",display:tab==="settings"?"none":"block"}}
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
-      <div style={{
+      <div className="ob-header-glass" style={{
         background:`linear-gradient(135deg, ${C.sky}18 0%, ${C.blush}28 50%, ${C.mint}18 100%)`,
         borderRadius:"22px",
         border:"1px solid rgba(255,255,255,0.35)",
@@ -32430,7 +32710,7 @@ function App(){
         </div>
       )}
 
-      <div style={{padding:tab==="settings"?`0 ${_rs(14)}px 90px`:`${_rs(16)}px ${_rs(14)}px 90px`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
+      <div className="ob-main-content" style={{padding:tab==="settings"?`0 ${_rs(14)}px calc(112px + env(safe-area-inset-bottom, 0px))`:`${_rs(16)}px ${_rs(14)}px calc(112px + env(safe-area-inset-bottom, 0px))`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
           // Only show the "No day selected" fallback when selDay itself is
           // missing (which should basically never happen, useState initialises
@@ -32935,7 +33215,7 @@ function App(){
                   room between buttons, bigger emoji so a tired parent can hit
                   them without looking. Any adjustment here should keep tap
                   targets ≥ 48px (iOS HIG). */}
-              {!daySubScreen && <div data-testid="quick-log-row" onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:12,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
+              {!daySubScreen && <div data-testid="quick-log-row" className="ob-quick-log-row" onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:12,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
                 {[
                   {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
                   {emoji:"🤱",label:"Breast",longAction:()=>{if(breastActive){openLogPanel("feed");}else{setShowBreastStartPicker(true);setBreastCustomStart(nowTime());}},action:()=>{haptic();startBreastTimer("L");}},
@@ -32951,6 +33231,7 @@ function App(){
                 ].map(({emoji,label,action,longAction})=>{
                   return (
                   <button key={label}
+                    className="ob-quick-log-btn"
                     onTouchStart={(e)=>{
                       e.stopPropagation();
                       const _t=e.touches[0];
@@ -32986,9 +33267,9 @@ function App(){
                     onTouchEndCapture={(e)=>{ try { const el=e.currentTarget; setTimeout(()=>{ if(el){el.style.transform=""; el.style.background="transparent";} },140); } catch{} }}
                     onTouchCancelCapture={(e)=>{ try { e.currentTarget.style.transform=""; e.currentTarget.style.background="transparent"; } catch{} }}
                   >
-                    <span style={{fontSize:_rs(26),lineHeight:1}}>{emoji}</span>
-                    <span style={{fontSize:_rf(11),fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
-                    {longAction && <div style={{width:4,height:4,borderRadius:"50%",background:C.blush,marginTop:2,opacity:0.6}}/>}
+                    <span className="ob-quick-log-icon" style={{fontSize:_rs(26),lineHeight:1}}>{emoji}</span>
+                    <span className="ob-quick-log-label" style={{fontSize:_rf(11),fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
+                    {longAction && <div className="ob-quick-log-dot" style={{width:4,height:4,borderRadius:"50%",background:C.blush,marginTop:2,opacity:0.6}}/>}
                   </button>
                   );
                 })}
@@ -33115,7 +33396,7 @@ function App(){
                   ["sick","\uD83E\uDD12","Sick"]
                 ];
                 return (
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:10,padding:3,borderRadius:14,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
+                  <div className="ob-day-mode-switcher" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:10,padding:3,borderRadius:14,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
                     {_cells.map(([key,emoji,label])=>{
                       const _active = (dayTag||"home")===key;
                       const _hue = _tagColor(key);
@@ -33125,9 +33406,9 @@ function App(){
                           const val=(key==="home")?"":key;
                           setDayTag(val);
                           try{if(val)localStorage.setItem("ob_day_tag_"+selDay,val);else localStorage.removeItem("ob_day_tag_"+selDay);}catch{}
-                        }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"7px 2px",borderRadius:11,border:"none",background:_active?_hue+"22":"transparent",cursor:_cP,fontFamily:_fM,transition:"background 0.15s"}}>
-                          <span style={{fontSize:16,lineHeight:1,filter:_active?"none":"grayscale(0.4)",opacity:_active?1:0.75}}>{emoji}</span>
-                          <span style={{fontSize:9.5,fontWeight:_active?700:600,color:_active?_hue:C.lt,letterSpacing:0.2}}>{label}</span>
+                        }} className={_active?"ob-day-mode-btn is-active":"ob-day-mode-btn"} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"7px 2px",borderRadius:11,border:"none",background:_active?_hue+"22":"transparent",cursor:_cP,fontFamily:_fM,transition:"background 0.15s"}}>
+                          <span className="ob-day-mode-icon" style={{fontSize:16,lineHeight:1,filter:_active?"none":"grayscale(0.4)",opacity:_active?1:0.75}}>{emoji}</span>
+                          <span className="ob-day-mode-label" style={{fontSize:9.5,fontWeight:_active?700:600,color:_active?_hue:C.lt,letterSpacing:0.2}}>{label}</span>
                         </button>
                       );
                     })}
@@ -33268,17 +33549,49 @@ function App(){
                   <button onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={_S.f16}>‹</span> Back
                   </button>
-                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:16}}>📝 Notes & Reminders</div>
+                  {(()=>{
+                    const _activeReminders=reminders.filter(r=>!r.done).length;
+                    const _nextAppt=appointments.filter(a=>{
+                      const d=new Date(a.date+"T"+(a.time||"23:59")+":59");
+                      return d>=new Date();
+                    }).sort((a,b)=>(a.date+(a.time||"00:00")).localeCompare(b.date+(b.time||"00:00")))[0];
+                    const _nextLabel=_nextAppt?(_nextAppt.date===todayStr()?"Today":_nextAppt.date===nextDayStr(todayStr())?"Tomorrow":fmtLong(_nextAppt.date)):"Nothing booked";
+                    const _stats=[
+                      {label:"Next",value:_nextAppt?_nextLabel:"Clear",tone:C.sky},
+                      {label:"Pinned",value:String(pinnedNotes.length),tone:C.ter},
+                      {label:"Reminders",value:String(_activeReminders+(nappyReminderMins?1:0)),tone:C.mint}
+                    ];
+                    return (
+                      <div className="glass-card ob-notes-hero" style={{padding:"16px 16px",marginBottom:14,borderRadius:24}}>
+                        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:14}}>
+                          <div style={{minWidth:0}}>
+                            <div className="ob-premium-kicker" style={{marginBottom:6}}>Care notes</div>
+                            <div className="ob-premium-title" style={{fontSize:_rf(21)}}>Notes & Reminders</div>
+                            <div className="ob-premium-copy" style={{marginTop:5}}>Appointments, pinned notes, and gentle prompts in one place.</div>
+                          </div>
+                          <div style={{width:42,height:42,borderRadius:16,display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,rgba(255,255,255,0.34),rgba(255,255,255,0.08))",border:"1px solid var(--card-border)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.28)",fontSize:20,flexShrink:0}}>📝</div>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:8}}>
+                          {_stats.map(s=>(
+                            <div key={s.label} style={{borderRadius:16,border:"1px solid var(--card-border)",background:"var(--card-bg-alt)",padding:"9px 8px",minWidth:0}}>
+                              <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>{s.label}</div>
+                              <div style={{fontSize:13,fontWeight:800,color:s.tone,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.value}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Quick add buttons */}
                   <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                    <button onClick={()=>{haptic();setApptForm(makeApptForm({date:todayStr(),endDate:todayStr()}));setShowAddAppt(true);}} style={{flex:1,minWidth:90,padding:"12px 10px",borderRadius:16,border:"1.5px dashed "+C.blush,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    <button className="ob-quick-action" onClick={()=>{haptic();setApptForm(makeApptForm({date:todayStr(),endDate:todayStr()}));setShowAddAppt(true);}} style={{flex:1,minWidth:90,padding:"12px 10px",borderRadius:16,border:"1px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:700,color:C.deep,fontFamily:_fI}}>
                       📅 Appointment
                     </button>
-                    <button onClick={()=>{haptic();setReminderForm({text:"",date:todayStr(),time:"",trigger:"",repeat:"none"});setShowAddReminder(true);}} style={{flex:1,minWidth:90,padding:"12px 10px",borderRadius:16,border:"1.5px dashed "+C.blush,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    <button className="ob-quick-action" onClick={()=>{haptic();setReminderForm({text:"",date:todayStr(),time:"",trigger:"",repeat:"none"});setShowAddReminder(true);}} style={{flex:1,minWidth:90,padding:"12px 10px",borderRadius:16,border:"1px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:700,color:C.deep,fontFamily:_fI}}>
                       🔔 Reminder
                     </button>
-                    <button onClick={()=>{haptic();setShowAddPin(true);}} style={{flex:1,minWidth:90,padding:"12px 10px",borderRadius:16,border:"1.5px dashed "+C.blush,background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:600,color:C.mid,fontFamily:_fI}}>
+                    <button className="ob-quick-action" onClick={()=>{haptic();setShowAddPin(true);}} style={{flex:1,minWidth:90,padding:"12px 10px",borderRadius:16,border:"1px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP,fontSize:12,fontWeight:700,color:C.deep,fontFamily:_fI}}>
                       📌 Pin Note
                     </button>
                   </div>
@@ -33356,7 +33669,10 @@ function App(){
                       <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Pinned Notes</div>
                       <button onClick={()=>{haptic();setShowAddPin(true);}} style={{background:"none",border:"none",fontSize:12,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                     </div>
-                    {pinnedNotes.length === 0 && <div style={{fontSize:13,color:C.lt,fontStyle:"italic",marginBottom:10}}>No pinned notes yet. tap + Add above</div>}
+                    {pinnedNotes.length === 0 && <div className="glass-card" style={{padding:"14px 16px",marginBottom:10,borderStyle:"dashed",background:"var(--card-bg-alt)"}}>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>No pinned notes yet</div>
+                      <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>Add allergies, GP details, or anything you want to keep close.</div>
+                    </div>}
                     {pinnedNotes.map(n=>(
                       <div key={n.id} className="glass-card" style={{padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"flex-start",gap:10}}>
                         <span style={{fontSize:14,marginTop:1}}>📌</span>
@@ -33372,7 +33688,10 @@ function App(){
                       <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Reminders</div>
                       <button onClick={()=>{haptic();setReminderForm({text:"",date:todayStr(),time:"",trigger:"",repeat:"none"});setShowAddReminder(true);}} style={{background:"none",border:"none",fontSize:12,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                     </div>
-                    {reminders.filter(r=>!r.done).length === 0 && <div style={{fontSize:13,color:C.lt,fontStyle:"italic",marginBottom:10}}>No active reminders</div>}
+                    {reminders.filter(r=>!r.done).length === 0 && <div className="glass-card" style={{padding:"14px 16px",marginBottom:10,borderStyle:"dashed",background:"var(--card-bg-alt)"}}>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>No active reminders</div>
+                      <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>Set a gentle prompt for medicine, appointments, or anything future-you will appreciate.</div>
+                    </div>}
                     {reminders.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(r=>{
                       const triggerLabels2 = {after_nap:"😴 After nap",after_feed:"🍼 After feed",after_wake:"☀️ Every wake",after_nappy:"🧷 After nappy",after_bedtime:"🌙 At bedtime"};
                       return (
@@ -36678,7 +36997,7 @@ function App(){
                   const _hasEnoughHistory = _sortedDays.length >= 5;
                   return (
                     <div className="glass-card" style={{padding:"16px",marginBottom:12,border:`1.5px solid ${C.mint}30`,position:"relative"}}>
-                      <button onClick={()=>{try{localStorage.setItem("ob_wb_dismiss",_today);}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:8,right:8,background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:8}}>✕</button>
+                      <button className="ob-icon-dismiss" onClick={()=>{try{localStorage.setItem("ob_wb_dismiss",_today);}catch{}setForceRender(c=>c+1);}} style={{position:"absolute",top:8,right:8,background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:8}}>✕</button>
                       <div style={{fontSize:20,marginBottom:8}}>💛</div>
                       <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:6}}>Welcome back</div>
                       <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:10}}>
@@ -36713,7 +37032,7 @@ function App(){
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>A personalised 14-day sleep plan is waiting for you in the <strong style={{color:C.deep}}>Understand</strong> tab.</div>
                       </div>
                       <button onClick={()=>{haptic();try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setTab("insights");}} style={{padding:"6px 12px",borderRadius:99,border:"none",background:"#7b68ee",color:"white",fontSize:11,fontWeight:700,cursor:_cP,flexShrink:0}}>Go →</button>
-                      <button onClick={()=>{try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
+                      <button className="ob-icon-dismiss" onClick={()=>{try{localStorage.setItem("ob_coach_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:40,minHeight:40,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box",flexShrink:0}}>✕</button>
                     </div>
                   );
                 } catch { return null; }
@@ -36754,7 +37073,7 @@ function App(){
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>A gentle 7-night program to reduce night feeds. Tap to start.</div>
                       </div>
                       <button onClick={()=>{haptic();try{localStorage.setItem("ob_nw_pointer_v1","1");}catch{}setInsightFilter("nightwean");setTab("insights");}} style={{padding:"6px 12px",borderRadius:99,border:"none",background:C.mint,color:"white",fontSize:11,fontWeight:700,cursor:_cP,flexShrink:0}}>Go</button>
-                      <button onClick={()=>{try{localStorage.setItem("ob_nw_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
+                      <button className="ob-icon-dismiss" onClick={()=>{try{localStorage.setItem("ob_nw_pointer_v1","1");}catch{}setForceRender(c=>c+1);}} style={{background:"none",border:"none",color:C.lt,fontSize:14,cursor:_cP,padding:"12px",minWidth:40,minHeight:40,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box",flexShrink:0}}>✕</button>
                     </div>
                   );
                 } catch { return null; }
@@ -43312,9 +43631,9 @@ function App(){
 
       <div role="navigation" aria-label="Main navigation" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:_maxW,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
         {["day","insights","develop","settings"].map(t=>(
-          <button key={t} aria-label={tabLabels[t]+" tab"} aria-current={tab===t?"page":undefined} onClick={()=>{haptic();setTab(t);setDaySubScreen(null);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);setInsightFilter(null);setDevFilter(null);try{window.scrollTo({top:0,behavior:"smooth"});}catch{}}} style={tabSt(t)}>
-            <span aria-hidden="true" style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
-            <span>{tabLabels[t]}</span>
+          <button key={t} className="ob-main-tab-btn" aria-label={tabLabels[t]+" tab"} aria-current={tab===t?"page":undefined} onClick={()=>{haptic();setTab(t);setDaySubScreen(null);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);setInsightFilter(null);setDevFilter(null);try{window.scrollTo({top:0,behavior:"smooth"});}catch{}}} style={tabSt(t)}>
+            <span className="ob-main-tab-icon" aria-hidden="true" style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
+            <span className="ob-main-tab-label">{tabLabels[t]}</span>
             {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
           </button>
         ))}
@@ -49959,8 +50278,8 @@ if (!window.__obReactMounted) {
   window.__obReactMounted = true;
   ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(AppRouter)));
   // Hide splash screens ASAP. both web and native
-  setTimeout(function(){
+  requestAnimationFrame(function(){
     var s=document.getElementById('ob-splash');if(s)s.style.display='none';
     try{if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SplashScreen)window.Capacitor.Plugins.SplashScreen.hide();}catch{}
-  },300);
+  });
 }

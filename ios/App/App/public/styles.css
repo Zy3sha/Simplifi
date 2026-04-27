@@ -38,7 +38,7 @@ input::placeholder{opacity:1}
   --placeholder:#C8B8B4;
   --glow-primary:rgba(245,218,210,0.40);--glow-under:rgba(240,210,200,0.25);
   --sheet-bg:rgba(255,252,248,0.86);--sheet-overlay:rgba(91,79,79,0.28);
-  --nav-bg:rgba(255,252,248,0.72);--nav-border:rgba(255,255,255,0.72);
+  --nav-bg:rgba(255,252,248,0.84);--nav-border:rgba(255,255,255,0.76);
   --nav-shadow:0 -12px 34px rgba(91,64,54,0.10),0 -1px 0 rgba(255,255,255,0.62) inset;
   --chip-bg:rgba(255,255,255,0.44);--chip-bg-active:rgba(245,218,210,0.48);
   --chip-shadow:0 0 16px rgba(255,255,255,0.50),0 0 32px rgba(245,218,210,0.20),0 0 48px rgba(240,210,200,0.10);
@@ -66,7 +66,7 @@ body.dark-mode{
   --placeholder:#4a5a72;
   --glow-primary:rgba(255,180,70,0.35);--glow-under:rgba(255,150,40,0.18);
   --sheet-bg:rgba(12,22,40,0.88);--sheet-overlay:rgba(0,0,0,0.58);
-  --nav-bg:rgba(8,14,28,0.76);--nav-border:rgba(255,210,140,0.22);
+  --nav-bg:rgba(8,14,28,0.90);--nav-border:rgba(255,210,140,0.28);
   --nav-shadow:0 -16px 40px rgba(0,0,0,0.32),0 -1px 0 rgba(255,210,140,0.12) inset;
   --chip-bg:rgba(18,30,52,0.55);--chip-bg-active:rgba(60,45,30,0.55);
   --chip-shadow:0 0 16px rgba(255,180,70,0.14),0 2px 10px rgba(0,0,0,0.28);
@@ -228,17 +228,36 @@ div[data-testid="quick-log-row"]{
   box-shadow:var(--card-shadow-elevated)!important;
 }
 div[role="navigation"][aria-label="Main navigation"]{
+  overflow:hidden!important;
+  isolation:isolate!important;
   width:calc(100% - 14px)!important;
   left:7px!important;
   right:7px!important;
-  bottom:7px!important;
+  bottom:4px!important;
   border:1px solid var(--nav-border)!important;
-  border-radius:26px!important;
-  padding:7px 9px calc(env(safe-area-inset-bottom,0px) + 9px)!important;
+  border-radius:22px!important;
+  padding:4px 7px calc(env(safe-area-inset-bottom,0px) + 4px)!important;
   background:
-    linear-gradient(145deg,rgba(255,255,255,0.40),rgba(255,255,255,0.10)),
+    linear-gradient(145deg,rgba(255,255,255,0.44),rgba(255,255,255,0.16)),
     var(--nav-bg)!important;
+  backdrop-filter:blur(26px) saturate(1.65)!important;
+  -webkit-backdrop-filter:blur(26px) saturate(1.65)!important;
   box-shadow:var(--nav-shadow)!important;
+}
+body.dark-mode div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    linear-gradient(145deg,rgba(255,210,140,0.12),rgba(255,255,255,0.04)),
+    var(--nav-bg)!important;
+}
+div[role="navigation"][aria-label="Main navigation"] button{
+  flex:1 1 0!important;
+  min-width:0!important;
+  padding:6px 6px 5px!important;
+  font-size:9.5px!important;
+  gap:1px!important;
+}
+div[role="navigation"][aria-label="Main navigation"] button span:first-child{
+  font-size:13px!important;
 }
 div[role="navigation"][aria-label="Main navigation"] button[aria-current="page"]{
   background:rgba(255,255,255,0.34)!important;
@@ -246,9 +265,9 @@ div[role="navigation"][aria-label="Main navigation"] button[aria-current="page"]
 }
 div[role="navigation"][aria-label="Main navigation"] button[aria-current="page"]>div{
   top:auto!important;
-  bottom:-4px!important;
+  bottom:-2px!important;
   width:26px!important;
-  height:3px!important;
+  height:2px!important;
   opacity:0.55!important;
   background:linear-gradient(90deg,transparent,var(--ter),transparent)!important;
 }
@@ -701,9 +720,348 @@ body.dark-mode .prio-glow {
 .ob-sheet-content{animation:sheetSlideUp 0.28s cubic-bezier(0.23,1,0.32,1) both}
 .ob-sheet-content{max-height:var(--ob-sheet-max-h)!important}
 .ob-responsive-dialog{max-height:var(--ob-dialog-max-h)!important;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ob-notes-hero{
+  background:
+    radial-gradient(ellipse 90% 70% at 12% 0%,rgba(255,255,255,0.40),transparent 62%),
+    radial-gradient(ellipse 70% 60% at 96% 12%,rgba(122,171,196,0.12),transparent 60%),
+    linear-gradient(145deg,rgba(255,255,255,0.24),rgba(255,255,255,0.06)),
+    var(--card-bg)!important;
+}
+.ob-quick-action{
+  min-height:48px;
+  box-shadow:0 1px 0 rgba(255,255,255,0.55) inset,0 8px 18px rgba(91,64,54,0.08)!important;
+}
+button.ob-icon-dismiss{
+  width:36px!important;
+  height:36px!important;
+  min-width:36px!important;
+  min-height:36px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:50%!important;
+  box-shadow:none!important;
+  background:rgba(255,255,255,0.08)!important;
+  color:var(--text-lt)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  line-height:1!important;
+}
+body.dark-mode button.ob-icon-dismiss{
+  background:rgba(255,255,255,0.05)!important;
+  border:1px solid rgba(255,210,140,0.12)!important;
+}
+body.light-mode button.ob-icon-dismiss,
+body:not(.dark-mode) button.ob-icon-dismiss{
+  background:rgba(255,255,255,0.34)!important;
+  border:1px solid rgba(255,255,255,0.42)!important;
+}
 body[data-screen-compact] .glass-card{border-radius:18px}
 body[data-screen-compact] .ob-sheet-content{border-radius:20px 20px 0 0!important}
 body[data-screen-short] .ob-sheet-content{padding-top:14px!important}
+body[data-screen-compact]{
+  --glass-blur:22px;
+  --card-shadow:0 1px 0 rgba(255,255,255,0.46) inset,0 10px 26px rgba(0,0,0,0.18),0 0 18px rgba(255,180,70,0.10);
+  --card-shadow-elevated:0 1px 0 rgba(255,255,255,0.54) inset,0 12px 30px rgba(0,0,0,0.20),0 0 20px rgba(255,180,70,0.12);
+}
+body[data-screen-compact] .ob-premium-hero{
+  padding:14px 13px!important;
+  border-radius:22px!important;
+  margin-bottom:10px!important;
+}
+body[data-screen-compact] .ob-premium-tile{
+  min-height:86px;
+  border-radius:18px!important;
+}
+body[data-screen-compact] div[role="navigation"][aria-label="Main navigation"]{
+  width:calc(100% - 10px)!important;
+  left:5px!important;
+  right:5px!important;
+  bottom:4px!important;
+  border-radius:20px!important;
+  padding:4px 6px calc(env(safe-area-inset-bottom,0px) + 4px)!important;
+}
+body[data-screen-compact] div[role="navigation"][aria-label="Main navigation"] button{
+  flex:1 1 0!important;
+  min-width:0!important;
+  min-height:42px!important;
+  padding:5px 4px 4px!important;
+  font-size:9px!important;
+  gap:1px!important;
+}
+body[data-screen-compact] div[role="navigation"][aria-label="Main navigation"] button span:first-child{
+  font-size:12.5px!important;
+}
+body[data-screen-compact] div[role="navigation"][aria-label="Main navigation"] button[aria-current="page"]>div{
+  height:2px!important;
+  bottom:-2px!important;
+}
+body[data-screen-compact] .ob-top-shell{
+  padding-left:6px!important;
+  padding-right:6px!important;
+  padding-bottom:7px!important;
+}
+body[data-screen-compact] .ob-main-content{
+  padding-left:10px!important;
+  padding-right:10px!important;
+  padding-bottom:calc(124px + env(safe-area-inset-bottom,0px))!important;
+}
+body[data-screen-short] .ob-main-content{
+  padding-top:10px!important;
+}
+
+/* ═══ Apple-style glass polish — cleaner, lighter, less amber-heavy ═══ */
+body.dark-mode{
+  --bg-grad:linear-gradient(180deg,#07111d 0%,#0b1524 46%,#0d1828 100%);
+  --bg-solid:#07111d;
+  --card-bg:rgba(255,255,255,0.085);
+  --card-bg-solid:rgba(255,255,255,0.13);
+  --card-bg-alt:rgba(255,255,255,0.07);
+  --card-border:rgba(255,255,255,0.16);
+  --sheet-bg:rgba(12,19,31,0.82);
+  --nav-bg:rgba(13,19,30,0.78);
+  --nav-border:rgba(255,255,255,0.18);
+  --nav-shadow:0 18px 60px rgba(0,0,0,0.36),0 1px 0 rgba(255,255,255,0.16) inset,0 -1px 0 rgba(255,255,255,0.06) inset;
+  --blush:rgba(255,255,255,0.16);
+  --rose:rgba(255,255,255,0.12);
+  --text-mid:#c1cad7;
+  --text-lt:#8996a6;
+  --glass-blur:34px;
+  --glass-sat:1.8;
+}
+body.dark-mode::before{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.035),transparent 16%),
+    radial-gradient(ellipse 120% 64% at 50% -18%,rgba(145,190,215,0.14),transparent 58%),
+    linear-gradient(180deg,#07111d 0%,#0b1524 50%,#0d1828 100%);
+}
+body.dark-mode::after{opacity:0.10}
+body.dark-mode .glass-card{
+  border-color:rgba(255,255,255,0.15)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.16) inset,
+    0 -1px 0 rgba(255,255,255,0.05) inset,
+    0 22px 54px rgba(0,0,0,0.28)!important;
+}
+body.dark-mode .glass-card::before{
+  background:linear-gradient(180deg,rgba(255,255,255,0.16) 0%,rgba(255,255,255,0.035) 54%,transparent 100%)!important;
+}
+body.dark-mode .glass-card::after{
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent)!important;
+}
+body.dark-mode button{
+  border-color:rgba(255,255,255,0.13)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.12) inset,
+    0 12px 28px rgba(0,0,0,0.18)!important;
+}
+body.dark-mode button[style*="linear-gradient(135deg"],
+body.dark-mode button[style*="borderRadius:99"],
+body.dark-mode button[style*="borderRadius:14"][style*="flexDirection"]{
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.12) inset,
+    0 12px 26px rgba(0,0,0,0.18)!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row{
+  gap:7px!important;
+  padding:12px 10px!important;
+  border-radius:26px!important;
+  border:1px solid rgba(255,255,255,0.22)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06)),
+    var(--card-bg)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.22) inset,
+    0 20px 46px rgba(0,0,0,0.20)!important;
+}
+body.light-mode div[data-testid="quick-log-row"].ob-quick-log-row,
+body:not(.dark-mode) div[data-testid="quick-log-row"].ob-quick-log-row{
+  border-color:rgba(255,255,255,0.72)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.52),rgba(255,255,255,0.24)),
+    var(--card-bg)!important;
+}
+button.ob-quick-log-btn{
+  flex:1 1 calc(20% - 8px)!important;
+  min-width:58px!important;
+  max-width:96px!important;
+  min-height:68px!important;
+  padding:8px 4px 7px!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,0.12)!important;
+  border:1px solid rgba(255,255,255,0.20)!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.20) inset,
+    0 10px 22px rgba(0,0,0,0.14)!important;
+}
+body.light-mode button.ob-quick-log-btn,
+body:not(.dark-mode) button.ob-quick-log-btn{
+  background:rgba(255,255,255,0.34)!important;
+  border-color:rgba(255,255,255,0.72)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.82) inset,0 10px 22px rgba(91,64,54,0.08)!important;
+}
+body.dark-mode button.ob-quick-log-btn{
+  background:rgba(255,255,255,0.075)!important;
+  border-color:rgba(255,255,255,0.14)!important;
+}
+.ob-quick-log-icon{
+  display:grid!important;
+  place-items:center!important;
+  width:36px!important;
+  height:36px!important;
+  margin-bottom:1px!important;
+  border-radius:14px!important;
+  background:rgba(255,255,255,0.11)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.16) inset!important;
+}
+body.light-mode .ob-quick-log-icon,
+body:not(.dark-mode) .ob-quick-log-icon{background:rgba(255,255,255,0.42)!important}
+.ob-quick-log-label{
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  letter-spacing:0!important;
+}
+.ob-quick-log-dot{
+  width:3px!important;
+  height:3px!important;
+  margin-top:0!important;
+  opacity:0.42!important;
+}
+.ob-day-mode-switcher{
+  border-radius:21px!important;
+  padding:5px!important;
+  border:1px solid rgba(255,255,255,0.18)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.045)),
+    var(--card-bg)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.14) inset,0 12px 30px rgba(0,0,0,0.12)!important;
+}
+button.ob-day-mode-btn{
+  min-height:58px!important;
+  border-radius:17px!important;
+  border:1px solid transparent!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  overflow:hidden!important;
+}
+button.ob-day-mode-btn.is-active{
+  background:rgba(255,255,255,0.13)!important;
+  border-color:rgba(255,255,255,0.22)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.16) inset,0 10px 22px rgba(0,0,0,0.12)!important;
+}
+body.light-mode button.ob-day-mode-btn.is-active,
+body:not(.dark-mode) button.ob-day-mode-btn.is-active{
+  background:rgba(255,255,255,0.52)!important;
+  border-color:rgba(255,255,255,0.78)!important;
+}
+.ob-day-mode-label{
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  letter-spacing:0!important;
+}
+div[role="navigation"][aria-label="Main navigation"]{
+  width:calc(100% - 24px)!important;
+  left:12px!important;
+  right:12px!important;
+  bottom:8px!important;
+  border-radius:25px!important;
+  padding:5px 7px calc(env(safe-area-inset-bottom,0px) + 5px)!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.20),rgba(255,255,255,0.07)),
+    var(--nav-bg)!important;
+  border-color:var(--nav-border)!important;
+}
+body.dark-mode div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.055)),
+    var(--nav-bg)!important;
+}
+button.ob-main-tab-btn{
+  min-height:48px!important;
+  border-radius:19px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+button.ob-main-tab-btn[aria-current="page"]{
+  background:rgba(255,255,255,0.16)!important;
+  border:1px solid rgba(255,255,255,0.24)!important;
+  box-shadow:0 1px 0 rgba(255,255,255,0.18) inset!important;
+}
+body.light-mode button.ob-main-tab-btn[aria-current="page"],
+body:not(.dark-mode) button.ob-main-tab-btn[aria-current="page"]{
+  background:rgba(255,255,255,0.56)!important;
+  border-color:rgba(255,255,255,0.86)!important;
+}
+.ob-main-tab-label{letter-spacing:0!important;white-space:nowrap!important}
+body[data-screen-compact] div[data-testid="quick-log-row"].ob-quick-log-row{
+  flex-wrap:nowrap!important;
+  justify-content:flex-start!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scroll-snap-type:x proximity!important;
+  gap:6px!important;
+  padding:10px 8px!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+body[data-screen-compact] button.ob-quick-log-btn{
+  flex:0 0 72px!important;
+  min-width:72px!important;
+  max-width:72px!important;
+  min-height:64px!important;
+  border-radius:17px!important;
+  scroll-snap-align:start!important;
+}
+body[data-screen-compact] .ob-quick-log-icon{
+  width:33px!important;
+  height:33px!important;
+  border-radius:13px!important;
+}
+body[data-screen-compact] div[role="navigation"][aria-label="Main navigation"]{
+  width:calc(100% - 18px)!important;
+  left:9px!important;
+  right:9px!important;
+  bottom:8px!important;
+  border-radius:24px!important;
+  padding:5px 6px calc(env(safe-area-inset-bottom,0px) + 5px)!important;
+}
+body[data-screen-compact] .ob-main-content{
+  padding-bottom:calc(142px + env(safe-area-inset-bottom,0px))!important;
+}
+body[data-screen-compact] .ob-header-glass{
+  padding:10px 12px 8px!important;
+  border-radius:20px!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.045)),
+    rgba(255,255,255,0.04)!important;
+}
+body[data-screen-compact] .ob-hero{
+  padding:17px 18px!important;
+  margin-bottom:10px!important;
+  border-radius:24px!important;
+}
+body[data-screen-compact] .ob-hero button:not(.ob-hero-help){
+  padding-top:10px!important;
+  padding-bottom:10px!important;
+}
+body[data-screen-compact] .ob-hero .ob-hero-help{
+  width:32px!important;
+  height:32px!important;
+}
+body[data-screen-compact] button.ob-main-tab-btn{
+  min-height:42px!important;
+  padding-top:4px!important;
+  padding-bottom:4px!important;
+}
+body[data-screen-compact] .ob-main-tab-icon{
+  font-size:12px!important;
+}
+body[data-screen-compact] .ob-main-tab-label{
+  font-size:9px!important;
+}
 
 /* Toast entrance + exit */
 @keyframes toastEnter{

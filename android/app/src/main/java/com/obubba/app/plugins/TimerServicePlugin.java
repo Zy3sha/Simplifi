@@ -90,7 +90,14 @@ public class TimerServicePlugin extends Plugin {
                 intent.putExtra(TimerService.EXTRA_TIME_FORMATTED, timeFormatted);
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            boolean timerAlreadyRunning = getContext()
+                    .getSharedPreferences(TimerService.PREFS_NAME, Context.MODE_PRIVATE)
+                    .getBoolean("running", false);
+
+            // Prediction can either update an existing foreground timer or run as
+            // its own sticky "next up" notification. Use foreground start only
+            // when there is no persisted timer already holding the service up.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !timerAlreadyRunning) {
                 getContext().startForegroundService(intent);
             } else {
                 getContext().startService(intent);

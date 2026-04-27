@@ -24,7 +24,7 @@ import java.util.Locale;
 
 public class TimerService extends Service {
 
-    private static final String CHANNEL_ID = "obubba_timers";
+    private static final String CHANNEL_ID = "obubba_active_timers_v2";
     private static final int NOTIFICATION_ID = 99999;
     private static final long UPDATE_INTERVAL_MS = 10000; // 10 seconds
     public static final String PREFS_NAME = "obubba_timer_state";
@@ -90,17 +90,22 @@ public class TimerService extends Service {
                 return START_NOT_STICKY;
 
             case ACTION_UPDATE:
-                // Update side for breast feeding switch
+                // Update side for breast feeding switch. If Android recreated the
+                // service between updates, recover the saved timer before touching
+                // the notification instead of leaving a started service idle.
+                if (!running && !restoreTimerState()) {
+                    stopSelf(startId);
+                    return START_NOT_STICKY;
+                }
                 if (intent.hasExtra(EXTRA_SIDE)) {
                     side = intent.getStringExtra(EXTRA_SIDE);
                 }
                 if (intent.hasExtra(EXTRA_BABY_NAME)) {
                     babyName = intent.getStringExtra(EXTRA_BABY_NAME);
                 }
-                if (running) {
-                    saveTimerState();
-                    updateNotification();
-                }
+                if (!running) startTimer();
+                saveTimerState();
+                updateNotification();
                 return START_STICKY;
 
             case ACTION_START_PREDICTION:
@@ -208,7 +213,7 @@ public class TimerService extends Service {
                 .setShowWhen(true)
                 .setUsesChronometer(true)
                 .setChronometerCountDown(false)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .addAction(R.drawable.ic_notification, "Stop", stopPendingIntent);
@@ -344,7 +349,7 @@ public class TimerService extends Service {
                 .setOnlyAlertOnce(true)
                 .setSilent(true)
                 .setShowWhen(false)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setCategory(NotificationCompat.CATEGORY_EVENT)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .addAction(R.drawable.ic_notification, "Dismiss", stopPendingIntent)
@@ -356,7 +361,7 @@ public class TimerService extends Service {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
                     "Active Timers",
-                    NotificationManager.IMPORTANCE_LOW // Low = no sound, but visible
+                    NotificationManager.IMPORTANCE_DEFAULT
             );
             channel.setDescription("Shows while a feed, nap, or bedtime timer is running");
             channel.enableVibration(false);

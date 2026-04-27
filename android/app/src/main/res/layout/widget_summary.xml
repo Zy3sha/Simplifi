@@ -227,10 +227,14 @@
             android:paddingStart="8dp"
             android:paddingEnd="8dp">
 
-            <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_feed"
+            <TextView
+                android:id="@+id/tv_feed_icon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="🍼"
+                android:textSize="17sp"
                 android:contentDescription="@string/app_name" />
 
             <TextView
@@ -258,10 +262,14 @@
             android:paddingStart="8dp"
             android:paddingEnd="8dp">
 
-            <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_nappy"
+            <TextView
+                android:id="@+id/tv_nappy_icon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="🧷"
+                android:textSize="17sp"
                 android:contentDescription="@string/app_name" />
 
             <TextView
@@ -288,6 +296,13 @@
             android:paddingStart="8dp"
             android:paddingEnd="8dp">
 
+            <ImageView
+                android:id="@+id/iv_ns_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:src="@drawable/ic_sleep"
+                android:contentDescription="@string/app_name" />
+
             <TextView
                 android:id="@+id/tv_ns_icon"
                 android:layout_width="wrap_content"
@@ -295,7 +310,8 @@
                 android:text="▶"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                android:textColor="@color/widget_text_label_nap" />
+                android:textColor="@color/widget_text_label_nap"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/tv_ns_label"
