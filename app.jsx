@@ -2226,25 +2226,52 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
   }
   // ── 1b. Low fluid intake (bottle-fed) ──
   // For bottle-fed babies we know exact ml. Check against NHS minimums.
-  // 150ml/kg/day in first 6 months, ~120ml/kg/day at 6-12 months.
-  // Use a conservative estimate: flag if total is below 50% of expected.
+  // Context-aware: teething, illness, travel, off days all reduce intake naturally.
+  // Don't alarm parents when there's a known reason — downgrade to gentle reminder.
   const _bottleFeeds = _feeds.filter(e => e.feedType !== "breast" && e.amount > 0);
   if (_bottleFeeds.length >= 3 && _ageDays !== null && _ageDays >= 3) {
     const _todayBottle = todayEntries.filter(e => e.type === "feed" && e.feedType !== "breast" && e.amount > 0 && !e.night);
     const _todayMl = _todayBottle.reduce((s, f) => s + (f.amount || 0), 0);
-    // NHS rough minimums by age (ml/day): 0-3mo ~450-600, 3-6mo ~600-800, 6-12mo ~500-600
     const _minMl = _dehMonths < 3 ? 450 : _dehMonths < 6 ? 600 : _dehMonths < 12 ? 500 : 400;
-    // Only flag if it's past midday (give them time to feed) and intake is below 50% of minimum
     const _nowH = new Date().getHours();
-    const _paceMultiplier = Math.min(1, _nowH / 18); // by 6pm expect full day, by noon expect ~67%
+    const _paceMultiplier = Math.min(1, _nowH / 18);
     const _expectedByNow = Math.round(_minMl * _paceMultiplier);
+    // Check for known disruptions — teething, illness, travel, sick day tag
+    const _hasDisruption = (()=>{
+      try {
+        const _dm = JSON.parse(localStorage.getItem("ob_disruption_mode")||"null");
+        if (_dm && (Date.now() - _dm.ts) < 3*86400000) return true; // teething/illness mode active
+        const _tag = localStorage.getItem("ob_day_tag_" + (typeof todayStr === "function" ? todayStr() : "")) || "";
+        if (_tag === "sick" || _tag === "travel") return true;
+        // Check active teething entries in last 7 days
+        const _teeth = JSON.parse(localStorage.getItem("children_v1")||"{}");
+        const _activeChild = Object.values(_teeth).find(c=>c.teething&&c.teething.length);
+        if (_activeChild) {
+          const _recent = (_activeChild.teething||[]).some(t=>t.date&&(Date.now()-new Date(t.date).getTime())<7*86400000);
+          if (_recent) return true;
+        }
+      } catch{}
+      return false;
+    })();
     if (_nowH >= 12 && _todayMl < _expectedByNow * 0.5 && _todayMl > 0) {
+      if (_hasDisruption) {
+        // Known disruption — gentle reminder, not alarm
+        return {
+          type: "low_intake_note",
+          emoji: "🍼",
+          title: "Intake lower than usual",
+          detail: _todayMl + "ml so far today (usually around " + _expectedByNow + "ml by now). This is common during teething, illness, or unsettled days.",
+          action: "Keep offering small, frequent feeds. If intake stays low for 24h+ or wet nappies drop, check with your " + _doctor + ".",
+          urgency: "low",
+          confidence: "medium"
+        };
+      }
       return {
         type: "dehydration_warning",
         emoji: "🍼",
         title: "Feed intake low today",
         detail: _todayMl + "ml so far today. At this age and time of day, around " + _expectedByNow + "ml is typical. That's significantly below expected.",
-        action: "Offer a feed now. If " + (babyName || "baby") + " is refusing feeds, seems unwell, or has fewer wet nappies, contact your " + _doctor + ".",
+        action: "Offer a feed now. If refusing feeds, seems unwell, or has fewer wet nappies, contact your " + _doctor + ".",
         urgency: "high",
         confidence: "high"
       };
