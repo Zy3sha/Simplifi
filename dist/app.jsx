@@ -40761,7 +40761,6 @@ function App(){
               <div style={{display:"flex",flexDirection:"column"}}>
 
               {/* Try Today removed */}
-              })()}
 
               {/* ═══ Weekly Shopping Planner ═══ */}
               {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && daySubScreen==="weaning_next_week" && (()=>{
