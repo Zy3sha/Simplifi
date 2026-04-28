@@ -1355,7 +1355,7 @@ const DATA_WINDOWS = {
   PATTERNS: 10,       // Advanced pattern detection
 };
 
-const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"🧷",tummy:"🤸",bath:"🛁",outdoor:"🌳",play:"🧸",reading:"📖",massage:"🤲",swimming:"🏊",skintokin:"🤱",music:"🎵"};
+const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"💧💩",tummy:"🤸",bath:"🛁",outdoor:"🌳",play:"🧸",reading:"📖",massage:"🤲",swimming:"🏊",skintokin:"🤱",music:"🎵"};
 const NAMES={feed:"Feed",nap:"Nap",wake:"Wake Up",sleep:"Bedtime",poop:"Nappy",tummy:"Tummy Time",bath:"Bath",outdoor:"Outdoor/Walk",play:"Play Time",reading:"Story Time",massage:"Massage",swimming:"Swimming",skintokin:"Skin to Skin",music:"Music"};
 const POOP_TYPES=["Seedy","Mucousy","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Meconium","Other"];
 const POOP_TYPE_INFO={"Seedy":{normal:true,desc:"Small seed-like bits are completely normal, especially in breastfed babies. Shows your baby is digesting milk well."},"Green":{normal:true,desc:"Usually nothing to worry about — can happen with formula, dietary changes, or more foremilk. If baby seems well, no action needed."},"Brown":{normal:true,desc:"Perfectly normal and very common, especially once your baby starts solid foods."},"Dark green":{normal:true,desc:"Usually normal — can be caused by iron in formula or supplements. If baby seems well and is feeding normally, no need to worry."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Black/tarry":{normal:false,desc:`Only normal in the first few days of life (meconium). After that, contact your ${_healthContact} promptly as it may indicate blood in the stool.`},"White/pale":{normal:false,desc:`Needs urgent medical attention. Contact your ${_healthContact} the same day — it can be a sign of a liver problem that needs checking.`},"Mucousy":{normal:true,desc:`A small amount of mucus is common and often linked to teething, a cold, or drooling. If it persists, mention it to your ${_healthContact}.`},"Watery":{normal:false,desc:`Can be a sign of diarrhoea. Keep baby hydrated and contact your ${_healthContact} if it lasts more than 24 hours, or sooner if baby is under 3 months.`},"Formed/solid":{normal:true,desc:"Soft, formed poo is normal once your baby starts solids. It should be easy to pass and not hard or dry."},"Pellet-like":{normal:false,desc:`Small, hard pellets can be a sign of constipation. Try extra fluids and speak to your ${_healthContact} if it continues.`},"Frothy":{normal:true,desc:"Usually harmless — can happen if a breastfed baby gets more foremilk than hindmilk. Not a concern if baby is gaining weight well."},"Bloody/streaked":{normal:false,desc:`Blood in baby's nappy should always be checked. Small streaks can sometimes be from straining, but contact your ${_healthContact} to be safe.`},"Meconium":{normal:true,desc:"The thick, dark, sticky poo in baby's first day or two. Completely normal — shows bowels are working. Should clear within a few days."},"Other":{normal:true,desc:`Baby poo varies a lot day to day. If something doesn't seem right, your ${_healthContact} can help.`}};
@@ -4315,7 +4315,7 @@ function BubbaMoji({name="sparkle",size=30,animate=false,style={}}){
 const BUBBAMOJI_EMOJI_MAP = Object.freeze({
   "🍼":"feed",
   "🤱":"breast",
-  "🧷":"nappy",
+  "💧💩":"nappy",
   "😴":"nap",
   "🌙":"moon",
   "☀️":"sun",
@@ -4348,7 +4348,7 @@ const BUBBAMOJI_EMOJI_MAP = Object.freeze({
 });
 
 const OB_UNICODE_ICON_MAP = Object.freeze({
-  feed:"🍼", breast:"🤱", nappy:"🧷", poop:"🧷", nap:"😴", sleep:"😴", pump:"🥛",
+  feed:"🍼", breast:"🤱", nappy:"💧💩", poop:"💧💩", nap:"😴", sleep:"😴", pump:"🥛",
   crying:"😭", sounds:"🎵", meal:"🍽️", voice:"🎙️", medicine:"💊", milestone:"🏆",
   sparkle:"✨", moon:"🌙", sun:"☀️", wake:"☀️", today:"📅", understand:"💡",
   grow:"🌱", account:"👤", home:"🏠", daycare:"🏢", grandparents:"👴", travel:"✈️",
@@ -5996,7 +5996,7 @@ function App(){
           break;
         case 'quick_nappy':
           quickAddLog("poop", {type:"poop", time:timeNow, poopType:"wet", note:"via widget"});
-          showToast("🧷 Nappy logged via Widget ✓", 3000, 1);
+          showToast("💧💩 Nappy logged via Widget ✓", 3000, 1);
           break;
         case 'stop_timer':
         case 'toggle_nap': {
@@ -6237,7 +6237,7 @@ function App(){
                 const _pColour = entry.poopColour||"";
                 const _pNote = _pColour ? `${_pColour} via Siri` : "via Siri";
                 quickAddLog("poop", {type:"poop", time, poopType:_pType, poopColour:_pColour, note:_pNote});
-                showToast(_pColour ? `🧷 ${_pType} nappy (${_pColour}) logged via Siri ✓` : `🧷 ${_pType} nappy logged via Siri ✓`, 3000, 1);
+                showToast(_pColour ? `💧💩 ${_pType} nappy (${_pColour}) logged via Siri ✓` : `💧💩 ${_pType} nappy logged via Siri ✓`, 3000, 1);
               } else if(entry.type==='night_wake') {
                 // Night wake via Siri. build the wake entry
                 const _nwSelf = entry.selfSettled === true || entry.selfSettled === "true";
@@ -7269,7 +7269,7 @@ function App(){
           : e.type === "sleep" ? "🌙 Bedtime"
           : e.type === "wake" ? (e.night ? "🌙 Night wake" : "☀️ Morning wake")
           : e.type === "feed" ? "🍼 Feed"
-          : e.type === "poop" ? "🧷 Nappy"
+          : e.type === "poop" ? "💧💩 Nappy"
           : e.type;
         _sample.push(`${dk} ${_t}${_end} · ${_label}${e.note ? " · " + e.note.slice(0,30) : ""}`);
       }
@@ -8055,7 +8055,7 @@ function App(){
       let elapsedMins = (now.getHours()*60+now.getMinutes()) - (nh*60+nm);
       if(elapsedMins < 0) elapsedMins += 1440;
       if(elapsedMins >= nappyReminderMins && elapsedMins < nappyReminderMins + 2){
-        showToast(`🧷 Nappy check! It's been ${hm(elapsedMins)} since the last change`,4000,2);
+        showToast(`💧💩 Nappy check! It's been ${hm(elapsedMins)} since the last change`,4000,2);
         haptic("medium")
       }
     },60000);
@@ -10595,7 +10595,7 @@ function App(){
               _set(_doc(_db,"carer_logs",backupCode,"entries",d.id),{_merged:true,_mergedAt:Date.now()},{merge:true}).catch(()=>{});
             } catch(_){}
             // Gentle toast
-            const _typeLabel = _e.type==="feed"?"🍼 Feed":_e.type==="nap"?"😴 Nap":_e.type==="poop"||_e.type==="nappy"?"🧷 Nappy":_e.type==="wake"?"☀️ Wake":"📝 Entry";
+            const _typeLabel = _e.type==="feed"?"🍼 Feed":_e.type==="nap"?"😴 Nap":_e.type==="poop"||_e.type==="nappy"?"💧💩 Nappy":_e.type==="wake"?"☀️ Wake":"📝 Entry";
             showToast(_typeLabel+" from carer · auto-added",2500,1);
           }
         });
@@ -14937,8 +14937,8 @@ function App(){
       const _isBedtime = _hasBed || !!bedTimerDay;
       _secParts.push("\u{1F37C} " + (_isBedtime ? "Last feed " + hm(_feedGapM) + " ago" : "Last feed " + hm(_feedGapM) + " ago" + (_nextFeedStr && _feedGapM < _feedThreshM ? " \u00B7 next ~" + _nextFeedStr + (_nextFeedMlStr ? " \u00B7 " + _nextFeedMlStr + (_feedMlContext ? " (bigger feed may help tonight)" : "") : "") : "")));
     }
-    if (_nappyGapM < 9000 && _nappyGapM >= 120) _secParts.push("🧷 Nappy " + hm(_nappyGapM) + " ago");
-    else if (_nappyGapM < 120 && _nappyGapM < 9000) _secParts.push("🧷 Nappy changed " + hm(_nappyGapM) + " ago");
+    if (_nappyGapM < 9000 && _nappyGapM >= 120) _secParts.push("💧💩 Nappy " + hm(_nappyGapM) + " ago");
+    else if (_nappyGapM < 120 && _nappyGapM < 9000) _secParts.push("💧💩 Nappy changed " + hm(_nappyGapM) + " ago");
     if (_growthSpurt) _secParts.push("📈 Possible growth spurt. extra feeds are normal");
     if (_quietDay && !_growthSpurt) _secParts.push("Quieter feeding day. this is common (growth spurts, developmental phases). keep offering as normal");
     _secondary = _secParts.length > 0 ? _secParts.join(" · ") : null;
@@ -15002,7 +15002,7 @@ function App(){
     }
     // Priority 3: Nappy overdue
     if (!_nextEvent && _nappyGapM > 210 && _nappyGapM < 9000) {
-      _nextEvent = { icon: "🧷", text: "Nappy check. " + hm(_nappyGapM) + " since last change" };
+      _nextEvent = { icon: "💧💩", text: "Nappy check. " + hm(_nappyGapM) + " since last change" };
     }
     // Priority 4: Next nap coming up (beyond 30min)
     if (!_nextEvent && _pred && typeof _pred.napStart_min === "number" && !_napsComplete) {
@@ -22323,7 +22323,7 @@ function App(){
           _nappyRemindAt = new Date(now + 30*60*1000);
         }
         if(_nappyRemindAt.getTime() > now && _nappyRemindAt.getTime() < now + 6*3600000){
-          notifications.push({title:`🧷 Time for a nappy check`,body:`It's been ${hm(nappyReminderMins)} since ${_bn}'s last change at ${fmt12(_lastNappy.time)}.`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders",extra:{action:"log_nappy"}});
+          notifications.push({title:`💧💩 Time for a nappy check`,body:`It's been ${hm(nappyReminderMins)} since ${_bn}'s last change at ${fmt12(_lastNappy.time)}.`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders",extra:{action:"log_nappy"}});
         }
       }
     }
@@ -25790,7 +25790,7 @@ function App(){
     } catch {}
     setLogPanel(null);
     haptic("medium")
-    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"🧷 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
+    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"💧💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
     const timeLabel = data.time ? " at "+fmt12(data.time) : "";
     showToast(label+timeLabel+" · Shake to undo",3000,1);
 
@@ -26465,7 +26465,7 @@ function App(){
     else if (nappyGapMins >= 120) { nappyScore = 55; nappyUrgency = "med"; nappyDetail = `Last nappy change was ${hm(nappyGapMins)} ago`; }
     else if (lastNappy) { nappyDetail = `Last changed ${hm(nappyGapMins)} ago`; }
     reasons.push({
-      emoji: "🧷", title: "Wet or dirty nappy",
+      emoji: "💧💩", title: "Wet or dirty nappy",
       detail: nappyDetail,
       action: nappyGapMins >= 120 ? "Likely due a change. check and change if needed" : "Check and change if needed",
       urgency: nappyUrgency, score: nappyScore
@@ -28573,7 +28573,7 @@ function App(){
         lines.push("Last nappy: " + fmt12(_lastNappy.time) + (_lastNappy.poopType ? " (" + _lastNappy.poopType + ")" : ""));
       }
       lines.push("");
-      lines.push("Today so far: 🍼 " + feeds.length + " feeds · 💤 " + naps.length + " naps · 🧷 " + nappies.length + " nappies");
+      lines.push("Today so far: 🍼 " + feeds.length + " feeds · 💤 " + naps.length + " naps · 💧💩 " + nappies.length + " nappies");
       if(totalMl > 0) lines.push("Fluids: " + totalMl + "ml total");
       if(_medsToday.length) {
         lines.push("");
@@ -28606,7 +28606,7 @@ function App(){
       lines.push("Today's summary:");
       lines.push("🍼 " + feeds.length + " feeds" + (totalMl > 0 ? " (" + totalMl + "ml total)" : ""));
       lines.push("💤 " + naps.length + " naps (" + hm(totalNapMin) + " total)");
-      lines.push("🧷 " + nappies.length + " nappies (" + wet + " wet)");
+      lines.push("💧💩 " + nappies.length + " nappies (" + wet + " wet)");
       if(lastFeed) lines.push("Last feed: " + fmt12(lastFeed.time) + (lastFeed.amount ? " ("+lastFeed.amount+"ml)" : ""));
       if(lastNap) lines.push("Last nap ended: " + fmt12(lastNap.end));
       lines.push("");
@@ -28753,7 +28753,7 @@ function App(){
 
     // NAPPIES
     sections.push(`<div style="background:#FFF9F0;border:1px solid #F0E0C8;border-radius:16px;padding:16px;margin-bottom:12px">
-      <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">🧷 Nappies</h2>
+      <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">💧💩 Nappies</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
         <tr><td style="padding:4px 0;color:#A898AC">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
         ${lastNappy ? `<tr><td style="padding:4px 0;color:#A898AC">Last nappy</td><td style="padding:4px 0;font-weight:600">${fmt12(lastNappy.time)}. ${lastNappy.poopType||"wet"}</td></tr>` : ""}
@@ -32962,7 +32962,7 @@ function App(){
         const DAY_TUT_STEPS = [
           { icon:"☀️", title:"Your Day Dashboard", body:"This is where your day lives. Everything you need is right here, one screen, no hunting.\n\nLet's walk through each section so you feel confident from day one." },
           { icon:"🧠", title:"The Hero Card", body:"The card at the very top is " + _bn3 + "'s brain. It reads everything you've logged and tells you:\n\n• What's happening RIGHT NOW\n• What's likely coming NEXT\n• A gentle nudge if something needs attention\n\nIt updates in real-time as you log." },
-          { icon:"⚡", title:"One-Tap Log Row", body:"The button bar below the hero card is your best friend.\n\nOne tap = logged. No forms needed.\n\n• 🍼 Feed  • 🤱 Breast  • 🧷 Nappy\n• 😴 Nap  • 🫙 Pump  • 😢 Crying?\n\nLong-press any button for more options (like choosing feed type or backdating a nap)." },
+          { icon:"⚡", title:"One-Tap Log Row", body:"The button bar below the hero card is your best friend.\n\nOne tap = logged. No forms needed.\n\n• 🍼 Feed  • 🤱 Breast  • 💧💩 Nappy\n• 😴 Nap  • 🫙 Pump  • 😢 Crying?\n\nLong-press any button for more options (like choosing feed type or backdating a nap)." },
           { icon:"😴", title:"How naps work", body:"Tap 😴 to start a nap timer. Tap again to stop it. That's it.\n\n• Long-press 😴 to backdate (nap started 10 mins ago in the car?)\n• A live timer appears on screen while " + _bn3 + " sleeps\n• When you stop it, the nap is logged with exact duration\n\nThe app uses nap times to learn " + _bn3 + "'s rhythm and predict what comes next." },
           { icon:"⏰", title:"Wake windows", body:"A wake window is how long " + _bn3 + " can happily stay awake between sleeps.\n\nOBubba knows the right wake window for " + _bn3 + "'s age and adjusts it through the day (shorter in the morning, longer before bed).\n\nWhen " + _bn3 + " is approaching the end of a wake window, the hero card gently tells you it's nearly nap time." },
           { icon:"🔮", title:"Nap predictions", body:"After a few days of logging, OBubba starts predicting naps.\n\n• Based on " + _bn3 + "'s age, wake windows, and YOUR logged patterns\n• Shows estimated next nap time on the hero card\n• The Plan view (inside Today) shows all upcoming naps\n\nPredictions get personal by day 3 and really accurate by day 7. The more you log, the smarter they get." },
@@ -34054,7 +34054,7 @@ function App(){
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:6}}>
                       {[
-                        ["🧷","Bubba Care. share a care guide with carers via QR. They can log feeds, naps, nappies in real-time."],
+                        ["💧💩","Bubba Care. share a care guide with carers via QR. They can log feeds, naps, nappies in real-time."],
                         ["🧠","Smarter predictions. confidence indicator, illness mode, fragmented nap rescue"],
                         ["📸","Share cards. Weekly Wrapped, milestone celebrations, auto-copy captions with hashtags"],
                         ["🤒","Not a normal day?. teething/illness mode shortens wake windows automatically"],
@@ -34711,7 +34711,7 @@ function App(){
                       <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>Set a gentle prompt for medicine, appointments, or anything future-you will appreciate.</div>
                     </div>}
                     {reminders.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(r=>{
-                      const triggerLabels2 = {after_nap:"😴 After nap",after_feed:"🍼 After feed",after_wake:"☀️ Every wake",after_nappy:"🧷 After nappy",after_bedtime:"🌙 At bedtime"};
+                      const triggerLabels2 = {after_nap:"😴 After nap",after_feed:"🍼 After feed",after_wake:"☀️ Every wake",after_nappy:"💧💩 After nappy",after_bedtime:"🌙 At bedtime"};
                       return (
                         <div key={r.id} className="glass-card" style={{padding:"12px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
                           <div onClick={()=>{haptic();toggleReminder(r.id);}} style={{width:22,height:22,borderRadius:"50%",border:"2px solid "+C.mint,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}/>
@@ -34730,7 +34730,7 @@ function App(){
                     <div className="glass-card" style={{padding:"14px 16px",marginBottom:8}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                         <div style={_S.flexCenter10}>
-                          <span style={_S.f18}>🧷</span>
+                          <span style={_S.f18}>💧💩</span>
                           <div>
                             <div style={{fontSize:14,fontWeight:600,color:C.deep}}>Nappy Reminder</div>
                             <div style={{fontSize:12,color:C.mid,marginTop:2}}>{nappyReminderMins ? "Every "+hm(nappyReminderMins) : "Off"}</div>
@@ -36219,7 +36219,7 @@ function App(){
                         const _lines = [];
                         _de.forEach(e=>{
                           const _t = e.time || "";
-                          const _type = e.type==="feed"?(e.feedType==="breast"?"🤱 Breast":"🍼 Bottle"):e.type==="nap"?"😴 Nap":e.type==="poop"?"🧷 Nappy":e.type==="wake"?(e.night?"🌙 Night":"☀️ Wake"):e.type==="sleep"?"🌙 Bed":"📝 "+e.type;
+                          const _type = e.type==="feed"?(e.feedType==="breast"?"🤱 Breast":"🍼 Bottle"):e.type==="nap"?"😴 Nap":e.type==="poop"?"💧💩 Nappy":e.type==="wake"?(e.night?"🌙 Night":"☀️ Wake"):e.type==="sleep"?"🌙 Bed":"📝 "+e.type;
                           let _d2 = "";
                           if(e.type==="feed"&&e.amount) _d2 = " "+e.amount+"ml";
                           if(e.type==="nap"&&e.start&&e.end) _d2 = " "+hm(minDiff(e.start,e.end));
@@ -36399,7 +36399,7 @@ function App(){
               <div data-actions-grid="true" id="detail-log-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                 {[
                   {id:"feed",  icon:"🍼", label:"Feed"},
-                  {id:"nappy", icon:"🧷", label:"Nappy"},
+                  {id:"nappy", icon:"💧💩", label:"Nappy"},
                   {id:"sleep", icon:"😴", label:"Sleep"},
                   {id:"pump",  icon:"🫙", label:"Pump"},
                   {id:"wake",  icon:"☀️", label:"Wake Up"},
@@ -36546,7 +36546,7 @@ function App(){
                     <button onClick={()=>{setReminderForm({text:"",date:todayStr(),time:"",trigger:"",repeat:"none"});setShowAddReminder(true);}} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                   </div>
                   {reminders.filter(r=>!r.done).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).map(r=>{
-                    const triggerLabels = {after_nap:"😴 After nap only",after_feed:"🍼 After feed",after_wake:"☀️ Every wake",after_nappy:"🧷 After nappy",after_bedtime:"🌙 At bedtime"};
+                    const triggerLabels = {after_nap:"😴 After nap only",after_feed:"🍼 After feed",after_wake:"☀️ Every wake",after_nappy:"💧💩 After nappy",after_bedtime:"🌙 At bedtime"};
                     return (
                     <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:`1px solid ${C.blush}`}}>
                       <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${C.mint}`,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}/>
@@ -36672,9 +36672,9 @@ function App(){
                     : _w < 26 ? "🍼 Milk. Around 600–900ml total per day across 4–6 feeds. This varies a lot between babies."
                     : _w < 52 ? "🍼 Milk. Around 500–700ml per day as solids increase. Milk is still the main source of nutrition until 12 months."
                     : "🍼 Milk. Roughly 350–500ml per day alongside meals. Whole cow's milk is fine from 12 months.";
-                  const _nappyTip = _w < 6 ? "🧷 Nappies. At least 6 wet nappies in 24 hours. Frequent poos are normal. some babies poo after every feed."
-                    : _w < 26 ? "🧷 Nappies. 6+ wet nappies a day. Breastfed babies can go up to a week between poos after 6 weeks. completely normal if the poo is soft."
-                    : "🧷 Nappies. 6+ wet nappies a day. Poo may change colour and texture with new foods. this is normal.";
+                  const _nappyTip = _w < 6 ? "💧💩 Nappies. At least 6 wet nappies in 24 hours. Frequent poos are normal. some babies poo after every feed."
+                    : _w < 26 ? "💧💩 Nappies. 6+ wet nappies a day. Breastfed babies can go up to a week between poos after 6 weeks. completely normal if the poo is soft."
+                    : "💧💩 Nappies. 6+ wet nappies a day. Poo may change colour and texture with new foods. this is normal.";
                   const _sleepTip = _w < 6 ? "😴 Day sleep. 4–5 hours across many short naps. Newborn sleep is unpredictable and that's okay."
                     : _w < 13 ? "😴 Day sleep. 3.5–5 hours across 4–5 naps. Naps are often short (30–45 min). this is completely normal."
                     : _w < 26 ? "😴 Day sleep. 2.5–3.5 hours across 3 naps. Some naps may start lengthening around now."
@@ -36765,7 +36765,7 @@ function App(){
                   }
                   return [
                     _feedTile,
-                    {big:dayE.filter(e=>e.type==="poop").length,unit:"🧷",label:"Nappies",color:C.mid,bg:"var(--card-bg)"},
+                    {big:dayE.filter(e=>e.type==="poop").length,unit:"💧💩",label:"Nappies",color:C.mid,bg:"var(--card-bg)"},
                     {big:naps.length,unit:"naps",label:"Day Sleep",color:C.mint,bg:"var(--card-bg)"},
                     {big:napOn?(()=>{const total=napMins*60+napSec;const h=Math.floor(total/3600);const m=Math.floor((total%3600)/60);const s=total%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;})():(naps.length===0?"--":hm(napMins)),unit:"",label:"Nap Time",color:C.sky,bg:"var(--card-bg)"},
                   ];
@@ -44213,12 +44213,12 @@ function App(){
             {/* Nappy reminder */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
               <div style={_S.flexCenter10}>
-                <span style={_S.f18}>🧷</span>
+                <span style={_S.f18}>💧💩</span>
                 <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Nappy Reminder</span>
               </div>
               <div style={{display:"flex",gap:3}}>
                 {[0,120,150,180].map(m=>(
-                  <button key={m} onClick={()=>{haptic();setNappyReminderMins(m);if(m)showToast(`🧷 Nappy reminder set. every ${hm(m)}`,2000,1);}} style={{padding:"5px 8px",borderRadius:8,border:`1.5px solid ${nappyReminderMins===m?C.ter:C.blush}`,background:nappyReminderMins===m?C.ter+"15":"transparent",color:nappyReminderMins===m?C.ter:C.lt,fontSize:10,fontWeight:600,cursor:_cP,fontFamily:_fM}}>
+                  <button key={m} onClick={()=>{haptic();setNappyReminderMins(m);if(m)showToast(`💧💩 Nappy reminder set. every ${hm(m)}`,2000,1);}} style={{padding:"5px 8px",borderRadius:8,border:`1.5px solid ${nappyReminderMins===m?C.ter:C.blush}`,background:nappyReminderMins===m?C.ter+"15":"transparent",color:nappyReminderMins===m?C.ter:C.lt,fontSize:10,fontWeight:600,cursor:_cP,fontFamily:_fM}}>
                     {m===0?"Off":hm(m)}
                   </button>
                 ))}
@@ -44851,7 +44851,7 @@ function App(){
       )}
 
       {logPanel==="nappy"&&(
-        <Sheet onClose={()=>{setLogPanel(null);setNappyMode(null);setNappyTime("");setSelectedPoopColour("");}} title="🧷 Log Nappy">
+        <Sheet onClose={()=>{setLogPanel(null);setNappyMode(null);setNappyTime("");setSelectedPoopColour("");}} title="💧💩 Log Nappy">
           <div>
             <div style={_S.mb12}>
               <label style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>Time (optional)</label>
@@ -47035,7 +47035,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     )}
                     {(r.title==="Wet/Dirty Nappy"||r.title.includes("Nappy"))&&(
                       <button onClick={()=>{quickAddLog("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""});setShowCryingHelper(false);setCryingResult(null);setCryingHelps(prev=>({...prev,wet_or_dirty_nappy:(prev.wet_or_dirty_nappy||0)+1}));}}
-                        style={{marginTop:6,padding:"5px 12px",borderRadius:99,border:`1px solid ${C.gold}40`,background:C.gold+"0A",fontSize:11,fontWeight:700,color:C.gold,cursor:_cP}}>🧷 Log nappy change</button>
+                        style={{marginTop:6,padding:"5px 12px",borderRadius:99,border:`1px solid ${C.gold}40`,background:C.gold+"0A",fontSize:11,fontWeight:700,color:C.gold,cursor:_cP}}>💧💩 Log nappy change</button>
                     )}
                   </div>
                 </div>
@@ -47056,7 +47056,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     // the list was a fixed cosmetic order, so the parent
                     // had to scroll past "Hungry" every time even if
                     // "Overtired" was the thing that always worked.
-                    const _base = [["🍼","Hungry","hungry"],["😴","Tired/sleep","overtired"],["💨","Wind/gas","wind_or_gas"],["🧷","Nappy change","wet_or_dirty_nappy"],["🦷","Teething","teething_pain"],["🌡️","Temperature","too_hot_or_cold"],["🫣","Overstimulated","overstimulated"],["🤱","Comfort/cuddle","comfort"],["🛁","Bath","bath"],["🚶","Walk/fresh air","walk"]];
+                    const _base = [["🍼","Hungry","hungry"],["😴","Tired/sleep","overtired"],["💨","Wind/gas","wind_or_gas"],["💧💩","Nappy change","wet_or_dirty_nappy"],["🦷","Teething","teething_pain"],["🌡️","Temperature","too_hot_or_cold"],["🫣","Overstimulated","overstimulated"],["🤱","Comfort/cuddle","comfort"],["🛁","Bath","bath"],["🚶","Walk/fresh air","walk"]];
                     const _counts = cryingHelps || {};
                     const _total = Object.values(_counts).reduce((a,b)=>a+b,0);
                     const _withCounts = _base.map(b => ({
@@ -48260,7 +48260,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                         <div style={{fontSize:13,fontWeight:700,color:napOn?C.mint:C.deep}}>{_napAgo}</div>
                       </div>
                       <div style={{textAlign:"center",padding:"8px 4px",background:"var(--card-bg-alt)",borderRadius:12}}>
-                        <div style={{fontSize:24,marginBottom:2}}>🧷</div>
+                        <div style={{fontSize:24,marginBottom:2}}>💧💩</div>
                         <div style={{fontSize:11,color:C.lt,marginBottom:2}}>Nappy</div>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_gpNappyAgo}</div>
                       </div>
@@ -48312,7 +48312,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       <span>{napOn?"Baby Woke Up":"Start Nap"}</span>
                     </button>
                     <button onClick={()=>{haptic();setGpSheet("nappy");}} style={_btn}>
-                      <span style={{fontSize:36}}>🧷</span>
+                      <span style={{fontSize:36}}>💧💩</span>
                       <span>Log Nappy</span>
                     </button>
                     <button onClick={()=>{haptic();setGpNoteText("");setGpSheet("note");}} style={_btn}>
@@ -48424,7 +48424,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         <div onClick={()=>setPoopWhyOpen(false)} style={{position:"fixed",inset:0,background:"var(--sheet-overlay)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",borderRadius:24,padding:"24px 20px",maxWidth:400,width:"100%",maxHeight:_sheetMaxH,overflowY:"auto",position:"relative"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>🧷 What's normal?</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>💧💩 What's normal?</div>
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setPoopWhyOpen(false)} style={{width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
             </div>
             <div style={{fontSize:13,color:C.mid,lineHeight:1.7}}>
@@ -48461,7 +48461,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               ) : (
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {carerEntries.map(entry => {
-                    const icon = entry.type==="feed"?"🍼":entry.type==="nap"?"😴":entry.type==="poop"?"🧷":"📝";
+                    const icon = entry.type==="feed"?"🍼":entry.type==="nap"?"😴":entry.type==="poop"?"💧💩":"📝";
                     const dotColor = entry.type==="feed"?C.ter:entry.type==="nap"?"#7B68EE":entry.type==="poop"?C.gold:C.lt;
                     let desc = "";
                     if(entry.type==="feed") desc = (entry.feedType||"bottle") + (entry.amount?". "+entry.amount+"ml":"");
@@ -48988,7 +48988,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       <div style={{display:"flex",flexDirection:"column",gap:6,fontSize:11,color:C.mid}}>
                         <div style={{display:"flex",justifyContent:"space-between"}}><span>🍼 Feeds</span><strong style={{color:C.deep}}>{r.feeds}{r.totalMl?` (${r.totalMl}ml)`:""}</strong></div>
                         <div style={{display:"flex",justifyContent:"space-between"}}><span>💤 Naps</span><strong style={{color:C.deep}}>{r.naps}{r.totalNapMin?` (${hm(r.totalNapMin)})`:""}</strong></div>
-                        <div style={{display:"flex",justifyContent:"space-between"}}><span>🧷 Nappies</span><strong style={{color:C.deep}}>{r.nappies}</strong></div>
+                        <div style={{display:"flex",justifyContent:"space-between"}}><span>💧💩 Nappies</span><strong style={{color:C.deep}}>{r.nappies}</strong></div>
                         {r.lastFeed && <div style={{display:"flex",justifyContent:"space-between",fontSize:10}}><span style={{color:C.lt}}>Last feed</span><span style={{color:C.mid}}>{fmt12(r.lastFeed.time)}</span></div>}
                         {r.lastNap && <div style={{display:"flex",justifyContent:"space-between",fontSize:10}}><span style={{color:C.lt}}>Last nap end</span><span style={{color:C.mid}}>{fmt12(r.lastNap.end)}</span></div>}
                         {r.lastNappy && <div style={{display:"flex",justifyContent:"space-between",fontSize:10}}><span style={{color:C.lt}}>Last nappy</span><span style={{color:C.mid}}>{fmt12(r.lastNappy.time)}</span></div>}
@@ -49183,7 +49183,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       {importResult.breakdown.feeds>0 && <div>🍼 {importResult.breakdown.feeds} feeds</div>}
                       {importResult.breakdown.sleeps>0 && <div>🌙 {importResult.breakdown.sleeps} bedtimes</div>}
                       {importResult.breakdown.naps>0 && <div>😴 {importResult.breakdown.naps} naps</div>}
-                      {importResult.breakdown.poops>0 && <div>🧷 {importResult.breakdown.poops} nappies</div>}
+                      {importResult.breakdown.poops>0 && <div>💧💩 {importResult.breakdown.poops} nappies</div>}
                       {importResult.breakdown.wakes>0 && <div>☀️ {importResult.breakdown.wakes} wakes</div>}
                     </div>
                   )}
@@ -49218,7 +49218,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       {importResult.breakdown.feeds>0 && <div>🍼 {importResult.breakdown.feeds} feeds</div>}
                       {importResult.breakdown.sleeps>0 && <div>🌙 {importResult.breakdown.sleeps} bedtimes</div>}
                       {importResult.breakdown.naps>0 && <div>😴 {importResult.breakdown.naps} naps</div>}
-                      {importResult.breakdown.poops>0 && <div>🧷 {importResult.breakdown.poops} nappies</div>}
+                      {importResult.breakdown.poops>0 && <div>💧💩 {importResult.breakdown.poops} nappies</div>}
                       {importResult.breakdown.wakes>0 && <div>☀️ {importResult.breakdown.wakes} wakes</div>}
                     </div>
                   )}
@@ -49646,7 +49646,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 {v:"after_nap",label:"😴 After Nap Only"},
                 {v:"after_feed",label:"🍼 After Feed"},
                 {v:"after_wake",label:"☀️ After Every Wake"},
-                {v:"after_nappy",label:"🧷 After Nappy"},
+                {v:"after_nappy",label:"💧💩 After Nappy"},
                 {v:"after_bedtime",label:"🌙 At Bedtime"},
               ].map(t=>(
                 <button key={t.v} onClick={()=>setReminderForm(f=>({...f,trigger:t.v}))}
@@ -49748,14 +49748,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         <div role="dialog" aria-modal="true" onClick={()=>setGpSheet(null)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",zIndex:9990,display:"flex",alignItems:"flex-end"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"28px 28px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:_maxW,margin:"0 auto",maxHeight:_sheetMaxH,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
             <div style={{width:40,height:4,background:C.blush,borderRadius:99,margin:"0 auto 20px"}}/>
-            <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>🧷 Log a Nappy</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>💧💩 Log a Nappy</div>
             <div style={{fontSize:15,color:C.mid,textAlign:"center",marginBottom:24}}>What's in it?</div>
             {[{k:"wet",lbl:"Wet",icon:"💧"},{k:"dirty",lbl:"Dirty",icon:"💩"},{k:"wet + dirty",lbl:"Wet + Dirty",icon:"💧💩"}].map(opt=>(
               <button key={opt.k} onClick={()=>{
                 haptic();
                 quickAddLog("poop",{type:"poop",time:nowTime(),poopType:opt.k,loggedBy:"grandparent",note:"Logged by caregiver"});
                 setGpSheet(null);
-                showToast("🧷 Nappy saved · "+opt.lbl,2000,1);
+                showToast("💧💩 Nappy saved · "+opt.lbl,2000,1);
               }} style={{width:"100%",padding:"24px 20px",borderRadius:18,border:`2px solid ${C.blush}`,background:"var(--card-bg)",color:C.deep,fontSize:22,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:10,display:"flex",alignItems:"center",justifyContent:"center",gap:14}}>
                 <span style={_S.f28}>{opt.icon}</span>
                 <span>{opt.lbl}</span>

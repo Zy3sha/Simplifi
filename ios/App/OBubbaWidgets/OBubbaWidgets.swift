@@ -910,7 +910,7 @@ struct OBubbaMediumWidgetView: View {
                     }
                 }
                 Link(destination: URL(string: "obubba://?action=quick_nappy")!) {
-                    ActionBtn(icon: "leaf.fill", label: "Nappy", color: brandMint)
+                    ActionBtn(icon: "pin.fill", label: "Nappy", color: brandMint, emoji: "🧷")
                 }
                 if d.activeTimer == "bed" && hasTimer {
                     // Bedtime active — offer morning wake
@@ -1014,7 +1014,7 @@ struct OBubbaLockScreenRectangular: View {
                 }
 
                 HStack(spacing: 3) {
-                    Image(systemName: "leaf.fill").font(.system(size: 9))
+                    Text("🧷").font(.system(size: 9))
                     Text("\(d.nappyCount)").font(.system(size: 13, weight: .bold, design: .rounded))
                 }
             }
@@ -1055,7 +1055,7 @@ struct OBubbaLockScreenInline: View {
                 Image(systemName: "moon.zzz.fill").font(.caption2)
                 Text("\(d.sleepCount)").font(.system(.caption, design: .rounded)).bold()
                 Text("·").foregroundColor(.secondary)
-                Image(systemName: "leaf.fill").font(.caption2)
+                Text("🧷").font(.caption2)
                 Text("\(d.nappyCount)").font(.system(.caption, design: .rounded)).bold()
             }
         }
