@@ -28,7 +28,7 @@ const path = require("path");
 function getWakeWindow(ageWeeks) {
   // Kept in sync with app.jsx: defensive guard for NaN/undefined/negative age.
   // Without this, NaN comparisons always return false → findIndex returns -1 →
-  // idx pins at the 36mo+ stage (6–12h wake window) — catastrophic for a
+  // idx pins at the oldest-child stage — catastrophic for a
   // newborn during a calcAge glitch.
   if (typeof ageWeeks !== "number" || isNaN(ageWeeks) || ageWeeks < 0) {
     return { min: 60, max: 90, midpoint: 75, label: "~60–90 min" };
@@ -45,7 +45,8 @@ function getWakeWindow(ageWeeks) {
     [15,   210, 270],
     [19,   270, 330],
     [36,   300, 360],
-    [Infinity, 360, 720]
+    [48,   360, 480],
+    [Infinity, 420, 720]
   ];
   let idx = stages.findIndex(s => months < s[0]);
   if (idx < 0) idx = stages.length - 1;
@@ -134,6 +135,20 @@ function clampNapDuration(dur, ageWeeks) {
   return Math.max(15, Math.min(maxDur, dur));
 }
 
+function guidelineSleepRangeMins(ageWeeks) {
+  if (ageWeeks < 13) return [14*60, 17*60];
+  if (ageWeeks < 52) return [12*60, 16*60];
+  if (ageWeeks < 104) return [11*60, 14*60];
+  return [10*60, 13*60];
+}
+
+function wouldBridgePushAboveSleepRange(ageWeeks, wakeMins, bedMins, napMinsWithCandidate) {
+  if (wakeMins == null || bedMins == null) return false;
+  const [, max24h] = guidelineSleepRangeMins(ageWeeks);
+  const nightSleepEstimate = (24*60) - (bedMins - wakeMins);
+  return nightSleepEstimate + napMinsWithCandidate > max24h + 60;
+}
+
 // Simulates applyScheduleAdjustment clamping like the real app does.
 function applyScheduleOverride(wakeMins, bedMins, ageWeeks) {
   let wake = null, bed = null;
@@ -199,6 +214,12 @@ function projectDayPlan({ ageWeeks, wakeMins, avgNapDur, targetBedMins, disrupti
       const durations = [safeNapDur, Math.round(safeNapDur * 0.7), 25, 20, 15];
       for (const tryDur of durations) {
         if (napStart + tryDur + minBedWW <= napFitCeiling) {
+          const candidateNapTotal = items
+            .filter(i => i.type === "nap")
+            .reduce((s, n) => s + n.dur, 0) + tryDur;
+          if (tryDur <= 25 && wouldBridgePushAboveSleepRange(w, wakeMins, napFitCeiling, candidateNapTotal)) {
+            continue;
+          }
           napDur = tryDur;
           placed = true;
           break;
@@ -390,10 +411,7 @@ function checkInvariants(scenario, plan) {
   const nightSleepEstimate = (24*60) - (bed.time - wake.time);
   const total24h = nightSleepEstimate + totalNap;
   // WHO: 0-3mo: 14-17h, 4-11mo: 12-16h, 1-2y: 11-14h, 3-5y: 10-13h
-  const whoRange = w < 13 ? [14*60, 17*60]
-                  : w < 52 ? [12*60, 16*60]
-                  : w < 104 ? [11*60, 14*60]
-                  : [10*60, 13*60];
+  const whoRange = guidelineSleepRangeMins(w);
   if (total24h < whoRange[0] - 60) {
     issues.push(`[I-15 WARN] Estimated 24h sleep ${Math.floor(total24h/60)}h${total24h%60}m is below WHO guidance ${Math.floor(whoRange[0]/60)}-${Math.floor(whoRange[1]/60)}h`);
   }

@@ -2471,7 +2471,7 @@ function getWakeWindow(ageWeeks){// Age-adaptive wake windows. These are consult
 // calcAge returned null, corrupted state), return a sensible
 // newborn default rather than the 36mo+ stage which would happen
 // because NaN comparisons always return false and findIndex would
-// return -1, pinning idx at the last stage (6-12 hour wake window).
+// return -1, pinning idx at the oldest-child stage.
 if(typeof ageWeeks!=="number"||isNaN(ageWeeks)||ageWeeks<0){return{min:60,max:90,midpoint:75,label:"~60–90 min"};}const months=ageWeeks/4.33;let min,max,label;// Stages: [maxMonths, minWW, maxWW]
 const stages=[[1.39,30,90],// 0-6wk:   TCB 30-60, Cleveland 45-60, wider for newborn variability
 [3,45,90],// 6wk-3mo: TCB 60-90, consensus 45-90
@@ -2482,7 +2482,8 @@ const stages=[[1.39,30,90],// 0-6wk:   TCB 30-60, Cleveland 45-60, wider for new
 [15,210,270],// 12-15mo: TCB 3-4h transition period
 [19,270,330],// 15-19mo: TCB 4-6h single nap settling
 [36,300,360],// 19-36mo: single nap established
-[Infinity,360,720]// 36mo+
+[48,360,480],// 36-48mo: nap dropping; widen gradually
+[Infinity,420,720]// 48mo+: no-nap days can carry longer awake stretches
 ];let idx=stages.findIndex(s=>months<s[0]);if(idx<0)idx=stages.length-1;min=stages[idx][1];max=stages[idx][2];// Smooth transitions both WAYS: blend within 2 weeks of a stage boundary
 // whether we're approaching it or just crossed it. Without the "leaving"
 // half, a baby at 14.99mo got a carefully-blended WW but at 15.01mo
@@ -4938,7 +4939,10 @@ const _ageBedCeiling=clampBedtime(24*60,w);const _todayTargetBed=(()=>{const t=(
 const _napFitCeiling=Math.min(_todayTargetBed,_ageBedCeiling);// Safety: clamp avgNapDur so a rogue personal average can't
 // produce a 5-hour nap. Defensive, if user's data somehow
 // has absurd values, we still produce a sane schedule.
-const _safeAvgNapDur=clampNapDuration(avgNapDur||napProfile.idealNapDurMin,w);// Step 1: Place expected naps
+const _safeAvgNapDur=clampNapDuration(avgNapDur||napProfile.idealNapDurMin,w);const _wouldBridgePushAboveSleepRange=tryDur=>{if(tryDur>25||!wake)return false;const _wakeMinsForBudget=timeVal(wake);const _sleepRange=getAASMRange(w);const _nightEstimate=24*60-(_napFitCeiling-_wakeMinsForBudget);const _candidate24h=_nightEstimate+projectedNapMins+tryDur;// If a late wake already puts the day above the broad 24h
+// range, do not add a tiny bridge nap just to satisfy a
+// nap-count template. Fewer naps is the calmer plan.
+return _candidate24h>_sleepRange.max*60+60;};// Step 1: Place expected naps
 while(napIdx<expectedTotal&&!_planBudgetExceeded){let napStart;// First predicted nap: use cached prediction (matches nap pill)
 if(isFirstPredicted&&!napOn){const pred2=tickDataRef.current.pred;napStart=pred2&&typeof pred2.napStart_min==="number"&&!isNaN(pred2.napStart_min)?pred2.napStart_min:cursor+clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);isFirstPredicted=false;}else{napStart=cursor+clampWakeWindow(progressiveWW(w,napIdx,expectedTotal),w);}// Determine nap duration. try full, then shorter, then bridge
 const isLast=napIdx===expectedTotal-1;const minBedWW=w<30?60:90;let napDur=_safeAvgNapDur;let napLabel=`~${hm(_safeAvgNapDur)} based on recent avg`;let isBridge=false;// Sanity check: if napStart is already past the bedtime cap
@@ -4947,7 +4951,7 @@ if(napStart+minBedWW>_napFitCeiling)break;// For last nap: try full duration, th
 // Research: bridge naps should be 15-20min. any longer and baby enters
 // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones).
 // Fit check uses today's target bedtime, NOT the age ceiling.
-if(isLast){const durations=[_safeAvgNapDur,Math.round(_safeAvgNapDur*0.7),25,20,15];let fits=false;for(const tryDur of durations){if(napStart+tryDur+minBedWW<=_napFitCeiling){napDur=tryDur;fits=true;if(tryDur<=25){isBridge=true;napLabel=`~${tryDur}m bridge nap to reach bedtime`;}else if(tryDur<_safeAvgNapDur){napLabel=`~${hm(tryDur)} shorter nap (late wake today)`;}break;}}if(!fits)break;// truly no room. skip this nap
+if(isLast){const durations=[_safeAvgNapDur,Math.round(_safeAvgNapDur*0.7),25,20,15];let fits=false;for(const tryDur of durations){if(napStart+tryDur+minBedWW<=_napFitCeiling){if(_wouldBridgePushAboveSleepRange(tryDur))continue;napDur=tryDur;fits=true;if(tryDur<=25){isBridge=true;napLabel=`~${tryDur}m bridge nap to reach bedtime`;}else if(tryDur<_safeAvgNapDur){napLabel=`~${hm(tryDur)} shorter nap (late wake today)`;}break;}}if(!fits)break;// truly no room. skip this nap
 }else{// Non-last nap: check only THIS nap fits + one minBedWW.
 // Don't pre-reserve room for all remaining naps, that
 // heuristic was too conservative and rejected 3-nap plans

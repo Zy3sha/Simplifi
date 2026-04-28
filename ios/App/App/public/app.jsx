@@ -16193,7 +16193,7 @@ function App(){
     // calcAge returned null, corrupted state), return a sensible
     // newborn default rather than the 36mo+ stage which would happen
     // because NaN comparisons always return false and findIndex would
-    // return -1, pinning idx at the last stage (6-12 hour wake window).
+    // return -1, pinning idx at the oldest-child stage.
     if (typeof ageWeeks !== "number" || isNaN(ageWeeks) || ageWeeks < 0) {
       return { min: 60, max: 90, midpoint: 75, label: "~60–90 min" };
     }
@@ -16210,7 +16210,8 @@ function App(){
       [15,   210, 270],  // 12-15mo: TCB 3-4h transition period
       [19,   270, 330],  // 15-19mo: TCB 4-6h single nap settling
       [36,   300, 360],  // 19-36mo: single nap established
-      [Infinity, 360, 720] // 36mo+
+      [48,   360, 480],  // 36-48mo: nap dropping; widen gradually
+      [Infinity, 420, 720] // 48mo+: no-nap days can carry longer awake stretches
     ];
     let idx = stages.findIndex(s => months < s[0]);
     if (idx < 0) idx = stages.length - 1;
@@ -37359,6 +37360,17 @@ function App(){
                   // produce a 5-hour nap. Defensive, if user's data somehow
                   // has absurd values, we still produce a sane schedule.
                   const _safeAvgNapDur = clampNapDuration(avgNapDur || napProfile.idealNapDurMin, w);
+                  const _wouldBridgePushAboveSleepRange = (tryDur) => {
+                    if (tryDur > 25 || !wake) return false;
+                    const _wakeMinsForBudget = timeVal(wake);
+                    const _sleepRange = getAASMRange(w);
+                    const _nightEstimate = (24*60) - (_napFitCeiling - _wakeMinsForBudget);
+                    const _candidate24h = _nightEstimate + projectedNapMins + tryDur;
+                    // If a late wake already puts the day above the broad 24h
+                    // range, do not add a tiny bridge nap just to satisfy a
+                    // nap-count template. Fewer naps is the calmer plan.
+                    return _candidate24h > (_sleepRange.max * 60) + 60;
+                  };
 
                   // Step 1: Place expected naps
                   while (napIdx < expectedTotal && !_planBudgetExceeded) {
@@ -37394,6 +37406,7 @@ function App(){
                       let fits = false;
                       for (const tryDur of durations) {
                         if (napStart + tryDur + minBedWW <= _napFitCeiling) {
+                          if (_wouldBridgePushAboveSleepRange(tryDur)) continue;
                           napDur = tryDur;
                           fits = true;
                           if (tryDur <= 25) {
