@@ -6099,10 +6099,47 @@ function App(){
           }
           break;
         }
-        case 'quick_wake':
-          quickAddLog("wake", {type:"wake", time:timeNow, night:false, note:"via widget"});
+        case 'quick_wake': {
+          const _todayWake = todayStr();
+          const _wakeEntry = {id:uid(),type:"wake",time:timeNow,night:false,note:"via widget",modifiedAt:Date.now()};
+          setDays(d => {
+            const existing = d[_todayWake] || [];
+            // iOS can deliver widget URLs twice. keep one morning wake per day.
+            if (hasMorningWake(existing)) return d;
+            const prevK = prevDayStr(_todayWake);
+            return {...d, [_todayWake]: autoClassifyNight([...existing, _wakeEntry], d[prevK] || null)};
+          });
+          setSelDay(_todayWake);
+          setBedTimerDay(null);
+          setBedPaused(false);
+          setBedPauseStart(null);
+          setBedPausedAtSec(0);
+          setBedTotalPausedSec(0);
+          setTimerMode("prediction");
+          try {
+            ["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));
+            localStorage.setItem("timer_mode_v1","prediction");
+          } catch {}
+          _laStop();
+          try {
+            var _wdWake = JSON.parse(localStorage.getItem("ob_widget_data_v1")||"{}");
+            _wdWake.activeTimer = null; _wdWake.timerStartTime = null; _wdWake.timerStartMs = null;
+            _wdWake.timerLabel = null; _wdWake.breastSide = null; _wdWake.updatedAt = Date.now();
+            localStorage.setItem("ob_widget_data_v1", JSON.stringify(_wdWake));
+            localStorage.setItem("_lastWidgetData", JSON.stringify(_wdWake));
+            if(window.Capacitor?.Plugins?.OBWidgetBridge) window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(_wdWake) }).catch(()=>{});
+            setTimeout(()=>{
+              try {
+                _wdWake.updatedAt = Date.now();
+                localStorage.setItem("ob_widget_data_v1", JSON.stringify(_wdWake));
+                localStorage.setItem("_lastWidgetData", JSON.stringify(_wdWake));
+                if(window.Capacitor?.Plugins?.OBWidgetBridge) window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(_wdWake) }).catch(()=>{});
+              } catch {}
+            }, 700);
+          } catch {}
           showToast("☀️ Morning wake logged via Widget ✓", 3000, 1);
           break;
+        }
         case 'start_bedtime':
           logBedtimeNow();
           showToast("🌙 Bedtime logged via Widget ✓", 3000, 1);
@@ -13750,19 +13787,30 @@ function App(){
         // Falls back to _hhmToMs reconstruction only if napStartMs isn't set (old state).
         timerStartMs = napStartMs || _hhmToMs(napStartT);
       }
-      // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only
-      var _bedDayEntries = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : rd;
-      var _bedEntry = findBedtime(_bedDayEntries) || findBedtime(rd);
+      // Check bedtime: wake mode looks at bedTimerDay, midnight mode uses selDay only.
+      // Track the day key too; a morning wake closes yesterday's bedtime, but not
+      // tonight's new bedtime that happens after today's morning wake.
+      var _bedTimerDayForWidget = (dayBoundary === "wake" && bedTimerDay) ? bedTimerDay : todayKey;
+      var _bedDayEntriesForTimer = (dayBoundary === "wake" && bedTimerDay) ? (days[bedTimerDay]||[]) : rd;
+      var _bedEntry = findBedtime(_bedDayEntriesForTimer);
+      var _bedEntryDayKey = _bedEntry ? _bedTimerDayForWidget : todayKey;
+      if (!_bedEntry) _bedEntry = findBedtime(rd);
       if (_bedEntry && !activeTimer) {
         // Check if baby has woken up. morning wake on today means night is over
         var _morningWake = findMorningWake(rd);
         var _bedM = timeVal(_bedEntry);
-        var _wakeIsAfterBed = _morningWake && (timeVal(_morningWake) < _bedM);
-        if (!_morningWake || _wakeIsAfterBed) {
+        var _morningWakeClosesBed = false;
+        if (_morningWake) {
+          // Cross-day bedtime: today's morning wake always closes the previous night.
+          // Same-day bedtime: only a wake after the bedtime closes it; an earlier
+          // morning wake is just the start of the day before tonight's sleep.
+          _morningWakeClosesBed = _bedEntryDayKey !== todayKey || timeVal(_morningWake) > _bedM;
+        }
+        if (!_morningWakeClosesBed) {
           activeTimer = "bed";
           var _bedM2 = timeVal(_bedEntry);
           // Tonight's wakes. all night entries on the bedtime's day
-          var _nightWakesWidget = _bedDayEntries.filter(function(e){
+          var _nightWakesWidget = _bedDayEntriesForTimer.filter(function(e){
             if(!e.night||(e.type!=="wake"&&e.type!=="feed")) return false;
             return true;
           }).sort(function(a,b){ var ta=timeVal(a),tb=timeVal(b); var ka=ta>=_bedM2?ta:(ta<12*60?ta+1440:ta); var kb=tb>=_bedM2?tb:(tb<12*60?tb+1440:tb); return ka-kb; });
@@ -14457,9 +14505,21 @@ function App(){
         if (!_la) return;
         // Check localStorage + entry data. covers timer desync after rebuild/update
         const _hasActiveNapLA = (days[selDay]||[]).some(e=>e.type==="nap"&&e.start&&(!e.end||e.end===e.start));
-        // Data-driven bed timer check: bedTimerDay state OR localStorage OR yesterday has bedtime + today no wake
-        const _bedTimerActive = !!bedTimerDay || !!localStorage.getItem("bed_timer_day")
-          || (!!findBedtime(days[yesterdayStr()]||[]) && !hasMorningWake(days[todayStr()]||[]));
+        // Data-driven bed timer check. A morning wake on the next calendar day
+        // closes yesterday's bedtime even if stale bed_timer_day is still in storage.
+        const _todayLA = todayStr();
+        const _lsBTD = localStorage.getItem("bed_timer_day");
+        const _activeBedDay = bedTimerDay || _lsBTD;
+        let _bedTimerActive = false;
+        if (_activeBedDay) {
+          const _bedEntLA = findBedtime(days[_activeBedDay] || []);
+          const _wakeDayLA = _activeBedDay === _todayLA ? _todayLA : nextDayStr(_activeBedDay);
+          const _wakeEntLA = findMorningWake(days[_wakeDayLA] || []);
+          const _closedByMorningWake = !!(_bedEntLA && _wakeEntLA && (_wakeDayLA !== _activeBedDay || timeVal(_wakeEntLA) > timeVal(_bedEntLA)));
+          _bedTimerActive = !!_bedEntLA && !_closedByMorningWake;
+        } else {
+          _bedTimerActive = !!findBedtime(days[yesterdayStr()]||[]) && !hasMorningWake(days[_todayLA]||[]);
+        }
         const _anyTimer = localStorage.getItem("nap_on") === "1"
           || localStorage.getItem("breast_active") === "1"
           || _bedTimerActive

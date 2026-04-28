@@ -54,13 +54,21 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         )
 
         Task {
-            // If there's already an active LA, just update it (avoids expanded banner)
+            // If the same kind of LA is already active, update it. Activity
+            // attributes are immutable, so sleep -> feed or feed -> sleep must
+            // end and recreate; otherwise the Dynamic Island can look stuck on
+            // the previous mode.
             let existing = Activity<OBubbaTimerAttributes>.activities
             if let current = existing.first {
-                await current.update(.init(state: state, staleDate: nil))
-                print("[OBLiveActivity] Updated existing LA — startDate=\(startDate), elapsed=\(elapsed)s")
-                call.resolve(["activityId": current.id])
-                return
+                if current.attributes.timerType == type && current.attributes.babyName == babyName {
+                    await current.update(.init(state: state, staleDate: nil))
+                    print("[OBLiveActivity] Updated existing LA — startDate=\(startDate), elapsed=\(elapsed)s")
+                    call.resolve(["activityId": current.id])
+                    return
+                }
+                for activity in existing {
+                    await activity.end(nil, dismissalPolicy: .immediate)
+                }
             }
 
             // No existing activity — create a new one
