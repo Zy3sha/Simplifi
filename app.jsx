@@ -1415,7 +1415,7 @@ const ALLERGEN_GUIDE = [
   {id:"peanuts",   label:"Peanut",     emoji:"🥜", priority:1, risk:"high",
    prep:"Mix smooth peanut butter (¼ tsp) into puree or porridge. Never whole nuts.",
    maintain:"Mix into oatmeal, offer on toast fingers, add to sauces.",
-   note:"Early, regular introduction may help many babies build tolerance. Introduce in the morning so you can watch for 2 hours."},
+   note:"Guidance supports introducing tolerated peanut from around 6 months, one allergen at a time. Introduce in the morning so you can watch for 2 hours."},
   {id:"eggs",      label:"Egg",        emoji:"🥚", priority:2, risk:"high",
    prep:"Hard boil and mash, or scramble well. Use pasteurised eggs. Start with a tiny amount (¼ tsp).",
    maintain:"Scrambled egg, French toast fingers, egg in pasta.",
@@ -1473,20 +1473,20 @@ const ALLERGEN_GUIDE = [
 // Allergen cross-reactivity map (based on BSACI/medical literature)
 // If baby reacts to X, they have an increased risk of reacting to Y
 const ALLERGEN_CROSS_REACTIVITY = {
-  "peanuts":    { related: ["tree nuts","lupin","soy"], risk: "30-40% of peanut-allergic children also react to tree nuts. Lupin is botanically similar. Soy cross-reactivity is lower (~5%) but worth monitoring." },
-  "tree nuts":  { related: ["peanuts","sesame"], risk: "Cross-reactivity between different tree nuts is common (cashew↔pistachio ~70%, walnut↔pecan ~90%). Also linked to peanut and sesame." },
-  "milk":       { related: ["beef"], risk: "~10-20% of cow's milk allergic babies also react to beef protein. Goat/sheep milk proteins are very similar to cow's milk. NOT a safe substitute." },
-  "eggs":       { related: [], risk: "Egg allergy is usually independent. Most children outgrow it by school age. Well-baked egg (in cakes) is tolerated by ~70% of egg-allergic children." },
-  "fish":       { related: ["shellfish"], risk: "Fish and shellfish allergies are separate (~50% react to both), but introduce shellfish cautiously. Cross-reactivity between different fish species is common." },
-  "shellfish":  { related: ["fish"], risk: "Shrimp, crab, and lobster cross-react strongly. Molluscs (mussels, clams) are a separate group but some overlap exists." },
+  "peanuts":    { related: ["tree nuts","lupin","soy"], risk: "Some peanut-allergic children also react to tree nuts. Lupin is botanically related. Soy cross-reactivity is usually lower but worth discussing with your clinician." },
+  "tree nuts":  { related: ["peanuts","sesame"], risk: "Cross-reactivity between some tree nuts can happen. Peanut and sesame may also be relevant for some children." },
+  "milk":       { related: ["beef"], risk: "Some cow's-milk-allergic babies react to related animal proteins. Goat/sheep milk proteins can be similar to cow's milk and are not a safe substitute unless advised." },
+  "eggs":       { related: [], risk: "Egg allergy is often independent. Some children later tolerate well-baked egg, but this should be guided by a clinician if a reaction occurred." },
+  "fish":       { related: ["shellfish"], risk: "Fish and shellfish allergies are separate for many children, but overlap can happen. Introduce cautiously after any reaction." },
+  "shellfish":  { related: ["fish"], risk: "Different shellfish can cross-react. Molluscs are a separate group but some overlap can happen." },
   "wheat":      { related: [], risk: "Wheat allergy is usually specific to wheat. Other grains (oats, rice, barley) are generally safe. Coeliac disease is different from wheat allergy." },
-  "soy":        { related: ["peanuts"], risk: "Soy and peanut are both legumes. Cross-reactivity is possible but uncommon clinically (~5%)." },
+  "soy":        { related: ["peanuts"], risk: "Soy and peanut are both legumes. Clinically important cross-reactivity is possible but not common." },
   "sesame":     { related: ["tree nuts"], risk: "Sesame allergy is increasingly common. Some cross-reactivity with tree nuts and poppy seeds." },
   "mustard":    { related: [], risk: "Mustard allergy is usually independent. Cross-reactivity with other brassicas (rapeseed) is possible but rare." },
   "celery":     { related: [], risk: "Celery allergy can be linked to birch pollen allergy in older children/adults (oral allergy syndrome)." },
-  "lupin":      { related: ["peanuts"], risk: "Strong cross-reactivity with peanut (up to 50%). If peanut-allergic, avoid lupin. Found in some continental breads and pastries." },
+  "lupin":      { related: ["peanuts"], risk: "Lupin can cross-react with peanut. If peanut allergy is suspected or confirmed, avoid lupin until you have medical advice." },
   "sulphites":  { related: [], risk: "Sulphite sensitivity is separate from food allergy. More common in people with asthma." },
-  "molluscs":   { related: ["shellfish"], risk: "Molluscs (mussels, oysters, clams) cross-react with crustaceans in ~75% of shellfish-allergic individuals." },
+  "molluscs":   { related: ["shellfish"], risk: "Molluscs and crustaceans can overlap for some shellfish-allergic people. Introduce only with advice after a reaction." },
 };
 
 function getCrossReactivityWarning(reactedAllergenId) {
@@ -1567,7 +1567,7 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     milkMin = 500; milkTarget = 600; solidMeals = 1;
     ratioLabel = "~90% milk / 10% solids";
     stageLabel = "First Tastes";
-    guidance = "\"Food before one is just for fun.\" Solids are practice, taste, texture, hand-eye coordination. Milk (breast or formula) is still ~90% of nutrition. Offer tastes AFTER a full milk feed so baby isn't too hungry or too full. A small dip in milk on solid-trial days is normal.";
+    guidance = "Milk is still the main source of nutrition before 1, but solids matter too: tastes, textures, iron, allergens, and hand-eye coordination. Offer tastes AFTER a full milk feed so baby isn't too hungry or too full. A small dip in milk on solid-trial days is normal.";
   } else if (months < 8) {
     milkMin = 500; milkTarget = 550; solidMeals = 2;
     ratioLabel = "~80% milk / 20% solids";
@@ -1874,6 +1874,94 @@ const FIRST_TASTES_CATALOGUE = [
   {food:"Cheese sticks",       emoji:"🧀",cat:"dairy",  phase:3,iron:false,allergenId:"milk"},
   {food:"Tahini (sesame)",     emoji:"🫙",cat:"allergen",phase:3,iron:false,allergenId:"sesame",morningOnly:true},
 ];
+
+// Brand/product recognition for bought baby foods. This is intentionally
+// label-aware rather than brand-authoritative: brands change recipes by
+// product, flavour and country, so OBubba detects the likely category and
+// then asks parents to confirm the actual pack label.
+const BABY_FOOD_BRAND_RULES = [
+  {brand:"Kendamil", aliases:["kendamil"]},
+  {brand:"HiPP Organic", aliases:["hipp organic","hipp","hi pp"]},
+  {brand:"Cerelac", aliases:["cerelac"]},
+  {brand:"Ella's Kitchen", aliases:["ella's kitchen","ellas kitchen","ella kitchen"]},
+  {brand:"Cow & Gate", aliases:["cow & gate","cow and gate","cow gate"]},
+  {brand:"Aptamil", aliases:["aptamil"]},
+  {brand:"Organix", aliases:["organix"]},
+  {brand:"Piccolo", aliases:["piccolo"]},
+  {brand:"Little Freddie", aliases:["little freddie"]},
+  {brand:"Heinz", aliases:["heinz","heinz by nature"]},
+  {brand:"Mamia", aliases:["mamia"]},
+  {brand:"SMA", aliases:["sma"]},
+  {brand:"Holle", aliases:["holle"]},
+  {brand:"Béaba", aliases:["beaba","béaba"]},
+];
+
+function recogniseBabyFoodProduct(foodName) {
+  const raw = (foodName || "").trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  const brandRule = BABY_FOOD_BRAND_RULES.find(b => b.aliases.some(a => lower.includes(a)));
+  if (!brandRule) return null;
+
+  let type = "baby food";
+  let icon = "🛒";
+  let cat = "brand";
+  let logHint = "Log as a solid food if baby ate it as part of weaning.";
+  if (/(porridge|cereal|oat|oats|rice\s*(cereal|porridge)?|semolina|multigrain|multigrain)/.test(lower)) {
+    type = "baby porridge/cereal";
+    icon = "🥣";
+    cat = "grain";
+    logHint = "Counts as a weaning meal if prepared and offered by spoon or as finger-food porridge.";
+  } else if (/(formula|infant milk|follow[-\s]?on|first milk|growing[-\s]?up milk|toddler milk)/.test(lower)) {
+    type = "formula/milk";
+    icon = "🍼";
+    cat = "milk";
+    logHint = "Usually log this as a milk feed, not a solid meal, unless it is mixed into food.";
+  } else if (/(pouch|puree|purée|jar|pot|fruit pot|veg pot|stage\s*\d)/.test(lower)) {
+    type = "pouch/jar meal";
+    icon = "🥄";
+    cat = "pouch";
+  } else if (/(puff|melty|wafer|rusk|biscuit|snack|crisp|stick|finger)/.test(lower)) {
+    type = "baby snack/finger food";
+    icon = "🍘";
+    cat = "snack";
+    logHint = "Log as a snack or solid meal, and check texture/choking suitability for baby's age.";
+  } else if (/(meal|pasta|risotto|casserole|lasagne|dinner|lunch|breakfast|tray)/.test(lower)) {
+    type = "ready meal";
+    icon = "🍽️";
+    cat = "meal";
+  }
+
+  const stageMatch = lower.match(/(?:stage\s*)?(\d+)\s*(?:\+)?\s*(?:months?|mos?|m)(?:\+)?/);
+  const stageMonths = stageMatch ? parseInt(stageMatch[1], 10) : null;
+  const allergens = detectAllergens(raw);
+  const flags = [];
+  flags.push("Check the pack label: ingredients, allergens and age stage can vary by flavour and country.");
+  if (stageMonths && stageMonths < 6) {
+    flags.push("Under-6-month products still need readiness/clinician judgement. OBubba keeps around-6-month guidance as the default.");
+  }
+  if (type === "formula/milk") {
+    flags.push("This looks like milk/formula. Keep it in feeding totals rather than treating it as a weaning food.");
+  }
+  if (type === "baby porridge/cereal" && !allergens.length) {
+    flags.push("Porridges often contain milk, oats, wheat or other cereals. Confirm allergens from the exact label.");
+  }
+  if (/(honey|salt|sugar|sweetener|syrup)/.test(lower)) {
+    flags.push("Contains wording that may need a closer label check for honey, added sugar/sweeteners or salt.");
+  }
+
+  return {
+    brand: brandRule.brand,
+    type,
+    icon,
+    cat,
+    stageMonths,
+    allergens,
+    flags,
+    logHint,
+    displayName: raw
+  };
+}
 
 // ═══ Get next N weaning food suggestions ═══
 // This is what the shopping list needs to match: the EXACT foods the
@@ -2777,7 +2865,7 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
         type: "iron_gap",
         emoji: "🫘",
         title: "Iron gap this week",
-        detail: "No iron-rich foods logged in the last 7 days. At 6mo+ babies' iron stores from birth are depleting and need topping up from food. Low iron affects sleep, mood, and development.",
+        detail: "No iron-rich foods logged in the last 7 days. At 6mo+ babies' iron stores from birth are depleting and need topping up from food. Persistently low iron can affect sleep, mood, and development.",
         action: "Offer an iron-rich food today: lentil dhal, beef mince, scrambled egg, fortified porridge, or soft chicken thigh. Pair with vitamin-C food (peppers, strawberries) to boost absorption.",
         urgency: "medium",
         confidence: "high"
@@ -2786,8 +2874,9 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
   }
 
   // ── 2. Allergen overdue ──
-  // 9mo+ with < 4 of the 14 common allergens exposed = window closing.
-  // LEAP + BSACI: introduce allergens before 12mo to reduce allergy risk.
+  // 9mo+ with < 4 of the 14 common allergens exposed = gentle catch-up nudge.
+  // LEAP + BSACI/NHS-style guidance supports early, regular introduction for many babies,
+  // with extra medical guidance for higher-risk babies.
   // Threshold is deliberately lenient (keep false-alarms low) — genuine
   // under-exposure gets a gentle nudge, not a medical red flag.
   if (ageWeeks >= 36) {
@@ -2808,8 +2897,8 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
       return {
         type: "allergen_overdue",
         emoji: "🥜",
-        title: "Allergens need catching up",
-        detail: "At " + Math.round(ageWeeks/4.33) + " months, only " + _triedAllergens.size + " of the 14 common allergens have been introduced. Evidence suggests early, regular exposure may help many babies build tolerance, but high-risk babies need tailored medical advice.",
+        title: "Allergens to plan gently",
+        detail: "At " + Math.round(ageWeeks/4.33) + " months, only " + _triedAllergens.size + " of the 14 common allergens have been introduced. Guidance supports introducing tolerated allergens one at a time from around 6 months, but high-risk babies need tailored medical advice.",
         action: "If there is no eczema/allergy concern, consider peanut and egg this week. One allergen at a time, morning, watch closely, and speak to your " + _healthContact + " if unsure.",
         urgency: "medium",
         confidence: "high"
@@ -28012,7 +28101,7 @@ function App(){
     }).length;
 
     // ── Solid meals today via getWeaningRatio ──
-    const _ratio = getWeaningRatio(_aw, days[selDay] || []);
+    const _ratio = getWeaningRatio(_aw, days[selDay] || [], days, weaningStarted);
 
     // ── Weaning start date (first solid) ──
     const _firstEntry = _wlog.slice().sort((a,b) => a.date.localeCompare(b.date))[0];
@@ -31260,7 +31349,7 @@ function App(){
     // ── Milk vs solids ratio monitoring ──
     try {
       if (_wks >= 26) {
-        const _todayRatio = getWeaningRatio(age, days[todayStr()] || []);
+        const _todayRatio = getWeaningRatio(age, days[todayStr()] || [], days, weaningStarted);
         if (_todayRatio && _todayRatio.totalMilkMl > 0) {
           if (_todayRatio.milkStatus === "low") {
             addObservation("🍼", "Milk intake is low today",
@@ -31272,7 +31361,7 @@ function App(){
           for (let i = 1; i <= 7; i++) {
             const d = new Date(); d.setDate(d.getDate() - i);
             const ds = localDateStr(d);
-            const r = getWeaningRatio(age, days[ds] || []);
+            const r = getWeaningRatio(age, days[ds] || [], days, weaningStarted);
             if (r && r.totalMilkMl > 0) { _weekMilkAvg += r.totalMilkMl; _weekSolidAvg += r.solidCount; _weekCount++; }
           }
           if (_weekCount >= 4) {
@@ -31290,8 +31379,8 @@ function App(){
           let _consecutiveSolidRefusal = 0;
           for (let i = 1; i <= 14; i++) {
             const _d = new Date(); _d.setDate(_d.getDate() - i);
-            const _ds = _localDateStr(d);
-            const _r = getWeaningRatio(age, days[_ds] || []);
+            const _ds = _localDateStr(_d);
+            const _r = getWeaningRatio(age, days[_ds] || [], days, weaningStarted);
             if (_r && _r.solidStatus === "low") { _consecutiveSolidRefusal++; } else { break; }
           }
           if (_consecutiveSolidRefusal >= 5) {
@@ -35222,7 +35311,7 @@ function App(){
                           const _introAllergens = ALLERGEN_GUIDE.filter(a=>allergenIntroduced(_wl3,a.id));
                           _introAllergens.forEach(a=>{
                             const _daysSince = daysSinceAllergen(_wl3, a.id);
-                            if (_daysSince > 10) _alerts.push({icon:a.emoji,text:a.label+" not offered in "+_daysSince+" days",tip:"Offer weekly to maintain tolerance (LEAP study)"});
+                            if (_daysSince > 10) _alerts.push({icon:a.emoji,text:a.label+" not offered in "+_daysSince+" days",tip:"Offer again this week if baby has tolerated it and your local guidance supports regular exposure"});
                           });
 
                           // Exposure tracking — foods offered < 5 times
@@ -40483,7 +40572,7 @@ function App(){
               {/* ═══ WEANING: Milk-to-Solid Ratio (6mo+) ═══ */}
               {(()=>{
                 if (!age) return null;
-                const _wr = getWeaningRatio(age.totalWeeks, days[selDay] || []);
+                const _wr = getWeaningRatio(age.totalWeeks, days[selDay] || [], days, weaningStarted);
                 if (!_wr || !_wr.showSolids) return null;
                 const _n = babyName || "Baby";
                 const milkPct = _wr.totalMilkMl > 0 && _wr.milkTarget > 0 ? Math.min(100, Math.round((_wr.totalMilkMl / _wr.milkTarget) * 100)) : 0;
@@ -42842,7 +42931,7 @@ function App(){
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                       <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>
                         🛡️ Allergen Tracker
-                        <HelpBtn title="Allergen Tracker" body={"Early, regular introduction of common allergens may help many babies build tolerance, but high-risk babies need personalised advice.\n\nOnce introduced with no reaction, keep giving each allergen regularly where your local guidance supports it. OBubba tracks which you've done and flags any that need a top-up."}/>
+                        <HelpBtn title="Allergen Tracker" body={"Early, regular introduction of common allergens may help many babies, but high-risk babies need personalised advice.\n\nOnce introduced with no reaction, keep giving each allergen regularly where your local guidance supports it. OBubba tracks which you've done and gently flags foods you may want to offer again."}/>
                       </div>
                       <span style={{fontSize:11,color:C.lt}}>{_introduced.length}/14 done</span>
                     </div>
@@ -42927,12 +43016,12 @@ function App(){
                             {_safetyOpen && (
                               <div style={{padding:"10px 14px 14px",background:"var(--card-bg-alt)",borderTop:`1px solid ${C.blush}`}}>
                                 {[
-                                  {icon:"👆", rule:"Skin test first", detail:"Before giving any new allergen orally, rub a tiny amount on baby's inner wrist or lip. Wait 10-15 minutes. If you see redness, swelling, or hives, stop and contact your " + _healthContact + ". If no reaction, proceed to a small taste."},
+                                  {icon:"🥄", rule:"Start with a tiny taste", detail:"Give a very small amount by mouth, mixed into a food baby already knows. If baby has eczema, avoid smearing food on the skin or around the mouth because irritation can be confusing. Ask your " + _healthContact + " first if baby is high-risk."},
                                   {icon:"☀️", rule:"Give in the morning", detail:"Always introduce a new allergen in the morning so you have the full day to watch for a reaction. Never try for the first time before nap or bedtime."},
                                   {icon:"🏠", rule:"Stay home for 2 hours", detail:"Stay at home and keep baby under close observation for at least 2 hours after giving a new allergen. Reactions usually happen within minutes but can take up to 2 hours."},
-                                  {icon:"🥄", rule:"Start tiny. ¼ teaspoon", detail:"Start with a very small amount (¼ to ½ teaspoon) mixed into a food baby already knows. If no reaction over 2-3 days, gradually increase."},
+                                  {icon:"🥄", rule:"Start tiny. ¼ teaspoon", detail:"Start with a very small amount (¼ to ½ teaspoon) mixed into a food baby already knows. If no reaction over 2-3 days, gradually increase where your local guidance supports it."},
                                   {icon:"1️⃣", rule:"One new allergen at a time", detail:"Never introduce two new allergens on the same day. If a reaction occurs, you need to know exactly which food caused it."},
-                                  {icon:"🔁", rule:"Keep giving it once introduced", detail:"Once introduced with no reaction, continue giving it at least once a week. Research shows regular exposure maintains tolerance."},
+                                  {icon:"🔁", rule:"Keep giving it once introduced", detail:"Once introduced with no reaction, continue offering it regularly where your local guidance supports it. If baby reacted, pause and ask your clinician before trying again."},
                                   {icon:"🍼", rule:"Offer milk feed first", detail:"Give baby their usual milk feed before introducing the allergen food. A hungry, stressed baby is harder to observe carefully."},
                                 ].map((item,i)=>(
                                   <div key={i} style={{display:"flex",gap:10,padding:"6px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
@@ -43032,7 +43121,7 @@ function App(){
                           </div>
                           {/* Morning warning. critical safety */}
                           <div style={{background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.25)",borderRadius:10,padding:"8px 10px",marginBottom:8,fontSize:11,color:C.gold,lineHeight:1.5}}>
-                            👆 <strong>Skin test first</strong>. rub a tiny amount on baby's inner wrist or lip and wait 10–15 minutes. If no reaction, give a small taste. A clear skin test is reassuring but not a guarantee — still watch carefully after the first oral taste. ☀️ <strong>Morning only</strong>. stay home for 2 hours to watch for any reaction. Never try a new allergen before nap or bedtime.
+                            🥄 <strong>Start with a tiny taste</strong> mixed into a food baby already knows. Avoid smearing food on the skin, especially if baby has eczema, and watch carefully after the first oral taste. ☀️ <strong>Morning only</strong>. stay home for 2 hours to watch for any reaction. Never try a new allergen before nap or bedtime.
                           </div>
                           <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:8,padding:"8px",background:"var(--card-bg)",borderRadius:8}}>
                             <strong>How to introduce:</strong> {_next.prep}
@@ -43465,8 +43554,10 @@ function App(){
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
                       {(()=>{
                         const _aw5 = age ? (age.predictiveWeeks ?? age.totalWeeks) : 26;
-                        const _ratio5 = getWeaningRatio(_aw5, days[selDay]||[]);
-                        const _todaySolids5 = (days[selDay]||[]).filter(e => e.type === "feed" && e.feedType === "solids").length;
+                        const _todayEntries5 = Array.isArray(days[selDay]) ? days[selDay] : [];
+                        const _ratio5 = getWeaningRatio(_aw5, _todayEntries5, days, weaningStarted);
+                        const _todaySolids5 = _todayEntries5.filter(e => e && e.type === "feed" && e.feedType === "solids" && !e.night).length
+                          || (weaning||[]).filter(w=>w.date===selDay).length;
                         const _mealTarget = _ratio5 ? _ratio5.solidMeals : 1;
                         return [
                           {val:_todaySolids5+"/"+_mealTarget,label:"Meals today",color:_todaySolids5>=_mealTarget?C.mint:C.ter,icon:"🍽️"},
@@ -43518,10 +43609,11 @@ function App(){
 
                     {/* Nutrition balance. milk vs solids */}
                     {(()=>{
-                      // Calculate milk vs solids from today's data
-                      const _todayData = days[selDay] || {};
-                      const _milkFeeds = (_todayData.feeds||[]).length;
-                      const _solidCount = (_todayData.weaning||[]).length || (weaning||[]).filter(w=>w.date===selDay).length;
+                      // Calculate milk vs solids from the actual day-entry array.
+                      const _todayEntriesBal = Array.isArray(days[selDay]) ? days[selDay] : [];
+                      const _milkFeeds = _todayEntriesBal.filter(e => e && e.type === "feed" && e.feedType !== "solids" && !e.night).length;
+                      const _solidCount = _todayEntriesBal.filter(e => e && e.type === "feed" && e.feedType === "solids" && !e.night).length
+                        || (weaning||[]).filter(w=>w.date===selDay).length;
                       if(!_milkFeeds && !_solidCount) return null;
                       const _showSolids = ((age.predictiveWeeks??age.totalWeeks)) >= 26;
                       if(!_showSolids) return null;
@@ -46554,15 +46646,48 @@ function App(){
             <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🥄 Log Food</div>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>What food?</div>
             <input placeholder="e.g. Avocado, sweet potato, banana..." value={weaningForm.food} onChange={e=>setWeaningForm(f=>({...f,food:e.target.value}))} autoFocus style={{width:"100%",fontSize:16,padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,marginBottom:detectAllergens(weaningForm.food).length?6:14,boxSizing:_bBB,fontFamily:_fI}}/>
+            {(()=>{
+              const _brandInfo = recogniseBabyFoodProduct(weaningForm.food);
+              if (!_brandInfo) return null;
+              const _alreadyInPlan = !!(weeklyShoppingList && (weeklyShoppingList.foods||[]).some(f => (f.food||"").toLowerCase() === _brandInfo.displayName.toLowerCase()));
+              return (
+                <div style={{background:"linear-gradient(135deg,rgba(123,104,238,0.08),rgba(111,168,152,0.06))",border:"1.5px solid rgba(123,104,238,0.22)",borderRadius:14,padding:"10px 12px",marginBottom:10}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <span style={{fontSize:18}}>{_brandInfo.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:800,color:C.deep}}>{_brandInfo.brand} recognised</div>
+                      <div style={{fontSize:11,color:C.lt}}>{_brandInfo.type}{_brandInfo.stageMonths ? " · " + _brandInfo.stageMonths + "m+" : ""}</div>
+                    </div>
+                    {_brandInfo.allergens.length > 0 && <span style={{fontSize:10,fontWeight:800,color:C.gold,background:"rgba(212,168,85,0.12)",borderRadius:99,padding:"3px 7px"}}>{_brandInfo.allergens.join(", ")}</span>}
+                  </div>
+                  <div style={{fontSize:11,color:C.mid,lineHeight:1.5,marginBottom:8}}>{_brandInfo.logHint}</div>
+                  {_brandInfo.flags.slice(0,3).map((flag,i)=>(
+                    <div key={i} style={{fontSize:10,color:C.lt,lineHeight:1.45,marginTop:3}}>• {flag}</div>
+                  ))}
+                  <button onClick={()=>{
+                    haptic(8);
+                    setWeeklyShoppingList(prev => {
+                      const base = prev || {weekStart: todayStr(), foods: [], extras: []};
+                      const exists = (base.foods||[]).some(f => (f.food||"").toLowerCase() === _brandInfo.displayName.toLowerCase());
+                      if (exists) return base;
+                      return {...base, foods: [...(base.foods||[]), {food:_brandInfo.displayName, emoji:_brandInfo.icon, cat:_brandInfo.cat, recipe:_brandInfo.type + " · check label", bought:false}], extras: [...(base.extras||[])]};
+                    });
+                    showToast(_alreadyInPlan ? "Already in this week's plan" : "Added to this week's weaning plan", 2200, 1);
+                  }} style={{marginTop:8,width:"100%",padding:"8px 10px",borderRadius:99,border:`1px solid ${C.mint}44`,background:_alreadyInPlan?"var(--card-bg)":"rgba(111,168,152,0.12)",color:_alreadyInPlan?C.lt:C.mint,fontSize:12,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
+                    {_alreadyInPlan ? "✓ In weekly plan" : "Add to weekly plan"}
+                  </button>
+                </div>
+              );
+            })()}
             {/* ── Foods to avoid warning ── */}
             {(()=>{
               const _lower = (weaningForm.food||"").toLowerCase();
               const _avoid = [];
               if (_lower.includes("honey")) _avoid.push({food:"Honey",reason:"Risk of infant botulism. not safe under 12 months (" + _guide.weaningSource + ")"});
-              if (/whole nut|nuts/.test(_lower) && !_lower.includes("butter") && !_lower.includes("ground") && !_lower.includes("crushed")) _avoid.push({food:"Whole nuts",reason:"Choking hazard. under 5s. Use smooth butter or finely ground instead"});
-              if (/shark|swordfish|marlin/.test(_lower)) _avoid.push({food:"High-mercury fish",reason:"Can affect baby's developing nervous system (" + _guide.weaningSource + ")"});
-              if (/raw (shellfish|prawn|shrimp|oyster)/.test(_lower)) _avoid.push({food:"Raw shellfish",reason:"Risk of food poisoning. must be thoroughly cooked"});
-              if (/rice (milk|drink)/.test(_lower)) _avoid.push({food:"Rice milk",reason:"Contains arsenic. not suitable under 5 years (" + _guide.weaningSource + ")"});
+              if (/(^|\s)((whole\s+)?nuts?|peanuts?|almonds?|cashews?|walnuts?|hazelnuts?|pecans?|pistachios?)(\s|$)/.test(_lower) && !/(butter|ground|crushed|smooth|powder|flour)/.test(_lower)) _avoid.push({food:"Whole nuts",reason:"Choking hazard. under 5s. Use smooth butter or finely ground instead"});
+              if (/(^|\s)(shark|swordfish|marlin)(\s|$)/.test(_lower)) _avoid.push({food:"High-mercury fish",reason:"Can affect baby's developing nervous system (" + _guide.weaningSource + ")"});
+              if (/(^|\s)raw\s+(shellfish|prawn|shrimp|oyster|crab|lobster|mussel|clam)(\s|$)/.test(_lower)) _avoid.push({food:"Raw shellfish",reason:"Risk of food poisoning. must be thoroughly cooked"});
+              if (/(^|\s)rice\s+(milk|drink)(\s|$)/.test(_lower)) _avoid.push({food:"Rice milk",reason:"Contains arsenic. not suitable under 5 years (" + _guide.weaningSource + ")"});
               if (_avoid.length) return (
                 <div style={{background:"rgba(232,87,74,0.08)",border:"1.5px solid rgba(232,87,74,0.25)",borderRadius:12,padding:"8px 12px",marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:700,color:"#e8574a",marginBottom:3}}>🚫 Not recommended for babies</div>
