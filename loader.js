@@ -65,6 +65,12 @@ window.addEventListener("unhandledrejection", function(event) {
   var reason = event.reason;
   var msg = (reason && reason.message) || String(reason || "");
   if (msg.indexOf("analytics") >= 0 || msg.indexOf("gtag") >= 0 || msg.indexOf("firebaseinstallations") >= 0) return;
+  // Browser/WebView clipboard writes can be denied unless they happen inside
+  // a trusted tap. OBubba falls back in-app, so keep this out of crash/error UI.
+  if (msg.indexOf("Clipboard") >= 0 || msg.indexOf("writeText") >= 0 || msg.indexOf("Write permission denied") >= 0) {
+    event.preventDefault();
+    return;
+  }
   console.warn("[OBubba] Unhandled promise rejection:", msg);
 });
 

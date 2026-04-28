@@ -5965,7 +5965,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
               <div style={{fontFamily:_fM,fontSize:24,fontWeight:700,color:C.ter,letterSpacing:"0.18em"}}>{code}</div>
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-              <button onClick={()=>{try{navigator.clipboard.writeText(code);showToast("Code copied ✓",1200,1);}catch{}}} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.mid,cursor:_cP,fontFamily:_fI}}>
+              <button onClick={()=>{safeCopyText(code,"Code copied ✓");}} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.mid,cursor:_cP,fontFamily:_fI}}>
                 Copy
               </button>
               <button onClick={()=>{
@@ -5982,10 +5982,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
                     await window.Capacitor.Plugins.Share.share({title:`Track ${child.name||"baby"} with me`,text:msg});
                   } else if(navigator.share) {
                     await navigator.share({title:`OBubba. join ${child.name||"baby"}'s tracker`,text:msg});
-                  } else {
-                    await navigator.clipboard.writeText(msg);
-                    showToast("Copied to clipboard ✓",1500,1);
-                  }
+                  } else await safeCopyText(msg,"Copied to clipboard ✓");
                 } catch(_){}
               }} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.mint}`,background:"rgba(155,184,168,0.12)",fontSize:12,fontWeight:600,color:C.mint,cursor:_cP,fontFamily:_fI}}>
                 Share ↗
@@ -7930,7 +7927,7 @@ function App(){
   }, []);
 
   const[tab,setTab]=useState("day");
-  // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = News
+  // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = Today's Insight
   const[daySubScreen,setDaySubScreen]=useState(null);
   useEffect(()=>{
     if(!daySubScreen) return;
@@ -13990,12 +13987,7 @@ function App(){
         return;
       }
     } catch {}
-    try {
-      await navigator.clipboard.writeText(_code);
-      showToast("OBuddy handoff code copied. Paste it in OBuddy.", 3500, 1);
-    } catch {
-      showToast("OBuddy handoff is ready, but copying is not available here.", 3500, 1);
-    }
+    await safeCopyText(_code, "OBuddy handoff code copied. Paste it in OBuddy.", "OBuddy handoff is ready, but copying is not available here.");
   }
 
   // Deferred 6-month weaning transition check (age not available at useState init)
@@ -24647,6 +24639,49 @@ function App(){
     setQuickFlash(msg);
     flashTimerRef.current = setTimeout(()=>{ setQuickFlash(null); flashPriorityRef.current = 0; }, duration);
   }
+
+  async function safeCopyText(text, successMsg="Copied to clipboard ✓", failMsg="Copy unavailable. press and hold to copy.") {
+    const value = String(text || "");
+    if (!value) return false;
+    try {
+      const NativeClipboard = window.Capacitor?.Plugins?.Clipboard;
+      if (NativeClipboard && typeof NativeClipboard.write === "function") {
+        await NativeClipboard.write({ string: value });
+        showToast(successMsg, 1600, 1);
+        return true;
+      }
+    } catch (e) {
+      console.warn("Native clipboard failed:", e);
+    }
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        await navigator.clipboard.writeText(value);
+        showToast(successMsg, 1600, 1);
+        return true;
+      }
+    } catch (e) {
+      if (!e || (e.name !== "NotAllowedError" && e.name !== "SecurityError")) console.warn("Clipboard failed:", e);
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = value;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      ta.style.top = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand && document.execCommand("copy");
+      ta.remove();
+      if (ok) {
+        showToast(successMsg, 1600, 1);
+        return true;
+      }
+    } catch {}
+    showToast(failMsg, 2400, 2);
+    return false;
+  }
   // Shake-to-undo: track last action for reversal
   const[lastAction,setLastAction]=useState(null); // {type, entryId, day, timestamp}
   const undoTimeoutRef = React.useRef(null);
@@ -25071,7 +25106,7 @@ function App(){
     const _title = sharePreview.title || "OBubba";
     const _text = buildShareCaption(sharePreview);
     // Copy caption to clipboard so user can paste into IG/WhatsApp/etc if the share sheet doesn't carry text
-    try { if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(_text); } catch {}
+    try { await safeCopyText(_text, "Caption copied for sharing"); } catch {}
     try{
       // 1. Try Web Share API with file (works on iOS WKWebView, Android Chrome, Safari)
       try {
@@ -25332,7 +25367,8 @@ function App(){
     const nativeResult=await saveNativeCalendarEvents(list);
     if(nativeResult.available){
       if(nativeResult.ok){
-        showToast(successMessage || (nativeResult.saved+" event"+(nativeResult.saved===1?"":"s")+" added to Calendar"),2300,1);
+        const savedLabel = nativeResult.saved+" event"+(nativeResult.saved===1?"":"s");
+        showToast(successMessage || (savedLabel+" added to your default Calendar"),2800,1);
         haptic("success");
         return true;
       }
@@ -25340,7 +25376,7 @@ function App(){
       return false;
     }
     const ok=await shareICS(generateICS(list),filename||"obubba-event.ics",list.length===1?list[0]:list);
-    showToast(ok ? "Calendar file ready to import" : "Calendar export cancelled", ok ? 2400 : 1800, ok ? 1 : 2);
+    showToast(ok ? "Calendar file ready. Choose Calendar to import it." : "Calendar export cancelled", ok ? 3200 : 1800, ok ? 1 : 2);
     return ok;
   }
 
@@ -29451,8 +29487,8 @@ function App(){
               "You've shared Bubba Care " + _shareCount + " times. your village is growing!\n\nDoes " + (babyName||"baby") + " go to nursery? Ask them if they'd like OBubba for all their families. We're building nursery features too.\n\nWant to tell them about us?",
               () => {
                 const msg = "Hi! I use an app called OBubba to track " + (babyName||"my baby") + "'s feeds, sleep and naps. It has a feature called Bubba Care that lets me share a real-time care guide with carers via QR code.\n\nI thought you might like it for all the families at nursery. check it out at obubba.com 💛";
-                if(navigator.share) navigator.share({title:"OBubba for Nurseries",text:msg}).catch(()=>{});
-                else{try{navigator.clipboard.writeText(msg);showToast("📋 Message copied!",1500,1);}catch{}}
+                if(navigator.share) navigator.share({title:"OBubba for Nurseries",text:msg}).catch(e=>{if(e?.name!=="AbortError")safeCopyText(msg,"📋 Message copied!");});
+                else safeCopyText(msg,"📋 Message copied!");
                 setConfirmDialog(null);
               },
               "Share with nursery"
@@ -33447,7 +33483,7 @@ function App(){
           { icon:"🌃", title:"Logging bedtime & nights", body:"When bedtime comes, log it as a Sleep and a night timer starts.\n\nIf " + _bn3 + " wakes overnight:\n1. Tap 'Night wake' (logged instantly)\n2. Settle however works\n3. Tap 'Baby's settled' when done\n\nNight feeds and wakes belong to the day bedtime started, not the next morning. So a 3am feed is last night, not today." },
           { icon:"📋", title:"Today Card", body:"Tap the big 'Today' card to open your full log.\n\nInside you'll find two views:\n• Log — everything that's happened\n• Plan — what's predicted to come next\n\nSwipe between them or tap the tabs at the top.\n\nPress & hold any entry to edit or delete it." },
           { icon:"📝", title:"Notes & Reminders", body:"Tap 'Notes & Reminders' to:\n\n• Pin a note for the day (appointment, teething, etc.)\n• Set a nappy or feed reminder\n• Jot down anything you want to remember\n\nPinned notes show on the hero card so you don't forget." },
-          { icon:"🌟", title:"News & Activities", body:"Tap 'News' for:\n\n• A daily story about " + _bn3 + "'s development\n• Age-appropriate play activities\n• Gentle pattern checks when sleep feels off\n\nNew content every day based on " + _bn3 + "'s age." },
+          { icon:"🌟", title:"Today's Insight", body:"Tap Today's Insight for:\n\n• A daily story about " + _bn3 + "'s development\n• Age-appropriate play activities\n• Gentle pattern checks when sleep feels off\n\nNew content every day based on " + _bn3 + "'s age." },
           { icon:"🍎", title:"Weaning Hub", body:"From 17 weeks, the Weaning card unlocks.\n\n• Daily food suggestions\n• Allergen safety checklists\n• Iron-rich recipes with filters\n• Track what " + _bn3 + " has tried\n\nNo pressure. go at your own pace." },
           { icon:"💜", title:"Wellbeing & Family", body:"'Your Wellbeing' is for YOU. mood check-ins, water tracker, self-care.\n\n'Send to Family' creates a beautiful summary card to share with grandparents or partners.\n\n'Schedule Builder' lets you plan around appointments or outings.\n\nYou matter too. 💛" },
           { icon:"🎉", title:"You're all set!", body:"That's everything on your Day tab!\n\nLog a morning wake, then feeds and naps as they happen. OBubba handles the rest.\n\nBy day 3: predictions get personal\nBy day 7: nap timing gets accurate\nBy day 14: OBubba knows " + _bn3 + "'s full rhythm\n\nReplay this tour anytime from the ? button." },
@@ -34933,11 +34969,27 @@ function App(){
                 const _weanReady = _weanAge >= 26 || weaningStarted;
                 const _weanEarlyReady = _weanAge >= 17;
                 const _weanSub = weaningStarted ? "Food & allergens" : _weanReady ? "Start journey" : _weanEarlyReady ? "Professional advice needed" : "From 17 weeks";
-                return (
-                  <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                    {(()=>{
-                      let _badge = 0;
-                      let _sub = _logSub;
+	                const _tileStyle = {display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:98};
+	                const _section = (label, sub) => (
+	                  <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,margin:"12px 2px 7px"}}>
+	                    <div className="ob-premium-kicker" style={{margin:0}}>{label}</div>
+	                    {sub && <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textAlign:"right",lineHeight:1.3}}>{sub}</div>}
+	                  </div>
+	                );
+	                const _tile = ({id,onClick,icon,title,sub,style}) => (
+	                  <button key={id} onClick={onClick} className="glass-card ob-premium-tile" style={{..._tileStyle,...(style||{})}}>
+	                    <BubbaIcon name={icon} size={30}/>
+	                    <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{title}</div>
+	                    <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{sub}</div>
+	                  </button>
+	                );
+	                return (
+	                  <div style={{marginBottom:10}}>
+	                    {_section("Track now", "quick day controls")}
+	                    <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:4}}>
+	                    {(()=>{
+	                      let _badge = 0;
+	                      let _sub = _logSub;
                       if (carerEntries && carerEntries.length > 0) { _badge = carerEntries.length; _sub = `${carerEntries.length} new from Bubba Care`; }
                       try {
                         const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
@@ -34946,29 +34998,24 @@ function App(){
                         if (_activeNap && !_badge) _sub = "Nap in progress";
                       } catch {}
                       return (
-                    <button onClick={()=>{haptic();setDaySubScreen("today");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,position:"relative",gridColumn:"span 2"}}>
-                      {_badge > 0 && (
-                        <span style={{position:"absolute",top:8,right:8,minWidth:20,height:20,borderRadius:99,background:"#7B68EE",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px",boxShadow:"0 2px 6px rgba(123,104,238,0.4)"}}>{_badge}</span>
-                      )}
+	                    <button onClick={()=>{haptic();setDaySubScreen("today");}} className="glass-card ob-premium-tile" style={{..._tileStyle,position:"relative",gridColumn:"span 2"}}>
+	                      {_badge > 0 && (
+	                        <span style={{position:"absolute",top:8,right:8,minWidth:20,height:20,borderRadius:99,background:"#7B68EE",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px",boxShadow:"0 2px 6px rgba(123,104,238,0.4)"}}>{_badge}</span>
+	                      )}
                       <BubbaIcon name="today" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_sub}</div>
-                    </button>
-                    ); })()}
-                    <button onClick={()=>{haptic();setDaySubScreen("notes");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <BubbaIcon name="notes" size={30}/>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Notes & Reminders</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_notesSub}</div>
-                    </button>
-                    <button onClick={()=>{haptic();setDaySubScreen("news");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <BubbaIcon name="sparkle" size={30}/>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>News</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Daily story & activities</div>
-                    </button>
-                    <button onClick={()=>{
-                      haptic();
-                      const _aw = age ? (age.predictiveWeeks??age.totalWeeks) : 0;
-                      if (_aw >= 26 || weaningStarted) {
+	                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_sub}</div>
+	                    </button>
+	                    ); })()}
+	                    {_tile({id:"notes",onClick:()=>{haptic();setDaySubScreen("notes");},icon:"notes",title:"Notes & Reminders",sub:_notesSub})}
+	                    {_tile({id:"news",onClick:()=>{haptic();setDaySubScreen("news");},icon:"sparkle",title:"Today's Insight",sub:"Story, patterns & tiny next step"})}
+	                    </div>
+	                    {_section("Plan the day", "rhythm, meals, events")}
+	                    <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:4}}>
+	                    {_tile({id:"weaning",onClick:()=>{
+	                      haptic();
+	                      const _aw = age ? (age.predictiveWeeks??age.totalWeeks) : 0;
+	                      if (_aw >= 26 || weaningStarted) {
                         // 6+ months or already started early — open normally
                         setDaySubScreen("weaning"); setDevFilter("weaning_hub");
                       } else if (_aw >= 17) {
@@ -34978,32 +35025,20 @@ function App(){
                           setDaySubScreen("weaning"); setDevFilter("weaning_hub");
                           showToast("🍎 Weaning unlocked!",2500,1);
                         }
-                      } else {
-                        showToast("🍎 Weaning opens from 17 weeks. " + (babyName||"baby") + " isn't quite there yet!",3000,1);
-                      }
-                    }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,opacity:(age&&((age.predictiveWeeks??age.totalWeeks))>=17)||weaningStarted?1:0.45}}>
-                      <BubbaIcon name="weaning" size={30}/>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Weaning</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_weanSub}</div>
-                    </button>
-                    <button onClick={()=>{haptic();setShowShareFamily(true);}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <BubbaIcon name="account" size={30}/>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Send to Family</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Share {babyName||"baby"}'s day</div>
-                    </button>
-                    <button onClick={()=>{haptic();if(hasAccess()){setShowScheduleMaker(true);}else{triggerPaywall("schedule_builder");}}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <BubbaIcon name="timer" size={30}/>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Schedule Builder</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Plan around events</div>
-                    </button>
-                    <button onClick={()=>{haptic();setDaySubScreen("wellbeing");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <BubbaIcon name="wellbeing" size={30}/>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Your Wellbeing</div>
-                      <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>You matter too</div>
-                    </button>
-                  </div>
-                );
-              })()}
+	                      } else {
+	                        showToast("🍎 Weaning opens from 17 weeks. " + (babyName||"baby") + " isn't quite there yet!",3000,1);
+	                      }
+	                    },icon:"weaning",title:"Weaning",sub:_weanSub,style:{opacity:(age&&((age.predictiveWeeks??age.totalWeeks))>=17)||weaningStarted?1:0.45}})}
+	                    {_tile({id:"schedule",onClick:()=>{haptic();if(hasAccess()){setShowScheduleMaker(true);}else{triggerPaywall("schedule_builder");}},icon:"timer",title:"Schedule Builder",sub:"Plan around events"})}
+	                    </div>
+	                    {_section("Share & support", "bring your village in")}
+	                    <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+	                    {_tile({id:"family",onClick:()=>{haptic();setShowShareFamily(true);},icon:"account",title:"Send to Family",sub:"Share "+(babyName||"baby")+"'s day"})}
+	                    {_tile({id:"wellbeing",onClick:()=>{haptic();setDaySubScreen("wellbeing");},icon:"wellbeing",title:"Parent Room",sub:"You matter too"})}
+	                    </div>
+	                  </div>
+	                );
+	              })()}
 
               {/* ═══ CATCH-UP PROMPT: show when yesterday has no entries ═══ */}
               {!daySubScreen && (()=>{
@@ -35234,13 +35269,17 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ SUB-SCREEN: News ═══ */}
+              {/* ═══ SUB-SCREEN: Today's Insight ═══ */}
               {daySubScreen==="news" && (
                 <div>
                   <button onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={_S.f16}>‹</span> Back
                   </button>
-                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:16}}>🌟 {babyName||"Baby"}'s News</div>
+                  <div className="glass-card ob-premium-hero" style={{marginBottom:14}}>
+                    <div className="ob-premium-kicker" style={{marginBottom:8}}>Today's insight</div>
+                    <div className="ob-premium-title" style={{fontSize:_rf(22),marginBottom:6}}>{babyName||"Baby"}, in context</div>
+                    <div className="ob-premium-copy">A softer place for the daily story, little play ideas, and patterns OBubba thinks may be worth noticing.</div>
+                  </div>
 
                   {/* ═══ FOR YOU — self-care nudge (moved to top of News) ═══ */}
                   {_forYouCard}
@@ -36078,7 +36117,7 @@ function App(){
                         <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
                           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                             <div style={{fontSize:10,fontWeight:700,color:C.deep,textTransform:"uppercase",letterSpacing:"0.08em"}}>🛒 Shopping list</div>
-                            <button onClick={()=>{haptic();const l=_sl.join("\n");if(navigator.share)navigator.share({title:babyName+"'s shopping list",text:l}).catch(()=>{});else navigator.clipboard.writeText(l).then(()=>showToast("📋 Copied!",1500,1)).catch(()=>{});}} style={{fontSize:10,fontWeight:700,color:C.ter,background:"none",border:"none",cursor:_cP,padding:"2px 8px"}}>Share 📤</button>
+	                            <button onClick={()=>{haptic();const l=_sl.join("\n");if(navigator.share)navigator.share({title:babyName+"'s shopping list",text:l}).catch(e=>{if(e?.name!=="AbortError")safeCopyText(l,"📋 Copied!");});else safeCopyText(l,"📋 Copied!");}} style={{fontSize:10,fontWeight:700,color:C.ter,background:"none",border:"none",cursor:_cP,padding:"2px 8px"}}>Share 📤</button>
                           </div>
                           <div style={{columns:2,columnGap:12,fontSize:12,color:C.mid,lineHeight:1.8}}>
                             {_sl.map((item,i)=><div key={i} style={{breakInside:"avoid"}}>☐ {item}</div>)}
@@ -36228,7 +36267,7 @@ function App(){
                       <div className="glass-card" style={{padding:"16px",marginBottom:12}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                           <div style={{fontSize:10,fontWeight:700,color:C.deep,textTransform:"uppercase",letterSpacing:"0.08em"}}>🛒 Shopping list</div>
-                          <button onClick={()=>{haptic();const l=_nwShop.join("\n");if(navigator.share)navigator.share({title:babyName+"'s next week shopping",text:l}).catch(()=>{});else navigator.clipboard.writeText(l).then(()=>showToast("📋 Copied!",1500,1)).catch(()=>{});}} style={{fontSize:10,fontWeight:700,color:C.ter,background:"none",border:"none",cursor:_cP,padding:"2px 8px"}}>Share 📤</button>
+	                          <button onClick={()=>{haptic();const l=_nwShop.join("\n");if(navigator.share)navigator.share({title:babyName+"'s next week shopping",text:l}).catch(e=>{if(e?.name!=="AbortError")safeCopyText(l,"📋 Copied!");});else safeCopyText(l,"📋 Copied!");}} style={{fontSize:10,fontWeight:700,color:C.ter,background:"none",border:"none",cursor:_cP,padding:"2px 8px"}}>Share 📤</button>
                         </div>
                         <div style={{columns:2,columnGap:12,fontSize:12,color:C.mid,lineHeight:1.8}}>
                           {_nwShop.map((item,i)=><div key={i} style={{breakInside:"avoid"}}>☐ {item}</div>)}
@@ -36772,8 +36811,8 @@ function App(){
                         <button key={h.type} onClick={()=>{
                           haptic();
                           const text = generateHandoverSummary(h.type);
-                          if(navigator.share){navigator.share({title:h.label,text}).catch(()=>{});}
-                          else{try{navigator.clipboard.writeText(text);showToast("📋 Copied!",1500,1);}catch{}}
+                          if(navigator.share){navigator.share({title:h.label,text}).catch(()=>safeCopyText(text,"📋 Copied!"));}
+                          else safeCopyText(text,"📋 Copied!");
                           setShowShareFamily(false);
                         }} className="glass-card" style={{flex:"1 1 45%",minWidth:140,padding:"12px 10px",cursor:_cP,textAlign:"center",border:"1px solid var(--card-border)"}}>
                           <span style={{fontSize:22,display:"block",marginBottom:4}}>{h.emoji}</span>
@@ -39268,33 +39307,54 @@ function App(){
                   </div>
                 </div>
               )}
-              {!insightFilter && (
-                <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                  {[
-                    {id:"tomorrow",label:"Tomorrow",icon:"📅",color:C.gold},
-                    {id:"sleep",label:"Sleep",icon:"😴",color:C.sky},
-                    {id:"feeding",label:"Feeding",icon:"🍼",color:C.ter},
-                    {id:"growth",label:"Growth",icon:"📏",color:"#7B68EE"},
-                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️",color:"#7AABC4"},
-                    {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",color:"#7B68EE",modal:true},
-                    {id:"nightwean",label:"Night Weaning",icon:"🌙",color:C.mint},
-                    {id:"reports",label:"Reports",icon:"📊",color:C.mint},
-                  ].map(f=>(
-                    <button key={f.id} onClick={()=>{
-                      haptic(8);
-                      if (f.modal && f.id === "sleepcoach") {
-                        if (!hasAccess()) triggerPaywall("sleep_coach", true);
-                        else setShowSleepCoach(true);
-                      } else {
-                        setInsightFilter(f.id);
-                      }
-                    }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:78}}>
-                      <span style={{fontSize:22}}>{f.icon}</span>
-                      <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2}}>{f.label}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
+	              {!insightFilter && (()=>{
+	                const _daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
+	                const _confidence = _daysLogged >= 7 ? "Strong pattern" : _daysLogged >= 3 ? "Pattern forming" : "Still learning";
+	                const _insightTile = (f) => (
+	                  <button key={f.id} onClick={()=>{
+	                    haptic(8);
+	                    if (f.modal && f.id === "sleepcoach") {
+	                      if (!hasAccess()) triggerPaywall("sleep_coach", true);
+	                      else setShowSleepCoach(true);
+	                    } else setInsightFilter(f.id);
+	                  }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:82}}>
+	                    <span style={{fontSize:22}}>{f.icon}</span>
+	                    <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2}}>{f.label}</div>
+	                    {f.premium && <div style={{fontSize:9,color:C.gold,fontWeight:800,letterSpacing:_ls08}}>PREMIUM</div>}
+	                  </button>
+	                );
+	                const _groups = [
+	                  {label:"Next rhythm", sub:_confidence+" · "+_daysLogged+" logged day"+(_daysLogged===1?"":"s"), items:[
+	                    {id:"tomorrow",label:"Tomorrow",icon:"📅"},
+	                    {id:"sleep",label:"Sleep",icon:"😴"}
+	                  ]},
+	                  {label:"Whole baby", sub:"feeding, growth, safety", items:[
+	                    {id:"feeding",label:"Feeding",icon:"🍼"},
+	                    {id:"growth",label:"Growth",icon:"📏"},
+	                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️"},
+	                    {id:"reports",label:"Reports",icon:"📊"}
+	                  ]},
+	                  {label:"Gentle plans", sub:"support without pressure", items:[
+	                    {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true},
+	                    {id:"nightwean",label:"Night Weaning",icon:"🌙",premium:true}
+	                  ]}
+	                ];
+	                return (
+	                  <div style={{marginBottom:14}}>
+	                    {_groups.map(g=>(
+	                      <div key={g.label} style={{marginBottom:12}}>
+	                        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,margin:"0 2px 7px"}}>
+	                          <div className="ob-premium-kicker" style={{margin:0}}>{g.label}</div>
+	                          <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textAlign:"right",lineHeight:1.3}}>{g.sub}</div>
+	                        </div>
+	                        <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+	                          {g.items.map(_insightTile)}
+	                        </div>
+	                      </div>
+	                    ))}
+	                  </div>
+	                );
+	              })()}
 
               {/* ═══ Last Night at a Glance — rich analytical recap with timeline, diagnosis, actions ═══ */}
               {!insightFilter && (()=>{
@@ -42348,9 +42408,9 @@ function App(){
               {/* OBuddy baby-to-toddler bridge */}
               {renderOBuddyBridgeCard()}
 
-              {tab==="develop" && !devFilter && (
-                <div className="glass-card ob-premium-hero">
-                  <div className="ob-premium-kicker" style={{marginBottom:8}}>Grow</div>
+	              {tab==="develop" && !devFilter && (
+	                <div className="glass-card ob-premium-hero">
+	                  <div className="ob-premium-kicker" style={{marginBottom:8}}>Grow</div>
                   <div className="ob-premium-title" style={{marginBottom:6}}>
                     This week with {name}
                   </div>
@@ -42363,11 +42423,46 @@ function App(){
                       } catch {}
                       return "Tiny repetitions count. A few warm minutes of play are enough for today.";
                     })()}
-                  </div>
-                </div>
-              )}
+	                  </div>
+	                </div>
+	              )}
 
-              {/* Development Dashboard. 2x2 navigation grid (hide when rendering weaning from Day tab) */}
+	              {tab==="develop" && !devFilter && (()=>{
+	                const _phase = DEV_PHASES.slice().reverse().find(p => ageWeeks !== null && ageWeeks >= p.windowStart);
+	                const _nextPhase = DEV_PHASES.find(p => ageWeeks !== null && ageWeeks < p.windowStart);
+	                const _act = (todayActivities && todayActivities[0]) || (DEV_ACTIVITIES||[]).find(a=>ageWeeks!==null && ageWeeks>=a.weeks[0] && ageWeeks<=a.weeks[1]);
+	                const _memory = pastMs && pastMs.length ? pastMs[pastMs.length-1] : null;
+	                const _chips = [
+	                  _phase && {label:"Now",value:_phase.name,icon:"🧠",tone:"#8567A8"},
+	                  _act && {label:"Try today",value:_act.title,icon:"🎯",tone:C.ter},
+	                  _nextPhase && {label:"Coming",value:"Phase "+_nextPhase.phase+" in ~"+Math.max(1,_nextPhase.windowStart-(ageWeeks||0))+"w",icon:"🌱",tone:C.mint},
+	                ].filter(Boolean);
+	                return (
+	                  <div className="glass-card" style={{padding:"14px 14px",marginBottom:12,border:"1.5px solid rgba(123,104,238,0.16)",background:"linear-gradient(135deg,rgba(123,104,238,0.045),rgba(111,168,152,0.035))"}}>
+	                    <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:8,marginBottom:10}}>
+	                      <div className="ob-premium-kicker" style={{margin:0}}>Weekly companion</div>
+	                      <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>not a checklist</div>
+	                    </div>
+	                    <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8}}>
+	                      {_chips.map(c=>(
+	                        <button key={c.label} onClick={()=>{haptic(8); if(c.label==="Try today")setDevFilter("activities"); else if(c.label==="Now"||c.label==="Coming")setDevFilter("phases");}} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:14,border:"1px solid var(--card-border)",background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left"}}>
+	                          <span style={{fontSize:20,flexShrink:0}}>{c.icon}</span>
+	                          <div style={{flex:1,minWidth:0}}>
+	                            <div style={{fontSize:10,color:c.tone,fontWeight:800,textTransform:"uppercase",letterSpacing:_ls08}}>{c.label}</div>
+	                            <div style={{fontSize:12,color:C.deep,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.value}</div>
+	                          </div>
+	                          <span style={{fontSize:14,color:C.lt}}>›</span>
+	                        </button>
+	                      ))}
+	                    </div>
+	                    <div style={{fontSize:11,color:C.mid,lineHeight:1.55,marginTop:10}}>
+	                      {_memory ? "Recent milestone saved. Add a note or photo when you want this to become a keepsake." : "Milestones are memories, not deadlines. Capture the tiny firsts whenever they happen."}
+	                    </div>
+	                  </div>
+	                );
+	              })()}
+
+	              {/* Development Dashboard. 2x2 navigation grid (hide when rendering weaning from Day tab) */}
               {tab==="develop" && !devFilter && (
                 <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
                   {[
@@ -43247,9 +43342,9 @@ function App(){
                         <button onClick={()=>{
                           haptic();
                           try {
-                            if (navigator.share) navigator.share({title:"Bubba Shopping List", text:_shareText});
-                            else navigator.clipboard.writeText(_shareText).then(()=>showToast("✓ Copied to clipboard",2000,1));
-                          } catch { try{navigator.clipboard.writeText(_shareText);showToast("✓ Copied",2000,1);}catch{} }
+                            if (navigator.share) navigator.share({title:"Bubba Shopping List", text:_shareText}).catch(e=>{if(e?.name!=="AbortError")safeCopyText(_shareText,"✓ Copied");});
+                            else safeCopyText(_shareText,"✓ Copied to clipboard");
+                          } catch { safeCopyText(_shareText,"✓ Copied"); }
                         }} style={{flex:1,padding:"8px",borderRadius:99,border:`1px solid ${C.mint}44`,background:"var(--card-bg)",color:C.mint,fontSize:11,fontWeight:700,cursor:_cP}}>
                           📤 Share list
                         </button>
@@ -44400,7 +44495,7 @@ function App(){
 
           {/* ═══ 1. PROFILE HERO ═══ */}
           <div className="glass-card ob-premium-hero" style={{padding:"18px 16px",marginBottom:12,marginTop:4}}>
-            <div style={{display:"flex",alignItems:"center",gap:14}}>
+	            <div style={{display:"flex",alignItems:"center",gap:14}}>
               <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${C.ter}20,${C.mint}15)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0,overflow:"hidden"}}>
                 {activeChild.photo ? (
                   <img src={activeChild.photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";e.target.parentElement.textContent=babySex==="girl"?"👧":babySex==="boy"?"👦":"👶";}}/>
@@ -44409,10 +44504,28 @@ function App(){
               <div style={_S.flex1}>
                 <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>{babyName ? possessive(babyName) + " Family" : "Account"}</div>
                 {familyUsername && <div style={{fontSize:12,fontFamily:_fM,color:C.lt,marginTop:2}}>Logged in as <strong style={{color:C.ter}}>{familyUsername.replace(/\s+/g,"").toLowerCase()}</strong></div>}
-                {familyUsername && <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:1}}>{syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync error":"☁️ Cloud connected"}</div>}
-              </div>
-            </div>
-          </div>
+	                {familyUsername && <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:1}}>{syncStatus==="synced"?"🔄 Synced":syncStatus==="syncing"?"⏳ Syncing…":syncStatus==="error"?"⚠️ Sync error":"☁️ Cloud connected"}</div>}
+	              </div>
+	            </div>
+	            <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:8,marginTop:14}}>
+	              {(()=>{
+	                const _cloudLifetime = _cachedComplimentaryPremiumActive();
+	                const _plan = _cloudLifetime ? "Lifetime" : isPremium ? "Premium" : trialActive ? "Trial" : "Free";
+	                const _care = carerEntries.length ? carerEntries.length+" waiting" : backupCode ? "Ready" : "Set up";
+	                const _sync = syncStatus==="syncing" ? "Syncing" : syncStatus==="error" ? "Check" : familyUsername ? "Connected" : "Local";
+	                return [
+	                  {label:"Cloud",value:_sync,tone:syncStatus==="error"?C.gold:C.mint},
+	                  {label:"Plan",value:_plan,tone:_plan==="Free"?C.lt:C.ter},
+	                  {label:"Care",value:_care,tone:carerEntries.length?C.gold:C.sky}
+	                ].map(s=>(
+	                  <div key={s.label} style={{minWidth:0,padding:"8px 6px",borderRadius:14,border:"1px solid var(--card-border)",background:"var(--card-bg-alt)",textAlign:"center"}}>
+	                    <div style={{fontSize:9,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:3}}>{s.label}</div>
+	                    <div style={{fontSize:12,fontWeight:800,color:s.tone,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.value}</div>
+	                  </div>
+	                ));
+	              })()}
+	            </div>
+	          </div>
           {familyUsername && backupCode && accountRepairStatus !== "idle" && accountRepairStatus !== "ok" && (
             <div className="glass-card" style={{padding:"14px 16px",marginBottom:12,border:`1.5px solid ${accountRepairStatus==="saved"?C.mint:accountRepairStatus==="error"?C.gold:C.ter}33`,background:accountRepairStatus==="saved"?"rgba(123,166,140,0.08)":accountRepairStatus==="error"?"rgba(212,168,85,0.08)":"rgba(201,112,90,0.08)"}}>
               <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
@@ -44457,7 +44570,11 @@ function App(){
               </div>
             </div>
           )}
-          {STORE_READY && (()=>{
+	          {STORE_READY && <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,margin:"2px 2px 7px"}}>
+	            <div className="ob-premium-kicker" style={{margin:0}}>Plan & purchases</div>
+	            <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>restore stays visible</div>
+	          </div>}
+	          {STORE_READY && (()=>{
             const _cloudLifetime = _cachedComplimentaryPremiumActive();
             const _planName = _cloudLifetime ? "OBubba Premium Lifetime" : isPremium ? "OBubba Premium" : trialActive ? "OBubba Premium Trial" : "OBubba Free";
             const _planIcon = isPremium ? "sparkle" : trialActive ? "sparkle" : "log";
@@ -44513,9 +44630,13 @@ function App(){
             );
           })()}
 
-          {/* ═══ 2. QUICK ACTIONS GRID ═══ */}
-          <div className="glass-card" style={{padding:"14px",marginBottom:12}}>
-            <div className="ob-premium-kicker" style={{marginBottom:10}}>Family hub</div>
+	          {/* ═══ 2. QUICK ACTIONS GRID ═══ */}
+	          <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,margin:"2px 2px 7px"}}>
+	            <div className="ob-premium-kicker" style={{margin:0}}>Family & sharing</div>
+	            <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>sync, carers, backup</div>
+	          </div>
+	          <div className="glass-card" style={{padding:"14px",marginBottom:12}}>
+	            <div className="ob-premium-kicker" style={{marginBottom:10}}>Family hub</div>
             <div style={_S.grid2}>
               <button onClick={()=>setShowFamilyModal(true)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
                 <BubbaIcon name="account" size={30}/>
@@ -44572,7 +44693,7 @@ function App(){
             )}
           </div>
 
-          {/* ═══ 3. GUIDES ═══ */}
+	          {/* ═══ 3. GUIDES ═══ */}
           <div className="glass-card" style={{padding:"14px",marginBottom:12}}>
             <div className="ob-premium-kicker" style={{marginBottom:10}}>Guides</div>
             <div style={_S.grid2}>
@@ -44628,8 +44749,12 @@ function App(){
             </div>
           )}
 
-          {/* ═══ 4. PREFERENCES. single glass card ═══ */}
-          <div className="glass-card" style={_S.card16}>
+	          {/* ═══ 4. PREFERENCES. single glass card ═══ */}
+	          <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,margin:"2px 2px 7px"}}>
+	            <div className="ob-premium-kicker" style={{margin:0}}>Preferences</div>
+	            <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>make OBubba feel right</div>
+	          </div>
+	          <div className="glass-card" style={_S.card16}>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:12}}>⚙️ Preferences</div>
 
             {/* Theme */}
@@ -46098,8 +46223,9 @@ function App(){
           ln.push("Tracked with OBubba");
           return ln.join("\n");
         }
-        function copyReport(){
-          navigator.clipboard.writeText(getReportText()).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+        async function copyReport(){
+          const ok = await safeCopyText(getReportText(),"📋 Report copied");
+          if (ok) { setCopied(true); setTimeout(()=>setCopied(false),2000); }
         }
         return(
           <Sheet onClose={()=>setModal(null)} title="">
@@ -46197,8 +46323,8 @@ function App(){
             <div style={_S.flexRowGap8}>
               <button onClick={()=>{
                 const text = getReportText();
-                if(navigator.share) navigator.share({title:(babyName||"Baby")+"'s Day Report",text});
-                else { navigator.clipboard.writeText(text); setCopied(true); setTimeout(()=>setCopied(false),2000); }
+                if(navigator.share) navigator.share({title:(babyName||"Baby")+"'s Day Report",text}).catch(e=>{if(e?.name!=="AbortError")safeCopyText(text,"📋 Report copied");});
+                else copyReport();
               }} style={{flex:1,padding:"11px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,cursor:_cP,fontFamily:_fI,fontWeight:600}}>📤 Share</button>
               <button onClick={copyReport} style={{flex:1,padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:15,cursor:_cP,fontFamily:_fI,fontWeight:500}}>{copied?"✓ Copied!":"📋 Copy"}</button>
             </div>
@@ -49081,8 +49207,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
               if(navigator.share){
                 try{await navigator.share({title:(babyName||"Baby")+"'s Bubba Care",text:_msg});}
-                catch(e3){if(e3.name!=="AbortError"){try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}}
-              } else{try{navigator.clipboard.writeText(_url);showToast("📋 Link copied!",1500,1);}catch{}}
+	                catch(e3){if(e3.name!=="AbortError")safeCopyText(_url,"📋 Link copied!");}
+	              } else safeCopyText(_url,"📋 Link copied!");
             }} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
               🔗 Send Link (no QR needed)
             </button>
@@ -50046,7 +50172,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     <div style={{fontSize:10,color:"#4a9a70",fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Your backup code</div>
                     <div style={{fontSize:18,fontWeight:800,fontFamily:"monospace",color:"#2a7a50",letterSpacing:"0.1em"}}>{backupCode}</div>
                   </div>
-                  <button onClick={()=>{try{navigator.clipboard.writeText(backupCode);showToast("📋 Code copied!",1500,1);}catch{}haptic();}} style={{padding:"6px 14px",borderRadius:99,border:"none",background:"#2a7a50",color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>Copy</button>
+	                  <button onClick={()=>{safeCopyText(backupCode,"📋 Code copied!");haptic();}} style={{padding:"6px 14px",borderRadius:99,border:"none",background:"#2a7a50",color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>Copy</button>
                 </div>
               )}
             </div>
@@ -50726,11 +50852,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   const w = window.open("", "_blank");
                   if (w) { w.document.write(_html); w.document.close(); setTimeout(()=>{ try { w.print(); } catch {} }, 300); return; }
                 } catch {}
-                try { await navigator.clipboard.writeText(digest.text); showToast("📋 Digest copied — paste anywhere", 2000, 0); } catch {}
+                await safeCopyText(digest.text, "📋 Digest copied — paste anywhere");
               }} style={{width:"100%",marginBottom:8,padding:"11px",borderRadius:99,border:`1.5px solid ${C.ter}`,background:"var(--card-bg)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP}}>📄 Save as PDF</button>
               <div style={_S.flexRowGap8}>
-                <button onClick={()=>{navigator.share?navigator.share({title:digest.name+"'s Week",text:digest.text}):navigator.clipboard.writeText(digest.text);}} style={{flex:1,padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>📤 Share text</button>
-                <button onClick={()=>{navigator.clipboard.writeText(digest.text);}} style={{flex:1,padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>📋 Copy</button>
+                <button onClick={()=>{navigator.share?navigator.share({title:digest.name+"'s Week",text:digest.text}).catch(e=>{if(e?.name!=="AbortError")safeCopyText(digest.text,"📋 Digest copied");}):safeCopyText(digest.text,"📋 Digest copied");}} style={{flex:1,padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>📤 Share text</button>
+                <button onClick={()=>{safeCopyText(digest.text,"📋 Digest copied");}} style={{flex:1,padding:"11px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>📋 Copy</button>
               </div>
               <button onClick={()=>setShowWeeklyDigest(false)} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:_bN,background:"transparent",color:C.lt,fontSize:13,cursor:_cP}}>Close</button>
             </div>
@@ -50840,9 +50966,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       await navigator.share({ title: _title, files: [_file] }); return;
                     }
                   } catch(e) { if (e.name === "AbortError") return; }
-                  try { await navigator.clipboard.writeText(_text); showToast("📋 Report copied to clipboard", 2000, 0); } catch {}
-                }} style={{flex:1,padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>📤 Share with Doctor</button>
-                <button onClick={()=>{navigator.clipboard.writeText(report.text).then(()=>showToast("📋 Copied to clipboard",1500,0));}} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>📋 Copy</button>
+	                  await safeCopyText(_text, "📋 Report copied to clipboard");
+	                }} style={{flex:1,padding:"12px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#7b68ee,#5040a0)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>📤 Share with Doctor</button>
+	                <button onClick={()=>{safeCopyText(report.text,"📋 Copied to clipboard");}} style={{flex:1,padding:"12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP}}>📋 Copy</button>
               </div>
               <button onClick={()=>setShowHVReport(false)} style={{width:"100%",marginTop:8,padding:"10px",borderRadius:12,border:_bN,background:"transparent",color:C.lt,fontSize:13,cursor:_cP}}>Close</button>
             </div>
@@ -50969,13 +51095,13 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 <div style={{display:"flex",gap:8,marginBottom:8}}>
                   <button onClick={()=>{
                     const text = smResult.schedule.filter(s=>s.type!=="wakeWindow").map(s=>s.label+": "+s.time).join("\n");
-                    navigator.share?navigator.share({title:"Schedule for "+smResult.eventLabel,text}):navigator.clipboard.writeText(text);
+	                    navigator.share?navigator.share({title:"Schedule for "+smResult.eventLabel,text}).catch(e=>{if(e?.name!=="AbortError")safeCopyText(text,"📋 Schedule copied");}):safeCopyText(text,"📋 Schedule copied");
                   }} style={{flex:1,padding:"10px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
                     📤 Share
                   </button>
                   <button onClick={()=>{
                     const text = smResult.schedule.filter(s=>s.type!=="wakeWindow").map(s=>s.label+": "+s.time).join("\n");
-                    navigator.clipboard.writeText(text);
+	                    safeCopyText(text,"📋 Schedule copied");
                   }} style={{flex:1,padding:"10px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
                     📋 Copy
                   </button>

@@ -10,6 +10,7 @@ class OBubbaBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(SiriShortcutsPlugin())
         bridge?.registerPluginInstance(WidgetBridgePlugin())
         bridge?.registerPluginInstance(TravelTimePlugin())
+        bridge?.registerPluginInstance(CalendarPlugin())
         bridge?.registerPluginInstance(StorePlugin())
         bridge?.registerPluginInstance(ReviewPlugin())
     }
