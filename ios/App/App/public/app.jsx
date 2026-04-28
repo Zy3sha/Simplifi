@@ -16180,11 +16180,13 @@ function App(){
     return d>0?{icon:"↑",color:C.mint}:{icon:"↓",color:C.ter};
   }
 
-  // ── SECTION 5: NHS DATA & SLEEP SCIENCE ──────────────────────────
+  // ── SECTION 5: SLEEP PLANNING HEURISTICS ─────────────────────────
   function getWakeWindow(ageWeeks) {
-    // Age-adaptive wake windows. consensus from 18 sources:
-    // Taking Cara Babies, Huckleberry, Little Ones, Cleveland Clinic,
-    // NHS Start4Life, AASM, Baby Sleep Science, Baby Sleep Site
+    // Age-adaptive wake windows. These are consultant-style planning
+    // guardrails, cross-checked against paediatric sleep-duration ranges.
+    // AASM/WHO/NHS publish broad sleep-duration and safe-sleep guidance,
+    // not exact wake-window schedules, so UI must keep this framed as a
+    // suggestion that learns from the baby's own pattern.
     // Returns {min, max, label, midpoint} in minutes.
     //
     // Defensive: if ageWeeks is NaN/undefined/null (DOB not yet set,
@@ -16245,10 +16247,8 @@ function App(){
     return { min, max, label, midpoint: Math.round((min+max)/2) };
   }
 
-  // Progressive wake windows: ALWAYS shortest in morning, longest before bed
-  // Consensus from TCB, Huckleberry, Little Ones, Baby Sleep Science:
-  // "Wake windows tend to increase as the day goes on"
-  // "The longest wake window is between the last nap and bedtime"
+  // Progressive wake windows: typically shortest in the morning and longest
+  // before bed. This is a sleep-consultant heuristic, not a medical rule.
   // ═══════════════════════════════════════════════════════════════════════
   // ENGINE AUTO-CONTEXT
   // ═══════════════════════════════════════════════════════════════════════
@@ -20130,16 +20130,17 @@ function App(){
     };
   }
 
-  // 12. Bedtime safety guard clamp. age-adjusted per NHS/sleep consultant guidance
+  // 12. Bedtime planning guard. age-adjusted from sleep-duration guidance and
+  // consultant scheduling practice; this is not a medical rule.
   // Ceilings raised to accommodate late-schedule families (e.g. baby normally sleeps at 10pm).
   // Previous tight ceilings (7:30-8:30pm) produced wildly wrong predictions for these families,
   // destroying credibility. New ceilings are still conservative but don't alienate late schedules.
-  // Absolute hard ceiling: 10:30pm. no baby should ever get a predicted bedtime after that.
+  // Absolute planning ceiling: OBubba avoids predicting bedtime after 10:30pm.
   function clampBedtime(mins, ageWeeks) {
     const aw = ageWeeks !== undefined ? ageWeeks : (age ? age.totalWeeks : null);
     // Floor: 6:00pm for babies 3mo+, no floor for newborns (they sleep when they sleep)
     const lo = (aw && aw < 13) ? 17*60 : 18*60; // newborns: 5pm floor (rare but possible), 3mo+: 6pm
-    // Ceiling: aligned with sleep consultant consensus
+    // Ceiling: aligned with sleep-consultant scheduling practice.
     // Newborns have late bedtimes. that's NORMAL, don't force 7pm on a 2-week-old
     let hi;
     if (!aw || aw < 6)   hi = 22*60;       // 0-6 weeks: max 10pm (newborns are chaotic, this is fine)
@@ -20148,14 +20149,14 @@ function App(){
     else if (aw < 39)    hi = 20*60;       // 6-9 months: max 8pm
     else if (aw < 52)    hi = 20*60+30;    // 9-12 months: max 8:30pm
     else                 hi = 20*60+30;    // 12+ months: max 8:30pm
-    // Absolute hard ceiling: 10:30pm regardless of age
+    // Absolute planning ceiling: 10:30pm regardless of age
     hi = Math.min(hi, 22*60+30);
     return Math.max(lo, Math.min(hi, mins));
   }
 
-  // ═══ MASTER SAFETY LAYER. prevents all ridiculous predictions ═══
+  // ═══ MASTER PLANNING LAYER. prevents implausible predictions ═══
   function clampWake(mins) {
-    // Wake must be 5:00am–9:30am
+    // OBubba plans the day from a 5:00am-9:30am morning-wake range.
     return Math.max(5*60, Math.min(9*60+30, mins));
   }
   function clampNapDuration(dur, ageWeeks) {
@@ -20436,10 +20437,11 @@ function App(){
     const napProfile = getAgeNapProfile(w);
     const mtp = mtp24h;
 
-    // ── 24h sleep targets by age (AASM Paediatric Sleep Duration Consensus + NHS Start4Life) ──
-    const sleepTarget24h = w < 6 ? {min:14*60,max:17*60} : w < 13 ? {min:12*60,max:15*60}
-      : w < 26 ? {min:12*60,max:15*60} : w < 52 ? {min:12*60,max:14*60}
-      : w < 78 ? {min:11*60,max:14*60} : {min:11*60,max:14*60};
+    // ── 24h sleep target range by age ──
+    // Uses the same evidence-based range helper as the sleep budget dashboard.
+    // The scheduler uses the midpoint as a planning target, never a promise.
+    const _sleepRange = getAASMRange(w);
+    const sleepTarget24h = { min: _sleepRange.min * 60, max: _sleepRange.max * 60 };
 
     // ── Gather recent data with recency weighting from resolved completed OBubba days ──
     const _tfsRecent = getResolvedRecentDays(days, selDay, 7);
@@ -20494,6 +20496,25 @@ function App(){
         baseWake = Math.round(origWake + (scheduleOverride.wake - origWake) * progress);
       } else {
         baseWake = scheduleOverride.wake;
+      }
+    }
+
+    // ── Weighted bedtime anchor ──
+    // Calculate before catnap adjustment; that branch needs the available day
+    // length to decide how many short naps can realistically fit.
+    const bedPatterns = dayPatterns.filter(p => p.bedMins);
+    const avgBed = bedPatterns.length >= 2
+      ? Math.round(bedPatterns.reduce((s,p) => s + p.bedMins * p.recency, 0) / bedPatterns.reduce((s,p) => s + p.recency, 0))
+      : 19 * 60;
+    let anchorBed = clampBedtime(avgBed);
+    if (scheduleOverride && scheduleOverride.bed) {
+      if (scheduleOverride.gradualStart && scheduleOverride.gradualDays) {
+        const daysSinceStart = Math.floor((Date.now() - scheduleOverride.gradualStart) / 86400000);
+        const progress = Math.min(1, (daysSinceStart + 1) / scheduleOverride.gradualDays);
+        const origBed = scheduleOverride.originalBed || anchorBed;
+        anchorBed = Math.round(origBed + (scheduleOverride.bed - origBed) * progress);
+      } else {
+        anchorBed = scheduleOverride.bed;
       }
     }
 
@@ -20560,23 +20581,6 @@ function App(){
     // Target nap duration per position to hit required day sleep
     const targetPerNap = Math.round((requiredDayMins + deficitBoost) / napCount);
 
-    // ── Weighted bedtime ──
-    const bedPatterns = dayPatterns.filter(p => p.bedMins);
-    const avgBed = bedPatterns.length >= 2
-      ? Math.round(bedPatterns.reduce((s,p) => s + p.bedMins * p.recency, 0) / bedPatterns.reduce((s,p) => s + p.recency, 0))
-      : 19 * 60;
-    let anchorBed = clampBedtime(avgBed);
-    if (scheduleOverride && scheduleOverride.bed) {
-      if (scheduleOverride.gradualStart && scheduleOverride.gradualDays) {
-        const daysSinceStart = Math.floor((Date.now() - scheduleOverride.gradualStart) / 86400000);
-        const progress = Math.min(1, (daysSinceStart + 1) / scheduleOverride.gradualDays);
-        const origBed = scheduleOverride.originalBed || anchorBed;
-        anchorBed = Math.round(origBed + (scheduleOverride.bed - origBed) * progress);
-      } else {
-        anchorBed = scheduleOverride.bed;
-      }
-    }
-
     // ── Build schedule ──
     const schedule = [];
     schedule.push({ label: "Wake up", time: mtp(baseWake), icon: "☀️", type: "wake" });
@@ -20638,7 +20642,7 @@ function App(){
       // Post-bridge bedtime: 60-90 min after wake (bridge doesn't reset full WW)
       const bridgeWW = Math.min(ww.min, 120); // Cap pre-bridge WW at 2hrs
       const bridgeStart = cursor + bridgeWW;
-      const bridgeDur = ageWeeks < 22 ? 25 : ageWeeks < 39 ? 20 : 15; // age-adaptive
+      const bridgeDur = w < 22 ? 25 : w < 39 ? 20 : 15; // age-adaptive
       const bridgeEnd = bridgeStart + bridgeDur;
       const postBridgeWindow = Math.max(30, Math.round(ww.min * 0.65)); // Bridge nap only partially clears sleep pressure
       if (bridgeStart > cursor && bridgeEnd < anchorBed) {
@@ -30123,9 +30127,9 @@ function App(){
       wakeMins = clampWake(wakeRequested);
       if (wakeMins !== wakeRequested) {
         if (wakeRequested < 5*60) {
-          adjustments.push("🌅 5:00am is the earliest healthy wake time, we set wake to 5:00am instead of " + _fmt12Mins(wakeRequested) + ".");
+          adjustments.push("🌅 OBubba plans from 5:00am at the earliest, so we set wake to 5:00am instead of " + _fmt12Mins(wakeRequested) + ".");
         } else if (wakeRequested > 9*60+30) {
-          adjustments.push("🌅 9:30am is the latest healthy wake time (any later and the day's naps won't fit), we set wake to 9:30am instead of " + _fmt12Mins(wakeRequested) + ".");
+          adjustments.push("🌅 OBubba plans from 9:30am at the latest so there is still room for naps, so we set wake to 9:30am instead of " + _fmt12Mins(wakeRequested) + ".");
         }
       }
     }
@@ -30144,9 +30148,9 @@ function App(){
           : _w < 52        ? "8:30pm"
           : "8:30pm";
         if (bedRequested > bedMins) {
-          adjustments.push("🌙 " + _ceilingLabel + " is the latest recommended bedtime for a " + _ageLabel + ", late bedtimes are linked to overtiredness and more night wakes. We set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
+          adjustments.push("🌙 " + _ceilingLabel + " is OBubba's planning ceiling for a " + _ageLabel + ". Later bedtimes can sometimes add overtiredness, so we set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
         } else if (bedRequested < bedMins) {
-          adjustments.push("🌙 Bedtime earlier than " + _fmt12Mins(bedMins) + " is too early for a " + _ageLabel + ", baby wouldn't have enough sleep pressure built up. We set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
+          adjustments.push("🌙 Bedtime earlier than " + _fmt12Mins(bedMins) + " may not leave enough awake time for a " + _ageLabel + ", so OBubba set bedtime to " + _fmt12Mins(bedMins) + " instead of " + _fmt12Mins(bedRequested) + ".");
         }
       }
     }

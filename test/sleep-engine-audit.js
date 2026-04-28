@@ -16,8 +16,14 @@
  * Exit: 0 on clean audit, 1 if any CRITICAL invariant fails
  */
 
-// ─── Pure helpers copied verbatim from app.jsx ────────────────────────
-// Keep in sync with app.jsx whenever sleep-engine functions change.
+const fs = require("fs");
+const path = require("path");
+
+// ─── Pure helpers mirrored from app.jsx ────────────────────────────────
+// Keep in sync with app.jsx whenever sleep-engine functions change. The live
+// app also applies contextual multipliers from current baby data; this audit
+// keeps a deterministic baseline so age-table and scheduling regressions are
+// reproducible.
 
 function getWakeWindow(ageWeeks) {
   // Kept in sync with app.jsx: defensive guard for NaN/undefined/negative age.
@@ -73,16 +79,17 @@ function getWakeWindow(ageWeeks) {
 function progressiveWW(ageWeeks, napIndex, totalNaps, disruptionMode = false) {
   const ww = getWakeWindow(ageWeeks);
   const range = ww.max - ww.min;
+  const clamp = v => Math.max(ww.min, Math.min(ww.max + 15, v));
   if (totalNaps <= 1) {
     let base = ww.midpoint;
     if (disruptionMode) base = Math.round(base * 0.8);
-    return base;
+    return clamp(base);
   }
   const ratio = Math.min(napIndex / totalNaps, 1);
   const scaled = 0.15 + ratio * 0.7;
   let result = Math.round(ww.min + range * scaled);
   if (disruptionMode) result = Math.round(result * 0.8);
-  return result;
+  return clamp(result);
 }
 
 function getAgeNapProfile(ageWeeks) {
@@ -92,10 +99,10 @@ function getAgeNapProfile(ageWeeks) {
   if (months < 3)    return { expectedNaps:4, idealNapDurMin:30, idealNapDurMax:90,  idealTotalMin:180, idealTotalMax:300 };
   if (months < 5)    return { expectedNaps:3, idealNapDurMin:40, idealNapDurMax:90,  idealTotalMin:150, idealTotalMax:240 };
   if (months < 7)    return { expectedNaps:3, idealNapDurMin:45, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:210 };
-  if (months < 9)    return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:210 };
+  if (months < 9)    { const r = { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:210 }; if (ageWeeks >= 28 && ageWeeks <= 31) r.expectedNaps = 3; return r; }
   if (months < 12)   return { expectedNaps:2, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:120, idealTotalMax:180 };
   if (months < 15)   return { expectedNaps:2, idealNapDurMin:50, idealNapDurMax:110, idealTotalMin:90,  idealTotalMax:150 };
-  if (ageWeeks < 78) return { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:60,  idealTotalMax:120 };
+  if (ageWeeks < 78) { const r = { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:120, idealTotalMin:60,  idealTotalMax:120 }; if (ageWeeks >= 63 && ageWeeks <= 67) r.expectedNaps = 2; return r; }
   return               { expectedNaps:1, idealNapDurMin:60, idealNapDurMax:90,  idealTotalMin:60,  idealTotalMax:90  };
 }
 
@@ -703,6 +710,34 @@ function _sweepWarn(bucket, msg, ctx) {
   if (_sweepWarns.length < 100) _sweepWarns.push({ bucket, msg, ctx });
 }
 
+// ─── Audit 0: live app source guards for sleep-scheduler TDZ bugs ─────────
+// The pure projection tests below are intentionally small and deterministic.
+// This guard catches a class of regressions that only appears in the live
+// React function body, such as referencing a schedule variable before it is
+// initialised on messy catnap or bridge-nap days.
+try {
+  const appSource = fs.readFileSync(path.join(__dirname, "..", "app.jsx"), "utf8");
+  const start = appSource.indexOf("function tomorrowFlexSchedule()");
+  const end = appSource.indexOf("// ═══ NAP STRUCTURE ENGINE", start);
+  const body = start >= 0 && end > start ? appSource.slice(start, end) : "";
+  if (!body) {
+    _sweepFail("tomorrowFlexSchedule", "could not locate live scheduler body", {});
+  } else {
+    const anchorDecl = body.indexOf("let anchorBed =");
+    const catnapUse = body.indexOf("const _availableDay = anchorBed - baseWake");
+    if (anchorDecl < 0 || catnapUse < 0) {
+      _sweepFail("tomorrowFlexSchedule", "missing anchorBed declaration or catnap available-day check", { anchorDecl, catnapUse });
+    } else if (catnapUse < anchorDecl) {
+      _sweepFail("tomorrowFlexSchedule", "anchorBed is used before initialisation in catnap scheduling", { anchorDecl, catnapUse });
+    }
+    if (/const bridgeDur = ageWeeks\s*</.test(body)) {
+      _sweepFail("tomorrowFlexSchedule", "bridge nap duration references ageWeeks instead of local w", {});
+    }
+  }
+} catch (err) {
+  _sweepFail("tomorrowFlexSchedule", "failed to read app.jsx for source guard", { message: err.message });
+}
+
 // ─── Audit 1: raw helper outputs across every age in weeks ──────────────
 for (let aw = 0; aw <= 156; aw++) { // 0 → 3 years
   const ww = getWakeWindow(aw);
@@ -747,6 +782,22 @@ for (let aw = 0; aw <= 156; aw++) { // 0 → 3 years
   }
   _sweepTotal++;
 }
+
+[
+  { aw: 27, naps: 3, reason: "pre 3-to-2 transition still has 3 naps" },
+  { aw: 28, naps: 3, reason: "3-to-2 transition keeps rescue third nap available" },
+  { aw: 31, naps: 3, reason: "late 3-to-2 transition keeps rescue third nap available" },
+  { aw: 32, naps: 2, reason: "post 3-to-2 transition settles to 2 naps" },
+  { aw: 62, naps: 2, reason: "pre 2-to-1 transition still has 2 naps" },
+  { aw: 63, naps: 2, reason: "2-to-1 transition keeps optional second nap available" },
+  { aw: 67, naps: 2, reason: "late 2-to-1 transition keeps optional second nap available" },
+  { aw: 68, naps: 1, reason: "post 2-to-1 transition settles to 1 nap" },
+].forEach(({ aw, naps, reason }) => {
+  const actual = getAgeNapProfile(aw).expectedNaps;
+  if (actual !== naps) {
+    _sweepFail("nap-transition-blending", `${reason}: expected ${naps}, got ${actual}`, { aw, profile: getAgeNapProfile(aw) });
+  }
+});
 
 // ─── Audit 2: age-to-age transitions never jolt WW by more than 30 min ──
 // A tiny week-to-week change shouldn't flip wake window by 60+ minutes —
