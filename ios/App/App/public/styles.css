@@ -2157,3 +2157,178 @@ body.dark-mode .ob-app-root textarea{
     inset 22px 22px 28px -25px var(--ob-corner-btn-upper),
     inset -24px -24px 32px -26px var(--ob-corner-btn-lower)!important;
 }
+
+/* Night candle correction.
+   The earlier amber pass read like a spotlight. This keeps the warmth as
+   thin diagonal glass catches: small top-left and lower-right edge glints,
+   with no broad amber pool behind the surface. */
+body.dark-mode{
+  --ob-corner-upper:rgba(255,210,144,0.105);
+  --ob-corner-lower:rgba(255,149,82,0.125);
+  --ob-corner-btn-upper:rgba(255,214,152,0.085);
+  --ob-corner-btn-lower:rgba(255,150,82,0.105);
+}
+body.dark-mode::before{
+  background:
+    radial-gradient(ellipse 80% 16% at 50% 114%,rgba(255,154,82,0.055),transparent 72%),
+    linear-gradient(180deg,#07101b 0%,#0a1422 50%,#0c1828 100%)!important;
+}
+body.dark-mode .ob-app-root .glass-card,
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-hero,
+body.dark-mode .ob-app-root .ob-premium-hero,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root div[data-entry-id],
+body.dark-mode .ob-app-root div[style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="borderRadius"],
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    linear-gradient(135deg,rgba(255,226,178,0.060) 0%,rgba(255,226,178,0.026) 6%,transparent 17%),
+    linear-gradient(315deg,rgba(255,145,76,0.058) 0%,rgba(255,145,76,0.022) 7%,transparent 18%),
+    linear-gradient(180deg,rgba(255,255,255,0.115),rgba(255,255,255,0.045)),
+    rgba(255,255,255,0.052)!important;
+  border-color:rgba(255,218,172,0.165)!important;
+  filter:none!important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,232,198,0.145),
+    inset -1px -1px 0 rgba(255,140,72,0.090),
+    inset 0 1px 0 rgba(255,244,224,0.13),
+    inset 12px 12px 18px -20px var(--ob-corner-upper),
+    inset -14px -14px 20px -22px var(--ob-corner-lower)!important;
+}
+body.dark-mode .ob-app-root .glass-card::before,
+body.dark-mode .ob-app-root .ob-premium-tile::before{
+  animation:none!important;
+  opacity:0.36!important;
+  height:1px!important;
+  background:linear-gradient(90deg,transparent,rgba(255,236,205,0.22),transparent)!important;
+}
+body.dark-mode .ob-app-root .glass-card::after,
+body.dark-mode .ob-app-root .ob-premium-tile::after{
+  opacity:0.24!important;
+  height:1px!important;
+  background:linear-gradient(90deg,transparent,rgba(255,183,96,0.18),transparent)!important;
+}
+body.dark-mode .ob-app-root button,
+body.dark-mode .ob-app-root [role="button"],
+body.dark-mode .ob-app-root input,
+body.dark-mode .ob-app-root select,
+body.dark-mode .ob-app-root textarea{
+  background:
+    linear-gradient(135deg,rgba(255,226,178,0.050) 0%,rgba(255,226,178,0.018) 7%,transparent 20%),
+    linear-gradient(315deg,rgba(255,145,76,0.050) 0%,rgba(255,145,76,0.018) 8%,transparent 22%),
+    linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.058))!important;
+  border-color:rgba(255,226,186,0.135)!important;
+  filter:none!important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,232,198,0.125),
+    inset -1px -1px 0 rgba(255,140,72,0.080),
+    inset 0 1px 0 rgba(255,244,224,0.12),
+    inset 9px 9px 14px -16px var(--ob-corner-btn-upper),
+    inset -10px -10px 15px -17px var(--ob-corner-btn-lower)!important;
+}
+body.dark-mode .ob-bubbamoji,
+body.dark-mode .ob-line-icon,
+body.dark-mode .ob-quick-log-icon{
+  filter:none!important;
+}
+body.dark-mode .ob-quick-log-icon{
+  background:
+    linear-gradient(135deg,rgba(255,226,178,0.050),transparent 22%),
+    linear-gradient(315deg,rgba(255,145,76,0.040),transparent 24%),
+    linear-gradient(180deg,rgba(255,255,255,0.095),rgba(255,255,255,0.040)),
+    rgba(255,255,255,0.050)!important;
+  border-color:rgba(255,236,205,0.105)!important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,232,198,0.115),
+    inset -1px -1px 0 rgba(255,140,72,0.075),
+    inset 0 1px 0 rgba(255,245,225,0.10),
+    inset 8px 8px 12px -14px rgba(255,214,152,0.075),
+    inset -8px -8px 12px -14px rgba(255,150,82,0.085)!important;
+}
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-corner-upper:rgba(138,104,255,0.085);
+  --ob-corner-lower:rgba(126,92,255,0.105);
+  --ob-corner-btn-upper:rgba(138,104,255,0.070);
+  --ob-corner-btn-lower:rgba(126,92,255,0.090);
+}
+.ob-app-root .prio-glow,
+body.dark-mode .ob-app-root .prio-glow{
+  animation:none!important;
+  border-color:rgba(255,255,255,0.24)!important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,0.12),
+    inset -1px -1px 0 rgba(126,92,255,0.060),
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 12px 12px 18px -20px var(--ob-corner-upper),
+    inset -14px -14px 20px -22px var(--ob-corner-lower)!important;
+}
+body.dark-mode .ob-app-root .prio-glow{
+  border-color:rgba(255,226,186,0.145)!important;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,232,198,0.125),
+    inset -1px -1px 0 rgba(255,140,72,0.080),
+    inset 0 1px 0 rgba(255,244,224,0.12),
+    inset 12px 12px 18px -20px var(--ob-corner-upper),
+    inset -14px -14px 20px -22px var(--ob-corner-lower)!important;
+}
+
+/* Hero gets the clearest glow because it anchors the screen. Keep it inside
+   the glass corners only so it feels premium, not like a halo. */
+.ob-app-root .ob-hero,
+.ob-app-root [data-testid="today-hero"]{
+  position:relative!important;
+  overflow:hidden!important;
+  background:
+    linear-gradient(135deg,rgba(159,126,255,0.075) 0%,rgba(159,126,255,0.026) 7%,transparent 18%),
+    linear-gradient(315deg,rgba(126,92,255,0.082) 0%,rgba(126,92,255,0.028) 8%,transparent 20%),
+    linear-gradient(180deg,rgba(255,255,255,0.62),rgba(255,255,255,0.34)),
+    var(--card-bg)!important;
+  border-color:rgba(255,255,255,0.82)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.46),
+    inset -1px -1px 0 rgba(126,92,255,0.070),
+    inset 12px 12px 18px -20px rgba(159,126,255,0.130),
+    inset -14px -14px 20px -22px rgba(126,92,255,0.155),
+    0 8px 18px rgba(71,54,49,0.080)!important;
+}
+body.dark-mode .ob-app-root .ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"]{
+  background:
+    linear-gradient(135deg,rgba(255,226,178,0.090) 0%,rgba(255,226,178,0.032) 7%,transparent 18%),
+    linear-gradient(315deg,rgba(255,145,76,0.098) 0%,rgba(255,145,76,0.034) 8%,transparent 20%),
+    linear-gradient(180deg,rgba(255,255,255,0.260),rgba(255,255,255,0.110)),
+    rgba(255,255,255,0.052)!important;
+  border-color:rgba(255,255,255,0.280)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.280),
+    inset -1px -1px 0 rgba(255,140,72,0.075),
+    inset 12px 12px 18px -20px rgba(255,214,152,0.115),
+    inset -14px -14px 20px -22px rgba(255,145,76,0.145),
+    0 10px 22px rgba(0,0,0,0.160)!important;
+}
+
+body.dark-mode .ob-app-root .glass-card:not(.ob-hero):not([data-testid="today-hero"]),
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-day-mode-switcher{
+  background:
+    linear-gradient(135deg,rgba(255,226,178,0.054) 0%,rgba(255,226,178,0.020) 7%,transparent 18%),
+    linear-gradient(315deg,rgba(255,145,76,0.058) 0%,rgba(255,145,76,0.020) 8%,transparent 20%),
+    linear-gradient(180deg,rgba(255,255,255,0.145),rgba(255,255,255,0.060)),
+    rgba(255,255,255,0.052)!important;
+  border-color:rgba(255,255,255,0.200)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.200),
+    inset -1px -1px 0 rgba(255,140,72,0.050),
+    inset 10px 10px 16px -18px rgba(255,214,152,0.080),
+    inset -12px -12px 18px -20px rgba(255,145,76,0.092),
+    0 8px 18px rgba(0,0,0,0.120)!important;
+}
