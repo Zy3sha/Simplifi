@@ -151,6 +151,14 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         )
 
         Task {
+            // Prediction countdowns and timer activities use different ActivityKit
+            // attribute types, so iOS can show both at once. End timer activities
+            // here too, otherwise a stale bedtime/night timer can look stuck even
+            // after the app has moved back to next-event countdown mode.
+            for timer in Activity<OBubbaTimerAttributes>.activities {
+                await timer.end(nil, dismissalPolicy: .immediate)
+            }
+
             // End any existing prediction activities
             for existing in Activity<OBubbaPredictionAttributes>.activities {
                 await existing.end(nil, dismissalPolicy: .immediate)

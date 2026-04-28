@@ -109,6 +109,15 @@ public class TimerService extends Service {
                 return START_STICKY;
 
             case ACTION_START_PREDICTION:
+                // The app only sends prediction mode when JS has no real timer
+                // active. If Android still has a foreground timer here, it is
+                // stale native state from an older night/nap/feed timer. Clear
+                // it so the lock screen cannot stay stuck on night mode beside
+                // the new next-event countdown.
+                if (running) {
+                    clearTimerState();
+                    stopActiveTimerOnly();
+                }
                 stopPrediction();
                 predictionTargetMs = intent.getLongExtra(EXTRA_TARGET_TIME, 0);
                 predictionLabel = intent.getStringExtra(EXTRA_LABEL);
@@ -164,13 +173,17 @@ public class TimerService extends Service {
     }
 
     private void stopTimer() {
+        stopActiveTimerOnly();
+        stopSelf();
+    }
+
+    private void stopActiveTimerOnly() {
         running = false;
         if (handler != null && updateRunnable != null) {
             handler.removeCallbacks(updateRunnable);
         }
         releaseWakeLock();
         stopForeground(STOP_FOREGROUND_REMOVE);
-        stopSelf();
     }
 
     private void updateNotification() {

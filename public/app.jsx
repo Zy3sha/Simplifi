@@ -13713,12 +13713,15 @@ function App(){
     });
   }, [age, days, selDay, babyName]);
 
-  // ── Widget data: push resolved day summary to native WidgetKit ──
+  // ── Widget data: push current-day summary to native WidgetKit ──
   // Data shape must match Swift WidgetData struct exactly
   React.useEffect(function() {
     if (!babyName) return;
     try {
-      var todayKey = selDay || todayStr();
+      // Widgets/Live Activities should reflect "right now", not whichever day
+      // the parent is viewing. Using selDay here let yesterday's bedtime keep
+      // exporting as an active bed timer after morning wake was logged.
+      var todayKey = todayStr();
       var rd = days[todayKey] || [];
       // Merge entries from bedTimerDay if it's a different calendar day
       // Include ALL entries (not just night). morning nappies/feeds logged before wake
