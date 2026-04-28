@@ -36712,7 +36712,7 @@ function App(){
                   <div className="glass-card" style={{..._S.card18,border:"1.5px solid rgba(123,104,238,0.18)",background:"rgba(123,104,238,0.04)"}}>
                     <div style={{fontSize:14,fontWeight:800,color:C.deep,marginBottom:8}}>You do not have to be in crisis to ask for help</div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:10}}>
-                      Up to 1 in 5 new parents experience postnatal depression or anxiety. If you're feeling overwhelmed, anxious, detached, or not yourself, please speak to your {_healthContact}, GP, midwife, or a support line.
+                      Up to 1 in 5 new parents experience postnatal depression or anxiety. If you're feeling overwhelmed, anxious, detached, or not yourself, please speak to your {_healthContact} or a support line.
                     </div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.8,whiteSpace:"pre-line"}}>{_wellbeingShort}</div>
                     <button onClick={()=>{haptic();setShowSupportModal(true);}} style={{width:"100%",marginTop:12,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7b68ee,#6B5B95)",color:"white",fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>Open support options</button>
