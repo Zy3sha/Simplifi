@@ -8445,7 +8445,7 @@ function App(){
   // Pattern-based stress detection. 3+ hard days in last 7
   const wellbeingStressPattern = React.useMemo(()=>{
     const recent = wellbeingHistory.slice(-7);
-    const hardDays = recent.filter(r => r.label==="Struggling" || r.label==="Need support").length;
+    const hardDays = recent.filter(r => ["Struggling","Need support","Heavy","I need help"].includes(r.label)).length;
     return hardDays >= 2;
   },[wellbeingHistory]);
   // Partner check-in due (monthly)
@@ -36486,39 +36486,80 @@ function App(){
                 const _waterCount = _scData.water||0;
                 const _addWater = ()=>{haptic();const d={..._scData,water:(_scData.water||0)+1};try{localStorage.setItem(_scKey,JSON.stringify(d));}catch{}setPartnerTick(t=>t+1);showToast("💧 "+d.water+"/8 glasses",1000,1);};
 
+                const _moodOptions = [
+                  {key:"steady",emoji:"🕯️",label:"Steady",sub:"I can breathe",saveLabel:"Great"},
+                  {key:"empty",emoji:"🌙",label:"Running empty",sub:"Tired but here",saveLabel:"Okay"},
+                  {key:"heavy",emoji:"☁️",label:"Heavy",sub:"This feels hard",saveLabel:"Struggling"},
+                  {key:"help",emoji:"🫶",label:"I need help",sub:"Show support",saveLabel:"Need support",openSupport:true},
+                ];
+                const _recordMood = (opt) => {
+                  haptic();
+                  setWellbeingResponse(opt.key);
+                  try{localStorage.setItem("wb_response_v1",JSON.stringify({key:opt.key,label:opt.saveLabel,date:todayStr()}));}catch{}
+                  setLastWellbeingDate(todayStr());
+                  try{localStorage.setItem("wellbeing_date_v1",todayStr());}catch{}
+                  saveWellbeingHistory(opt.saveLabel);
+                  if(opt.openSupport){setShowSupportModal(true);return;}
+                  if(opt.key==="heavy"){
+                    showToast("That sounds really hard. One tiny reset is enough right now.",3500,1);
+                    return;
+                  }
+                  showToast(opt.key==="empty"?"You're running on empty. Rest is not a reward, it's care.":opt.key==="steady"?"Hold onto this steadier moment. You deserve it.":"Thank you for checking in.",3000,1);
+                };
                 const _dailyItems = [
-                  {id:"eaten",emoji:"🍽",label:"Eaten a proper meal"},
-                  {id:"outside",emoji:"🌿",label:"Been outside (even 2 minutes)"},
-                  {id:"shower",emoji:"🚿",label:"Showered or washed face"},
-                  {id:"rest",emoji:"😴",label:"Rested when baby rested"},
-                  {id:"phone_down",emoji:"📱",label:"Put the phone down for 10 min"},
+                  {id:"eaten",emoji:"🍽",label:"Eat something",sub:"A proper meal, toast, fruit. anything counts."},
+                  {id:"outside",emoji:"🌿",label:"Step outside",sub:"Even two minutes at the door counts."},
+                  {id:"shower",emoji:"🚿",label:"Wash face or shower",sub:"A reset, not a beauty standard."},
+                  {id:"rest",emoji:"🛋️",label:"Sit down for two minutes",sub:"No fixing. no scrolling. just pause."},
+                  {id:"phone_down",emoji:"📱",label:"Put the phone down",sub:"Ten quiet minutes if you can."},
                 ];
                 const _weeklyItems = [
-                  {id:"friend",emoji:"📞",label:"Called or texted a friend"},
-                  {id:"me_time",emoji:"💛",label:"Did something just for me"},
-                  {id:"help",emoji:"🤝",label:"Asked for or accepted help"},
-                  {id:"partner",emoji:"💕",label:"Checked in with my partner"},
-                  {id:"moved",emoji:"🚶",label:"Went for a walk or moved my body"},
+                  {id:"friend",emoji:"📞",label:"Message one safe person",sub:"No perfect wording needed."},
+                  {id:"me_time",emoji:"💛",label:"Do one thing for you",sub:"Small counts. tiny counts."},
+                  {id:"help",emoji:"🤝",label:"Accept or ask for help",sub:"This is support, not weakness."},
+                  {id:"partner",emoji:"💕",label:"Check in with your partner",sub:"Five honest minutes."},
+                  {id:"moved",emoji:"🚶",label:"Move gently",sub:"A walk, stretch, or kitchen lap."},
                 ];
                 const _dailyDone = _dailyItems.filter(i=>_scData[i.id]).length;
                 const _weeklyDone = _weeklyItems.filter(i=>_scWeek[i.id]).length;
+                const _todayMsg = wellbeingDataSignal
+                  ? "The last few nights look heavy. This is not a character test. Take one small support step today."
+                  : wellbeingStressPattern
+                    ? "A few hard check-ins have stacked up. You deserve support before it becomes too much."
+                    : _waterCount < 3
+                      ? "Start with water and one breath. That is enough of a first step."
+                      : "Come here for a minute. No judgement, no fixing everything. Just one steadier breath.";
 
                 return (
                 <div>
                   <button onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={_S.f16}>‹</span> Back
                   </button>
-                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:16}}>💜 Your Wellbeing</div>
+                  <div className="glass-card" style={{padding:"24px 18px 22px",marginBottom:12,background:"linear-gradient(135deg,rgba(123,104,238,0.16) 0%,rgba(255,255,255,0.46) 28%,rgba(255,255,255,0.38) 68%,rgba(212,168,85,0.12) 100%)",border:"1.5px solid rgba(123,104,238,0.18)",boxShadow:"inset 1px 1px 0 rgba(255,255,255,0.28),inset -1px -1px 0 rgba(212,168,85,0.10),0 18px 48px rgba(48,35,75,0.10)",textAlign:"center",position:"relative",overflow:"hidden"}}>
+                    <div style={{position:"relative"}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:"#7b68ee",textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>Parent room</div>
+                      <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:700,color:C.deep,lineHeight:1.2,marginBottom:10}}>Come here for a minute.</div>
+                      <div style={{fontSize:14,color:C.mid,lineHeight:1.7,maxWidth:330,margin:"0 auto 16px"}}>{_todayMsg}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                        <button onClick={()=>{haptic();setShowBreathing(true);}} style={{padding:"12px 10px",borderRadius:16,border:"1.5px solid rgba(123,104,238,0.24)",background:"rgba(255,255,255,0.42)",color:"#6f57d8",fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>🫁 Breathe</button>
+                        <button onClick={()=>{haptic();setShowSupportModal(true);}} style={{padding:"12px 10px",borderRadius:16,border:"1.5px solid rgba(192,112,136,0.28)",background:"rgba(192,112,136,0.10)",color:C.ter,fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>I need support now</button>
+                      </div>
+                    </div>
+                  </div>
 
-                  {/* Daily check-in */}
-                  <div className="glass-card" style={{padding:"16px 18px",marginBottom:12,background:"rgba(123,104,238,0.03)"}}>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:10}}>How are you feeling?</div>
-                    <div style={_S.flexRowGap8}>
-                      {[["great","😊","Great"],["ok","😐","OK"],["tired","😴","Tired"],["struggling","😢","Struggling"]].map(([key,emoji,label])=>(
-                        <button key={key} onClick={()=>{haptic();setWellbeingResponse(key);try{localStorage.setItem("wb_response_v1",JSON.stringify({key,date:todayStr()}));}catch{} if(key==="struggling"){setShowSupportModal(true);}else{showToast(key==="tired"?"You're running on empty. Rest is not a reward, it's a necessity.":key==="ok"?"💛 Glad to hear it. You're doing a brilliant job. Keep going.":"💜 That's a good day. "+(babyName||"Baby")+" is lucky to have you. 🫶",3000,1);}}}
-                          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:"1.5px solid "+(wellbeingResponse===key?"#7b68ee":"var(--card-border)"),background:wellbeingResponse===key?"rgba(123,104,238,0.08)":"var(--card-bg)",cursor:_cP}}>
-                          <span style={_S.f20}>{emoji}</span>
-                          <span style={{fontSize:10,fontWeight:600,color:wellbeingResponse===key?"#7b68ee":C.mid}}>{label}</span>
+                  {/* Gentle check-in */}
+                  <div className="glass-card" style={{padding:"16px 18px",marginBottom:12,background:"rgba(123,104,238,0.035)"}}>
+                    <div style={{fontSize:14,fontWeight:800,color:C.deep,marginBottom:4}}>How is your heart today?</div>
+                    <div style={{fontSize:12,color:C.lt,lineHeight:1.5,marginBottom:12}}>No score. No judgement. OBubba just listens and remembers the pattern.</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                      {_moodOptions.map(opt=>(
+                        <button key={opt.key} onClick={()=>_recordMood(opt)}
+                          style={{display:"flex",alignItems:"center",gap:9,padding:"11px 10px",borderRadius:16,border:"1.5px solid "+(wellbeingResponse===opt.key?"#7b68ee":"var(--card-border)"),background:wellbeingResponse===opt.key?"rgba(123,104,238,0.10)":"var(--card-bg)",cursor:_cP,textAlign:"left"}}>
+                          <span style={{fontSize:20,lineHeight:1}}>{opt.emoji}</span>
+                          <span style={{flex:1,minWidth:0}}>
+                            <span style={{display:"block",fontSize:12,fontWeight:800,color:wellbeingResponse===opt.key?"#7b68ee":C.deep,whiteSpace:"normal"}}>{opt.label}</span>
+                            <span style={{display:"block",fontSize:10,color:C.lt,marginTop:2,whiteSpace:"normal"}}>{opt.sub}</span>
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -36578,17 +36619,26 @@ function App(){
                     {_waterCount < 4 && <div style={{fontSize:11,color:C.lt,marginTop:6,fontStyle:"italic",textAlign:"center"}}>Dehydration makes everything harder. tiredness, headaches, milk supply. You matter too.</div>}
                   </div>
 
-                  {/* Breathing meditation */}
-                  <div className="glass-card" style={_S.card18}>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>🫁 Breathe</div>
-                    <button onClick={()=>{haptic();setShowBreathing(true);}} style={{width:"100%",padding:"16px",borderRadius:14,border:`1px solid rgba(123,104,238,0.2)`,background:"linear-gradient(135deg,rgba(123,104,238,0.06),rgba(155,184,168,0.04))",cursor:_cP,textAlign:"center"}}>
-                      <div style={{fontSize:13,color:C.deep,fontWeight:600}}>Start a breathing exercise</div>
-                      <div style={{fontSize:11,color:C.lt,marginTop:4}}>2 min guided breathing. calms your nervous system.</div>
-                    </button>
+                  {/* Tiny reset */}
+                  <div className="glass-card" style={{padding:"16px 18px",marginBottom:12}}>
+                    <div style={{fontSize:14,fontWeight:800,color:C.deep,marginBottom:4}}>Pick one tiny reset</div>
+                    <div style={{fontSize:12,color:C.lt,lineHeight:1.5,marginBottom:12}}>One thing is enough today. This is care, not another task list.</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                      {_dailyItems.map(item=>(
+                        <button key={item.id} onClick={()=>_toggleSc(item.id)}
+                          style={{padding:"12px 10px",borderRadius:16,border:"1.5px solid "+(_scData[item.id]?C.mint+"66":"var(--card-border)"),background:_scData[item.id]?"rgba(111,168,152,0.12)":"var(--card-bg-alt)",cursor:_cP,textAlign:"left",minHeight:78,position:"relative"}}>
+                          {_scData[item.id] && <span style={{position:"absolute",top:8,right:9,width:18,height:18,borderRadius:"50%",background:C.mint,color:"white",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>✓</span>}
+                          <div style={{fontSize:20,marginBottom:5}}>{item.emoji}</div>
+                          <div style={{fontSize:12,fontWeight:800,color:_scData[item.id]?C.mint:C.deep,lineHeight:1.25,paddingRight:16}}>{item.label}</div>
+                          <div style={{fontSize:10,color:C.lt,lineHeight:1.35,marginTop:3}}>{item.sub}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={()=>{haptic();setShowYouTime(true);}} style={{width:"100%",marginTop:10,padding:"11px 12px",borderRadius:99,border:"1.5px solid rgba(212,168,85,0.28)",background:"rgba(212,168,85,0.10)",color:C.gold,fontSize:12,fontWeight:800,cursor:_cP,fontFamily:_fI}}>I need a softer idea</button>
                   </div>
 
                   {/* Daily self-care checklist */}
-                  <div className="glass-card" style={_S.card18}>
+                  <div className="glass-card" style={{..._S.card18,display:"none"}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today's Self-Care</div>
                       <span style={{fontSize:11,color:_dailyDone>=3?C.mint:C.lt,fontFamily:_fM}}>{_dailyDone}/{_dailyItems.length} done</span>
@@ -36608,8 +36658,11 @@ function App(){
                   {/* Weekly goals */}
                   <div className="glass-card" style={_S.card18}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <div style={{fontSize:14,fontWeight:700,color:C.deep}}>This Week's Goals</div>
-                      <span style={{fontSize:11,color:_weeklyDone>=3?C.mint:C.lt,fontFamily:_fM}}>{_weeklyDone}/{_weeklyItems.length}</span>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:800,color:C.deep}}>Connection anchors</div>
+                        <div style={{fontSize:11,color:C.lt,marginTop:2}}>Soft supports for this week</div>
+                      </div>
+                      <span style={{fontSize:11,color:_weeklyDone>=1?C.mint:C.lt,fontFamily:_fM}}>{_weeklyDone ? _weeklyDone+" chosen" : "optional"}</span>
                     </div>
                     {_weeklyItems.map(item=>(
                       <button key={item.id} onClick={()=>_toggleScW(item.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 0",background:"none",border:"none",borderBottom:"1px solid "+C.blush,cursor:_cP,textAlign:"left"}}>
@@ -36617,7 +36670,10 @@ function App(){
                           {_scWeek[item.id] && <span style={{color:"white",fontSize:12,fontWeight:700}}>✓</span>}
                         </div>
                         <span style={_S.f13}>{item.emoji}</span>
-                        <span style={{fontSize:13,color:_scWeek[item.id]?C.mint:C.mid,textDecoration:_scWeek[item.id]?"line-through":"none"}}>{item.label}</span>
+                        <span style={{flex:1,minWidth:0}}>
+                          <span style={{display:"block",fontSize:13,color:_scWeek[item.id]?C.mint:C.mid,textDecoration:_scWeek[item.id]?"line-through":"none",fontWeight:700}}>{item.label}</span>
+                          <span style={{display:"block",fontSize:10,color:C.lt,lineHeight:1.35,marginTop:2}}>{item.sub}</span>
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -36653,12 +36709,13 @@ function App(){
                   })()}
 
                   {/* Support resources */}
-                  <div className="glass-card" style={_S.card18}>
-                    <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:8}}>Need to talk to someone?</div>
+                  <div className="glass-card" style={{..._S.card18,border:"1.5px solid rgba(123,104,238,0.18)",background:"rgba(123,104,238,0.04)"}}>
+                    <div style={{fontSize:14,fontWeight:800,color:C.deep,marginBottom:8}}>You do not have to be in crisis to ask for help</div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:10}}>
-                      Up to 1 in 5 new parents experience postnatal depression or anxiety. If you're feeling overwhelmed, anxious, or not yourself. that's OK and help is available.
+                      Up to 1 in 5 new parents experience postnatal depression or anxiety. If you're feeling overwhelmed, anxious, detached, or not yourself, please speak to your {_healthContact}, GP, midwife, or a support line.
                     </div>
                     <div style={{fontSize:12,color:C.mid,lineHeight:1.8,whiteSpace:"pre-line"}}>{_wellbeingShort}</div>
+                    <button onClick={()=>{haptic();setShowSupportModal(true);}} style={{width:"100%",marginTop:12,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7b68ee,#6B5B95)",color:"white",fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>Open support options</button>
                   </div>
                 </div>
                 );
@@ -48600,32 +48657,32 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       )}
 
       {showBreathing&&(
-        <div style={{position:"fixed",inset:0,zIndex:10002,background:"linear-gradient(180deg,#1a1030 0%,#2a1840 50%,#1a1030 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowBreathing(false);setBreathCount(0);}}>
-          <div onClick={e=>e.stopPropagation()} style={{textAlign:"center",maxWidth:360}}>
-            <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",marginBottom:20,letterSpacing:"0.15em",textTransform:"uppercase"}}>
-              {breathCount > 0 ? "Breath " + breathCount + " of 8" : "Follow the circle"}
+        <div style={{position:"fixed",inset:0,zIndex:10002,background:"linear-gradient(135deg,rgba(255,190,110,0.18) 0%,transparent 32%),linear-gradient(315deg,rgba(123,104,238,0.18) 0%,transparent 34%),linear-gradient(180deg,#130d20 0%,#24152f 52%,#120d1b 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowBreathing(false);setBreathCount(0);}}>
+          <div onClick={e=>e.stopPropagation()} style={{textAlign:"center",maxWidth:360,width:"100%",padding:"34px 24px",borderRadius:34,background:"linear-gradient(145deg,rgba(255,255,255,0.13),rgba(255,255,255,0.05))",border:"1px solid rgba(255,255,255,0.18)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.20),-18px -18px 70px rgba(255,184,92,0.12),18px 22px 80px rgba(123,104,238,0.16)",backdropFilter:"blur(30px)",WebkitBackdropFilter:"blur(30px)"}}>
+            <div style={{fontSize:12,color:"rgba(255,255,255,0.48)",marginBottom:18,letterSpacing:"0.14em",textTransform:"uppercase"}}>
+              {breathCount > 0 ? "Breath " + breathCount + " of 8" : "A minute for you"}
             </div>
 
             {/* Breathing circle */}
-            <div style={{width:160,height:160,borderRadius:"50%",border:"2px solid rgba(123,104,238,0.3)",margin:"0 auto 24px",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+            <div style={{width:172,height:172,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.16)",margin:"0 auto 26px",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",boxShadow:"inset 0 0 38px rgba(255,255,255,0.05),0 0 80px rgba(255,183,91,0.10)"}}>
               <div style={{
                 width: breathPhase==="inhale"?140:breathPhase==="hold"?140:80,
                 height: breathPhase==="inhale"?140:breathPhase==="hold"?140:80,
                 borderRadius:"50%",
-                background: breathPhase==="inhale"?"rgba(123,104,238,0.25)":breathPhase==="hold"?"rgba(123,104,238,0.35)":"rgba(123,104,238,0.15)",
+                background: breathPhase==="inhale"?"radial-gradient(circle at 35% 25%,rgba(255,218,160,0.68),rgba(123,104,238,0.24) 58%,rgba(123,104,238,0.08))":breathPhase==="hold"?"radial-gradient(circle at 35% 25%,rgba(255,218,160,0.76),rgba(123,104,238,0.32) 58%,rgba(123,104,238,0.10))":"radial-gradient(circle at 35% 25%,rgba(255,218,160,0.34),rgba(123,104,238,0.18) 58%,rgba(123,104,238,0.05))",
                 transition: breathPhase==="inhale"?"all 4s ease-in-out":breathPhase==="hold"?"all 0.3s":"all 6s ease-in-out",
-                boxShadow: breathPhase==="hold"?"0 0 40px rgba(123,104,238,0.4)":"0 0 20px rgba(123,104,238,0.2)",
+                boxShadow: breathPhase==="hold"?"-16px -16px 46px rgba(255,184,92,0.18),18px 18px 54px rgba(123,104,238,0.20)":"-10px -10px 34px rgba(255,184,92,0.14),14px 14px 42px rgba(123,104,238,0.14)",
               }}/>
             </div>
 
             <div style={{fontSize:28,fontWeight:700,color:"white",fontFamily:"Georgia,serif",marginBottom:8}}>
-              {breathPhase==="inhale"?"Breathe in":breathPhase==="hold"?"Hold":"Breathe out"}
+              {breathPhase==="inhale"?"Breathe in":breathPhase==="hold"?"Hold gently":"Let it go"}
             </div>
             <div style={{fontSize:16,color:"rgba(255,255,255,0.5)",marginBottom:4}}>
               {breathPhase==="inhale"?"1... 2... 3... 4...":breathPhase==="hold"?"1... 2... 3... 4...":"1... 2... 3... 4... 5... 6..."}
             </div>
 
-            <div style={{fontSize:12,color:"rgba(255,255,255,0.3)",marginTop:40}}>Tap anywhere to stop</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,0.38)",marginTop:34,lineHeight:1.5}}>Tap anywhere to stop. You can come back any time.</div>
           </div>
         </div>
       )}
@@ -48660,6 +48717,13 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep,lineHeight:1.3,marginBottom:12}}>You're surviving.</div>
               <div style={{fontSize:14,color:C.mid,lineHeight:1.7}}>
                 Parenting is the hardest job with no training, no breaks, and very little sleep. What you're feeling right now is valid. It doesn't make you a bad parent. It makes you human.
+              </div>
+            </div>
+
+            <div style={{padding:"12px 14px",borderRadius:16,background:"rgba(232,87,74,0.08)",border:"1px solid rgba(232,87,74,0.22)",marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#c04040",marginBottom:5}}>If anyone feels unsafe, get urgent help now</div>
+              <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
+                If you might hurt yourself, your baby, or someone else, call {_emergNum} now or go to emergency care. If baby is safe in their cot, it is OK to step away while you call.
               </div>
             </div>
 
