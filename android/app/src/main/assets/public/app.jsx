@@ -6325,25 +6325,29 @@ function App(){
           var _hasBreast = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
           var _hasBedTimer = !!localStorage.getItem("bed_timer_day");
           var _timerMode = localStorage.getItem("timer_mode_v1");
-          var _hasAnyTimer = _hasNap || _hasBreast || _hasBedTimer || _timerMode === "activeSleep";
+          var _hasAnyTimer = _hasNap || _hasBreast || _hasBedTimer;
+          if (!_hasAnyTimer && _timerMode === "activeSleep") {
+            // activeSleep without an actual nap/feed/bed key is stale. Keeping it
+            // here can preserve an old sleep Live Activity forever after morning wake.
+            try { localStorage.setItem("timer_mode_v1", "prediction"); } catch {}
+          }
           if(!_hasAnyTimer){
-            // Also check widget data. might have timer info we missed
-            var _wdRaw = null;
-            try { _wdRaw = localStorage.getItem("_lastWidgetData"); } catch{}
-            var _wdTimer = null;
-            if (_wdRaw) { try { _wdTimer = JSON.parse(_wdRaw).activeTimer; } catch{} }
-            if(!_wdTimer){
-              // Only stop timer LAs. don't kill prediction LAs (they're intentional)
-              var _timerModeNow = localStorage.getItem("timer_mode_v1");
-              if (_timerModeNow === "prediction" || _timerModeNow === "idle") {
-                console.log("[OBubba] No active timer, prediction mode. keeping prediction LA");
-              } else {
-                console.log("[OBubba] Cleaning up orphaned Live Activities");
-                window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
+            // No live timer keys means any timer Live Activity is orphaned,
+            // regardless of stale widget caches. Stop only timer LAs; prediction
+            // LAs are separate and remain intentional for premium users.
+            console.log("[OBubba] No active timer keys. cleaning up orphaned timer Live Activities");
+            window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
+            try {
+              var _wdRaw = localStorage.getItem("ob_widget_data_v1") || localStorage.getItem("_lastWidgetData") || "{}";
+              var _wd = JSON.parse(_wdRaw);
+              _wd.activeTimer = null; _wd.timerStartTime = null; _wd.timerStartMs = null;
+              _wd.timerLabel = null; _wd.breastSide = null; _wd.updatedAt = Date.now();
+              localStorage.setItem("ob_widget_data_v1", JSON.stringify(_wd));
+              localStorage.setItem("_lastWidgetData", JSON.stringify(_wd));
+              if(window.Capacitor?.Plugins?.OBWidgetBridge) {
+                window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(_wd) }).catch(function(){});
               }
-            } else {
-              console.log("[OBubba] Active timer (" + _wdTimer + ") detected. keeping existing Live Activity");
-            }
+            } catch(_staleWidgetClearErr) {}
           } else {
             console.log("[OBubba] Timer active (nap=" + _hasNap + " breast=" + _hasBreast + " bed=" + _hasBedTimer + " mode=" + _timerMode + "). keeping LA");
           }
@@ -8858,6 +8862,15 @@ function App(){
           const child = childrenRef.current?.[resolvedActiveId] || children?.[resolvedActiveId] || activeChild;
           const entries = (child?.days?.[bedDay] || []);
           const bedEntry = [...entries].reverse().find(e => e && e.type === "sleep" && !e.night && e.time);
+          const wakeDay = bedDay === todayStr() ? todayStr() : nextDayStr(bedDay);
+          const wakeEntry = findMorningWake((child?.days?.[wakeDay] || []));
+          const bedClosed = !!(bedEntry && wakeEntry && (wakeDay !== bedDay || timeVal(wakeEntry) > timeVal(bedEntry)));
+          if (bedClosed) {
+            try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+            setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+            clearTimerNotification();
+            return;
+          }
           const startTime = bedEntry?.time || localStorage.getItem("bed_timer_start") || "20:00";
           _androidTimerStart({type:"sleep", startTime:asMs(bedDay, startTime), babyName:safeName});
           return;

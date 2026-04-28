@@ -149,7 +149,10 @@ private func clearActiveTimer() {
        var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
         dict["activeTimer"] = ""
         dict["timerStart"] = ""
+        dict["timerStartTime"] = ""
+        dict["timerStartMs"] = ""
         dict["timerLabel"] = ""
+        dict["breastSide"] = ""
         if let updated = try? JSONSerialization.data(withJSONObject: dict),
            let updatedJson = String(data: updated, encoding: .utf8) {
             defaults.set(updatedJson, forKey: "widgetData")
