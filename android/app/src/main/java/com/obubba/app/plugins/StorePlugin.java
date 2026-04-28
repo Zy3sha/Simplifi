@@ -42,34 +42,70 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
     private BillingClient billingClient;
     private PluginCall pendingPurchaseCall;
     private List<ProductDetails> cachedProducts = new ArrayList<>();
+    private boolean billingConnecting = false;
+    private final List<Runnable> billingConnectedQueue = new ArrayList<>();
+    private final List<Runnable> billingFailedQueue = new ArrayList<>();
 
     @Override
     public void load() {
         billingClient = BillingClient.newBuilder(getContext())
             .setListener(this)
-            .enablePendingPurchases()
+            .enablePendingPurchases(
+                PendingPurchasesParams.newBuilder()
+                    .enableOneTimeProducts()
+                    .build()
+            )
+            .enableAutoServiceReconnection()
             .build();
         connectBilling(null);
     }
 
     private void connectBilling(Runnable onConnected) {
+        connectBilling(onConnected, null);
+    }
+
+    private void connectBilling(Runnable onConnected, Runnable onFailed) {
         try {
             if (billingClient.isReady()) {
                 if (onConnected != null) onConnected.run();
                 return;
             }
+            synchronized (this) {
+                if (billingConnecting) {
+                    if (onConnected != null) billingConnectedQueue.add(onConnected);
+                    if (onFailed != null) billingFailedQueue.add(onFailed);
+                    return;
+                }
+                billingConnecting = true;
+            }
             billingClient.startConnection(new BillingClientStateListener() {
                 @Override
                 public void onBillingSetupFinished(@NonNull BillingResult result) {
                     try {
+                        List<Runnable> successCallbacks = new ArrayList<>();
+                        List<Runnable> failureCallbacks = new ArrayList<>();
+                        synchronized (StorePlugin.this) {
+                            billingConnecting = false;
+                            if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) {
+                                if (onConnected != null) successCallbacks.add(onConnected);
+                                successCallbacks.addAll(billingConnectedQueue);
+                            } else {
+                                if (onFailed != null) failureCallbacks.add(onFailed);
+                                failureCallbacks.addAll(billingFailedQueue);
+                            }
+                            billingConnectedQueue.clear();
+                            billingFailedQueue.clear();
+                        }
                         if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) {
                             Log.i(TAG, "Billing connected");
-                            if (onConnected != null) onConnected.run();
+                            runCallbacks(successCallbacks);
                         } else {
                             Log.w(TAG, "Billing connect failed: " + result.getDebugMessage());
+                            runCallbacks(failureCallbacks);
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "Billing setup callback error", e);
+                        if (onFailed != null) onFailed.run();
                     }
                 }
                 @Override
@@ -79,6 +115,25 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
             });
         } catch (Exception e) {
             Log.e(TAG, "Billing connect error", e);
+            List<Runnable> failureCallbacks = new ArrayList<>();
+            synchronized (this) {
+                billingConnecting = false;
+                if (onFailed != null) failureCallbacks.add(onFailed);
+                failureCallbacks.addAll(billingFailedQueue);
+                billingConnectedQueue.clear();
+                billingFailedQueue.clear();
+            }
+            runCallbacks(failureCallbacks);
+        }
+    }
+
+    private void runCallbacks(List<Runnable> callbacks) {
+        for (Runnable callback : callbacks) {
+            try {
+                if (callback != null) callback.run();
+            } catch (Exception e) {
+                Log.e(TAG, "Billing callback error", e);
+            }
         }
     }
 
@@ -94,9 +149,17 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                 .setProductList(buildProductList(LIFETIME_IDS, BillingClient.ProductType.INAPP))
                 .build();
 
-            billingClient.queryProductDetailsAsync(subParams, (subResult, subDetails) -> {
-                billingClient.queryProductDetailsAsync(inappParams, (inappResult, inappDetails) -> {
+            billingClient.queryProductDetailsAsync(subParams, (subResult, subQueryResult) -> {
+                billingClient.queryProductDetailsAsync(inappParams, (inappResult, inappQueryResult) -> {
                     cachedProducts.clear();
+                    if (subResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+                        Log.w(TAG, "Subscription products query failed: " + subResult.getDebugMessage());
+                    }
+                    if (inappResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+                        Log.w(TAG, "In-app products query failed: " + inappResult.getDebugMessage());
+                    }
+                    List<ProductDetails> subDetails = productDetailsFrom(subQueryResult);
+                    List<ProductDetails> inappDetails = productDetailsFrom(inappQueryResult);
                     if (subDetails != null) cachedProducts.addAll(subDetails);
                     if (inappDetails != null) cachedProducts.addAll(inappDetails);
 
@@ -108,16 +171,13 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                         p.put("description", pd.getDescription());
 
                         if (pd.getProductType().equals(BillingClient.ProductType.SUBS)) {
-                            List<ProductDetails.SubscriptionOfferDetails> offers = pd.getSubscriptionOfferDetails();
-                            if (offers != null && !offers.isEmpty()) {
-                                ProductDetails.PricingPhase phase = offers.get(0).getPricingPhases()
-                                    .getPricingPhaseList().get(0);
+                            ProductDetails.PricingPhase phase = getDisplayPricingPhase(pd);
+                            if (phase != null) {
                                 p.put("displayPrice", phase.getFormattedPrice());
                                 p.put("price", phase.getPriceAmountMicros() / 1_000_000.0);
-                                p.put("type", "subscription");
-                                String period = phase.getBillingPeriod();
-                                p.put("period", period.contains("Y") ? "annual" : "monthly");
                             }
+                            p.put("type", "subscription");
+                            p.put("period", periodForProduct(pd, phase));
                         } else {
                             ProductDetails.OneTimePurchaseOfferDetails otpd = pd.getOneTimePurchaseOfferDetails();
                             if (otpd != null) {
@@ -136,6 +196,11 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                     call.resolve(ret);
                 });
             });
+        }, () -> {
+            JSObject ret = new JSObject();
+            ret.put("products", new JSArray());
+            ret.put("error", "billing_unavailable");
+            call.resolve(ret);
         });
     }
 
@@ -162,7 +227,8 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                             .setProductType(productType)
                             .build()))
                     .build();
-                billingClient.queryProductDetailsAsync(params, (result, detailsList) -> {
+                billingClient.queryProductDetailsAsync(params, (result, queryResult) -> {
+                    List<ProductDetails> detailsList = productDetailsFrom(queryResult);
                     if (result.getResponseCode() == BillingClient.BillingResponseCode.OK
                             && detailsList != null && !detailsList.isEmpty()) {
                         ProductDetails fetched = detailsList.get(0);
@@ -173,7 +239,75 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                     }
                 });
             }
-        });
+        }, () -> call.reject("Billing unavailable"));
+    }
+
+    private ProductDetails.SubscriptionOfferDetails chooseOffer(ProductDetails target) {
+        List<ProductDetails.SubscriptionOfferDetails> offers = target.getSubscriptionOfferDetails();
+        if (offers == null || offers.isEmpty()) return null;
+
+        String wantedPeriod = periodForProduct(target, null);
+        ProductDetails.SubscriptionOfferDetails fallback = offers.get(0);
+        for (ProductDetails.SubscriptionOfferDetails offer : offers) {
+            List<ProductDetails.PricingPhase> phases = offer.getPricingPhases().getPricingPhaseList();
+            if (phases == null || phases.isEmpty()) continue;
+            for (ProductDetails.PricingPhase phase : phases) {
+                String phasePeriod = periodForBillingPeriod(phase.getBillingPeriod());
+                if (phase.getPriceAmountMicros() > 0 && phasePeriod.equals(wantedPeriod)) {
+                    return offer;
+                }
+            }
+        }
+        return fallback;
+    }
+
+    private ProductDetails.PricingPhase getDisplayPricingPhase(ProductDetails target) {
+        ProductDetails.SubscriptionOfferDetails offer = chooseOffer(target);
+        if (offer == null || offer.getPricingPhases() == null) return null;
+        List<ProductDetails.PricingPhase> phases = offer.getPricingPhases().getPricingPhaseList();
+        if (phases == null || phases.isEmpty()) return null;
+
+        String wantedPeriod = periodForProduct(target, null);
+        ProductDetails.PricingPhase fallbackPaid = null;
+        ProductDetails.PricingPhase lastPhase = phases.get(phases.size() - 1);
+        for (ProductDetails.PricingPhase phase : phases) {
+            if (phase.getPriceAmountMicros() > 0) {
+                fallbackPaid = phase;
+                if (periodForBillingPeriod(phase.getBillingPeriod()).equals(wantedPeriod)) {
+                    return phase;
+                }
+            }
+        }
+        return fallbackPaid != null ? fallbackPaid : lastPhase;
+    }
+
+    private String periodForProduct(ProductDetails product, ProductDetails.PricingPhase phase) {
+        String id = product.getProductId();
+        if (id != null) {
+            if (id.contains("lifetime")) return "lifetime";
+            if (id.contains("annual") || id.contains("year")) return "annual";
+            if (id.contains("monthly") || id.contains("month")) return "monthly";
+        }
+        if (phase != null) return periodForBillingPeriod(phase.getBillingPeriod());
+        return "monthly";
+    }
+
+    private String periodForBillingPeriod(String billingPeriod) {
+        if (billingPeriod == null) return "monthly";
+        return billingPeriod.contains("Y") ? "annual" : "monthly";
+    }
+
+    private boolean isRecognizedPurchase(Purchase purchase, boolean lifetimeOnly) {
+        if (purchase == null || purchase.getPurchaseState() != Purchase.PurchaseState.PURCHASED) return false;
+        if (purchase.isSuspended()) return false;
+        for (String pid : purchase.getProducts()) {
+            if (lifetimeOnly) {
+                if (LIFETIME_IDS.contains(pid)) return true;
+            } else if (PRODUCT_IDS.contains(pid)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void launchPurchaseFlow(PluginCall call, ProductDetails target) {
@@ -186,9 +320,9 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
             BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(target);
 
         if (target.getProductType().equals(BillingClient.ProductType.SUBS)) {
-            List<ProductDetails.SubscriptionOfferDetails> offers = target.getSubscriptionOfferDetails();
-            if (offers != null && !offers.isEmpty()) {
-                pdpBuilder.setOfferToken(offers.get(0).getOfferToken());
+            ProductDetails.SubscriptionOfferDetails offer = chooseOffer(target);
+            if (offer != null) {
+                pdpBuilder.setOfferToken(offer.getOfferToken());
             }
         }
 
@@ -206,14 +340,18 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
     @Override
     public void onPurchasesUpdated(@NonNull BillingResult result, List<Purchase> purchases) {
         if (result.getResponseCode() == BillingClient.BillingResponseCode.OK && purchases != null) {
+            boolean foundPremium = false;
             for (Purchase purchase : purchases) {
-                acknowledgePurchase(purchase);
+                if (isRecognizedPurchase(purchase, false)) {
+                    foundPremium = true;
+                    acknowledgePurchase(purchase);
+                }
             }
-            setPremium(true);
+            setPremium(foundPremium);
             if (pendingPurchaseCall != null) {
                 JSObject ret = new JSObject();
-                ret.put("success", true);
-                ret.put("isPremium", true);
+                ret.put("success", foundPremium);
+                ret.put("isPremium", foundPremium);
                 pendingPurchaseCall.resolve(ret);
                 pendingPurchaseCall = null;
             }
@@ -253,10 +391,12 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
             billingClient.queryPurchasesAsync(
                 QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build(),
                 (subResult, subPurchases) -> {
-                    for (Purchase p : subPurchases) {
-                        if (p.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
-                            for (String pid : p.getProducts()) {
-                                if (PRODUCT_IDS.contains(pid)) { found[0] = true; break; }
+                    if (subPurchases != null) {
+                        for (Purchase p : subPurchases) {
+                            if (isRecognizedPurchase(p, false)) {
+                                found[0] = true;
+                                acknowledgePurchase(p);
+                                break;
                             }
                         }
                     }
@@ -265,10 +405,12 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                     billingClient.queryPurchasesAsync(
                         QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build(),
                         (inappResult, inappPurchases) -> {
-                            for (Purchase p : inappPurchases) {
-                                if (p.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
-                                    for (String pid : p.getProducts()) {
-                                        if (LIFETIME_IDS.contains(pid)) { found[0] = true; break; }
+                            if (inappPurchases != null) {
+                                for (Purchase p : inappPurchases) {
+                                    if (isRecognizedPurchase(p, true)) {
+                                        found[0] = true;
+                                        acknowledgePurchase(p);
+                                        break;
                                     }
                                 }
                             }
@@ -280,6 +422,12 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                             call.resolve(ret);
                         });
                 });
+        }, () -> {
+            setPremium(false);
+            JSObject ret = new JSObject();
+            ret.put("isPremium", false);
+            ret.put("error", "billing_unavailable");
+            call.resolve(ret);
         });
     }
 
@@ -302,5 +450,10 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                 .build());
         }
         return list;
+    }
+
+    private List<ProductDetails> productDetailsFrom(QueryProductDetailsResult queryResult) {
+        if (queryResult == null || queryResult.getProductDetailsList() == null) return new ArrayList<>();
+        return queryResult.getProductDetailsList();
     }
 }

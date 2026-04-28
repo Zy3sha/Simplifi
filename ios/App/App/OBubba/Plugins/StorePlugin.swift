@@ -50,6 +50,8 @@ public class StorePlugin: CAPPlugin, CAPBridgedPlugin {
                         default: info["period"] = "other"
                         }
                         info["periodValue"] = period.value
+                    } else {
+                        info["period"] = "lifetime"
                     }
                     result.append(info)
                 }
@@ -142,7 +144,8 @@ public class StorePlugin: CAPPlugin, CAPBridgedPlugin {
             case .verified(let transaction):
                 if productIds.contains(transaction.productID) {
                     // For subscriptions, check not expired/revoked
-                    if transaction.revocationDate == nil {
+                    let notExpired = transaction.expirationDate == nil || transaction.expirationDate! > Date()
+                    if transaction.revocationDate == nil && notExpired {
                         return true
                     }
                 }

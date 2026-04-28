@@ -53,8 +53,8 @@
   }
   </script>
 
-  <!-- Fonts — local Parisienne for splash, then Google Fonts for the rest -->
-  <style>@font-face{font-family:'Parisienne';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}</style>
+  <!-- Fonts — OBubba Script is bundled locally for splash/native boot -->
+  <style>@font-face{font-family:'OBubba Script';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}@font-face{font-family:'Parisienne';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}</style>
   <link rel="preload" href="Parisienne-Regular.ttf" as="font" type="font/truetype"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -71,7 +71,7 @@
   <script src="/native-plugins.js" defer></script>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=1777331604"/>
+  <link rel="stylesheet" href="styles.css?v=1777373406"/>
 </head>
 <body style="background:#F0DDD6;margin:0">
 <div id="ob-splash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#F0DDD6">
@@ -80,7 +80,7 @@
     @keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}
   </style>
   <img class="baby" src="obubba-loading.png" alt="" width="140" height="210" style="object-fit:contain;margin-bottom:14px">
-  <div style="font-family:'Parisienne',cursive;font-size:28px;color:#5B4F5F;margin-bottom:8px">OBubba</div>
+  <div style="font-family:'OBubba Script','Parisienne',cursive;font-size:28px;color:#5B4F5F;margin-bottom:8px">OBubba</div>
   <div style="font-size:13px;color:#A89898">Getting everything ready...</div>
 </div>
 <div id="root"></div>
@@ -93,7 +93,7 @@
 <script src="/loader.js"></script>
 
 <!-- App (pre-compiled by Babel; see build-pwa.sh) -->
-<script defer src="/app.js?v=1777331604"></script>
+<script defer src="/app.js?v=1777373406"></script>
 
 <!-- Hide splash + failsafe -->
 <script>

@@ -807,23 +807,29 @@ var OBStore = {
     } catch(e) { return Promise.resolve([]); }
   },
 
-  // Get a single product by period (monthly/annual/lifetime)
-  // Prefers v2 products (new pricing) over v1 for new subscribers
-  getProduct: function(period) {
+  // Get a single product by period (monthly/annual/lifetime).
+  // New accounts prefer v2 products; legacy accounts prefer the original
+  // product IDs so they see and buy the grandfathered price.
+  getProduct: function(period, options) {
+    var preferLegacy = !!(options && options.legacy) || !!window._obLegacyPricing;
     var _findProduct = function(products) {
       if (!products || !products.length) return null;
       var fallback = null;
+      var currentFallback = null;
       for (var i = 0; i < products.length; i++) {
         var p = products[i];
         var match = (period === 'monthly' && p.period === 'monthly') ||
                     (period === 'annual' && p.period === 'annual') ||
                     (period === 'lifetime' && p.type === 'nonConsumable');
         if (match) {
-          if (p.id && p.id.indexOf('.v2') !== -1) return p; // prefer v2
+          var isCurrent = p.id && p.id.indexOf('.v2') !== -1;
+          if (preferLegacy && !isCurrent) return p;
+          if (!preferLegacy && isCurrent) return p;
+          if (isCurrent && !currentFallback) currentFallback = p;
           if (!fallback) fallback = p;
         }
       }
-      return fallback;
+      return preferLegacy ? (fallback || currentFallback) : (currentFallback || fallback);
     };
 
     // Use cached products if available

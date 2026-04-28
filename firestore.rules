@@ -40,6 +40,25 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Complimentary Premium Entitlements ──
+    // App clients can read a known username grant, but only trusted admin/IAM
+    // tooling should create or change lifetime/complementary access.
+    match /premium_entitlements/{username} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ── Trial Device Records ──
+    // Stores minimal first-install/free-trial metadata against a hashed device
+    // key so reinstall/account switching cannot repeatedly restart the trial.
+    match /trial_devices/{deviceKey} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null;
+      allow delete: if false;
+    }
+
     // ── Recovery Email Lookup ──
     // Stores a hashed email -> username pointer. GET only; no list/enumeration.
     match /recovery_emails/{emailHash} {

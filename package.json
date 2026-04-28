@@ -14,7 +14,8 @@
     "cap:build:ios": "npm run build && npx cap sync ios",
     "cap:build:android": "npm run build && npx cap sync android",
     "test:sleep": "node test/sleep-engine-audit.js",
-    "test": "npm run test:sleep"
+    "test:day-boundary": "node test/day-boundary-audit.js",
+    "test": "npm run test:sleep && npm run test:day-boundary"
   },
   "dependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",

@@ -305,6 +305,7 @@ struct WidgetData: Codable {
     let nextPrediction: String?
     let nextPredictionMs: Double?
     let nextPredictionLabel: String?
+    let nextPredictionUnlocked: Bool?
     let activeTimer: String?
     let timerStartTime: String?
     let timerStartMs: Double?
@@ -317,7 +318,7 @@ struct WidgetData: Codable {
         case babyName, feedCount, sleepCount, nappyCount, wetNappyCount
         case lastFeedTime, lastFeedType, lastSleepTime, nextFeedEstimate
         case theme, updatedAt, lastFeedAmount
-        case lastNappyTime, lastNappyType, nextPrediction, nextPredictionMs, nextPredictionLabel
+        case lastNappyTime, lastNappyType, nextPrediction, nextPredictionMs, nextPredictionLabel, nextPredictionUnlocked
         case activeTimer, timerStartTime, timerStartMs, timerLabel
         case breastSide, showNursing, lastBreastSide
     }
@@ -360,6 +361,7 @@ struct WidgetData: Codable {
         nextPrediction = Self.flexString(c, .nextPrediction)
         nextPredictionMs = Self.flexDouble(c, .nextPredictionMs)
         nextPredictionLabel = Self.flexString(c, .nextPredictionLabel)
+        nextPredictionUnlocked = (try? c.decodeIfPresent(Bool.self, forKey: .nextPredictionUnlocked)) ?? false
         activeTimer = Self.flexString(c, .activeTimer)
         timerStartTime = Self.flexString(c, .timerStartTime)
         timerStartMs = Self.flexDouble(c, .timerStartMs)
@@ -377,13 +379,14 @@ struct WidgetData: Codable {
         self.lastFeedType = lastFeedType; self.lastSleepTime = lastSleepTime
         self.nextFeedEstimate = nextFeedEstimate; self.theme = theme; self.updatedAt = updatedAt
         self.lastFeedAmount = nil; self.lastNappyTime = nil; self.lastNappyType = nil
-        self.nextPrediction = nil; self.nextPredictionMs = nil; self.nextPredictionLabel = nil
+        self.nextPrediction = nil; self.nextPredictionMs = nil; self.nextPredictionLabel = nil; self.nextPredictionUnlocked = false
         self.activeTimer = nil; self.timerStartTime = nil
         self.timerStartMs = nil; self.timerLabel = nil; self.breastSide = nil
         self.showNursing = nil; self.lastBreastSide = nil
     }
 
     var predictionTargetDate: Date? {
+        guard nextPredictionUnlocked == true else { return nil }
         guard let ms = nextPredictionMs, ms > 1_000_000_000_000 else { return nil }
         let date = Date(timeIntervalSince1970: ms / 1000.0)
         // Only return if in the future
@@ -436,7 +439,8 @@ struct OBubbaTimelineProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<OBubbaEntry>) -> Void) {
         let entry = loadEntry()
         let hasActiveTimer = entry.data.activeTimer != nil && !entry.data.activeTimer!.isEmpty
-        let interval = hasActiveTimer ? 1 : 15
+        let hasPredictionCountdown = entry.data.predictionTargetDate != nil
+        let interval = (hasActiveTimer || hasPredictionCountdown) ? 1 : 15
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: interval, to: Date()) ?? Date().addingTimeInterval(TimeInterval(interval * 60))
         completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
     }
@@ -949,6 +953,10 @@ struct OBubbaMediumWidgetView: View {
 struct OBubbaLockScreenRectangular: View {
     let entry: OBubbaEntry
     private var d: WidgetData { entry.data }
+    private var predictionLabel: String {
+        let label = d.nextPredictionLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return label.isEmpty ? "Next" : label
+    }
 
     var body: some View {
         if let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate {
@@ -967,6 +975,23 @@ struct OBubbaLockScreenRectangular: View {
                 }
                 Spacer()
                 Text(startDate, style: .timer)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+            }
+        } else if let targetDate = d.predictionTargetDate {
+            HStack(spacing: 8) {
+                Image(systemName: predictionLabel.lowercased().contains("bed") ? "moon.stars.fill" : "moon.zzz.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(d.babyName)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                    Text(predictionLabel)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Text(targetDate, style: .relative)
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .monospacedDigit()
             }
@@ -1001,12 +1026,24 @@ struct OBubbaLockScreenRectangular: View {
 struct OBubbaLockScreenInline: View {
     let entry: OBubbaEntry
     private var d: WidgetData { entry.data }
+    private var predictionLabel: String {
+        let label = d.nextPredictionLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return label.isEmpty ? "Next" : label
+    }
 
     var body: some View {
         if let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate {
             HStack(spacing: 4) {
                 Image(systemName: timer == "feed" ? "drop.fill" : "moon.zzz.fill").font(.caption2)
                 Text(startDate, style: .timer)
+                    .font(.system(.caption, design: .rounded)).bold()
+                    .monospacedDigit()
+            }
+        } else if let targetDate = d.predictionTargetDate {
+            HStack(spacing: 4) {
+                Image(systemName: predictionLabel.lowercased().contains("bed") ? "moon.stars.fill" : "moon.zzz.fill").font(.caption2)
+                Text(predictionLabel).font(.system(.caption, design: .rounded)).bold()
+                Text(targetDate, style: .relative)
                     .font(.system(.caption, design: .rounded)).bold()
                     .monospacedDigit()
             }

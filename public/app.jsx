@@ -134,6 +134,18 @@ if (!OB_DEBUG) {
 
 const uid = () => { const _id = Date.now().toString(36)+Math.random().toString(36).slice(2,5); if(window._localEntryIds) window._localEntryIds.add(_id); return _id; };
 window._localEntryIds = new Set();
+// Native trials are anchored to first install, not first log. Keep the legacy
+// trial key in step so older builds and restored data keep one consistent date.
+(function(){
+  try {
+    if(!localStorage.getItem("install_date_v1")) {
+      localStorage.setItem("install_date_v1", localStorage.getItem("obubba_trial_start") || new Date().toISOString());
+    }
+    if(!localStorage.getItem("obubba_trial_start")) {
+      localStorage.setItem("obubba_trial_start", localStorage.getItem("install_date_v1"));
+    }
+  } catch {}
+})();
 const minsToTime = m => { if(typeof m !== "number" || isNaN(m)) return ""; const h=Math.floor(m/60)%24; return String(h).padStart(2,"0")+":"+String(Math.round(m%60)).padStart(2,"0"); };
 const fmt12 = t => { if(t===null||t===undefined||t==="")return""; if(typeof t==="number") t=minsToTime(t); const[h,m]=(t||"").split(":").map(Number); if(isNaN(h)||isNaN(m))return""; return`${h%12||12}:${String(m).padStart(2,"0")}${h>=12?"pm":"am"}`; };
 const minDiff = (s,e) => { if(!s||!e)return 0; const[sh,sm]=s.split(":").map(Number),[eh,em]=e.split(":").map(Number); if(isNaN(sh)||isNaN(sm)||isNaN(eh)||isNaN(em)) return 0; let d=eh*60+em-sh*60-sm; if(d<0)d+=1440; return d; };
@@ -864,6 +876,200 @@ const _localeData = (function(){
 const _emergNum = _localeData[0];
 const _helpLine = _localeData[1];
 const _doctor = _localeData[2];
+const _countryKey = _isUS ? "US" : _isCA ? "CA" : _isAU ? "AU" : _isNZ ? "NZ" : _isIE ? "IE" : "UK";
+const _countryGuidanceMap = {
+  UK: {
+    country:"UK",
+    healthContact:"GP or health visitor",
+    healthProfessional:"GP or health visitor",
+    newbornContact:"midwife or health visitor",
+    weighInContact:"health visitor",
+    vaccinationContact:"GP surgery",
+    nonEmergencyLabel:"NHS 111",
+    nonEmergencyTel:"111",
+    sleepSource:"NHS safer sleep / The Lullaby Trust",
+    safeSleepSource:"The Lullaby Trust",
+    feedingSource:"NHS / WHO",
+    weaningSource:"NHS Start for Life",
+    allergenSource:"NHS / BSACI / Anaphylaxis UK",
+    growthSource:"WHO / UK-WHO growth charts",
+    developmentSource:"NHS Start for Life",
+    vaccineSource:"NHS UK",
+    pooSource:"NHS",
+    vitaminDSource:"NHS",
+    vitaminDContact:"GP or health visitor",
+    appointmentExample:"Health visitor, GP, vaccination",
+    locationExample:"GP surgery, 12 High St, London",
+    cupGuidance:"NHS guidance favours open cups or free-flow cups without valves; they teach sipping and are better for teeth than sealed sippy cups.",
+    breastfeedingSupport:[
+      {who:"Health visitor",when:"Always your first call",how:"Call your GP surgery"},
+      {who:"National Breastfeeding Helpline",when:"Any time, day or night",how:"0300 100 0212"},
+      {who:"La Leche League",when:"Peer support",how:"laleche.org.uk"},
+      {who:"IBCLC lactation consultant",when:"Persistent pain, tongue tie, supply",how:"Find one via lcgb.org"}
+    ],
+    reportTitle:"Health Report",
+  },
+  US: {
+    country:"United States",
+    healthContact:"pediatrician",
+    healthProfessional:"pediatrician",
+    newbornContact:"pediatrician or OB-GYN",
+    weighInContact:"pediatrician",
+    vaccinationContact:"pediatrician's office",
+    nonEmergencyLabel:"your pediatrician or local nurse line",
+    nonEmergencyTel:"",
+    sleepSource:"AAP safe sleep",
+    safeSleepSource:"AAP",
+    feedingSource:"CDC / AAP",
+    weaningSource:"CDC / AAP",
+    allergenSource:"AAP / NIAID / FARE",
+    growthSource:"WHO / CDC growth charts",
+    developmentSource:"CDC milestones",
+    vaccineSource:"CDC / AAP",
+    pooSource:"AAP / pediatrician guidance",
+    vitaminDSource:"AAP",
+    vitaminDContact:"pediatrician",
+    appointmentExample:"pediatrician visit, vaccine appointment",
+    locationExample:"pediatrician's office, Main St",
+    cupGuidance:"AAP-style feeding guidance favours open cups or simple free-flow cups as babies learn to sip.",
+    breastfeedingSupport:[
+      {who:"Pediatrician",when:"Medical or weight concerns",how:"Call your pediatrician's office"},
+      {who:"La Leche League USA",when:"Peer breastfeeding support",how:"llli.org"},
+      {who:"IBCLC lactation consultant",when:"Persistent pain, tongue tie, supply",how:"Search USLCA / local IBCLC directories"},
+      {who:"WIC breastfeeding support",when:"If you use WIC",how:"Ask your local WIC clinic"}
+    ],
+    reportTitle:"Health Report",
+  },
+  CA: {
+    country:"Canada",
+    healthContact:"paediatrician, family doctor, or 811",
+    healthProfessional:"paediatrician or family doctor",
+    newbornContact:"midwife, family doctor, or public health nurse",
+    weighInContact:"public health nurse or family doctor",
+    vaccinationContact:"public health unit or doctor's office",
+    nonEmergencyLabel:"811 or your doctor",
+    nonEmergencyTel:"811",
+    sleepSource:"Public Health Agency of Canada / Health Canada",
+    safeSleepSource:"Public Health Agency of Canada",
+    feedingSource:"Health Canada / Canadian Paediatric Society",
+    weaningSource:"Health Canada",
+    allergenSource:"Health Canada / Canadian Paediatric Society",
+    growthSource:"WHO growth charts for Canada",
+    developmentSource:"provincial public health guidance",
+    vaccineSource:"Canadian immunization schedule",
+    pooSource:"public health / doctor guidance",
+    vitaminDSource:"Canadian Paediatric Society",
+    vitaminDContact:"doctor or public health nurse",
+    appointmentExample:"public health nurse, family doctor, vaccine appointment",
+    locationExample:"clinic or public health unit",
+    cupGuidance:"Canadian infant feeding guidance supports helping babies learn to drink from an open cup as solids progress.",
+    breastfeedingSupport:[
+      {who:"Public health nurse",when:"Feeding, weight, or wellbeing support",how:"Call your local public health unit"},
+      {who:"811",when:"Non-urgent health advice",how:"Dial 811 where available"},
+      {who:"La Leche League Canada",when:"Peer breastfeeding support",how:"lllc.ca"},
+      {who:"IBCLC lactation consultant",when:"Persistent pain, tongue tie, supply",how:"Ask your clinic or public health nurse"}
+    ],
+    reportTitle:"Health Report",
+  },
+  AU: {
+    country:"Australia",
+    healthContact:"GP or child health nurse",
+    healthProfessional:"GP or child health nurse",
+    newbornContact:"midwife, GP, or child health nurse",
+    weighInContact:"child health nurse",
+    vaccinationContact:"GP or immunisation clinic",
+    nonEmergencyLabel:"Healthdirect 1800 022 222",
+    nonEmergencyTel:"1800022222",
+    sleepSource:"Red Nose / Pregnancy Birth and Baby",
+    safeSleepSource:"Red Nose",
+    feedingSource:"Pregnancy Birth and Baby / Australian infant feeding guidance",
+    weaningSource:"Pregnancy Birth and Baby / Raising Children Network",
+    allergenSource:"ASCIA / Pregnancy Birth and Baby",
+    growthSource:"WHO growth charts",
+    developmentSource:"Raising Children Network",
+    vaccineSource:"Australian Immunisation Handbook",
+    pooSource:"Pregnancy Birth and Baby / child health nurse guidance",
+    vitaminDSource:"RACP / local child health guidance",
+    vitaminDContact:"GP or child health nurse",
+    appointmentExample:"child health nurse, GP, immunisation appointment",
+    locationExample:"GP clinic or child health centre",
+    cupGuidance:"Australian infant feeding guidance supports introducing an open or free-flow cup as babies practise drinking.",
+    breastfeedingSupport:[
+      {who:"Child health nurse",when:"Feeding, weight, or settling support",how:"Call your local child health service"},
+      {who:"Australian Breastfeeding Association",when:"Breastfeeding help",how:"1800 686 268"},
+      {who:"Healthdirect",when:"Non-urgent health advice",how:"1800 022 222"},
+      {who:"IBCLC lactation consultant",when:"Persistent pain, tongue tie, supply",how:"Ask your GP or child health nurse"}
+    ],
+    reportTitle:"Health Report",
+  },
+  NZ: {
+    country:"New Zealand",
+    healthContact:"GP or Plunket nurse",
+    healthProfessional:"GP or Plunket nurse",
+    newbornContact:"midwife, GP, or Plunket nurse",
+    weighInContact:"Plunket nurse",
+    vaccinationContact:"GP clinic or immunisation provider",
+    nonEmergencyLabel:"PlunketLine 0800 933 922 or Healthline 0800 611 116",
+    nonEmergencyTel:"0800933922",
+    sleepSource:"Plunket / Health New Zealand",
+    safeSleepSource:"Plunket",
+    feedingSource:"Health New Zealand / Plunket",
+    weaningSource:"Plunket / Health New Zealand",
+    allergenSource:"Plunket / Health New Zealand",
+    growthSource:"WHO growth charts",
+    developmentSource:"Plunket",
+    vaccineSource:"New Zealand Immunisation Schedule",
+    pooSource:"Plunket / GP guidance",
+    vitaminDSource:"Ministry of Health",
+    vitaminDContact:"GP or Plunket nurse",
+    appointmentExample:"Plunket nurse, GP, immunisation appointment",
+    locationExample:"GP clinic or Plunket clinic",
+    cupGuidance:"New Zealand infant feeding guidance supports practising with an open or free-flow cup as solids progress.",
+    breastfeedingSupport:[
+      {who:"PlunketLine",when:"Parenting and feeding support",how:"0800 933 922"},
+      {who:"Healthline",when:"Non-urgent health advice",how:"0800 611 116"},
+      {who:"La Leche League NZ",when:"Peer breastfeeding support",how:"lalecheleague.org.nz"},
+      {who:"IBCLC lactation consultant",when:"Persistent pain, tongue tie, supply",how:"Ask your GP, midwife, or Plunket nurse"}
+    ],
+    reportTitle:"Health Report",
+  },
+  IE: {
+    country:"Ireland",
+    healthContact:"GP or public health nurse",
+    healthProfessional:"GP or public health nurse",
+    newbornContact:"midwife, GP, or public health nurse",
+    weighInContact:"public health nurse",
+    vaccinationContact:"GP practice",
+    nonEmergencyLabel:"GP out-of-hours or HSE Live 1800 700 700",
+    nonEmergencyTel:"1800700700",
+    sleepSource:"HSE safe sleep",
+    safeSleepSource:"HSE",
+    feedingSource:"HSE mychild.ie / WHO",
+    weaningSource:"HSE mychild.ie",
+    allergenSource:"HSE mychild.ie",
+    growthSource:"WHO growth charts",
+    developmentSource:"HSE mychild.ie",
+    vaccineSource:"HSE Ireland",
+    pooSource:"HSE / public health nurse guidance",
+    vitaminDSource:"HSE",
+    vitaminDContact:"GP or public health nurse",
+    appointmentExample:"public health nurse, GP, vaccine appointment",
+    locationExample:"GP practice or health centre",
+    cupGuidance:"HSE weaning guidance supports gradually introducing a cup or free-flow beaker from about 6 months.",
+    breastfeedingSupport:[
+      {who:"Public health nurse",when:"Feeding, weight, or wellbeing support",how:"Contact your local health centre"},
+      {who:"HSE breastfeeding support",when:"Breastfeeding help",how:"Ask your PHN or visit mychild.ie"},
+      {who:"Cuidiu / La Leche League Ireland",when:"Peer breastfeeding support",how:"cuidiu.ie / lalecheleagueireland.com"},
+      {who:"IBCLC lactation consultant",when:"Persistent pain, tongue tie, supply",how:"Ask your GP or public health nurse"}
+    ],
+    reportTitle:"Health Report",
+  },
+};
+const _guide = _countryGuidanceMap[_countryKey] || _countryGuidanceMap.UK;
+const _healthContact = _guide.healthContact || _doctor;
+const _healthProfessional = _guide.healthProfessional || _doctor;
+const _nonEmergencyTel = (_guide.nonEmergencyTel || "").replace(/[^0-9+]/g, "");
+const _guidanceFooter = () => "Sleep: " + _guide.sleepSource + " · Growth: " + _guide.growthSource + " · Feeding: " + _guide.feedingSource + " · Development: " + _guide.developmentSource;
 
 // ── Country-specific postnatal mental health & wellbeing resources ──
 const _wellbeingResources = (function(){
@@ -1152,11 +1358,11 @@ const DATA_WINDOWS = {
 const ICONS={feed:"🍼",nap:"😴",wake:"☀️",sleep:"🌙",poop:"🧷",tummy:"🤸",bath:"🛁",outdoor:"🌳",play:"🧸",reading:"📖",massage:"🤲",swimming:"🏊",skintokin:"🤱",music:"🎵"};
 const NAMES={feed:"Feed",nap:"Nap",wake:"Wake Up",sleep:"Bedtime",poop:"Nappy",tummy:"Tummy Time",bath:"Bath",outdoor:"Outdoor/Walk",play:"Play Time",reading:"Story Time",massage:"Massage",swimming:"Swimming",skintokin:"Skin to Skin",music:"Music"};
 const POOP_TYPES=["Seedy","Mucousy","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Meconium","Other"];
-const POOP_TYPE_INFO={"Seedy":{normal:true,desc:"Small seed-like bits are completely normal, especially in breastfed babies. Shows your baby is digesting milk well."},"Green":{normal:true,desc:"Usually nothing to worry about — can happen with formula, dietary changes, or more foremilk. If baby seems well, no action needed."},"Brown":{normal:true,desc:"Perfectly normal and very common, especially once your baby starts solid foods."},"Dark green":{normal:true,desc:"Usually normal — can be caused by iron in formula or supplements. If baby seems well and is feeding normally, no need to worry."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Black/tarry":{normal:false,desc:"Only normal in the first few days of life (meconium). After that, contact your GP or health visitor promptly as it may indicate blood in the stool."},"White/pale":{normal:false,desc:"Needs urgent medical attention. Contact your GP the same day — it can be a sign of a liver problem that needs checking."},"Mucousy":{normal:true,desc:"A small amount of mucus is common and often linked to teething, a cold, or drooling. If it persists, mention it to your health visitor."},"Watery":{normal:false,desc:"Can be a sign of diarrhoea. Keep baby hydrated and contact your GP if it lasts more than 24 hours, or sooner if baby is under 3 months."},"Formed/solid":{normal:true,desc:"Soft, formed poo is normal once your baby starts solids. It should be easy to pass and not hard or dry."},"Pellet-like":{normal:false,desc:"Small, hard pellets can be a sign of constipation. Try extra fluids and speak to your health visitor if it continues."},"Frothy":{normal:true,desc:"Usually harmless — can happen if a breastfed baby gets more foremilk than hindmilk. Not a concern if baby is gaining weight well."},"Bloody/streaked":{normal:false,desc:"Blood in baby's nappy should always be checked by a doctor. Small streaks can sometimes be from straining, but contact your GP to be safe."},"Meconium":{normal:true,desc:"The thick, dark, sticky poo in baby's first day or two. Completely normal — shows bowels are working. Should clear within a few days."},"Other":{normal:true,desc:"Baby poo varies a lot day to day. If something doesn't seem right, your health visitor is always happy to help."}};
-const POOP_COLOUR_INFO={"Yellow/Mustard":{normal:true,desc:"The most common colour for breastfed babies — perfectly healthy. Often soft or seedy in texture."},"Brown/Tan":{normal:true,desc:"Completely normal, especially in formula-fed babies and once solids are introduced."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Green":{normal:true,desc:"Usually normal — can be caused by formula, green vegetables, or a passing tummy bug. Fine if baby is feeding well."},"Dark/Black":{normal:false,desc:"Only normal in the first couple of days (meconium). After that, speak to your GP promptly as it could indicate bleeding."},"Pale/White":{normal:false,desc:"Needs same-day medical attention. Can be a sign that the liver isn't producing enough bile."},"Red-tinged":{normal:false,desc:"Can sometimes come from foods like beetroot, but any unexplained redness should be seen by your GP. Keep the nappy to show them."}};
-const POOP_SAFETY_FLAGS={"Black/tarry":`Black or tarry stools after the first few days may need medical attention. contact your ${_doctor}.`,"White/pale":`Persistently pale or chalky stools can indicate a liver condition. mention this to your ${_doctor} promptly.`,"Bloody/streaked":`Blood in stools can have many causes, but if new or persistent, contact your ${_doctor}.`,"Meconium":"Meconium (dark, sticky first stools) is normal in the first 48–72 hours. If still passing meconium after day 3–4, mention it to your midwife or health visitor."};
+const POOP_TYPE_INFO={"Seedy":{normal:true,desc:"Small seed-like bits are completely normal, especially in breastfed babies. Shows your baby is digesting milk well."},"Green":{normal:true,desc:"Usually nothing to worry about — can happen with formula, dietary changes, or more foremilk. If baby seems well, no action needed."},"Brown":{normal:true,desc:"Perfectly normal and very common, especially once your baby starts solid foods."},"Dark green":{normal:true,desc:"Usually normal — can be caused by iron in formula or supplements. If baby seems well and is feeding normally, no need to worry."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Black/tarry":{normal:false,desc:`Only normal in the first few days of life (meconium). After that, contact your ${_healthContact} promptly as it may indicate blood in the stool.`},"White/pale":{normal:false,desc:`Needs urgent medical attention. Contact your ${_healthContact} the same day — it can be a sign of a liver problem that needs checking.`},"Mucousy":{normal:true,desc:`A small amount of mucus is common and often linked to teething, a cold, or drooling. If it persists, mention it to your ${_healthContact}.`},"Watery":{normal:false,desc:`Can be a sign of diarrhoea. Keep baby hydrated and contact your ${_healthContact} if it lasts more than 24 hours, or sooner if baby is under 3 months.`},"Formed/solid":{normal:true,desc:"Soft, formed poo is normal once your baby starts solids. It should be easy to pass and not hard or dry."},"Pellet-like":{normal:false,desc:`Small, hard pellets can be a sign of constipation. Try extra fluids and speak to your ${_healthContact} if it continues.`},"Frothy":{normal:true,desc:"Usually harmless — can happen if a breastfed baby gets more foremilk than hindmilk. Not a concern if baby is gaining weight well."},"Bloody/streaked":{normal:false,desc:`Blood in baby's nappy should always be checked. Small streaks can sometimes be from straining, but contact your ${_healthContact} to be safe.`},"Meconium":{normal:true,desc:"The thick, dark, sticky poo in baby's first day or two. Completely normal — shows bowels are working. Should clear within a few days."},"Other":{normal:true,desc:`Baby poo varies a lot day to day. If something doesn't seem right, your ${_healthContact} can help.`}};
+const POOP_COLOUR_INFO={"Yellow/Mustard":{normal:true,desc:"The most common colour for breastfed babies — perfectly healthy. Often soft or seedy in texture."},"Brown/Tan":{normal:true,desc:"Completely normal, especially in formula-fed babies and once solids are introduced."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Green":{normal:true,desc:"Usually normal — can be caused by formula, green vegetables, or a passing tummy bug. Fine if baby is feeding well."},"Dark/Black":{normal:false,desc:`Only normal in the first couple of days (meconium). After that, speak to your ${_healthContact} promptly as it could indicate bleeding.`},"Pale/White":{normal:false,desc:"Needs same-day medical attention. Can be a sign that the liver isn't producing enough bile."},"Red-tinged":{normal:false,desc:`Can sometimes come from foods like beetroot, but any unexplained redness should be seen by your ${_healthContact}. Keep the nappy to show them.`}};
+const POOP_SAFETY_FLAGS={"Black/tarry":`Black or tarry stools after the first few days may need medical attention. contact your ${_healthContact}.`,"White/pale":`Persistently pale or chalky stools can indicate a liver condition. mention this to your ${_healthContact} promptly.`,"Bloody/streaked":`Blood in stools can have many causes, but if new or persistent, contact your ${_healthContact}.`,"Meconium":`Meconium (dark, sticky first stools) is normal in the first 48-72 hours. If still passing meconium after day 3-4, mention it to your ${_guide.newbornContact}.`};
 
-// 14 major UK allergens. NHS/FSA
+// Common food allergens. Labels stay broad, guidance source is country-aware.
 const ALLERGENS = {
   "milk":["milk","dairy","cheese","yoghurt","yogurt","cream","butter","whey","casein","ghee","paneer","custard"],
   "eggs":["egg","eggs","omelette","quiche","meringue","mayonnaise"],
@@ -1209,7 +1415,7 @@ const ALLERGEN_GUIDE = [
   {id:"peanuts",   label:"Peanut",     emoji:"🥜", priority:1, risk:"high",
    prep:"Mix smooth peanut butter (¼ tsp) into puree or porridge. Never whole nuts.",
    maintain:"Mix into oatmeal, offer on toast fingers, add to sauces.",
-   note:"Early introduction significantly reduces allergy risk (LEAP study). Introduce in the morning so you can watch for 2 hours."},
+   note:"Early, regular introduction may help many babies build tolerance. Introduce in the morning so you can watch for 2 hours."},
   {id:"eggs",      label:"Egg",        emoji:"🥚", priority:2, risk:"high",
    prep:"Hard boil and mash, or scramble well. Use pasteurised eggs. Start with a tiny amount (¼ tsp).",
    maintain:"Scrambled egg, French toast fingers, egg in pasta.",
@@ -1221,7 +1427,7 @@ const ALLERGEN_GUIDE = [
   {id:"wheat",     label:"Wheat",      emoji:"🍞", priority:4, risk:"medium",
    prep:"Soft toast fingers, porridge fingers, or pasta shapes. Cook until very soft.",
    maintain:"Toast, pasta, porridge, cereal.",
-   note:"Gluten is introduced via wheat. If family history of coeliac disease, speak to GP first."},
+   note:`Gluten is introduced via wheat. If family history of coeliac disease, speak to your ${_healthContact} first.`},
   {id:"fish",      label:"Fish",       emoji:"🐟", priority:5, risk:"medium",
    prep:"Steam or bake, flake carefully and check thoroughly for bones. Start with mild white fish.",
    maintain:"Flaked salmon, cod fingers, tuna pasta.",
@@ -1355,8 +1561,8 @@ function getWeaningRatio(ageWeeks, dayEntries, allDays, weaningStartedFlag) {
     ratioLabel = "100% milk";
     stageLabel = "Milk only";
     guidance = _hasEverHadSolids
-      ? "Early First Tastes phase. Solids are exploration only, milk is still 100% of nutrition. NHS and WHO both say exclusive milk until around 6 months. Expect baby's interest in milk to stay strong."
-      : "Milk is all baby needs right now. NHS and WHO recommend exclusive milk feeding (breast or formula) until around 6 months, when baby shows readiness signs (sitting, hand-eye coordination, no tongue thrust).";
+      ? "Early First Tastes phase. Solids are exploration only, milk is still 100% of nutrition. " + _guide.weaningSource + " guidance points parents towards milk feeding until around 6 months unless your clinician advises otherwise. Expect baby's interest in milk to stay strong."
+      : "Milk is all baby needs right now. " + _guide.weaningSource + " guidance points parents towards milk feeding until around 6 months, when baby shows readiness signs (sitting, hand-eye coordination, no tongue thrust).";
   } else if (months < 7) {
     milkMin = 500; milkTarget = 600; solidMeals = 1;
     ratioLabel = "~90% milk / 10% solids";
@@ -2502,8 +2708,8 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
           type: "low_supply_flag",
           emoji: "⚠️",
           title: "Weight + frequent feeds = supply check",
-          detail: "Weight has plateaued over " + _daysBetween + " days and feeds are frequent. Could be normal (if wet nappies are fine), or a supply/transfer issue that needs a health visitor or lactation consultant.",
-          action: "Book a weigh-in with your health visitor this week. Bring your feed log — the pattern tells the story better than any one-off check.",
+          detail: "Weight has plateaued over " + _daysBetween + " days and feeds are frequent. Could be normal (if wet nappies are fine), or a supply/transfer issue that needs " + _guide.weighInContact + " or lactation support.",
+          action: "Book a weigh-in with your " + _guide.weighInContact + " this week. Bring your feed log — the pattern tells the story better than any one-off check.",
           urgency: "medium",
           confidence: "medium"
         };
@@ -2551,7 +2757,7 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
         emoji: "🌱",
         title: "Weaning window approaching",
         detail: "Most health organisations recommend starting solids at around 6 months (26 weeks). Signs of readiness: holds head steady, sits with minimal support, grabs for food, no tongue-thrust.",
-        action: "Start with single-ingredient vegetable purees or soft finger-food sticks. Once baby has tolerated a few foods, ask your health visitor/GP how to introduce peanut and egg safely, especially if eczema or allergy risk is present.",
+        action: "Start with single-ingredient vegetable purees or soft finger-food sticks. Once baby has tolerated a few foods, ask your " + _healthContact + " how to introduce peanut and egg safely, especially if eczema or allergy risk is present.",
         urgency: "low",
         confidence: "high"
       };
@@ -2604,7 +2810,7 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
         emoji: "🥜",
         title: "Allergens need catching up",
         detail: "At " + Math.round(ageWeeks/4.33) + " months, only " + _triedAllergens.size + " of the 14 common allergens have been introduced. Evidence suggests early, regular exposure may help many babies build tolerance, but high-risk babies need tailored medical advice.",
-        action: "If there is no eczema/allergy concern, consider peanut and egg this week. One allergen at a time, morning, watch closely, and speak to your GP or health visitor if unsure.",
+        action: "If there is no eczema/allergy concern, consider peanut and egg this week. One allergen at a time, morning, watch closely, and speak to your " + _healthContact + " if unsure.",
         urgency: "medium",
         confidence: "high"
       };
@@ -2639,7 +2845,7 @@ function diagnoseWeaningPattern(weaningLog, ageWeeks, recentPoopEntries, recentD
         emoji: "💩",
         title: "No dirty nappies 3+ days",
         detail: "Once solids are established, babies typically have a dirty nappy every 1–2 days. 3+ days without one can signal constipation, especially with low-fibre foods.",
-        action: "Offer water with meals. Add P-fruits (prunes, pears, peaches, plums) today. If it continues 5+ days or baby seems uncomfortable, speak to your health visitor.",
+        action: "Offer water with meals. Add P-fruits (prunes, pears, peaches, plums) today. If it continues 5+ days or baby seems uncomfortable, speak to your " + _healthContact + ".",
         urgency: "medium",
         confidence: "medium"
       };
@@ -2715,7 +2921,7 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
         emoji: "💛",
         title: "Please speak to someone",
         detail: "Your last 3 mood check-ins averaged " + _avgMood.toFixed(1) + " out of 5. Baby blues usually resolve by day 14, so sustained low mood after that point is worth a professional conversation — not because you're failing, because you deserve support.",
-        action: "Please talk to your GP, health visitor, or midwife this week. If you can't wait: PANDAS helpline 0808 1961 776 (UK), Samaritans 116 123 (UK, 24/7). You don't have to figure this out alone.",
+        action: "Please talk to your " + _guide.newbornContact + " this week. If you can't wait: " + _wellbeingShort + ". You don't have to figure this out alone.",
         urgency: "high",
         confidence: "medium",
         alwaysFree: true
@@ -2740,7 +2946,7 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
         emoji: "🌿",
         title: "You're running on empty — please read",
         detail: "Your estimated sleep has been under 4 hours for " + _critical + " of the last 5 nights. Severe sleep deprivation is a medical issue, not a moral one. It doubles PND risk and dangerously impairs judgement and driving.",
-        action: "Please get help NOW. Tell your partner/family you need a 4-hour block today (not tonight — today). Call your health visitor. Do NOT drive. If you're alone, call a friend and be honest. This is not sustainable and it's not your fault.",
+        action: "Please get help NOW. Tell your partner/family you need a 4-hour block today (not tonight — today). Call your " + _healthContact + ". Do NOT drive. If you're alone, call a friend and be honest. This is not sustainable and it's not your fault.",
         urgency: "high",
         confidence: "high",
         alwaysFree: true
@@ -2755,7 +2961,7 @@ function diagnoseWellbeing(days, ageWeeks, dobMs, moodCheckins, loggedByCountsLa
       emoji: "💗",
       title: "Baby blues are normal",
       detail: "80% of new parents experience baby blues in the first 14 days: tearfulness, mood swings, overwhelm. It's the hormone cliff, not a failure. It usually passes by day 14.",
-      action: "Be gentle with yourself. If feelings of sadness, anxiety, or detachment persist beyond 2 weeks, please tell your midwife or health visitor — that's when it crosses into PND and help is available.",
+      action: "Be gentle with yourself. If feelings of sadness, anxiety, or detachment persist beyond 2 weeks, please tell your " + _guide.newbornContact + " — that's when it can cross into postnatal depression/anxiety and help is available.",
       urgency: "low",
       confidence: "high",
       alwaysFree: true
@@ -2878,14 +3084,14 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
         severity: "urgent",
         title: "Temperature " + cToDisplay(_maxTemp).toFixed(1) + tempLabel + " logged today",
         action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. Call " + _emergNum + " now." : "If temp stays above " + cToDisplay(38) + tempLabel + " for > 24h or baby is listless, call " + _helpLine + " today.",
-        link: "111"
+        link: _nonEmergencyTel || _emergNum
       });
     } else if (_maxTemp >= 37.5 && ageWeeks < 13) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + cToDisplay(_maxTemp).toFixed(1) + tempLabel + " in a young baby",
         action: "Under 3 months, even a low-grade temperature is a medical consultation. Call " + _helpLine + " today.",
-        link: "111"
+        link: _nonEmergencyTel || _emergNum
       });
     }
   } catch {}
@@ -2987,14 +3193,14 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
         severity: "urgent",
         title: "No nappies logged in 24h",
         action: "If this is accurate, please contact your " + _doctor + " today. If you simply haven't logged them, you can ignore this.",
-        link: "111"
+        link: _nonEmergencyTel || _emergNum
       });
     } else if (_wetSmart < _redThresh && _reliableNappyData) {
       _flags.push({
         severity: "urgent",
         title: "Only " + _wetRaw + " wet napp" + (_wetRaw===1?"y":"ies") + " in 24h (hydration score " + _wetSmart + " / " + _wetTarget + ")",
         action: "Possible dehydration. Offer more feeds now. If the count doesn't improve within 6 hours, or baby is sleepy/hard to rouse, call " + _helpLine + ".",
-        link: "111"
+        link: _nonEmergencyTel || _emergNum
       });
     }
   } catch {}
@@ -3007,8 +3213,8 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
       _flags.push({
         severity: "urgent",
         title: "Something you noted today needs attention",
-        action: "You logged something that could be a safety concern. Please ring 111 or contact your GP if symptoms are active now.",
-        link: "111"
+        action: "You logged something that could be a safety concern. Please contact " + _guide.nonEmergencyLabel + " or your " + _healthContact + " if symptoms are active now.",
+        link: _nonEmergencyTel || _emergNum
       });
     }
   } catch {}
@@ -3444,7 +3650,7 @@ const WEANING_EQUIPMENT = [
   {item:"Soft-tipped weaning spoons",desc:"Gentle on tiny gums. Get at least 2. one for you, one for baby to explore.",icon:"🥄",essential:true},
   {item:"Suction bowls",desc:"Silicone or plastic with a suction base so baby can't tip them. Unbreakable.",icon:"🥣",essential:true},
   {item:"Coverall bibs",desc:"Long-sleeved bibs catch most of the mess. Get at least 2 for washing rotation.",icon:"👕",essential:true},
-  {item:"Open cup or free-flow cup",desc:"NHS recommends cups without valves. they teach sipping and are better for teeth than sippy cups.",icon:"🥤",essential:true},
+  {item:"Open cup or free-flow cup",desc:_guide.cupGuidance,icon:"🥤",essential:true},
   {item:"Splash mat",desc:"An old shower curtain or dedicated mat under the highchair. Mess is part of learning!",icon:"🧹",essential:false},
   {item:"Ice cube trays or small pots",desc:"Perfect for batch cooking and freezing portions. One cube = roughly one baby portion.",icon:"🧊",essential:false},
   {item:"Hand blender",desc:"For smooth purees. A fork works too. you don't need anything fancy to start.",icon:"🔌",essential:false},
@@ -3816,7 +4022,7 @@ const VITAMIN_D_GUIDE = {
     "Babies who spend limited time outdoors or live in less sunny regions",
   ],
   medications:{
-    note:"Some medications can affect vitamin D absorption or metabolism. Always check with your GP or paediatrician if baby is on any of these:",
+    note:"Some medications can affect vitamin D absorption or metabolism. Always check with your " + _healthContact + " if baby is on any of these:",
     list:[
       {med:"Phenobarbital / phenytoin (anti-seizure)",effect:"Increases vitamin D breakdown in the liver. baby may need a higher dose"},
       {med:"Oral steroids (prednisolone, dexamethasone)",effect:"Can reduce calcium absorption and vitamin D effectiveness"},
@@ -3863,7 +4069,7 @@ const GAGGING_VS_CHOKING = {
     title:"Choking (Emergency)",
     what:"The airway is partially or fully blocked. Unlike gagging, choking is quiet. baby cannot cough, cry, or make noise. This is rare but requires immediate action.",
     signs:["Silent. baby cannot cough, cry, or make noise","Skin may turn blue (check lips, gums, fingernails)","Unable to breathe effectively","May clutch at throat","Sudden change in colour"],
-    steps:["Shout for help","Get baby out of the highchair","Lay baby face-down along your forearm, supporting head","Give 5 sharp back blows between shoulder blades with heel of hand","Check mouth. remove any visible obstruction (don't sweep blindly)","If still choking, turn baby over and give 5 chest thrusts (2 fingers on breastbone)","Call 999/911 if not resolved after 3 cycles"],
+    steps:["Shout for help","Get baby out of the highchair","Lay baby face-down along your forearm, supporting head","Give 5 sharp back blows between shoulder blades with heel of hand","Check mouth. remove any visible obstruction (don't sweep blindly)","If still choking, turn baby over and give 5 chest thrusts (2 fingers on breastbone)","Call " + _emergNum + " if not resolved after 3 cycles"],
   },
   prevention:["Always supervise mealtimes. never leave baby alone with food","Baby must sit upright in highchair, never reclined","Cut round foods (grapes, cherry tomatoes, sausages) lengthways into quarters","Avoid whole nuts, popcorn, raw hard vegetables, raw apple chunks","Remove pips, stones, and bones","Food should be soft enough to squash between your fingers","Consider a baby first aid course before starting weaning"],
 };
@@ -3895,7 +4101,7 @@ const TOG_GUIDE = [
   {temp:"Under 16°C",range:[0,16],tog:"3.5+",clothing:"Add extra layers or blanket",emoji:"🧊",color:"#A898AC"},
 ];
 const TOG_SAFETY = [
-  "Room temperature 16–20°C is ideal for baby sleep (NHS)",
+  "Room temperature 16-20°C is commonly used as a safe sleep range (" + _guide.sleepSource + ")",
   "Feel baby's chest or back of neck to check temperature — hands and feet are often cool and not reliable",
   "Never use a duvet, pillow, or hot water bottle for under 12 months",
   "Remove hats indoors — babies lose excess heat through their heads",
@@ -3905,7 +4111,7 @@ const TOG_SAFETY = [
 
 const WATER_GUIDE = {
   when:"From around 6 months, when solids are introduced. Offer small sips with meals.",
-  cups:"NHS recommends an open cup or free-flow cup without a valve. These teach sipping and are better for dental health than sippy cups. Aim to stop bottles by 12 months.",
+  cups:_guide.cupGuidance + " Aim to move away from bottles gradually around 12 months where local guidance supports it.",
   amounts:[
     {age:"6 months",amount:"Just sips with meals. practising the skill, not hydration"},
     {age:"6–9 months",amount:"About 60–120ml (2–4oz) per day, with meals"},
@@ -4031,6 +4237,311 @@ window.toggleTheme=function(){
   if(window._themeCallback) window._themeCallback();
 };
 const _fM="monospace",_fI="inherit",_cP="pointer",_bBB="border-box",_ls1="0.1em",_ls08="0.08em",_bN="none",_oN="none";
+
+// OBubba-owned mini icon language. These are not Unicode emoji; they are
+// branded SVG "BubbaMoji" so the app can feel recognisably OBubba everywhere.
+const BUBBAMOJI_THEME = Object.freeze({
+  feed:{bg:"#DFF5FF",main:"#187EA8",fill:"#BFEAFF",accent:"#FFFFFF"},
+  breast:{bg:"#FFE4EC",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
+  nappy:{bg:"#FFF0D4",main:"#7D5A33",fill:"#F3C977",accent:"#FFFFFF"},
+  nap:{bg:"#ECE8FF",main:"#5947B8",fill:"#D8D1FF",accent:"#FFFFFF"},
+  pump:{bg:"#FFF1C9",main:"#9A6A00",fill:"#FFE08F",accent:"#FFFFFF"},
+  crying:{bg:"#DDF8F2",main:"#087A70",fill:"#A7EFE3",accent:"#FFFFFF"},
+  sounds:{bg:"#E0F1FF",main:"#226EA5",fill:"#BCE2FF",accent:"#FFFFFF"},
+  meal:{bg:"#FFE8D6",main:"#B8571B",fill:"#FFC08D",accent:"#FFFFFF"},
+  voice:{bg:"#F1E6FF",main:"#7650A6",fill:"#DEC8FF",accent:"#FFFFFF"},
+  medicine:{bg:"#FFE4E0",main:"#B63F3A",fill:"#FFC4BD",accent:"#FFFFFF"},
+  milestone:{bg:"#FFF3D0",main:"#A66F00",fill:"#FFE08F",accent:"#FFFFFF"},
+  sparkle:{bg:"#FFE8F0",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
+  moon:{bg:"#ECE8FF",main:"#5947B8",fill:"#D8D1FF",accent:"#FFFFFF"},
+  sun:{bg:"#FFF3D0",main:"#B8841B",fill:"#FFE7A8",accent:"#FFFFFF"},
+  today:{bg:"#E7F5FF",main:"#226EA5",fill:"#BCE2FF",accent:"#FFFFFF"},
+  understand:{bg:"#FFF1C9",main:"#9A6A00",fill:"#FFE08F",accent:"#FFFFFF"},
+  grow:{bg:"#E4F6E8",main:"#347A4B",fill:"#BDE7C7",accent:"#FFFFFF"},
+  account:{bg:"#F1E6FF",main:"#7650A6",fill:"#DEC8FF",accent:"#FFFFFF"},
+  home:{bg:"#FFF1E4",main:"#A85A44",fill:"#FFD0B8",accent:"#FFFFFF"},
+  daycare:{bg:"#E7F5FF",main:"#2476A3",fill:"#BFEAFF",accent:"#FFFFFF"},
+  grandparents:{bg:"#FFF3D0",main:"#A66F00",fill:"#FFE08F",accent:"#FFFFFF"},
+  travel:{bg:"#DDF8F2",main:"#087A70",fill:"#A7EFE3",accent:"#FFFFFF"},
+  sick:{bg:"#FFE4E0",main:"#B63F3A",fill:"#FFC4BD",accent:"#FFFFFF"},
+  baby:{bg:"#FFE4EC",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
+  check:{bg:"#E4F6E8",main:"#347A4B",fill:"#BDE7C7",accent:"#FFFFFF"},
+  arrowRight:{bg:"#F1E6FF",main:"#7650A6",fill:"#DEC8FF",accent:"#FFFFFF"},
+  arrowLeft:{bg:"#F1E6FF",main:"#7650A6",fill:"#DEC8FF",accent:"#FFFFFF"},
+  bridge:{bg:"#FFF1C9",main:"#9A6A00",fill:"#FFE08F",accent:"#FFFFFF"},
+  timer:{bg:"#E7F5FF",main:"#226EA5",fill:"#BCE2FF",accent:"#FFFFFF"},
+  log:{bg:"#FFE8F0",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
+  search:{bg:"#ECE8FF",main:"#5947B8",fill:"#D8D1FF",accent:"#FFFFFF"},
+  notes:{bg:"#FFE8F0",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
+  wellbeing:{bg:"#F1E6FF",main:"#7650A6",fill:"#DEC8FF",accent:"#FFFFFF"},
+  sleep:{bg:"#ECE8FF",main:"#5947B8",fill:"#D8D1FF",accent:"#FFFFFF"},
+  growth:{bg:"#E4F6E8",main:"#347A4B",fill:"#BDE7C7",accent:"#FFFFFF"},
+  safesleep:{bg:"#E7F5FF",main:"#2476A3",fill:"#BFEAFF",accent:"#FFFFFF"},
+  sleepcoach:{bg:"#ECE8FF",main:"#5947B8",fill:"#D8D1FF",accent:"#FFFFFF"},
+  nightwean:{bg:"#ECE8FF",main:"#5947B8",fill:"#D8D1FF",accent:"#FFFFFF"},
+  reports:{bg:"#DDF8F2",main:"#087A70",fill:"#A7EFE3",accent:"#FFFFFF"},
+  activities:{bg:"#FFE8F0",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
+  phases:{bg:"#F1E6FF",main:"#7650A6",fill:"#DEC8FF",accent:"#FFFFFF"},
+  teeth:{bg:"#FFF1E4",main:"#A85A44",fill:"#FFD0B8",accent:"#FFFFFF"},
+  help:{bg:"#FFE8F0",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
+  daytour:{bg:"#FFF3D0",main:"#B8841B",fill:"#FFE7A8",accent:"#FFFFFF"}
+});
+
+function BubbaMoji({name="sparkle",size=30,animate=false,style={}}){
+  const t = BUBBAMOJI_THEME[name] || BUBBAMOJI_THEME.sparkle;
+  const px = typeof size === "number" ? size : parseInt(size,10) || 30;
+  const gid = "obmoji-g-"+name;
+  return (
+    <span className={"ob-bubbamoji"+(animate?" ob-bubbamoji-animate":"")} style={{width:px,height:px,...style}} aria-hidden="true">
+      <svg viewBox="0 0 64 64" width={px} height={px} aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id={gid} x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.98"/>
+            <stop offset="0.52" stopColor={t.bg}/>
+            <stop offset="1" stopColor={t.fill||t.bg}/>
+          </linearGradient>
+        </defs>
+        <circle cx="32" cy="32" r="31" fill={t.main} opacity="0.20"/>
+        <circle cx="32" cy="32" r="28.5" fill={"url(#"+gid+")"} stroke={t.main} strokeWidth="2.8"/>
+        <circle cx="22" cy="17" r="6.5" fill="#fff" opacity="0.56"/>
+        <g transform="translate(32 32) scale(1.08) translate(-32 -32)">
+          <BubbaMojiGlyph name={name} theme={t}/>
+        </g>
+      </svg>
+    </span>
+  );
+}
+
+const BUBBAMOJI_EMOJI_MAP = Object.freeze({
+  "🍼":"feed",
+  "🤱":"breast",
+  "🧷":"nappy",
+  "😴":"nap",
+  "🌙":"moon",
+  "☀️":"sun",
+  "🌞":"sun",
+  "📅":"today",
+  "📋":"log",
+  "📊":"understand",
+  "💡":"understand",
+  "🌱":"grow",
+  "👤":"account",
+  "👶":"baby",
+  "👶👶":"baby",
+  "🏠":"home",
+  "🏢":"daycare",
+  "🏫":"daycare",
+  "👴":"grandparents",
+  "✈️":"travel",
+  "🤢":"sick",
+  "🤒":"sick",
+  "✅":"check",
+  "✓":"check",
+  "➡️":"arrowRight",
+  "⬅️":"arrowLeft",
+  "🌉":"bridge",
+  "⏱️":"timer",
+  "⏰":"timer",
+  "🔄":"timer",
+  "🚀":"sparkle",
+  "✨":"sparkle"
+});
+
+const OB_UNICODE_ICON_MAP = Object.freeze({
+  feed:"🍼", breast:"🤱", nappy:"🧷", poop:"🧷", nap:"😴", sleep:"😴", pump:"🥛",
+  crying:"😭", sounds:"🎵", meal:"🍽️", voice:"🎙️", medicine:"💊", milestone:"🏆",
+  sparkle:"✨", moon:"🌙", sun:"☀️", wake:"☀️", today:"📅", understand:"💡",
+  grow:"🌱", account:"👤", home:"🏠", daycare:"🏢", grandparents:"👴", travel:"✈️",
+  sick:"🤒", baby:"👶", check:"✅", arrowRight:"➡️", arrowLeft:"⬅️", bridge:"🌉",
+  timer:"⏱️", log:"📋", search:"🔍", notes:"📝", wellbeing:"💜", growth:"📏",
+  safesleep:"🛏️", sleepcoach:"🗓️", nightwean:"🌙", reports:"📊", activities:"🎯",
+  phases:"🧠", teeth:"🦷", help:"❓", daytour:"☀️"
+});
+
+function BubbaIcon({icon,name,size=18,animate=false,style={}}){
+  const key = name || BUBBAMOJI_EMOJI_MAP[icon] || icon;
+  const glyph = OB_UNICODE_ICON_MAP[key] || icon || key || "✨";
+  return (
+    <span aria-hidden="true" className={animate?"ob-unicode-icon ob-unicode-icon-animate":"ob-unicode-icon"} style={{fontSize:size,lineHeight:1,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,...style}}>
+      {glyph}
+    </span>
+  );
+}
+
+const OB_LINE_ICON_THEME = Object.freeze({
+  feed:"#5B8EA4", breast:"#B05D78", nappy:"#9A7A4B", nap:"#7667B3", pump:"#B08936",
+  crying:"#4B9388", sounds:"#4C82A8", meal:"#A8643C", voice:"#8567A8", medicine:"#B55B58",
+  milestone:"#B08936", sparkle:"#B05D78", moon:"#7667B3", sun:"#B08936", today:"#4C82A8",
+  understand:"#B08936", grow:"#5F9267", account:"#8567A8", home:"#A8643C", daycare:"#4C82A8",
+  grandparents:"#9A7A4B", travel:"#4B9388", sick:"#B55B58", baby:"#B05D78", check:"#5F9267",
+  arrowRight:"#8567A8", arrowLeft:"#8567A8", bridge:"#B08936", timer:"#4C82A8",
+  log:"#B05D78", search:"#7667B3", notes:"#B05D78", wellbeing:"#8567A8",
+  sleep:"#7667B3", growth:"#5F9267", safesleep:"#4C82A8", sleepcoach:"#7667B3",
+  nightwean:"#7667B3", reports:"#4B9388", activities:"#B05D78", phases:"#8567A8",
+  teeth:"#A8643C", help:"#B05D78", daytour:"#B08936"
+});
+
+function ObLineIcon({name="sparkle",size=20,animate=false,style={}}){
+  const px = typeof size === "number" ? size : parseInt(size,10) || 20;
+  const color = OB_LINE_ICON_THEME[name] || OB_LINE_ICON_THEME.sparkle;
+  return (
+    <span className={"ob-line-icon"+(animate?" ob-line-icon-animate":"")} style={{width:px,height:px,color,...style}} aria-hidden="true">
+      <svg viewBox="0 0 24 24" width={px} height={px} aria-hidden="true" focusable="false">
+        <ObLineGlyph name={name}/>
+      </svg>
+    </span>
+  );
+}
+
+function ObLineGlyph({name}){
+  const p = {fill:"none",stroke:"currentColor",strokeWidth:2.15,strokeLinecap:"round",strokeLinejoin:"round"};
+  const soft = {fill:"currentColor",opacity:.12,stroke:"none"};
+  switch(name){
+    case "feed": return <g><rect x="8" y="8" width="8" height="12" rx="3" {...p}/><path d="M9 8h6l-.8-3H9.8zM10 14h4" {...p}/></g>;
+    case "breast": return <g><path d="M12 20s-7-4.4-7-10a4.2 4.2 0 0 1 7-3.1A4.2 4.2 0 0 1 19 10c0 5.6-7 10-7 10z" {...p}/><circle cx="12" cy="12" r="2.2" {...p}/></g>;
+    case "nappy": return <g><path d="M5 8c2.2 2.1 4.5 3.1 7 3.1S16.8 10.1 19 8v8.2c-2 2.2-4.4 3.3-7 3.3s-5-1.1-7-3.3z" {...p}/><path d="M7.5 11.2l3 4.6m6-4.6l-3 4.6" {...p}/></g>;
+    case "nap": return <g><path d="M17.8 4.8A8.2 8.2 0 1 0 19.2 18a6.8 6.8 0 0 1-1.4-13.2z" {...p}/><path d="M16 7h3l-3 3h3M15.5 13.5H18l-2.5 2.5H18" {...p} strokeWidth="1.55"/></g>;
+    case "sleep": return <g><path d="M17.8 4.8A8.2 8.2 0 1 0 19.2 18a6.8 6.8 0 0 1-1.4-13.2z" {...p}/><path d="M15.8 7.2h3.1l-3.1 3.1h3.1M7 17.2h10" {...p} strokeWidth="1.55"/></g>;
+    case "pump": return <g><path d="M8 8c2.4-2.3 5.1-2.3 7.5 0l-2 3H10z" {...p}/><rect x="9" y="11" width="6" height="8" rx="2.4" {...p}/><path d="M15 8c3 .3 4.5 1.9 4.5 4.2 0 1.8-.8 3-2.2 3.6" {...p}/></g>;
+    case "crying": return <g><circle cx="11" cy="11.5" r="6.2" {...p}/><path d="M8.7 10h.1m4.6 0h.1M8.8 15c1.5-1.3 3.1-1.3 4.6 0" {...p}/><path d="M18 10.5c1.7 2.2 2.1 3.9.6 5.2-1.7-1.2-1.7-2.9-.6-5.2z" {...p}/></g>;
+    case "sounds": return <g><path d="M10 5v11M10 5l8-1.8V14" {...p}/><circle cx="7.5" cy="16" r="2.6" {...p}/><circle cx="15.5" cy="14" r="2.6" {...p}/></g>;
+    case "meal": return <g><path d="M7 4c3.3 3.4 5.2 7.6 5.2 16M7.4 4.2c3.6.8 6.2 3.5 6.2 6.5-3.6 0-6.2-2.6-6.2-6.5zM18 4v16M16 4v4.5M20 4v4.5" {...p}/></g>;
+    case "voice": return <g><rect x="9" y="4" width="6" height="10" rx="3" {...p}/><path d="M6 11c0 4 2.7 6.4 6 6.4s6-2.4 6-6.4M12 17.5V21m-3 0h6" {...p}/></g>;
+    case "medicine": return <g><path d="M8 16l8-8a3 3 0 0 1 4.2 4.2l-8 8A3 3 0 0 1 8 16zM12 12l4 4M5 7h5M7.5 4.5v5" {...p}/></g>;
+    case "sun":
+    case "wake": return <g><circle cx="12" cy="12" r="4" {...p}/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4" {...p} strokeWidth="1.75"/></g>;
+    case "today": return <g><rect x="5" y="6" width="14" height="14" rx="3" {...p}/><path d="M5 10h14M9 4v4M15 4v4M9 14h.1M15 14h.1" {...p}/></g>;
+    case "understand": return <g><path d="M9 16c-1.8-1.4-2.8-3.2-2.8-5.2A5.8 5.8 0 0 1 12 5a5.8 5.8 0 0 1 5.8 5.8c0 2-1 3.8-2.8 5.2-.9.7-1.3 1.5-1.3 2.3h-3.4c0-.8-.4-1.6-1.3-2.3zM10 21h4" {...p}/></g>;
+    case "grow": return <g><path d="M12 21V10" {...p}/><path d="M12 11c-4 0-6.5-2.5-6.5-6.5C9.5 4.5 12 7 12 11zM12 13c4 0 6.5-2.5 6.5-6.5C14.5 6.5 12 9 12 13z" {...p}/></g>;
+    case "growth": return <g><path d="M5 19h14M7 16V9m5 7V5m5 11v-4M7 9l4 3 6-7" {...p}/></g>;
+    case "safesleep": return <g><path d="M4.5 12.5h15v6h-15zM4.5 18.5v2M19.5 18.5v2M7 12.5V8.2c0-1.4 1-2.4 2.4-2.4h5.2c1.4 0 2.4 1 2.4 2.4v4.3M7.5 10.2h9" {...p}/></g>;
+    case "sleepcoach": return <g><rect x="5" y="6" width="14" height="14" rx="3" {...p}/><path d="M5 10h14M9 4v4M15 4v4M9 15l2 2 4-5" {...p}/></g>;
+    case "nightwean": return <g><path d="M17.8 4.8A8.2 8.2 0 1 0 19.2 18a6.8 6.8 0 0 1-1.4-13.2z" {...p}/><path d="M8.2 12.8c2.3 1.5 5.1 1.5 7.4 0" {...p} strokeWidth="1.6"/></g>;
+    case "reports": return <g><path d="M5 19h14M7.5 16v-5M12 16V7M16.5 16v-8" {...p}/><path d="M6.5 6.5h11" {...p} strokeWidth="1.6"/></g>;
+    case "activities": return <g><circle cx="12" cy="12" r="7" {...p}/><circle cx="12" cy="12" r="3" {...p}/><path d="M18.2 5.8l2-2M19 8l2.5-.8M16 5l.8-2.5" {...p} strokeWidth="1.6"/></g>;
+    case "phases": return <g><path d="M8.5 17.5c-2.5-.7-4-2.7-4-5.3 0-2.3 1.4-4.3 3.5-5A4.5 4.5 0 0 1 16 7.2c2.1.8 3.5 2.7 3.5 5 0 2.6-1.5 4.6-4 5.3" {...p}/><path d="M9 10.5c2-1.5 4-1.5 6 0M9.2 14c1.8 1.2 3.8 1.2 5.6 0M12 18v3" {...p} strokeWidth="1.65"/></g>;
+    case "teeth": return <g><path d="M8 4.8c1.5 0 2.3.8 4 .8s2.5-.8 4-.8c2.2 0 4 1.9 4 4.8 0 4.8-2.7 10.2-5 10.2-1.2 0-1.1-3.8-3-3.8s-1.8 3.8-3 3.8c-2.3 0-5-5.4-5-10.2 0-2.9 1.8-4.8 4-4.8z" {...p}/></g>;
+    case "help": return <g><circle cx="12" cy="12" r="7" {...p}/><path d="M9.8 9.6a2.4 2.4 0 0 1 4.4 1.4c0 1.8-2.2 2-2.2 3.6M12 18h.1" {...p}/></g>;
+    case "daytour": return <g><circle cx="12" cy="12" r="4" {...p}/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4M8 19.5c2.8 1.4 5.6 1.4 8 0" {...p} strokeWidth="1.65"/></g>;
+    case "account": return <g><circle cx="12" cy="8.4" r="4" {...p}/><path d="M4.8 20c1.2-4 3.7-6 7.2-6s6 2 7.2 6" {...p}/></g>;
+    case "home": return <g><path d="M4 11.2L12 4l8 7.2" {...p}/><path d="M6.5 10v10h11V10M10 20v-5h4v5" {...p}/></g>;
+    case "daycare": return <g><rect x="5" y="8" width="14" height="12" rx="2.5" {...p}/><path d="M8 8V5h8v3M8.5 12h2M13.5 12h2M8.5 16h2M13.5 16h2" {...p}/></g>;
+    case "grandparents": return <g><circle cx="12" cy="12" r="6.2" {...p}/><path d="M8.8 11.2h2m2.4 0h2M9.5 16c1.6 1 3.4 1 5 0M9 11.2a1.7 1.7 0 1 0 0 .1m6 0a1.7 1.7 0 1 0 0 .1M10.7 11.2h2.6" {...p} strokeWidth="1.65"/></g>;
+    case "travel": return <g><path d="M3.8 13.2L20 5l-5 15-3.4-6.2zM11.6 13.8L20 5" {...p}/></g>;
+    case "sick": return <g><circle cx="11" cy="12" r="6.2" {...p}/><path d="M8.8 10.8h.1m4.4 0h.1M9 15.5c1.6-1 3.2-1 4.8 0M17.5 5.5l3 3M19 4l3 3" {...p}/></g>;
+    case "baby": return <g><circle cx="12" cy="11" r="5.8" {...p}/><path d="M10.8 5.3c.7 1.2 2 1.6 3.1.8M9.7 11h.1m4.4 0h.1M10.3 14.5c1.1.8 2.3.8 3.4 0M7.2 18.1c2.8 2 6.8 2 9.6 0" {...p}/></g>;
+    case "check": return <g><circle cx="12" cy="12" r="7" {...p}/><path d="M8.5 12.2l2.4 2.4 4.8-5.2" {...p}/></g>;
+    case "arrowRight": return <g><path d="M5 12h12M13 8l4 4-4 4" {...p}/></g>;
+    case "arrowLeft": return <g><path d="M19 12H7M11 8l-4 4 4 4" {...p}/></g>;
+    case "bridge": return <g><path d="M4 18c1.5-5.5 4.2-8.2 8-8.2s6.5 2.7 8 8.2M4 18h16M8 18v-5M12 18V9.8M16 18v-5" {...p}/></g>;
+    case "timer": return <g><circle cx="12" cy="13" r="7" {...p}/><path d="M9.5 4h5M12 6V3M12 13V9M12 13l3 2" {...p}/></g>;
+    case "log": return <g><rect x="6" y="5" width="12" height="16" rx="3" {...p}/><path d="M9 4h6v4H9zM9 12h6M9 16h4" {...p}/></g>;
+    case "search": return <g><circle cx="10.8" cy="10.8" r="5.8" {...p}/><path d="M15.2 15.2L20 20" {...p}/></g>;
+    case "notes": return <g><path d="M6 4.5h12v12.3L14.8 20H6zM14.8 20v-3.2H18M9 9h6M9 13h4.5" {...p}/></g>;
+    case "wellbeing": return <g><path d="M12 20s-7-4.2-7-10a4.1 4.1 0 0 1 7-2.9A4.1 4.1 0 0 1 19 10c0 5.8-7 10-7 10zM9 12h6M12 9v6" {...p}/></g>;
+    case "milestone":
+    case "sparkle":
+    default: return <g><path d="M12 3.5l2.2 5 5.3.7-4 3.6 1 5.2-4.5-2.7L7.5 18l1-5.2-4-3.6 5.3-.7z" {...p}/><path d="M20 4.5v3M18.5 6h3M4 17v2.5M2.8 18.3h2.5" {...p} strokeWidth="1.6"/></g>;
+  }
+}
+
+function BubbaMojiGlyph({name,theme:t}){
+  const common = {stroke:t.main,strokeWidth:4,strokeLinecap:"round",strokeLinejoin:"round",fill:"none"};
+  const fill = t.fill || t.accent || "#FFFFFF";
+  switch(name){
+    case "feed":
+      return <g><path d="M25 16h14l-2.2 8.5H27.2z" fill={t.accent} stroke={t.main} strokeWidth="3.8"/><rect x="21" y="23" width="22" height="29" rx="8" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M25 39h14" {...common}/><path d="M29 31h6" stroke={t.main} strokeWidth="3.2" strokeLinecap="round"/></g>;
+    case "breast":
+      return <g><path d="M32 49c-9-5.5-15-12-15-20.5 0-6.4 4.2-10.8 9.5-10.8 3.1 0 5.3 1.3 6.9 3.8 1.8-2.5 4.2-3.8 7.1-3.8 5.3 0 9.5 4.4 9.5 10.8C50 37 44 43.5 32 49z" fill={fill} stroke={t.main} strokeWidth="4"/><circle cx="32" cy="32.5" r="5.8" fill={t.accent} stroke={t.main} strokeWidth="3"/><path d="M29 33c2 2 4 2 6 0" stroke={t.main} strokeWidth="2.6" strokeLinecap="round"/></g>;
+    case "nappy":
+      return <g><path d="M16 23c4.6 4.8 9.8 7.2 16 7.2S43.4 27.8 48 23v21c-4.4 5-9.8 7.5-16 7.5S20.4 49 16 44z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M20.5 28.5l7.5 12.5m15.5-12.5L36 41" {...common} strokeWidth="3.4"/><circle cx="24" cy="43" r="3.1" fill={t.main}/><circle cx="40" cy="43" r="3.1" fill={t.main}/></g>;
+    case "nap":
+      return <g><path d="M43.5 17.5C35 19.8 29 27 29 36.2c0 7 3.9 13.2 10 16.3-11.8 0-21.2-8.4-21.2-19.8 0-10.7 8.7-19.4 19.4-19.4 2.6 0 4.8.7 6.3 4.2z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M45 21h7l-7 8h7" {...common} strokeWidth="3"/><path d="M44 38h6l-6 7h7" {...common} strokeWidth="2.8"/></g>;
+    case "pump":
+      return <g><path d="M20 24c6-6 13-6 19 0l-5 8h-9z" fill={t.accent} stroke={t.main} strokeWidth="4"/><rect x="24" y="31" width="16" height="20" rx="6" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M39 24c6.8.5 10 4.2 10 10.4 0 4.2-2 7.2-5.5 8.6" {...common} strokeWidth="3.4"/><path d="M28 41h8" stroke={t.main} strokeWidth="3.4" strokeLinecap="round"/></g>;
+    case "crying":
+      return <g><circle cx="31" cy="32" r="15.8" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M25 30h.1m12 0h.1" stroke={t.main} strokeWidth="4.8" strokeLinecap="round"/><path d="M26 42c3.5-3.4 8-3.4 11.5 0" {...common} strokeWidth="3.4"/><path d="M45 30c5 6.4 6.3 11.4 2 15-4.8-3.4-4.8-8.2-2-15z" fill="#67BDE5" stroke={t.main} strokeWidth="3"/></g>;
+    case "sounds":
+      return <g><path d="M27 20v23" {...common}/><path d="M27 20l18-4v21" {...common}/><circle cx="21" cy="43" r="6.2" fill={fill} stroke={t.main} strokeWidth="4"/><circle cx="39" cy="37" r="6.2" fill={fill} stroke={t.main} strokeWidth="4"/></g>;
+    case "meal":
+      return <g><path d="M22 18c8.4 8.4 13.2 18.6 13.2 32" {...common}/><path d="M23 17c9 2 16 8.8 16 16.5-9 0-16-6.5-16-16.5z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M45 19v31" {...common}/><path d="M39.5 19v10m5.5-10v10m5.5-10v10" {...common} strokeWidth="3.1"/></g>;
+    case "voice":
+      return <g><rect x="24" y="13" width="16" height="29" rx="8" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M18 31c0 8.6 6.2 15 14 15s14-6.4 14-15M32 46v7m-8 0h16" {...common}/><path d="M29 22h6" stroke={t.main} strokeWidth="3" strokeLinecap="round"/></g>;
+    case "medicine":
+      return <g><path d="M22 41l20-20a6 6 0 0 1 8.5 8.5L30.5 49.5A6 6 0 0 1 22 41z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M32 31l10 10" {...common} strokeWidth="3.4"/><path d="M20 19h12m-6-6v12" {...common}/></g>;
+    case "sun":
+    case "wake":
+      return <g><circle cx="32" cy="32" r="10.5" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M32 13v5.5M32 45.5V51M13 32h5.5M45.5 32H51M18.5 18.5l4 4M41.5 41.5l4 4M45.5 18.5l-4 4M22.5 41.5l-4 4" {...common} strokeWidth="3.2"/></g>;
+    case "today":
+      return <g><rect x="17" y="18" width="30" height="30" rx="7" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M17 27h30M25 14v8M39 14v8" {...common} strokeWidth="3.4"/><circle cx="26" cy="35" r="2.8" fill={t.main}/><circle cx="38" cy="35" r="2.8" fill={t.main}/><path d="M25 43h14" stroke={t.main} strokeWidth="3.2" strokeLinecap="round"/></g>;
+    case "understand":
+      return <g><path d="M24 36c-4-3.1-6-6.8-6-11.2C18 16.8 24.2 12 32 12s14 4.8 14 12.8c0 4.4-2 8.1-6 11.2-2.4 1.9-3.3 3.9-3.3 6H27.3c0-2.1-.9-4.1-3.3-6z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M27 48h10M28.5 54h7" {...common} strokeWidth="3.2"/><path d="M28 27c2.6-2.5 5.4-2.5 8 0" stroke={t.main} strokeWidth="3.1" strokeLinecap="round"/></g>;
+    case "grow":
+      return <g><path d="M32 50V30" {...common}/><path d="M32 32c-9 0-14-5.6-14-14 9 0 14 5.6 14 14z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M32 35c9 0 14-5.6 14-14-9 0-14 5.6-14 14z" fill={t.accent} stroke={t.main} strokeWidth="4"/><path d="M22 50h20" {...common} strokeWidth="3.2"/></g>;
+    case "account":
+      return <g><circle cx="32" cy="24" r="10" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M16 50c2.5-10 8-15 16-15s13.5 5 16 15" fill={t.accent} stroke={t.main} strokeWidth="4"/><path d="M27.5 25h.1M36.5 25h.1" stroke={t.main} strokeWidth="3.8" strokeLinecap="round"/><path d="M28.5 30c2.2 1.8 4.8 1.8 7 0" stroke={t.main} strokeWidth="2.8" strokeLinecap="round"/></g>;
+    case "home":
+      return <g><path d="M15 32L32 17l17 15" fill={t.accent} stroke={t.main} strokeWidth="4"/><path d="M20 30v20h24V30" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M29 50V38h6v12" stroke={t.main} strokeWidth="3.4" strokeLinejoin="round"/><circle cx="25" cy="37" r="2.5" fill={t.main}/></g>;
+    case "daycare":
+      return <g><rect x="17" y="22" width="30" height="28" rx="5" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M23 22v-5h18v5M24 31h5M35 31h5M24 39h5M35 39h5M32 50v-7" {...common} strokeWidth="3.2"/></g>;
+    case "grandparents":
+      return <g><circle cx="32" cy="31" r="16" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M23 30h5m8 0h5" stroke={t.main} strokeWidth="3.3" strokeLinecap="round"/><path d="M28 30c0 2.4-1.8 4-4 4s-4-1.6-4-4 1.8-4 4-4 4 1.6 4 4zm16 0c0 2.4-1.8 4-4 4s-4-1.6-4-4 1.8-4 4-4 4 1.6 4 4zM28 30h8" {...common} strokeWidth="2.6"/><path d="M27 41c3.2 2 6.8 2 10 0" stroke={t.main} strokeWidth="3" strokeLinecap="round"/><path d="M21 20c5-5 17-5 22 0" {...common} strokeWidth="3.2"/></g>;
+    case "travel":
+      return <g><path d="M14 35l35-17-10 33-8-13-13-3z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M31 38l18-20" {...common} strokeWidth="3.2"/></g>;
+    case "sick":
+      return <g><circle cx="31" cy="32" r="15.5" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M24 29h.1M36 29h.1" stroke={t.main} strokeWidth="4.2" strokeLinecap="round"/><path d="M25 41c4-2.8 8-2.8 12 0" {...common} strokeWidth="3"/><path d="M43 19l8 8M45 17l8 8M42 25l5-5" stroke={t.main} strokeWidth="3.2" strokeLinecap="round"/></g>;
+    case "baby":
+      return <g><circle cx="32" cy="31" r="15" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M28 17c1.8 3.2 5 4.3 8 2" {...common} strokeWidth="3.2"/><path d="M26 31h.1M38 31h.1" stroke={t.main} strokeWidth="4.4" strokeLinecap="round"/><path d="M28 40c2.5 1.8 5.5 1.8 8 0" stroke={t.main} strokeWidth="3" strokeLinecap="round"/><path d="M19 45c7 5 19 5 26 0" fill={t.accent} stroke={t.main} strokeWidth="4"/></g>;
+    case "check":
+      return <g><circle cx="32" cy="32" r="16" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M23 32.5l6 6L42 25" {...common} strokeWidth="5"/></g>;
+    case "arrowRight":
+      return <g><path d="M18 32h25M34 23l9 9-9 9" {...common} strokeWidth="5"/></g>;
+    case "arrowLeft":
+      return <g><path d="M46 32H21M30 23l-9 9 9 9" {...common} strokeWidth="5"/></g>;
+    case "bridge":
+      return <g><path d="M15 45c3-12 9-18 17-18s14 6 17 18" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M15 45h34M22 45V34M32 45V28M42 45V34" {...common} strokeWidth="3.2"/></g>;
+    case "timer":
+      return <g><circle cx="32" cy="34" r="16" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M26 14h12M32 18v-5M32 34V24M32 34l7 5" {...common} strokeWidth="3.5"/></g>;
+    case "log":
+      return <g><rect x="19" y="16" width="26" height="36" rx="6" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M26 15h12v7H26z" fill={t.accent} stroke={t.main} strokeWidth="3.4"/><path d="M26 31h12M26 39h10" {...common} strokeWidth="3.2"/></g>;
+    case "search":
+      return <g><circle cx="29" cy="29" r="12.5" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M39 39l10 10" {...common} strokeWidth="5"/></g>;
+    case "notes":
+      return <g><path d="M18 18h28v28l-8 8H18z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M38 54v-8h8M25 28h14M25 36h11" {...common} strokeWidth="3.2"/></g>;
+    case "wellbeing":
+      return <g><path d="M32 49c-9-6-15-12.4-15-20.5 0-6 3.9-10.3 9-10.3 3 0 5.1 1.3 6.3 3.5 1.5-2.2 3.7-3.5 6.7-3.5 5.1 0 9 4.3 9 10.3C48 36.6 41 43 32 49z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M26 31h12M32 25v12" {...common} strokeWidth="3.2"/></g>;
+    case "milestone":
+    case "sparkle":
+      return <g><path d="M32 13l5.8 12.2 13.2 1.6-9.8 9 2.5 13L32 42.5 20.3 49.8l2.5-13-9.8-9 13.2-1.6z" fill={fill} stroke={t.main} strokeWidth="4"/><circle cx="49" cy="17" r="2.5" fill={t.main}/><circle cx="16" cy="47" r="2.5" fill={t.main}/></g>;
+    case "moon":
+    default:
+      return <g><path d="M43.5 17.5C35 19.8 29 27 29 36.2c0 7 3.9 13.2 10 16.3-11.8 0-21.2-8.4-21.2-19.8 0-10.7 8.7-19.4 19.4-19.4 2.6 0 4.8.7 6.3 4.2z" fill={fill} stroke={t.main} strokeWidth="4"/><circle cx="47" cy="24" r="2.9" fill={t.main}/><circle cx="44" cy="39" r="2.1" fill={t.main}/></g>;
+  }
+}
+
+const OB_MASCOT_SRC = Object.freeze({
+  celebration:"obubba-celebration.png",
+  happy:"obubba-happy.png",
+  loading:"obubba-loading.png",
+  thinking:"obubba-thinking.png"
+});
+
+function OBubbaMascot({type="happy",size=120,alt="OBubba mascot",className="",style={}}){
+  const src = OB_MASCOT_SRC[type] || OB_MASCOT_SRC.happy;
+  const dim = typeof size === "number" ? size+"px" : size;
+  const isSleepy = type === "loading";
+  const isThinking = type === "thinking";
+  const isCelebrating = type === "celebration";
+  return (
+    <span className={"ob-mascot ob-mascot-"+type+" "+className} style={{width:dim,height:dim,...style}}>
+      <span className="ob-mascot-glow"/>
+      <img className="ob-mascot-img" src={src} alt={alt} draggable="false"/>
+      <span className="ob-mascot-shine"/>
+      {(isSleepy || isThinking) && <><span className="ob-mascot-zzz z1">z</span><span className="ob-mascot-zzz z2">z</span><span className="ob-mascot-zzz z3">z</span></>}
+      {isCelebrating && <><span className="ob-mascot-confetti c1"/><span className="ob-mascot-confetti c2"/><span className="ob-mascot-confetti c3"/></>}
+    </span>
+  );
+}
 // iPad / tablet breakpoints. Bumped from 720 → 760/840 on tablets so UI feels spacious
 // (Apple Guideline 4. iPad Air 11-inch M3 review flagged crowded layout at 720).
 const _isTablet = typeof window!=="undefined" && window.innerWidth >= 768;
@@ -4935,8 +5446,8 @@ const DEV_ACTIVITIES = [
 
   // ── 54-78 weeks (12-18 months) ──
   { id:"a21", weeks:[54,78], cat:"motor",    title:"Walking on Different Surfaces", how:"Hold both hands and walk together on grass, carpet, sand, pavement. Gradually move to one hand. Try barefoot on safe surfaces.", why:"Walking on different textures builds balance and confidence. Barefoot walking strengthens foot muscles." },
-  { id:"a22", weeks:[54,78], cat:"language",  title:"Name & Point",          how:"Throughout the day, point to objects and name them clearly. Ask where is the ball? and pause for them to point.", why:"NHS recommends this to build the 10+ word vocabulary expected by 18 months." },
-  { id:"a23", weeks:[54,78], cat:"cognitive", title:"Shape Sorter",          how:"Offer a simple shape sorter with 3–4 shapes. Show how one fits, then hand them a piece and let them try.", why:"Develops spatial reasoning and problem-solving. key skills assessed at NHS 1-year review." },
+  { id:"a22", weeks:[54,78], cat:"language",  title:"Name & Point",          how:"Throughout the day, point to objects and name them clearly. Ask where is the ball? and pause for them to point.", why:_guide.developmentSource + " encourages everyday talking, naming and pointing to build early vocabulary." },
+  { id:"a23", weeks:[54,78], cat:"cognitive", title:"Shape Sorter",          how:"Offer a simple shape sorter with 3–4 shapes. Show how one fits, then hand them a piece and let them try.", why:"Develops spatial reasoning and problem-solving. key skills used in early developmental reviews." },
   { id:"a24", weeks:[54,78], cat:"social",    title:"Doll & Teddy Care",     how:"Give them a doll or teddy and show feeding, cuddling, putting to bed. Let them copy in their own time.", why:"Early pretend play is a key WHO cognitive milestone. It develops empathy and imitation." },
   { id:"a59", weeks:[54,78], cat:"sensory",   title:"Sand & Mud Play",       how:"Fill a tray with sand or go to a sandpit. Bury toys, make hand prints, pour sand between containers. Mud works too. embrace the mess.", why:"Sand and mud engage every sense. Digging and pouring build hand strength needed for holding cutlery and later writing." },
   { id:"a60", weeks:[54,78], cat:"motor",     title:"Climbing Safely",       how:"Let them climb onto low furniture, up stairs with you behind, or onto outdoor play equipment. Spot them but let them try.", why:"Climbing builds confidence, spatial awareness, and full-body strength. Supervised risk-taking is healthy." },
@@ -4944,21 +5455,21 @@ const DEV_ACTIVITIES = [
 
   // ── 78-104 weeks (18-24 months) ──
   { id:"a25", weeks:[78,104], cat:"motor",    title:"Climbing & Jumping",    how:"Visit a soft play area or use sofa cushions on the floor. Encourage climbing up and jumping off low surfaces.", why:"WHO physical activity guidelines recommend 180 min of activity daily for 1–2 year olds, including energetic play." },
-  { id:"a26", weeks:[78,104], cat:"language",  title:"Two-Word Phrases",     how:"Model two-word phrases: more milk, big dog, bye daddy. Expand what they say. if they say ball, say yes, red ball.", why:"NHS expects two-word combinations by age 2. Expanding their words is the best way to build sentences." },
+  { id:"a26", weeks:[78,104], cat:"language",  title:"Two-Word Phrases",     how:"Model two-word phrases: more milk, big dog, bye daddy. Expand what they say. if they say ball, say yes, red ball.", why:_guide.developmentSource + " uses two-word phrases as a useful marker around this stage. Expanding their words is the best way to build sentences." },
   { id:"a27", weeks:[78,104], cat:"cognitive", title:"Simple Puzzles",       how:"Offer 2–4 piece inset puzzles with knobs. Show where one piece goes, then let them complete the rest.", why:"Puzzle-solving builds problem-solving, fine motor control and spatial awareness." },
-  { id:"a28", weeks:[78,104], cat:"social",    title:"Turn-Taking Games",    how:"Roll a ball back and forth saying my turn, your turn. Build to simple board games with taking turns.", why:"Turn-taking is a foundation of social skills. NHS 2-year check looks for interactive play." },
+  { id:"a28", weeks:[78,104], cat:"social",    title:"Turn-Taking Games",    how:"Roll a ball back and forth saying my turn, your turn. Build to simple board games with taking turns.", why:"Turn-taking is a foundation of social skills and interactive play." },
   { id:"a62", weeks:[78,104], cat:"sensory",   title:"Playdough Squishing",  how:"Make playdough together (flour, salt, water, oil). Let them poke, squish, roll, and stamp shapes into it. Hide small toys inside for them to find.", why:"Playdough builds hand strength for writing, sensory processing, and creativity. Making it together is half the fun." },
   { id:"a63", weeks:[78,104], cat:"motor",     title:"Kicking a Ball",       how:"Place a soft ball in front of them and show how to kick it. Chase after it together. Set up 'goals' with cushions.", why:"Kicking a ball develops balance (standing on one foot briefly), coordination, and spatial awareness." },
 
   // ── 104-156 weeks (2-3 years) ──
   { id:"a29", weeks:[104,156], cat:"motor",    title:"Obstacle Course",      how:"Set up cushions, boxes and tunnels to climb over, through and around. Time them for added fun.", why:"WHO recommends at least 60 min of energetic physical activity daily for 2–3 year olds." },
-  { id:"a30", weeks:[104,156], cat:"language",  title:"Storytelling Together", how:"Tell simple stories using toys or puppets. Pause and ask what happens next or where did teddy go.", why:"NHS guidelines for 2–3 years emphasise narrative skills and asking questions to build 3–5 word sentences." },
+  { id:"a30", weeks:[104,156], cat:"language",  title:"Storytelling Together", how:"Tell simple stories using toys or puppets. Pause and ask what happens next or where did teddy go.", why:_guide.developmentSource + " emphasises everyday stories, questions and back-and-forth talk at this stage." },
   { id:"a31", weeks:[104,156], cat:"cognitive", title:"Counting Games",      how:"Count stairs as you climb, count grapes on the plate, count toes. Use fingers to show numbers.", why:"WHO early learning goals include counting to 3–5 with objects by age 3. Daily counting makes it natural." },
-  { id:"a32", weeks:[104,156], cat:"social",    title:"Feelings & Emotions",  how:"Name emotions as they happen: you look frustrated, that made you happy. Use picture books about feelings.", why:"Emotional literacy is a key NHS developmental focus for 2–3 year olds. Naming feelings helps self-regulation." },
+  { id:"a32", weeks:[104,156], cat:"social",    title:"Feelings & Emotions",  how:"Name emotions as they happen: you look frustrated, that made you happy. Use picture books about feelings.", why:"Naming feelings helps emotional literacy and early self-regulation." },
 
   // ── 3-4 years (weeks 156-208) ──
   { id:"a33", weeks:[156,208], cat:"motor",    title:"Hopscotch & Balance",   how:"Draw a simple hopscotch grid with chalk. Show how to hop on one foot and jump with two. Take turns.", why:"Builds single-leg balance, coordination and gross motor confidence. key milestones for this age." },
-  { id:"a34", weeks:[156,208], cat:"language", title:"Story Sequencing",      how:"After reading a favourite book, ask what happened first and what came next. Use 3 simple picture cards to re-order.", why:"Narrative sequencing builds language, memory and early literacy. an NHS focus for 3–4 year olds." },
+  { id:"a34", weeks:[156,208], cat:"language", title:"Story Sequencing",      how:"After reading a favourite book, ask what happened first and what came next. Use 3 simple picture cards to re-order.", why:"Narrative sequencing builds language, memory and early literacy." },
   { id:"a35", weeks:[156,208], cat:"cognitive",title:"Colour Sorting Games",  how:"Mix buttons, pompoms or blocks of 4–5 colours. Ask them to sort into groups, then count each pile together.", why:"Sorting and counting consolidates early maths concepts aligned with EYFS numeracy goals." },
   { id:"a36", weeks:[156,208], cat:"social",   title:"Role Play Corner",      how:"Set up a simple shop or kitchen with props. Take a role yourself. be the customer. Let them lead.", why:"Imaginative role play develops empathy, language and social understanding. a WHO early learning goal." },
 
@@ -5341,12 +5852,9 @@ class ErrorBoundary extends React.Component {
           .zzz{position:absolute;font-weight:700;color:#D9CFF3;font-family:Georgia,serif;font-style:italic}
         `),
         React.createElement("div",{style:{position:"relative",marginBottom:28}},
-          React.createElement("img",{src:"sleep-baby.png",alt:"Sleeping baby",style:{width:200,height:200,objectFit:"contain",animation:"babyBreathe 3.5s ease-in-out infinite",filter:"drop-shadow(0 16px 32px rgba(217,207,243,0.35))"}}),
-          React.createElement("span",{className:"zzz",style:{top:8,right:-5,fontSize:18,animation:"zzz1 2.8s ease-in-out infinite"}},"z"),
-          React.createElement("span",{className:"zzz",style:{top:-8,right:12,fontSize:24,animation:"zzz2 2.8s ease-in-out 0.5s infinite"}},"z"),
-          React.createElement("span",{className:"zzz",style:{top:-28,right:28,fontSize:16,animation:"zzz3 2.8s ease-in-out 1s infinite"}},"z")
+          React.createElement(OBubbaMascot,{type:"loading",size:220,alt:"Sleeping OBubba mascot"})
         ),
-        React.createElement("div",{style:{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:"var(--text-deep, #5B4F5F)",lineHeight:1.25,marginBottom:10}},"Uh oh!"),
+        React.createElement("div",{className:"ob-brand-display",style:{fontSize:26,color:"var(--text-deep, #5B4F5F)",lineHeight:1.25,marginBottom:10}},"Uh oh!"),
         React.createElement("div",{style:{fontSize:15,color:"var(--text-mid, #7A6B7E)",lineHeight:1.65,maxWidth:300,marginBottom:6}},"Looks like OBubba fell asleep..."),
         React.createElement("div",{style:{fontSize:14,color:"var(--text-lt, #A898AC)",lineHeight:1.5,maxWidth:280,marginBottom:28}},"Hold tight. we'll be back from our nap ASAP. Your data is safe."),
         React.createElement("button",{onClick:()=>window.location.reload(),style:{padding:"14px 36px",borderRadius:99,border:"none",background:"rgba(192,112,136,0.55)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 0 24px rgba(246,221,227,0.40), 0 0 48px rgba(217,207,243,0.25), 0 4px 16px rgba(192,112,136,0.20)",animation:"floatUp 3s ease-in-out infinite",letterSpacing:"0.01em"}},"Wake Up & Refresh"),
@@ -5766,9 +6274,7 @@ function App(){
     // ── Premium entitlement check on launch ──
     if(STORE_READY && !_isOwner && window._purchases && window._purchases.checkEntitlements){
       window._purchases.checkEntitlements().then(function(_hasPrem){
-        if(_hasPrem){try{localStorage.setItem("ob_premium","1");}catch{}}
-        else{try{localStorage.removeItem("ob_premium");}catch{}}
-        setIsPremium(_isOwner || _hasPrem);
+        refreshPremiumAccess(_hasPrem);
       }).catch(function(){});
     }
 
@@ -5822,9 +6328,7 @@ function App(){
       // Re-check premium on resume (subscription may have been purchased/restored externally)
       if(STORE_READY && !_isOwner && window._purchases && window._purchases.checkEntitlements){
         window._purchases.checkEntitlements().then(function(_p){
-          if(_p){try{localStorage.setItem("ob_premium","1");}catch{}}
-          else{try{localStorage.removeItem("ob_premium");}catch{}}
-          setIsPremium(_isOwner || _p);
+          refreshPremiumAccess(_p);
         }).catch(function(){});
       }
       _checkSiriPending();
@@ -6964,6 +7468,28 @@ function App(){
   });
   const selDayRef = useRef(selDay);
   useEffect(()=>{selDayRef.current=selDay;},[selDay]);
+  function _boundaryVisibleDay(currentDay, actualToday) {
+    // Wake-boundary mode means the "day" stays with the bedtime day until a
+    // morning wake closes that overnight. Midnight mode always uses the
+    // calendar day. This helper is used by resume/midnight snaps so the UI
+    // doesn't silently switch models while the parent is asleep.
+    try {
+      const mode = dayBoundaryRef.current || localStorage.getItem("ob_day_boundary_v1") || "wake";
+      if (mode !== "wake") return actualToday;
+      const allDays = daysRefForNappy.current || {};
+      if (hasMorningWake(allDays[actualToday] || [])) return actualToday;
+      const prevDay = prevDayStr(actualToday);
+      const openBedDay = bedTimerDayRef.current
+        || localStorage.getItem("bed_timer_day")
+        || (findBedtime(allDays[prevDay] || []) ? prevDay : null);
+      if (openBedDay && openBedDay < actualToday && findBedtime(allDays[openBedDay] || [])) {
+        return openBedDay;
+      }
+      return actualToday;
+    } catch {
+      return actualToday;
+    }
+  }
   // When the app becomes visible again (user returns after hours/days of
   // inactivity or a phone sleep), snap selDay back to today if the calendar
   // date has changed. Without this, a user who left the app open on Monday
@@ -6976,7 +7502,7 @@ function App(){
       // Only snap forward. Never clobber the user if they've deliberately
       // navigated to a past day to catch up on logging.
       if (selDayRef.current && selDayRef.current < _actualToday) {
-        setSelDay(_actualToday);
+        setSelDay(_boundaryVisibleDay(selDayRef.current, _actualToday));
       }
     };
     document.addEventListener("visibilitychange", _maybeSnapToToday);
@@ -7092,24 +7618,22 @@ function App(){
   // Active on native (iOS/Android). PWA users get everything free
   // Native users get 14-day trial, then paywall activates for premium features
   const STORE_READY = !!window._isNative;
+  const STORE_PLATFORM = (()=>{try{return window.Capacitor?.getPlatform?.() || "";}catch{return "";}})();
+  const STORE_NAME = STORE_PLATFORM === "android" ? "Google Play" : STORE_PLATFORM === "ios" ? "App Store" : "the app store";
 
-  // Owner override. always gets premium (your personal devices)
-  // Uses async hash comparison so the unlock code is never in plaintext source
-  const[_isOwner,_setIsOwner]=useState(false);
-  useEffect(()=>{
-    (async()=>{try{
-      const _code=localStorage.getItem("ob_owner_unlock");
-      if(!_code)return;
-      const _buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(_code));
-      const _hex=Array.from(new Uint8Array(_buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-      if(_hex==="2bb3a66306791b8cce6ddc59324c0cb8cbcd6506f6c28cea39d4b142c248884b") _setIsOwner(true);
-    }catch{}})();
-  },[]);
-  // Premium state: owner always premium, otherwise check localStorage cache (updated by entitlement check)
-  const _cachedPremium = (()=>{try{return localStorage.getItem("ob_premium")==="1";}catch{return false;}})();
+  // No owner/backdoor premium override in production builds.
+  const _isOwner = false;
+  // Premium state: store entitlement, complimentary cloud grants, or temporary village unlock.
+  const _cachedPremium = (()=>{try{
+    const _cloudUser = (localStorage.getItem("ob_premium_cloud_username") || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
+    const _localUser = (localStorage.getItem("family_username") || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
+    const _cloudUntil = localStorage.getItem("ob_premium_cloud_until") || "lifetime";
+    const _cloudStillActive = _cloudUntil === "lifetime" || _cloudUntil === "forever" || (Date.parse(_cloudUntil) > Date.now());
+    const _cloudPremium = localStorage.getItem("ob_premium_cloud")==="1" && _cloudStillActive && (!_cloudUser || !_localUser || _cloudUser === _localUser);
+    return localStorage.getItem("ob_premium")==="1" || _cloudPremium;
+  }catch{return false;}})();
   const _villageActive = (()=>{try{const ve=localStorage.getItem("ob_village_end");return ve && new Date(ve).getTime()>Date.now();}catch{return false;}})();
   const[isPremium,setIsPremium]=useState(_cachedPremium || _villageActive);
-  useEffect(()=>{ if(_isOwner) setIsPremium(true); },[_isOwner]);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
   const[poopWhyOpen,setPoopWhyOpen]=useState(false);
   const[todayPlanOpen,setTodayPlanOpen]=useState(false);
@@ -7124,50 +7648,185 @@ function App(){
   const[showPaywall,setShowPaywall]=useState(false);
   const[paywallContext,setPaywallContext]=useState(""); // which trigger
   const[paywallPlan,setPaywallPlan]=useState("annual"); // selected plan in paywall
+  const[paywallProducts,setPaywallProducts]=useState([]);
+  const[paywallProductsLoaded,setPaywallProductsLoaded]=useState(false);
   const paywallShownRef=useRef(false); // max 1 per session
-  // ── 14-day trial: starts on first baby log, not on first open ──
-  const[trialStart,_setTrialStart]=useState(()=>{
+  // ── 14-day trial: starts on first install, not first log/account creation ──
+  const TRIAL_DAYS = 14;
+  const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+  function _trialCandidateMs(value) {
+    const ms = _obDateMs(value);
+    return Number.isFinite(ms) && ms > 0 ? ms : null;
+  }
+  function _trialIso(value) {
+    const ms = _trialCandidateMs(value);
+    return ms ? new Date(ms).toISOString() : null;
+  }
+  function _inferFirstInstallIso() {
+    const vals = [];
     try {
-      return localStorage.getItem("obubba_trial_start") || null;
-    } catch { return null; }
-  });
-  // Start trial lazily when user first adds a child or logs an entry
-  const ensureTrialStarted = React.useCallback(()=>{
-    if(trialStart) return;
+      vals.push(localStorage.getItem("install_date_v1"));
+      vals.push(localStorage.getItem("obubba_trial_start"));
+    } catch {}
+    try { Object.values(children || {}).forEach(ch => vals.push(ch?.createdAt)); } catch {}
+    const times = vals.map(_trialCandidateMs).filter(Boolean);
+    return new Date(times.length ? Math.min(...times) : Date.now()).toISOString();
+  }
+  const _initialFirstInstall = (() => {
+    const iso = _inferFirstInstallIso();
     try {
-      const ts = new Date().toISOString();
-      localStorage.setItem("obubba_trial_start", ts);
-      _setTrialStart(ts);
-    } catch{}
-  },[trialStart]);
-  // Trial duration: 28 days for pre-launch testers (installed before public launch), 14 days after
-  const _trialDuration = (()=>{
-    // Pre-launch window: testers who install before this date get extended trial
-    const PRE_LAUNCH_CUTOFF = "2026-05-01T00:00:00Z"; // change to your public launch date
-    if (trialStart && new Date(trialStart).getTime() < new Date(PRE_LAUNCH_CUTOFF).getTime()) return 28;
-    return 14;
+      const curInstall = _trialCandidateMs(localStorage.getItem("install_date_v1"));
+      const curTrial = _trialCandidateMs(localStorage.getItem("obubba_trial_start"));
+      const ms = _trialCandidateMs(iso);
+      if(ms && (!curInstall || ms < curInstall)) localStorage.setItem("install_date_v1", iso);
+      if(ms && (!curTrial || ms < curTrial)) localStorage.setItem("obubba_trial_start", iso);
+      if(!localStorage.getItem("obubba_trial_source")) localStorage.setItem("obubba_trial_source", "first_install");
+    } catch {}
+    return iso;
   })();
-  const trialDaysLeft = trialStart ? Math.max(0, _trialDuration - Math.floor((Date.now() - new Date(trialStart).getTime()) / (24*60*60*1000))) : _trialDuration;
-  const [trialActive, setTrialActive] = useState(() => {
-    return trialStart && (Date.now() - new Date(trialStart).getTime()) < _trialDuration*24*60*60*1000;
-  });
+  const[firstInstallAt,setFirstInstallAt]=useState(_initialFirstInstall);
+  const[trialStart,_setTrialStart]=useState(_initialFirstInstall);
+  const[trialDeviceUsed,setTrialDeviceUsed]=useState(()=>{try{return localStorage.getItem("obubba_trial_used_v1")==="1";}catch{return false;}});
+  const[trialAccountUsed,setTrialAccountUsed]=useState(()=>{try{return localStorage.getItem("ob_trial_account_used_v1")==="1";}catch{return false;}});
+  const[trialDeviceKey,setTrialDeviceKey]=useState(()=>{try{return localStorage.getItem("ob_trial_device_key")||"";}catch{return "";}});
+  const[trialTick,setTrialTick]=useState(0);
+  function _setCanonicalTrialStart(iso, source="first_install") {
+    const nextIso = _trialIso(iso);
+    if(!nextIso) return trialStart;
+    const nextMs = _trialCandidateMs(nextIso);
+    const curMs = _trialCandidateMs(trialStart);
+    const shouldUpdate = !curMs || (nextMs && nextMs < curMs);
+    try {
+      const curInstall = _trialCandidateMs(localStorage.getItem("install_date_v1"));
+      const curTrial = _trialCandidateMs(localStorage.getItem("obubba_trial_start"));
+      if(!curInstall || nextMs < curInstall) localStorage.setItem("install_date_v1", nextIso);
+      if(!curTrial || nextMs < curTrial) localStorage.setItem("obubba_trial_start", nextIso);
+      localStorage.setItem("obubba_trial_source", source);
+    } catch {}
+    if(shouldUpdate) {
+      setFirstInstallAt(nextIso);
+      _setTrialStart(nextIso);
+    }
+    return nextIso;
+  }
+  // Kept for old call sites: it now only ensures the first-install anchor exists.
+  const ensureTrialStarted = React.useCallback(()=>{
+    if(trialStart) return trialStart;
+    return _setCanonicalTrialStart(_inferFirstInstallIso(), "first_install");
+  },[trialStart]);
+  const _trialStartMs = _trialCandidateMs(trialStart);
+  const _trialElapsedMs = _trialStartMs ? Math.max(0, Date.now() - _trialStartMs) : 0;
+  const _trialTimeExpired = !!(_trialStartMs && _trialElapsedMs >= TRIAL_MS);
+  const trialDaysLeft = _trialStartMs && !trialDeviceUsed && !trialAccountUsed ? Math.max(0, TRIAL_DAYS - Math.floor(_trialElapsedMs / (24*60*60*1000))) : 0;
+  const trialActive = !!(_trialStartMs && !trialDeviceUsed && !trialAccountUsed && !_trialTimeExpired);
+  const trialExpired = !!(trialStart && !trialActive);
   useEffect(() => {
-    if (!trialStart) return;
-    const check = () => {
-      const active = (Date.now() - new Date(trialStart).getTime()) < _trialDuration*24*60*60*1000;
-      setTrialActive(active);
-    };
-    const iv = setInterval(check, 60000);
+    const iv = setInterval(()=>setTrialTick(t=>t+1), 60000);
     return () => clearInterval(iv);
-  }, [trialStart]);
-  const trialExpired = trialStart && !trialActive;
-  // Grandfathered pricing: users who installed before 1 May 2026 keep old prices
-  const PRICE_CUTOFF = new Date("2026-05-01T00:00:00Z");
-  const isLegacyUser = trialStart ? new Date(trialStart) < PRICE_CUTOFF : !!localStorage.getItem("children_v1");
+  }, []);
+  useEffect(()=>{ void trialTick; }, [trialTick]);
+  function _markTrialUsed(reason="expired") {
+    try {
+      const endedAt = localStorage.getItem("obubba_trial_ended_at") || new Date().toISOString();
+      localStorage.setItem("obubba_trial_used_v1", "1");
+      localStorage.setItem("obubba_trial_ended_at", endedAt);
+      localStorage.setItem("obubba_trial_end_reason", reason);
+    } catch {}
+    setTrialDeviceUsed(true);
+  }
+  async function _getTrialDeviceKey() {
+    if(trialDeviceKey) return trialDeviceKey;
+    let raw = "";
+    const platform = STORE_PLATFORM || (()=>{try{return window.Capacitor?.getPlatform?.() || "web";}catch{return "web";}})();
+    try {
+      const Device = window.Capacitor?.Plugins?.Device;
+      if(Device && Device.getId) {
+        const result = await Device.getId();
+        raw = result?.identifier || result?.uuid || result?.id || "";
+      }
+    } catch {}
+    try { if(!raw && window._fbUid) raw = "fb:" + window._fbUid; } catch {}
+    try {
+      if(!raw) {
+        raw = localStorage.getItem("ob_trial_install_id");
+        if(!raw) {
+          raw = "install:" + uid();
+          localStorage.setItem("ob_trial_install_id", raw);
+        }
+      }
+      const key = hashPin("obubba:trial:device:" + platform + ":" + raw);
+      localStorage.setItem("ob_trial_device_key", key);
+      setTrialDeviceKey(key);
+      return key;
+    } catch { return ""; }
+  }
+  useEffect(() => {
+    if(_trialTimeExpired && !trialDeviceUsed) _markTrialUsed("time_expired");
+  }, [_trialTimeExpired, trialDeviceUsed]);
+  // Grandfathered pricing: users whose account/install/baby profile started before 1 May 2026 keep old prices.
+  const PRICE_CUTOFF = new Date("2026-05-01T00:00:00+01:00");
+  const _legacyAnchorMs = (()=>{
+    const vals = [];
+    try {
+      vals.push(localStorage.getItem("ob_account_created_at"));
+      vals.push(localStorage.getItem("obubba_trial_start"));
+      vals.push(localStorage.getItem("install_date_v1"));
+    } catch {}
+    try {
+      vals.push(activeChild?.createdAt);
+      Object.values(children||{}).forEach(ch => vals.push(ch?.createdAt));
+    } catch {}
+    const times = vals.map(_obDateMs).filter(ms => Number.isFinite(ms) && ms > 0);
+    return times.length ? Math.min(...times) : null;
+  })();
+  const isLegacyUser = _legacyAnchorMs ? _legacyAnchorMs < PRICE_CUTOFF.getTime() : (()=>{try{return !!localStorage.getItem("children_v1");}catch{return false;}})();
+  useEffect(()=>{try{window._obLegacyPricing=!!isLegacyUser;}catch{}},[isLegacyUser]);
   const monthlyPrice = isLegacyUser ? "4.99" : "7.99";
   const yearlyPrice = isLegacyUser ? "39.99" : "79.99";
   const lifetimePrice = isLegacyUser ? "79.99" : "129.99";
   const yearlySaving = isLegacyUser ? "33" : "17";
+  const _storeProductForPlanFrom = (planKey, productList) => {
+    const period = planKey === "lifetime" ? "lifetime" : planKey === "monthly" ? "monthly" : "annual";
+    const products = Array.isArray(productList) ? productList : [];
+    const matches = products.filter(p => {
+      const id = String(p?.id || "");
+      const productPeriod = p?.period || (id.includes("lifetime") ? "lifetime" : id.includes("annual") ? "annual" : id.includes("monthly") ? "monthly" : "");
+      const isLifetime = period === "lifetime" && (productPeriod === "lifetime" || p?.type === "nonConsumable");
+      return isLifetime || productPeriod === period;
+    });
+    if (!matches.length) return null;
+    const legacy = matches.find(p => !String(p?.id || "").includes(".v2"));
+    const current = matches.find(p => String(p?.id || "").includes(".v2"));
+    return isLegacyUser ? (legacy || current || matches[0]) : (current || legacy || matches[0]);
+  };
+  const _storeProductForPlan = (planKey) => {
+    return _storeProductForPlanFrom(planKey, paywallProducts);
+  };
+  const _fallbackPlanPrice = (planKey) => {
+    if (planKey === "monthly") return _isUS?"$"+monthlyPrice:_isAU?"A$12.99":_isCA?"C$9.99":"£"+monthlyPrice;
+    if (planKey === "lifetime") return _isUS?"$"+lifetimePrice:_isAU?"A$199.99":_isCA?"C$179.99":"£"+lifetimePrice;
+    return _isUS?"$"+yearlyPrice:_isAU?"A$129.99":_isCA?"C$99.99":"£"+yearlyPrice;
+  };
+  const _planDisplayPrice = (planKey) => {
+    const product = _storeProductForPlan(planKey);
+    if (product && product.displayPrice) return product.displayPrice;
+    return STORE_READY ? (paywallProductsLoaded ? "See store" : "Loading") : _fallbackPlanPrice(planKey);
+  };
+  useEffect(()=>{
+    if(!STORE_READY || !window._purchases || !window._purchases.getProducts) return;
+    let alive = true;
+    setPaywallProductsLoaded(false);
+    window._purchases.getProducts().then(function(products){
+      if(!alive) return;
+      setPaywallProducts(Array.isArray(products) ? products : []);
+      setPaywallProductsLoaded(true);
+    }).catch(function(){
+      if(!alive) return;
+      setPaywallProducts([]);
+      setPaywallProductsLoaded(true);
+    });
+    return function(){ alive = false; };
+  },[STORE_READY]);
   // Trial banner dismissed today?
   const[trialBannerDismissed,setTrialBannerDismissed]=useState(()=>{try{return localStorage.getItem("trial_banner_date")===todayStr();}catch{return false;}});
   const _trialDismissedRef = useRef(trialBannerDismissed);
@@ -7185,11 +7844,10 @@ function App(){
   //   2. EXPLICIT (parent tapped an "Unlock X" button on a card) —
   //      should ALWAYS open the paywall because the parent is asking.
   //
-  // Pass force=true from explicit button handlers. Previously every
-  // trigger used the auto guard, which meant after the first paywall
-  // dismiss in a session the 7 new "Unlock" buttons on the Why?
-  // expander and Insights cards silently stopped doing anything.
-  function triggerPaywall(context, force) {
+  // User taps default to force=true so every locked premium feature opens the
+  // subscription sheet. Automatic nudges can pass force=false to keep the
+  // once-per-session guard.
+  function triggerPaywall(context, force = true) {
     if (!STORE_READY || isPremium) return;
     // Allow trial users to view plans when explicitly tapping upgrade buttons
     if (trialActive && context !== "trial") return;
@@ -7378,6 +8036,8 @@ function App(){
   useEffect(()=>{try{localStorage.setItem(_ck("nappy_reminder_v1"),String(nappyReminderMins));}catch{}},[nappyReminderMins]);
   // Day boundary mode: "wake" = day starts at morning wake (sleep consultant standard), "midnight" = simple calendar days
   const[dayBoundary,setDayBoundary]=usePersistedState("ob_day_boundary_v1","wake");
+  const dayBoundaryRef = React.useRef(dayBoundary);
+  useEffect(()=>{dayBoundaryRef.current=dayBoundary;},[dayBoundary]);
   const nappyReminderRef = React.useRef(null);
   const daysRefForNappy = React.useRef(days);
   useEffect(()=>{daysRefForNappy.current=days;},[days]);
@@ -7681,6 +8341,8 @@ function App(){
   const[showWakeInline,setShowWakeInline]=useState(false);
   const[showNightWake,setShowNightWake]=useState(false);
   const[nightEditId,setNightEditId]=useState(null);
+  const[showNightFeedAmount,setShowNightFeedAmount]=useState(false);
+  const[nightFeedDraft,setNightFeedDraft]=useState("");
   // When editing a night wake, these refs remember the resume anchor
   // (wall-clock time the baby went back to sleep) so the form can
   // auto-recalculate duration soothed when the parent corrects the wake time.
@@ -7805,6 +8467,7 @@ function App(){
       if(showEndNapConfirm){setShowEndNapConfirm(false);return;}
       if(showPaywall){setShowPaywall(false);return;}
       if(showSleepCoach){setShowSleepCoach(false);return;}
+      if(showNightFeedAmount){setShowNightFeedAmount(false);return;}
       if(showNightWake){setShowNightWake(false);setNightEditId(null);return;}
       if(showCryingHelper){setShowCryingHelper(false);return;}
       if(showSoundMachine){setShowSoundMachine(false);return;}
@@ -7821,7 +8484,7 @@ function App(){
     }
     window.addEventListener("ob-back-button",_handleBack);
     return ()=>window.removeEventListener("ob-back-button",_handleBack);
-  },[showEndNapConfirm,showPaywall,showSleepCoach,showNightWake,showCryingHelper,showSoundMachine,showCalendar,showMedForm,modal,logPanel,showTeethingForm,showWeaningForm,showBfHub,daySubScreen,tab]);
+  },[showEndNapConfirm,showPaywall,showSleepCoach,showNightFeedAmount,showNightWake,showCryingHelper,showSoundMachine,showCalendar,showMedForm,modal,logPanel,showTeethingForm,showWeaningForm,showBfHub,daySubScreen,tab]);
   // Weekly shopping list for weaning foods. User plans next N days of foods
   // and can add recipe ingredients. Once saved, the "today/tomorrow" food
   // suggestion algorithm prefers items from the active plan.
@@ -8113,6 +8776,8 @@ function App(){
 
   // Track which calendar day the bedtime was logged on. used to route night wakes to the correct day
   const[bedTimerDay,setBedTimerDay]=useState(()=>{try{return localStorage.getItem("bed_timer_day")||null;}catch{return null;}});
+  const bedTimerDayRef = React.useRef(bedTimerDay);
+  useEffect(()=>{bedTimerDayRef.current=bedTimerDay;},[bedTimerDay]);
   const[bedPaused,setBedPaused]=useState(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}});
   const[bedPauseStart,setBedPauseStart]=useState(()=>{try{return parseInt(localStorage.getItem("bed_pause_start"))||null;}catch{return null;}});
   const[bedPausedAtSec,setBedPausedAtSec]=useState(()=>{try{return parseInt(localStorage.getItem("bed_paused_sec"))||0;}catch{return 0;}});
@@ -8663,7 +9328,7 @@ function App(){
           <div style={{fontSize:28,marginBottom:8}}>💛</div>
           <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:6,textAlign:"center"}}>{feature||"Made for " + (babyName||"your little one")}</div>
           <div style={{fontSize:12,color:C.mid,marginBottom:12,textAlign:"center",lineHeight:1.55,maxWidth:260}}>{hint || _warmHints[context] || "Personalised guidance that learns " + (babyName||"your baby") + "'s patterns. like a helping hand from someone who's been there."}</div>
-          <button onClick={()=>triggerPaywall(context||"general")} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:99,padding:"10px 24px",color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"0 4px 16px rgba(192,112,136,0.25)"}}>Try Premium</button>
+          <button onClick={()=>triggerPaywall(context||"general", true)} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:"none",borderRadius:99,padding:"10px 24px",color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI,boxShadow:"0 4px 16px rgba(192,112,136,0.25)"}}>Try Premium</button>
           <div style={{fontSize:10,color:C.lt,marginTop:6}}>No commitment · cancel anytime</div>
         </div>
       </div>
@@ -8675,7 +9340,7 @@ function App(){
     if (isPremium || !STORE_READY) return null;
     if (trialActive) return null;
     return (
-      <button onClick={()=>{haptic();setPremiumGateInfo({icon,label,description,context});}} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12,border:`1px solid ${C.ter}20`}}>
+      <button onClick={()=>{haptic();triggerPaywall(context||"general", true);}} className="glass-card" style={{width:"100%",padding:"14px 16px",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:12,border:`1px solid ${C.ter}20`}}>
         <div style={{fontSize:22}}>{icon||"\u{1F49B}"}</div>
         <div style={_S.flex1}>
           <div style={{fontSize:14,fontWeight:600,color:C.deep}}>{label}</div>
@@ -8922,6 +9587,93 @@ function App(){
   const[csDueDate,setCsDueDate]=useState("");
   const[csConfirmDelete,setCsConfirmDelete]=useState(false);
   const[fbReady,setFbReady]=useState(false);
+  useEffect(() => {
+    if(!STORE_READY || !fbReady || !trialStart) return;
+    let alive = true;
+    (async()=>{
+      const key = await _getTrialDeviceKey();
+      if(!alive || !key) return;
+      const startIso = _trialIso(trialStart) || new Date().toISOString();
+      try {
+        const snap = await fsGet("trial_devices", key);
+        if(!alive || snap.error) return;
+        if(snap.exists()) {
+          const data = snap.data() || {};
+          const cloudStart = _trialIso(data.trialStartedAt || data.firstInstallAt || data.installStartedAt || data.createdAtClient);
+          if(cloudStart) _setCanonicalTrialStart(cloudStart, "device_record");
+          const cloudStartMs = _trialCandidateMs(cloudStart);
+          const cloudExpired = !!(cloudStartMs && Date.now() - cloudStartMs >= TRIAL_MS);
+          if(data.trialUsed === true || data.used === true || data.trialEndedAt || cloudExpired) {
+            _markTrialUsed(data.trialUsed === true || data.used === true ? "device_used" : "device_expired");
+          }
+          await fsSet("trial_devices", key, {
+            lastSeenAtClient: new Date().toISOString(),
+            username: normaliseUsername(familyUsername || ""),
+            uid: window._fbUid || "",
+            trialUsed: data.trialUsed === true || data.used === true || cloudExpired || trialDeviceUsed || _trialTimeExpired,
+            trialEndedAt: (data.trialEndedAt || (cloudExpired || trialDeviceUsed || _trialTimeExpired ? (localStorage.getItem("obubba_trial_ended_at") || new Date().toISOString()) : ""))
+          }, true);
+          return;
+        }
+        await fsSet("trial_devices", key, {
+          firstInstallAt: firstInstallAt || startIso,
+          trialStartedAt: startIso,
+          createdAtClient: new Date().toISOString(),
+          platform: STORE_PLATFORM || "native",
+          username: normaliseUsername(familyUsername || ""),
+          uid: window._fbUid || "",
+          trialUsed: _trialTimeExpired || trialDeviceUsed,
+          trialEndedAt: (_trialTimeExpired || trialDeviceUsed) ? (localStorage.getItem("obubba_trial_ended_at") || new Date().toISOString()) : ""
+        }, false);
+      } catch(e) { console.warn("OBubba trial device sync error", e); }
+    })();
+    return ()=>{ alive = false; };
+  }, [STORE_READY, fbReady, trialStart, firstInstallAt, familyUsername, trialDeviceUsed, _trialTimeExpired]);
+  useEffect(() => {
+    if(!STORE_READY || !fbReady || !familyUsername || !trialStart) return;
+    let alive = true;
+    (async()=>{
+      const key = normaliseUsername(familyUsername);
+      if(!key) return;
+      try {
+        const snap = await fsGet("usernames", key);
+        if(!alive || snap.error || !snap.exists()) return;
+        const data = snap.data() || {};
+        const accountCreatedMs = _trialCandidateMs(data.createdAt || data.accountCreatedAt || data.createdAtClient);
+        const accountTrialIso = _trialIso(data.trialStartedAtClient || data.trialStartedAt || data.freeTrialStartedAt);
+        if(accountTrialIso) _setCanonicalTrialStart(accountTrialIso, "account_record");
+        const accountTrialMs = _trialCandidateMs(accountTrialIso);
+        const accountTooOldWithoutTrial = !accountTrialMs && accountCreatedMs && _trialTimeExpired && (Date.now() - accountCreatedMs >= TRIAL_MS);
+        const accountTrialExpired = !!(accountTrialMs && Date.now() - accountTrialMs >= TRIAL_MS);
+        const accountUsed = data.trialUsed === true || data.freeTrialUsed === true || !!data.trialEndedAtClient || accountTooOldWithoutTrial || accountTrialExpired;
+        if(accountUsed) {
+          try {
+            localStorage.setItem("ob_trial_account_used_v1", "1");
+            localStorage.setItem("ob_trial_account_used_reason", accountTooOldWithoutTrial ? "account_age" : accountTrialExpired ? "account_trial_expired" : "account_record");
+          } catch {}
+          setTrialAccountUsed(true);
+          await fsSet("usernames", key, {
+            trialUsed: true,
+            trialEndedAtClient: data.trialEndedAtClient || new Date().toISOString(),
+            trialUpdatedAtClient: new Date().toISOString()
+          }, true);
+          return;
+        }
+        const localStartIso = _trialIso(trialStart) || new Date().toISOString();
+        const deviceKey = trialDeviceKey || await _getTrialDeviceKey();
+        const payload = {
+          trialStartedAtClient: accountTrialIso || localStartIso,
+          trialFirstInstallAtClient: firstInstallAt || localStartIso,
+          trialDeviceKey: deviceKey || "",
+          trialUsed: false,
+          trialUpdatedAtClient: new Date().toISOString()
+        };
+        if(accountCreatedMs) payload.accountAgeDaysAtTrialStart = Math.max(0, Math.floor((_trialCandidateMs(payload.trialStartedAtClient) - accountCreatedMs) / (24*60*60*1000)));
+        await fsSet("usernames", key, payload, true);
+      } catch(e) { console.warn("OBubba trial account sync error", e); }
+    })();
+    return ()=>{ alive = false; };
+  }, [STORE_READY, fbReady, familyUsername, trialStart, firstInstallAt, trialDeviceKey, _trialTimeExpired]);
   const syncRef = React.useRef(null);
 
   const possessive = (n) => {
@@ -10473,6 +11225,103 @@ function App(){
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
   const normaliseEmail = (email) => (email||"").trim().toLowerCase();
   const hashRecoveryEmail = (email) => hashPin("email:" + normaliseEmail(email));
+  function _obDateMs(value) {
+    try {
+      if(!value) return null;
+      if(value instanceof Date) {
+        const ms = value.getTime();
+        return Number.isFinite(ms) ? ms : null;
+      }
+      if(typeof value === "number") return Number.isFinite(value) ? value : null;
+      if(typeof value === "string") {
+        const ms = new Date(value).getTime();
+        return Number.isFinite(ms) ? ms : null;
+      }
+      if(typeof value === "object") {
+        if(value.timestampValue) return _obDateMs(value.timestampValue);
+        if(value.seconds !== undefined) return Number(value.seconds) * 1000;
+        if(value._seconds !== undefined) return Number(value._seconds) * 1000;
+      }
+    } catch {}
+    return null;
+  }
+  function _rememberAccountCreatedAt(value) {
+    const ms = _obDateMs(value);
+    if(!ms) return;
+    try { localStorage.setItem("ob_account_created_at", new Date(ms).toISOString()); } catch {}
+  }
+  function _premiumGrantActive(data) {
+    try {
+      if(!data || data.active === false || data.revoked === true) return false;
+      const type = String(data.type || data.plan || data.access || "").toLowerCase();
+      if(type === "lifetime" || type === "forever" || data.lifetime === true || data.premiumForever === true) return true;
+      const untilMs = _obDateMs(data.until || data.expiresAt || data.premiumUntil);
+      return !!(untilMs && untilMs > Date.now());
+    } catch { return false; }
+  }
+  function _cachedComplimentaryPremiumActive(username) {
+    try {
+      const localUser = normaliseUsername(username || localStorage.getItem("family_username") || "");
+      const grantUser = normaliseUsername(localStorage.getItem("ob_premium_cloud_username") || "");
+      if(localStorage.getItem("ob_premium_cloud") !== "1") return false;
+      if(grantUser && localUser && grantUser !== localUser) return false;
+      const until = localStorage.getItem("ob_premium_cloud_until") || "lifetime";
+      return until === "lifetime" || until === "forever" || (Date.parse(until) > Date.now());
+    } catch { return false; }
+  }
+  function _cacheComplimentaryPremium(username, data) {
+    try {
+      const key = normaliseUsername(username || localStorage.getItem("family_username") || "");
+      if(!key || !_premiumGrantActive(data)) return false;
+      localStorage.setItem("ob_premium_cloud", "1");
+      localStorage.setItem("ob_premium_cloud_username", key);
+      localStorage.setItem("ob_premium_cloud_until", String(data.until || data.expiresAt || data.premiumUntil || "lifetime"));
+      localStorage.setItem("ob_premium_cloud_reason", String(data.reason || data.source || "complimentary"));
+      return true;
+    } catch { return false; }
+  }
+  function _clearComplimentaryPremium(username) {
+    try {
+      const localUser = normaliseUsername(username || localStorage.getItem("family_username") || "");
+      const grantUser = normaliseUsername(localStorage.getItem("ob_premium_cloud_username") || "");
+      if(grantUser && localUser && grantUser !== localUser) return;
+      localStorage.removeItem("ob_premium_cloud");
+      localStorage.removeItem("ob_premium_cloud_username");
+      localStorage.removeItem("ob_premium_cloud_until");
+      localStorage.removeItem("ob_premium_cloud_reason");
+    } catch {}
+  }
+  function _applyPremiumAccess(storePremium, cloudPremium) {
+    const has = !!(_isOwner || storePremium || cloudPremium || _villageActive);
+    try {
+      if(has) localStorage.setItem("ob_premium", "1");
+      else localStorage.removeItem("ob_premium");
+    } catch {}
+    setIsPremium(has);
+    return has;
+  }
+  async function refreshComplimentaryPremium(username) {
+    const key = normaliseUsername(username || localStorage.getItem("family_username") || "");
+    if(!key) return false;
+    const cached = _cachedComplimentaryPremiumActive(key);
+    if(!window._fb) return cached;
+    try {
+      const snap = await fsGet("premium_entitlements", key);
+      if(snap.error) return cached;
+      if(snap.exists() && _premiumGrantActive(snap.data())) {
+        _cacheComplimentaryPremium(key, snap.data());
+        return true;
+      }
+      _clearComplimentaryPremium(key);
+      return false;
+    } catch { return cached; }
+  }
+  async function refreshPremiumAccess(storePremium) {
+    const cachedCloud = _cachedComplimentaryPremiumActive();
+    _applyPremiumAccess(storePremium, cachedCloud);
+    const cloud = await refreshComplimentaryPremium();
+    return _applyPremiumAccess(storePremium, cloud || cachedCloud);
+  }
   function _parseChildSyncCodes(raw) {
     try {
       if(!raw) return {};
@@ -10506,7 +11355,12 @@ function App(){
       }
       const data = snap.data();
       if(data.deleted) { setAuthError("Username not found"); return false; }
+      try { _rememberAccountCreatedAt(data.createdAt || data.accountCreatedAt || data.createdAtClient); } catch {}
       if(data.pinHash !== (preHashed ? pin : hashPin(pin))) { setAuthError("Incorrect PIN"); return false; }
+      try {
+        const _cloudPremium = await refreshComplimentaryPremium(data.displayName || username.trim());
+        if(_cloudPremium) _applyPremiumAccess(localStorage.getItem("ob_premium")==="1", true);
+      } catch {}
       const resolvedBackup = data.backupCode || null;
 
       // ACCOUNT-SWITCH GUARD. If the user is signing in while already
@@ -10813,6 +11667,7 @@ function App(){
       const parsed = {};
       for(const [k,v] of Object.entries(fields)) {
         if(v.stringValue !== undefined) parsed[k] = v.stringValue;
+        else if(v.timestampValue !== undefined) parsed[k] = v.timestampValue;
         else if(v.booleanValue !== undefined) parsed[k] = v.booleanValue;
         else if(v.integerValue !== undefined) parsed[k] = parseInt(v.integerValue);
         else if(v.nullValue !== undefined) parsed[k] = null;
@@ -11004,14 +11859,26 @@ function App(){
       if(window._fbUid) {
         try{ await fsSet("uid_to_backup", window._fbUid, {backupCode:newCode, childSyncCodes:_existingChildSyncCodes, updatedAt:serverTimestamp()}, true); }catch(e){ console.warn("OBubba uid_to_backup write error",e); }
       }
+      const _accountCreatedIso = new Date().toISOString();
+      const _trialStartForAccount = _trialIso(trialStart) || _trialIso(firstInstallAt) || _accountCreatedIso;
+      const _trialDeviceKeyForAccount = trialDeviceKey || await _getTrialDeviceKey().catch(()=>"");
+      const _trialAlreadyUsedForAccount = !!(trialDeviceUsed || trialAccountUsed || _trialTimeExpired);
       await fsSet("usernames", key, {
         pinHash: hashPin(pin),
         backupCode: newCode,
         familyCode: null,
         childSyncCodes: _existingChildSyncCodes,
         createdAt: serverTimestamp(),
-        displayName: username.trim()
+        createdAtClient: _accountCreatedIso,
+        displayName: username.trim(),
+        trialStartedAtClient: _trialStartForAccount,
+        trialFirstInstallAtClient: _trialIso(firstInstallAt) || _trialStartForAccount,
+        trialDeviceKey: _trialDeviceKeyForAccount || "",
+        trialUsed: _trialAlreadyUsedForAccount,
+        trialEndedAtClient: _trialAlreadyUsedForAccount ? (localStorage.getItem("obubba_trial_ended_at") || _accountCreatedIso) : "",
+        trialUpdatedAtClient: _accountCreatedIso
       });
+      try{ localStorage.setItem("ob_account_created_at", _accountCreatedIso); }catch{}
       setFamilyUsername(username.trim());
       setFamilyCode(null);
       try{ localStorage.setItem("family_username", username.trim()); }catch{}
@@ -11045,14 +11912,26 @@ function App(){
         try{ localStorage.setItem("backup_code", code); }catch{}
       }
       const _existingChildSyncCodes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+      const _accountCreatedIso = new Date().toISOString();
+      const _trialStartForAccount = _trialIso(trialStart) || _trialIso(firstInstallAt) || _accountCreatedIso;
+      const _trialDeviceKeyForAccount = trialDeviceKey || await _getTrialDeviceKey().catch(()=>"");
+      const _trialAlreadyUsedForAccount = !!(trialDeviceUsed || trialAccountUsed || _trialTimeExpired);
       await fsSet("usernames", key, {
         pinHash: hashPin(pin),
         backupCode: code,
         familyCode: null,
         childSyncCodes: _existingChildSyncCodes,
         createdAt: serverTimestamp(),
-        displayName: username.trim()
+        createdAtClient: _accountCreatedIso,
+        displayName: username.trim(),
+        trialStartedAtClient: _trialStartForAccount,
+        trialFirstInstallAtClient: _trialIso(firstInstallAt) || _trialStartForAccount,
+        trialDeviceKey: _trialDeviceKeyForAccount || "",
+        trialUsed: _trialAlreadyUsedForAccount,
+        trialEndedAtClient: _trialAlreadyUsedForAccount ? (localStorage.getItem("obubba_trial_ended_at") || _accountCreatedIso) : "",
+        trialUpdatedAtClient: _accountCreatedIso
       });
+      try{ localStorage.setItem("ob_account_created_at", _accountCreatedIso); }catch{}
       setFamilyUsername(username.trim());
       try{ localStorage.setItem("family_username", username.trim()); }catch{}
       try{ localStorage.setItem("auth_verified","1"); }catch{}
@@ -11113,6 +11992,7 @@ function App(){
         return "needed";
       }
       const data = snap.data() || {};
+      try { _rememberAccountCreatedAt(data.createdAt || data.accountCreatedAt || data.createdAtClient); } catch {}
       if(data.deleted || !data.pinHash || !data.backupCode || data.backupCode !== code) {
         setAccountRepairStatus("needed");
         setAccountRepairMsg("The cloud username record needs refreshing for this device's backup. Choose a 4-digit PIN to relink sign-in safely.");
@@ -11150,6 +12030,7 @@ function App(){
       setAccountRepairMsg("Recreating the sign-in record...");
       const {serverTimestamp} = window._fb;
       const _existingChildSyncCodes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+      const _rememberedCreatedAt = (()=>{try{return localStorage.getItem("ob_account_created_at") || activeChild?.createdAt || localStorage.getItem("install_date_v1") || null;}catch{return null;}})();
       const payload = {
         pinHash: hashPin(pin),
         backupCode: code,
@@ -11157,6 +12038,7 @@ function App(){
         displayName: ownerName,
         updatedAt: serverTimestamp()
       };
+      if(_rememberedCreatedAt) payload.createdAtClient = _rememberedCreatedAt;
       if(familyCode) payload.familyCode = familyCode;
       const ok = await fsSet("usernames", key, payload, true);
       if(!ok) {
@@ -11328,6 +12210,105 @@ function App(){
       result.push(e);
     });
     return result;
+  }
+
+  function _boundaryEntrySignature(e) {
+    if(!e) return "";
+    const type = e.type || "";
+    const time = e.time || e.start || "";
+    const night = (e.night || e.nightLocked) ? 1 : 0;
+    const amount = e.amount || e.ml || "";
+    const feedType = e.feedType || "";
+    const poopType = e.poopType || "";
+    return [type, time, night, amount, feedType, poopType, e.assistedType||"", e.selfSettled?1:0].join("|");
+  }
+  function _isBoundaryNightEntry(e) {
+    if(!e || !(e.night || e.nightLocked)) return false;
+    if(e._pendingSettle) return false;
+    if(!["wake","feed","poop"].includes(e.type)) return false;
+    const t = e.time || e.start || "";
+    const h = parseInt(String(t).split(":")[0],10);
+    return !isNaN(h) && h >= 0 && h < 13;
+  }
+  function _migrateDayBoundaryDays(sourceDays, nextMode, stamp) {
+    const next = {};
+    Object.entries(sourceDays || {}).forEach(([dk, arr]) => { next[dk] = Array.isArray(arr) ? [...arr] : arr; });
+    const movedIds = [];
+    let moved = 0;
+
+    function addMovedEntry(targetDay, entry, fromDay) {
+      const oldId = entry.id || null;
+      const sig = _boundaryEntrySignature(entry);
+      const targetArr = Array.isArray(next[targetDay]) ? next[targetDay] : [];
+      const filteredTarget = targetArr.filter(x => {
+        if(oldId && x.id === oldId) return false;
+        return _boundaryEntrySignature(x) !== sig;
+      });
+      const movedEntry = {
+        ...entry,
+        id: uid(),
+        modifiedAt: stamp,
+        _boundaryMovedFrom: fromDay,
+        _boundaryMovedAt: stamp
+      };
+      next[targetDay] = dedupEntries([...filteredTarget, movedEntry]);
+      if(oldId) movedIds.push(oldId);
+      moved++;
+    }
+
+    const original = sourceDays || {};
+    Object.keys(original).sort().forEach(day => {
+      const sourceArr = Array.isArray(original[day]) ? original[day] : [];
+      if(!sourceArr.length) return;
+      const keep = [];
+      const hasBed = !!findBedtime(sourceArr);
+      sourceArr.forEach(entry => {
+        let targetDay = null;
+        if(nextMode === "midnight") {
+          // Wake-boundary -> midnight: after-midnight night entries stored on
+          // the bedtime day should move onto the new calendar day.
+          const candidateNext = nextDayStr(day);
+          const nextHasMorningWake = hasMorningWake(original[candidateNext] || []);
+          const isOpenBedDay = day === (bedTimerDayRef.current || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})());
+          if(_isBoundaryNightEntry(entry) && hasBed && (nextHasMorningWake || isOpenBedDay || candidateNext === todayStr())) targetDay = candidateNext;
+        } else if(nextMode === "wake") {
+          // Midnight -> wake-boundary: after-midnight night entries stored on
+          // the calendar day should move back to the previous bedtime day.
+          const prevDay = prevDayStr(day);
+          const hasDayWake = hasMorningWake(sourceArr);
+          if(_isBoundaryNightEntry(entry) && findBedtime(original[prevDay] || []) && (hasDayWake || day === todayStr())) targetDay = prevDay;
+        }
+
+        if(targetDay && targetDay !== day) {
+          addMovedEntry(targetDay, entry, day);
+        } else {
+          keep.push(entry);
+        }
+      });
+      next[day] = dedupEntries(keep);
+    });
+
+    return {days: next, movedIds, moved};
+  }
+
+  function changeDayBoundaryMode(nextMode) {
+    if(nextMode !== "wake" && nextMode !== "midnight") return;
+    if(nextMode === dayBoundary) return;
+    const stamp = Date.now();
+    const migrated = _migrateDayBoundaryDays(days, nextMode, stamp);
+    if(migrated.movedIds.length) {
+      migrated.movedIds.forEach(id => deletedEntryIdsRef.current.add(id));
+      _capAndPersistDeletedIds();
+    }
+    setDays(migrated.days);
+    setDayBoundary(nextMode);
+    dayBoundaryRef.current = nextMode;
+    try{localStorage.setItem("ob_day_boundary_v1",nextMode);}catch{}
+    const actualToday = todayStr();
+    setSelDay(nextMode === "midnight" ? actualToday : _boundaryVisibleDay(selDay, actualToday));
+    haptic();
+    try{trackEvent("setting_changed",{setting:"day_boundary",value:nextMode,moved:migrated.moved});}catch{}
+    showToast(nextMode === "wake" ? "Day now runs morning wake to morning wake" : "Day now runs midnight to midnight", 2200, 1);
   }
   function mergeChildren(localCh, remoteCh) {
     // SECURITY: filter remote children through the removal blacklist BEFORE
@@ -12815,12 +13796,13 @@ function App(){
       // Last nappy
       var lastNappy = nappies.length ? nappies.sort(function(a,b) { return timeVal(a) - timeVal(b); }).pop() : null;
 
-      // Next predicted event. show nap/bed countdown on widget
-      // Gate predictions behind premium — free users see stats only, not countdowns
+      // Next predicted event. Active timers are available to everyone; native
+      // next-event countdowns stay premium/trial-only.
       var td = tickDataRef.current || {};
-      var nextPrediction = (isPremium || trialActive) ? (td.nextPrediction || null) : null;
-      var nextPredictionMs = (isPremium || trialActive) ? (td.nextPredictionMs || null) : null;
-      var nextPredictionLabel = (isPremium || trialActive) ? (td.nextPredictionLabel || null) : null;
+      var _nativeCountdownAccess = !!(isPremium || trialActive);
+      var nextPrediction = _nativeCountdownAccess ? (td.nextPrediction || null) : null;
+      var nextPredictionMs = _nativeCountdownAccess ? (td.nextPredictionMs || null) : null;
+      var nextPredictionLabel = _nativeCountdownAccess ? (td.nextPredictionLabel || null) : null;
 
       // Breastfeeding detection: show nursing buttons if breast feed logged in last 7 days
       var showNursing = false;
@@ -12855,6 +13837,7 @@ function App(){
         lastNappyTime: lastNappy ? String(lastNappy.time) : null,
         lastNappyType: lastNappy ? String(lastNappy.poopType || "") : null,
         nextFeedEstimate: nextFeedEst ? String(nextFeedEst) : null,
+        nextPredictionUnlocked: _nativeCountdownAccess,
         nextPrediction: nextPrediction ? String(nextPrediction) : null,
         nextPredictionMs: nextPredictionMs ? parseFloat(nextPredictionMs) : null,
         nextPredictionLabel: nextPredictionLabel ? String(nextPredictionLabel) : null,
@@ -12870,7 +13853,7 @@ function App(){
         lastBreastSide: (function(){ try{ return localStorage.getItem("last_breast_side")||null; }catch{ return null; } })()
       };
       // Guard: don't push all-zero data during initial load race
-      if(widgetData.feedCount === 0 && widgetData.sleepCount === 0 && widgetData.nappyCount === 0 && !widgetData.lastFeedTime && !widgetData.activeTimer) {
+      if(_nativeCountdownAccess && widgetData.feedCount === 0 && widgetData.sleepCount === 0 && widgetData.nappyCount === 0 && !widgetData.lastFeedTime && !widgetData.activeTimer && !widgetData.nextPredictionMs) {
         try {
           var _cached = JSON.parse(localStorage.getItem("ob_widget_data_v1")||"{}");
           if(_cached.feedCount > 0 || _cached.sleepCount > 0 || _cached.nappyCount > 0) return; // skip push, keep cached
@@ -12886,7 +13869,7 @@ function App(){
         window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(widgetData) }).catch(function(){});
       }
     } catch(e) { console.warn("Widget data update failed:", e); }
-  }, [resolvedDay, age, napOn, napStartT, napStartMs, babyName, days, breastActive, breastSide, bedTimerDay, isPremium, trialActive]);
+  }, [resolvedDay, age, napOn, napStartT, napStartMs, babyName, days, breastActive, breastSide, bedTimerDay, bedPaused, napRefusedChoice, isPremium, trialActive]);
 
   // ── Hoisted for use by predictNextNap/bedtimePrediction inside the tick useMemo below ──
   const entries = days[selDay] || [];
@@ -13170,19 +14153,20 @@ function App(){
     // Computed ONCE here. ALL surfaces read from tickDataRef. No duplicate computation.
     try {
       const _ne = tickDataRef.current.nextEvent;
-      const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
       let _wp = null, _wpMs = null, _wpLabel = null;
-      if (_ne && _ne.type === "nap" && _ne.timeMins) {
-        const _napNum = (napsDone || 0) + 1;
-        _wp = (bridgeNapNeeded ? "Bridge nap" : "Nap " + _napNum) + " ~" + fmt12(_ne.timeMins);
-        _wpLabel = bridgeNapNeeded ? "Bridge nap" : "Nap " + _napNum;
-        var _npD = new Date(); _npD.setHours(Math.floor(_ne.timeMins/60)%24, _ne.timeMins%60, 0, 0);
-        if (_npD.getTime() > Date.now()) _wpMs = _npD.getTime();
+      if (_ne && _ne.type && typeof _ne.targetMs === "number") {
+        const _targetMs = _ne.targetMs;
+        const _safeTargetMs = _targetMs >= Date.now() - 5*60*1000 ? Math.max(_targetMs, Date.now() + 1000) : null;
+        const _eventLabel = _ne.label || (_ne.type === "bed" ? "Bedtime" : ("Nap " + ((napsDone || 0) + 1)));
+        const _eventTime = _ne.timeStr || (typeof _ne.timeMins === "number" ? fmt12(_ne.timeMins) : "");
+        _wp = _eventLabel + (_eventTime ? " ~" + _eventTime : "");
+        _wpLabel = _eventLabel;
+        _wpMs = _safeTargetMs;
       } else if (bedMins && !hasBedtime) {
         _wp = "Bed ~" + fmt12(bedMins);
         _wpLabel = "Bedtime";
         var _bpD = new Date(); _bpD.setHours(Math.floor(bedMins/60)%24, bedMins%60, 0, 0);
-        if (_bpD.getTime() > Date.now()) _wpMs = _bpD.getTime();
+        if (_bpD.getTime() >= Date.now() - 5*60*1000) _wpMs = Math.max(_bpD.getTime(), Date.now() + 1000);
       }
       tickDataRef.current.nextPrediction = _wp;
       tickDataRef.current.nextPredictionMs = _wpMs;
@@ -13484,48 +14468,23 @@ function App(){
           if (_predLAState !== "") { _la.stopPrediction?.(); _predLAState = ""; }
           return;
         }
-        // Gate prediction Live Activity behind premium — free users don't get lock screen countdowns
         if (!isPremium && !trialActive) {
           if (_predLAState !== "") { _la.stopPrediction?.(); _predLAState = ""; }
           return;
         }
         const td = tickDataRef.current || {};
-        const now = new Date();
-        const nowMins = now.getHours() * 60 + now.getMinutes();
-        // Use fresh predictNextNap() for premium, fall back to td.nextNapMins for free
-        let _predNapMins = td.nextNapMins;
-        try {
-          const _predFresh = tickDataRef.current.pred;
-          if (_predFresh && typeof _predFresh.napStart_min === "number") {
-            _predNapMins = Math.round(_predFresh.napStart_min);
-          }
-        } catch {}
-        if (!td.napsComplete && _predNapMins !== null && _predNapMins > nowMins) {
-          const nH = Math.floor(_predNapMins / 60), nM = _predNapMins % 60;
-          const napNum = (td.napsDone || 0) + 1;
-          const key = "nap" + napNum + "_" + nH + ":" + nM;
+        const _ne = td.nextEvent;
+        const _rawTargetMs = (_ne && typeof _ne.targetMs === "number") ? _ne.targetMs : null;
+        const _targetMs = _rawTargetMs ? Math.max(_rawTargetMs, Date.now() + 1000) : null;
+        if (_ne && _ne.type && _rawTargetMs && _rawTargetMs > Date.now() - 5*60*1000) {
+          const _label = _ne.label || (_ne.type === "bed" ? "Bedtime" : ("Nap " + ((td.napsDone || 0) + 1)));
+          const _timeStr = _ne.timeStr || (typeof _ne.timeMins === "number" ? fmt12(_ne.timeMins) : "");
+          const key = _ne.type + "_" + _label + "_" + Math.round(_targetMs/60000);
           if (_predLAState !== key) {
-            const targetDate = new Date(); targetDate.setHours(nH, nM, 0, 0);
-            const label = "Nap " + napNum;
-            const timeStr = fmt12(`${String(nH).padStart(2,"0")}:${String(nM).padStart(2,"0")}`);
             _la.stopPrediction?.();
             setTimeout(()=>{
               if (localStorage.getItem("nap_on") !== "1" && localStorage.getItem("breast_active") !== "1") {
-                _la.startPrediction?.({babyName:babyName||'Baby', targetTime:targetDate.getTime(), label, timeFormatted:timeStr});
-              }
-            }, 300);
-            _predLAState = key;
-          }
-        } else if (td.napsComplete && td.bedMins !== null && td.bedMins > nowMins) {
-          const bH = Math.floor(td.bedMins / 60), bM = td.bedMins % 60;
-          const key = "bed_" + bH + ":" + bM;
-          if (_predLAState !== key) {
-            const targetDate = new Date(); targetDate.setHours(bH, bM, 0, 0);
-            const timeStr = fmt12(`${String(bH).padStart(2,"0")}:${String(bM).padStart(2,"0")}`);
-            _la.stopPrediction?.();
-            setTimeout(()=>{
-              if (localStorage.getItem("nap_on") !== "1" && localStorage.getItem("breast_active") !== "1") {
-                _la.startPrediction?.({babyName:babyName||'Baby', targetTime:targetDate.getTime(), label:"Bedtime", timeFormatted:timeStr});
+                _la.startPrediction?.({babyName:babyName||'Baby', targetTime:_targetMs, label:_label, timeFormatted:_timeStr});
               }
             }, 300);
             _predLAState = key;
@@ -14094,7 +15053,7 @@ function App(){
         <div className="glass-card ob-hero" style={{marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
             <div style={{width:10,height:10,borderRadius:"50%",background:"#7B68EE",boxShadow:"0 0 8px rgba(123,104,238,0.4)",animation:"candlePulse 4s ease-in-out infinite"}}/>
-            <span style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",letterSpacing:"-0.01em"}}>{bedPaused ? "Night wake in progress 🌙" : "Sleeping peacefully 🌙"}</span>
+            <span style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",letterSpacing:"-0.01em",display:"flex",alignItems:"center",gap:7}}>{bedPaused ? "Night wake in progress" : "Sleeping peacefully"}<BubbaIcon name="moon" size={20}/></span>
           </div>
           <div style={{fontSize:14,color:C.mid,marginBottom:6}}>{_timeStr}</div>
           {/* Last feed during the night, use cross-day wall-clock calculation (works after midnight) */}
@@ -14105,7 +15064,7 @@ function App(){
             const _agoStr = _feedAgo < 60 ? _feedAgo + "m ago" : Math.floor(_feedAgo / 60) + "h " + (_feedAgo % 60) + "m ago";
             return (
               <div style={{fontSize:12,color:C.lt,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-                <span>🍼</span>
+                <BubbaIcon name="feed" size={16}/>
                 <span>Last feed {_feedStr}{_amtStr} ({_agoStr})</span>
               </div>
             );
@@ -14116,7 +15075,7 @@ function App(){
           {bedPaused ? (
             <div>
               <div style={{textAlign:"center",padding:"10px 0",marginBottom:8}}>
-                <div style={{fontSize:13,color:"#D4A855",fontWeight:700,marginBottom:4}}>{"\u{1F319}"} Night wake in progress</div>
+                <div style={{fontSize:13,color:"#D4A855",fontWeight:700,marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><BubbaIcon name="moon" size={17}/><span>Night wake in progress</span></div>
                 {bedPauseStart && (()=>{
                   const _wakeMins=Math.max(0,Math.round((Date.now()-bedPauseStart)/60000));
                   // If the pause is more than 4 hours old, it's a stale
@@ -14134,7 +15093,7 @@ function App(){
               {/* Self settled */}
               <button onClick={()=>{haptic(20);setBedWakeSettle("self");resumeBedTimer("self");showToast("Self settled — back to sleep",1200,1);}}
                 style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(80,200,120,0.3)",background:"rgba(80,200,120,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                😴 Self settled — back to sleep
+                <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="nap" size={18}/>Self settled - back to sleep</span>
               </button>
 
               {/* Feed + back to sleep — with breast timer support */}
@@ -14177,23 +15136,23 @@ function App(){
                     <div style={{marginBottom:6}}>
                       <div style={{display:"flex",gap:6,marginBottom:6}}>
                         <button onClick={()=>{haptic();startBreastTimer("L");}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:700,cursor:_cP}}>
-                          🤱 Left
+                          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><BubbaIcon name="breast" size={17}/>Left</span>
                         </button>
                         <button onClick={()=>{haptic();startBreastTimer("R");}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:700,cursor:_cP}}>
-                          🤱 Right
+                          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><BubbaIcon name="breast" size={17}/>Right</span>
                         </button>
-                        <button onClick={()=>{haptic(20);setBedWakeSettle("milk");resumeBedTimer("milk");showToast("🤱 Fed + back to sleep",1200,1);}}
+                        <button onClick={()=>{haptic(20);setBedWakeSettle("milk");setNightFeedDraft("");setShowNightFeedAmount(true);}}
                           style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:700,cursor:_cP}}>
-                          🍼 Quick
+                          <span style={{display:"inline-flex",alignItems:"center",gap:6}}><BubbaIcon name="feed" size={17}/>Quick</span>
                         </button>
                       </div>
                     </div>
                   );
                 }
                 return (
-                  <button onClick={()=>{haptic(20);setBedWakeSettle("milk");resumeBedTimer("milk");showToast("🍼 Fed + back to sleep",1200,1);}}
+                  <button onClick={()=>{haptic(20);setBedWakeSettle("milk");setNightFeedDraft("");setShowNightFeedAmount(true);}}
                     style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                    🍼 Fed + back to sleep
+                    <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="feed" size={18}/>Fed + back to sleep</span>
                   </button>
                 );
               })()}
@@ -14201,7 +15160,7 @@ function App(){
               {/* Soothed (parent helped — rocking, patting, etc) */}
               <button onClick={()=>{haptic(20);setBedWakeSettle("assisted");resumeBedTimer("assisted");showToast("Soothed + back to sleep",1200,1);}}
                 style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                🤲 Soothed + back to sleep
+                <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="baby" size={18}/>Soothed + back to sleep</span>
               </button>
             </div>
           ) : (
@@ -14220,10 +15179,10 @@ function App(){
                   }
                   pauseBedTimer();
                 }} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
-                  {"\u23F8\uFE0F"} Night wake
+                  <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="timer" size={18}/>Night wake</span>
                 </button>
                 <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
-                  {"\u{1F4DD}"} Log details
+                  <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="log" size={18}/>Log details</span>
                 </button>
               </div>
               {/* Dream feed one-tap (visible 21:30-23:30, typical dream-feed hours) */}
@@ -14296,14 +15255,14 @@ function App(){
         : null;
       return (
         <button onClick={()=>{haptic();handleSmartWake();}} className="glass-card prio-glow ob-hero" style={{width:"100%",marginBottom:12,cursor:_cP,textAlign:"left"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-            <div style={{width:10,height:10,borderRadius:"50%",background:"#D4A855",boxShadow:"0 0 8px rgba(212,168,85,0.4)"}}/>
-            <span style={{fontSize:22,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",letterSpacing:"-0.01em"}}>Good morning! ☀️</span>
-          </div>
-          <div style={{fontSize:13,color:C.mid,marginBottom:6}}>Tap to start {_name}'s day</div>
-          {_feedHint && <div style={{fontSize:11,color:C.lt,marginBottom:6,fontFamily:_fM}}>🍼 {_feedHint}</div>}
-          <div style={{fontSize:15,color:C.mint,fontWeight:700,fontStyle:"italic",padding:"6px 0"}}>{_reassure}</div>
-        </button>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <BubbaIcon name="sun" size={26}/>
+                <span style={{fontSize:22,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",letterSpacing:"-0.01em"}}>Good morning!</span>
+              </div>
+              <div style={{fontSize:13,color:C.mid,marginBottom:6}}>Tap to start {_name}'s day</div>
+              {_feedHint && <div style={{fontSize:11,color:C.lt,marginBottom:6,fontFamily:_fM,display:"flex",alignItems:"center",gap:6}}><BubbaIcon name="feed" size={16}/><span>{_feedHint}</span></div>}
+              <div style={{fontSize:15,color:C.mint,fontWeight:700,fontStyle:"italic",padding:"6px 0"}}>{_reassure}</div>
+            </button>
       );
     }
 
@@ -14724,7 +15683,7 @@ function App(){
             stress when naps or feeds don't match the usual rhythm. */}
         {_modeProfile && (
           <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 12px",marginBottom:10,borderRadius:12,background:_modeHue+"14",border:`1px solid ${_modeHue}40`}}>
-            <span style={{fontSize:18,flexShrink:0,lineHeight:1.1}}>{_modeProfile.emoji}</span>
+            <BubbaIcon icon={_modeProfile.emoji} size={22} style={{marginTop:1}}/>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:12,fontWeight:700,color:_modeHue,marginBottom:2,textTransform:"uppercase",letterSpacing:_ls1,fontFamily:_fM}}>{_modeProfile.title}</div>
               <div style={{fontSize:12,color:C.deep,lineHeight:1.45,marginBottom:4}}>{_modeProfile.expect}</div>
@@ -14757,25 +15716,25 @@ function App(){
         })() && (()=>{
           // Confidence indicator based on days of usable data
           const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
-          const _confLevel = _daysLogged < 3 ? {label:"Guideline",color:C.lt,icon:"📋"}
-            : _daysLogged < 7 ? {label:"Learning "+_name+"'s rhythm",color:C.gold,icon:"📊"}
-            : _daysLogged < 14 ? {label:"Based on "+_daysLogged+" days",color:C.mint,icon:"✓"}
-            : {label:"High confidence · "+_daysLogged+" days",color:C.mint,icon:"✓"};
+              const _confLevel = _daysLogged < 3 ? {label:"Guideline",color:C.lt,icon:"log"}
+                : _daysLogged < 7 ? {label:"Learning "+_name+"'s rhythm",color:C.gold,icon:"understand"}
+                : _daysLogged < 14 ? {label:"Based on "+_daysLogged+" days",color:C.mint,icon:"check"}
+                : {label:"High confidence · "+_daysLogged+" days",color:C.mint,icon:"check"};
           return (
           <div style={{paddingLeft:16,marginBottom:8}}>
             <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-              <span style={{fontSize:13,flexShrink:0,marginTop:1}}>{_nextEvent.icon}</span>
+              <BubbaIcon icon={_nextEvent.icon} size={18} style={{marginTop:1}}/>
               <div>
                 <span style={{fontSize:12,color:C.mid,lineHeight:1.45}}>{_nextEvent.text}</span>
                 <div style={{display:"flex",alignItems:"center",gap:4,marginTop:3}}>
-                  <span style={{fontSize:10}}>{_confLevel.icon}</span>
+                  <BubbaIcon name={_confLevel.icon} size={12}/>
                   <span style={{fontSize:10,fontFamily:_fM,color:_confLevel.color,letterSpacing:"0.02em"}}>{_confLevel.label}</span>
                   {_daysLogged < 7 && <span style={{fontSize:10,color:C.lt}}>· log more days to personalise</span>}
                 </div>
               </div>
             </div>
             {_adaptiveHint && (_nextEvent.icon === "😴") && (
-              <div style={{fontSize:10,color:C.ter,fontStyle:"italic",paddingLeft:21,marginTop:3,lineHeight:1.45}}>✨ {_adaptiveHint}</div>
+              <div style={{fontSize:10,color:C.ter,fontStyle:"italic",paddingLeft:21,marginTop:3,lineHeight:1.45,display:"flex",alignItems:"center",gap:5}}><BubbaIcon name="sparkle" size={12}/><span>{_adaptiveHint}</span></div>
             )}
           </div>
           );
@@ -14784,7 +15743,7 @@ function App(){
         {/* DO: action button if needed */}
         {_wakeMissing && (
           <button onClick={()=>{haptic();handleSmartWake();}} style={{display:"flex",alignItems:"center",gap:8,width:"calc(100% - 20px)",marginLeft:20,background:"rgba(212,168,85,0.1)",border:"1.5px solid rgba(212,168,85,0.3)",borderRadius:12,padding:"10px 14px",marginBottom:8,cursor:_cP,textAlign:"left"}}>
-            <span style={_S.f18}>☀️</span>
+            <BubbaIcon name="sun" size={22}/>
             <div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Wake not logged</div>
               <div style={{fontSize:11,color:C.mid}}>Tap to log {_name}'s morning wake. this unlocks nap predictions</div>
@@ -14809,7 +15768,7 @@ function App(){
                 <div>
                   <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:3}}>How predictions work</div>
                   <div style={{fontSize:11,color:C.mid,lineHeight:1.5}}>
-                    Right now this is based on NHS guidelines for {babyName||"baby"}'s age. After 3-5 days of logging, OBubba learns {babyName||"baby"}'s unique rhythm and predictions get much more accurate.
+                    Right now this is based on {_guide.sleepSource} guidance for {babyName||"baby"}'s age. After 3-5 days of logging, OBubba learns {babyName||"baby"}'s unique rhythm and predictions get much more accurate.
                   </div>
                   <button onClick={()=>{try{localStorage.setItem("ob_pred_tooltip_v1","1");}catch{}haptic();setPartnerTick(t=>t+1);}} style={{marginTop:6,background:"none",border:"none",padding:0,fontSize:11,color:C.ter,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Got it ✓</button>
                 </div>
@@ -15021,7 +15980,7 @@ function App(){
                   ))}
                 </div>
               )}
-              <div style={{fontSize:11,color:C.lt,marginTop:10,fontStyle:"italic",borderTop:"1px solid var(--card-border)",paddingTop:8}}>Sleep and wake windows: NHS Start4Life, AASM, WHO. Growth data: WHO Child Growth Standards. Feeding: NHS/WHO complementary feeding guidance. This is general guidance. not medical advice. If you have concerns, speak to your {_doctor}.</div>
+              <div style={{fontSize:11,color:C.lt,marginTop:10,fontStyle:"italic",borderTop:"1px solid var(--card-border)",paddingTop:8}}>{_guidanceFooter()}. This is general guidance. not medical advice. If you have concerns, speak to your {_healthContact}.</div>
               {/* Does this match? feedback */}
               {(()=>{
                 const _wmKey = "ww_match_"+selDay;
@@ -15578,7 +16537,7 @@ function App(){
       title: "Sick day",
       emoji: "\u{1F912}",
       expect: "Expect shorter wake windows, more day sleep, possibly reduced feed volumes. Extra rest is how their body heals.",
-      tip: "Follow cues over the clock. Offer small, frequent feeds and watch wet nappies. If fever \u2265 38\u00B0C and under 3 months, contact your GP promptly.",
+      tip: "Follow cues over the clock. Offer small, frequent feeds and watch wet nappies. If fever \u2265 38\u00B0C and under 3 months, contact your " + _healthContact + " promptly.",
       color: "blush",
       suppressDrift: true
     };
@@ -17287,7 +18246,7 @@ function App(){
     if (recentWakes > prevWakes + 1.2) {
       alerts.push({
         title: "More night wakes recently",
-        body: "Night wakes have picked up a bit over the last 3 days. This often happens during developmental phases. it's very normal and usually settles within 1–2 weeks. Keeping bedtime consistent really helps. Remember: broken sleep is exhausting. If you're struggling, talk to your partner, a friend, or your health visitor. looking after yourself matters too.",
+        body: "Night wakes have picked up a bit over the last 3 days. This often happens during developmental phases. it's very normal and usually settles within 1–2 weeks. Keeping bedtime consistent really helps. Remember: broken sleep is exhausting. If you're struggling, talk to your partner, a friend, or your " + _healthProfessional + ". looking after yourself matters too.",
         icon: "🌙"
       });
     }
@@ -17340,7 +18299,7 @@ function App(){
     const regressions = [
       { weeks:[15,19], label:"4-Month Sleep Regression", emoji:"🌊",
         desc:`${name}'s sleep architecture is maturing from newborn cycles to adult-style 4-stage sleep. This is permanent brain development. not a setback.`,
-        advice:"Expect 2–4 weeks of disrupted sleep. Keep routines consistent, offer extra feeds if needed, and avoid introducing new sleep props. This regression means the brain is developing normally. It's OK to feel exhausted. this phase passes. If you need support, your health visitor or GP is always there." },
+        advice:"Expect 2–4 weeks of disrupted sleep. Keep routines consistent, offer extra feeds if needed, and avoid introducing new sleep props. This regression means the brain is developing normally. It's OK to feel exhausted. this phase passes. If you need support, your " + _healthContact + " is there." },
       { weeks:[24,28], label:"6-Month Sleep Regression", emoji:"🥄",
         desc:`Weaning, growth spurt, and possible teething are all happening at once. ${name} may be waking more from hunger (solid food isn't replacing milk calories yet), discomfort, or just developmental excitement.`,
         advice:"This usually lasts 2–3 weeks. Keep milk feeds consistent — solids are supplementary at this stage, not a replacement. Extra night feeds are normal and temporary. If teething, offer comfort. This phase passes." },
@@ -17402,7 +18361,7 @@ function App(){
         label: "Sleep disruption detected",
         emoji: "📊",
         desc: `${name}'s night wakes have increased significantly — from ~${Math.round(_avgPrev*10)/10} to ~${Math.round(_avgLast*10)/10} per night over the last 5 days. This could be a developmental phase, teething, illness, or a schedule adjustment needed.`,
-        advice: "Check for teething signs, illness, or recent routine changes. If nothing obvious, maintain consistent bedtime routine and give it a week. If wakes increase further or baby seems unwell, check with your " + (_doctor||"health visitor") + ".",
+        advice: "Check for teething signs, illness, or recent routine changes. If nothing obvious, maintain consistent bedtime routine and give it a week. If wakes increase further or baby seems unwell, check with your " + _healthContact + ".",
         avgWakes: Math.round(_avgLast*10)/10,
         dataDetected: true
       };
@@ -17536,7 +18495,7 @@ function App(){
     else if (_debtH > -1.5 && trajectory === "improving") { severity = "mild"; advice = "Slight deficit but recovering. keep up the early bedtimes."; }
     else if (_debtH > -1.5) { severity = "mild"; advice = "Mild sleep debt building. consider bedtime 15\u201320 min earlier tonight."; }
     else if (_debtH > -3) { severity = "moderate"; advice = "Moderate sleep debt. prioritise early bedtime and protect nap opportunities today."; }
-    else { severity = "high"; advice = recoveryDays > 30 ? "Significant sleep debt. if this persists, consider speaking to your health visitor or GP. prioritise early bedtimes and protect every nap." : "Significant sleep debt. recovery can take " + recoveryDays + " days of early bedtimes and full naps."; }
+    else { severity = "high"; advice = recoveryDays > 30 ? "Significant sleep debt. if this persists, consider speaking to your " + _healthContact + ". prioritise early bedtimes and protect every nap." : "Significant sleep debt. recovery can take " + recoveryDays + " days of early bedtimes and full naps."; }
     return { debtH: _debtH, avgH: _avgH, targetH, trajectory, recoveryDays, severity, advice, dailyTrend: _dailyH, daysTracked: _dailyH.length };
   }
 
@@ -17867,7 +18826,7 @@ function App(){
         if (discomfortLikely) {
           _cause = "discomfort";
           _causeDetail = `Sick days logged recently — illness, teething, or growth spurts can cause mid-night wakes that settle once the underlying issue resolves.`;
-          _causeAction = "Focus on comfort: extra cuddles, pain relief if appropriate (speak to your GP), and don't worry about sleep routines while unwell. Normal patterns usually return within a week.";
+          _causeAction = "Focus on comfort: extra cuddles, pain relief if appropriate after checking local guidance, and don't worry about sleep routines while unwell. Speak to your " + _healthContact + " if you're unsure. Normal patterns usually return within a week.";
         } else if (hungerLikely) {
           _cause = "hunger";
           _causeDetail = `Feeds during night wakes suggest hunger may be a factor. Growth spurts, cluster feeding, or insufficient daytime calories can cause night waking.`;
@@ -18171,7 +19130,7 @@ function App(){
 
         if (discomfortLikely) {
           _sn_cause = "discomfort";
-          _sn_suggestion = "Focus on comfort and rest while unwell. Normal patterns usually return within a week of recovery. Check temperature, watch for teething signs, and speak to your GP if unsure.";
+          _sn_suggestion = "Focus on comfort and rest while unwell. Normal patterns usually return within a week of recovery. Check temperature, watch for teething signs, and speak to your " + _healthContact + " if unsure.";
           _sn_why = "Illness, teething, or growth spurts can disrupt night sleep regardless of daytime routine.";
         } else if (hungerLikely) {
           _sn_cause = "hunger";
@@ -19699,7 +20658,7 @@ function App(){
     const napDropNote = droppedNapReason === "bedtime_constraint" && napsDone < napCount
       ? `Showing ${napsDone} nap${napsDone!==1?"s":""} instead of ${napCount}. ${babyName||"baby"}'s recent nap lengths don't leave enough awake time for ${napCount} naps before bedtime. Try capping the longest nap by 10–15 min to fit ${napCount} naps in.`
       : null;
-    return { schedule: sanitizeSchedule(schedule, w), napCount: napsDone, expectedNapCount: napCount, hasBridge, napDropNote, source: "NHS wake windows + personal rhythm + sleep budget", dataQuality, sleepBudget };
+    return { schedule: sanitizeSchedule(schedule, w), napCount: napsDone, expectedNapCount: napCount, hasBridge, napDropNote, source: _guide.sleepSource + " + personal rhythm + sleep budget", dataQuality, sleepBudget };
   }
 
   // ═══ NAP STRUCTURE ENGINE ═════════════════════════════════════════════
@@ -20246,37 +21205,37 @@ function App(){
         breastMinToday: _breastMinToday,
         breastCountToday: _breastCountToday,
         breastTarget: _breastTarget,
-        nhsNote: "Breastfed babies feed on demand. Frequency and wet nappies are better indicators than volume. Any amount of breastfeeding reduces the risk of SIDS (Lullaby Trust). Follow baby's cues, you're doing everything right.",
+        nhsNote: "Breastfed babies feed on demand. Frequency and wet nappies are better indicators than volume. Breastfeeding is protective for safe sleep in many public health guidelines. Follow baby's cues; you're doing everything right.",
       };
     }
     let totalMin, totalMax, totalLabel, totalTarget, dayTarget, dayMin, targetFeeds, nhsNote;
     if (w < 4) {
       totalMin=400; totalMax=700; totalTarget=550; dayTarget=400; dayMin=280;
-      targetFeeds=8; totalLabel="400–700ml/day (NHS)";
+      targetFeeds=8; totalLabel="400–700ml/day (" + _guide.feedingSource + ")";
       nhsNote="Newborns feed 8–12 times in 24h. Frequent feeding builds your supply and helps baby regain birth weight.";
     } else if (w < 8) {
       totalMin=500; totalMax=800; totalTarget=650; dayTarget=480; dayMin=350;
-      targetFeeds=7; totalLabel="500–800ml/day (NHS)";
+      targetFeeds=7; totalLabel="500–800ml/day (" + _guide.feedingSource + ")";
       nhsNote="At this age babies typically feed every 2.5–3.5h. Consistent day feeds help night stretches extend naturally.";
     } else if (w < 13) {
       totalMin=600; totalMax=900; totalTarget=750; dayTarget=560; dayMin=400;
-      targetFeeds=6; totalLabel="600–900ml/day (NHS)";
-      nhsNote="NHS recommends ~150ml per kg/day. Stronger day feeds often reduce hunger-driven night waking.";
+      targetFeeds=6; totalLabel="600–900ml/day (" + _guide.feedingSource + ")";
+      nhsNote=_guide.feedingSource + " uses age and weight as rough context. Stronger day feeds often reduce hunger-driven night waking.";
     } else if (w < 26) {
       totalMin=700; totalMax=1000; totalTarget=850; dayTarget=650; dayMin=480;
-      targetFeeds=5; totalLabel="700–1000ml/day (NHS)";
+      targetFeeds=5; totalLabel="700–1000ml/day (" + _guide.feedingSource + ")";
       nhsNote="Babies 3–6 months benefit from full day feeds. Low day intake is a common cause of frequent night waking at this age.";
     } else if (w < 39) {
       totalMin=500; totalMax=800; totalTarget=700; dayTarget=560; dayMin=380;
-      targetFeeds=4; totalLabel="500–800ml/day + solids (NHS)";
+      targetFeeds=4; totalLabel="500–800ml/day + solids (" + _guide.feedingSource + ")";
       nhsNote="With solids introduced, milk remains the main nutrition. Offering milk before solids helps maintain day intake.";
     } else if (w < 52) {
       totalMin=400; totalMax=700; totalTarget=600; dayTarget=480; dayMin=320;
-      targetFeeds=3; totalLabel="400–700ml/day + solids (NHS)";
+      targetFeeds=3; totalLabel="400–700ml/day + solids (" + _guide.feedingSource + ")";
       nhsNote="At 9–12 months, 3 milk feeds per day alongside meals is typical. Solids shouldn't displace milk entirely.";
     } else {
       totalMin=300; totalMax=500; totalTarget=400; dayTarget=320; dayMin=200;
-      targetFeeds=2; totalLabel="300–500ml/day (NHS)";
+      targetFeeds=2; totalLabel="300–500ml/day (" + _guide.feedingSource + ")";
       nhsNote="After 12 months, cow's milk can replace formula. 300–400ml/day supports calcium needs alongside a varied diet.";
     }
 
@@ -20290,7 +21249,7 @@ function App(){
     const isCombo = hasBreast && hasFormula;
     if (hasBreast && !hasFormula) {
       // Exclusively breastfed. volume targets don't apply
-      nhsNote = "Breastfed babies feed on demand. frequency and wet nappies are better indicators than volume. Any amount of breastfeeding reduces the risk of SIDS (Lullaby Trust).";
+      nhsNote = "Breastfed babies feed on demand. frequency and wet nappies are better indicators than volume. Breastfeeding is protective for safe sleep in many public health guidelines.";
       totalLabel = "Feed on demand";
     } else if (isCombo) {
       nhsNote = nhsNote + " For breastfed portions, frequency and wet nappies are better indicators than volume. volume targets apply to formula feeds.";
@@ -23834,26 +24793,82 @@ function App(){
     return url;
   }
 
+  function calendarTimeFromDate(d){
+    if(!(d instanceof Date) || isNaN(d)) return "";
+    return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  }
+
+  function nativeCalendarPayload(ev){
+    const n=normaliseCalendarEvent(ev);
+    return {
+      title:n.title||"OBubba appointment",
+      date:n.date,
+      time:n.allDay?"":(n.time||calendarTimeFromDate(n.start)||"09:00"),
+      endDate:n.endDate||n.date,
+      endTime:n.allDay?"":(n.endTime||calendarTimeFromDate(n.end)||""),
+      allDay:!!n.allDay,
+      location:n.location||"",
+      note:n.note||"",
+      alarm:n.alarm||0,
+      uid:n.uid||""
+    };
+  }
+
   async function openNativeCalendarEvent(ev){
     try{
       const cal=window.Capacitor?.Plugins?.OBCalendar;
       if(!cal || !window.Capacitor?.isNativePlatform?.()) return false;
-      const n=normaliseCalendarEvent(ev);
-      await cal.addEvent({
-        title:n.title||"OBubba appointment",
-        date:n.date,
-        time:n.allDay?"":(n.time||"09:00"),
-        endDate:n.endDate||n.date,
-        endTime:n.allDay?"":(n.endTime||String(n.end.getHours()).padStart(2,"0")+":"+String(n.end.getMinutes()).padStart(2,"0")),
-        allDay:!!n.allDay,
-        location:n.location||"",
-        note:n.note||""
-      });
+      await cal.addEvent(nativeCalendarPayload(ev));
       return true;
     }catch(e){
       console.warn("Native calendar open failed:",e);
       return false;
     }
+  }
+
+  async function saveNativeCalendarEvents(events){
+    const cal=window.Capacitor?.Plugins?.OBCalendar;
+    if(!cal || !window.Capacitor?.isNativePlatform?.()) return {available:false,ok:false,saved:0};
+    const payloads=(Array.isArray(events)?events:[events]).map(nativeCalendarPayload).filter(e=>e.date);
+    if(!payloads.length) return {available:true,ok:false,saved:0,error:"No valid events"};
+    try{
+      let res=null;
+      if(payloads.length>1 && typeof cal.addEvents==="function"){
+        res=await cal.addEvents({events:payloads});
+      }else if(payloads.length>1){
+        let saved=0;
+        for(const ev of payloads){
+          const one=await cal.addEvent({...ev,direct:true});
+          saved+=(one?.saved||one?.eventId?1:0);
+        }
+        return {available:true,ok:saved>0,saved};
+      }else{
+        res=await cal.addEvent({...payloads[0],direct:true});
+      }
+      const saved=Number(res?.saved||0) || (Array.isArray(res?.eventIds)?res.eventIds.length:0) || (res?.eventId?1:0);
+      return {available:true,ok:saved>0,saved};
+    }catch(e){
+      console.warn("Native calendar save failed:",e);
+      return {available:true,ok:false,saved:0,error:e?.message||String(e||"Calendar save failed")};
+    }
+  }
+
+  async function addEventsToCalendar(events, filename, successMessage){
+    const list=(Array.isArray(events)?events:[events]).filter(Boolean);
+    if(!list.length){ showToast("No calendar events to add",2000,2); return false; }
+    const nativeResult=await saveNativeCalendarEvents(list);
+    if(nativeResult.available){
+      if(nativeResult.ok){
+        showToast(successMessage || (nativeResult.saved+" event"+(nativeResult.saved===1?"":"s")+" added to Calendar"),2300,1);
+        haptic("success");
+        return true;
+      }
+      showToast("Calendar access needed. Check Settings > OBubba > Calendars.",3200,2);
+      return false;
+    }
+    const ok=await shareICS(generateICS(list),filename||"obubba-event.ics",list.length===1?list[0]:list);
+    showToast(ok ? "Calendar file ready to import" : "Calendar export cancelled", ok ? 2400 : 1800, ok ? 1 : 2);
+    return ok;
   }
 
   function downloadICS(icsString, filename){
@@ -24391,12 +25406,7 @@ function App(){
   async function addApptToCalendar(a){
     const ev=eventFromAppointment(a);
     haptic("light");
-    if(await openNativeCalendarEvent(ev)){
-      showToast("Calendar opened - tap Add/Save when ready",2500,1);
-      return;
-    }
-    await shareICS(generateICS([ev]),"obubba-appointment.ics",ev);
-    showToast("Calendar event ready",1800,1);
+    await addEventsToCalendar([ev],"obubba-appointment.ics","Appointment added to Calendar");
   }
 
   function openInMaps(address){
@@ -24412,7 +25422,7 @@ function App(){
     }
   }
 
-  function addPhasesToCalendar(){
+  async function addPhasesToCalendar(){
     if(!babyDob) { showToast("Set baby's date of birth first",2000,2); return; }
     var dobDate=new Date(babyDob+"T00:00:00");
     var events=[];
@@ -24437,9 +25447,7 @@ function App(){
         uid:"phase-bloom-"+p.phase
       });
     });
-    shareICS(generateICS(events),"obubba-dev-phases.ics", events);
-    showToast("\u{1F4C5} "+events.length+" phase events ready to add",2500,1);
-    haptic("success");
+    await addEventsToCalendar(events,"obubba-dev-phases.ics",events.length+" phase events added to Calendar");
   }
 
   function addReminder(){
@@ -25489,7 +26497,7 @@ function App(){
     // 7. TEMPERATURE. always relevant
     reasons.push({
       emoji: "🌡️", title: "Too hot or cold",
-      detail: "The Lullaby Trust recommends "+cToDisplay(16)+"–"+cToDisplay(20)+tempLabel+"",
+      detail: _guide.safeSleepSource + " guidance commonly uses "+cToDisplay(16)+"–"+cToDisplay(20)+tempLabel+" as a safe sleep range",
       action: "Feel baby's chest or back of neck. if hot or sweaty, remove a layer. Hands and feet are normally cooler. Remove hats indoors",
       urgency: "low", score: 30
     });
@@ -25760,7 +26768,7 @@ function App(){
     } catch {}
     showToast(_isMorningWake ? "☀️ Morning wake logged." : "🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
   }
-  function resumeBedTimer(overrideSettleMethod){
+  function resumeBedTimer(overrideSettleMethod, opts){
     // Check both React state AND localStorage (state may be stale from async setBedTimerDay)
     const _btdResume = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
     if (!_btdResume || !bedPaused) return;
@@ -25781,6 +26789,9 @@ function App(){
     try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Update the night wake entry (logged on pause) with duration and settle method
     const settleMethod = overrideSettleMethod || bedWakeSettle || "assisted";
+    const amountMl = settleMethod === "milk"
+      ? Math.max(0, parseInt(opts && opts.amountMl, 10) || 0)
+      : 0;
     // Short, clean note. The duration lives in the structured field
     // (assistedDuration / settleDuration) so it shows up in the edit form
     // and the night wake card directly, not buried in a string.
@@ -25797,18 +26808,22 @@ function App(){
       const settleM = String(settleTime.getMinutes()).padStart(2,"0");
       // Respect breastfeeding preference: breastfed moms log as breast, not milk
       const _isBreast = (()=>{try{return localStorage.getItem("_hasBreast")==="1";}catch{return false;}})();
+      const _feedType = settleMethod === "milk"
+        ? (amountMl > 0 ? "milk" : (_isBreast ? "breast" : "milk"))
+        : undefined;
       setDays(d => {
         // Respect dayBoundary: wake mode → bedTimerDay, midnight mode → today
         const _btdFallback = bedTimerDay || localStorage.getItem("bed_timer_day") || todayStr();
         const _targetDay = (dayBoundary === "midnight") ? todayStr() : _btdFallback;
         const entries = d[_targetDay] || [];
         return {...d, [_targetDay]: entries.map(e => e.id === _pendingId ? {
-          ...e,
-          type: settleMethod === "milk" ? "feed" : "wake",
-          feedType: settleMethod === "milk" ? (_isBreast ? "breast" : "milk") : undefined,
-          selfSettled: settleMethod === "self",
-          assisted: settleMethod !== "self",
-          assistedType: settleMethod === "milk" ? (_isBreast ? "breast" : "milk") : (settleMethod === "other" ? "other" : undefined),
+	          ...e,
+	          type: settleMethod === "milk" ? "feed" : "wake",
+	          feedType: _feedType,
+	          amount: settleMethod === "milk" ? amountMl : undefined,
+	          selfSettled: settleMethod === "self",
+	          assisted: settleMethod !== "self",
+	          assistedType: settleMethod === "milk" ? _feedType : (settleMethod === "other" ? "other" : undefined),
           note: noteStr,
           // Write the duration to the structured field the NW edit form and the
           // Night Wakes card both read directly. Without this, the edit form
@@ -27126,7 +28141,7 @@ function App(){
     if (recent3h.length >= 3 && !nearbyBottle) return { icon: "\uD83E\uDD0D", title: "This looks like cluster feeding", body: "Very normal, especially in the evening or during growth spurts. Your body is responding exactly as it should." };
     if (isNight) return { icon: "\uD83C\uDF19", title: "Night feeds are doing important work", body: "Overnight feeds are common and can help support milk supply. You\u2019re doing brilliantly." };
     if (breastFeeds.length >= 5 && wetCount >= 4 && nowH >= 14) return { icon: "\uD83D\uDC9A", title: "Today\u2019s signs look reassuring", body: "Feeding pattern and wet nappies suggest things may be going well. Trust yourself." };
-    if (nowH >= 16 && breastFeeds.length <= 3 && wetCount <= 2) return { icon: "\uD83D\uDC9B", title: "Worth a closer look", body: "If this keeps happening and you\u2019re worried, it may help to speak to your health visitor, midwife, or breastfeeding specialist." };
+    if (nowH >= 16 && breastFeeds.length <= 3 && wetCount <= 2) return { icon: "\uD83D\uDC9B", title: "Worth a closer look", body: "If this keeps happening and you\u2019re worried, it may help to speak to your " + _guide.newbornContact + " or a breastfeeding specialist." };
     if (breastFeeds.length >= 2) {
       const msgs = [
         { title: "You\u2019re feeding beautifully", body: _bfName + " is lucky to have you. Every feed counts." },
@@ -27758,10 +28773,10 @@ function App(){
       <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${name} down when you see these signs. don't wait until they're overtired.</p>
     </div>`);
 
-    // SAFE SLEEP. Lullaby Trust
+    // SAFE SLEEP. country-aware source label
     sections.push(`<div style="background:#EEF3FA;border:1px solid #c8d8e8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#7aabc4;font-size:16px;margin:0 0 10px">🛏️ Safe Sleep Essentials</h2>
-      <p style="font-size:12px;color:#7aabc4;margin:0 0 10px;font-style:italic">Based on ${_isUS?"AAP Safe Sleep guidelines":"The Lullaby Trust safer sleep guidance"}</p>
+      <p style="font-size:12px;color:#7aabc4;margin:0 0 10px;font-style:italic">Based on ${_guide.sleepSource}</p>
       <div style="font-size:14px;color:#5B4F5F;line-height:1.8">
         ✅ Always on their <b>back</b>. for every sleep, day and night<br>
         ✅ <b>Clear cot</b>. firm, flat mattress only. No pillows, toys, bumpers, or loose bedding<br>
@@ -27828,13 +28843,6 @@ function App(){
     }
 
     // EMERGENCY & CONTACTS. country-aware
-    const locale = (navigator.language||"en-GB").toLowerCase();
-    const isUS = locale.includes("en-us") || locale.includes("en_us");
-    const isAU = locale.includes("en-au") || locale.includes("en_au");
-    const emergNum = isUS ? "911" : isAU ? "000" : "999";
-    const nonEmerg = isUS ? "Poison Control: 1-800-222-1222" : isAU ? "13 HEALTH (13 43 25 84)" : "NHS 111";
-    const hvTitle = isUS ? "pediatrician" : isAU ? "child health nurse or GP" : "health visitor or GP";
-
     let contactsHtml = "";
     const _validContacts = (emergencyContacts||[]).filter(c => c && (c.name||"").trim() && (c.phone||"").trim());
     if (_validContacts.length) {
@@ -27845,17 +28853,17 @@ function App(){
       <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">📞 Emergency & Contacts</h2>
       ${contactsHtml ? `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f0d0d0">${contactsHtml}</div>` : ""}
       <div style="font-size:14px;color:#5B4F5F;line-height:1.8">
-        <b>Emergency:</b> <span style="color:#e8574a;font-weight:700">${emergNum}</span><br>
-        <b>Non-emergency:</b> ${nonEmerg}<br>
-        <b>If concerned:</b> Contact ${hvTitle}
+        <b>Emergency:</b> <span style="color:#e8574a;font-weight:700">${_emergNum}</span><br>
+        <b>Non-emergency:</b> ${_guide.nonEmergencyLabel}<br>
+        <b>If concerned:</b> Contact ${_healthContact}
       </div>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">If ${name} is unresponsive, has difficulty breathing, has a high temperature (${cToDisplay(38)}${tempLabel}+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${emergNum}.</p>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">If ${name} is unresponsive, has difficulty breathing, has a high temperature (${cToDisplay(38)}${tempLabel}+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${_emergNum}.</p>
     </div>`);
 
     // Footer
     sections.push(`<div style="text-align:center;padding:16px 0;color:#ccc;font-size:11px">
       Generated by OBubba · obubba.com<br>
-      Safe sleep advice: lullabytrust.org.uk
+      Safe sleep advice: ${_guide.safeSleepSource}
     </div>`);
 
     // QR code points to Bubba Care. use short-lived carer token (not the raw backup code)
@@ -28280,14 +29288,14 @@ function App(){
     };
   }
 
-  // ── Health Visitor Report (2 weeks) ──
+  // ── Health Report (2 weeks) ──
   function generateHVReport() {
     const name = babyName || "Baby";
     const dk = getRecentDays(14);
     if (dk.length < 3) return null;
 
     const lines = [];
-    lines.push(`HEALTH VISITOR REPORT. ${name}`);
+    lines.push(`${_guide.reportTitle.toUpperCase()}. ${name}`);
     lines.push(`Generated: ${fmtLong(todayStr())}`);
     if(age) lines.push(`Age: ${fmtAge(age)} (${age.totalWeeks} weeks)`);
     if(babyDob) lines.push(`DOB: ${fmtLong(babyDob)}`);
@@ -28428,7 +29436,7 @@ function App(){
     }
 
     lines.push("Report generated by OBubba. obubba.com");
-    lines.push("Sleep: NHS/AASM · Growth: WHO · Feeding: NHS/WHO · Development: NHS Start4Life");
+    lines.push(_guidanceFooter());
 
     return { text: lines.join("\n"), name, period: `${fmtDate(dk[0])} – ${fmtDate(dk[dk.length-1])}`, days: dk.length };
   }
@@ -29302,13 +30310,15 @@ function App(){
       setDays(d => d[t] ? d : {...d, [t]: []});
     }
     ensureToday();
-    // Pick which day to show: today if it has a wake, else yesterday if it has bedtime
+    // Pick which day to show. Wake-boundary mode stays on yesterday's bedtime
+    // day until a morning wake closes the night; midnight mode stays on the
+    // calendar day.
     const td = todayStr();
     const yesterday = (() => { const dt = new Date(); dt.setDate(dt.getDate()-1); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`; })();
     const todayHasWake = hasMorningWake(days[td]||[]);
     const yHasBed = !!findBedtime(days[yesterday]||[]);
     if (todayHasWake) setSelDay(td);
-    else if (yHasBed) setSelDay(yesterday);
+    else if (yHasBed) setSelDay(_boundaryVisibleDay(yesterday, td));
     else setSelDay(td);
 
     // Check for weekly digest on Monday
@@ -29328,15 +30338,13 @@ function App(){
       const msUntilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 1).getTime() - now.getTime();
       return setTimeout(()=>{
         // For sessions that stay foregrounded across midnight (e.g. a tablet on a
-        // counter), nothing else updates selDay — the visibility/focus handler
-        // only fires on re-activation. Ensure today's bucket exists and advance
-        // selDay when appropriate. The existing `bedTimerDay` machinery handles
-        // the wake-to-wake case separately, so we don't need to special-case it
-        // here — just snap selDay forward if it's now stale.
+        // counter), nothing else updates selDay. In wake-boundary mode keep the
+        // visible day on the open bedtime day until morning wake; in midnight
+        // mode snap to the new calendar day.
         try {
           const newToday = todayStr();
           setDays(d => (d && d[newToday]) ? d : {...(d||{}), [newToday]: []});
-          setSelDay(cur => (cur && cur < newToday) ? newToday : cur);
+          setSelDay(cur => (cur && cur < newToday) ? _boundaryVisibleDay(cur, newToday) : cur);
         } catch {}
         scheduleMidnight();
       }, msUntilMidnight);
@@ -29427,7 +30435,7 @@ function App(){
   const tabSt=t=>({flex:"none",padding:"8px 14px 6px",border:_bN,background:"none",fontSize:10,fontWeight:tab===t?700:500,cursor:_cP,color:tab===t?C.ter:"var(--text-lt)",display:"flex",flexDirection:"column",alignItems:"center",gap:2,letterSpacing:"0.02em",position:"relative",transition:"transform 0.2s cubic-bezier(.23,1,.32,1)",borderRadius:12});
   const card={background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"var(--card-shadow)",transition:"transform 0.2s cubic-bezier(.23,1,.32,1),box-shadow 0.25s ease"};
 
-  const tabIcons={day:"📅",insights:"💡",develop:"🌱",settings:"👤"};
+  const tabIcons={day:"today",insights:"understand",develop:"grow",settings:"account"};
   const tabLabels={day:"Today",insights:"Understand",develop:"Grow",settings:"Account"};
   const _forYouCard = (()=>{
     try {
@@ -29991,7 +30999,7 @@ function App(){
             const _toothNames = _recentTeeth.map(t => t.name || t.tooth || "tooth").join(", ");
             addObservation("🦷", "Teething + reduced feeding. this is normal",
               `${_name} cut ${_recentTeeth.length > 1 ? _recentTeeth.length + " teeth" : "a tooth"} recently and daily intake has dropped ~${_drop}% (${_avg3}ml vs ${_avg4}ml). Sore gums make feeding uncomfortable. this is temporary.`,
-              "What OBubba is doing: we've relaxed the sleep budget (allowing more day sleep) and shortened wake windows while " + _name + " is teething. Feed suggestions are adjusted for smaller, more frequent feeds. If " + _name + " refuses feeds for 24+ hours or seems unwell, speak to your GP.");
+              "What OBubba is doing: we've relaxed the sleep budget (allowing more day sleep) and shortened wake windows while " + _name + " is teething. Feed suggestions are adjusted for smaller, more frequent feeds. If " + _name + " refuses feeds for 24+ hours or seems unwell, speak to your " + _healthContact + ".");
           } else {
             addObservation("🦷", _recentTeeth.length > 1 ? _recentTeeth.length + " new teeth!" : "New tooth!",
               `${_name} is teething. you might notice more drool, chewing, fussiness, and disrupted sleep. This is all completely normal.`,
@@ -30192,7 +31200,7 @@ function App(){
             if (_weekMilkAvg < _todayRatio.milkMin) {
               addObservation("📉", "Milk consistently low this week",
                 `${_name} is averaging ${_weekMilkAvg}ml/day of milk this week. below the ${_todayRatio.milkMin}ml minimum for ${_todayRatio.months} months.`,
-                "If " + _name + " is refusing milk, try: offering milk first thing in the morning before solids, using a different bottle/cup, or mixing milk into porridge/cereal. If this continues, mention it to your health visitor.");
+                "If " + _name + " is refusing milk, try: offering milk first thing in the morning before solids, using a different bottle/cup, or mixing milk into porridge/cereal. If this continues, mention it to your " + _healthContact + ".");
             }
           }
         }
@@ -30211,7 +31219,7 @@ function App(){
               "Mention it to your HV if it continues past 2 weeks. Keep offering small tastes without pressure. babies often accept foods after many exposures.");
           } else {
             addObservation("🥄", "No solid meals logged today",
-              `${_name} hasn't had any solid meals today. NHS recommends ${_todayRatio.solidMeals} meal${_todayRatio.solidMeals !== 1 ? "s" : ""} by ${Math.round(_todayRatio.months)} months.`,
+              `${_name} hasn't had any solid meals today. ${_guide.weaningSource} guidance suggests ${_todayRatio.solidMeals} meal${_todayRatio.solidMeals !== 1 ? "s" : ""} by around ${Math.round(_todayRatio.months)} months.`,
               "Offer a small taste at a meal time. even a few licks counts. Keep it relaxed, no pressure.");
           }
         }
@@ -30296,14 +31304,14 @@ function App(){
         if (_daysSinceDirty >= 3) {
           addObservation("💩", "No dirty nappy for " + _daysSinceDirty + " days",
             `${_name} hasn't had a dirty nappy in ${_daysSinceDirty} days. ${_wks < 6 ? "For babies under 6 weeks, this can be normal for breastfed babies (up to 7 days) but formula-fed babies should poo at least every 2-3 days." : "At this age, going 3+ days without a dirty nappy is worth monitoring."}`,
-            _wks < 6 ? "Breastfed: up to 7 days can be normal. Formula-fed: speak to your health visitor if no poo for 3+ days. Watch for straining, hard tummy, or discomfort." : "Try tummy massage (clockwise circles), bicycle legs, and a warm bath. If " + _name + " seems uncomfortable or it's been 5+ days, speak to your health visitor.");
+            _wks < 6 ? "Breastfed: up to 7 days can be normal. Formula-fed: speak to your " + _healthContact + " if no poo for 3+ days. Watch for straining, hard tummy, or discomfort." : "Try tummy massage (clockwise circles), bicycle legs, and a warm bath. If " + _name + " seems uncomfortable or it's been 5+ days, speak to your " + _healthContact + ".");
         }
         // Sudden increase (possible tummy bug or new food reaction)
         if (_avgRecent > _avgPrev + 2 && _avgRecent >= 4) {
           const _newFood = (weaning || []).filter(w => { const da = Math.round((Date.now() - new Date(w.date).getTime()) / 86400000); return da >= 0 && da <= 3; });
           addObservation("💩", "More dirty nappies than usual",
             `${_name} is averaging ${Math.round(_avgRecent * 10) / 10} dirty nappies/day vs ${Math.round(_avgPrev * 10) / 10} normally.${_newFood.length ? " New food in last 3 days: " + _newFood.map(f => f.food).join(", ") + "." : ""}`,
-            "Could be: new food introduction, teething (excess drool = looser stools), or a mild tummy bug. Keep " + _name + " hydrated with extra milk feeds. If stools are watery, contain blood/mucus, or " + _name + " has a fever, see your GP.");
+            "Could be: new food introduction, teething (excess drool = looser stools), or a mild tummy bug. Keep " + _name + " hydrated with extra milk feeds. If stools are watery, contain blood/mucus, or " + _name + " has a fever, speak to your " + _healthContact + ".");
         }
       }
     } catch {}
@@ -30756,7 +31764,7 @@ function App(){
       // Age-adjusted red-flag threshold: target minus 2 (roughly 2/3 of target).
       const _hvMonths = (_wks || 0) / 4.33;
       const _hvTarget = _hvMonths < 6 ? 6 : _hvMonths < 12 ? 5 : 4;
-      if (_avgHyd > 0 && _avgHyd < _hvTarget - 2) _hvItems.push("\u{1F4A7} Wet nappies averaging " + _avgWet + "/day (hydration score " + _avgHyd + "/" + _hvTarget + "). possible dehydration signal \u2014 speak to your health visitor");
+      if (_avgHyd > 0 && _avgHyd < _hvTarget - 2) _hvItems.push("\u{1F4A7} Wet nappies averaging " + _avgWet + "/day (hydration score " + _avgHyd + "/" + _hvTarget + "). possible dehydration signal \u2014 speak to your " + _healthContact);
       // Weaning reactions
       const _reactions = (weaning || []).filter(w => w.reaction === "allergic" || w.reaction === "bad");
       if (_reactions.length > 0) _hvItems.push("🥄 Food reactions logged: " + _reactions.map(r => r.food).join(", ") + ". discuss allergen testing");
@@ -30771,7 +31779,7 @@ function App(){
       if (_avgNW >= 5 && _wks >= 26) _hvItems.push("😴 Averaging " + _avgNW + " night wakes at " + Math.round(_wks / 4.3) + " months. discuss sleep support options");
 
       if (_hvItems.length > 0) {
-        const _hvLabel2 = _isUS ? "pediatrician" : _isAU ? "child health nurse" : "health visitor";
+        const _hvLabel2 = _healthProfessional;
         addObservation("🏥", "For your next " + _hvLabel2 + " check-up",
           "Based on " + _name + "'s recent data, these might be worth mentioning:",
           _hvItems.map(item => "• " + item).join("\n"),
@@ -31152,8 +32160,8 @@ function App(){
     return (
       <div style={{minHeight:"var(--ob-vh,100dvh)",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"0 24px 40px",paddingTop:"env(safe-area-inset-top, 0px)",paddingBottom:"calc(40px + env(safe-area-inset-bottom, 0px))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"}}>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"24px 0 16px"}}>
-          <img src="obubba-happy.png" style={{width:56,height:56,borderRadius:14,marginBottom:10,boxShadow:"0 4px 16px rgba(0,0,0,0.1)"}}/>
-          <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:700,color:C.deep,marginBottom:3}}>OBubba</div>
+          <OBubbaMascot type="happy" size={64} alt="OBubba" style={{marginBottom:8}}/>
+          <div className="ob-brand-title" style={{fontSize:30,color:C.deep,marginBottom:3}}>OBubba</div>
           <div style={{fontSize:14,color:C.lt}}>{isLogin?"Welcome back":"Create your account"}</div>
         </div>
         <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:99,padding:4,marginBottom:16,gap:4,flexShrink:0}}>
@@ -31420,8 +32428,9 @@ function App(){
       try{ localStorage.setItem("onboarded_v2","1"); }catch{}
       try{ localStorage.setItem("ob_onboard_anon","1"); }catch{}
       try{  }catch{}
-      // Trial start. only set if not already set (prevents resetting on same device)
-      try{ if(!localStorage.getItem("obubba_trial_start")) localStorage.setItem("obubba_trial_start", new Date().toISOString()); }catch{}
+      // Trial already starts from first install. This just repairs the legacy key
+      // if an older local cache somehow lost it during onboarding.
+      try{ ensureTrialStarted(); }catch{}
       // Set breast feeding preference if answered
       if (obFeedType === "breast" || obFeedType === "both") {
         try{ localStorage.setItem("_hasBreast","1"); }catch{}
@@ -31619,13 +32628,13 @@ function App(){
               <div style={{width:"22vh",height:"22vh",maxWidth:170,maxHeight:170,borderRadius:"50%",position:"relative",background:_wMedalBg,boxShadow:_wMedalShadow,display:"grid",placeItems:"center"}}>
                 <div style={{position:"absolute",inset:-6,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.55:0.4,pointerEvents:"none"}}/>
                 <div style={{position:"absolute",inset:-12,borderRadius:"50%",border:`1px solid ${_wGold}`,opacity:_isNight?0.2:0.15,pointerEvents:"none"}}/>
-                <img src="obubba-happy.png" alt="OBubba" style={{width:"80%",height:"80%",objectFit:"contain",filter:_isNight?"drop-shadow(0 8px 24px rgba(232,200,150,0.38))":"drop-shadow(0 8px 18px rgba(60,47,44,0.18))"}} onError={e=>{e.target.style.display="none";}}/>
+                <OBubbaMascot type={_isNight?"loading":"happy"} size="82%" alt="OBubba"/>
               </div>
             </div>
 
             {/* Hero text — all vh-based so it compresses on small screens */}
             <div style={{textAlign:"center",padding:"0 2vw",position:"relative",zIndex:2,flex:"0 0 auto"}}>
-              <div style={{fontFamily:"'Parisienne',cursive",fontSize:"clamp(36px, 8vh, 56px)",lineHeight:0.9,color:_wInk}}><span style={{color:_isNight?_nGold:_dCta2}}>O</span>Bubba</div>
+              <div className="ob-brand-title" style={{fontSize:"clamp(36px, 8vh, 56px)",lineHeight:0.9,color:_wInk}}><span style={{color:_isNight?_nGold:_dCta2}}>O</span>Bubba</div>
               <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(10px, 1.8vh, 14px)",color:_wInk2,marginTop:"0.5vh"}}>parenthood in your pocket</div>
               <div style={{fontFamily:"Georgia,serif",fontWeight:400,fontSize:"clamp(20px, 3.8vh, 29px)",lineHeight:1.1,letterSpacing:"-0.015em",color:_wInk,marginTop:"1.5vh"}}>Take the guesswork out of <em style={{fontStyle:"italic",color:_isNight?_nGold:_dCta2}}>parenting.</em></div>
               <div style={{fontFamily:"Georgia,serif",fontSize:"clamp(11px, 1.8vh, 14px)",lineHeight:1.5,color:_wInk2,marginTop:"1vh",maxWidth:"30ch",marginLeft:"auto",marginRight:"auto"}}>Personalised sleep, feeding and growth guidance that learns your baby's rhythm {"\u2014"} gently.</div>
@@ -31634,7 +32643,7 @@ function App(){
             {/* Signature trust line — pushed to bottom by flex auto margin */}
             <div style={{margin:"auto 0 0",position:"relative",zIndex:2,padding:"1.2vh 0",borderTop:`1px solid ${_wLine}`,borderBottom:`1px solid ${_wLine}`,textAlign:"center",flex:"0 0 auto"}}>
               <div style={{fontWeight:500,fontSize:"clamp(8px, 1.4vh, 10px)",letterSpacing:"0.24em",textTransform:"uppercase",color:_wInk3,marginBottom:"0.5vh"}}>Guided by</div>
-              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(11px, 2vh, 15px)",lineHeight:1.4,color:_wInk}}><b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>NHS</b>, <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>WHO</b> & <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>AASM</b> standards {"\u2014"} never prescriptive, always kind.</div>
+              <div style={{fontFamily:"Georgia,serif",fontStyle:"italic",fontSize:"clamp(11px, 2vh, 15px)",lineHeight:1.4,color:_wInk}}><b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>{_guide.sleepSource}</b>, <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>WHO</b> & <b style={{fontStyle:"normal",fontWeight:500,color:_wAccent}}>AASM</b> standards {"\u2014"} never prescriptive, always kind.</div>
             </div>
 
             {/* CTAs — always visible at bottom */}
@@ -31682,8 +32691,8 @@ function App(){
       <div style={{minHeight:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,30px) 24px 40px",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflowY:"auto"}}>
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
         <div key="child-setup" style={{animation:"fadeUp 0.4s ease",textAlign:"center",width:"100%",maxWidth:360}}>
-          <img src="obubba-happy.png" style={{width:100,height:100,borderRadius:20,marginBottom:16,boxShadow:"0 8px 24px rgba(0,0,0,0.1)"}}/>
-          <div style={{fontFamily:"Georgia,serif",fontSize:26,fontWeight:700,color:C.deep,lineHeight:1.25,marginBottom:6}}>Now let's add your baby ✨</div>
+          <OBubbaMascot type="happy" size={112} alt="OBubba" style={{marginBottom:12}}/>
+          <div className="ob-brand-display" style={{fontSize:26,color:C.deep,lineHeight:1.25,marginBottom:6}}>Now let's add your baby ✨</div>
           <div style={{fontSize:13,color:C.lt,lineHeight:1.6,marginBottom:20}}>OBubba uses your baby's details to personalise nap predictions, feeding recommendations, milestones and growth charts.</div>
           <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:99,padding:3,marginBottom:18,gap:3}}>
             {[["new","👶 Add my baby"],["link","🔗 Join via share code"]].map(([m,l])=>(
@@ -31770,7 +32779,7 @@ function App(){
   }
 
   return(
-    <div className="ob-app-root" style={{background:"transparent",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"var(--text-deep)",paddingBottom:"calc(104px + env(safe-area-inset-bottom, 0px))",maxWidth:"100vw",overflowX:"hidden"}}>
+    <div className="ob-app-root" style={{background:"transparent",minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:"var(--text-deep)",paddingBottom:0,maxWidth:"100vw",overflowX:"hidden"}}>
       <style>{`
         @keyframes pulse{0%,100%{box-shadow:0 0 0 12px rgba(201,112,90,0.15)}50%{box-shadow:0 0 0 22px rgba(201,112,90,0.04)}}
         @keyframes breathe{0%,100%{transform:scale(1);opacity:0.4}28%{transform:scale(1.8);opacity:0.8}57%{transform:scale(1.8);opacity:0.8}100%{transform:scale(1);opacity:0.4}}
@@ -31853,7 +32862,7 @@ function App(){
           { icon:"⚙️", title:"Make it yours", body:"In Account → Preferences:\n\n• 💛 Gentle Mode. hides all scores if numbers stress you\n• 🏫 Nursery Mode. suppresses daytime warnings\n• 🫶 Parenting Style. responsive, routine, or family-led\n• 🤒 Medical conditions (reflux, CMPA)\n• 🌙 Bedtime routine timer you can customise\n\nThe app adapts to YOUR family." },
           { icon:"📱", title:"Widget, Siri & Live Activity", body:"OBubba works even when you're not in the app:\n\n• 'Hey Siri, log a feed', hands-free at 3am\n• Home screen widget shows feeds, naps, nappies\n• Lock screen timer shows active nap/sleep\n• Dynamic Island shows timer countdown\n\nAll without opening the app." },
           { icon:"👶", title:"For every family", body:"OBubba adapts to your situation:\n\n• Premature babies: adjusted age predictions\n• Twins: 'Log for all' + nap overlap window\n• Reflux/CMPA: custom targets from your dietitian\n• Partner sync: both parents see the same data\n• Archive child: memorial mode with love 🕊️\n\nEvery family is different. the app respects that." },
-          { icon:"📤", title:"Share the moments", body:"Send to Family: share daily summaries as beautiful cards\n\nMorning + Evening handovers for carers\nHealth Report: one-tap formatted summary for your GP or health visitor\nShare cards for milestones and sleep wins\nWeekly digest: " + _bn2 + "'s week in review\n\nKeep everyone in the loop without retyping." },
+          { icon:"📤", title:"Share the moments", body:"Send to Family: share daily summaries as beautiful cards\n\nMorning + Evening handovers for carers\nHealth Report: one-tap formatted summary for your " + _healthContact + "\nShare cards for milestones and sleep wins\nWeekly digest: " + _bn2 + "'s week in review\n\nKeep everyone in the loop without retyping." },
           { icon:"🧩", title:"Grow & milestones", body:"The Grow tab tracks:\n\n• 60+ milestones (social, motor, language, cognitive)\n• Teething chart (tap to log new teeth)\n• Age-appropriate play activities\n• Developmental phases + what to expect\n\nWhen milestones affect sleep, the app explains why." },
           { icon:"🎉", title:"You're ready!", body:"Start with a morning wake. log feeds and naps as they happen. That's it.\n\nBy day 3: predictions get personal\nBy day 7: patterns emerge\nBy day 14: OBubba knows " + _bn2 + "'s rhythm\n\nReplay this tour anytime from Account.\n\nYou've got this. 💛" },
         ];
@@ -31956,7 +32965,7 @@ function App(){
           { icon:"🛏️", title:"Short naps & catch-ups", body:"Bad nap day? It happens. OBubba adapts.\n\n• If " + _bn3 + " only napped 20 mins in the car, it counts the real minutes, not just the nap count\n• It may suggest an extra catch-up nap to bridge the gap\n• Wake windows shorten slightly when sleep debt builds up\n\nYou'll never be left guessing what to do after a short nap." },
           { icon:"🌃", title:"Logging bedtime & nights", body:"When bedtime comes, log it as a Sleep and a night timer starts.\n\nIf " + _bn3 + " wakes overnight:\n1. Tap 'Night wake' (logged instantly)\n2. Settle however works\n3. Tap 'Baby's settled' when done\n\nNight feeds and wakes belong to the day bedtime started, not the next morning. So a 3am feed is last night, not today." },
           { icon:"📋", title:"Today Card", body:"Tap the big 'Today' card to open your full log.\n\nInside you'll find two views:\n• Log — everything that's happened\n• Plan — what's predicted to come next\n\nSwipe between them or tap the tabs at the top.\n\nPress & hold any entry to edit or delete it." },
-          { icon:"📝", title:"Notes & Reminders", body:"Tap 'Notes & Reminders' to:\n\n• Pin a note for the day (GP visit, teething, etc.)\n• Set a nappy or feed reminder\n• Jot down anything you want to remember\n\nPinned notes show on the hero card so you don't forget." },
+          { icon:"📝", title:"Notes & Reminders", body:"Tap 'Notes & Reminders' to:\n\n• Pin a note for the day (appointment, teething, etc.)\n• Set a nappy or feed reminder\n• Jot down anything you want to remember\n\nPinned notes show on the hero card so you don't forget." },
           { icon:"🌟", title:"News & Activities", body:"Tap 'News' for:\n\n• A daily story about " + _bn3 + "'s development\n• Age-appropriate play activities\n• Gentle pattern checks when sleep feels off\n\nNew content every day based on " + _bn3 + "'s age." },
           { icon:"🥕", title:"Weaning Hub", body:"From 17 weeks, the Weaning card unlocks.\n\n• Daily food suggestions\n• Allergen safety checklists\n• Iron-rich recipes with filters\n• Track what " + _bn3 + " has tried\n\nNo pressure. go at your own pace." },
           { icon:"💜", title:"Wellbeing & Family", body:"'Your Wellbeing' is for YOU. mood check-ins, water tracker, self-care.\n\n'Send to Family' creates a beautiful summary card to share with grandparents or partners.\n\n'Schedule Builder' lets you plan around appointments or outings.\n\nYou matter too. 💛" },
@@ -32078,7 +33087,7 @@ function App(){
               </div>
               {/* Right: OBubba wordmark + actions */}
               <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                <div style={{fontFamily:"'Parisienne',cursive",fontSize:20,color:C.deep,letterSpacing:"-0.01em"}}>OBubba</div>
+                <div className="ob-brand-title" style={{fontSize:20,color:C.deep}}>OBubba</div>
                 {childIds.length > 1 && <button aria-label="Compare children" onClick={e=>{e.stopPropagation();haptic();setShowCompareKids(true);}}
                   style={{width:26,height:26,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.15)",color:C.lt,cursor:_cP,fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>⇄</button>}
                 <button aria-label="Add child" onClick={e=>{
@@ -32167,9 +33176,9 @@ function App(){
               </div>
             ) : (
               _hasBreast && (
-                <button onClick={()=>{haptic();var _ns=lastBreastSide==="L"?"R":"L";startBreastTimer(_ns);}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
-                  <span>🤱 Start Feed</span>
-                  {lastBreastSide && <span style={{fontSize:10,fontWeight:400,color:C.lt}}>{"Next: "}{lastBreastSide==="L" ? "Right ➡️" : "Left ⬅️"}</span>}
+                <button onClick={()=>{haptic();var _ns=lastBreastSide==="L"?"R":"L";startBreastTimer(_ns);}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  <span style={{display:"flex",alignItems:"center",gap:6}}><BubbaIcon name="breast" size={17}/>Start Feed</span>
+                  {lastBreastSide && <span style={{fontSize:10,fontWeight:400,color:C.lt,display:"flex",alignItems:"center",gap:4}}>{"Next: "}{lastBreastSide==="L" ? "Right" : "Left"}<BubbaIcon name={lastBreastSide==="L" ? "arrowRight" : "arrowLeft"} size={12}/></span>}
                 </button>
               )
             )}
@@ -32424,7 +33433,7 @@ function App(){
                 return (
                   <div style={{display:"flex",alignItems:"center",gap:3}}>
                     <div onClick={()=>{haptic();try{trackEvent("prediction_viewed",{type:"bed_timer"});}catch{}if(bedPaused){resumeBedTimer();}else{setShowNightTimerMenu(true);}}} style={{display:"flex",alignItems:"center",gap:5,background:_pillBg,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
-                      <span style={_S.f13}>{bedPaused?"\u{23F8}\uFE0F":"\u{1F319}"}</span>
+                      <BubbaIcon name={bedPaused?"timer":"moon"} size={17}/>
                       <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
                         <span style={{fontSize:10,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {fmt12(bedEntry.time)}</span>
                         <span style={{fontSize:14,fontFamily:_fM,fontWeight:700,color:"white"}}>{fmtSec(_pillElapsed)}</span>
@@ -32457,7 +33466,8 @@ function App(){
                   return (
                     <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
                       style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:C.ter}}>
-                      ☀️ Log wake
+                      <BubbaIcon name="sun" size={16}/>
+                      <span>Log wake</span>
                     </button>
                   );
                 }
@@ -32465,12 +33475,12 @@ function App(){
                   <div style={{display:"flex",gap:6,alignItems:"center"}}>
                     <button onClick={()=>{haptic(20);startNap();}}
                       style={{background:C.mint,border:"none",borderRadius:99,padding:"5px 12px",display:"flex",alignItems:"center",gap:4,cursor:_cP,fontFamily:_fM}}>
-                      <span style={{fontSize:12}}>😴</span>
+                      <BubbaIcon name="nap" size={16}/>
                       <span style={{fontSize:12,fontWeight:700,color:"white"}}>Nap</span>
                     </button>
                     <button onClick={()=>{haptic(20);logBedtimeNow();}}
                       style={{background:C.sky,border:"none",borderRadius:99,padding:"5px 12px",display:"flex",alignItems:"center",gap:4,cursor:_cP,fontFamily:_fM}}>
-                      <span style={{fontSize:12}}>🌙</span>
+                      <BubbaIcon name="moon" size={16}/>
                       <span style={{fontSize:12,fontWeight:700,color:"white"}}>Bed</span>
                     </button>
                   </div>
@@ -32513,7 +33523,8 @@ function App(){
                     );
                   }}
                     style={{background:"rgba(232,87,74,0.12)",border:"1.5px solid rgba(232,87,74,0.4)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:"#c44",animation:"pulse 2s infinite"}}>
-                    🌉 Bridge nap needed
+                    <BubbaIcon name="bridge" size={16}/>
+                    <span>Bridge nap needed</span>
                   </button>
                 );
               }
@@ -32545,7 +33556,7 @@ function App(){
                       <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
                         <button onClick={()=>{haptic(20);startNap();}}
                           style={{background:C.gold,border:"none",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontFamily:_fM}}>
-                          <span style={_S.f13}>😴</span>
+                          <BubbaIcon name="nap" size={16}/>
                           <span style={{fontSize:13,fontWeight:700,color:"white"}}>Nap Overdue</span>
                         </button>
                         <button onClick={()=>{haptic();const _el=document.querySelector('[data-nap-refused-card]');if(_el){_el.scrollIntoView({behavior:'smooth',block:'center'});}}}
@@ -32577,12 +33588,12 @@ function App(){
                     <div style={{display:"flex",gap:6,alignItems:"center"}}>
                       <button onClick={()=>{haptic(20);startNap();}}
                         style={{background:C.mint,border:"none",borderRadius:99,padding:"5px 12px",display:"flex",alignItems:"center",gap:4,cursor:_cP,fontFamily:_fM}}>
-                        <span style={{fontSize:12}}>😴</span>
+                        <BubbaIcon name="nap" size={16}/>
                         <span style={{fontSize:12,fontWeight:700,color:"white"}}>Nap</span>
                       </button>
                       <button onClick={()=>{haptic(20);logBedtimeNow();}}
                         style={{background:C.sky,border:"none",borderRadius:99,padding:"5px 12px",display:"flex",alignItems:"center",gap:4,cursor:_cP,fontFamily:_fM}}>
-                        <span style={{fontSize:12}}>🌙</span>
+                        <BubbaIcon name="moon" size={16}/>
                         <span style={{fontSize:12,fontWeight:700,color:"white"}}>Bed</span>
                       </button>
                     </div>
@@ -32591,7 +33602,8 @@ function App(){
                 return (
                   <button onClick={()=>{setInlineWakeTime(nowTime());setShowWakeInline(v=>!v);}}
                     style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:_cP,fontSize:13,fontWeight:700,fontFamily:_fM,color:C.ter}}>
-                    ☀️ Log wake
+                    <BubbaIcon name="sun" size={16}/>
+                    <span>Log wake</span>
                   </button>
                 );
               }
@@ -32612,7 +33624,7 @@ function App(){
               const _retryRemaining = _retryAt > Date.now() ? Math.ceil((_retryAt - Date.now())/60000) : 0;
               // Nap is overdue: either the event says so, or wake window exceeded
               const _napIsOverdue = !_retryRemaining && ((_ne2 && _ne2.overdue) || (_showAsNap && _awakeMins2 > (age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks).max : 180)));
-              const icon = _retryRemaining ? "🔄" : _napIsOverdue ? "😴" : (isBedNow||isBed) && !_showAsNap ? "🌙" : isNapNow ? "😴" : "⏱️";
+              const icon = _retryRemaining ? "timer" : _napIsOverdue ? "nap" : (isBedNow||isBed) && !_showAsNap ? "moon" : isNapNow ? "nap" : "timer";
               const label = _retryRemaining ? "Retry nap" : _showAsNap ? "Nap" : isBed ? "Bed" : (_isBridgeNap ? "Bridge" : "Nap");
               const pillBg = _retryRemaining ? C.mint : _napIsOverdue ? C.gold : isOverdue ? C.gold : isNow ? (isBedNow?C.sky:C.mint) : "var(--card-bg)";
               const pillColor = _retryRemaining ? "white" : _napIsOverdue ? "white" : isOverdue ? "white" : isNow ? "white" : (_showAsNap ? C.mint : isBed ? C.sky : C.mint);
@@ -32622,7 +33634,7 @@ function App(){
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}>
                   <button onClick={handleTap}
                     style={{background:pillBg,border:pillBorder,borderRadius:99,padding:"5px 14px",display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontFamily:_fM}}>
-                    <span style={_S.f13}>{icon}</span>
+                    <BubbaIcon name={icon} size={16}/>
                     <span style={{fontSize:13,fontWeight:700,color:pillColor}}>{label} {valueText}</span>
                   </button>
                   {(_showAsNap || ((isNapNow || isOverdue) && !isBed)) && (
@@ -32655,12 +33667,13 @@ function App(){
               <div style={{fontSize:_rf(13),fontWeight:700,color:selDay>todayStr()?"#e8574a":C.deep,fontFamily:"Georgia,serif",lineHeight:1.2}}>{fmtLong(selDay)}{selDay===todayStr()?<span style={{fontSize:_rf(9),color:C.ter,fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>TODAY</span>:selDay>todayStr()?<span style={{fontSize:_rf(9),color:"#e8574a",fontWeight:600,fontFamily:_fM,marginLeft:5,letterSpacing:"0.02em"}}>FUTURE</span>:null}</div>
             </button>
             <button aria-label="Next day" onClick={()=>navigateDay(1)} style={{background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(16),color:C.mid,flexShrink:0}}>{"\u203A"}</button>
-            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(13),color:showSearch?C.ter:C.mid,flexShrink:0}}>🔍</button>
+            <button aria-label="Search" onClick={()=>setShowSearch(s=>!s)} style={{background:showSearch?"var(--card-bg-solid)":"var(--card-bg)",border:`1px solid ${showSearch?C.ter:"var(--card-border)"}`,borderRadius:8,width:_rs(36),height:_rs(36),display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,fontSize:_rf(13),color:showSearch?C.ter:C.mid,flexShrink:0}}><BubbaIcon name="search" size={18}/></button>
           </div>
           {/* Future date warning banner */}
           {selDay > todayStr() && (
             <button onClick={()=>{haptic();setSelDay(todayStr());}} style={{width:"100%",padding:"8px 14px",marginTop:4,marginBottom:4,borderRadius:10,border:"1.5px solid rgba(232,87,74,0.4)",background:"rgba(232,87,74,0.08)",color:"#e8574a",fontSize:12,fontWeight:700,cursor:_cP,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-              ⚠️ You're viewing a future date. Tap to go back to today.
+              <BubbaIcon name="timer" size={16}/>
+              <span>You're viewing a future date. Tap to go back to today.</span>
             </button>
           )}
           {/* Search bar */}
@@ -32710,7 +33723,7 @@ function App(){
         </div>
       )}
 
-      <div className="ob-main-content" style={{padding:tab==="settings"?`0 ${_rs(14)}px calc(112px + env(safe-area-inset-bottom, 0px))`:`${_rs(16)}px ${_rs(14)}px calc(112px + env(safe-area-inset-bottom, 0px))`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
+      <div className="ob-main-content" style={{padding:tab==="settings"?`0 ${_rs(14)}px calc(88px + env(safe-area-inset-bottom, 0px))`:`${_rs(16)}px ${_rs(14)}px calc(88px + env(safe-area-inset-bottom, 0px))`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
           // Only show the "No day selected" fallback when selDay itself is
           // missing (which should basically never happen, useState initialises
@@ -32719,7 +33732,7 @@ function App(){
           // proper empty-state card inside.
           !selDay?(
             <div style={{textAlign:"center",padding:"40px 20px",color:C.lt}}>
-              <img src="obubba-thinking.png" alt="" style={{width:120,height:120,objectFit:"contain",marginBottom:12,opacity:0.8,filter:"drop-shadow(0 8px 20px rgba(217,207,243,0.25))"}}/>
+              <OBubbaMascot type="thinking" size={128} alt="OBubba thinking" style={{marginBottom:12,opacity:0.92}}/>
               <div style={{fontFamily:"Georgia,serif",fontSize:22,color:C.mid,marginBottom:8}}>Loading today…</div>
               <button onClick={()=>{haptic();setSelDay(todayStr());}} style={{marginTop:12,padding:"10px 20px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
                 Open today
@@ -33029,7 +34042,7 @@ function App(){
                   <div className="glass-card" style={{padding:"16px",marginBottom:10,border:`1.5px solid ${C.gold}30`,background:`linear-gradient(135deg,${C.gold}08,${C.ter}04)`}}>
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={_S.f20}>✨</span>
+                        <BubbaIcon name="sparkle" size={24}/>
                         <div style={{fontSize:14,fontWeight:700,color:C.deep}}>What's new in OBubba</div>
                       </div>
                       <button onClick={()=>{try{localStorage.setItem("ob_whats_new_v",_currentVersion);}catch{}haptic();setPartnerTick(t=>t+1);}} style={{background:"none",border:"none",fontSize:11,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
@@ -33043,7 +34056,7 @@ function App(){
                         ["📡","Offline resilience. logs save locally when you lose signal"],
                       ].map(([icon,text],i)=>(
                         <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:12,color:C.mid,lineHeight:1.5}}>
-                          <span style={{flexShrink:0}}>{icon}</span>
+                          <BubbaIcon icon={icon} size={16}/>
                           <span>{text}</span>
                         </div>
                       ))}
@@ -33072,7 +34085,7 @@ function App(){
                 return (
                   <div className="glass-card" style={{padding:"16px",marginBottom:10,border:`1.5px solid ${C.mint}30`,background:`linear-gradient(135deg,${C.mint}06,${C.sky}04)`}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                      <span style={_S.f20}>📖</span>
+                      <BubbaIcon name="log" size={24}/>
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_name}'s age guide. {_ageGuide.title}</div>
                         <div style={{fontSize:10,color:C.lt,fontFamily:_fM}}>Day {_daysLogged+1} with OBubba · {5-_daysLogged} more days to unlock full insights</div>
@@ -33086,7 +34099,7 @@ function App(){
                         ["🌙",_ageGuide.night],
                       ].map(([icon,text],i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",borderRadius:10,background:"var(--card-bg-alt)",border:"1px solid var(--card-border)"}}>
-                          <span style={_S.f12}>{icon}</span>
+                          <BubbaIcon icon={icon} size={16}/>
                           <span style={{fontSize:11,color:C.mid}}>{text}</span>
                         </div>
                       ))}
@@ -33120,7 +34133,7 @@ function App(){
                       const _fmt = m => fmt12(String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0"));
                       return (
                         <div className="glass-card" style={{padding:"10px 14px",marginBottom:8,border:"1px solid rgba(123,104,238,0.2)"}}>
-                          <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>👶👶 Nap overlap window</div>
+                          <div style={{fontSize:11,fontWeight:700,color:"#7B68EE",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4,display:"flex",alignItems:"center",gap:6}}><BubbaIcon name="baby" size={16}/><span>Nap overlap window</span></div>
                           <div style={{fontSize:13,color:C.deep}}>Both can nap together: <strong>{_fmt(maxStart)} – {_fmt(minEnd)}</strong></div>
                           <div style={{fontSize:10,color:C.lt,marginTop:2}}>Based on each child's wake window from their last sleep</div>
                         </div>
@@ -33133,7 +34146,7 @@ function App(){
                   const _missingNames = childIds.filter(cid => !_overlapData.some(d => d.name === (children[cid]||{}).name)).map(cid => (children[cid]||{}).name || "child");
                   if (_missingNames.length > 0) return (
                     <div style={{padding:"8px 14px",marginBottom:8,borderRadius:12,border:"1px dashed rgba(123,104,238,0.2)",fontSize:11,color:C.lt,textAlign:"center"}}>
-                      👶👶 Log {_missingNames.join(" & ")}'s wake to see the nap overlap window
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6,justifyContent:"center"}}><BubbaIcon name="baby" size={16}/><span>Log {_missingNames.join(" & ")}'s wake to see the nap overlap window</span></span>
                     </div>
                   );
                 }
@@ -33142,7 +34155,7 @@ function App(){
               {!daySubScreen && childIds.length >= 2 && (
                 <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4,paddingRight:4}}>
                   <button onClick={()=>{haptic();setLogForAll(p=>!p);}} style={{padding:"3px 10px",borderRadius:99,border:`1px solid ${logForAll?C.ter:C.blush}`,background:logForAll?C.ter+"18":"transparent",fontSize:11,fontWeight:600,color:logForAll?C.ter:C.lt,cursor:_cP,fontFamily:_fI}}>
-                    {logForAll ? "✅ Log for all "+childIds.length : "👶👶 Log for all"}
+                    <span style={{display:"inline-flex",alignItems:"center",gap:5}}><BubbaIcon name={logForAll ? "check" : "baby"} size={14}/><span>{logForAll ? "Log for all "+childIds.length : "Log for all"}</span></span>
                   </button>
                 </div>
               )}
@@ -33217,18 +34230,18 @@ function App(){
                   targets ≥ 48px (iOS HIG). */}
               {!daySubScreen && <div data-testid="quick-log-row" className="ob-quick-log-row" onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:12,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
                 {[
-                  {emoji:"🍼",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
-                  {emoji:"🤱",label:"Breast",longAction:()=>{if(breastActive){openLogPanel("feed");}else{setShowBreastStartPicker(true);setBreastCustomStart(nowTime());}},action:()=>{haptic();startBreastTimer("L");}},
-                  {emoji:"🧷",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
-                  {emoji:"😴",label:napOn?"Stop":"Nap",longAction:napOn?()=>{showConfirm("Discard nap attempt?",(babyName||"Baby")+" didn't actually settle? Discarding won't save any nap minutes, so today's predictions stay clean.",()=>{cancelNap();setConfirmDialog(null);},"Discard");}:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
-                  {emoji:"🫙",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
-                  {emoji:"😢",label:"Crying?",action:()=>setShowCryingHelper(true)},
-                  {emoji:"🎵",label:soundPlaying?"Playing":"Sounds",action:()=>{haptic();setShowSoundMachine(true);}},
-                  ...(ageWeeks >= 26 ? [{emoji:"🥕",label:"Meal",action:()=>{haptic();setShowMealPicker(true);}}] : []),
+                  {icon:"feed",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
+                  {icon:"breast",label:"Breast",longAction:()=>{if(breastActive){openLogPanel("feed");}else{setShowBreastStartPicker(true);setBreastCustomStart(nowTime());}},action:()=>{haptic();startBreastTimer("L");}},
+                  {icon:"nappy",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
+                  {icon:"nap",label:napOn?"Stop":"Nap",longAction:napOn?()=>{showConfirm("Discard nap attempt?",(babyName||"Baby")+" didn't actually settle? Discarding won't save any nap minutes, so today's predictions stay clean.",()=>{cancelNap();setConfirmDialog(null);},"Discard");}:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
+                  {icon:"pump",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
+                  {icon:"crying",label:"Crying?",action:()=>setShowCryingHelper(true)},
+                  {icon:"sounds",label:soundPlaying?"Playing":"Sounds",action:()=>{haptic();setShowSoundMachine(true);}},
+                  ...(ageWeeks >= 26 ? [{icon:"meal",label:"Meal",action:()=>{haptic();setShowMealPicker(true);}}] : []),
                   // Voice log. Only shown where Web Speech is available so
                   // parents on unsupported browsers aren't given a dead button.
-                  ...(((typeof window!=="undefined") && (window.SpeechRecognition||window.webkitSpeechRecognition)) ? [{emoji:"🎤",label:"Voice",action:()=>{haptic();setShowVoiceLog(true);setVoiceTranscript("");}}] : []),
-                ].map(({emoji,label,action,longAction})=>{
+                  ...(((typeof window!=="undefined") && (window.SpeechRecognition||window.webkitSpeechRecognition)) ? [{icon:"voice",label:"Voice",action:()=>{haptic();setShowVoiceLog(true);setVoiceTranscript("");}}] : []),
+                ].map(({icon,label,action,longAction})=>{
                   return (
                   <button key={label}
                     className="ob-quick-log-btn"
@@ -33267,7 +34280,7 @@ function App(){
                     onTouchEndCapture={(e)=>{ try { const el=e.currentTarget; setTimeout(()=>{ if(el){el.style.transform=""; el.style.background="transparent";} },140); } catch{} }}
                     onTouchCancelCapture={(e)=>{ try { e.currentTarget.style.transform=""; e.currentTarget.style.background="transparent"; } catch{} }}
                   >
-                    <span className="ob-quick-log-icon" style={{fontSize:_rs(26),lineHeight:1}}>{emoji}</span>
+                    <span className="ob-quick-log-icon" style={{lineHeight:1}}><BubbaIcon name={icon} size={_rs(25)} animate={napOn&&label==="Stop"}/></span>
                     <span className="ob-quick-log-label" style={{fontSize:_rf(11),fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
                     {longAction && <div className="ob-quick-log-dot" style={{width:4,height:4,borderRadius:"50%",background:C.blush,marginTop:2,opacity:0.6}}/>}
                   </button>
@@ -33279,7 +34292,7 @@ function App(){
               {/* ═══ Nap Backdated Start Picker ═══ */}
               {showNapStartPicker && !napOn && (
                 <div style={{background:"var(--card-bg)",border:"1.5px solid rgba(123,104,238,0.25)",borderRadius:16,padding:"14px 16px",marginBottom:10,animation:"popIn 0.2s ease",boxShadow:"var(--card-shadow)"}}>
-                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>😴 When did the nap start?</div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8,display:"flex",alignItems:"center",gap:7}}><BubbaIcon name="nap" size={18}/>When did the nap start?</div>
                   <div style={_S.flexCenter10}>
                     <TimeInput value={napCustomStart} onChange={t=>setNapCustomStart(t)} style={_S.flex1} inputStyle={{fontSize:16,padding:"10px 12px",borderRadius:12,textAlign:"center"}}/>
                     <button onClick={()=>{
@@ -33317,7 +34330,7 @@ function App(){
               {/* ═══ Breast Backdated Start Picker ═══ */}
               {showBreastStartPicker && !breastActive && (
                 <div style={{background:"var(--card-bg)",border:"1.5px solid rgba(212,168,85,0.3)",borderRadius:16,padding:"14px 16px",marginBottom:10,animation:"popIn 0.2s ease",boxShadow:"var(--card-shadow)"}}>
-                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8}}>🤱 When did the feed start?</div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8,display:"flex",alignItems:"center",gap:7}}><BubbaIcon name="breast" size={18}/>When did the feed start?</div>
                   <div style={{fontSize:11,color:C.lt,marginBottom:8}}>Forgot to tap? Pick the time you actually started.</div>
                   <div style={_S.flexCenter10}>
                     <TimeInput value={breastCustomStart} onChange={t=>setBreastCustomStart(t)} style={_S.flex1} inputStyle={{fontSize:16,padding:"10px 12px",borderRadius:12,textAlign:"center"}}/>
@@ -33348,7 +34361,7 @@ function App(){
                 <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1.5px solid rgba(123,104,238,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:10,animation:"popIn 0.3s ease",boxShadow:"var(--card-shadow)"}}>
                   <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,flex:1}}>
-                      <span style={_S.f18}>{bfSupport.icon}</span>
+                    <BubbaIcon icon={bfSupport.icon} size={22}/>
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{bfSupport.title}</div>
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginTop:3}}>{bfSupport.body}</div>
@@ -33367,7 +34380,7 @@ function App(){
                 const _lastLabel = lastBreastSide === "L" ? "Left" : "Right";
                 return (
                   <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",marginBottom:10,borderRadius:12,background:"var(--card-bg)",border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)"}}>
-                    <span style={_S.f14}>🤱</span>
+                    <BubbaIcon name="breast" size={18}/>
                     <div style={_S.flex1}>
                       <span style={{fontSize:12,color:C.mid}}>Last started on: <strong style={{color:C.deep}}>{_lastLabel}</strong></span>
                       <span style={{fontSize:12,color:C.lt,marginLeft:8}}>· Start on: <strong style={{color:C.ter}}>{_nextSide}</strong></span>
@@ -33389,15 +34402,15 @@ function App(){
               {!daySubScreen && (()=>{
                 const _tagColor = (k) => k==="daycare"?C.ter: k==="grandparents"?C.gold: k==="travel"?C.mint: k==="sick"?C.blush: C.ter;
                 const _cells = [
-                  ["home","\uD83C\uDFE0","Home"],
-                  ["daycare","\uD83C\uDFEB","Daycare"],
-                  ["grandparents","\uD83D\uDC74","Grandpar."],
-                  ["travel","\u2708\uFE0F","Travel"],
-                  ["sick","\uD83E\uDD12","Sick"]
+                  ["home","home","Home"],
+                  ["daycare","daycare","Daycare"],
+                  ["grandparents","grandparents","Grand"],
+                  ["travel","travel","Travel"],
+                  ["sick","sick","Sick"]
                 ];
                 return (
                   <div className="ob-day-mode-switcher" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:10,padding:3,borderRadius:14,background:"var(--card-bg)",border:"1px solid var(--card-border)"}}>
-                    {_cells.map(([key,emoji,label])=>{
+                    {_cells.map(([key,icon,label])=>{
                       const _active = (dayTag||"home")===key;
                       const _hue = _tagColor(key);
                       return (
@@ -33406,9 +34419,9 @@ function App(){
                           const val=(key==="home")?"":key;
                           setDayTag(val);
                           try{if(val)localStorage.setItem("ob_day_tag_"+selDay,val);else localStorage.removeItem("ob_day_tag_"+selDay);}catch{}
-                        }} className={_active?"ob-day-mode-btn is-active":"ob-day-mode-btn"} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"7px 2px",borderRadius:11,border:"none",background:_active?_hue+"22":"transparent",cursor:_cP,fontFamily:_fM,transition:"background 0.15s"}}>
-                          <span className="ob-day-mode-icon" style={{fontSize:16,lineHeight:1,filter:_active?"none":"grayscale(0.4)",opacity:_active?1:0.75}}>{emoji}</span>
-                          <span className="ob-day-mode-label" style={{fontSize:9.5,fontWeight:_active?700:600,color:_active?_hue:C.lt,letterSpacing:0.2}}>{label}</span>
+                        }} className={_active?"ob-day-mode-btn is-active":"ob-day-mode-btn"} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"7px 2px",minHeight:50,borderRadius:11,border:"none",background:_active?_hue+"22":"transparent",cursor:_cP,fontFamily:_fM,transition:"background 0.15s"}}>
+                          <span className="ob-day-mode-icon" style={{lineHeight:1,filter:_active?"none":"grayscale(0.2)",opacity:_active?1:0.88}}><BubbaIcon name={icon} size={20}/></span>
+                          <span className="ob-day-mode-label" style={{fontSize:10.5,lineHeight:1.08,fontWeight:_active?800:750,color:C.deep,letterSpacing:0,opacity:1}}>{label}</span>
                         </button>
                       );
                     })}
@@ -33432,7 +34445,7 @@ function App(){
                 const _weanAge = age ? (age.predictiveWeeks??age.totalWeeks) : 0;
                 const _weanReady = _weanAge >= 26 || weaningStarted;
                 const _weanEarlyReady = _weanAge >= 17;
-                const _weanSub = weaningStarted ? "Food & allergens" : _weanReady ? "Start journey" : _weanEarlyReady ? "GP approval needed" : "From 17 weeks";
+                const _weanSub = weaningStarted ? "Food & allergens" : _weanReady ? "Start journey" : _weanEarlyReady ? "Professional advice needed" : "From 17 weeks";
                 return (
                   <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
                     {(()=>{
@@ -33450,18 +34463,18 @@ function App(){
                       {_badge > 0 && (
                         <span style={{position:"absolute",top:8,right:8,minWidth:20,height:20,borderRadius:99,background:"#7B68EE",color:"white",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px",boxShadow:"0 2px 6px rgba(123,104,238,0.4)"}}>{_badge}</span>
                       )}
-                      <span style={_S.f26}>📋</span>
+                      <BubbaIcon name="today" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Today</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_sub}</div>
                     </button>
                     ); })()}
                     <button onClick={()=>{haptic();setDaySubScreen("notes");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <span style={_S.f26}>📝</span>
+                      <BubbaIcon name="notes" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Notes & Reminders</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_notesSub}</div>
                     </button>
                     <button onClick={()=>{haptic();setDaySubScreen("news");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <span style={_S.f26}>🌟</span>
+                      <BubbaIcon name="sparkle" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>News</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Daily story & activities</div>
                     </button>
@@ -33472,8 +34485,8 @@ function App(){
                         // 6+ months or already started early — open normally
                         setDaySubScreen("weaning"); setDevFilter("weaning_hub");
                       } else if (_aw >= 17) {
-                        // 17-25 weeks — ask for GP approval
-                        if (confirm("Has your " + _doctor + " confirmed that " + (babyName||"baby") + " can start weaning early?\n\nNHS guidance is to wait until around 6 months. Only start earlier on professional medical advice.")) {
+                        // 17-25 weeks — ask for professional approval
+                        if (confirm("Has your " + _healthContact + " confirmed that " + (babyName||"baby") + " can start weaning early?\n\n" + _guide.weaningSource + " guidance is to wait until around 6 months. Only start earlier on professional medical advice.")) {
                           startWeaningEarly();
                           setDaySubScreen("weaning"); setDevFilter("weaning_hub");
                           showToast("🥄 Weaning unlocked!",2500,1);
@@ -33482,22 +34495,22 @@ function App(){
                         showToast("🥕 Weaning opens from 17 weeks. " + (babyName||"baby") + " isn't quite there yet!",3000,1);
                       }
                     }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,opacity:(age&&((age.predictiveWeeks??age.totalWeeks))>=17)||weaningStarted?1:0.45}}>
-                      <span style={_S.f26}>🥕</span>
+                      <BubbaIcon name="meal" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Weaning</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_weanSub}</div>
                     </button>
                     <button onClick={()=>{haptic();setShowShareFamily(true);}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <span style={_S.f26}>{"\u{1F46A}"}</span>
+                      <BubbaIcon name="account" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Send to Family</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Share {babyName||"baby"}'s day</div>
                     </button>
                     <button onClick={()=>{haptic();if(hasAccess()){setShowScheduleMaker(true);}else{triggerPaywall("schedule_builder");}}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <span style={_S.f26}>🧩</span>
+                      <BubbaIcon name="timer" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Schedule Builder</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>Plan around events</div>
                     </button>
                     <button onClick={()=>{haptic();setDaySubScreen("wellbeing");}} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100}}>
-                      <span style={_S.f26}>💜</span>
+                      <BubbaIcon name="wellbeing" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Your Wellbeing</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>You matter too</div>
                     </button>
@@ -33515,7 +34528,7 @@ function App(){
                 return (
                   <button onClick={()=>{haptic();setCatchUpDay(_yday);setCuFeeds("5");setCuNaps("2");setCuNappies("4");setCuWake("07:00");setCuBed("19:00");setShowCatchUp(true);}} style={{width:"100%",padding:"12px 16px",borderRadius:14,border:"1.5px dashed rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.03)",marginBottom:10,cursor:_cP,textAlign:"left"}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:16}}>{"\u{1F4CB}"}</span>
+                      <BubbaIcon name="log" size={20}/>
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Missing yesterday?</div>
                         <div style={{fontSize:11,color:C.lt}}>Catch up in 30 seconds {"\u2014"} rough times are fine</div>
@@ -33671,7 +34684,7 @@ function App(){
                     </div>
                     {pinnedNotes.length === 0 && <div className="glass-card" style={{padding:"14px 16px",marginBottom:10,borderStyle:"dashed",background:"var(--card-bg-alt)"}}>
                       <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:3}}>No pinned notes yet</div>
-                      <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>Add allergies, GP details, or anything you want to keep close.</div>
+                      <div style={{fontSize:12,color:C.lt,lineHeight:1.5}}>Add allergies, health notes, or anything you want to keep close.</div>
                     </div>}
                     {pinnedNotes.map(n=>(
                       <div key={n.id} className="glass-card" style={{padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"flex-start",gap:10}}>
@@ -35300,7 +36313,7 @@ function App(){
                   <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginTop:6}}>
                     {["\u2713 Always on their back","\u2713 Firm, flat mattress","\u2713 Room 16\u201320\u00B0C","\u2713 Clear cot (no toys, pillows, bumpers)","\u2713 Same room as you for 6 months"].map(function(t,i){ return React.createElement("div",{key:i,style:{padding:"1px 0"}},t); })}
                   </div>
-                  <div style={{fontSize:10,color:C.lt,marginTop:6}}>Source: NHS & Lullaby Trust · Safe sleep guidance lives in Understand → Sleep tab</div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:6}}>Source: {_guide.safeSleepSource} · Safe sleep guidance lives in Understand → Sleep tab</div>
                 </div>
               )}
 
@@ -35565,7 +36578,7 @@ function App(){
               {pinnedNotes.length>0&&(
                 <div className="glass-card" style={{...card,padding:"12px 14px",marginBottom:10}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📌 {babyName?possessive(babyName)+" ":""}Important Notes <HelpBtn title="Pinned Notes" body="Pin important info here. allergies, medical conditions, GP details. These stay visible on the Day tab and are included in the Bubba Care when shared."/></div>
+                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>📌 {babyName?possessive(babyName)+" ":""}Important Notes <HelpBtn title="Pinned Notes" body="Pin important info here. allergies, medical conditions, care details. These stay visible on the Day tab and are included in the Bubba Care when shared."/></div>
                     <button onClick={()=>setShowAddPin(true)} style={{background:_bN,border:_bN,fontSize:11,color:C.ter,cursor:_cP,fontWeight:700,fontFamily:_fM}}>+ Add</button>
                   </div>
                   {pinnedNotes.map(n=>(
@@ -35665,7 +36678,7 @@ function App(){
                     : "😴 Day sleep. 1.5–2.5 hours, usually 1 nap. If " + _n + " is resisting the second nap, they may be ready for one.";
                   const _napLen = _w < 26 ? "⏱️ Nap length. Short naps (30–45 min) are completely normal at this age. They often lengthen around 5–6 months."
                     : "⏱️ Nap length. Naps of 1–2 hours are typical. The odd shorter nap is nothing to worry about.";
-                  return "These numbers update as you log throughout the day. Here's what's typical for " + fmtAge(age) + ":\n\n" + _milkTip + "\n\n" + _nappyTip + "\n\n" + _sleepTip + "\n\n" + _napLen + "\n\nThese are general ranges, not targets. Every baby is different. if " + _n + " is content, feeding well, and gaining weight, you're doing great.\n\n💬 If anything concerns you, your " + _doctor + " or health visitor is always happy to help.";
+                  return "These numbers update as you log throughout the day. Here's what's typical for " + fmtAge(age) + ":\n\n" + _milkTip + "\n\n" + _nappyTip + "\n\n" + _sleepTip + "\n\n" + _napLen + "\n\nThese are general ranges, not targets. Every baby is different. if " + _n + " is content, feeding well, and gaining weight, you're doing great.\n\n💬 If anything concerns you, your " + _healthContact + " is always happy to help.";
                 })()}/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
@@ -36191,7 +37204,7 @@ function App(){
                     <div style={{background:"linear-gradient(135deg,rgba(155,139,184,0.06),rgba(200,180,220,0.04))",border:"1px solid rgba(155,139,184,0.15)",borderRadius:12,padding:"12px 14px",marginTop:12,textAlign:"center"}}>
                       <div style={{fontSize:12,fontWeight:700,color:"#5B4F5F",marginBottom:4}}>Every baby is different</div>
                       <div style={{fontSize:11,color:"#8A7F87",lineHeight:1.5,marginBottom:10}}>These are research-based guidelines. With Premium, OBubba learns {babyName||"your baby"}'s personal rhythm and builds a schedule that adapts to their unique patterns {"\u2014"} while gently guiding toward healthier sleep.</div>
-                      <button onClick={()=>{haptic();setPremiumGateInfo({icon:"\u{1F4CB}",label:"Personalised Schedule",description:(babyName||"Your baby")+"'s own rhythm blended with sleep science. Adapts daily based on actual naps, sleep pressure, and circadian alignment.",context:"today_plan"});}} style={{padding:"8px 20px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:12,fontWeight:700,cursor:_cP,boxShadow:"0 4px 12px rgba(155,139,184,0.25)"}}>Personalise for {babyName||"baby"}</button>
+                      <button onClick={()=>{haptic();triggerPaywall("today_plan", true);}} style={{padding:"8px 20px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:12,fontWeight:700,cursor:_cP,boxShadow:"0 4px 12px rgba(155,139,184,0.25)"}}>Personalise for {babyName||"baby"}</button>
                     </div>
                   </div>
                 );
@@ -36664,7 +37677,7 @@ function App(){
                       </div>
                       <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:_sd.recoveryDays>0?6:0}}>{_sd.advice}</div>
                       {_sd.recoveryDays > 0 && _sd.recoveryDays <= 30 && <div style={{fontSize:11,color:C.lt,fontStyle:"italic"}}>Estimated recovery: ~{_sd.recoveryDays} days with early bedtimes</div>}
-                      {_sd.recoveryDays > 30 && <div style={{fontSize:11,color:"#e8574a",fontStyle:"italic"}}>Extended recovery needed. consider speaking to your health visitor or GP.</div>}
+                      {_sd.recoveryDays > 30 && <div style={{fontSize:11,color:"#e8574a",fontStyle:"italic"}}>Extended recovery needed. consider speaking to your {_healthContact}.</div>}
                       {/* Mini 7-day trend */}
                       {_sd.dailyTrend.length >= 3 && (
                         <div style={{display:"flex",gap:3,alignItems:"flex-end",marginTop:10,height:32}}>
@@ -36846,8 +37859,8 @@ function App(){
                           <div style={{width:Math.min(100,_mlPct)+"%",height:"100%",background:_t.bar,transition:"width 0.4s"}}/>
                         </div>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.lt}}>
-                          <span>{_mlPct}% of {_wr.personalTarget ? "your usual" : "NHS target"}</span>
-                          <span>{_compareTo}ml {_wr.personalTarget ? "(personal)" : "(NHS)"}</span>
+                          <span>{_mlPct}% of {_wr.personalTarget ? "your usual" : "guidance target"}</span>
+                          <span>{_compareTo}ml {_wr.personalTarget ? "(personal)" : "(guidance)"}</span>
                         </div>
                       </div>
                     )}
@@ -37008,7 +38021,7 @@ function App(){
                       <div style={{fontSize:11,color:C.lt,lineHeight:1.5,padding:"8px 10px",background:"var(--card-bg-alt)",borderRadius:8,marginBottom:10}}>
                         {_hasEnoughHistory
                           ? "Your past data is safe. Predictions will blend " + _bn + "'s personal rhythm with age-appropriate guidelines until new data settles in."
-                          : "Predictions will use NHS age-appropriate guidelines for " + (age ? fmtAge(age) : "your baby's age") + " until we learn " + _bn + "'s rhythm."}
+                          : "Predictions will use " + _guide.sleepSource + " age-appropriate guidance for " + (age ? fmtAge(age) : "your baby's age") + " until we learn " + _bn + "'s rhythm."}
                       </div>
                       {!(days[_today]||[]).some(e=>e.type==="wake"&&!e.night) && (
                         <button onClick={()=>{haptic();try{localStorage.setItem("ob_wb_dismiss",_today);}catch{}setShowWakeInline(true);}} style={{width:"100%",padding:"10px 14px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
@@ -37924,8 +38937,8 @@ function App(){
                     </div>
                     {!nightWeanProg ? (
                       <div>
-                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>A gentle 7-night program to reduce night feeds progressively. Based on NHS/UNICEF guidance. Works best when {babyName||"baby"} is growing well and taking enough milk during the day.</div>
-                        <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:10,padding:"8px 10px",background:`${C.gold}10`,borderRadius:8,borderLeft:`3px solid ${C.gold}`}}>⚠️ Check with your {_doctor||"health visitor"} first if {babyName||"baby"} has reflux, CMPA, faltering growth, or any other concerns.</div>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>A gentle 7-night program to reduce night feeds progressively. Based on gentle feeding and sleep guidance. Works best when {babyName||"baby"} is growing well and taking enough milk during the day.</div>
+                        <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:10,padding:"8px 10px",background:`${C.gold}10`,borderRadius:8,borderLeft:`3px solid ${C.gold}`}}>⚠️ Check with your {_healthContact} first if {babyName||"baby"} has reflux, CMPA, faltering growth, or any other concerns.</div>
                         <button onClick={()=>{if(!hasAccess()){triggerPaywall("night_weaning",true);return;}haptic(15);setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});}} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:hasAccess()?C.mint:C.ter,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>{hasAccess()?"Start tonight (Night 1: Baseline)":"🔒 Unlock Night Weaning — Premium"}</button>
                       </div>
                     ) : _isComplete ? (
@@ -37993,7 +39006,7 @@ function App(){
                           </div>
                         );
                       })}
-                      <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:10,lineHeight:1.5}}>For guidance only. Always consult your doctor if concerned about fever.</div>
+                      <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:10,lineHeight:1.5}}>For guidance only. Always consult your {_healthContact} if concerned about fever.</div>
                     </div>
                   );
                 } catch(e) { return null; }
@@ -38101,7 +39114,7 @@ function App(){
                   <div id="tomorrow-rhythm-anchor" style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px",marginBottom:12,scrollMarginTop:80}}>
                     <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:4}}>📅 Tomorrow's Predicted Rhythm</div>
                     <div style={{fontSize:12,color:C.lt,fontFamily:_fM,marginBottom:10}}>
-                      {`NHS guidance + ${babyName||"baby"}'s sleep patterns`}
+                      {`${_guide.sleepSource} + ${babyName||"baby"}'s sleep patterns`}
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:0}}>
                       {sched.map((item,i)=>{
@@ -38125,7 +39138,7 @@ function App(){
                       })}
                     </div>
                     <div style={{fontSize:11,fontFamily:_fM,color:C.lt,marginTop:10,borderTop:`1px solid ${C.blush}`,paddingTop:6}}>
-                      {`Based on NHS wake windows + ${babyName||"baby"}'s rhythm + sleep budget`}
+                      {`Based on ${_guide.sleepSource} wake windows + ${babyName||"baby"}'s rhythm + sleep budget`}
                       {flex.dataQuality&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:99,background:flex.dataQuality==="high"?C.mint+"22":flex.dataQuality==="good"?"var(--chip-bg)":C.gold+"22",color:flex.dataQuality==="high"?C.mint:flex.dataQuality==="good"?C.lt:C.gold}}>{flex.dataQuality==="high"?"● High accuracy":flex.dataQuality==="good"?"● Good":"● Learning"}</span>}
                     </div>
                     {flex.sleepBudget && (
@@ -38154,7 +39167,7 @@ function App(){
                 );
               })()
               ) : (
-                <PremiumTeaser icon="📅" label="Tomorrow's Predicted Rhythm" description="See a personalised nap & bedtime schedule based on NHS guidance and your baby's sleep patterns" context="predicted_rhythm"/>
+                <PremiumTeaser icon="📅" label="Tomorrow's Predicted Rhythm" description={"See a personalised nap & bedtime schedule based on " + _guide.sleepSource + " and your baby's sleep patterns"} context="predicted_rhythm"/>
               )}
 
               {/* Travel plan setup — discoverable from the Tomorrow tab */}
@@ -39029,7 +40042,7 @@ function App(){
                     _statusText = "Wet nappy count is low today. This could mean " + _bn6 + " needs more fluids.";
                     _concern = _fdRes.detail;
                     _obubbaDoing = "OBubba has flagged this and will monitor wet nappies over the next 12 hours.";
-                    _parentTips = ["Offer a feed now — breast or bottle", "Count wet nappies for the rest of today", "If fewer than 6 wet nappies by end of day, contact your " + (_doctor||"GP")];
+                    _parentTips = ["Offer a feed now — breast or bottle", "Count wet nappies for the rest of today", "If fewer than 6 wet nappies by end of day, contact your " + _healthContact];
                   } else if (_fdRes && _fdRes.type === "cluster_feeding") {
                     _statusEmoji = "🌸";
                     _statusText = _bn6 + " is cluster feeding — lots of short feeds close together. This is completely normal.";
@@ -39386,7 +40399,7 @@ function App(){
                     <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                       <span style={_S.f14}>🥄</span>
                       <span style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08}}>Milk & Solids Balance</span>
-                      <HelpBtn title="Milk & Solids Balance" body={"NHS recommends milk as the primary nutrition source until 12 months. Solids gradually increase from 6 months. This card tracks " + _n + "'s milk intake against age-appropriate targets and monitors the transition."}/>
+                      <HelpBtn title="Milk & Solids Balance" body={_guide.feedingSource + " guidance keeps milk as the primary nutrition source until around 12 months. Solids gradually increase from around 6 months. This card tracks " + _n + "'s milk intake against age-appropriate targets and monitors the transition."}/>
                     </div>
                     <div style={{fontSize:13,color:C.mid,marginBottom:8}}>{_wr.ratioLabel}</div>
                     {_wr.totalMilkMl > 0 && (
@@ -39801,7 +40814,7 @@ function App(){
                     <span style={{fontSize:22}}>🛏️</span>
                     <div>
                       <div style={{fontSize:16,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif"}}>Safe Sleep Essentials</div>
-                      <div style={{fontSize:11,color:C.lt}}>Based on NHS &amp; The Lullaby Trust safer sleep guidance</div>
+                      <div style={{fontSize:11,color:C.lt}}>Based on {_guide.safeSleepSource} safer sleep guidance</div>
                     </div>
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -39822,7 +40835,7 @@ function App(){
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:10,color:C.lt,marginTop:10,textAlign:"center"}}>Source: NHS &amp; The Lullaby Trust</div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:10,textAlign:"center"}}>Source: {_guide.safeSleepSource}</div>
                 </div>
 
                 {/* TOG Guide */}
@@ -39851,13 +40864,13 @@ function App(){
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:10,color:C.lt,marginTop:8,textAlign:"center"}}>Source: The Lullaby Trust</div>
+                  <div style={{fontSize:10,color:C.lt,marginTop:8,textAlign:"center"}}>Source: {_guide.safeSleepSource}</div>
                 </div>
 
                 {/* When to worry */}
                 <div className="glass-card" style={{padding:"16px",marginBottom:14}}>
                   <div style={{fontSize:15,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:10}}>🚨 When to Get Help</div>
-                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>Call 999 immediately if {babyName||"baby"}:</div>
+                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>Call {_emergNum} immediately if {babyName||"baby"}:</div>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}>
                     {[
                       "Stops breathing or turns blue/grey",
@@ -39870,7 +40883,7 @@ function App(){
                       </div>
                     ))}
                   </div>
-                  <div style={{marginTop:10,fontSize:12,color:C.mid,lineHeight:1.6}}>For non-emergency concerns, call 111 (NHS) or your GP.</div>
+                  <div style={{marginTop:10,fontSize:12,color:C.mid,lineHeight:1.6}}>For non-emergency concerns, contact {_guide.nonEmergencyLabel} or your {_healthContact}.</div>
                 </div>
               </div>}
 
@@ -39983,7 +40996,7 @@ function App(){
                   <button onClick={()=>setShowHVReport(true)} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"12px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",cursor:_cP}}>
                     <span style={_S.f18}>🏥</span>
                     <div style={_S.textLeft}>
-                      <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Health Visitor</div>
+                      <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Health Report</div>
                       <div style={{fontSize:10,color:C.lt}}>Shareable report</div>
                     </div>
                   </button>
@@ -40276,49 +41289,49 @@ function App(){
               { icon:"👁", title:"Visual stimulation", body:"Babies can only focus 20–30cm away. Hold high-contrast black-and-white patterns near their face. Mobiles above the cot help develop tracking." },
               { icon:"🗣", title:"Talk constantly", body:"Narrate everything you do. Your voice is the most important stimulus. Babies recognise parents' voices from birth and respond to tone before words." },
               { icon:"🤱", title:"Skin-to-skin", body:"WHO recommends daily skin-to-skin contact in early weeks. Regulates baby's temperature, heart rate and stress hormones, and supports bonding." },
-              { icon:"🏋️", title:"Tummy time from day one", body:"NHS recommends starting supervised tummy time from birth. Even 1–2 minutes several times daily builds neck and shoulder strength essential for later motor development." },
+              { icon:"🏋️", title:"Tummy time from day one", body:_guide.developmentSource + " guidance recommends starting supervised tummy time from birth. Even 1–2 minutes several times daily builds neck and shoulder strength essential for later motor development." },
             ];
             if (ageWeeks < 13) return [
               { icon:"😄", title:"Respond to smiles", body:"First social smiles appear around 6–8 weeks. Mirror them immediately. this serve-and-return interaction is foundational for emotional development per WHO guidelines." },
-              { icon:"🎵", title:"Singing and rhythm", body:"Singing the same simple songs repeatedly helps babies begin to recognise patterns in language. NHS encourages nursery rhymes from birth for speech development." },
+              { icon:"🎵", title:"Singing and rhythm", body:"Singing the same simple songs repeatedly helps babies begin to recognise patterns in language. " + _guide.developmentSource + " encourages nursery rhymes from birth for speech development." },
               { icon:"👐", title:"Grasp play", body:"Place a rattle or your finger lightly in their palm. The grasp reflex is transitioning to intentional grasping. repeated practice builds hand strength." },
-              { icon:"🏋️", title:"Increase tummy time", body:"Work up to 30 minutes of tummy time per day spread across multiple sessions. This is the NHS and WHO recommendation for building strength before rolling." },
+              { icon:"🏋️", title:"Increase tummy time", body:"Work up to 30 minutes of tummy time per day spread across multiple sessions. This follows " + _guide.developmentSource + " and WHO-style guidance for building strength before rolling." },
             ];
             if (ageWeeks < 26) return [
               { icon:"🔊", title:"Sound cause & effect", body:"Shake a rattle and watch them follow it. Let baby hold the rattle to discover they make the sound. This builds early understanding of cause and effect." },
-              { icon:"📚", title:"Board books daily", body:"NHS Start4Life recommends daily shared book reading from birth. At this age, simple faces and high-contrast illustrations are most engaging." },
+              { icon:"📚", title:"Board books daily", body:_guide.developmentSource + " recommends daily shared book reading from birth. At this age, simple faces and high-contrast illustrations are most engaging." },
               { icon:"🪞", title:"Mirror exploration", body:"Hold baby in front of a baby-safe mirror. They won't recognise themselves yet but will engage with the other baby. supporting social and visual development." },
               { icon:"🎶", title:"Baby music classes", body:"WHO developmental guidance notes that rhythmic movement and music together accelerate auditory processing. Even gentle bouncing to music counts." },
             ];
             if (ageWeeks < 40) return [
               { icon:"🧩", title:"Object permanence games", body:"This is the peak age for developing object permanence. Cover a toy with a cloth while they watch and encourage them to find it. Start simple, get more complex." },
-              { icon:"🍽️", title:"Weaning begins", body:"NHS and WHO recommend introducing solid foods at around 6 months (26 weeks). Start with smooth purees, offering a wide variety of tastes early reduces fussiness." },
+              { icon:"🍽️", title:"Weaning begins", body:_guide.weaningSource + " and WHO-style guidance usually recommend introducing solid foods at around 6 months (26 weeks). Start with smooth purees, offering a wide variety of tastes early may reduce fussiness." },
               { icon:"🗣", title:"Babbling back", body:"When baby babbles (ba-ba, da-da), respond with the same sounds. This conversational turn-taking is the direct precursor to first words." },
-              { icon:"🚶", title:"Supported standing", body:"Hold baby upright with feet flat and let them bounce and bear weight. NHS guidelines note this builds the leg strength needed for walking later." },
+              { icon:"🚶", title:"Supported standing", body:"Hold baby upright with feet flat and let them bounce and bear weight. Development guidance notes this builds the leg strength needed for walking later." },
             ];
             if (ageWeeks < 54) return [
-              { icon:"👋", title:"Simple signs", body:"NHS recommends teaching simple baby sign language (more, milk, all done) alongside spoken words. Signs give pre-verbal babies a way to communicate and reduce frustration." },
+              { icon:"👋", title:"Simple signs", body:_guide.developmentSource + " supports simple baby sign language (more, milk, all done) alongside spoken words. Signs give pre-verbal babies a way to communicate and reduce frustration." },
               { icon:"📖", title:"Interactive reading", body:"Point to pictures and ask where is the dog? Pause and wait. This builds pointing, joint attention and receptive vocabulary. all key WHO language milestones." },
-              { icon:"🧱", title:"Stacking and sorting", body:"Stacking cups and shape sorters build fine motor control, spatial reasoning and problem-solving. NHS developmental checks look for these skills at the 1-year review." },
-              { icon:"🏃", title:"Walking support", body:"Encourage cruising along furniture. NHS guidance is that most babies walk independently by 18 months. provide safe furniture routes and celebrate every step." },
+              { icon:"🧱", title:"Stacking and sorting", body:"Stacking cups and shape sorters build fine motor control, spatial reasoning and problem-solving. Developmental checks often look for these skills around the 1-year review." },
+              { icon:"🏃", title:"Walking support", body:"Encourage cruising along furniture. Many babies walk independently by around 18 months. provide safe furniture routes and celebrate every step." },
             ];
             if (ageWeeks < 78) return [
               { icon:"💬", title:"First words & naming", body:"Encourage labelling everything consistently. WHO speech milestones expect 2–3 meaningful words by 12–15 months and 10+ by 18 months. Respond enthusiastically to any attempt." },
-              { icon:"🎭", title:"Pretend play", body:"Introduce simple pretend play. feeding a teddy, talking on a toy phone. NHS 2-year check looks for symbolic play as a key cognitive indicator." },
+              { icon:"🎭", title:"Pretend play", body:"Introduce simple pretend play. feeding a teddy, talking on a toy phone. Developmental checks often look for symbolic play as a key cognitive indicator." },
               { icon:"🌍", title:"Social play", body:"Organise playdates or baby groups. WHO guidelines emphasise that from 12 months, exposure to other children significantly advances social development." },
               { icon:"🏃", title:"Physical confidence", body:"WHO recommends at least 180 minutes of physical activity per day for 1–2 year olds. Encourage walking on different surfaces, climbing safely, and dancing." },
             ];
             if (ageWeeks < 104) return [
-              { icon:"📚", title:"Expand vocabulary", body:"NHS expects 50+ words and two-word phrases by age 2. Read together daily, name new things, and expand what they say. if they say car, you say yes, big red car." },
-              { icon:"🧩", title:"Puzzles & problem-solving", body:"Simple 2–4 piece puzzles build spatial reasoning. Shape sorters and stacking toys develop the problem-solving skills assessed at the NHS 2-year review." },
-              { icon:"🎨", title:"Mark-making", body:"Offer chunky crayons and large paper. Scribbling is a fine motor milestone and the precursor to drawing and writing. NHS looks for mark-making at the 2-year check." },
-              { icon:"🤝", title:"Turn-taking", body:"Practice my turn, your turn with rolling a ball, building blocks, or simple games. Turn-taking is a key social skill that NHS assesses at age 2." },
+              { icon:"📚", title:"Expand vocabulary", body:"Many children use 50+ words and two-word phrases around age 2. Read together daily, name new things, and expand what they say. if they say car, you say yes, big red car." },
+              { icon:"🧩", title:"Puzzles & problem-solving", body:"Simple 2–4 piece puzzles build spatial reasoning. Shape sorters and stacking toys develop problem-solving skills often checked around age 2." },
+              { icon:"🎨", title:"Mark-making", body:"Offer chunky crayons and large paper. Scribbling is a fine motor milestone and the precursor to drawing and writing." },
+              { icon:"🤝", title:"Turn-taking", body:"Practice my turn, your turn with rolling a ball, building blocks, or simple games. Turn-taking is a key social skill often assessed around age 2." },
             ];
             return [
-              { icon:"🗣", title:"Sentences & stories", body:"NHS expects 3–5 word sentences by age 3. Tell stories together, ask open-ended questions like what happened? and model full sentences back." },
+              { icon:"🗣", title:"Sentences & stories", body:"Many children use short 3–5 word sentences by around age 3. Tell stories together, ask open-ended questions like what happened? and model full sentences back." },
               { icon:"🏃", title:"Active play", body:"WHO recommends at least 60 minutes of energetic physical activity daily for 2–3 year olds, plus no more than 1 hour of sedentary screen time." },
-              { icon:"🎭", title:"Imaginative play", body:"Pretend play with storylines (shops, kitchens, doctors) shows advanced cognitive development. NHS 2.5-year check looks for this as a key indicator." },
-              { icon:"😊", title:"Emotional literacy", body:"Name emotions as they happen: you look cross, that was exciting. NHS guidance for 2–3 year olds emphasises that naming feelings helps children learn self-regulation." },
+              { icon:"🎭", title:"Imaginative play", body:"Pretend play with storylines (shops, kitchens, doctors) shows advanced cognitive development. It is often discussed in preschool developmental reviews." },
+              { icon:"😊", title:"Emotional literacy", body:"Name emotions as they happen: you look cross, that was exciting. Development guidance for 2–3 year olds emphasises that naming feelings helps children learn self-regulation." },
             ];
           }
 
@@ -40463,7 +41476,7 @@ function App(){
             m39: ["Sit with baby next to a stable sofa or coffee table. Put a toy on top. They'll naturally grab and pull themselves up. Always spot them. falls are common at this stage."],
             m40: ["Line up sturdy furniture so baby can step sideways between pieces. Put toys along the route. Bare feet give the best grip and balance feedback."],
             m41: ["Stand baby between your legs facing out. Let go for just 1–2 seconds at a time. Build up gradually. confidence and balance come together."],
-            m42: ["Encourage walking with outstretched arms, 1–2 metres apart. Praise every attempt, even a single step. Never use baby walkers (NHS advises against them)."],
+            m42: ["Encourage walking with outstretched arms, 1–2 metres apart. Praise every attempt, even a single step. Avoid baby walkers. they can be unsafe and do not help walking develop sooner."],
             m43: ["Offer small (but safe) finger foods like peas, blueberry halves, or tiny pieces of banana on the highchair tray. The pincer grip develops through actual eating practice."],
 
             // ── Cognitive (continued) ──
@@ -40791,24 +41804,24 @@ function App(){
                 const _isPeakCryingWindow = ageWeeks >= 4 && ageWeeks < 14;
 
                 const _normalQs = [
-                  {q:"Grunting and straining", a:"Very normal. especially in the first few weeks. Babies grunt when moving stool because they haven't yet learned to relax their pelvic floor. It's not pain, it's effort. If there's no stool after several days or baby seems distressed, mention it to your health visitor."},
+                  {q:"Grunting and straining", a:"Very normal. especially in the first few weeks. Babies grunt when moving stool because they haven't yet learned to relax their pelvic floor. It's not pain, it's effort. If there's no stool after several days or baby seems distressed, mention it to your " + _healthContact + "."},
                   {q:"Sneezing constantly", a:"Completely normal. Babies sneeze to clear their tiny nasal passages. It doesn't mean they have a cold. Newborns are obligate nose-breathers so they sneeze often to keep the airway clear."},
-                  {q:"Cross-eyed or eyes going in different directions", a:"Normal under 4 months. Eye muscles are still developing and it takes time for both eyes to track together. If it continues beyond 4 months or one eye is always turned in, mention it to your GP."},
-                  {q:"Breathing fast then pausing", a:"This is called periodic breathing and is normal in newborns. Breathing may speed up, slow down, or pause for up to 10 seconds. If a pause lasts longer than 15-20 seconds or baby turns blue or pale, call 999/911. For non-emergency concerns, dial 111 (UK)."},
+                  {q:"Cross-eyed or eyes going in different directions", a:"Normal under 4 months. Eye muscles are still developing and it takes time for both eyes to track together. If it continues beyond 4 months or one eye is always turned in, mention it to your " + _healthContact + "."},
+                  {q:"Breathing fast then pausing", a:"This is called periodic breathing and is normal in newborns. Breathing may speed up, slow down, or pause for up to 10 seconds. If a pause lasts longer than 15-20 seconds or baby turns blue or pale, call " + _emergNum + ". For non-emergency concerns, contact " + _guide.nonEmergencyLabel + "."},
                   {q:"Skin peeling or flaking", a:"Normal. especially in babies born at or after 40 weeks. The outer layer of skin that was protected by vernix in the womb sheds in the first 2 weeks. No lotion needed unless skin looks very dry."},
                   {q:"Soft spot on head (fontanelle)", a:"The soft spots are gaps between skull bones. there's one at the front (closes 9-18 months) and one at the back (closes at 6-8 weeks). It's normal to see it pulse with heartbeat. See a doctor if it bulges when baby isn't crying, or is sunken."},
                   {q:"Hiccups all the time", a:"Normal and harmless. The diaphragm is immature and easily triggered. Feed slowly and pause to wind if they happen during feeds. They stop on their own."},
                   {q:"Jerky movements or startle reflex", a:"Normal. this is the Moro reflex and all healthy newborns have it. Baby throws arms out when startled. It disappears around 3-4 months. Swaddling can help calm babies who startle themselves awake."},
-                  {q:"Jaundice (yellow skin or eyes)", a:"Common in the first week. affects around 60% of newborns. Mild jaundice usually clears by 2 weeks. Frequent feeding (8-12 times/day) helps flush bilirubin. If baby looks very yellow, is difficult to wake for feeds, jaundice appears in the first 24 hours, or lasts beyond 2 weeks, contact your "+_doctor+" promptly. Some babies need phototherapy (light treatment). this is safe and effective."},
-                  {q:"Vitamin D drops. does my baby need them?", a:"Yes. all breastfed and partially breastfed babies need vitamin D drops from birth. Breast milk is wonderful but naturally low in vitamin D, regardless of your diet. " + (_isUS?"The AAP recommends 400 IU daily.":_isIE?"The HSE recommends 5 micrograms daily for ALL babies birth to 12 months.":_isAU?"The RACP recommends 400 IU daily, especially for at-risk babies.":_isCA?"The CPS recommends 400 IU daily.":_isNZ?"The Ministry of Health recommends 400 IU daily for at-risk babies.":"The NHS recommends 8.5-10 micrograms daily.") + " Formula-fed babies taking 500ml+ per day usually get enough from formula. If baby is on any medications (especially for reflux or seizures), check with your GP as some affect vitamin D absorption."},
-                  {q:"Poo colour. green, yellow, black", a:"Black/dark green in first 2 days (meconium) is normal. Then changes to yellow/seedy (breastfed) or tan/yellow (formula). Green can be normal but if persistent with other symptoms, mention to health visitor. White, pale or chalky poo needs same-day GP attention."},
+                  {q:"Jaundice (yellow skin or eyes)", a:"Common in the first week. affects around 60% of newborns. Mild jaundice usually clears by 2 weeks. Frequent feeding (8-12 times/day) helps flush bilirubin. If baby looks very yellow, is difficult to wake for feeds, jaundice appears in the first 24 hours, or lasts beyond 2 weeks, contact your "+_healthContact+" promptly. Some babies need phototherapy (light treatment). this is safe and effective."},
+                  {q:"Vitamin D drops. does my baby need them?", a:"Yes. all breastfed and partially breastfed babies need vitamin D drops from birth. Breast milk is wonderful but naturally low in vitamin D, regardless of your diet. " + _guide.vitaminDSource + " guidance applies in your country. Formula-fed babies taking enough fortified formula usually get vitamin D from formula. If baby is on any medications (especially for reflux or seizures), check with your " + _healthContact + " as some affect vitamin D absorption."},
+                  {q:"Poo colour. green, yellow, black", a:"Black/dark green in first 2 days (meconium) is normal. Then changes to yellow/seedy (breastfed) or tan/yellow (formula). Green can be normal but if persistent with other symptoms, mention it to your " + _healthContact + ". White, pale or chalky poo needs same-day professional advice."},
                   {q:"Not focusing eyes or looking at me", a:"Normal under 6-8 weeks. Newborns can see clearly about 20-30cm. roughly the distance to your face during feeding. By 6-8 weeks they start making real eye contact and smiling."},
                   {q:"Cluster feeding. feeding constantly", a:"Completely normal, especially in evenings. Cluster feeding is not a sign of low milk supply. it's baby topping up, stimulating supply, and preparing for a longer stretch. It typically eases by 12 weeks."},
                   {q:"Witching hour (evening fussiness)", a:"Most babies have a fussy period between 5pm and 11pm, peaking at 6-8 weeks. Nothing is wrong. their nervous system is overstimulated from the day. Dim the lights, reduce stimulation, try skin-to-skin, and ride it out. It passes by 3-4 months."},
-                  {q:"Newborn acne (baby spots)", a:"Tiny red or white bumps on the face, usually appearing at 2-4 weeks. Caused by mum's hormones still circulating. Don't squeeze or apply creams. just wash gently with water. Clears on its own by 3-4 months. If spots look infected (pus, spreading redness), see your GP."},
-                  {q:"Cradle cap (crusty scalp)", a:"Thick, yellow or white scaly patches on the scalp. Very common and harmless. not itchy or painful. Gently massage with olive or coconut oil, leave for 15 minutes, then brush with a soft baby brush before washing. Can take weeks to clear. See GP if it spreads beyond the scalp or looks red and inflamed."},
-                  {q:"Baby trembles or chin quivers", a:"Normal in the first 2-3 months. The nervous system is immature and these involuntary movements are common, especially when cold, during nappy changes, or after crying. If trembling is constant, rhythmic, or happens without a trigger, mention it to your health visitor."},
-                  {q:"Umbilical cord stump care", a:"Keep it clean and dry. Fold nappy below it so air can circulate. It falls off between 7-21 days. A small amount of blood or clear fluid is normal. If it smells, oozes pus, or the surrounding skin is red and hot, see your midwife or GP."},
+                  {q:"Newborn acne (baby spots)", a:"Tiny red or white bumps on the face, usually appearing at 2-4 weeks. Caused by mum's hormones still circulating. Don't squeeze or apply creams. just wash gently with water. Clears on its own by 3-4 months. If spots look infected (pus, spreading redness), see your " + _healthContact + "."},
+                  {q:"Cradle cap (crusty scalp)", a:"Thick, yellow or white scaly patches on the scalp. Very common and harmless. not itchy or painful. Gently massage with olive or coconut oil, leave for 15 minutes, then brush with a soft baby brush before washing. Can take weeks to clear. See your " + _healthContact + " if it spreads beyond the scalp or looks red and inflamed."},
+                  {q:"Baby trembles or chin quivers", a:"Normal in the first 2-3 months. The nervous system is immature and these involuntary movements are common, especially when cold, during nappy changes, or after crying. If trembling is constant, rhythmic, or happens without a trigger, mention it to your " + _healthContact + "."},
+                  {q:"Umbilical cord stump care", a:"Keep it clean and dry. Fold nappy below it so air can circulate. It falls off between 7-21 days. A small amount of blood or clear fluid is normal. If it smells, oozes pus, or the surrounding skin is red and hot, see your " + _guide.newbornContact + " or " + _healthContact + "."},
                 ];
 
                 return (
@@ -40853,7 +41866,7 @@ function App(){
                           💜 <strong>You haven't done anything wrong.</strong> If you need to put baby down safely and take a breath, that's the right thing to do. Never shake a baby.
                         </div>
                         <div style={{marginTop:6,fontSize:11,color:C.lt,lineHeight:1.5}}>
-                          If crying is accompanied by fever, vomiting, a bulging fontanelle, or baby is very pale or limp. please contact your {_doctor}.
+                          If crying is accompanied by fever, vomiting, a bulging fontanelle, or baby is very pale or limp. please contact your {_healthContact}.
                         </div>
                       </div>
                     )}
@@ -40864,7 +41877,7 @@ function App(){
                         🔍 Is this normal?
                       </div>
                       <div style={{fontSize:12,color:C.mid,marginBottom:10,lineHeight:1.5}}>
-                        Tap anything you've noticed. quick answers based on NHS guidance.
+                        Tap anything you've noticed. quick answers based on {_guide.developmentSource}.
                       </div>
                       {_normalQs.map((item,i)=>(
                         <div key={i} style={{marginBottom:6,borderRadius:12,border:`1px solid ${_expandedQ===i?C.ter:C.blush}`,overflow:"hidden",background:"var(--card-bg)"}}>
@@ -40881,7 +41894,7 @@ function App(){
                         </div>
                       ))}
                       <div style={{fontSize:11,color:C.lt,marginTop:8,lineHeight:1.5,fontStyle:"italic"}}>
-                        Based on NHS guidance. Not medical advice. always contact your {_doctor} if you're worried about your baby.
+                        Based on {_guide.developmentSource}. Not medical advice. always contact your {_healthContact} if you're worried about your baby.
                       </div>
                     </div>
 
@@ -40890,7 +41903,7 @@ function App(){
                       <span style={_S.f18}>🛏️</span>
                       <div style={_S.flex1}>
                         <div style={{fontSize:13,fontWeight:600,color:C.deep}}>Safe sleep guidance</div>
-                        <div style={{fontSize:11,color:C.lt,marginTop:2}}>Lullaby Trust guidelines. find it in Understand → Sleep tab</div>
+                        <div style={{fontSize:11,color:C.lt,marginTop:2}}>{_guide.safeSleepSource} guidance. find it in Understand → Sleep tab</div>
                       </div>
                     </div>
 
@@ -40926,7 +41939,7 @@ function App(){
                             {_onTrack && !_wetOk && `. aim for ${_wetTargetFC}+ hydration score in 24h`}
                           </div>
                           <div style={{fontSize:10,color:C.lt,marginTop:4,fontStyle:"italic"}}>
-                            If you're worried about feeding, speak to your {_doctor} or health visitor.
+                            If you're worried about feeding, speak to your {_healthContact}.
                           </div>
                         </div>
                       );
@@ -40976,7 +41989,7 @@ function App(){
                           <div style={{fontSize:12,color:C.mid,lineHeight:1.5}}><strong style={{color:C.deep}}>{title}:</strong> {desc}</div>
                         </div>
                       ))}
-                      <div style={{fontSize:11,color:C.lt,marginTop:8,fontStyle:"italic"}}>See your GP if: spots look infected, rash doesn't blanch (glass test), or skin is hot/swollen.</div>
+                      <div style={{fontSize:11,color:C.lt,marginTop:8,fontStyle:"italic"}}>See your {_healthContact} if: spots look infected, rash doesn't blanch (glass test), or skin is hot/swollen.</div>
                     </div>
                   )}
 
@@ -41176,7 +42189,7 @@ function App(){
                           haptic();
                           const _early = ((age.predictiveWeeks??age.totalWeeks)) < 26;
                           const _msg = _early
-                            ? `Before starting weaning, please read the information guide below to make sure you and ${babyName||"baby"} are ready and informed.\n\n${babyName||"Baby"} is ${fmtAge(age)}. that's before the recommended 6 months.\n\nHave you checked the readiness signs below and confirmed with your ${_doctor} or health visitor that it's OK to start?`
+                            ? `Before starting weaning, please read the information guide below to make sure you and ${babyName||"baby"} are ready and informed.\n\n${babyName||"Baby"} is ${fmtAge(age)}. that's before the recommended 6 months.\n\nHave you checked the readiness signs below and confirmed with your ${_healthContact} that it's OK to start?`
                             : `Before starting weaning, please read the information guide below to make sure you and ${babyName||"baby"} are ready and informed.\n\nOnce you start, OBubba will unlock daily food suggestions, recipes, allergen tracking, and a food journal.\n\nReady to begin?`;
                           if(confirm(_msg)){
                             haptic(15); startWeaningEarly(); showToast("🥄 Weaning started! Scroll down for recipes, food suggestions & allergen tracking",4000,1);
@@ -41213,7 +42226,7 @@ function App(){
                             Weaning is the gradual introduction of solid foods alongside breast milk/formula. It's one of the most exciting milestones. but it can also feel overwhelming. The good news? There's no pressure to get it perfect. Every baby learns at their own pace.
                           </div>
                           <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:10}}>
-                            The NHS recommends waiting until <strong style={{color:C.deep}}>around 6 months</strong> (26 weeks) before starting. Before this, baby's digestive system and kidneys aren't mature enough to handle food safely. Milk provides everything they need until then.
+                            {_guide.weaningSource} guidance recommends waiting until <strong style={{color:C.deep}}>around 6 months</strong> (26 weeks) before starting. Before this, baby's digestive system and kidneys aren't mature enough to handle food safely. Milk provides everything they need until then.
                           </div>
                           <div style={{padding:"10px 12px",borderRadius:12,background:`${C.ter}08`,border:`1px solid ${C.ter}20`}}>
                             <div style={{fontSize:11,fontWeight:700,color:C.ter,marginBottom:4}}>💛 Why not before 4 months?</div>
@@ -41269,7 +42282,7 @@ function App(){
                         <div className="glass-card" style={{padding:"14px 16px",marginBottom:10}}>
                           <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:700,color:C.deep,marginBottom:6}}>The 3 signs of readiness</div>
                           <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:10}}>
-                            NHS recommends looking for <strong>all 3 signs together</strong>. They rarely all appear before 6 months.
+                            {_guide.weaningSource} recommends looking for <strong>all 3 signs together</strong>. They rarely all appear before 6 months.
                           </div>
                           {WEANING_READINESS_SIGNS.map((sign,i)=>(
                             <div key={sign.id} style={{display:"flex",gap:10,padding:"10px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
@@ -41284,7 +42297,7 @@ function App(){
                         <div style={{padding:"10px 14px",borderRadius:12,background:`${C.gold}08`,border:`1px solid ${C.gold}25`,marginBottom:10}}>
                           <div style={{fontSize:11,fontWeight:700,color:C.gold,marginBottom:4}}>⏰ Some babies are ready a little earlier</div>
                           <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
-                            If {babyName||"baby"} shows all 3 signs before 26 weeks but after 17 weeks, speak to your {_doctor} or health visitor. They can help you decide if it's the right time. Never start before 17 weeks.
+                            If {babyName||"baby"} shows all 3 signs before 26 weeks but after 17 weeks, speak to your {_healthContact}. They can help you decide if it's the right time. Never start before 17 weeks.
                           </div>
                         </div>
                       </div>
@@ -41382,7 +42395,7 @@ function App(){
 
                     {/* NHS source note. hide in Before Weaning sub-screen (shown at bottom instead) */}
                     <div style={{fontSize:10,color:C.lt,lineHeight:1.5,fontStyle:"italic",marginBottom:12,padding:"0 4px",display:daySubScreen==="weaning_before"?"none":"block"}}>
-                      Based on NHS Start4Life, WHO, and UNICEF guidance. Not medical advice. speak to your {_doctor} or health visitor if you have questions about when to start weaning.
+                      Based on {_guide.weaningSource}, WHO, and UNICEF-style guidance. Not medical advice. speak to your {_healthContact} if you have questions about when to start weaning.
                     </div>
                   </div>
                 );
@@ -41394,7 +42407,7 @@ function App(){
                   <div style={{fontSize:36,marginBottom:10}}>🥄</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:8}}>Weaning starts around 6 months</div>
                   <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>
-                    {babyName||"Baby"} is {fmtAge(age)}. NHS and WHO recommend waiting until around 26 weeks before introducing solid foods. When the time comes, OBubba will guide you through every step.
+                    {babyName||"Baby"} is {fmtAge(age)}. {_guide.weaningSource} and WHO-style guidance recommend waiting until around 26 weeks before introducing solid foods. When the time comes, OBubba will guide you through every step.
                   </div>
                   <div style={{fontSize:11,color:C.lt,marginTop:6,fontStyle:"italic"}}>From 17 weeks, we'll unlock detailed weaning preparation guides</div>
                 </div>
@@ -41437,7 +42450,7 @@ function App(){
                       <div style={{padding:"12px 14px",borderRadius:14,background:`${C.mint}08`,border:`1.5px solid ${C.mint}30`,marginTop:8}}>
                         <div style={{fontSize:13,fontWeight:700,color:C.mint,marginBottom:4}}>✨ All 3 signs spotted!</div>
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>
-                          {babyName||"Baby"} may be showing signs of readiness. {((age.predictiveWeeks??age.totalWeeks)) >= 26 ? "You could start introducing first tastes. scroll down for food suggestions and safety guidance." : `At ${fmtAge(age)}, it's a little early. chat with your ${_doctor} or health visitor who can help you decide on timing.`}
+                          {babyName||"Baby"} may be showing signs of readiness. {((age.predictiveWeeks??age.totalWeeks)) >= 26 ? "You could start introducing first tastes. scroll down for food suggestions and safety guidance." : `At ${fmtAge(age)}, it's a little early. chat with your ${_healthContact} who can help you decide on timing.`}
                         </div>
                         {((age.predictiveWeeks??age.totalWeeks)) >= 26 && (
                           <div>
@@ -41473,22 +42486,22 @@ function App(){
                       </div>
                     </div>
 
-                    {/* Start Weaning Early. GP approved (17-25 weeks only) */}
+                    {/* Start Weaning Early. professional advice only (17-25 weeks only) */}
                     {((age.predictiveWeeks??age.totalWeeks)) >= 17 && ((age.predictiveWeeks??age.totalWeeks)) < 26 && !weaningStarted && (
                       <div style={{marginTop:14,padding:"14px 16px",borderRadius:14,background:`${C.ter}06`,border:`1.5px solid ${C.ter}20`}}>
-                        <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:6}}>👩‍⚕️ Starting early on GP advice?</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:6}}>👩‍⚕️ Starting early on professional advice?</div>
                         <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:10}}>
-                          Some babies are advised to start weaning between 17-26 weeks by their GP or paediatrician. for example, due to reflux, faltering growth, or other medical reasons. If your {_doctor} has given the go-ahead, you can unlock the full weaning toolkit now.
+                          Some babies are advised to start weaning between 17-26 weeks by their {_healthContact}. for example, due to reflux, faltering growth, or other medical reasons. If they have given the go-ahead, you can unlock the full weaning toolkit now.
                         </div>
                         <button onClick={()=>{
-                          if(confirm(`Has your ${_doctor} or health visitor confirmed that ${babyName||"baby"} can start weaning early?\n\nThis will unlock recipes, food suggestions, allergen tracking, and food logging.`)){
+                          if(confirm(`Has your ${_healthContact} confirmed that ${babyName||"baby"} can start weaning early?\n\nThis will unlock recipes, food suggestions, allergen tracking, and food logging.`)){
                             haptic(15); startWeaningEarly(); showToast("🥄 Weaning unlocked! Scroll down for food suggestions, recipes & allergen tracking",4000,1);
                           }
                         }} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-                          Start Weaning (GP Approved)
+                          Start Weaning (Advice Confirmed)
                         </button>
                         <div style={{fontSize:10,color:C.lt,textAlign:"center",marginTop:6,lineHeight:1.5}}>
-                          NHS guidance is to wait until around 6 months. Only start earlier on professional medical advice. Never before 17 weeks.
+                          {_guide.weaningSource} guidance is to wait until around 6 months. Only start earlier on professional medical advice. Never before 17 weeks.
                         </div>
                       </div>
                     )}
@@ -41693,13 +42706,13 @@ function App(){
               })()}
 
 
-              {/* ═══ Foods to Avoid. NHS safety guidance ═══ */}
+              {/* ═══ Foods to Avoid. local safety guidance ═══ */}
               {age && ((age.predictiveWeeks??age.totalWeeks)) >= 17 && daySubScreen!=="weaning_journey" && (weaningStarted || devFilter==="weaning" || daySubScreen==="weaning_before") && (devFilter==="weaning" || daySubScreen==="weaning_before") && (daySubScreen!=="weaning_before" || _eduSection==="overview") && (
                 <div style={{border:"1.5px solid rgba(232,87,74,0.2)",borderRadius:16,padding:"12px 14px",marginBottom:12,background:"rgba(232,87,74,0.03)"}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                     <span style={_S.f14}>🚫</span>
                     <span style={{fontSize:12,fontWeight:700,color:"#c04040"}}>Foods to avoid</span>
-                    <HelpBtn title="Foods to Avoid" body={"Based on NHS and WHO guidance for babies under 12 months. These foods can pose serious health risks. Always check labels for hidden ingredients like honey and salt."}/>
+                    <HelpBtn title="Foods to Avoid" body={"Based on " + _guide.weaningSource + " and WHO-style infant feeding guidance for babies under 12 months. These foods can pose serious health risks. Always check labels for hidden ingredients like honey and salt."}/>
                   </div>
                   {[
                     {food:"Honey",why:"Risk of infant botulism. never before 12 months, including in cooking",icon:"🍯"},
@@ -41736,7 +42749,7 @@ function App(){
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                       <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>
                         🛡️ Allergen Tracker
-                        <HelpBtn title="Allergen Tracker" body={"Early introduction of the 14 major allergens significantly reduces the risk of food allergy. The LEAP study found early peanut introduction reduced peanut allergy risk by 81%.\n\nOnce introduced with no reaction, keep giving each allergen regularly. at least once a week. to maintain tolerance. OBubba tracks which you've done and flags any that need a top-up."}/>
+                        <HelpBtn title="Allergen Tracker" body={"Early, regular introduction of common allergens may help many babies build tolerance, but high-risk babies need personalised advice.\n\nOnce introduced with no reaction, keep giving each allergen regularly where your local guidance supports it. OBubba tracks which you've done and flags any that need a top-up."}/>
                       </div>
                       <span style={{fontSize:11,color:C.lt}}>{_introduced.length}/14 done</span>
                     </div>
@@ -41748,7 +42761,7 @@ function App(){
 
                     {/* Legal disclaimer. allergen section (hide in journey, shown in before weaning) */}
                     {daySubScreen!=="weaning_journey" && <div style={{fontSize:10,color:C.lt,lineHeight:1.5,marginBottom:8,fontStyle:"italic"}}>
-                      OBubba allergen guidance is based on NHS, BSACI, and Anaphylaxis UK recommendations. This is general guidance only. not medical advice. If {babyName||"your baby"} has eczema, a known allergy, or family history of food allergy, speak to your {_doctor} before introducing allergens. In an emergency always call {_emergNum}.
+                      OBubba allergen guidance is based on {_guide.allergenSource}. This is general guidance only. not medical advice. If {babyName||"your baby"} has eczema, a known allergy, or family history of food allergy, speak to your {_healthContact} before introducing allergens. In an emergency always call {_emergNum}.
                     </div>}
 
                     {/* Needs maintaining. show at top if any */}
@@ -41794,7 +42807,7 @@ function App(){
                           <div style={{background:"rgba(192,112,136,0.06)",border:`1.5px solid ${C.ter}30`,borderRadius:14,padding:"12px 14px",marginBottom:8}}>
                             <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:6}}>Before you introduce allergens</div>
                             <div style={{fontSize:12,color:C.mid,lineHeight:1.6,marginBottom:8}}>
-                              Most babies can start allergens from 6 months. But if any of the following apply to {babyName||"your baby"}, speak to your {_doctor} first:
+                              Most babies can start allergens from 6 months. But if any of the following apply to {babyName||"your baby"}, speak to your {_healthContact} first:
                             </div>
                             {[
                               "Has severe or persistent eczema",
@@ -41807,7 +42820,7 @@ function App(){
                               </div>
                             ))}
                             <div style={{fontSize:11,color:C.lt,marginTop:8,fontStyle:"italic",lineHeight:1.5}}>
-                              High-risk babies can still benefit from early allergen introduction. but your {_doctor} can advise on timing and supervision. (NHS/BSACI guidance)
+                              High-risk babies may still benefit from early allergen introduction, but your {_healthContact} can advise on timing and supervision. ({_guide.allergenSource})
                             </div>
                           </div>
 
@@ -41821,7 +42834,7 @@ function App(){
                             {_safetyOpen && (
                               <div style={{padding:"10px 14px 14px",background:"var(--card-bg-alt)",borderTop:`1px solid ${C.blush}`}}>
                                 {[
-                                  {icon:"👆", rule:"Skin test first", detail:"Before giving any new allergen orally, rub a tiny amount on baby's inner wrist or lip. Wait 10–15 minutes. If you see redness, swelling, or hives — stop and contact your GP. If no reaction, proceed to a small taste."},
+                                  {icon:"👆", rule:"Skin test first", detail:"Before giving any new allergen orally, rub a tiny amount on baby's inner wrist or lip. Wait 10-15 minutes. If you see redness, swelling, or hives, stop and contact your " + _healthContact + ". If no reaction, proceed to a small taste."},
                                   {icon:"☀️", rule:"Give in the morning", detail:"Always introduce a new allergen in the morning so you have the full day to watch for a reaction. Never try for the first time before nap or bedtime."},
                                   {icon:"🏠", rule:"Stay home for 2 hours", detail:"Stay at home and keep baby under close observation for at least 2 hours after giving a new allergen. Reactions usually happen within minutes but can take up to 2 hours."},
                                   {icon:"🥄", rule:"Start tiny. ¼ teaspoon", detail:"Start with a very small amount (¼ to ½ teaspoon) mixed into a food baby already knows. If no reaction over 2-3 days, gradually increase."},
@@ -41838,7 +42851,7 @@ function App(){
                                   </div>
                                 ))}
                                 <div style={{fontSize:11,color:C.lt,marginTop:10,lineHeight:1.5,fontStyle:"italic",borderTop:`1px solid ${C.blush}`,paddingTop:8}}>
-                                  Source: NHS, Anaphylaxis UK, BSACI, LEAP study. This is guidance only. not medical advice. Always consult your {_doctor} if unsure.
+                                  Source: {_guide.allergenSource}. This is guidance only. not medical advice. Always consult your {_healthContact} if unsure.
                                 </div>
                               </div>
                             )}
@@ -41870,7 +42883,7 @@ function App(){
                                   "Flushed or blotchy skin",
                                 ].map((s,i)=><div key={i} style={{fontSize:12,color:C.mid,padding:"1px 0"}}>• {s}</div>)}
                                 <div style={{fontSize:11,color:C.mid,marginTop:6,padding:"8px",background:"var(--card-bg-alt)",borderRadius:8,lineHeight:1.5}}>
-                                  Remove the food. Give antihistamine (e.g. Piriton/chlorphenamine) if prescribed. Contact 111 or your {_doctor} for advice. Watch closely for the next 2 hours.
+                                  Remove the food. Give antihistamine only if it has been prescribed or recommended for your baby. Contact {_guide.nonEmergencyLabel} or your {_healthContact} for advice. Watch closely for the next 2 hours.
                                 </div>
                               </div>
 
@@ -41897,7 +42910,7 @@ function App(){
                               </div>
 
                               <div style={{fontSize:10,color:C.lt,marginTop:8,lineHeight:1.5,fontStyle:"italic"}}>
-                                Sources: NHS, Anaphylaxis UK, Resuscitation Council UK (2021). Not medical advice. always follow guidance from your {_doctor}. In an emergency always call {_emergNum}.
+                                Sources: {_guide.allergenSource} and emergency first-aid guidance. Not medical advice. always follow guidance from your {_healthContact}. In an emergency always call {_emergNum}.
                               </div>
                             </div>
                           )}
@@ -42011,7 +43024,7 @@ function App(){
                           </button>
                         </div>
                         <div style={_S.mb10}>
-                          <div style={{fontSize:12,fontWeight:700,color:C.gold,marginBottom:6}}>Mild. keep a close eye and call your GP</div>
+                          <div style={{fontSize:12,fontWeight:700,color:C.gold,marginBottom:6}}>Mild. keep a close eye and call your {_healthContact}</div>
                           {["Hives (raised, itchy red bumps on skin)","Swelling around mouth or eyes","Runny nose or sneezing","Mild vomiting","Stomach pain, unsettled after eating"].map((s,i)=>(
                             <div key={i} style={{fontSize:12,color:C.mid,padding:"2px 0"}}>• {s}</div>
                           ))}
@@ -42085,12 +43098,12 @@ function App(){
                         </div>
 
                         {/* Signs of deficiency */}
-                        <div style={{marginTop:10,fontSize:11,fontWeight:700,color:C.deep,marginBottom:4}}>Signs to watch for (speak to your {_doctor})</div>
+                        <div style={{marginTop:10,fontSize:11,fontWeight:700,color:C.deep,marginBottom:4}}>Signs to watch for (speak to your {_healthContact})</div>
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
                           {IRON_GUIDE.signs.join(" · ")}
                         </div>
                         <div style={{fontSize:10,color:C.lt,marginTop:8,fontStyle:"italic",lineHeight:1.5}}>
-                          Source: NHS, WHO, BDA (British Dietetic Association). This is guidance. not medical advice.
+                          Source: {_guide.weaningSource}, WHO-style infant feeding guidance, and dietetic guidance. This is guidance. not medical advice.
                         </div>
                       </div>
                     )}
@@ -42150,11 +43163,11 @@ function App(){
                         </div>
 
                         <div style={{marginTop:10,padding:"8px 12px",borderRadius:10,background:`${C.ter}08`,border:`1px solid ${C.ter}20`,fontSize:11,color:C.ter,lineHeight:1.5}}>
-                          💛 <strong>Consider a baby first aid course.</strong> The Red Cross, St John Ambulance, and many local children's centres offer free or low-cost infant choking and CPR courses.
+                          💛 <strong>Consider a baby first aid course.</strong> Local first aid charities, ambulance services, and community health teams often offer infant choking and CPR courses.
                         </div>
 
                         <div style={{fontSize:10,color:C.lt,marginTop:8,fontStyle:"italic",lineHeight:1.5}}>
-                          Source: NHS, Resuscitation Council UK, St John Ambulance. This is guidance. in an emergency call {_emergNum}.
+                          Source: {_guide.weaningSource} and local first-aid guidance. This is guidance. in an emergency call {_emergNum}.
                         </div>
                       </div>
                     )}
@@ -42266,7 +43279,7 @@ function App(){
                       return (
                         <div key={i} style={{marginBottom:6,borderRadius:14,border:`1px solid ${_isOpen?C.ter+"40":C.blush}`,overflow:"hidden",background:"var(--card-bg)",opacity:_locked?0.6:1}}>
                           <button onClick={()=>{
-                            if(_locked){haptic();setPremiumGateInfo({icon:"\u{1F9D1}\u{200D}\u{1F373}",label:"Recipe Library",description:"Unlock 50+ age-appropriate recipes with step-by-step instructions, allergen tags, and nutritional info \u2014 from first purees to family meals.",context:"recipes"});return;}
+                            if(_locked){haptic();triggerPaywall("recipes", true);return;}
                             haptic(8);_setRecipeOpen(_isOpen?null:i);_setRecipePrep("method");
                           }}
                             style={{width:"100%",padding:"10px 14px",background:"none",border:"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:_cP,fontFamily:_fI,textAlign:"left"}}>
@@ -42567,14 +43580,14 @@ function App(){
                 <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:12,padding:"12px 14px",marginTop:6,marginBottom:14}}>
                   <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
                     <span style={{fontWeight:700,color:C.deep}}>ℹ️ A note on milestones</span><br/>
-                    Every baby develops at their own pace. these ranges are general guidelines based on NHS developmental review frameworks. If you have concerns, speak to your GP or health visitor.
+                    Every baby develops at their own pace. these ranges are general guidelines based on {_guide.developmentSource}. If you have concerns, speak to your {_healthContact}.
                   </div>
                 </div>
                 </>
               )}
-              {/* NHS & WHO Guidance. moved to Activities tab */}
+              {/* Local development guidance. moved to Activities tab */}
               {devFilter==="activities" && <div className="glass-card" style={{...card, marginBottom:14}}>
-                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🏥 NHS & WHO Guidance for this age</div>
+                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:12}}>🏥 {_guide.developmentSource} guidance for this age</div>
                 {(!ageWeeks && ageWeeks !== 0) ? (
                   <div style={{textAlign:"center",padding:"16px",color:C.lt,fontSize:13}}>Set a date of birth to see age-appropriate guidance.</div>
                 ) : (
@@ -42594,7 +43607,7 @@ function App(){
               <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:12,padding:"12px 14px",marginBottom:4}}>
                 <div style={{fontSize:11,color:C.mid,lineHeight:1.7}}>
                   <span style={{fontWeight:700,color:C.deep}}>ℹ️ About this guidance</span><br/>
-                  Activities: NHS Start4Life developmental play guidance. Milestones: NHS developmental reviews framework. Growth: WHO Child Growth Standards. Every baby develops at their own pace. use these as inspiration, not a checklist. If you have concerns, speak to your ${_doctor}.
+                  Activities and milestones: {_guide.developmentSource}. Growth: {_guide.growthSource}. Every baby develops at their own pace. use these as inspiration, not a checklist. If you have concerns, speak to your {_healthContact}.
                 </div>
               </div>
 
@@ -42625,7 +43638,7 @@ function App(){
                     <div style={{marginTop:4,marginBottom:14}}>
                       <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,marginBottom:8}}>
                         📅 Eruption Timeline
-                        <HelpBtn title="Eruption Timeline" body="Typical age ranges for primary (baby) teeth to appear, based on NHS and AAPD averages. These are ranges, not deadlines — it's normal for the first tooth to arrive anywhere from 4 to 12 months, and every baby follows their own pattern. If your baby has no teeth by 18 months, mention it to your dentist."/>
+                        <HelpBtn title="Eruption Timeline" body={"Typical age ranges for primary (baby) teeth to appear, based on dental averages. These are ranges, not deadlines — it's normal for the first tooth to arrive anywhere from 4 to 12 months, and every baby follows their own pattern. If your baby has no teeth by 18 months, mention it to your dentist or " + _healthContact + "."}/>
                       </div>
                       <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px 14px 10px"}}>
                         <div style={{fontSize:11,color:C.lt,marginBottom:10,lineHeight:1.5}}>
@@ -42731,13 +43744,13 @@ function App(){
                 {daySubScreen==="weaning_journal" && <div>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal <HelpBtn title="Weaning Journal" body="Track foods introduced, reactions (loved/neutral/disliked), and notes. NHS recommends introducing solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."/></div>
+                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal <HelpBtn title="Weaning Journal" body={"Track foods introduced, reactions (loved/neutral/disliked), and notes. " + _guide.weaningSource + " guidance usually starts solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."}/></div>
                     <button onClick={()=>{setWeaningForm({food:"",date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log food</button>
                   </div>
                   {age && age.totalWeeks < 17 ? (
                     <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"16px",textAlign:"center"}}>
                       <div style={{fontSize:24,marginBottom:6}}>🥄</div>
-                      <div style={{fontSize:13,color:C.mid}}>NHS recommends starting solids around 6 months</div>
+                      <div style={{fontSize:13,color:C.mid}}>{_guide.weaningSource} guidance usually starts solids around 6 months</div>
                       <div style={{fontSize:11,color:C.lt,marginTop:2}}>{babyName||"Baby"} is {fmtAge(age)}. this section activates closer to weaning age</div>
                     </div>
                   ) : weaning.length === 0 ? (
@@ -42843,15 +43856,17 @@ function App(){
             </div>
           )}
           {STORE_READY && (()=>{
-            const _planName = isPremium ? "OBubba Premium" : trialActive ? "OBubba Premium Trial" : "OBubba Free";
-            const _planIcon = isPremium ? "💛" : trialActive ? "✨" : "📋";
-            const _planDesc = isPremium ? "Full access. personalised predictions, insights & more"
+            const _cloudLifetime = _cachedComplimentaryPremiumActive();
+            const _planName = _cloudLifetime ? "OBubba Premium Lifetime" : isPremium ? "OBubba Premium" : trialActive ? "OBubba Premium Trial" : "OBubba Free";
+            const _planIcon = isPremium ? "sparkle" : trialActive ? "sparkle" : "log";
+            const _planDesc = _cloudLifetime ? "Complimentary lifetime access. no renewal needed"
+              : isPremium ? "Full access. personalised predictions, insights & more"
               : trialActive ? trialDaysLeft + " day" + (trialDaysLeft!==1?"s":"") + " left. explore everything OBubba can do"
               : "Logging + age-based guidance";
             return (
             <div style={{background:isPremium||trialActive?`linear-gradient(135deg,${C.ter}08,${C.mint}06)`:"var(--card-bg-solid)",border:`1.5px solid ${isPremium||trialActive?C.ter+"25":C.blush}`,borderRadius:16,padding:"16px",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
-                <span style={_S.f24}>{_planIcon}</span>
+                <BubbaIcon name={_planIcon} size={28}/>
                 <div style={_S.flex1}>
                   <div style={{fontSize:15,fontWeight:700,color:C.deep}}>{_planName}</div>
                   <div style={{fontSize:12,color:C.lt,marginTop:2}}>{_planDesc}</div>
@@ -42875,7 +43890,7 @@ function App(){
                 <button onClick={()=>{
                   haptic();
                   if(window._purchases && window._purchases.restore){
-                    showToast("Checking App Store…",1500);
+                    showToast("Checking "+STORE_NAME+"...",1500);
                     window._purchases.restore().then(function(r){
                       if(r && r.isPremium){
                         try{localStorage.setItem("ob_premium","1");}catch{}
@@ -42884,7 +43899,7 @@ function App(){
                       } else {
                         showToast("No active subscription found",2000);
                       }
-                    }).catch(function(){showToast("Couldn't reach the App Store. try again",2000);});
+                    }).catch(function(){showToast("Couldn't reach "+STORE_NAME+". try again",2000);});
                   } else {
                     showToast("Store not available right now",2000);
                   }
@@ -42901,12 +43916,12 @@ function App(){
             <div className="ob-premium-kicker" style={{marginBottom:10}}>Family hub</div>
             <div style={_S.grid2}>
               <button onClick={()=>setShowFamilyModal(true)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
-                <span style={_S.f24}>👨‍👩‍👧</span>
+                <BubbaIcon name="account" size={30}/>
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Share & Sync</div>
                 <div style={{fontSize:10,color:C.lt}}>{familyCode?"Manage":"Connect"}</div>
               </button>
               <button onClick={()=>{setShowCarerCard(true);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
-                <span style={_S.f24}>👩‍🍼</span>
+                <BubbaIcon name="baby" size={30}/>
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Bubba Care</div>
                 <div style={{fontSize:10,color:C.lt}}>Share routine</div>
               </button>
@@ -42932,23 +43947,25 @@ function App(){
                     });
                   }, "Save to Cloud");
                 }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
-                  <span style={_S.f24}>💾</span>
+                  <BubbaIcon name="check" size={30}/>
                   <div style={{fontSize:12,fontWeight:700,color:C.mint}}>Save to Cloud</div>
                   <div style={{fontSize:10,color:C.lt}}>Manual backup</div>
                 </button>
               )}
             </div>
             {backupCode&&(
-              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginRight:"auto",whiteSpace:"nowrap"}}>Bubba Care session</div>
-                <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:99,border:"1px solid rgba(224,96,112,0.18)",background:"rgba(224,96,112,0.04)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>
-                  <span style={{fontSize:13}}>🔒</span>
-                  End
-                </button>
-                <button onClick={()=>{haptic();restartCarerSession();}} style={{display:"inline-flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:99,border:"1px solid rgba(155,184,168,0.24)",background:"rgba(155,184,168,0.06)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>
-                  <span style={{fontSize:13}}>🔓</span>
-                  Reopen
-                </button>
+              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`,display:"grid",gap:8}}>
+                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,whiteSpace:"nowrap"}}>Bubba Care session</div>
+                <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:8,width:"100%"}}>
+                  <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(224,96,112,0.18)",background:"rgba(224,96,112,0.04)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
+                    <BubbaIcon name="check" size={15}/>
+                    End session
+                  </button>
+                  <button onClick={()=>{haptic();restartCarerSession();}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(155,184,168,0.24)",background:"rgba(155,184,168,0.06)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
+                    <span style={{fontSize:13}}>🔓</span>
+                    Reopen session
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -43191,28 +44208,6 @@ function App(){
               </div>
             </div>
 
-            {/* Sleep Engine */}
-            <div style={{paddingTop:12}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                <div style={_S.flexCenter10}>
-                  <span style={_S.f18}>🧠</span>
-                  <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Sleep Engine</span>
-                  <HelpBtn title="Sleep Engine" body={"OBubba has two prediction modes:\n\n📋 Guideline Mode (free). Uses NHS Start4Life, WHO and AASM age-based wake windows.\n\n✨ Personal Rhythm (premium). Learns from "+(babyName||"your baby")+"'s actual sleep patterns."}/>
-                </div>
-              </div>
-              <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:`1px solid ${C.blush}`,overflow:"hidden",marginBottom:8}}>
-                <button onClick={()=>{
-                  if (!hasAccess()) { triggerPaywall("nap_prediction"); return; }
-                  setUsePersonalRecs(true);try{localStorage.setItem("use_personal_recs_v1","true");}catch{};updateChild({personalRecs:true});haptic();
-                }} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:usePersonalRecs===true?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:usePersonalRecs===true?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>✨ Personal</button>
-                <button onClick={()=>{setUsePersonalRecs(false);try{localStorage.setItem("use_personal_recs_v1","false");}catch{};updateChild({personalRecs:false});haptic();}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:(usePersonalRecs===false||usePersonalRecs===null)?"#4a5a80":"transparent",color:(usePersonalRecs===false||usePersonalRecs===null)?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>📋 Guidelines</button>
-              </div>
-              <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
-                {usePersonalRecs===true
-                  ? "Learning " + (babyName||"your baby") + "'s unique rhythm."
-                  : "NHS, WHO & AASM age-based wake windows."}
-              </div>
-            </div>
           </div>
 
           {/* ═══ DAY BOUNDARY ═══ */}
@@ -43223,8 +44218,8 @@ function App(){
               <HelpBtn title="Day Boundary" body={"How OBubba groups your entries into days:\n\n\u2600\uFE0F Morning wake (recommended). Night feeds after midnight stay with yesterday's bedtime until you log a morning wake. This matches how many sleep logs are reviewed in practice.\n\n\u{1F55B} Midnight. Simple calendar days. Anything logged after 12:00am midnight appears on the new day. Night wakes at 1am, 3am etc. show on today, not yesterday."}/>
             </div>
             <div style={{display:"inline-flex",background:"var(--card-bg-alt)",borderRadius:99,border:"1px solid "+C.blush,overflow:"hidden",marginTop:8,marginBottom:8}}>
-              <button onClick={()=>{setDayBoundary("wake");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"wake"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
-              <button onClick={()=>{setDayBoundary("midnight");haptic();try{trackEvent("setting_changed",{setting:"day_boundary",value:"midnight"});}catch{}}} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
+              <button onClick={()=>changeDayBoundaryMode("wake")} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="wake"?"linear-gradient(135deg,#50a888,#3a8870)":"transparent",color:dayBoundary==="wake"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u2600\uFE0F"} Morning wake</button>
+              <button onClick={()=>changeDayBoundaryMode("midnight")} style={{padding:"5px 14px",fontSize:12,fontFamily:_fM,fontWeight:700,border:"none",background:dayBoundary==="midnight"?"#4a5a80":"transparent",color:dayBoundary==="midnight"?"white":C.lt,cursor:"pointer",whiteSpace:"nowrap",borderRadius:99}}>{"\u{1F55B}"} Midnight</button>
             </div>
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
               {dayBoundary==="wake"
@@ -43435,7 +44430,7 @@ function App(){
             </a>
             <div style={{paddingTop:10}}>
               <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
-                OBubba is <b>not a medical device</b>. Sleep, feeding & developmental guidance based on NHS, WHO, AAP & AASM <span onTouchEnd={(e)=>{e.preventDefault();const now=Date.now();if(!window._ot)window._ot={c:0,t:0};if(now-window._ot.t>2000)window._ot.c=0;window._ot.c++;window._ot.t=now;if(window._ot.c>=7){window._ot.c=0;try{localStorage.setItem("ob_owner_unlock","zyesha2026");localStorage.setItem("ob_premium","1");localStorage.setItem("obubba_trial_start",new Date().toISOString());}catch{}location.reload();}}} style={{cursor:"default",WebkitUserSelect:"none",userSelect:"none",touchAction:"manipulation"}}>guidelines</span>. Always consult your {_doctor}.
+                OBubba is <b>not a medical device</b>. Guidance adapts to your country where possible and is based on trusted public-health sources: {_guidanceFooter()}. Always consult your {_healthContact}.
               </div>
               <div style={{fontSize:10,color:C.lt,marginTop:6}}>Version 1.0 · © {new Date().getFullYear()} OBubba · <a href="https://obubba.com/privacy" target="_blank" style={{color:C.lt}}>Privacy</a> · <a href="https://obubba.com/terms" target="_blank" style={{color:C.lt}}>Terms</a></div>
             </div>
@@ -43632,7 +44627,7 @@ function App(){
       <div role="navigation" aria-label="Main navigation" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:_maxW,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
         {["day","insights","develop","settings"].map(t=>(
           <button key={t} className="ob-main-tab-btn" aria-label={tabLabels[t]+" tab"} aria-current={tab===t?"page":undefined} onClick={()=>{haptic();setTab(t);setDaySubScreen(null);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);setInsightFilter(null);setDevFilter(null);try{window.scrollTo({top:0,behavior:"smooth"});}catch{}}} style={tabSt(t)}>
-            <span className="ob-main-tab-icon" aria-hidden="true" style={{fontSize:14,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}>{tabIcons[t]}</span>
+            <span className="ob-main-tab-icon" aria-hidden="true" style={{lineHeight:1,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}><BubbaIcon name={tabIcons[t]} size={20}/></span>
             <span className="ob-main-tab-label">{tabLabels[t]}</span>
             {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
           </button>
@@ -43918,7 +44913,7 @@ function App(){
                   </div>
                   {(selectedPoopColour==="#F5E6D3"||selectedPoopColour==="#C75050") && (
                     <div style={{background:"rgba(199,80,80,0.08)",border:"1px solid rgba(199,80,80,0.2)",borderRadius:10,padding:"6px 10px",marginTop:6,fontSize:11,color:"#c44",lineHeight:1.4}}>
-                      If persistent, speak to your health visitor
+                      If persistent, speak to your {_healthContact}
                     </div>
                   )}
                 </div>
@@ -44269,7 +45264,7 @@ function App(){
                   </div>
                   {(form.poopColour==="#F5E6D3"||form.poopColour==="#C75050") && (
                     <div style={{background:"rgba(199,80,80,0.08)",border:"1px solid rgba(199,80,80,0.2)",borderRadius:10,padding:"6px 10px",marginTop:6,fontSize:11,color:"#c44",lineHeight:1.4}}>
-                      If persistent, speak to your health visitor
+                      If persistent, speak to your {_healthContact}
                     </div>
                   )}
                 </div>
@@ -44569,7 +45564,7 @@ function App(){
                       <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>{ins.body}</div>
                     </div>
                   ))}
-                  <div style={{fontSize:11,color:C.lt,fontFamily:_fM,lineHeight:1.5,padding:"6px 4px"}}>General observations from logged data. not medical advice. Speak to your doctor with any concerns.</div>
+                  <div style={{fontSize:11,color:C.lt,fontFamily:_fM,lineHeight:1.5,padding:"6px 4px"}}>General observations from logged data. not medical advice. Speak to your {_healthContact} with any concerns.</div>
                 </div>
               );
             })()}
@@ -44599,13 +45594,13 @@ function App(){
           weekly: { title: "See how far you've come", body: "Some weeks feel endless. But when you look back, the progress is real. You deserve to see you're doing a great job." },
           activities: { title: "Play ideas for right now", body: "Age-aware activities for where " + _bn + " is developmentally. Each one takes 5 minutes and supports connection through play." },
           tomorrow: { title: "Plan ahead, sleep easier", body: "Tomorrow's predicted schedule so you can plan your day with more confidence. You'll see when naps are likely to fall." },
-          growth: { title: _bn + "'s growth journey", body: "Track weight and height against WHO guidelines. Something meaningful to show your health visitor." },
+          growth: { title: _bn + "'s growth journey", body: "Track weight and height against " + _guide.growthSource + ". Something meaningful to show your " + _healthContact + "." },
           partner: { title: "You're a team", body: "Share everything with your partner. logs, insights, schedules. No more \"when did they last eat?\" texts." },
-          export: { title: "Your data, your way", body: "Export " + _bn + "'s full history to share with your GP or health visitor. Professional-quality reports in one tap." },
+          export: { title: "Your data, your way", body: "Export " + _bn + "'s full history to share with your " + _healthContact + ". Professional-quality reports in one tap." },
           trial: { title: "We're still here for you", body: "Your trial has ended, but " + _bn + "'s rhythm is still evolving. Pick up right where you left off." },
           multi_baby: { title: "Room for the whole family", body: "Track multiple children with separate profiles, patterns, and insights." },
           recipes: { title: "Weaning made simple", body: "Age-appropriate recipes and meal ideas, tailored to " + _bn + "'s stage. One less thing to worry about." },
-          weaning_stats: { title: "Track the weaning journey", body: "See how " + _bn + "'s milk-to-solid balance is progressing against NHS guidelines." },
+          weaning_stats: { title: "Track the weaning journey", body: "See how " + _bn + "'s milk-to-solid balance is progressing against " + _guide.weaningSource + " guidance." },
           // ── Analyser-suite paywall copy ──
           nap_analyser: { title: "Why was that nap short?", body: "Short naps can come from several patterns — undertired, overtired, feed-to-sleep, cycle skills still developing, fragmented day, or a planned catnap. OBubba looks for the most likely pattern and what to try next time." },
           night_analyser: { title: "Why did last night go that way?", body: "Undertired? Overtired? Hunger? Habit? OBubba reads the shape of last night's wakes, explains what the pattern may suggest, then gently adjusts tonight's bedtime for you." },
@@ -44645,9 +45640,9 @@ function App(){
             {/* Plan selector. 3 tappable cards */}
             <div style={{display:"flex",gap:8,marginBottom:14}}>
               {[
-                {key:"monthly",label:"Monthly",price:_isUS?"$"+monthlyPrice:_isAU?"A$12.99":_isCA?"C$9.99":"£"+monthlyPrice,sub:"/month",badge:null},
-                {key:"annual",label:"Annual",price:_isUS?"$"+yearlyPrice:_isAU?"A$129.99":_isCA?"C$99.99":"£"+yearlyPrice,sub:"/year",badge:"Save "+yearlySaving+"%"},
-                {key:"lifetime",label:"Lifetime",price:_isUS?"$"+lifetimePrice:_isAU?"A$199.99":_isCA?"C$179.99":"£"+lifetimePrice,sub:"once",badge:"Best value"},
+                {key:"monthly",label:"Monthly",price:_planDisplayPrice("monthly"),sub:"/month",badge:null},
+                {key:"annual",label:"Annual",price:_planDisplayPrice("annual"),sub:"/year",badge:"Best value"},
+                {key:"lifetime",label:"Lifetime",price:_planDisplayPrice("lifetime"),sub:"once",badge:"One-time"},
               ].map(plan=>{
                 const _sel = (paywallPlan||"annual") === plan.key;
                 return (
@@ -44666,9 +45661,8 @@ function App(){
               haptic();
               const _planKey = paywallPlan || "annual";
               const _periodMap = {monthly:"monthly",annual:"annual",lifetime:"lifetime"};
-              if(window._purchases && window._purchases.getProduct){
-                window._purchases.getProduct(_periodMap[_planKey]).then(function(product){
-                  if(!product){showToast("Couldn't load pricing. try again in a moment",2000);return;}
+              const _purchaseProduct = function(product){
+                if(!product){showToast("Couldn't load pricing from "+STORE_NAME+". try again in a moment",2200);return;}
                   window._purchases.purchase(product).then(function(r){
                     if(r && r.isPremium){
                       setShowPaywall(false);
@@ -44684,17 +45678,28 @@ function App(){
                       showToast("Something went wrong. please try again",2000);
                     }
                   }).catch(function(){showToast("Purchase couldn't be completed. try again",2000);});
-                }).catch(function(){showToast("Couldn't connect to the App Store",2000);});
+              };
+              if(window._purchases && window._purchases.getProduct && window._purchases.purchase){
+                const cachedProduct = _storeProductForPlan(_planKey);
+                if(cachedProduct) _purchaseProduct(cachedProduct);
+                else window._purchases.getProducts().then(function(products){
+                  if(Array.isArray(products)) {
+                    setPaywallProducts(products);
+                    setPaywallProductsLoaded(true);
+                  }
+                  _purchaseProduct(_storeProductForPlanFrom(_planKey, products));
+                }).catch(function(){showToast("Couldn't connect to "+STORE_NAME,2000);});
               } else {
                 showToast("Store not available. coming very soon!",2000,1);
               }
             }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,boxShadow:"0 4px 20px rgba(192,112,136,0.25)"}}>
-              {trialActive ? "Start your free trial" : (paywallPlan||"annual")==="lifetime" ? "Get lifetime access" : "Subscribe now"}
+              {(paywallPlan||"annual")==="lifetime" ? "Get lifetime access" : trialActive ? "Continue with Premium" : "Subscribe now"}
             </button>
-            {trialActive && <div style={{fontSize:11,color:C.lt,marginTop:6}}>{trialDaysLeft} days free, then cancel anytime</div>}
-            {!trialActive && (paywallPlan||"annual")!=="lifetime" && <div style={{fontSize:11,color:C.lt,marginTop:6}}>Cancel anytime. no lock-in</div>}
+            {trialActive && <div style={{fontSize:11,color:C.lt,marginTop:6}}>Your OBubba trial has {trialDaysLeft} day{trialDaysLeft!==1?"s":""} left. {STORE_NAME} shows the final billing terms before confirmation.</div>}
+            {!trialActive && (paywallPlan||"annual")!=="lifetime" && <div style={{fontSize:11,color:C.lt,marginTop:6}}>Cancel anytime in your device subscription settings.</div>}
+            {(paywallPlan||"annual")==="lifetime" && <div style={{fontSize:11,color:C.lt,marginTop:6}}>One-time purchase. no subscription.</div>}
 
-            <div style={{fontSize:10.5,color:C.mid,marginTop:8,fontStyle:"italic",lineHeight:1.5,maxWidth:280,marginLeft:"auto",marginRight:"auto"}}>Built by a mum who's been there. For less than a coffee a month. give yourself the gift of restful nights.</div>
+            <div style={{fontSize:10.5,color:C.mid,marginTop:8,fontStyle:"italic",lineHeight:1.5,maxWidth:280,marginLeft:"auto",marginRight:"auto"}}>Built by a mum who's been there. A small support for calmer planning, gentler nights, and feeling less alone.</div>
 
             {/* Restore */}
             <button onClick={()=>{
@@ -44710,15 +45715,17 @@ function App(){
                   } else {
                     showToast("No active subscription found",2000);
                   }
-                }).catch(function(){showToast("Couldn't reach the App Store. try again",2000);});
+                }).catch(function(){showToast("Couldn't reach "+STORE_NAME+". try again",2000);});
               }
             }} style={{marginTop:10,background:"none",border:"none",color:C.lt,fontSize:10.5,cursor:_cP,textDecoration:"underline"}}>Restore purchases</button>
 
             {/* ── Auto-renewal disclosure + Terms + Privacy (required by App Store Guideline 3.1.2) ── */}
             <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${C.blush||"#e8d5cf"}`,fontSize:10,color:C.lt,lineHeight:1.5,textAlign:"left"}}>
-              <div style={{fontWeight:700,color:C.mid,marginBottom:4,fontSize:10.5}}>OBubba Premium · Auto-renewing subscription</div>
+              <div style={{fontWeight:700,color:C.mid,marginBottom:4,fontSize:10.5}}>OBubba Premium · {(paywallPlan||"annual")==="lifetime"?"One-time purchase":"Auto-renewing subscription"}</div>
               <div style={{marginBottom:6}}>
-                Payment is charged to your account at purchase confirmation. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your device's subscription settings. Lifetime is a one-time purchase and does not auto-renew.
+                {(paywallPlan||"annual")==="lifetime"
+                  ? "Payment is charged to your account at purchase confirmation. Lifetime access is a one-time purchase and does not auto-renew."
+                  : "Payment is charged to your account at purchase confirmation. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your device's subscription settings."}
               </div>
               <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:8}}>
                 <a href="https://obubba.com/terms" target="_blank" rel="noopener noreferrer" style={{color:C.ter,fontWeight:600,textDecoration:"underline",fontSize:10.5}}>Terms of Use (EULA)</a>
@@ -44788,7 +45795,7 @@ function App(){
             }} style={{width:"100%",padding:"14px",borderRadius:16,border:"none",background:"linear-gradient(135deg,#50a888,#3a8870)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
               ✨ Personal. learn {babyName||"baby"}'s rhythm
             </button>
-            <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:12,lineHeight:1.5}}>Blends {babyName||"baby"}'s actual patterns with NHS guidance. Gets smarter the more you log.</div>
+            <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:12,lineHeight:1.5}}>Blends {babyName||"baby"}'s actual patterns with {_guide.sleepSource}. Gets smarter the more you log.</div>
             <button onClick={()=>{
               setUsePersonalRecs(false);
               try{localStorage.setItem("use_personal_recs_v1","false");}catch{}
@@ -44796,9 +45803,9 @@ function App(){
               setShowRecModeChoice(false);
               haptic();
             }} style={{width:"100%",padding:"12px",borderRadius:16,border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginBottom:8}}>
-              📋 NHS. use age-based guidance only
+              📋 Country guidance. use age-based guidance only
             </button>
-            <div style={{fontSize:11,color:C.lt,textAlign:"center",lineHeight:1.5}}>You can switch anytime in Account → Sleep Recommendations</div>
+            <div style={{fontSize:11,color:C.lt,textAlign:"center",lineHeight:1.5}}>You can switch anytime from sleep prediction settings.</div>
           </div>
         </div>
       )}
@@ -44827,7 +45834,7 @@ function App(){
               ))}
             </div>
             <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:14,lineHeight:1.5}}>
-              Source: NHS & Lullaby Trust{"\n"}
+              Source: {_guide.safeSleepSource}{"\n"}
               You can always find this in Understand → Sleep tab
             </div>
             <button onClick={()=>setShowSafeSleepPopup(false)} style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
@@ -44946,7 +45953,7 @@ function App(){
                   {["6+ wet nappies in 24 hours","Baby is gaining weight","Baby seems satisfied after most feeds","You can hear swallowing during feeds","Breasts feel softer after feeds"].map((t,i)=><div key={i} style={{fontSize:12,color:C.mid,padding:"2px 0"}}>• {t}</div>)}
                 </div>
                 <div style={{background:"rgba(212,168,85,0.06)",border:"1px solid rgba(212,168,85,0.2)",borderRadius:12,padding:"10px 12px"}}>
-                  <div style={{fontSize:12,fontWeight:700,color:C.gold,marginBottom:6}}>Speak to health visitor if</div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.gold,marginBottom:6}}>Speak to your {_healthContact} if</div>
                   {["Fewer than 6 wet nappies a day","Baby not gaining weight","Every feed leaves baby unsettled","Significant pain during every feed"].map((t,i)=><div key={i} style={{fontSize:12,color:C.mid,padding:"2px 0"}}>• {t}</div>)}
                 </div>
               </div>
@@ -44959,25 +45966,20 @@ function App(){
                   <div style={{fontSize:12,fontWeight:700,color:C.gold,marginBottom:6}}>Signs during feeding</div>
                   {["Significant pain throughout feeds. not just at latch","Clicking sounds while feeding","Baby slips off breast frequently","Very long feeds without satisfaction","Poor weight gain despite frequent feeding","Baby cannot stick tongue past lower lip","Tongue looks heart-shaped when crying"].map((t,i)=><div key={i} style={{fontSize:12,color:C.mid,padding:"2px 0"}}>• {t}</div>)}
                 </div>
-                <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid "+C.blush,fontSize:12,color:C.mid,lineHeight:1.6}}>Ask your midwife, health visitor, or GP to check. Treatment (a simple snip called a frenotomy) can transform feeding. An IBCLC lactation consultant can also assess.</div>
+                <div style={{padding:"10px 12px",borderRadius:12,background:"var(--card-bg-alt)",border:"1px solid "+C.blush,fontSize:12,color:C.mid,lineHeight:1.6}}>Ask your {_guide.newbornContact} or {_healthContact} to check. Treatment (a simple snip called a frenotomy) can transform feeding. An IBCLC lactation consultant can also assess.</div>
               </div>
             )}
             {bfHubSection==="help"&&(
               <div>
                 <div style={{fontSize:14,fontWeight:700,color:C.deep,marginBottom:12}}>Where to get support</div>
-                {[
-                  {who:"Health visitor",when:"Always your first call",how:"Call your GP surgery"},
-                  {who:"National Breastfeeding Helpline",when:"Any time, day or night",how:"0300 100 0212 (9:30am-9:30pm)"},
-                  {who:"La Leche League",when:"Peer support, overnight helpline",how:"laleche.org.uk. 0345 120 2918"},
-                  {who:"IBCLC Lactation Consultant",when:"Persistent pain, tongue tie, supply",how:"Find one at lcgb.org"},
-                ].map((r,i)=>(
+                {(_guide.breastfeedingSupport || []).map((r,i)=>(
                   <div key={i} style={{padding:"10px 0",borderTop:i?"1px solid "+C.blush:"none"}}>
                     <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:2}}>{r.who}</div>
                     <div style={{fontSize:12,color:C.mid,marginBottom:2}}>{r.when}</div>
                     <div style={{fontSize:11,color:C.lt}}>{r.how}</div>
                   </div>
                 ))}
-                <div style={{marginTop:10,padding:"10px 12px",borderRadius:12,background:"rgba(212,168,85,0.06)",border:"1px solid rgba(212,168,85,0.2)",fontSize:12,color:C.gold,lineHeight:1.6}}>Mastitis: hot, red, painful breast + flu-like symptoms needs same-day GP treatment.</div>
+                <div style={{marginTop:10,padding:"10px 12px",borderRadius:12,background:"rgba(212,168,85,0.06)",border:"1px solid rgba(212,168,85,0.2)",fontSize:12,color:C.gold,lineHeight:1.6}}>Mastitis: hot, red, painful breast + flu-like symptoms needs same-day advice from your {_healthContact}.</div>
               </div>
             )}
             {bfHubSection==="spurts"&&(
@@ -44997,7 +45999,7 @@ function App(){
               </div>
             )}
 
-            <div style={{marginTop:16,fontSize:11,color:C.lt,lineHeight:1.6,fontStyle:"italic"}}>NHS, UNICEF BFI, and La Leche League guidance. Not medical advice.</div>
+            <div style={{marginTop:16,fontSize:11,color:C.lt,lineHeight:1.6,fontStyle:"italic"}}>{_guide.feedingSource}, UNICEF-style baby-friendly feeding guidance, and peer breastfeeding support guidance. Not medical advice.</div>
           </div>
         </div>
       )}
@@ -45016,7 +46018,7 @@ function App(){
               <div style={{fontSize:24,textAlign:"center",marginBottom:8}}>🛡️</div>
               <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,textAlign:"center",marginBottom:6}}>Before we suggest allergens</div>
               <div style={{fontSize:12,color:C.mid,textAlign:"center",lineHeight:1.6,marginBottom:20}}>
-                A few quick questions help us give you the right guidance. Allergen introduction is safe for most babies. we just need to check for any factors that mean you should speak to your GP first.
+                A few quick questions help us give you the right guidance. Allergen introduction is safe for most babies. we just need to check for any factors that mean you should speak to your {_healthContact} first.
               </div>
 
               {/* Q1 */}
@@ -45032,7 +46034,7 @@ function App(){
                 </div>
                 {_eczema==="severe" && (
                   <div style={{marginTop:8,padding:"8px 10px",borderRadius:10,background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.25)",fontSize:11,color:C.gold,lineHeight:1.5}}>
-                    Babies with severe eczema are at higher risk. BSACI recommends speaking to your {_doctor} before introducing egg and peanut. OBubba will remind you of this before each allergen.
+                    Babies with severe eczema are at higher risk. {_guide.allergenSource} guidance recommends speaking to your {_healthContact} before introducing egg and peanut. OBubba will remind you of this before each allergen.
                   </div>
                 )}
               </div>
@@ -45050,7 +46052,7 @@ function App(){
                 </div>
                 {_knownAllergy==="yes" && (
                   <div style={{marginTop:8,padding:"8px 10px",borderRadius:10,background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.2)",fontSize:11,color:"#c04040",lineHeight:1.5}}>
-                    If {babyName||"baby"} already has a known allergy, please speak to your {_doctor} or a paediatric allergist before introducing further allergens. This feature isn't a substitute for professional guidance.
+                    If {babyName||"baby"} already has a known allergy, please speak to your {_healthContact} or an allergy specialist before introducing further allergens. This feature isn't a substitute for professional guidance.
                   </div>
                 )}
               </div>
@@ -45068,19 +46070,19 @@ function App(){
                 </div>
                 {_familyHistory==="yes" && (
                   <div style={{marginTop:8,padding:"8px 10px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,fontSize:11,color:C.mid,lineHeight:1.5}}>
-                    Family history alone doesn't mean you need to avoid allergens. early introduction is still recommended. It's worth mentioning to your {_doctor} at your next appointment.
+                    Family history alone doesn't mean you need to avoid allergens. early introduction may still be appropriate. It's worth mentioning to your {_healthContact} at your next appointment.
                   </div>
                 )}
               </div>
 
               {/* Legal disclaimer */}
               <div style={{padding:"10px 12px",borderRadius:10,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,fontSize:10,color:C.lt,lineHeight:1.6,marginBottom:16}}>
-                ⚖️ OBubba's allergen guidance is based on NHS, BSACI, and Anaphylaxis UK recommendations for the <strong>general population</strong>. It is not medical advice and is not a substitute for professional guidance. If your baby is high-risk, always consult your {_doctor} before proceeding. OBubba is not responsible for any adverse reactions.
+                ⚖️ OBubba's allergen guidance is based on {_guide.allergenSource} recommendations for the <strong>general population</strong>. It is not medical advice and is not a substitute for professional guidance. If your baby is high-risk, always consult your {_healthContact} before proceeding. OBubba is not responsible for any adverse reactions.
               </div>
 
               <button disabled={!_canProceed} onClick={()=>{ if(_canProceed){ saveAllergenProfile({eczema:_eczema,knownAllergy:_knownAllergy,familyHistory:_familyHistory,date:todayStr()}); setShowAllergenGate(false); }}}
                 style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:_canProceed?((_highRisk)?"#c04040":C.ter):"#ccc",color:"white",fontSize:15,fontWeight:700,cursor:_canProceed?_cP:"not-allowed",fontFamily:_fI,opacity:_canProceed?1:0.6}}>
-                {!_canProceed ? "Answer all questions to continue" : _highRisk ? "I understand. I'll speak to my GP first" : "I understand. let's get started"}
+                {!_canProceed ? "Answer all questions to continue" : _highRisk ? "I understand. I'll get professional advice first" : "I understand. let's get started"}
               </button>
             </div>
           </div>
@@ -45096,7 +46098,7 @@ function App(){
 
             {/* MILD */}
             <div style={{background:"rgba(212,168,85,0.06)",border:"1.5px solid rgba(212,168,85,0.3)",borderRadius:14,padding:"12px 14px",marginBottom:12}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.gold,marginBottom:8}}>Mild reaction. pause feeding, call 111 or your GP</div>
+              <div style={{fontSize:12,fontWeight:700,color:C.gold,marginBottom:8}}>Mild reaction. pause feeding, call {_guide.nonEmergencyLabel} or your {_healthContact}</div>
               {[
                 "Hives or raised itchy bumps (may appear anywhere on body)",
                 "Swelling around mouth, lips, or eyes",
@@ -45131,12 +46133,12 @@ function App(){
             <a href={`tel:${_emergNum}`} style={{display:"block",width:"100%",padding:"14px",borderRadius:99,background:"#c04040",color:"white",fontSize:16,fontWeight:700,textAlign:"center",textDecoration:"none",marginBottom:10,boxSizing:"border-box"}}>
               📞 Call {_emergNum} Now
             </a>
-            <a href={`tel:${_isUS?"811":_isAU?"1800022222":"111"}`} style={{display:"block",width:"100%",padding:"12px",borderRadius:99,background:"var(--card-bg-alt)",color:C.mid,fontSize:14,fontWeight:600,textAlign:"center",textDecoration:"none",marginBottom:16,border:`1px solid ${C.blush}`,boxSizing:"border-box"}}>
-              📞 Call {_isUS?"811 (nurse line)":_isAU?"Healthdirect 1800 022 222":"111 (NHS)"}. mild reaction advice
+            <a href={`tel:${_nonEmergencyTel || _emergNum}`} style={{display:"block",width:"100%",padding:"12px",borderRadius:99,background:"var(--card-bg-alt)",color:C.mid,fontSize:14,fontWeight:600,textAlign:"center",textDecoration:"none",marginBottom:16,border:`1px solid ${C.blush}`,boxSizing:"border-box"}}>
+              📞 Call {_guide.nonEmergencyLabel}. mild reaction advice
             </a>
 
             <div style={{fontSize:10,color:C.lt,lineHeight:1.6,textAlign:"center"}}>
-              Source: NHS, BSACI, Anaphylaxis UK, Resuscitation Council UK. Not a substitute for emergency services.
+              Source: {_guide.allergenSource} and emergency first-aid guidance. Not a substitute for emergency services.
             </div>
           </div>
         </div>
@@ -45304,7 +46306,7 @@ function App(){
             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginBottom:16,border:`1px solid ${C.blush}`}}>
               <div style={{fontSize:13,fontWeight:600,color:C.deep,marginBottom:4}}>🏥 Your {_doctor} wants to hear from you</div>
               <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
-                You don't need to be in crisis to book a GP appointment. Postnatal distress, sleep deprivation, and anxiety are all valid reasons to go. Mention how you're feeling. they can refer you to the right support quickly.
+                You don't need to be in crisis to speak to your {_healthContact}. Postnatal distress, sleep deprivation, and anxiety are all valid reasons to ask for support. Mention how you're feeling. they can refer you to the right support quickly.
               </div>
             </div>
 
@@ -45463,11 +46465,11 @@ function App(){
             {(()=>{
               const _lower = (weaningForm.food||"").toLowerCase();
               const _avoid = [];
-              if (_lower.includes("honey")) _avoid.push({food:"Honey",reason:"Risk of infant botulism. not safe under 12 months (NHS)"});
+              if (_lower.includes("honey")) _avoid.push({food:"Honey",reason:"Risk of infant botulism. not safe under 12 months (" + _guide.weaningSource + ")"});
               if (/whole nut|nuts/.test(_lower) && !_lower.includes("butter") && !_lower.includes("ground") && !_lower.includes("crushed")) _avoid.push({food:"Whole nuts",reason:"Choking hazard. under 5s. Use smooth butter or finely ground instead"});
-              if (/shark|swordfish|marlin/.test(_lower)) _avoid.push({food:"High-mercury fish",reason:"Can affect baby's developing nervous system (NHS)"});
+              if (/shark|swordfish|marlin/.test(_lower)) _avoid.push({food:"High-mercury fish",reason:"Can affect baby's developing nervous system (" + _guide.weaningSource + ")"});
               if (/raw (shellfish|prawn|shrimp|oyster)/.test(_lower)) _avoid.push({food:"Raw shellfish",reason:"Risk of food poisoning. must be thoroughly cooked"});
-              if (/rice (milk|drink)/.test(_lower)) _avoid.push({food:"Rice milk",reason:"Contains arsenic. not suitable under 5 years (NHS)"});
+              if (/rice (milk|drink)/.test(_lower)) _avoid.push({food:"Rice milk",reason:"Contains arsenic. not suitable under 5 years (" + _guide.weaningSource + ")"});
               if (_avoid.length) return (
                 <div style={{background:"rgba(232,87,74,0.08)",border:"1.5px solid rgba(232,87,74,0.25)",borderRadius:12,padding:"8px 12px",marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:700,color:"#e8574a",marginBottom:3}}>🚫 Not recommended for babies</div>
@@ -45482,14 +46484,14 @@ function App(){
               if (_isHoney && age && age.months < 12) return (
                 <div style={{background:"rgba(232,87,74,0.08)",borderRadius:12,padding:"10px 12px",marginBottom:14,border:"1.5px solid rgba(232,87,74,0.3)"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#c04040",marginBottom:3}}>🚫 Honey is not safe under 12 months</div>
-                  <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>Honey can contain bacteria that cause infant botulism. a serious illness. This applies to all forms including cooked honey and honey in baked goods. NHS guidance: do not give honey until after baby's first birthday.</div>
+                  <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>Honey can contain bacteria that cause infant botulism. a serious illness. This applies to all forms including cooked honey and honey in baked goods. {_guide.weaningSource} guidance: do not give honey until after baby's first birthday.</div>
                 </div>
               );
               if (!allergens.length) return null;
               return (
                 <div style={{background:"rgba(212,168,85,0.1)",border:"1.5px solid rgba(212,168,85,0.3)",borderRadius:12,padding:"8px 12px",marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:700,color:C.gold,marginBottom:3}}>Contains major allergen{allergens.length>1?"s":""}: {allergens.join(", ")}</div>
-                  <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>NHS recommends introducing one allergen at a time, early in the day, so you can watch for reactions over several hours. Start with a small amount (¼ teaspoon). If no reaction, gradually increase over the next few days. Once introduced, keep giving it regularly (at least once a week).</div>
+                  <div style={{fontSize:11,color:C.mid,lineHeight:1.4}}>{_guide.allergenSource} guidance usually recommends introducing one allergen at a time, early in the day, so you can watch for reactions over several hours. Start with a small amount (¼ teaspoon). If no reaction, gradually increase over the next few days. Once introduced, keep giving it regularly where your local guidance supports it.</div>
                   <div style={{fontSize:11,color:C.mid,lineHeight:1.4,marginTop:4}}>Signs to look for: rash, swelling (lips/eyes), vomiting, diarrhoea, or breathing changes. If severe. call {_emergNum} for help.</div>
                 </div>
               );
@@ -45535,7 +46537,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       {warnings.map((w,i) => (
                         <div key={i} style={{fontSize:10,color:C.lt,lineHeight:1.4,marginTop:4}}>{w.explanation}</div>
                       ))}
-                      <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:4}}>Speak to your {_doctor} before introducing these foods. Based on BSACI cross-reactivity guidance.</div>
+                      <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:4}}>Speak to your {_healthContact} before introducing these foods. Based on {_guide.allergenSource} cross-reactivity guidance.</div>
                     </div>
                   );
                 })()}
@@ -45930,8 +46932,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       <div style={{fontSize:15,fontWeight:700,color:C.deep,marginBottom:6}}>{_flags[0].title}</div>
                       <div style={{fontSize:13,color:C.mid,lineHeight:1.5,marginBottom:10}}>{_flags[0].action}</div>
                       <div style={{display:"flex",gap:8}}>
-                        <a href="tel:111" style={{flex:1,padding:"10px",borderRadius:99,background:"#e8574a",color:"white",textDecoration:"none",fontSize:13,fontWeight:700,textAlign:"center"}}>📞 Call 111</a>
-                        <a href="https://111.nhs.uk" target="_blank" rel="noopener" style={{flex:1,padding:"10px",borderRadius:99,background:"var(--card-bg)",color:C.deep,textDecoration:"none",fontSize:13,fontWeight:700,textAlign:"center",border:"1px solid "+C.blush}}>NHS 111 Online</a>
+                        <a href={`tel:${_flags[0].link || _nonEmergencyTel || _emergNum}`} style={{flex:1,padding:"10px",borderRadius:99,background:"#e8574a",color:"white",textDecoration:"none",fontSize:13,fontWeight:700,textAlign:"center"}}>📞 Call {_guide.nonEmergencyLabel || _emergNum}</a>
+                        {_countryKey==="UK" && <a href="https://111.nhs.uk" target="_blank" rel="noopener" style={{flex:1,padding:"10px",borderRadius:99,background:"var(--card-bg)",color:C.deep,textDecoration:"none",fontSize:13,fontWeight:700,textAlign:"center",border:"1px solid "+C.blush}}>NHS 111 Online</a>}
                       </div>
                     </div>
                   );
@@ -46078,7 +47080,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             {/* Medical disclaimer */}
             <div style={{marginTop:14,padding:"12px",borderRadius:12,background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`}}>
               <div style={{fontSize:12,color:C.lt,lineHeight:1.5,textAlign:"center"}}>
-                This is a guide based on logged data and age, not medical advice. If baby seems unwell, has a temperature, is unsettled for 2+ hours, or you're worried, your doctor or local medical helpline is always there for you.
+                This is a guide based on logged data and age, not medical advice. If baby seems unwell, has a temperature, is unsettled for 2+ hours, or you're worried, your {_healthContact} or local medical helpline is always there for you.
               </div>
             </div>
             <button onClick={()=>{setShowCryingHelper(false);setCryingResult(null);}} style={{width:"100%",marginTop:14,padding:"14px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:15,fontWeight:600,cursor:_cP,fontFamily:_fI}}>
@@ -46303,7 +47305,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--picker-bg)",borderRadius:24,padding:"28px 24px",width:"100%",maxWidth:360,boxShadow:"0 12px 40px rgba(0,0,0,0.2)",textAlign:"center"}}>
             <div style={{fontSize:36,marginBottom:8}}>&#128301;</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>OBubba noticed something</div>
-            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:20}}>We've been watching {babyName||"your baby"}'s sleep this week and spotted an interesting pattern forming. Start your free trial to see what your data is telling you.</div>
+            <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:20}}>We've been watching {babyName||"your baby"}'s sleep this week and spotted an interesting pattern forming. Open Premium to see what your data is telling you.</div>
             <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);triggerPaywall("curiosity_gap");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Start Free Trial</button>
             <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe Later</button>
           </div>
@@ -46348,7 +47350,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>{premiumGateInfo.label}</div>
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>{premiumGateInfo.description}</div>
             <div style={{fontSize:13,color:"#6A6070",lineHeight:1.6,marginBottom:16,padding:"10px 14px",background:"rgba(155,139,184,0.06)",borderRadius:12}}>For less than a coffee a month, unlock personalised predictions, sleep analysis, growth charts, and more for {babyName||"your baby"}.</div>
-            <button onClick={()=>{setPremiumGateInfo(null);triggerPaywall(premiumGateInfo.context||"general");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe. {"\u00A3"}7.99/month</button>
+            <button onClick={()=>{setPremiumGateInfo(null);triggerPaywall(premiumGateInfo.context||"general");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe. {_fallbackPlanPrice("monthly")}/month</button>
             <button onClick={()=>setPremiumGateInfo(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
           </div>
         </div>
@@ -46361,7 +47363,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontSize:40,marginBottom:10}}>{"\u{1F4E8}"}</div>
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:10}}>Send to Family</div>
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:8}}>Has your mum asked for the 100th time if {babyName||"baby"} has been fed, how long they slept, how many nappies? {"\u{1F4AD}"}</div>
-            <div style={{fontSize:14,color:"#6A6070",lineHeight:1.7,marginBottom:16}}>Well{"\u2026"} for just {"\u00A3"}7.99/month, let{"\u2019"}s put grandma{"\u2019"}s mind at ease with a beautiful daily snapshot card. Or not {"\u2014"} I don{"\u2019"}t want to tell you how to live {"\u{1F440}"}</div>
+            <div style={{fontSize:14,color:"#6A6070",lineHeight:1.7,marginBottom:16}}>Well{"\u2026"} for just {_fallbackPlanPrice("monthly")}/month, let{"\u2019"}s put grandma{"\u2019"}s mind at ease with a beautiful daily snapshot card. Or not {"\u2014"} I don{"\u2019"}t want to tell you how to live {"\u{1F440}"}</div>
             <button onClick={()=>{setFamilyShareGate(false);triggerPaywall("family_share");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe {"\u2192"}</button>
             <button onClick={()=>setFamilyShareGate(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
           </div>
@@ -46778,7 +47780,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           { emoji: "🥣", title: "Late nap < 4pm", body: "A nap that runs past 4pm eats into sleep pressure, making bedtime harder. If baby is asleep at 4pm, it's okay to gently wake them, the tradeoff is worth it for an easier settle." },
           { emoji: "🫖", title: "Avoid the 'rescue nap'", body: "If baby is exhausted at 5pm, resist putting them down 'just for 20 minutes'. A catnap after 4pm almost always pushes bedtime past 9pm. Better to push through with calm activity." },
           { emoji: "📱", title: "No screens in the hour before bed", body: "Blue light suppresses melatonin for up to an hour. This goes for baby (no screen time) AND for you in the same room, a bright phone near a baby delays their sleep too." },
-          { emoji: "🌿", title: "Calming scents — a note on safety", body: "Essential oils (including lavender) are NOT recommended for babies under 6 months — they can irritate skin, airways, and lungs. For older babies, never apply directly to skin or use in enclosed spaces. NHS advises a warm bath with a gentle, fragrance-free baby wash instead. The routine itself (not the scent) is what helps baby wind down." },
+          { emoji: "🌿", title: "Calming scents — a note on safety", body: "Essential oils (including lavender) are NOT recommended for babies under 6 months — they can irritate skin, airways, and lungs. For older babies, never apply directly to skin or use in enclosed spaces. A warm bath with a gentle, fragrance-free baby wash is the safer wind-down option. The routine itself (not the scent) is what helps baby wind down." },
           { emoji: "⏳", title: "Don't rush the cry", body: "Babies often make noises, grunting, fussing, even brief cries, BETWEEN sleep cycles without fully waking. If you wait 2 minutes before rushing in, many will drift back on their own." },
           { emoji: "🌡️", title: "Check the back of the neck", body: "To tell if baby is warm enough, feel the back of their neck (not hands or feet, which always run cool). Should feel warm but not sweaty. This is the single best temperature check." },
           { emoji: "🎨", title: "Keep the nursery boring", body: "Bright colours and busy mobiles stimulate the brain. For the sleep space, less is more: one muted colour, one mobile MAX, no toys in the cot. Save the stimulation for daytime." },
@@ -47319,7 +48321,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 {pinnedNotes.filter(n=>n.pinned).length > 0 && <div>📋 Allergies & medical notes</div>}
                 <div>🍼 Feeding type, amounts, last feed</div>
                 <div>😴 Wake windows, nap & bedtime predictions</div>
-                <div>🛏️ Safe sleep essentials (Lullaby Trust)</div>
+                <div>🛏️ Safe sleep essentials ({_guide.safeSleepSource})</div>
                 <div>💝 Soothing tips</div>
               </div>
             </div>
@@ -47360,9 +48362,9 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 style={{width:"100%",minHeight:70,padding:"10px 12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,fontSize:13,fontFamily:_fI,outline:_oN,boxSizing:_bBB,resize:"vertical"}}/>
             </div>
 
-            {/* Lullaby Trust note */}
+            {/* Safe sleep source note */}
             <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:14,padding:"0 4px",textAlign:"center"}}>
-              Safe sleep section follows The Lullaby Trust's guidance for other carers. Emergency numbers are auto-detected from your region.
+              Safe sleep section follows {_guide.safeSleepSource} guidance for other carers. Emergency numbers are auto-detected from your region.
             </div>
             </React.Fragment>
             )}
@@ -47409,11 +48411,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               <button onTouchEnd={e=>e.stopPropagation()} onClick={()=>setPoopWhyOpen(false)} style={{width:32,height:32,borderRadius:"50%",border:_bN,background:"var(--card-bg-alt)",color:C.deep,fontSize:16,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
             </div>
             <div style={{fontSize:13,color:C.mid,lineHeight:1.7}}>
-              <div style={_S.mb10}>🤱 <strong>Breastfed babies</strong>. In the first few weeks, several poos a day is common. After about 6 weeks, breastfed babies can go anywhere from several times a day to once a week. Going up to 7 days without a poo can be completely normal as long as the poo is soft when it comes (NHS).</div>
-              <div style={_S.mb10}>🍼 <strong>Formula-fed babies</strong>. Tend to poo more regularly, usually at least every 3 days. Poo is often firmer and darker than breastfed poo. Going longer than 3 days without a poo is less common for formula-fed babies (NHS).</div>
+              <div style={_S.mb10}>🤱 <strong>Breastfed babies</strong>. In the first few weeks, several poos a day is common. After about 6 weeks, breastfed babies can go anywhere from several times a day to once a week. Going up to 7 days without a poo can be completely normal as long as the poo is soft when it comes ({_guide.pooSource}).</div>
+              <div style={_S.mb10}>🍼 <strong>Formula-fed babies</strong>. Tend to poo more regularly, usually at least every 3 days. Poo is often firmer and darker than breastfed poo. Going longer than 3 days without a poo is less common for formula-fed babies ({_guide.pooSource}).</div>
               <div style={_S.mb10}>🥣 <strong>After starting solids</strong>. Poo often changes colour, texture, and frequency. This is normal as their digestive system adjusts to new foods.</div>
               <div style={{marginBottom:10,fontStyle:"italic",color:C.lt}}>Every baby is different. what matters most is that {babyName||"baby"} seems comfortable and the poo is a normal consistency when it comes.</div>
-              <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(192,112,136,0.06)",border:"1.5px solid rgba(192,112,136,0.15)",color:C.ter,lineHeight:1.6}}>💬 If {babyName||"baby"} seems uncomfortable, is straining a lot, or you're worried, it's always worth having a chat with your {_doctor} or health visitor. They're there to help and would rather you ask than worry.</div>
+              <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(192,112,136,0.06)",border:"1.5px solid rgba(192,112,136,0.15)",color:C.ter,lineHeight:1.6}}>💬 If {babyName||"baby"} seems uncomfortable, is straining a lot, or you're worried, it's always worth having a chat with your {_healthContact}. They're there to help and would rather you ask than worry.</div>
             </div>
             <button onClick={()=>setPoopWhyOpen(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:16}}>
               Got it
@@ -47549,6 +48551,61 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </button>
               <button onClick={()=>setShowForgotTimer(false)} style={{padding:"8px",background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP}}>Dismiss</button>
             </div>
+          </div>
+        </div>
+      )}
+
+            {showNightFeedAmount&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.55)",backdropFilter:"blur(5px)",WebkitBackdropFilter:"blur(5px)",zIndex:520,display:"flex",alignItems:"flex-end"}} onClick={e=>{if(e.target===e.currentTarget)setShowNightFeedAmount(false);}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--bg-solid)",borderRadius:"24px 24px 0 0",padding:"24px 20px max(30px, env(safe-area-inset-bottom))",width:"100%",boxSizing:_bBB,boxShadow:"0 -18px 48px rgba(0,0,0,0.22)",border:"1px solid var(--card-border)"}}>
+            <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 18px"}}/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:8}}>
+              <div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:21,fontWeight:700,color:C.deep}}>How much did baby feed?</div>
+                <div style={{fontSize:13,color:C.lt,marginTop:4,lineHeight:1.5}}>For bottle feeds, this keeps night intake and hunger patterns accurate.</div>
+              </div>
+              <button aria-label="Close" onClick={()=>setShowNightFeedAmount(false)} style={{width:36,height:36,borderRadius:"50%",border:_bN,background:"var(--card-bg-solid)",color:C.deep,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 8px rgba(0,0,0,0.12)",flexShrink:0}}>✕</button>
+            </div>
+
+            <div style={{marginTop:16,marginBottom:12}}>
+              <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Bottle amount</div>
+              <div style={_S.flexCenter10}>
+                <input autoFocus type="number" inputMode={FU==="oz"?"decimal":"numeric"} step={FU==="oz"?"0.1":"1"} min="0" placeholder={FU==="oz"?"e.g. 4":"e.g. 120"} value={nightFeedDraft}
+                  onChange={e=>setNightFeedDraft(e.target.value)}
+                  onKeyDown={e=>{
+                    if(e.key==="Enter" && displayToMl(nightFeedDraft,FU)>0){
+                      const _ml=displayToMl(nightFeedDraft,FU);
+                      setShowNightFeedAmount(false);
+                      resumeBedTimer("milk",{amountMl:_ml});
+                    }
+                  }}
+                  style={{flex:1,fontSize:22,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fM,textAlign:"center",boxSizing:_bBB}}/>
+                <span style={{fontSize:16,color:C.lt,fontFamily:_fM}}>{volLabel(FU)}</span>
+              </div>
+              <div style={{display:"flex",gap:7,marginTop:9}}>
+                {(FU==="oz"?[2,3,4,5,6]:[60,90,120,150,180]).map(v=>(
+                  <button key={v} onClick={()=>setNightFeedDraft(String(v))}
+                    style={{flex:1,padding:"8px 2px",borderRadius:10,border:`1px solid ${nightFeedDraft===String(v)?"#7b68ee":C.blush}`,background:nightFeedDraft===String(v)?"#f0eeff":C.warm,color:nightFeedDraft===String(v)?"#5040a0":C.lt,fontSize:12,fontFamily:_fM,cursor:_cP}}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={()=>{
+              const _ml=displayToMl(nightFeedDraft,FU);
+              if(_ml<=0){showToast("Add the bottle amount, or tap Skip amount.",2200,2);return;}
+              setShowNightFeedAmount(false);
+              resumeBedTimer("milk",{amountMl:_ml});
+            }} style={{width:"100%",padding:"14px",borderRadius:99,border:_bN,background:`linear-gradient(135deg,#D4A855,#C49545)`,color:"white",fontSize:15,fontWeight:800,cursor:_cP,fontFamily:_fI,boxShadow:"0 8px 22px rgba(212,168,85,0.25)"}}>
+              Save feed + back to sleep
+            </button>
+            <button onClick={()=>{
+              setShowNightFeedAmount(false);
+              resumeBedTimer("milk",{amountMl:0});
+            }} style={{width:"100%",padding:"11px",borderRadius:99,border:_bN,background:"transparent",color:C.lt,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI,marginTop:6}}>
+              Skip amount this time
+            </button>
           </div>
         </div>
       )}
@@ -48040,7 +49097,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             {(activeChild.conditions||[]).includes("cmpa") && (
               <div style={{marginBottom:16}}>
                 <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1,display:"block",marginBottom:4}}>Custom daily target (ml)</label>
-                <div style={{fontSize:11,color:C.lt,marginBottom:6}}>Enter the amount your dietitian recommended, or leave blank for standard NHS targets.</div>
+                <div style={{fontSize:11,color:C.lt,marginBottom:6}}>Enter the amount your dietitian recommended, or leave blank for standard local guidance targets.</div>
                 <input type="number" inputMode="numeric" placeholder="e.g. 600" value={activeChild.customDailyTarget||""} onChange={e=>updateChild({customDailyTarget:parseInt(e.target.value)||null})}
                   style={{width:"100%",fontSize:16,padding:"10px 14px",borderRadius:12,border:`2px solid ${C.blush}`,outline:_oN,fontFamily:_fI,boxSizing:_bBB}}/>
               </div>
@@ -48368,7 +49425,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </div>
               <button onClick={()=>{setShowAddAppt(false);setEditApptId(null);}} aria-label="Close" style={{width:36,height:36,borderRadius:99,border:"1px solid var(--card-border)",background:"var(--card-bg)",color:C.lt,fontSize:18,cursor:_cP,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>×</button>
             </div>
-            <Inp label="Title" type="text" placeholder="e.g. Health visitor, GP, vaccination" value={apptForm.title} onChange={e=>setApptForm(f=>({...f,title:e.target.value}))}/>
+            <Inp label="Title" type="text" placeholder={"e.g. " + _guide.appointmentExample} value={apptForm.title} onChange={e=>setApptForm(f=>({...f,title:e.target.value}))}/>
             {/* All-day toggle */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",marginBottom:12,borderRadius:14,border:"1px solid var(--card-border)",background:"var(--card-bg-alt)"}}>
               <span style={{fontSize:14,fontWeight:600,color:C.deep}}>All-day</span>
@@ -48391,7 +49448,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={_S.mb12}>
               <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Location (optional)</label>
               <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-                <div style={_S.flex1}><input type="text" placeholder="e.g. GP surgery, 12 High St, London" value={apptForm.location||""} onChange={e=>setApptForm(f=>({...f,location:e.target.value}))} style={{width:"100%",boxSizing:_bBB,padding:"10px 12px",minHeight:42,borderRadius:12,border:"1px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_bN}} /></div>
+                <div style={_S.flex1}><input type="text" placeholder={"e.g. " + _guide.locationExample} value={apptForm.location||""} onChange={e=>setApptForm(f=>({...f,location:e.target.value}))} style={{width:"100%",boxSizing:_bBB,padding:"10px 12px",minHeight:42,borderRadius:12,border:"1px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontSize:14,fontFamily:_fI,outline:_bN}} /></div>
                 {apptForm.location&&apptForm.location.trim().length>3&&(
                   <button onClick={()=>{
                     // Try native plugin first (iOS), fallback to manual
@@ -48551,7 +49608,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>📌 Pin an Important Note</div>
             <div style={{fontSize:13,color:C.lt,marginBottom:12,lineHeight:1.5}}>This note will appear at the top of every day. Use it for allergies, medical info, or reminders.</div>
-            <textarea value={pinForm} onChange={e=>setPinForm(e.target.value)} placeholder={"e.g. CMPA. confirmed by GP\nBorn 3 weeks early. adjusted age\nReflux. keep upright 20min after feeds"}
+            <textarea value={pinForm} onChange={e=>setPinForm(e.target.value)} placeholder={"e.g. CMPA. confirmed by " + _healthContact + "\nBorn 3 weeks early. adjusted age\nReflux. keep upright 20min after feeds"}
               style={{width:"100%",fontSize:15,padding:"12px",borderRadius:12,border:"1.5px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,outline:_oN,fontFamily:_fI,resize:"vertical",minHeight:80,boxSizing:_bBB}}/>
             <div style={{marginTop:10}}><PBtn onClick={addPinnedNote}>Pin Note</PBtn></div>
             <button onClick={()=>{setShowAddPin(false);setEditNoteId(null);setPinForm("");}} style={{width:"100%",marginTop:6,padding:"10px",borderRadius:12,border:"1px solid var(--card-border)",background:"var(--card-bg)",cursor:_cP,fontSize:13,fontWeight:600,color:C.lt,fontFamily:_fI}}>Cancel</button>
@@ -48958,7 +50015,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   <div class="section-title">Weekly averages</div>
                   <table>${_statRowsHtml}</table>
                   ${digest.bedConsistency!==undefined&&digest.bedConsistency!==null?`<div class="section-title">Bedtime consistency</div><p>${digest.bedConsistency<15?"Very consistent":"±"+digest.bedConsistency+" min variation"}</p>`:""}
-                  <p class="footer">Generated by OBubba. obubba.com &middot; Sleep: NHS/AASM &middot; Growth: WHO</p>
+                  <p class="footer">Generated by OBubba. obubba.com &middot; ${_guidanceFooter()}</p>
                 </body></html>`;
                 // Native path: request a real PDF from the Capacitor plugin.
                 const _cc = window.Capacitor?.Plugins?.OBCareCard;
@@ -48988,7 +50045,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         );
       })()}
 
-      {/* ═══ Health Visitor Report Modal ═══ */}
+      {/* ═══ Health Report Modal ═══ */}
       {showHVReport&&(()=>{
         const report = generateHVReport();
         if(!report) return <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setShowHVReport(false)}>
@@ -49005,7 +50062,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               {/* Header */}
               <div style={{textAlign:"center",marginBottom:16}}>
                 <div style={{display:"inline-block",background:"linear-gradient(135deg,#e74c6f20,#7b68ee20)",borderRadius:12,padding:"6px 16px",marginBottom:8}}>
-                  <span style={{fontSize:12,fontFamily:_fM,color:"#7b68ee",fontWeight:700,letterSpacing:_ls1}}>🏥 HEALTH VISITOR REPORT</span>
+                  <span style={{fontSize:12,fontFamily:_fM,color:"#7b68ee",fontWeight:700,letterSpacing:_ls1}}>🏥 {(_guide.reportTitle||"Health Report").toUpperCase()}</span>
                 </div>
                 <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep}}>{report.name}</div>
                 <div style={{fontSize:12,color:C.lt,marginTop:2}}>{report.period} · {report.days} days</div>
@@ -49020,7 +50077,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   const lines=s.trim().split("\n").filter(l=>l.trim());
                   if(!lines.length) return;
                   const title=lines[0].replace(/═+/g,"").trim();
-                  if(title.startsWith("HEALTH VISITOR REPORT")) return;
+                  if(title.startsWith((_guide.reportTitle||"Health Report").toUpperCase())) return;
                   const data=lines.slice(1).filter(l=>!l.startsWith("Report generated")&&!l.startsWith("Sleep:")&&!l.startsWith("Period:")&&!l.startsWith("Generated:")&&!l.startsWith("Age:")&&!l.startsWith("DOB:"));
                   if(data.length) parsed.push({title,data});
                 });
@@ -49063,7 +50120,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
               {/* Source attribution */}
               <div style={{fontSize:10,color:C.lt,textAlign:"center",marginBottom:12,lineHeight:1.4}}>
-                Sleep: NHS/AASM · Growth: WHO · Feeding: NHS/WHO · Development: NHS Start4Life
+                {_guidanceFooter()}
               </div>
 
               <div style={_S.flexRowGap8}>
@@ -49230,7 +50287,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     📋 Copy
                   </button>
                 </div>
-                <button onClick={()=>{
+                <button onClick={async()=>{
                   try {
                     const _d = new Date(); _d.setDate(_d.getDate()+1);
                     const _dateStr = _d.getFullYear()+"-"+String(_d.getMonth()+1).padStart(2,"0")+"-"+String(_d.getDate()).padStart(2,"0");
@@ -49243,8 +50300,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       const _endT = String(Math.floor(_endMin/60)%24).padStart(2,"0")+":"+String(_endMin%60).padStart(2,"0");
                       return { title: "🍼 "+(s.label||"OBubba"), date: _dateStr, time: _t, endTime: _endT, note: "Part of "+(smResult.eventLabel||"schedule")+" built with OBubba" };
                     });
-                    const _ics = generateICS(_events);
-                    shareICS(_ics, "obubba-schedule.ics", _events);
+                    await addEventsToCalendar(_events, "obubba-schedule.ics", _events.length+" schedule events added to Calendar");
                   } catch(e) { console.warn("Calendar export failed:", e); showToast("Couldn't export to calendar",2500,1); }
                 }} style={{width:"100%",padding:"10px",borderRadius:99,border:`1.5px solid ${C.sky}40`,background:"var(--card-bg-alt)",color:C.sky,fontSize:13,fontWeight:700,cursor:_cP}}>
                   📅 Add to Calendar (tomorrow)
@@ -49540,7 +50596,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             </div>
 
             <div style={{fontSize:11,color:C.lt,textAlign:"center",marginBottom:8,lineHeight:1.5,fontStyle:"italic"}}>
-              These guardrails follow NHS sleep guidance and paediatric sleep research. You can always fine-tune later.
+              These guardrails follow {_guide.sleepSource} and paediatric sleep research. You can always fine-tune later.
             </div>
 
             <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.mint}22`,borderRadius:12,padding:"10px 12px",marginBottom:14}}>
@@ -50059,11 +51115,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     <span style={_S.f20}>💉</span>
                     <div>
                       <div style={{fontSize:14,fontWeight:700,color:_overdue.length>0?C.gold:C.deep}}>{_overdue.length>0?_overdue.length+" due. book when you can":_next?"Next: "+_next.label:"All up to date ✓"}</div>
-                      <div style={{fontSize:11,color:C.lt,marginTop:1}}>{_overdue.length>0?"Have a chat with your GP surgery":_next?"Due "+_fmt(_next.due):_sched.filter(v=>v.due<=_today).length+" vaccinations completed"}</div>
+                      <div style={{fontSize:11,color:C.lt,marginTop:1}}>{_overdue.length>0?"Have a chat with your " + _guide.vaccinationContact:_next?"Due "+_fmt(_next.due):_sched.filter(v=>v.due<=_today).length+" vaccinations completed"}</div>
                     </div>
                   </div>
                   <div>
-                      <div style={{fontSize:11,color:C.lt,marginBottom:10}}>{_isUS?"AAP/CDC":"NHS UK"} schedule. tap circle to mark as given</div>
+                      <div style={{fontSize:11,color:C.lt,marginBottom:10}}>{_guide.vaccineSource} schedule. tap circle to mark as given</div>
                       {_sched.map((v,i)=>{
                         const _isDone=_done.includes(v.id);
                         const _isOd=!_isDone&&v.due<_today;
@@ -50241,11 +51297,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               @keyframes mascotFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
               @keyframes mascotTextIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
             `}</style>
-            <img
-              src={mascotPopup.type==="celebration"?"obubba-celebration.png":mascotPopup.type==="happy"?"obubba-happy.png":mascotPopup.type==="loading"?"obubba-loading.png":"obubba-thinking.png"}
-              alt=""
-              style={{width:220,height:220,objectFit:"contain",animation:"mascotFloat 2s ease-in-out 0.5s infinite",filter:"drop-shadow(0 16px 36px rgba(217,207,243,0.45))"}}
-            />
+            <OBubbaMascot type={mascotPopup.type==="celebration"?"celebration":mascotPopup.type==="loading"?"loading":mascotPopup.type==="happy"?"happy":"thinking"} size={230} alt="OBubba"/>
             <div className="mascot-pill" style={{marginTop:14,background:isDark?"rgba(30,40,60,0.92)":"rgba(255,255,255,0.95)",borderRadius:99,padding:"12px 28px",boxShadow:"0 0 28px rgba(246,221,227,0.50), 0 4px 20px rgba(217,207,243,0.30), inset 0 1px 0 rgba(255,255,255,0.25)",display:"inline-block",border:"1.5px solid rgba(255,255,255,0.18)",animation:"mascotTextIn 0.4s ease 0.3s both"}}>
               <div style={{fontSize:16,fontWeight:700,color:isDark?"#F0F2F5":"#5B4F5F",fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.01em"}}>{mascotPopup.message}</div>
             </div>

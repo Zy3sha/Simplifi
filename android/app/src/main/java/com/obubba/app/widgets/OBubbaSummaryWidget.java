@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Build;
 import android.os.SystemClock;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -112,6 +113,8 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 JSONObject d = new JSONObject(json);
                 String name = d.optString("babyName", "Baby");
                 String pred = d.optString("nextPrediction", "");
+                String predLabel = d.optString("nextPredictionLabel", "");
+                boolean predictionUnlocked = d.optBoolean("nextPredictionUnlocked", false);
                 String timer = d.optString("activeTimer", "");
                 String label = d.optString("timerLabel", "");
                 String startT = d.optString("timerStartTime", "");
@@ -119,12 +122,15 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 String lastSide = d.optString("lastBreastSide", "");
                 String side = d.optString("breastSide", "");
                 long startMs = 0;
+                long predictionMs = 0;
                 try { if (!d.isNull("timerStartMs")) startMs = d.optLong("timerStartMs", 0); } catch (Exception x) {}
+                try { if (!d.isNull("nextPredictionMs")) predictionMs = d.optLong("nextPredictionMs", 0); } catch (Exception x) {}
 
                 v.setTextViewText(R.id.tv_widget_kicker, "OBUBBA");
                 v.setTextViewText(R.id.tv_baby_name, name);
 
                 boolean active = timer != null && !timer.isEmpty() && !timer.equals("null") && startMs > 1000000000000L;
+                boolean hasPredictionCountdown = predictionUnlocked && predictionMs > System.currentTimeMillis() - 5 * 60 * 1000L;
 
                 // ── Breast row: show for nursing mums ──
                 if (nursing) {
@@ -146,6 +152,9 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setViewVisibility(R.id.timer_chrono, View.VISIBLE);
                     v.setViewVisibility(R.id.tv_prediction, View.GONE);
                     long elapsed = System.currentTimeMillis() - startMs;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        v.setChronometerCountDown(R.id.timer_chrono, false);
+                    }
                     v.setChronometer(R.id.timer_chrono, SystemClock.elapsedRealtime() - elapsed, null, true);
                     String lbl = (label != null && !label.isEmpty() && !label.equals("null")) ? label : "Timer";
                     v.setTextViewText(R.id.tv_timer_label, lbl);
@@ -176,16 +185,37 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
 
                 } else {
                     // Prediction
-                    v.setTextViewText(R.id.tv_status_hint, "Next");
                     v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
-                    v.setViewVisibility(R.id.timer_chrono, View.GONE);
                     v.setViewVisibility(R.id.tv_prediction, View.VISIBLE);
                     v.setViewVisibility(R.id.tv_since, View.GONE);
-                    v.setTextViewText(R.id.tv_timer_label, "");
 
-                    if (pred != null && !pred.isEmpty() && !pred.equals("null")) {
+                    if (hasPredictionCountdown) {
+                        long remaining = Math.max(0L, predictionMs - System.currentTimeMillis());
+                        String lbl = cleanPredictionLabel(predLabel);
+                        if (lbl.isEmpty()) lbl = cleanPredictionLabel(pred);
+
+                        v.setTextViewText(R.id.tv_status_hint, "In");
+                        v.setTextViewText(R.id.tv_timer_label, lbl.isEmpty() ? "Next" : lbl);
+                        v.setViewVisibility(R.id.timer_chrono, View.VISIBLE);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                            v.setChronometerCountDown(R.id.timer_chrono, true);
+                        }
+                        v.setChronometer(R.id.timer_chrono, SystemClock.elapsedRealtime() + remaining, null, true);
+
+                        String hint = predictionTimeHint(pred);
+                        if (!hint.isEmpty()) {
+                            v.setTextViewText(R.id.tv_prediction, hint);
+                        } else {
+                            v.setViewVisibility(R.id.tv_prediction, View.GONE);
+                        }
+                    } else if (pred != null && !pred.isEmpty() && !pred.equals("null")) {
+                        v.setTextViewText(R.id.tv_status_hint, "Next");
+                        v.setViewVisibility(R.id.timer_chrono, View.GONE);
+                        v.setTextViewText(R.id.tv_timer_label, "");
                         v.setTextViewText(R.id.tv_prediction, cleanPrediction(pred));
                     } else {
+                        v.setViewVisibility(R.id.timer_chrono, View.GONE);
+                        v.setTextViewText(R.id.tv_timer_label, "");
                         String feed = d.optString("lastFeedTime", "");
                         if (feed != null && !feed.isEmpty() && !feed.equals("null")) {
                             v.setTextViewText(R.id.tv_status_hint, "Last");
@@ -240,5 +270,20 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
         if (prediction == null) return "";
         String cleaned = prediction.replace("~", " · ").replaceAll("\\s+", " ").trim();
         return cleaned.length() > 28 ? cleaned.substring(0, 27) + "…" : cleaned;
+    }
+
+    private static String cleanPredictionLabel(String label) {
+        if (label == null || label.equals("null")) return "";
+        String cleaned = label.replace("~", " ").replaceAll("\\s+", " ").trim();
+        return cleaned.length() > 12 ? cleaned.substring(0, 11) + "…" : cleaned;
+    }
+
+    private static String predictionTimeHint(String prediction) {
+        if (prediction == null || prediction.isEmpty() || prediction.equals("null")) return "";
+        int idx = prediction.lastIndexOf("~");
+        String hint = idx >= 0 ? prediction.substring(idx + 1) : prediction;
+        hint = hint.replaceAll("\\s+", " ").trim();
+        if (hint.equals(prediction.trim())) return "";
+        return hint.length() > 12 ? hint.substring(0, 11) + "…" : hint;
     }
 }
