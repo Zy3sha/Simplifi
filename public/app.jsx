@@ -4338,6 +4338,7 @@ const BUBBAMOJI_THEME = Object.freeze({
   crying:{bg:"#DDF8F2",main:"#087A70",fill:"#A7EFE3",accent:"#FFFFFF"},
   sounds:{bg:"#E0F1FF",main:"#226EA5",fill:"#BCE2FF",accent:"#FFFFFF"},
   meal:{bg:"#FFE8D6",main:"#B8571B",fill:"#FFC08D",accent:"#FFFFFF"},
+  weaning:{bg:"#FFE4EC",main:"#B83263",fill:"#FFD0DD",accent:"#FFFFFF"},
   voice:{bg:"#F1E6FF",main:"#7650A6",fill:"#DEC8FF",accent:"#FFFFFF"},
   medicine:{bg:"#FFE4E0",main:"#B63F3A",fill:"#FFC4BD",accent:"#FFFFFF"},
   milestone:{bg:"#FFF3D0",main:"#A66F00",fill:"#FFE08F",accent:"#FFFFFF"},
@@ -4433,12 +4434,13 @@ const BUBBAMOJI_EMOJI_MAP = Object.freeze({
   "⏰":"timer",
   "🔄":"timer",
   "🚀":"sparkle",
-  "✨":"sparkle"
+  "✨":"sparkle",
+  "🍎":"weaning"
 });
 
 const OB_UNICODE_ICON_MAP = Object.freeze({
   feed:"🍼", breast:"🤱", nappy:"💧💩", poop:"💧💩", nap:"😴", sleep:"😴", pump:"🥛",
-  crying:"😭", sounds:"🎵", meal:"🍽️", voice:"🎙️", medicine:"💊", milestone:"🏆",
+  crying:"😭", sounds:"🎵", meal:"🍽️", weaning:"🍎", voice:"🎙️", medicine:"💊", milestone:"🏆",
   sparkle:"✨", moon:"🌙", sun:"☀️", wake:"☀️", today:"📅", understand:"💡",
   grow:"🌱", account:"👤", home:"🏠", daycare:"🏢", grandparents:"👴", travel:"✈️",
   sick:"🤒", baby:"👶", check:"✅", arrowRight:"➡️", arrowLeft:"⬅️", bridge:"🌉",
@@ -4459,7 +4461,7 @@ function BubbaIcon({icon,name,size=18,animate=false,style={}}){
 
 const OB_LINE_ICON_THEME = Object.freeze({
   feed:"#5B8EA4", breast:"#B05D78", nappy:"#9A7A4B", nap:"#7667B3", pump:"#B08936",
-  crying:"#4B9388", sounds:"#4C82A8", meal:"#A8643C", voice:"#8567A8", medicine:"#B55B58",
+  crying:"#4B9388", sounds:"#4C82A8", meal:"#A8643C", weaning:"#B83263", voice:"#8567A8", medicine:"#B55B58",
   milestone:"#B08936", sparkle:"#B05D78", moon:"#7667B3", sun:"#B08936", today:"#4C82A8",
   understand:"#B08936", grow:"#5F9267", account:"#8567A8", home:"#A8643C", daycare:"#4C82A8",
   grandparents:"#9A7A4B", travel:"#4B9388", sick:"#B55B58", baby:"#B05D78", check:"#5F9267",
@@ -4495,6 +4497,7 @@ function ObLineGlyph({name}){
     case "crying": return <g><circle cx="11" cy="11.5" r="6.2" {...p}/><path d="M8.7 10h.1m4.6 0h.1M8.8 15c1.5-1.3 3.1-1.3 4.6 0" {...p}/><path d="M18 10.5c1.7 2.2 2.1 3.9.6 5.2-1.7-1.2-1.7-2.9-.6-5.2z" {...p}/></g>;
     case "sounds": return <g><path d="M10 5v11M10 5l8-1.8V14" {...p}/><circle cx="7.5" cy="16" r="2.6" {...p}/><circle cx="15.5" cy="14" r="2.6" {...p}/></g>;
     case "meal": return <g><path d="M7 4c3.3 3.4 5.2 7.6 5.2 16M7.4 4.2c3.6.8 6.2 3.5 6.2 6.5-3.6 0-6.2-2.6-6.2-6.5zM18 4v16M16 4v4.5M20 4v4.5" {...p}/></g>;
+    case "weaning": return <g><path d="M12 7.4c-1.2-2.2-.3-4 2.2-5M12 7.8c-1.9-2-4.2-2.6-6.8-1.7.2 2.6 2 4.2 5.4 4.6" {...p}/><path d="M12 8.8c-4.2 0-6.8 2.8-6.8 6.5 0 3.4 2.2 6 5 6 1 0 1.4-.4 1.8-.4s.8.4 1.8.4c2.8 0 5-2.6 5-6 0-3.7-2.6-6.5-6.8-6.5z" {...p}/></g>;
     case "voice": return <g><rect x="9" y="4" width="6" height="10" rx="3" {...p}/><path d="M6 11c0 4 2.7 6.4 6 6.4s6-2.4 6-6.4M12 17.5V21m-3 0h6" {...p}/></g>;
     case "medicine": return <g><path d="M8 16l8-8a3 3 0 0 1 4.2 4.2l-8 8A3 3 0 0 1 8 16zM12 12l4 4M5 7h5M7.5 4.5v5" {...p}/></g>;
     case "sun":
@@ -4554,6 +4557,8 @@ function BubbaMojiGlyph({name,theme:t}){
       return <g><path d="M27 20v23" {...common}/><path d="M27 20l18-4v21" {...common}/><circle cx="21" cy="43" r="6.2" fill={fill} stroke={t.main} strokeWidth="4"/><circle cx="39" cy="37" r="6.2" fill={fill} stroke={t.main} strokeWidth="4"/></g>;
     case "meal":
       return <g><path d="M22 18c8.4 8.4 13.2 18.6 13.2 32" {...common}/><path d="M23 17c9 2 16 8.8 16 16.5-9 0-16-6.5-16-16.5z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M45 19v31" {...common}/><path d="M39.5 19v10m5.5-10v10m5.5-10v10" {...common} strokeWidth="3.1"/></g>;
+    case "weaning":
+      return <g><path d="M32 20c-4.2-5.2-2.6-10.2 4.8-13.8" {...common}/><path d="M31.5 21c-5-5.5-11.2-7.2-18-4.8.7 6.8 5.4 11 14.2 12.2" fill={t.accent} stroke={t.main} strokeWidth="4"/><path d="M32 25c-10.8 0-17 7-17 16.2 0 8.6 5.6 14.5 12.5 14.5 2.1 0 3.2-1 4.5-1s2.4 1 4.5 1c6.9 0 12.5-5.9 12.5-14.5C49 32 42.8 25 32 25z" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M27 34c2.8-2 7.2-2 10 0" stroke={t.main} strokeWidth="3.1" strokeLinecap="round" opacity=".45"/></g>;
     case "voice":
       return <g><rect x="24" y="13" width="16" height="29" rx="8" fill={fill} stroke={t.main} strokeWidth="4"/><path d="M18 31c0 8.6 6.2 15 14 15s14-6.4 14-15M32 46v7m-8 0h16" {...common}/><path d="M29 22h6" stroke={t.main} strokeWidth="3" strokeLinecap="round"/></g>;
     case "medicine":
@@ -18466,7 +18471,7 @@ function App(){
       { weeks:[15,19], label:"4-Month Sleep Regression", emoji:"🌊",
         desc:`${name}'s sleep architecture is maturing from newborn cycles to adult-style 4-stage sleep. This is permanent brain development. not a setback.`,
         advice:"Expect 2–4 weeks of disrupted sleep. Keep routines consistent, offer extra feeds if needed, and avoid introducing new sleep props. This regression means the brain is developing normally. It's OK to feel exhausted. this phase passes. If you need support, your " + _healthContact + " is there." },
-      { weeks:[24,28], label:"6-Month Sleep Regression", emoji:"🥄",
+      { weeks:[24,28], label:"6-Month Sleep Regression", emoji:"🍎",
         desc:`Weaning, growth spurt, and possible teething are all happening at once. ${name} may be waking more from hunger (solid food isn't replacing milk calories yet), discomfort, or just developmental excitement.`,
         advice:"This usually lasts 2–3 weeks. Keep milk feeds consistent — solids are supplementary at this stage, not a replacement. Extra night feeds are normal and temporary. If teething, offer comfort. This phase passes." },
       { weeks:[34,42], label:"8–10 Month Sleep Regression", emoji:"🧗",
@@ -33027,7 +33032,7 @@ function App(){
           { icon:"💭", title:"OBubba notices things", body:"Tap 'What we noticed' on the hero card to see the journal. OBubba quietly watches for patterns:\n\n• Teething affecting feeds?\n• Naps getting shorter?\n• Ready for a nap transition?\n• Overtired cycle building?\n\nAll personalised. All gentle. No alarms." },
           { icon:"👩‍🍼", title:"Bubba Care. your village", body:"Going out? Leaving " + _bn2 + " with someone?\n\nAccount → Bubba Care → Share or Send Link\n\nThe carer gets: live status, what to do next, emergency numbers, soothing tips, and big log buttons. They can log feeds and naps. you review when you're back.\n\nNo app install needed. just a link." },
           { icon:"💛", title:"We care about YOU too", body:"Tap the Wellbeing card for:\n\n• Daily mood check-in\n• Water tracker\n• Self-care checklist\n• If you tap 'Struggling', real helplines appear. not a generic page. real people who understand.\n\nYou matter. Not just as a parent. as a person." },
-          { icon:"🥕", title:"Weaning when you're ready", body:"From 17 weeks, the Weaning hub unlocks:\n\n• Daily food suggestions (allergens every 3rd day)\n• Safety checklists for allergens\n• Iron-rich recipe library with filters\n• 'Try later' to skip without forgetting\n\nAfter 5pm it says 'meals done for today'. no pressure." },
+          { icon:"🍎", title:"Weaning when you're ready", body:"From 17 weeks, the Weaning hub unlocks:\n\n• Daily food suggestions (allergens every 3rd day)\n• Safety checklists for allergens\n• Iron-rich recipe library with filters\n• 'Try later' to skip without forgetting\n\nAfter 5pm it says 'meals done for today'. no pressure." },
           { icon:"💡", title:"Insights that actually help", body:"The Understand tab shows:\n\n• 🗓 Sleep Coach. 14-day personalised plan (3 gentle methods)\n• Sleep patterns + what's improving\n• Feed trends + milk:solids balance\n• Growth charts (WHO percentiles)\n• 'Best day recipe'. what makes " + _bn2 + "'s best nights\n\nNot just data. actionable guidance." },
           { icon:"⚙️", title:"Make it yours", body:"In Account → Preferences:\n\n• 💛 Gentle Mode. hides all scores if numbers stress you\n• 🏫 Nursery Mode. suppresses daytime warnings\n• 🫶 Parenting Style. responsive, routine, or family-led\n• 🤒 Medical conditions (reflux, CMPA)\n• 🌙 Bedtime routine timer you can customise\n\nThe app adapts to YOUR family." },
           { icon:"📱", title:"Widget, Siri & Live Activity", body:"OBubba works even when you're not in the app:\n\n• 'Hey Siri, log a feed', hands-free at 3am\n• Home screen widget shows feeds, naps, nappies\n• Lock screen timer shows active nap/sleep\n• Dynamic Island shows timer countdown\n\nAll without opening the app." },
@@ -33137,7 +33142,7 @@ function App(){
           { icon:"📋", title:"Today Card", body:"Tap the big 'Today' card to open your full log.\n\nInside you'll find two views:\n• Log — everything that's happened\n• Plan — what's predicted to come next\n\nSwipe between them or tap the tabs at the top.\n\nPress & hold any entry to edit or delete it." },
           { icon:"📝", title:"Notes & Reminders", body:"Tap 'Notes & Reminders' to:\n\n• Pin a note for the day (appointment, teething, etc.)\n• Set a nappy or feed reminder\n• Jot down anything you want to remember\n\nPinned notes show on the hero card so you don't forget." },
           { icon:"🌟", title:"News & Activities", body:"Tap 'News' for:\n\n• A daily story about " + _bn3 + "'s development\n• Age-appropriate play activities\n• Gentle pattern checks when sleep feels off\n\nNew content every day based on " + _bn3 + "'s age." },
-          { icon:"🥕", title:"Weaning Hub", body:"From 17 weeks, the Weaning card unlocks.\n\n• Daily food suggestions\n• Allergen safety checklists\n• Iron-rich recipes with filters\n• Track what " + _bn3 + " has tried\n\nNo pressure. go at your own pace." },
+          { icon:"🍎", title:"Weaning Hub", body:"From 17 weeks, the Weaning card unlocks.\n\n• Daily food suggestions\n• Allergen safety checklists\n• Iron-rich recipes with filters\n• Track what " + _bn3 + " has tried\n\nNo pressure. go at your own pace." },
           { icon:"💜", title:"Wellbeing & Family", body:"'Your Wellbeing' is for YOU. mood check-ins, water tracker, self-care.\n\n'Send to Family' creates a beautiful summary card to share with grandparents or partners.\n\n'Schedule Builder' lets you plan around appointments or outings.\n\nYou matter too. 💛" },
           { icon:"🎉", title:"You're all set!", body:"That's everything on your Day tab!\n\nLog a morning wake, then feeds and naps as they happen. OBubba handles the rest.\n\nBy day 3: predictions get personal\nBy day 7: nap timing gets accurate\nBy day 14: OBubba knows " + _bn3 + "'s full rhythm\n\nReplay this tour anytime from the ? button." },
         ];
@@ -34659,13 +34664,13 @@ function App(){
                         if (confirm("Has your " + _healthContact + " confirmed that " + (babyName||"baby") + " can start weaning early?\n\n" + _guide.weaningSource + " guidance is to wait until around 6 months. Only start earlier on professional medical advice.")) {
                           startWeaningEarly();
                           setDaySubScreen("weaning"); setDevFilter("weaning_hub");
-                          showToast("🥄 Weaning unlocked!",2500,1);
+                          showToast("🍎 Weaning unlocked!",2500,1);
                         }
                       } else {
-                        showToast("🥕 Weaning opens from 17 weeks. " + (babyName||"baby") + " isn't quite there yet!",3000,1);
+                        showToast("🍎 Weaning opens from 17 weeks. " + (babyName||"baby") + " isn't quite there yet!",3000,1);
                       }
                     }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:6,padding:"14px 12px",cursor:_cP,textAlign:"left",border:"1.5px solid var(--card-border)",minHeight:100,opacity:(age&&((age.predictiveWeeks??age.totalWeeks))>=17)||weaningStarted?1:0.45}}>
-                      <BubbaIcon name="meal" size={30}/>
+                      <BubbaIcon name="weaning" size={30}/>
                       <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Weaning</div>
                       <div style={{fontSize:10,color:C.lt,lineHeight:1.4}}>{_weanSub}</div>
                     </button>
@@ -35243,7 +35248,7 @@ function App(){
                     return (
                       <div className="glass-card" style={{padding:"18px 16px",marginBottom:14}}>
                         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                          <span style={{fontSize:28}}>🥄</span>
+                          <span style={{fontSize:28}}>🍎</span>
                           <div style={{flex:1}}>
                             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,lineHeight:1.2}}>
                               {_started ? _name + "'s Weaning" : "Preparing for Weaning"}
@@ -35377,7 +35382,7 @@ function App(){
                     {[
                       {id:"before",label:"Before Weaning",sub:"What to know",emoji:"📖"},
                       ...(weaningStarted ? [
-                        {id:"this_week",label:"This Week",sub:"Foods & recipes to try",emoji:"🍽️"},
+                        {id:"this_week",label:"This Week",sub:"Foods & recipes to try",emoji:"🍎"},
                         {id:"journal",label:"Food Journal",sub:(weaning||[]).length+" foods logged",emoji:"🥄"},
                         {id:"next_week",label:"Next Week",sub:"Prep & shopping",emoji:"📋"},
                         {id:"library",label:"Recipes",sub:"Age-appropriate meals",emoji:"👩‍🍳"},
@@ -35408,7 +35413,7 @@ function App(){
                       setDevFilter("weaning");
                       showToast("📖 Read through the guide, then tap Start Weaning at the bottom",3000,1);
                     }} style={{width:"100%",padding:"16px",borderRadius:16,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:"Georgia,serif",boxShadow:"0 6px 24px rgba(201,112,90,0.35)",marginBottom:14}}>
-                      🥄 Start Weaning Journey
+                      🍎 Start Weaning Journey
                     </button>
                   )}
 
@@ -35503,7 +35508,7 @@ function App(){
                   <button onClick={()=>{haptic();setDaySubScreen("weaning");setDevFilter("weaning_hub");}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={_S.f16}>‹</span> Back to Weaning
                   </button>
-                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:16}}>🥄 Weaning Journey</div>
+                  <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:16}}>🍎 Weaning Journey</div>
                 </div>
               )}
 
@@ -35552,7 +35557,7 @@ function App(){
                         <span style={_S.f16}>‹</span> Back to Weaning
                       </button>
                       <div className="glass-card" style={{padding:"24px 18px",textAlign:"center",marginBottom:14}}>
-                        <div style={{fontSize:36,marginBottom:10}}>🥄</div>
+                        <div style={{fontSize:36,marginBottom:10}}>🍎</div>
                         <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Let's plan your week!</div>
                         <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:16}}>
                           Pick the recipes you'd like to try this week. Don't worry — you can change them anytime.
@@ -35589,9 +35594,9 @@ function App(){
                         if (_weekRecipes3.length === 0) { _saveWeek(_scored3.slice(0,5)); }
                         setWeanSetupDone(true);
                         try{localStorage.setItem("ob_wean_setup_"+resolvedActiveId,"1");}catch{}
-                        showToast("🍽️ Your week is planned!",2000,1);
+                        showToast("🍎 Your week is planned!",2000,1);
                       }} disabled={_weekRecipes3.length<1} style={{width:"100%",padding:"16px",borderRadius:16,border:"none",background:_weekRecipes3.length>=1?`linear-gradient(135deg,${C.ter},#a85a44)`:"#ccc",color:"white",fontSize:16,fontWeight:700,cursor:_weekRecipes3.length>=1?_cP:"default",fontFamily:"Georgia,serif",boxShadow:"0 4px 16px rgba(201,112,90,0.25)",marginTop:12}}>
-                        🍽️ Looks great — let's go!
+                        🍎 Looks great — let's go!
                       </button>
                     </div>
                   );
@@ -35603,7 +35608,7 @@ function App(){
                     <button onClick={()=>{haptic();setDaySubScreen("weaning");setExpandedRecipeIdx(null);setSwapRecipeIdx(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                       <span style={_S.f16}>‹</span> Back to Weaning
                     </button>
-                    <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:16}}>🍽️ This Week</div>
+                    <div style={{fontSize:18,fontWeight:700,color:C.deep,fontFamily:"Georgia,serif",marginBottom:16}}>🍎 This Week</div>
 
                     <div style={{fontSize:10,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,paddingLeft:4}}>Your recipes this week</div>
                     {_weekRecipes3.map((r,i) => {
@@ -35910,7 +35915,7 @@ function App(){
                       <span style={_S.f16}>‹</span> Back to Weaning
                     </button>
                     <div className="glass-card" style={{padding:"20px",textAlign:"center"}}>
-                      <div style={{fontSize:24,marginBottom:8}}>🥄</div>
+                      <div style={{fontSize:24,marginBottom:8}}>🍎</div>
                       <div style={{fontSize:14,color:C.mid}}>Log a few foods to see your Weaning Report.</div>
                     </div>
                   </div>
@@ -42357,7 +42362,7 @@ function App(){
                   <div>
                     {/* Hero card. hide in Before Weaning sub-screen */}
                     <div className="glass-card" style={{padding:"18px 16px",marginBottom:12,textAlign:"center",display:daySubScreen==="weaning_before"?"none":"block"}}>
-                      <div style={{fontSize:36,marginBottom:8}}>🥄</div>
+	                      <div style={{fontSize:36,marginBottom:8}}>🍎</div>
                       <div style={{fontFamily:"Georgia,serif",fontSize:19,fontWeight:700,color:C.deep,marginBottom:6}}>Preparing for Weaning</div>
                       <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:10}}>
                         {babyName||"Baby"} is {fmtAge(age)}. weaning starts around 6 months ({_wksTilWeaning > 0 ? `about ${_wksTilWeaning} week${_wksTilWeaning!==1?"s":""} away` : "almost there!"}). It's never too early to learn what to expect.
@@ -42374,10 +42379,10 @@ function App(){
                             ? `Before starting weaning, please read the information guide below to make sure you and ${babyName||"baby"} are ready and informed.\n\n${babyName||"Baby"} is ${fmtAge(age)}. that's before the recommended 6 months.\n\nHave you checked the readiness signs below and confirmed with your ${_healthContact} that it's OK to start?`
                             : `Before starting weaning, please read the information guide below to make sure you and ${babyName||"baby"} are ready and informed.\n\nOnce you start, OBubba will unlock daily food suggestions, recipes, allergen tracking, and a food journal.\n\nReady to begin?`;
                           if(confirm(_msg)){
-                            haptic(15); startWeaningEarly(); showToast("🥄 Weaning started! Scroll down for recipes, food suggestions & allergen tracking",4000,1);
+	                            haptic(15); startWeaningEarly(); showToast("🍎 Weaning started! Scroll down for recipes, food suggestions & allergen tracking",4000,1);
                           }
                         }} style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:"Georgia,serif",boxShadow:"0 4px 16px rgba(201,112,90,0.25)"}}>
-                          🥄 Start Weaning Journey
+	                          🍎 Start Weaning Journey
                         </button>
                       )}
                     </div>
@@ -42585,8 +42590,8 @@ function App(){
 
               {/* ═══ Pre-weaning simple card (under 17 weeks) ═══ */}
               {age && age.totalWeeks < 17 && tab==="develop" && devFilter==="weaning" && (
-                <div className="glass-card" style={{padding:"18px 16px",marginBottom:12,textAlign:"center"}}>
-                  <div style={{fontSize:36,marginBottom:10}}>🥄</div>
+	                <div className="glass-card" style={{padding:"18px 16px",marginBottom:12,textAlign:"center"}}>
+	                  <div style={{fontSize:36,marginBottom:10}}>🍎</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:8}}>Weaning starts around 6 months</div>
                   <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>
                     {babyName||"Baby"} is {fmtAge(age)}. {_guide.weaningSource} and WHO-style guidance recommend waiting until around 26 weeks before introducing solid foods. When the time comes, OBubba will guide you through every step.
@@ -42603,7 +42608,7 @@ function App(){
                 return (
                   <div className="glass-card" style={_S.card16}>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                      <span style={{fontSize:22}}>🍽</span>
+	                      <span style={{fontSize:22}}>🍎</span>
                       <div>
                         <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:700,color:C.deep}}>Is {babyName||"baby"} ready?</div>
                         <div style={{fontSize:11,color:C.lt}}>Tap each sign you're seeing consistently</div>
@@ -42643,9 +42648,9 @@ function App(){
                               haptic(15);
                               try{localStorage.setItem("weaning_started_"+selectedChild,"1");}catch{}
                               setWeaningStarted(true);
-                              showToast("🥄 Weaning journey started!",3000,1);
+	                              showToast("🍎 Weaning journey started!",3000,1);
                             }} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
-                              🥄 Start Weaning Journey
+	                              🍎 Start Weaning Journey
                             </button>
                           </div>
                         )}
@@ -42677,7 +42682,7 @@ function App(){
                         </div>
                         <button onClick={()=>{
                           if(confirm(`Has your ${_healthContact} confirmed that ${babyName||"baby"} can start weaning early?\n\nThis will unlock recipes, food suggestions, allergen tracking, and food logging.`)){
-                            haptic(15); startWeaningEarly(); showToast("🥄 Weaning unlocked! Scroll down for food suggestions, recipes & allergen tracking",4000,1);
+	                            haptic(15); startWeaningEarly(); showToast("🍎 Weaning unlocked! Scroll down for food suggestions, recipes & allergen tracking",4000,1);
                           }
                         }} style={{width:"100%",padding:"12px",borderRadius:12,border:"none",background:C.ter,color:"white",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                           Start Weaning (Advice Confirmed)
@@ -42696,7 +42701,7 @@ function App(){
                 const _allReady = _checks.sit && _checks.coord && _checks.swallow;
                 return (
                   <div className="glass-card" style={{padding:"24px 18px",marginBottom:12,textAlign:"center"}}>
-                    <div style={{fontSize:48,marginBottom:12}}>🥄</div>
+	                    <div style={{fontSize:48,marginBottom:12}}>🍎</div>
                     <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:C.deep,marginBottom:8}}>Ready to Start Weaning?</div>
                     <div style={{fontSize:13,color:C.mid,lineHeight:1.7,marginBottom:16,maxWidth:320,margin:"0 auto 16px"}}>
                       {babyName||"Baby"} is {fmtAge(age)}. This may be a good time to explore first foods when your baby shows readiness signs. Start weaning to unlock:
@@ -42704,7 +42709,7 @@ function App(){
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:20,textAlign:"left"}}>
                       {[
                         {icon:"📖",label:"Stage-by-stage recipes"},
-                        {icon:"🥕",label:"Daily food suggestions"},
+	                        {icon:"🍎",label:"Daily food suggestions"},
                         {icon:"⚠️",label:"Allergen tracker"},
                         {icon:"📊",label:"Food diary & reactions"},
                         {icon:"🍽",label:"Texture progression"},
@@ -42720,9 +42725,9 @@ function App(){
                       haptic(15);
                       try{localStorage.setItem("weaning_started_"+selectedChild,"1");}catch{}
                       setWeaningStarted(true);
-                      showToast("🥄 Weaning journey started! Explore recipes, food suggestions & allergen tracking",4000,1);
+	                      showToast("🍎 Weaning journey started! Explore recipes, food suggestions & allergen tracking",4000,1);
                     }} style={{width:"100%",padding:"16px",borderRadius:16,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:"Georgia,serif",boxShadow:"0 6px 24px rgba(201,112,90,0.35)",marginBottom:10}}>
-                      🥄 Start Weaning Journey
+	                      🍎 Start Weaning Journey
                     </button>
                     <div style={{fontSize:11,color:C.lt,lineHeight:1.5}}>
                       You can always access weaning tools from the Grow tab
@@ -43655,9 +43660,9 @@ function App(){
                     startWeaningEarly();
                     setDaySubScreen("weaning");
                     setDevFilter("weaning_hub");
-                    showToast("🥄 Weaning journey started! All tools are now unlocked",4000,1);
+                    showToast("🍎 Weaning journey started! All tools are now unlocked",4000,1);
                   }} style={{width:"100%",padding:"16px",borderRadius:16,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:"Georgia,serif",boxShadow:"0 6px 24px rgba(201,112,90,0.35)"}}>
-                    🥄 I'm Ready — Start Weaning
+                    🍎 I'm Ready — Start Weaning
                   </button>
                 </div>
               )}
@@ -43929,7 +43934,7 @@ function App(){
                 {daySubScreen==="weaning_journal" && <div>
                 <div style={{marginTop:16}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🥄 Weaning Journal <HelpBtn title="Weaning Journal" body={"Track foods introduced, reactions (loved/neutral/disliked), and notes. " + _guide.weaningSource + " guidance usually starts solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."}/></div>
+                    <div style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls1}}>🍎 Weaning Journal <HelpBtn title="Weaning Journal" body={"Track foods introduced, reactions (loved/neutral/disliked), and notes. " + _guide.weaningSource + " guidance usually starts solids from around 6 months. Log one new food at a time and wait 3 days to watch for allergic reactions."}/></div>
                     <button onClick={()=>{setWeaningForm({food:"",date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}} style={{background:C.ter,border:_bN,borderRadius:99,padding:"3px 10px",fontSize:11,color:"white",cursor:_cP,fontWeight:700}}>+ Log food</button>
                   </div>
                   {age && age.totalWeeks < 17 ? (
@@ -46379,7 +46384,7 @@ function App(){
             </div>
             <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginBottom:20,textAlign:"left"}}>
               {[
-                {icon:"🥄",text:"Weaning journal. track every food tried"},
+                {icon:"🍎",text:"Weaning journal. track every food tried"},
                 {icon:"🛡️",text:"Allergen tracker. all 14 allergens with status"},
                 {icon:"😴",text:"2-nap rhythm. wake windows getting longer"},
                 {icon:"🌙",text:"8/9/10 month regression coming. OBubba will flag it"},
