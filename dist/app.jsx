@@ -6497,15 +6497,16 @@ function App(){
                 const [_ehS,_emS] = timeNow.split(":").map(Number);
                 let _durS = (_ehS*60+_emS) - (_shS*60+_smS);
                 if (_durS < 0) _durS += 24*60;
-                setDays(d => {
-                  const dayEntries = d[_dayKeyStop] || [];
-                  const updated = dayEntries.map(e =>
-                    e.id === _eidStop ? {...e, end: timeNow, duration: _durS, _active: false, modifiedAt: Date.now()} : e
-                  );
-                  return {...d, [_dayKeyStop]: updated};
-                });
-                try { trackEvent("timer_stopped", { type: "nap", duration_mins: _durS, source: "widget" }); } catch {}
-              }
+	                setDays(d => {
+	                  const dayEntries = d[_dayKeyStop] || [];
+	                  const updated = dayEntries.map(e =>
+	                    e.id === _eidStop ? {...e, end: timeNow, duration: _durS, _active: false, modifiedAt: Date.now()} : e
+	                  );
+	                  return {...d, [_dayKeyStop]: updated};
+	                });
+	                openNapReviewAfterStop({napId:_eidStop, start:_startTStop, end:timeNow, durMins:_durS, dayKey:_dayKeyStop, source:"widget"});
+	                try { trackEvent("timer_stopped", { type: "nap", duration_mins: _durS, source: "widget" }); } catch {}
+	              }
               setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
               // Set stop timestamp BEFORE clearing keys — orphan recovery checks this to avoid resurrection
               try{localStorage.setItem("ob_nap_stopped_at",String(Date.now()));}catch{}
@@ -6720,14 +6721,15 @@ function App(){
                   let _dur = (_eh*60+_em) - (_sh*60+_sm);
                   if (_dur < 0) _dur += 24*60;
                   // Update the entry directly on its stored day key.
-                  setDays(d => {
-                    const dayEntries = d[_dayKey] || [];
-                    const updated = dayEntries.map(e =>
-                      e.id === _eid ? {...e, end: time, duration: _dur, _active: false, modifiedAt: Date.now()} : e
-                    );
-                    return {...d, [_dayKey]: updated};
-                  });
-                  // Clear all timer state in both React and localStorage.
+	                  setDays(d => {
+	                    const dayEntries = d[_dayKey] || [];
+	                    const updated = dayEntries.map(e =>
+	                      e.id === _eid ? {...e, end: time, duration: _dur, _active: false, modifiedAt: Date.now()} : e
+	                    );
+	                    return {...d, [_dayKey]: updated};
+	                  });
+	                  openNapReviewAfterStop({napId:_eid, start:_startT, end:time, durMins:_dur, dayKey:_dayKey, source:entry.source || "siri"});
+	                  // Clear all timer state in both React and localStorage.
                   setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
                   ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
                   if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
@@ -9827,7 +9829,7 @@ function App(){
   const[bedCountdown,setBedCountdown]=useState(null);
   const[nightElapsed,setNightElapsed]=useState(null);
   const[showNightTimerMenu,setShowNightTimerMenu]=useState(false);
-  const[showNapReview,setShowNapReview]=useState(null); // {napId, start, end, durMins, step:1|2, dayKey}
+  const[showNapReview,setShowNapReview]=useState(null); // {napId, start, end, durMins, step:1|2|3, dayKey}
   // Bug 1: explicit timer mode. 'prediction' | 'activeSleep'
   const[timerMode,setTimerMode]=useState(()=> {
     try {
@@ -29576,6 +29578,14 @@ function App(){
     showToast("↩️ Nap attempt discarded — no entry saved", 2000, 1);
   }
 
+  function openNapReviewAfterStop({napId,start,end,durMins,dayKey,source} = {}) {
+    const mins = Math.round(Number(durMins) || minDiff(start, end) || 0);
+    if (!napId || !dayKey || !start || !end || mins < 5 || mins >= 240) return;
+    const payload = {napId, start, end, durMins:mins, step:1, dayKey, source:source || "app"};
+    // Let any stop-confirmation/native callback finish closing before the sheet appears.
+    setTimeout(() => setShowNapReview(payload), source === "app" ? 140 : 260);
+  }
+
   function endNap(){
     if(!napOn) return;
     clearTimerNotification(); // Android: clear lock screen notification
@@ -29661,10 +29671,8 @@ function App(){
           return{...d,[_napDay]:autoClassifyNight(updated,d[_napPd]||null)};
         });
       }
-      // Show nap review prompt (settling time + quality)
-      if (durMins >= 5) {
-        setShowNapReview({napId:_reviewNapId, start:napStartT, end, durMins, step:1, dayKey:_napDay});
-      }
+      // Show nap review prompt (wake mood + settling time + location)
+      openNapReviewAfterStop({napId:_reviewNapId, start:napStartT, end, durMins, dayKey:_napDay, source:"app"});
       // Show next nap/bedtime prediction after a short delay
       setTimeout(()=>{
         try {
@@ -47145,17 +47153,50 @@ function App(){
         </Sheet>
       )}
 
-      {/* ═══ NAP REVIEW: settling time + quality ═══ */}
+      {/* ═══ NAP REVIEW: wake mood + settling time + location ═══ */}
       {showNapReview && showNapReview.step === 1 && (
         <Sheet onClose={()=>setShowNapReview(null)} title="">
           <div style={{textAlign:"center",marginBottom:16}}>
             <div style={{fontSize:36,marginBottom:8}}>😴</div>
-            <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:4}}>How long to fall asleep?</div>
-            <div style={{fontSize:12,color:C.lt,marginBottom:4,lineHeight:1.5,padding:"0 10px"}}>From being put down to actually asleep — this is how we learn {babyName||"baby"}'s ideal wake window.</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:4}}>How was {babyName||"baby"} when they woke?</div>
+            <div style={{fontSize:12,color:C.lt,marginBottom:4,lineHeight:1.5,padding:"0 10px"}}>A {hm(showNapReview.durMins)} nap can mean different things. How they woke helps OBubba adjust the next wake window gently.</div>
             <div style={{fontSize:13,color:C.mid}}>{fmt12(showNapReview.start)} → {fmt12(showNapReview.end)} · {hm(showNapReview.durMins)}</div>
           </div>
+          <div style={{display:"flex",gap:10}}>
+            {[["happy","😊","Happy / ready","good"],["sleepy","🥱","Still tired","ok"],["fussy","😣","Upset / fussy","rough"]].map(([key,emoji,label,quality])=>(
+              <button key={key} onClick={()=>{
+                haptic();
+                setDays(d=>{
+                  const dk=showNapReview.dayKey;
+                  const noteTag = "Woke after nap: " + (key==="happy" ? "woke happy and ready" : key==="sleepy" ? "woke still tired" : "woke upset or fussy");
+                  const updated=(d[dk]||[]).map(e=>e.id===showNapReview.napId?{
+                    ...e,
+                    wakeMood:key,
+                    quality:e.quality || quality,
+                    note:e.note&&e.note.includes(noteTag)?e.note:[e.note,noteTag].filter(Boolean).join(" · "),
+                    modifiedAt:Date.now()
+                  }:e);
+                  return{...d,[dk]:updated};
+                });
+                setShowNapReview(prev=>({...prev,step:2,wakeMood:key,quality}));
+              }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"16px 8px",borderRadius:14,border:`1.5px solid ${key==="happy"?C.mint:key==="fussy"?C.ter:C.blush}`,background:"var(--card-bg-alt)",cursor:_cP}}>
+                <span style={{fontSize:28}}>{emoji}</span>
+                <span style={{fontSize:12,fontWeight:700,color:C.deep,fontFamily:_fM,lineHeight:1.25}}>{label}</span>
+              </button>
+            ))}
+          </div>
+          <button onClick={()=>setShowNapReview(null)} style={{width:"100%",marginTop:12,padding:"10px",background:"none",border:"none",color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>Skip for now</button>
+        </Sheet>
+      )}
+      {showNapReview && showNapReview.step === 2 && (
+        <Sheet onClose={()=>setShowNapReview(null)} title="">
+          <div style={{textAlign:"center",marginBottom:16}}>
+            <div style={{fontSize:36,marginBottom:8}}>⏱️</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:4}}>How long to fall asleep?</div>
+            <div style={{fontSize:12,color:C.lt,marginBottom:4,lineHeight:1.5,padding:"0 10px"}}>Optional, but it helps OBubba learn whether that wake window was comfortable.</div>
+          </div>
           <div style={{display:"flex",gap:8}}>
-            {[[0,"\u26A1","Instant"],[3,"\u270B","Under 5m"],[10,"\u23F1\uFE0F","5-15 min"],[20,"\uD83D\uDC22","15+ min"]].map(([val,emoji,label])=>(
+            {[[0,"⚡","Instant"],[3,"✋","Under 5m"],[10,"⏱️","5-15 min"],[20,"🐢","15+ min"]].map(([val,emoji,label])=>(
               <button key={val} onClick={()=>{
                 haptic();
                 setDays(d=>{
@@ -47163,39 +47204,14 @@ function App(){
                   const updated=(d[dk]||[]).map(e=>e.id===showNapReview.napId?{...e,settleTime:val,modifiedAt:Date.now()}:e);
                   return{...d,[dk]:updated};
                 });
-                setShowNapReview(prev=>({...prev,step:2}));
+                setShowNapReview(prev=>({...prev,step:3,settleTime:val}));
               }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"14px 6px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP}}>
                 <span style={{fontSize:22}}>{emoji}</span>
                 <span style={{fontSize:11,fontWeight:600,color:C.deep,fontFamily:_fM}}>{label}</span>
               </button>
             ))}
           </div>
-          <button onClick={()=>setShowNapReview(null)} style={{width:"100%",marginTop:12,padding:"10px",background:"none",border:"none",color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>Skip</button>
-        </Sheet>
-      )}
-      {showNapReview && showNapReview.step === 2 && (
-        <Sheet onClose={()=>setShowNapReview(null)} title="">
-          <div style={{textAlign:"center",marginBottom:16}}>
-            <div style={{fontSize:36,marginBottom:8}}>💤</div>
-            <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep}}>How was that nap?</div>
-          </div>
-          <div style={{display:"flex",gap:10}}>
-            {[["good","\uD83D\uDE0A","Good"],["ok","\uD83D\uDE10","OK"],["rough","\uD83D\uDE23","Rough"]].map(([key,emoji,label])=>(
-              <button key={key} onClick={()=>{
-                haptic();
-                setDays(d=>{
-                  const dk=showNapReview.dayKey;
-                  const updated=(d[dk]||[]).map(e=>e.id===showNapReview.napId?{...e,quality:key,modifiedAt:Date.now()}:e);
-                  return{...d,[dk]:updated};
-                });
-                setShowNapReview(prev=>({...prev,step:3,quality:key}));
-              }} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"16px 8px",borderRadius:14,border:`1.5px solid ${key==="good"?C.mint:key==="rough"?C.ter:C.blush}`,background:"var(--card-bg-alt)",cursor:_cP}}>
-                <span style={{fontSize:28}}>{emoji}</span>
-                <span style={{fontSize:13,fontWeight:600,color:C.deep,fontFamily:_fM}}>{label}</span>
-              </button>
-            ))}
-          </div>
-          <button onClick={()=>setShowNapReview(null)} style={{width:"100%",marginTop:12,padding:"10px",background:"none",border:"none",color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>Skip</button>
+          <button onClick={()=>setShowNapReview(prev=>({...prev,step:3}))} style={{width:"100%",marginTop:12,padding:"10px",background:"none",border:"none",color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>Skip this bit</button>
         </Sheet>
       )}
       {/* Step 3: Where + what helped (fuels nap-location insights + "what worked" memory) */}
