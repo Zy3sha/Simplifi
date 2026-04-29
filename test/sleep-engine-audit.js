@@ -31,7 +31,7 @@ function getWakeWindow(ageWeeks) {
   // idx pins at the oldest-child stage — catastrophic for a
   // newborn during a calcAge glitch.
   if (typeof ageWeeks !== "number" || isNaN(ageWeeks) || ageWeeks < 0) {
-    return { min: 60, max: 90, midpoint: 75, label: "~60–90 min" };
+    return { min: 30, max: 90, midpoint: 60, label: "~30–90 min" };
   }
   const months = ageWeeks / 4.33;
   let min, max, label;
@@ -168,9 +168,14 @@ function applyScheduleOverride(wakeMins, bedMins, ageWeeks) {
 }
 
 // ─── Simplified schedule projection (mirror of fixed app.jsx loop) ───
-function projectDayPlan({ ageWeeks, wakeMins, avgNapDur, targetBedMins, disruptionMode = false, completedNaps = [], napOnFirstStart = null }) {
+function projectDayPlan({ ageWeeks, wakeMins, avgNapDur, targetBedMins, disruptionMode = false, completedNaps = [], napOnFirstStart = null, personalFinalWakeMax = null, contextMultiplier = 1 }) {
   const w = ageWeeks;
   const ww = getWakeWindow(w);
+  const contextMin = contextMultiplier < 1 ? Math.max(30, Math.round(ww.min * contextMultiplier)) : ww.min;
+  const contextMax = contextMultiplier < 1 ? Math.max(contextMin + 15, Math.round(ww.max * contextMultiplier)) : ww.max;
+  const finalWakeMax = Math.min(personalFinalWakeMax || contextMax, contextMax);
+  const clampContextWakeWindow = mins => Math.max(contextMin, Math.min(contextMax, mins));
+  const projectContextWakeWindow = mins => clampContextWakeWindow(contextMultiplier < 1 ? Math.round(mins * contextMultiplier) : mins);
   const profile = getAgeNapProfile(w);
   const expectedTotal = profile.expectedNaps;
   const ageBedCeiling = clampBedtime(24*60, w);
@@ -203,7 +208,7 @@ function projectDayPlan({ ageWeeks, wakeMins, avgNapDur, targetBedMins, disrupti
 
   let napIdx = napsDone;
   while (napIdx < expectedTotal) {
-    const napStart = cursor + clampWakeWindow(progressiveWW(w, napIdx, expectedTotal, disruptionMode), w);
+    const napStart = cursor + projectContextWakeWindow(progressiveWW(w, napIdx, expectedTotal, disruptionMode));
     const isLast = napIdx === expectedTotal - 1;
     let napDur = safeNapDur;
     let placed = false;
@@ -237,9 +242,16 @@ function projectDayPlan({ ageWeeks, wakeMins, avgNapDur, targetBedMins, disrupti
     napIdx++;
   }
 
+  const capBedByFinalWake = mins => {
+    if (!personalFinalWakeMax) return clampBedtime(mins, w);
+    return Math.max(17*60, Math.min(clampBedtime(mins, w), mins));
+  };
+
   let bedMins;
-  if (safeTargetBed && safeTargetBed >= cursor + minBedWW) {
+  if (safeTargetBed && safeTargetBed >= cursor + minBedWW && safeTargetBed <= cursor + finalWakeMax + 10) {
     bedMins = safeTargetBed;
+  } else if (safeTargetBed && safeTargetBed > cursor + finalWakeMax + 10) {
+    bedMins = capBedByFinalWake(cursor + finalWakeMax);
   } else if (safeTargetBed) {
     const lastNapIdx = items.length - 1;
     const lastNap = items[lastNapIdx];
@@ -250,7 +262,10 @@ function projectDayPlan({ ageWeeks, wakeMins, avgNapDur, targetBedMins, disrupti
       bedMins = cursor + minBedWW;
     }
   } else {
-    bedMins = clampBedtime(cursor + progressiveWW(w, napIdx, expectedTotal, disruptionMode), w);
+    bedMins = capBedByFinalWake(cursor + Math.min(finalWakeMax, projectContextWakeWindow(progressiveWW(w, napIdx, expectedTotal, disruptionMode))));
+  }
+  if (bedMins - cursor > finalWakeMax + 10) {
+    bedMins = capBedByFinalWake(cursor + finalWakeMax);
   }
   items.push({ type: "bed", time: bedMins, label: "Bedtime" });
 
@@ -320,6 +335,18 @@ function checkInvariants(scenario, plan) {
   const finalWW = bed.time - lastSleepEnd;
   if (finalWW < minBedWW - 1) {
     issues.push(`[I-5c CRITICAL] Last wake window ${finalWW}min is less than minBedWW ${minBedWW}min`);
+  }
+  if (scenario.personalFinalWakeMax && finalWW > scenario.personalFinalWakeMax + 10) {
+    issues.push(`[I-5d CRITICAL] Last wake window ${finalWW}min exceeds personal final-wake cap ${scenario.personalFinalWakeMax}min`);
+  }
+  if (scenario.contextMultiplier && scenario.contextMultiplier < 1) {
+    const contextCap = Math.max(
+      Math.max(30, Math.round(ww.min * scenario.contextMultiplier)) + 15,
+      Math.round(ww.max * scenario.contextMultiplier)
+    );
+    if (finalWW > contextCap + 10) {
+      issues.push(`[I-5e CRITICAL] Last wake window ${finalWW}min exceeds context-shortened cap ${contextCap}min`);
+    }
   }
 
   // I-6: events in chronological order
@@ -398,7 +425,7 @@ function checkInvariants(scenario, plan) {
   }
 
   // I-14: target bedtime should be honored if feasible (within 30 min) UNLESS override conflicts
-  if (scenario.targetBedMins && scenario.targetBedMins <= ageCeiling && Math.abs(bed.time - scenario.targetBedMins) > 30) {
+  if (scenario.targetBedMins && !scenario.personalFinalWakeMax && !(scenario.contextMultiplier && scenario.contextMultiplier < 1) && scenario.targetBedMins <= ageCeiling && Math.abs(bed.time - scenario.targetBedMins) > 30) {
     // Only flag if naps could have left room
     const totalAwake = bed.time - wake.time;
     const minDayLen = profile.expectedNaps * 30 + (profile.expectedNaps + 1) * ww.min;
@@ -517,6 +544,12 @@ const scenarios = [
   { category: "Mid-day projection", name: "5mo after 2 long naps (11-1, 2:30-4)",
     ageWeeks: 22, wakeMins: 7*60, avgNapDur: 75, targetBedMins: 19*60,
     completedNaps: [{ start: 11*60, end: 13*60 }, { start: 14*60+30, end: 16*60 }] },
+  { category: "Mid-day projection", name: "6mo Oliver-style personal final WW cap",
+    ageWeeks: 27, wakeMins: 7*60, avgNapDur: 40, targetBedMins: 20*60, personalFinalWakeMax: 120,
+    completedNaps: [{ start: 9*60, end: 9*60+35 }, { start: 12*60, end: 12*60+35 }, { start: 15*60, end: 15*60+25 }] },
+  { category: "Mid-day projection", name: "6mo short-nap recovery shortens final WW",
+    ageWeeks: 27, wakeMins: 7*60, avgNapDur: 40, targetBedMins: 20*60, contextMultiplier: 0.85,
+    completedNaps: [{ start: 9*60, end: 9*60+35 }, { start: 12*60, end: 12*60+35 }, { start: 15*60, end: 15*60+25 }] },
   { category: "Mid-day projection", name: "7mo 1 nap done (10am-12pm)",
     ageWeeks: 30, wakeMins: 7*60, avgNapDur: 90, targetBedMins: 19*60,
     completedNaps: [{ start: 10*60, end: 12*60 }] },
@@ -631,6 +664,8 @@ for (const scenario of scenarios) {
     disruptionMode: scenario.disruptionMode,
     completedNaps: scenario.completedNaps,
     napOnFirstStart: scenario.napOnFirstStart,
+    personalFinalWakeMax: scenario.personalFinalWakeMax,
+    contextMultiplier: scenario.contextMultiplier,
   });
 
   const rawIssues = checkInvariants({ ...scenario, wakeMins: effectiveWake, targetBedMins: effectiveTargetBed }, plan);

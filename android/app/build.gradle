@@ -24,7 +24,7 @@ android {
         applicationId "com.obubba.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 36
+        versionCode 37
         versionName "2.7.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -58,6 +58,20 @@ android {
 
 tasks.named('preBuild') {
     dependsOn prepareCleanMainRes
+}
+
+tasks.configureEach { task ->
+    if (task.name.startsWith('parse') && task.name.endsWith('LocalResources')) {
+        task.doFirst {
+            // AAPT refuses generated resource copies with Finder/iCloud-style
+            // duplicate names such as "widget_summary 2.xml". Prune those
+            // from intermediates just before parsing so local duplicates cannot
+            // poison debug/release builds.
+            delete fileTree(layout.buildDirectory.dir("intermediates").get().asFile) {
+                include '**/* *'
+            }
+        }
+    }
 }
 
 repositories {

@@ -64,8 +64,8 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:background="@drawable/widget_timer_pill"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:paddingTop="5dp"
                 android:paddingBottom="5dp">
 
@@ -74,7 +74,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Next"
-                    android:textSize="9sp"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:textColor="@color/widget_text_label_nap"
                     android:fontFamily="sans-serif-medium" />
@@ -94,6 +94,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="5dp"
+                    android:maxWidth="46dp"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:textSize="11sp"
@@ -102,13 +103,16 @@
 
                 <Chronometer
                     android:id="@+id/timer_chrono"
-                    android:layout_width="wrap_content"
+                    android:layout_width="116dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
-                    android:textSize="18sp"
+                    android:layout_marginStart="4dp"
+                    android:gravity="end"
+                    android:singleLine="true"
+                    android:includeFontPadding="false"
+                    android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="@color/widget_text_primary"
-                    android:fontFamily="sans-serif-medium"
+                    android:fontFamily="sans-serif-condensed"
                     android:visibility="gone" />
 
                 <TextView

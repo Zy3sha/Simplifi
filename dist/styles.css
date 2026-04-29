@@ -353,6 +353,13 @@ body.dark-mode input::placeholder{color:#4a5a72!important}
    BUTTONS — no backdrop-filter, just glow shadows
    ═══════════════════════════════════════════════════════════ */
 button,a,[role="button"]{-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+
+.ob-entry-longpress,
+.ob-entry-longpress *:not(input):not(textarea):not(select){
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+}
 /* Premium tap feedback: transition on resting state so release animates smoothly */
 button{position:relative!important;overflow:visible!important;transition:transform 160ms cubic-bezier(0.23,1,0.32,1)!important}
 button:active{transform:scale(0.97)!important}
@@ -1846,6 +1853,19 @@ body.dark-mode .ob-quick-log-icon{
   overflow:visible!important;
   shape-rendering:geometricPrecision;
 }
+.ob-pump-emoji{
+  line-height:1!important;
+  filter:
+    drop-shadow(0 1px 0 rgba(255,255,255,0.56))
+    drop-shadow(0 7px 12px rgba(40,28,36,0.12))!important;
+}
+.ob-pump-emoji svg{
+  display:block!important;
+  overflow:visible!important;
+  shape-rendering:geometricPrecision;
+  transform:scale(1.14);
+  transform-origin:50% 50%;
+}
 .ob-line-icon-animate{
   animation:obIconPulse 1.8s ease-in-out infinite;
 }
@@ -1904,6 +1924,12 @@ body.dark-mode .ob-line-icon{
   filter:
     drop-shadow(0 1px 0 rgba(255,244,224,0.20))
     drop-shadow(0 8px 15px rgba(0,0,0,0.28))!important;
+}
+body.dark-mode .ob-pump-emoji{
+  filter:
+    drop-shadow(0 1px 0 rgba(255,244,224,0.22))
+    drop-shadow(0 8px 15px rgba(0,0,0,0.32))
+    drop-shadow(0 0 10px rgba(126,199,232,0.12))!important;
 }
 body.dark-mode .ob-quick-log-icon{
   background:
@@ -2331,4 +2357,2116 @@ body.dark-mode .ob-app-root .ob-day-mode-switcher{
     inset 10px 10px 16px -18px rgba(255,214,152,0.080),
     inset -12px -12px 18px -20px rgba(255,145,76,0.092),
     0 8px 18px rgba(0,0,0,0.120)!important;
+}
+
+/* Apple Weather-style luminous glass rim.
+   This final layer makes light cling to the edge of controls instead of reading
+   as a cloudy halo. Day mode uses a cool cyan-violet edge; night mode swaps to
+   a candle-warm amber rim. */
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-rim-hot:rgba(88,232,255,0.76);
+  --ob-rim-mid:rgba(124,176,255,0.34);
+  --ob-rim-soft:rgba(147,104,255,0.32);
+  --ob-rim-border:rgba(107,226,255,0.42);
+  --ob-rim-outline:rgba(103,226,255,0.18);
+  --ob-rim-edge:rgba(86,224,255,0.26);
+  --ob-rim-inner:rgba(255,255,255,0.58);
+  --ob-glass-top:rgba(255,255,255,0.58);
+  --ob-glass-bottom:rgba(255,255,255,0.25);
+  --ob-glass-fill:rgba(255,255,255,0.42);
+  --ob-glass-lift:rgba(71,54,49,0.08);
+}
+body.dark-mode{
+  --ob-rim-hot:rgba(255,218,152,0.70);
+  --ob-rim-mid:rgba(255,178,88,0.43);
+  --ob-rim-soft:rgba(255,132,58,0.34);
+  --ob-rim-border:rgba(255,197,126,0.31);
+  --ob-rim-outline:rgba(255,177,88,0.15);
+  --ob-rim-edge:rgba(255,158,72,0.18);
+  --ob-rim-inner:rgba(255,238,208,0.24);
+  --ob-glass-top:rgba(255,255,255,0.15);
+  --ob-glass-bottom:rgba(255,255,255,0.052);
+  --ob-glass-fill:rgba(255,255,255,0.055);
+  --ob-glass-lift:rgba(0,0,0,0.22);
+}
+.ob-app-root .glass-card,
+.ob-app-root .glass-entry,
+.ob-app-root .ob-premium-tile,
+.ob-app-root .ob-header-glass,
+.ob-app-root .ob-sheet-content,
+.ob-app-root .ob-day-mode-switcher,
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+.ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  border:1.35px solid transparent!important;
+  background:
+    radial-gradient(120px 90px at 3% 0%,var(--ob-rim-outline),transparent 62%) padding-box,
+    radial-gradient(140px 100px at 100% 100%,rgba(147,104,255,0.090),transparent 64%) padding-box,
+    linear-gradient(180deg,var(--ob-glass-top),var(--ob-glass-bottom)) padding-box,
+    linear-gradient(135deg,var(--ob-rim-hot) 0%,var(--ob-rim-mid) 17%,rgba(255,255,255,0.28) 38%,rgba(255,255,255,0.14) 61%,var(--ob-rim-soft) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-rim-inner),
+    inset 1px 1px 0 rgba(255,255,255,0.30),
+    inset -1px -1px 0 rgba(147,104,255,0.060),
+    0 0 0 1px var(--ob-rim-outline),
+    0 0 7px var(--ob-rim-edge),
+    0 12px 26px var(--ob-glass-lift)!important;
+}
+body.dark-mode .ob-app-root .glass-card,
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    radial-gradient(116px 88px at 3% 0%,rgba(255,218,152,0.076),transparent 64%) padding-box,
+    radial-gradient(136px 100px at 100% 100%,rgba(255,132,58,0.066),transparent 64%) padding-box,
+    linear-gradient(180deg,var(--ob-glass-top),var(--ob-glass-bottom)) padding-box,
+    linear-gradient(135deg,var(--ob-rim-hot) 0%,var(--ob-rim-mid) 20%,rgba(255,236,205,0.13) 39%,rgba(255,188,108,0.070) 63%,var(--ob-rim-soft) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-rim-inner),
+    inset 1px 1px 0 rgba(255,244,224,0.11),
+    inset -1px -1px 0 rgba(255,139,72,0.070),
+    0 0 0 1px var(--ob-rim-outline),
+    0 0 7px var(--ob-rim-edge),
+    0 12px 26px var(--ob-glass-lift)!important;
+}
+.ob-app-root .ob-hero,
+.ob-app-root [data-testid="today-hero"]{
+  border-width:1.55px!important;
+  background:
+    radial-gradient(150px 108px at 3% 0%,rgba(88,232,255,0.125),transparent 62%) padding-box,
+    radial-gradient(170px 122px at 100% 100%,rgba(147,104,255,0.135),transparent 66%) padding-box,
+    linear-gradient(180deg,rgba(255,255,255,0.66),rgba(255,255,255,0.32)) padding-box,
+    linear-gradient(135deg,rgba(92,238,255,0.86) 0%,rgba(124,176,255,0.42) 18%,rgba(255,255,255,0.34) 39%,rgba(255,255,255,0.16) 60%,rgba(147,104,255,0.40) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.68),
+    inset 1px 1px 0 rgba(255,255,255,0.36),
+    inset -1px -1px 0 rgba(147,104,255,0.090),
+    0 0 0 1px rgba(103,226,255,0.20),
+    0 0 8px rgba(86,224,255,0.28),
+    0 14px 28px rgba(71,54,49,0.09)!important;
+}
+body.dark-mode .ob-app-root .ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"]{
+  background:
+    radial-gradient(150px 108px at 3% 0%,rgba(255,218,152,0.110),transparent 62%) padding-box,
+    radial-gradient(170px 122px at 100% 100%,rgba(255,132,58,0.102),transparent 66%) padding-box,
+    linear-gradient(180deg,rgba(255,255,255,0.170),rgba(255,255,255,0.062)) padding-box,
+    linear-gradient(135deg,rgba(255,226,170,0.76) 0%,rgba(255,176,88,0.48) 20%,rgba(255,236,205,0.14) 40%,rgba(255,188,108,0.072) 62%,rgba(255,132,58,0.39) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,246,228,0.26),
+    inset 1px 1px 0 rgba(255,244,224,0.12),
+    inset -1px -1px 0 rgba(255,139,72,0.085),
+    0 0 0 1px rgba(255,190,112,0.13),
+    0 0 8px rgba(255,177,96,0.15),
+    0 14px 28px rgba(0,0,0,0.24)!important;
+}
+.ob-app-root button:not(.ob-icon-dismiss),
+.ob-app-root [role="button"]:not(.ob-icon-dismiss){
+  border-color:var(--ob-rim-border)!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-rim-inner),
+    inset 1px 1px 0 rgba(255,255,255,0.26),
+    inset -1px -1px 0 rgba(147,104,255,0.055),
+    0 0 0 1px var(--ob-rim-outline),
+    0 0 6px var(--ob-rim-edge),
+    0 8px 16px var(--ob-glass-lift)!important;
+}
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss){
+  box-shadow:
+    inset 0 1px 0 var(--ob-rim-inner),
+    inset 1px 1px 0 rgba(255,244,224,0.10),
+    inset -1px -1px 0 rgba(255,139,72,0.065),
+    0 0 0 1px var(--ob-rim-outline),
+    0 0 6px var(--ob-rim-edge),
+    0 8px 16px var(--ob-glass-lift)!important;
+}
+.ob-app-root button.ob-quick-log-btn,
+.ob-app-root button.ob-day-mode-btn.is-active,
+.ob-app-root button.ob-main-tab-btn[aria-current="page"],
+.ob-app-root button.glass-card.ob-premium-tile{
+  border:1.35px solid transparent!important;
+  background:
+    radial-gradient(74px 58px at 0% 0%,var(--ob-rim-outline),transparent 66%) padding-box,
+    radial-gradient(88px 68px at 100% 100%,rgba(147,104,255,0.080),transparent 66%) padding-box,
+    linear-gradient(180deg,rgba(255,255,255,0.50),rgba(255,255,255,0.19)) padding-box,
+    linear-gradient(135deg,var(--ob-rim-hot) 0%,var(--ob-rim-mid) 18%,rgba(255,255,255,0.25) 42%,rgba(255,255,255,0.12) 60%,var(--ob-rim-soft) 100%) border-box!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    radial-gradient(74px 58px at 0% 0%,rgba(255,226,176,0.060),transparent 66%) padding-box,
+    radial-gradient(88px 68px at 100% 100%,rgba(255,139,72,0.052),transparent 66%) padding-box,
+    linear-gradient(180deg,rgba(255,255,255,0.152),rgba(255,255,255,0.060)) padding-box,
+    linear-gradient(135deg,var(--ob-rim-hot) 0%,var(--ob-rim-mid) 19%,rgba(255,255,255,0.13) 42%,rgba(255,255,255,0.060) 61%,var(--ob-rim-soft) 100%) border-box!important;
+}
+.ob-app-root button.ob-main-tab-btn[aria-current="page"]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.62),
+    inset 1px 1px 0 rgba(255,255,255,0.32),
+    inset -1px -1px 0 rgba(147,104,255,0.070),
+    0 0 0 1px rgba(103,226,255,0.20),
+    0 0 8px rgba(86,224,255,0.30),
+    0 8px 16px rgba(71,54,49,0.08)!important;
+}
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"]{
+  box-shadow:
+    inset 0 1px 0 rgba(255,246,228,0.25),
+    inset 1px 1px 0 rgba(255,244,224,0.12),
+    inset -1px -1px 0 rgba(255,139,72,0.080),
+    0 0 0 1px rgba(255,190,112,0.13),
+    0 0 8px rgba(255,177,96,0.16),
+    0 8px 16px rgba(0,0,0,0.22)!important;
+}
+
+/* Edge-line correction.
+   Apple's glass controls read as a fine lit outline, not light filling the whole
+   component. This removes the interior colour blooms from the previous pass and
+   leaves a thin rim plus a tiny edge glint. */
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-edge-hot:rgba(82,230,255,0.58);
+  --ob-edge-mid:rgba(138,185,255,0.24);
+  --ob-edge-soft:rgba(150,116,255,0.18);
+  --ob-edge-outline:rgba(88,220,255,0.14);
+  --ob-edge-glint:rgba(82,230,255,0.16);
+  --ob-edge-inner:rgba(255,255,255,0.64);
+  --ob-edge-fill-top:rgba(255,255,255,0.53);
+  --ob-edge-fill-bottom:rgba(255,255,255,0.23);
+  --ob-edge-lift:rgba(71,54,49,0.075);
+}
+body.dark-mode{
+  --ob-edge-hot:rgba(255,214,150,0.43);
+  --ob-edge-mid:rgba(255,170,88,0.22);
+  --ob-edge-soft:rgba(255,125,58,0.16);
+  --ob-edge-outline:rgba(255,174,88,0.095);
+  --ob-edge-glint:rgba(255,168,82,0.11);
+  --ob-edge-inner:rgba(255,239,212,0.18);
+  --ob-edge-fill-top:rgba(255,255,255,0.125);
+  --ob-edge-fill-bottom:rgba(255,255,255,0.046);
+  --ob-edge-lift:rgba(0,0,0,0.22);
+}
+.ob-app-root .glass-card,
+.ob-app-root .glass-entry,
+.ob-app-root .ob-premium-tile,
+.ob-app-root .ob-header-glass,
+.ob-app-root .ob-sheet-content,
+.ob-app-root .ob-day-mode-switcher,
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+.ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  border:1.15px solid transparent!important;
+  background:
+    linear-gradient(180deg,var(--ob-edge-fill-top),var(--ob-edge-fill-bottom)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 15%,rgba(255,255,255,0.20) 36%,rgba(255,255,255,0.095) 63%,var(--ob-edge-soft) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-edge-inner),
+    0 0 0 0.5px var(--ob-edge-outline),
+    0 0 3px var(--ob-edge-glint),
+    0 8px 18px var(--ob-edge-lift)!important;
+}
+body.dark-mode .ob-app-root .glass-card,
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    linear-gradient(180deg,var(--ob-edge-fill-top),var(--ob-edge-fill-bottom)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,236,205,0.095) 38%,rgba(255,188,108,0.048) 64%,var(--ob-edge-soft) 100%) border-box!important;
+}
+.ob-app-root .ob-hero,
+.ob-app-root [data-testid="today-hero"]{
+  border-width:1.25px!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.60),rgba(255,255,255,0.28)) padding-box,
+    linear-gradient(135deg,rgba(82,230,255,0.66) 0%,rgba(138,185,255,0.28) 16%,rgba(255,255,255,0.22) 37%,rgba(255,255,255,0.10) 63%,rgba(150,116,255,0.21) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.70),
+    0 0 0 0.5px rgba(88,220,255,0.16),
+    0 0 3px rgba(82,230,255,0.18),
+    0 10px 22px rgba(71,54,49,0.080)!important;
+}
+body.dark-mode .ob-app-root .ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"]{
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.145),rgba(255,255,255,0.052)) padding-box,
+    linear-gradient(135deg,rgba(255,214,150,0.50) 0%,rgba(255,170,88,0.26) 18%,rgba(255,236,205,0.10) 39%,rgba(255,188,108,0.048) 64%,rgba(255,125,58,0.19) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,239,212,0.20),
+    0 0 0 0.5px rgba(255,174,88,0.10),
+    0 0 3px rgba(255,168,82,0.11),
+    0 10px 22px rgba(0,0,0,0.22)!important;
+}
+.ob-app-root button.ob-quick-log-btn,
+.ob-app-root button.ob-day-mode-btn.is-active,
+.ob-app-root button.ob-main-tab-btn[aria-current="page"],
+.ob-app-root button.glass-card.ob-premium-tile{
+  border:1.15px solid transparent!important;
+  background:
+    linear-gradient(180deg,var(--ob-edge-fill-top),var(--ob-edge-fill-bottom)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,255,255,0.18) 38%,rgba(255,255,255,0.085) 64%,var(--ob-edge-soft) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-edge-inner),
+    0 0 0 0.5px var(--ob-edge-outline),
+    0 0 3px var(--ob-edge-glint),
+    0 7px 14px var(--ob-edge-lift)!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    linear-gradient(180deg,var(--ob-edge-fill-top),var(--ob-edge-fill-bottom)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 17%,rgba(255,236,205,0.090) 39%,rgba(255,188,108,0.045) 64%,var(--ob-edge-soft) 100%) border-box!important;
+}
+.ob-app-root button:not(.ob-icon-dismiss),
+.ob-app-root [role="button"]:not(.ob-icon-dismiss){
+  box-shadow:
+    inset 0 1px 0 var(--ob-edge-inner),
+    0 0 0 0.5px var(--ob-edge-outline),
+    0 0 2.5px var(--ob-edge-glint),
+    0 6px 12px var(--ob-edge-lift)!important;
+}
+
+/* Rim-only refinement.
+   Keep the interior glass calm and let only the 1px edge carry colour. */
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-edge-fill:rgba(255,255,255,0.42);
+  --ob-edge-fill-strong:rgba(255,255,255,0.50);
+  --ob-edge-glint:rgba(82,230,255,0.105);
+  --ob-edge-outline:rgba(88,220,255,0.105);
+}
+body.dark-mode{
+  --ob-edge-fill:rgba(255,255,255,0.068);
+  --ob-edge-fill-strong:rgba(255,255,255,0.092);
+  --ob-edge-glint:rgba(255,168,82,0.070);
+  --ob-edge-outline:rgba(255,174,88,0.070);
+}
+.ob-app-root .glass-card,
+.ob-app-root .glass-entry,
+.ob-app-root .ob-premium-tile,
+.ob-app-root .ob-header-glass,
+.ob-app-root .ob-sheet-content,
+.ob-app-root .ob-day-mode-switcher,
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+.ob-app-root div[role="navigation"][aria-label="Main navigation"],
+.ob-app-root .ob-hero,
+.ob-app-root [data-testid="today-hero"],
+.ob-app-root button.ob-quick-log-btn,
+.ob-app-root button.ob-day-mode-btn.is-active,
+.ob-app-root button.ob-main-tab-btn[aria-current="page"],
+.ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    linear-gradient(var(--ob-edge-fill),var(--ob-edge-fill)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,255,255,0.14) 42%,rgba(255,255,255,0.055) 66%,var(--ob-edge-soft) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-edge-inner),
+    0 0 0 0.5px var(--ob-edge-outline),
+    0 0 2px var(--ob-edge-glint),
+    0 7px 14px var(--ob-edge-lift)!important;
+}
+.ob-app-root .ob-hero,
+.ob-app-root [data-testid="today-hero"],
+.ob-app-root button.ob-main-tab-btn[aria-current="page"],
+.ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    linear-gradient(var(--ob-edge-fill-strong),var(--ob-edge-fill-strong)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,255,255,0.15) 42%,rgba(255,255,255,0.060) 66%,var(--ob-edge-soft) 100%) border-box!important;
+}
+body.dark-mode .ob-app-root .glass-card,
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body.dark-mode .ob-app-root .ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"],
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    linear-gradient(var(--ob-edge-fill),var(--ob-edge-fill)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,236,205,0.070) 42%,rgba(255,188,108,0.032) 66%,var(--ob-edge-soft) 100%) border-box!important;
+}
+body.dark-mode .ob-app-root .ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"],
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    linear-gradient(var(--ob-edge-fill-strong),var(--ob-edge-fill-strong)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,236,205,0.075) 42%,rgba(255,188,108,0.034) 66%,var(--ob-edge-soft) 100%) border-box!important;
+}
+.ob-app-root button:not(.ob-icon-dismiss),
+.ob-app-root [role="button"]:not(.ob-icon-dismiss){
+  box-shadow:
+    inset 0 1px 0 var(--ob-edge-inner),
+    0 0 0 0.5px var(--ob-edge-outline),
+    0 0 1.8px var(--ob-edge-glint),
+    0 5px 10px var(--ob-edge-lift)!important;
+}
+.ob-app-root .ob-quick-log-icon,
+body[data-screen-compact] .ob-quick-log-icon{
+  background:rgba(255,255,255,0.10)!important;
+  border-color:rgba(255,255,255,0.10)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.12)!important;
+}
+body.dark-mode .ob-app-root .ob-quick-log-icon{
+  background:rgba(255,255,255,0.040)!important;
+  border-color:rgba(255,255,255,0.070)!important;
+  box-shadow:inset 0 1px 0 rgba(255,239,212,0.075)!important;
+}
+
+.ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+.ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]){
+  border:1.15px solid transparent!important;
+  background:
+    linear-gradient(var(--ob-edge-fill),var(--ob-edge-fill)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,255,255,0.14) 42%,rgba(255,255,255,0.055) 66%,var(--ob-edge-soft) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-edge-inner),
+    0 0 0 0.5px var(--ob-edge-outline),
+    0 0 1.6px var(--ob-edge-glint),
+    0 5px 10px var(--ob-edge-lift)!important;
+}
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]){
+  background:
+    linear-gradient(var(--ob-edge-fill),var(--ob-edge-fill)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,236,205,0.070) 42%,rgba(255,188,108,0.032) 66%,var(--ob-edge-soft) 100%) border-box!important;
+}
+.ob-app-root .ob-quick-log-icon,
+body[data-screen-compact] .ob-quick-log-icon{
+  background:transparent!important;
+  border-color:rgba(255,255,255,0.075)!important;
+  box-shadow:none!important;
+}
+body.dark-mode .ob-app-root .ob-quick-log-icon{
+  background:transparent!important;
+  border-color:rgba(255,255,255,0.055)!important;
+  box-shadow:none!important;
+}
+
+/* Button rim discipline.
+   Buttons should keep the Apple-like glow as a line on the edge only. No
+   border-box gradient on the button face, and no coloured outer haze. */
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-button-fill:rgba(255,255,255,0.43);
+  --ob-button-fill-active:rgba(255,255,255,0.50);
+  --ob-button-rim-a:rgba(83,228,255,0.34);
+  --ob-button-rim-b:rgba(145,116,255,0.16);
+  --ob-button-inner:rgba(255,255,255,0.58);
+  --ob-button-lift:rgba(71,54,49,0.070);
+}
+body.dark-mode{
+  --ob-button-fill:rgba(255,255,255,0.060);
+  --ob-button-fill-active:rgba(255,255,255,0.082);
+  --ob-button-rim-a:rgba(255,207,142,0.24);
+  --ob-button-rim-b:rgba(255,133,62,0.12);
+  --ob-button-inner:rgba(255,239,212,0.14);
+  --ob-button-lift:rgba(0,0,0,0.20);
+}
+.ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+.ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+.ob-app-root button.ob-quick-log-btn,
+.ob-app-root button.ob-day-mode-btn,
+.ob-app-root button.ob-main-tab-btn{
+  border:1px solid var(--ob-button-rim-b)!important;
+  border-top-color:var(--ob-button-rim-a)!important;
+  border-left-color:var(--ob-button-rim-a)!important;
+  background:var(--ob-button-fill)!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-button-inner),
+    0 5px 10px var(--ob-button-lift)!important;
+}
+.ob-app-root button.ob-day-mode-btn.is-active,
+.ob-app-root button.ob-main-tab-btn[aria-current="page"],
+.ob-app-root button.glass-card.ob-premium-tile{
+  border:1px solid var(--ob-button-rim-b)!important;
+  border-top-color:var(--ob-button-rim-a)!important;
+  border-left-color:var(--ob-button-rim-a)!important;
+  background:var(--ob-button-fill-active)!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-button-inner),
+    0 5px 10px var(--ob-button-lift)!important;
+}
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn,
+body.dark-mode .ob-app-root button.ob-main-tab-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:var(--ob-button-fill)!important;
+}
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:var(--ob-button-fill-active)!important;
+}
+
+/* Hero rim correction.
+   The Today hero should feel like one sheet of glass with a lit edge, not a
+   coloured wash inside the card. Use real edge colours instead of a border-box
+   gradient so no glow can bleed into the content area. */
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-hero-fill:rgba(255,255,255,0.46);
+  --ob-hero-rim-a:rgba(83,228,255,0.30);
+  --ob-hero-rim-b:rgba(145,116,255,0.14);
+  --ob-hero-inner:rgba(255,255,255,0.62);
+  --ob-hero-lift:rgba(71,54,49,0.080);
+}
+body.dark-mode{
+  --ob-hero-fill:rgba(255,255,255,0.066);
+  --ob-hero-rim-a:rgba(255,207,142,0.22);
+  --ob-hero-rim-b:rgba(255,133,62,0.105);
+  --ob-hero-inner:rgba(255,239,212,0.145);
+  --ob-hero-lift:rgba(0,0,0,0.22);
+}
+.ob-app-root .glass-card.ob-hero,
+.ob-app-root [data-testid="today-hero"]{
+  border:1px solid var(--ob-hero-rim-b)!important;
+  border-top-color:var(--ob-hero-rim-a)!important;
+  border-left-color:var(--ob-hero-rim-a)!important;
+  background:var(--ob-hero-fill)!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-hero-inner),
+    0 8px 18px var(--ob-hero-lift)!important;
+}
+body.dark-mode .ob-app-root .glass-card.ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"]{
+  border-color:var(--ob-hero-rim-b)!important;
+  border-top-color:var(--ob-hero-rim-a)!important;
+  border-left-color:var(--ob-hero-rim-a)!important;
+  background:var(--ob-hero-fill)!important;
+}
+.ob-app-root .glass-card.ob-hero::before,
+.ob-app-root .glass-card.ob-hero::after,
+.ob-app-root [data-testid="today-hero"]::before,
+.ob-app-root [data-testid="today-hero"]::after{
+  opacity:0!important;
+  background:none!important;
+  animation:none!important;
+}
+
+/* Night amber glow parity.
+   Day mode's luminous rim feels premium because the light clings to the glass
+   edge. This mirrors that treatment for night mode with candle-amber light:
+   stronger edge glints, a warm lower reflection, and no bright wash behind
+   text. */
+body.dark-mode{
+  --ob-edge-hot:rgba(255,218,150,0.62);
+  --ob-edge-mid:rgba(255,166,78,0.36);
+  --ob-edge-soft:rgba(255,116,42,0.26);
+  --ob-edge-outline:rgba(255,173,78,0.16);
+  --ob-edge-glint:rgba(255,164,70,0.20);
+  --ob-edge-inner:rgba(255,242,216,0.28);
+  --ob-edge-fill:rgba(255,255,255,0.074);
+  --ob-edge-fill-strong:rgba(255,255,255,0.105);
+  --ob-edge-lift:rgba(0,0,0,0.24);
+  --ob-button-fill:rgba(255,255,255,0.066);
+  --ob-button-fill-active:rgba(255,255,255,0.098);
+  --ob-button-rim-a:rgba(255,214,145,0.36);
+  --ob-button-rim-b:rgba(255,130,56,0.18);
+  --ob-button-inner:rgba(255,240,214,0.22);
+  --ob-hero-fill:rgba(255,255,255,0.088);
+  --ob-hero-rim-a:rgba(255,220,152,0.42);
+  --ob-hero-rim-b:rgba(255,126,52,0.22);
+  --ob-hero-inner:rgba(255,244,224,0.28);
+  --ob-hero-lift:rgba(0,0,0,0.25);
+}
+body.dark-mode::before{
+  background:
+    radial-gradient(ellipse 92% 22% at 50% 111%,rgba(255,150,66,0.135),transparent 72%),
+    radial-gradient(ellipse 46% 24% at 18% 96%,rgba(255,216,150,0.090),transparent 72%),
+    radial-gradient(ellipse 42% 22% at 88% 90%,rgba(255,134,58,0.080),transparent 74%),
+    radial-gradient(ellipse 110% 58% at 50% -22%,rgba(112,154,190,0.115),transparent 62%),
+    linear-gradient(180deg,#07101b 0%,#0a1422 50%,#0c1828 100%)!important;
+}
+body.dark-mode .ob-app-root .glass-card,
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body.dark-mode .ob-app-root div[data-entry-id]{
+  border:1.2px solid transparent!important;
+  background:
+    radial-gradient(150px 108px at 0% 0%,rgba(255,224,160,0.080),transparent 64%) padding-box,
+    radial-gradient(170px 120px at 100% 100%,rgba(255,126,52,0.074),transparent 66%) padding-box,
+    linear-gradient(var(--ob-edge-fill),var(--ob-edge-fill)) padding-box,
+    linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 17%,rgba(255,236,205,0.105) 42%,rgba(255,188,108,0.040) 66%,var(--ob-edge-soft) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-edge-inner),
+    inset 1px 1px 0 rgba(255,246,228,0.105),
+    inset -1px -1px 0 rgba(255,120,52,0.070),
+    0 0 0 0.5px var(--ob-edge-outline),
+    0 0 7px var(--ob-edge-glint),
+    0 12px 24px var(--ob-edge-lift)!important;
+}
+body.dark-mode .ob-app-root .glass-card.ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"]{
+  border:1.25px solid var(--ob-hero-rim-b)!important;
+  border-top-color:var(--ob-hero-rim-a)!important;
+  border-left-color:var(--ob-hero-rim-a)!important;
+  background:
+    radial-gradient(180px 128px at 0% 0%,rgba(255,224,160,0.120),transparent 64%),
+    radial-gradient(196px 138px at 100% 100%,rgba(255,124,48,0.105),transparent 66%),
+    var(--ob-hero-fill)!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-hero-inner),
+    inset 1px 1px 0 rgba(255,246,228,0.12),
+    inset -1px -1px 0 rgba(255,120,52,0.075),
+    0 0 0 0.5px rgba(255,176,82,0.16),
+    0 0 10px rgba(255,164,70,0.22),
+    0 12px 24px var(--ob-hero-lift)!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn,
+body.dark-mode .ob-app-root button.ob-main-tab-btn,
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]){
+  border:1px solid var(--ob-button-rim-b)!important;
+  border-top-color:var(--ob-button-rim-a)!important;
+  border-left-color:var(--ob-button-rim-a)!important;
+  background:
+    radial-gradient(78px 58px at 0% 0%,rgba(255,224,160,0.070),transparent 66%),
+    radial-gradient(88px 66px at 100% 100%,rgba(255,126,52,0.054),transparent 68%),
+    var(--ob-button-fill)!important;
+  box-shadow:
+    inset 0 1px 0 var(--ob-button-inner),
+    0 0 0 0.5px rgba(255,173,78,0.095),
+    0 0 5px rgba(255,164,70,0.13),
+    0 6px 12px var(--ob-button-lift)!important;
+}
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    radial-gradient(92px 68px at 0% 0%,rgba(255,224,160,0.090),transparent 66%),
+    radial-gradient(104px 76px at 100% 100%,rgba(255,126,52,0.068),transparent 68%),
+    var(--ob-button-fill-active)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,244,224,0.26),
+    0 0 0 0.5px rgba(255,173,78,0.12),
+    0 0 7px rgba(255,164,70,0.18),
+    0 7px 14px var(--ob-button-lift)!important;
+}
+
+/* Night small-control candle pass.
+   These repeated 4am controls should feel like dark glass catching orange
+   candlelight, not a yellow/gold UI theme. Keep the warmth on the rim and the
+   lower reflection only so labels stay crisp. */
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root .ob-day-mode-switcher{
+  border:1.2px solid transparent!important;
+  background:
+    radial-gradient(ellipse 74% 62% at 50% 118%,rgba(255,112,42,0.100),transparent 70%) padding-box,
+    linear-gradient(180deg,rgba(255,255,255,0.074),rgba(255,255,255,0.036)) padding-box,
+    linear-gradient(135deg,rgba(255,185,122,0.18) 0%,rgba(255,116,48,0.16) 28%,rgba(255,255,255,0.055) 57%,rgba(205,70,28,0.14) 100%) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,202,166,0.13),
+    inset 0 -1px 0 rgba(255,96,38,0.070),
+    0 0 0 0.5px rgba(255,112,42,0.070),
+    0 0 14px rgba(255,96,34,0.095),
+    0 7px 16px rgba(0,0,0,0.22)!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn{
+  background:
+    radial-gradient(ellipse 76% 58% at 50% 118%,rgba(255,102,38,0.085),transparent 72%),
+    linear-gradient(180deg,rgba(255,255,255,0.078),rgba(255,255,255,0.038))!important;
+  border-color:rgba(255,105,42,0.115)!important;
+  border-top-color:rgba(255,176,116,0.165)!important;
+  border-left-color:rgba(255,147,86,0.135)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,204,170,0.105),
+    inset 0 -1px 0 rgba(255,94,36,0.055),
+    0 0 0 0.5px rgba(255,104,42,0.050),
+    0 0 7px rgba(255,92,34,0.075),
+    0 4px 10px rgba(0,0,0,0.19)!important;
+}
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active{
+  background:
+    radial-gradient(ellipse 82% 64% at 50% 118%,rgba(255,105,38,0.115),transparent 72%),
+    linear-gradient(180deg,rgba(255,255,255,0.108),rgba(255,255,255,0.052))!important;
+  border-color:rgba(255,110,44,0.145)!important;
+  border-top-color:rgba(255,183,122,0.215)!important;
+  border-left-color:rgba(255,150,88,0.175)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,207,176,0.155),
+    inset 0 -1px 0 rgba(255,94,36,0.075),
+    0 0 0 0.5px rgba(255,105,42,0.070),
+    0 0 9px rgba(255,91,34,0.105),
+    0 5px 12px rgba(0,0,0,0.22)!important;
+}
+
+/* Sleep Coach readability pass.
+   This sheet is long-form guidance, so it needs calmer contrast than the
+   decorative glass surfaces behind it. */
+.ob-sleep-coach-sheet{
+  background:rgba(255,252,248,0.98)!important;
+  color:#3F3338!important;
+}
+.ob-sleep-coach-sheet :where(div,span,strong){
+  text-shadow:none!important;
+}
+body:not(.dark-mode) .ob-sleep-coach-sheet :where(div,span,strong){
+  color:#4B3E45!important;
+}
+body:not(.dark-mode) .ob-sleep-coach-sheet :where(div[style*="font-size: 10"],div[style*="font-size: 11"],div[style*="font-size: 12"]){
+  color:#6D5F68!important;
+}
+body.dark-mode .ob-sleep-coach-sheet{
+  background:
+    radial-gradient(220px 150px at 50% 100%,rgba(255,157,72,0.105),transparent 72%),
+    linear-gradient(180deg,rgba(18,24,36,0.985),rgba(12,17,28,0.985))!important;
+  color:#FFF3E7!important;
+  border:1px solid rgba(255,224,184,0.18)!important;
+  box-shadow:0 -18px 42px rgba(0,0,0,0.36)!important;
+}
+body.dark-mode .ob-sleep-coach-sheet :where(div,span,strong){
+  color:#FFF3E7!important;
+}
+body.dark-mode .ob-sleep-coach-sheet :where(div[style*="font-size: 10"],div[style*="font-size: 11"],div[style*="font-size: 12"]){
+  color:#F2D8C2!important;
+}
+body.dark-mode .ob-sleep-coach-sheet div[style*="var(--card-bg)"],
+body.dark-mode .ob-sleep-coach-sheet div[style*="var(--card-bg-alt)"]{
+  background:rgba(255,255,255,0.075)!important;
+  border-color:rgba(255,224,184,0.14)!important;
+}
+body.dark-mode .ob-sleep-coach-sheet button{
+  color:#FFF3E7!important;
+}
+body.dark-mode .ob-sleep-coach-sheet button[style*="linear-gradient"]{
+  color:#FFFFFF!important;
+  text-shadow:0 1px 2px rgba(0,0,0,0.28)!important;
+}
+
+/* Night navy-control correction.
+   Final override for the 4am controls: the faces should sit back into the navy
+   background, while candlelight stays as a thin orange edge reflection. */
+body.dark-mode .ob-app-root{
+  --ob-night-control-face:linear-gradient(180deg,rgba(22,43,68,0.98),rgba(15,32,54,0.96));
+  --ob-night-control-face-active:linear-gradient(180deg,rgba(22,43,68,0.98),rgba(15,32,54,0.96));
+  --ob-night-control-rim:linear-gradient(135deg,rgba(255,176,112,0.18) 0%,rgba(255,108,42,0.16) 28%,rgba(116,157,188,0.075) 56%,rgba(202,73,30,0.14) 100%);
+}
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  border:1.2px solid transparent!important;
+  background:
+    var(--ob-night-control-face) padding-box,
+    var(--ob-night-control-rim) border-box!important;
+  -webkit-backdrop-filter:blur(18px) saturate(1.06)!important;
+  backdrop-filter:blur(18px) saturate(1.06)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,176,124,0.105),
+    inset 0 -1px 0 rgba(255,91,34,0.050),
+    0 0 0 0.5px rgba(255,112,42,0.060),
+    0 0 11px rgba(255,88,30,0.060),
+    0 8px 18px rgba(0,0,0,0.24)!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn,
+body.dark-mode .ob-app-root button.ob-main-tab-btn{
+  border:1.2px solid transparent!important;
+  background:
+    var(--ob-night-control-face) padding-box,
+    var(--ob-night-control-rim) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,191,150,0.080),
+    inset 0 -1px 0 rgba(255,91,34,0.040),
+    0 0 0 0.5px rgba(255,104,42,0.040),
+    0 5px 12px rgba(0,0,0,0.21)!important;
+}
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"]{
+  border:1.2px solid transparent!important;
+  background:
+    var(--ob-night-control-face-active) padding-box,
+    var(--ob-night-control-rim) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,166,0.120),
+    inset 0 -1px 0 rgba(255,91,34,0.055),
+    0 0 0 0.5px rgba(255,104,42,0.060),
+    0 0 7px rgba(255,87,30,0.070),
+    0 6px 14px rgba(0,0,0,0.24)!important;
+}
+body.dark-mode .ob-app-root .ob-quick-log-icon{
+  background:
+    linear-gradient(180deg,rgba(8,20,35,0.94),rgba(5,14,25,0.90))!important;
+  border-color:rgba(116,157,188,0.090)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.045),
+    0 0 0 0.5px rgba(255,112,42,0.035)!important;
+}
+
+/* Night modal clarity pass.
+   Bottom sheets and log popups were inheriting the same blurred glass as cards,
+   which made them look cloudy. In night mode the surface now sits back into the
+   navy background; candlelight is kept to the rim, handle, and soft edge glow. */
+body.dark-mode .ob-app-root{
+  --sheet-bg:rgba(7,17,31,0.96);
+  --input-bg:rgba(8,23,40,0.96);
+  --card-bg-alt:rgba(12,29,50,0.90);
+  --card-bg-solid:rgba(11,27,47,0.94);
+  --ob-night-modal-face:linear-gradient(180deg,rgba(12,28,48,0.985),rgba(6,17,31,0.985));
+  --ob-night-modal-panel:linear-gradient(180deg,rgba(15,34,56,0.96),rgba(9,24,42,0.94));
+  --ob-night-modal-field:linear-gradient(180deg,rgba(9,24,42,0.98),rgba(5,16,29,0.96));
+  --ob-night-modal-rim:linear-gradient(135deg,rgba(255,184,118,0.24) 0%,rgba(255,108,42,0.18) 30%,rgba(116,157,188,0.085) 62%,rgba(202,73,30,0.16) 100%);
+}
+body.dark-mode .ob-app-root .ob-sheet-overlay,
+body.dark-mode .ob-app-root div[style*="position: fixed"][style*="backdrop-filter"],
+body.dark-mode .ob-app-root div[style*="position: fixed"][style*="backdropFilter"]{
+  background:rgba(0,6,16,0.66)!important;
+  -webkit-backdrop-filter:blur(4px) saturate(1.02)!important;
+  backdrop-filter:blur(4px) saturate(1.02)!important;
+}
+body.dark-mode .ob-app-root .ob-night-sheet-surface,
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-sleep-coach-sheet,
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--bg-solid)"][style*="border-radius"]{
+  border:1.2px solid transparent!important;
+  background:
+    var(--ob-night-modal-face) padding-box,
+    var(--ob-night-modal-rim) border-box!important;
+  -webkit-backdrop-filter:blur(8px) saturate(1.04)!important;
+  backdrop-filter:blur(8px) saturate(1.04)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,158,0.105),
+    inset 0 -1px 0 rgba(255,91,34,0.045),
+    0 0 0 0.5px rgba(255,112,42,0.055),
+    0 -18px 46px rgba(0,0,0,0.46),
+    0 0 14px rgba(255,88,30,0.052)!important;
+  color:#F7F0E8!important;
+}
+body.dark-mode .ob-app-root .ob-night-sheet-surface > div:first-child[style*="height: 4"],
+body.dark-mode .ob-app-root .ob-sheet-content > div:first-child[style*="height: 4"],
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"] > div:first-child[style*="height: 4"],
+body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="border-radius"] > div:first-child[style*="height: 4"]{
+  background:rgba(255,154,94,0.30)!important;
+  box-shadow:0 0 10px rgba(255,96,34,0.08)!important;
+}
+body.dark-mode .ob-app-root .ob-night-sheet-surface :where(input,select,textarea),
+body.dark-mode .ob-app-root .ob-sheet-content :where(input,select,textarea),
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"] :where(input,select,textarea),
+body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="border-radius"] :where(input,select,textarea){
+  background:var(--ob-night-modal-field)!important;
+  border-color:rgba(255,171,108,0.14)!important;
+  color:#F8F2EC!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.055),
+    0 0 0 0.5px rgba(255,120,48,0.035)!important;
+}
+body.dark-mode .ob-app-root .ob-night-sheet-surface :where(input,textarea)::placeholder,
+body.dark-mode .ob-app-root .ob-sheet-content :where(input,textarea)::placeholder,
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"] :where(input,textarea)::placeholder,
+body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="border-radius"] :where(input,textarea)::placeholder{
+  color:rgba(210,222,232,0.48)!important;
+}
+body.dark-mode .ob-app-root .ob-night-sheet-surface div[style*="background: var(--card-bg"],
+body.dark-mode .ob-app-root .ob-sheet-content div[style*="background: var(--card-bg"],
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"] div[style*="background: var(--card-bg"],
+body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="border-radius"] div[style*="background: var(--card-bg"]{
+  background:var(--ob-night-modal-panel)!important;
+  border-color:rgba(255,171,108,0.13)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.050),
+    0 0 0 0.5px rgba(255,112,42,0.030)!important;
+}
+body.dark-mode .ob-app-root .ob-night-sheet-surface button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]):not([style*="color: rgb(255, 255, 255)"]),
+body.dark-mode .ob-app-root .ob-sheet-content button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]):not([style*="color: rgb(255, 255, 255)"]),
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"] button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]):not([style*="color: rgb(255, 255, 255)"]),
+body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="border-radius"] button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]):not([style*="color: rgb(255, 255, 255)"]){
+  background:var(--ob-night-modal-panel)!important;
+  border-color:rgba(255,171,108,0.12)!important;
+  color:#F1DFCE!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,205,166,0.075),
+    0 4px 10px rgba(0,0,0,0.20)!important;
+}
+body.dark-mode .ob-app-root .ob-night-sheet-surface :where(label,small),
+body.dark-mode .ob-app-root .ob-sheet-content :where(label,small),
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"] :where(label,small),
+body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="border-radius"] :where(label,small){
+  color:rgba(222,232,240,0.72)!important;
+}
+
+/* Plan Today v1. A calmer daily companion layer above the prediction timeline. */
+.ob-plan-today-shell{
+  margin:0 0 12px;
+  padding:16px;
+  border-radius:22px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,0.82),rgba(255,249,244,0.60)) padding-box,
+    linear-gradient(135deg,rgba(255,255,255,0.92),rgba(201,112,90,0.22),rgba(111,168,152,0.22)) border-box!important;
+  border:1.2px solid transparent!important;
+  box-shadow:0 14px 34px rgba(88,63,56,0.10), inset 0 1px 0 rgba(255,255,255,0.72)!important;
+}
+.ob-plan-today-head,
+.ob-weaning-food-row,
+.ob-plan-action-row,
+.ob-plan-task-head,
+.ob-plan-draft-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.ob-plan-today-head,
+.ob-plan-task-head{
+  justify-content:space-between;
+}
+.ob-plan-kicker{
+  font-family:var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#9A7268;
+}
+.ob-plan-title{
+  font-family:Georgia,serif;
+  font-size:19px;
+  font-weight:800;
+  color:#3F3338;
+  line-height:1.1;
+}
+.ob-plan-screen-order{
+  display:flex;
+  flex-direction:column;
+}
+.ob-plan-screen-order .ob-plan-current-card{order:1;}
+.ob-plan-screen-order .ob-plan-today-toggle{order:2;}
+.ob-plan-screen-order .ob-plan-today-detail{order:3;}
+.ob-plan-screen-order .ob-plan-ahead-card{order:4;}
+.ob-plan-screen-order .ob-plan-insight-link{order:5;}
+.ob-plan-ahead-card{
+  margin:0 0 12px;
+  padding:16px;
+  border-radius:24px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,0.86),rgba(255,249,244,0.62)) padding-box,
+    linear-gradient(135deg,rgba(255,255,255,0.94),rgba(111,168,152,0.26),rgba(201,112,90,0.18)) border-box!important;
+  border:1.2px solid transparent!important;
+  box-shadow:0 16px 38px rgba(75,54,50,0.12), inset 0 1px 0 rgba(255,255,255,0.76)!important;
+}
+.ob-plan-current-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 12px;
+  padding:14px 16px;
+  border-radius:22px;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,0.84),rgba(255,249,244,0.60)) padding-box,
+    linear-gradient(135deg,rgba(255,255,255,0.92),rgba(201,112,90,0.20),rgba(111,168,152,0.18)) border-box!important;
+  border:1.2px solid transparent!important;
+  box-shadow:0 12px 30px rgba(75,54,50,0.10), inset 0 1px 0 rgba(255,255,255,0.72)!important;
+}
+.ob-plan-ahead-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+.ob-plan-ahead-date{
+  flex-shrink:0;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(111,168,152,0.18);
+  background:rgba(255,255,255,0.58);
+  color:#5E6F70;
+  font:800 10.5px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.ob-plan-ahead-summary{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin:12px 0 10px;
+}
+.ob-plan-ahead-summary span,
+.ob-plan-ahead-note{
+  border-radius:999px;
+  background:rgba(111,168,152,0.10);
+  color:#527D76;
+  font:800 10.5px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  padding:4px 8px;
+}
+.ob-plan-ahead-list{
+  display:grid;
+  gap:0;
+  margin:10px 0 12px;
+  padding:12px 10px;
+  border-radius:20px;
+  border:1px solid rgba(130,103,95,0.12);
+  background:rgba(255,255,255,0.46);
+}
+.ob-plan-ahead-row{
+  display:grid;
+  grid-template-columns:22px 40px minmax(0,1fr) auto;
+  gap:9px;
+  align-items:flex-start;
+  min-height:46px;
+}
+.ob-plan-ahead-row.is-done{
+  opacity:.70;
+}
+.ob-plan-ahead-rail{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-height:46px;
+}
+.ob-plan-ahead-rail button,
+.ob-plan-ahead-rail span{
+  width:18px;
+  height:18px;
+  border-radius:999px;
+  border:1.5px solid rgba(111,168,152,0.34);
+  background:rgba(111,168,152,0.12);
+  color:#4D8274;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10px;
+  font-weight:900;
+  padding:0;
+  cursor:pointer;
+}
+.ob-plan-ahead-row:not(.is-planned) .ob-plan-ahead-rail span{
+  width:9px;
+  height:9px;
+  margin-top:5px;
+  border-color:rgba(201,112,90,0.34);
+  background:rgba(201,112,90,0.18);
+}
+.ob-plan-ahead-rail i{
+  width:2px;
+  flex:1;
+  min-height:20px;
+  border-radius:4px;
+  background:linear-gradient(180deg,rgba(201,112,90,0.22),rgba(111,168,152,0.20));
+}
+.ob-plan-ahead-icon{
+  width:36px;
+  height:36px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,0.62);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.70);
+  font-size:20px;
+}
+.ob-plan-ahead-body{
+  min-width:0;
+  padding-bottom:10px;
+}
+.ob-plan-ahead-row:last-child .ob-plan-ahead-body{
+  padding-bottom:0;
+}
+.ob-plan-ahead-body div{
+  display:flex;
+  align-items:baseline;
+  gap:7px;
+  flex-wrap:wrap;
+}
+.ob-plan-ahead-body strong{
+  font-size:13.5px;
+  color:#3F3338;
+  line-height:1.25;
+}
+.ob-plan-ahead-body span{
+  font:800 12px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  color:#8A7980;
+}
+.ob-plan-ahead-body small{
+  display:block;
+  margin-top:2px;
+  font-size:10.5px;
+  line-height:1.35;
+  color:#827780;
+}
+.ob-plan-ahead-actions{
+  margin-top:4px;
+}
+.ob-plan-ahead-chips{
+  display:flex;
+  gap:7px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  margin-top:10px;
+  padding-bottom:2px;
+}
+.ob-plan-ahead-chips::-webkit-scrollbar{display:none;}
+.ob-plan-ahead-chips button{
+  flex:0 0 auto;
+  border-radius:999px;
+  border:1px solid rgba(201,112,90,0.14);
+  background:rgba(255,255,255,0.58);
+  color:#6F5D65;
+  font:800 11px var(--ob-font-ui, Inter, system-ui, sans-serif);
+  padding:8px 10px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.ob-plan-ahead-chips span{
+  margin-right:5px;
+}
+.ob-plan-ahead-note{
+  display:block;
+  border-radius:14px;
+  white-space:normal;
+  line-height:1.45;
+  margin-top:10px;
+  background:rgba(201,112,90,0.10);
+  color:#8C6256;
+}
+.ob-plan-mini-btn,
+.ob-plan-primary-btn,
+.ob-plan-secondary-btn,
+.ob-plan-task-head button,
+.ob-plan-draft button{
+  border:none;
+  border-radius:999px;
+  cursor:pointer;
+  font:700 12px var(--ob-font-ui, Inter, system-ui, sans-serif);
+  white-space:nowrap;
+}
+.ob-plan-mini-btn,
+.ob-plan-secondary-btn,
+.ob-plan-task-head button{
+  padding:8px 12px;
+  color:#7A5B65;
+  background:rgba(255,255,255,0.58);
+  border:1px solid rgba(201,112,90,0.16);
+}
+.ob-plan-primary-btn,
+.ob-plan-draft button{
+  padding:9px 14px;
+  color:#fff;
+  background:linear-gradient(135deg,#C9705A,#A85A44);
+  box-shadow:0 8px 18px rgba(201,112,90,0.20);
+}
+.ob-plan-next-card,
+.ob-weaning-plan-card,
+.ob-plan-draft,
+.ob-plan-task,
+.ob-plan-suggestions button{
+  border:1px solid rgba(130,103,95,0.12);
+  background:rgba(255,255,255,0.52);
+  border-radius:18px;
+}
+.ob-plan-next-card{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:12px;
+  padding:13px;
+  margin:14px 0 10px;
+}
+.ob-plan-next-icon{
+  width:42px;
+  height:42px;
+  border-radius:15px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(255,255,255,0.62);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.68);
+  font-size:22px;
+}
+.ob-plan-next-title,
+.ob-weaning-plan-title{
+  font-size:14px;
+  font-weight:850;
+  color:#3F3338;
+  line-height:1.35;
+}
+.ob-plan-next-sub,
+.ob-weaning-plan-copy{
+  margin-top:4px;
+  font-size:11.5px;
+  line-height:1.55;
+  color:#73676E;
+}
+.ob-weaning-plan-card{
+  padding:13px;
+  margin:10px 0;
+}
+.ob-weaning-food-row{
+  align-items:flex-start;
+  margin-top:6px;
+}
+.ob-weaning-food-emoji{
+  width:42px;
+  height:42px;
+  border-radius:15px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  background:rgba(255,255,255,0.62);
+}
+.ob-weaning-plan-tags{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin:10px 0;
+}
+.ob-weaning-plan-tags span{
+  padding:3px 8px;
+  border-radius:999px;
+  background:rgba(111,168,152,0.12);
+  color:#4D8274;
+  font-size:10px;
+  font-weight:800;
+}
+.ob-plan-action-row{
+  flex-wrap:wrap;
+}
+.ob-plan-timeline-tools{
+  margin:0 0 10px;
+  padding:10px;
+  border-radius:16px;
+  border:1px solid rgba(130,103,95,0.12);
+  background:rgba(255,255,255,0.46);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.52);
+}
+.ob-plan-draft-inline{
+  margin:9px 0 0;
+}
+.ob-plan-task-head{
+  margin:12px 0 8px;
+  font:800 11px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:#8B8086;
+}
+.ob-plan-draft{
+  padding:10px;
+  margin-bottom:10px;
+}
+.ob-plan-draft input,
+.ob-plan-draft select{
+  width:100%;
+  min-height:40px;
+  border-radius:13px;
+  border:1px solid rgba(130,103,95,0.16);
+  background:rgba(255,255,255,0.74);
+  color:#3F3338;
+  padding:9px 11px;
+  font:600 13px var(--ob-font-ui, Inter, system-ui, sans-serif);
+  box-sizing:border-box;
+}
+.ob-plan-draft-row{
+  margin-top:8px;
+}
+.ob-plan-slot-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:8px;
+  margin-top:8px;
+}
+.ob-plan-slot-grid label{
+  display:grid;
+  gap:4px;
+  min-width:0;
+}
+.ob-plan-slot-grid label span{
+  font:800 9.5px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#89777F;
+}
+.ob-plan-draft-save-row{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:9px;
+}
+.ob-plan-edit-card{
+  grid-column:1 / -1;
+  margin:0 0 10px 31px;
+  padding:10px;
+  border:1px solid rgba(130,103,95,0.12);
+  border-radius:16px;
+  background:rgba(255,255,255,0.54);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.55);
+}
+.ob-plan-edit-card input,
+.ob-plan-edit-card select{
+  width:100%;
+  min-height:38px;
+  border-radius:12px;
+  border:1px solid rgba(130,103,95,0.16);
+  background:rgba(255,255,255,0.76);
+  color:#3F3338;
+  padding:8px 10px;
+  font:650 12.5px var(--ob-font-ui, Inter, system-ui, sans-serif);
+  box-sizing:border-box;
+}
+.ob-plan-row-actions{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:5px;
+}
+.ob-plan-edit-btn{
+  border:1px solid rgba(201,112,90,0.16);
+  background:rgba(255,255,255,0.58);
+  color:#7A5B65;
+  border-radius:999px;
+  padding:5px 8px;
+  font:800 10px var(--ob-font-ui, Inter, system-ui, sans-serif);
+  cursor:pointer;
+}
+.ob-plan-draft-row input{
+  max-width:124px;
+}
+.ob-plan-draft-row select{
+  max-width:132px;
+}
+.ob-plan-task-list{
+  display:grid;
+  gap:7px;
+}
+.ob-plan-task{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:10px;
+  padding:10px;
+}
+.ob-plan-task.is-done{
+  opacity:.76;
+}
+.ob-plan-check,
+.ob-plan-remove{
+  border:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.ob-plan-check{
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  border:1.5px solid rgba(111,168,152,0.38);
+  background:rgba(111,168,152,0.11);
+  color:#4D8274;
+  font-weight:900;
+}
+.ob-plan-task-body div{
+  font-size:13px;
+  font-weight:800;
+  color:#3F3338;
+}
+.ob-plan-task-body small{
+  display:block;
+  margin-top:2px;
+  font-size:10.5px;
+  color:#827780;
+  line-height:1.35;
+}
+.ob-plan-remove{
+  width:30px;
+  height:30px;
+  border-radius:999px;
+  background:transparent;
+  color:#A79AA1;
+  font-size:18px;
+}
+.ob-plan-suggestions{
+  display:grid;
+  gap:7px;
+  margin-top:10px;
+}
+.ob-plan-suggestions button{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  column-gap:9px;
+  row-gap:2px;
+  align-items:center;
+  padding:9px 11px;
+  text-align:left;
+  cursor:pointer;
+}
+.ob-plan-suggestions span{
+  grid-row:1 / span 2;
+  font-size:19px;
+}
+.ob-plan-suggestions strong{
+  font-size:12px;
+  color:#3F3338;
+}
+.ob-plan-suggestions small{
+  font-size:10.5px;
+  color:#827780;
+}
+body.dark-mode .ob-app-root .ob-plan-today-shell,
+body.dark-mode .ob-app-root .ob-plan-current-card,
+body.dark-mode .ob-app-root .ob-plan-ahead-card{
+  background:
+    linear-gradient(180deg,rgba(18,39,64,0.98),rgba(9,23,40,0.96)) padding-box,
+    linear-gradient(135deg,rgba(255,183,118,0.24),rgba(255,104,42,0.16),rgba(116,157,188,0.08),rgba(202,73,30,0.14)) border-box!important;
+  border:1.2px solid transparent!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,204,166,0.10),
+    0 0 0 0.5px rgba(255,112,42,0.05),
+    0 14px 34px rgba(0,0,0,0.30)!important;
+}
+body.dark-mode .ob-app-root .ob-plan-kicker{color:#E6AD83;}
+body.dark-mode .ob-app-root .ob-plan-title,
+body.dark-mode .ob-app-root .ob-plan-ahead-body strong,
+body.dark-mode .ob-app-root .ob-plan-next-title,
+body.dark-mode .ob-app-root .ob-weaning-plan-title,
+body.dark-mode .ob-app-root .ob-plan-task-body div,
+body.dark-mode .ob-app-root .ob-plan-suggestions strong{color:#F8F1EA;}
+body.dark-mode .ob-app-root .ob-plan-ahead-date,
+body.dark-mode .ob-app-root .ob-plan-ahead-body span,
+body.dark-mode .ob-app-root .ob-plan-ahead-body small,
+body.dark-mode .ob-app-root .ob-plan-ahead-summary span{
+  color:rgba(224,234,241,0.76);
+}
+body.dark-mode .ob-app-root .ob-plan-next-sub,
+body.dark-mode .ob-app-root .ob-weaning-plan-copy,
+body.dark-mode .ob-app-root .ob-plan-task-head,
+body.dark-mode .ob-app-root .ob-plan-task-body small,
+body.dark-mode .ob-app-root .ob-plan-suggestions small{color:rgba(224,234,241,0.74);}
+body.dark-mode .ob-app-root .ob-plan-next-card,
+body.dark-mode .ob-app-root .ob-weaning-plan-card,
+body.dark-mode .ob-app-root .ob-plan-draft,
+body.dark-mode .ob-app-root .ob-plan-ahead-list,
+body.dark-mode .ob-app-root .ob-plan-timeline-tools,
+body.dark-mode .ob-app-root .ob-plan-task,
+body.dark-mode .ob-app-root .ob-plan-suggestions button{
+  background:linear-gradient(180deg,rgba(13,31,53,0.95),rgba(8,22,39,0.92));
+  border-color:rgba(255,171,108,0.13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);
+}
+body.dark-mode .ob-app-root .ob-plan-next-icon,
+body.dark-mode .ob-app-root .ob-plan-ahead-icon,
+body.dark-mode .ob-app-root .ob-weaning-food-emoji{
+  background:linear-gradient(180deg,rgba(8,20,35,0.96),rgba(5,14,25,0.92));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04),0 0 0 0.5px rgba(255,112,42,0.04);
+}
+body.dark-mode .ob-app-root .ob-plan-ahead-date,
+body.dark-mode .ob-app-root .ob-plan-ahead-chips button{
+  background:rgba(12,29,50,0.92);
+  border-color:rgba(255,171,108,0.13);
+  color:#F1DFCE;
+}
+body.dark-mode .ob-app-root .ob-plan-ahead-note{
+  background:rgba(255,143,82,0.10);
+  color:#F1C4A2;
+}
+body.dark-mode .ob-app-root .ob-plan-ahead-rail button,
+body.dark-mode .ob-app-root .ob-plan-ahead-rail span{
+  background:rgba(255,166,82,0.10);
+  border-color:rgba(255,183,118,0.24);
+  color:#F3C9A6;
+}
+body.dark-mode .ob-app-root .ob-plan-ahead-row:not(.is-planned) .ob-plan-ahead-rail span{
+  background:rgba(255,183,118,0.20);
+  border-color:rgba(255,183,118,0.28);
+}
+body.dark-mode .ob-app-root .ob-plan-ahead-rail i{
+  background:linear-gradient(180deg,rgba(255,183,118,0.30),rgba(116,157,188,0.16));
+}
+body.dark-mode .ob-app-root .ob-plan-mini-btn,
+body.dark-mode .ob-app-root .ob-plan-secondary-btn,
+body.dark-mode .ob-app-root .ob-plan-task-head button{
+  background:rgba(12,29,50,0.92);
+  border-color:rgba(255,171,108,0.13);
+  color:#F1DFCE;
+}
+body.dark-mode .ob-app-root .ob-plan-draft input,
+body.dark-mode .ob-app-root .ob-plan-draft select,
+body.dark-mode .ob-app-root .ob-plan-edit-card input,
+body.dark-mode .ob-app-root .ob-plan-edit-card select{
+  background:linear-gradient(180deg,rgba(8,23,40,0.98),rgba(5,16,29,0.96));
+  border-color:rgba(255,171,108,0.14);
+  color:#F8F2EC;
+}
+body.dark-mode .ob-app-root .ob-plan-slot-grid label span{
+  color:rgba(241,196,162,0.82);
+}
+body.dark-mode .ob-app-root .ob-plan-edit-card{
+  background:var(--ob-night-opaque-face-soft);
+  border-color:rgba(255,171,108,0.13);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.05);
+}
+body.dark-mode .ob-app-root .ob-plan-edit-btn{
+  background:rgba(12,29,50,0.92);
+  border-color:rgba(255,171,108,0.13);
+  color:#F1DFCE;
+}
+body[data-kb-open="1"] .ob-keyboard-safe-overlay{
+  align-items:flex-start!important;
+  padding-top:calc(env(safe-area-inset-top,0px) + 8px)!important;
+}
+body[data-kb-open="1"] .ob-keyboard-safe-sheet{
+  border-radius:22px!important;
+  margin-top:0!important;
+  max-height:var(--ob-keyboard-sheet-max-h, 58vh)!important;
+}
+body[data-kb-open="1"] .ob-keyboard-safe-sheet input:focus,
+body[data-kb-open="1"] .ob-keyboard-safe-sheet textarea:focus,
+body[data-kb-open="1"] .ob-keyboard-safe-sheet select:focus{
+  scroll-margin-bottom:220px;
+}
+
+/* Popup opacity polish.
+   Keep the frosted-glass language, but make sheets/dialogs a little more
+   substantial so text and form controls are easier to read. */
+:root,
+body.light-mode{
+  --sheet-bg:rgba(255,252,248,0.93);
+  --picker-bg:rgba(255,252,248,0.95);
+  --sheet-overlay:rgba(91,79,79,0.32);
+}
+body.dark-mode{
+  --sheet-bg:rgba(7,17,31,0.975);
+  --picker-bg:rgba(7,17,31,0.985);
+  --sheet-overlay:rgba(0,6,16,0.66);
+}
+body:not(.dark-mode) .ob-app-root .ob-sheet-content,
+body:not(.dark-mode) .ob-app-root .ob-night-sheet-surface,
+body:not(.dark-mode) .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"],
+body:not(.dark-mode) .ob-app-root div[style*="background:var(--sheet-bg)"][style*="border-radius"],
+body:not(.dark-mode) .ob-app-root div[style*="background: var(--picker-bg)"][style*="border-radius"],
+body:not(.dark-mode) .ob-app-root div[style*="background:var(--picker-bg)"][style*="border-radius"]{
+  background:
+    linear-gradient(180deg,rgba(255,252,248,0.95),rgba(255,248,242,0.935)) padding-box,
+    linear-gradient(135deg,rgba(255,255,255,0.82),rgba(201,112,90,0.18),rgba(111,168,152,0.12)) border-box!important;
+  -webkit-backdrop-filter:blur(20px) saturate(1.25)!important;
+  backdrop-filter:blur(20px) saturate(1.25)!important;
+}
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-night-sheet-surface,
+body.dark-mode .ob-app-root .ob-sleep-coach-sheet,
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background: var(--picker-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--picker-bg)"][style*="border-radius"]{
+  background:
+    linear-gradient(180deg,rgba(9,21,37,0.992),rgba(5,15,28,0.988)) padding-box,
+    linear-gradient(135deg,rgba(255,184,118,0.24),rgba(255,108,42,0.16),rgba(116,157,188,0.08),rgba(202,73,30,0.14)) border-box!important;
+  -webkit-backdrop-filter:blur(7px) saturate(1.02)!important;
+  backdrop-filter:blur(7px) saturate(1.02)!important;
+}
+
+/* Night opacity system.
+   Carry the clearer popup material through the whole night UI: opaque navy glass
+   faces, candlelight on the rim only, and much less cloudy blur in repeated
+   cards, log rows, controls, and plan panels. */
+body.dark-mode{
+  --card-bg:rgba(12,27,46,0.965);
+  --card-bg-alt:rgba(15,33,54,0.955);
+  --card-bg-solid:rgba(9,22,39,0.985);
+  --input-bg:rgba(7,20,36,0.985);
+  --picker-bg:rgba(7,17,31,0.99);
+  --sheet-bg:rgba(7,17,31,0.985);
+  --bg-solid:rgba(5,14,25,0.99);
+  --ob-night-opaque-face:linear-gradient(180deg,rgba(18,37,61,0.985),rgba(8,20,36,0.978));
+  --ob-night-opaque-face-soft:linear-gradient(180deg,rgba(20,42,67,0.97),rgba(11,25,43,0.965));
+  --ob-night-opaque-face-strong:linear-gradient(180deg,rgba(22,45,70,0.992),rgba(9,22,39,0.988));
+  --ob-night-opaque-rim:linear-gradient(135deg,rgba(255,201,132,0.26),rgba(255,116,42,0.16),rgba(116,157,188,0.075),rgba(202,73,30,0.13));
+}
+body.dark-mode .ob-app-root .glass-card,
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root .ob-plan-today-shell,
+body.dark-mode .ob-app-root .ob-plan-current-card,
+body.dark-mode .ob-app-root .ob-plan-ahead-card,
+body.dark-mode .ob-app-root .ob-plan-next-card,
+body.dark-mode .ob-app-root .ob-weaning-plan-card,
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body.dark-mode .ob-app-root div[data-entry-id],
+body.dark-mode .ob-app-root div[style*="background: var(--card-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--card-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background: var(--card-bg-alt)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--card-bg-alt)"][style*="border-radius"]{
+  border:1.2px solid transparent!important;
+  background:
+    var(--ob-night-opaque-face) padding-box,
+    var(--ob-night-opaque-rim) border-box!important;
+  -webkit-backdrop-filter:blur(6px) saturate(1.02)!important;
+  backdrop-filter:blur(6px) saturate(1.02)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,213,176,0.105),
+    inset 0 -1px 0 rgba(255,88,30,0.040),
+    0 0 0 0.5px rgba(255,116,42,0.055),
+    0 8px 18px rgba(0,0,0,0.25)!important;
+}
+body.dark-mode .ob-app-root .glass-card.ob-hero,
+body.dark-mode .ob-app-root [data-testid="today-hero"],
+body.dark-mode .ob-app-root .ob-premium-hero{
+  background:
+    var(--ob-night-opaque-face-strong) padding-box,
+    linear-gradient(135deg,rgba(255,220,150,0.34),rgba(255,124,42,0.18),rgba(116,157,188,0.08),rgba(202,73,30,0.15)) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,230,198,0.16),
+    inset 0 -1px 0 rgba(255,88,30,0.050),
+    0 0 0 0.5px rgba(255,154,72,0.070),
+    0 10px 22px rgba(0,0,0,0.28)!important;
+}
+body.dark-mode .ob-app-root .ob-plan-next-card,
+body.dark-mode .ob-app-root .ob-weaning-plan-card,
+body.dark-mode .ob-app-root .ob-plan-draft,
+body.dark-mode .ob-app-root .ob-plan-ahead-list,
+body.dark-mode .ob-app-root .ob-plan-timeline-tools,
+body.dark-mode .ob-app-root .ob-plan-task,
+body.dark-mode .ob-app-root .ob-plan-suggestions button,
+body.dark-mode .ob-app-root .ob-plan-ahead-date,
+body.dark-mode .ob-app-root .ob-plan-ahead-chips button,
+body.dark-mode .ob-app-root div[style*="background: var(--card-bg)"][style*="border-radius"] div[style*="background: var(--card-bg"],
+body.dark-mode .ob-app-root div[style*="background:var(--card-bg)"][style*="border-radius"] div[style*="background:var(--card-bg"]{
+  background:var(--ob-night-opaque-face-soft)!important;
+  border-color:rgba(255,171,108,0.13)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.050),
+    0 0 0 0.5px rgba(255,112,42,0.025)!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn,
+body.dark-mode .ob-app-root button.ob-main-tab-btn,
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
+  border:1.2px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(21,43,68,0.985),rgba(12,27,46,0.976)) padding-box,
+    var(--ob-night-opaque-rim) border-box!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,205,166,0.095),
+    0 0 0 0.5px rgba(255,105,42,0.040),
+    0 5px 12px rgba(0,0,0,0.22)!important;
+}
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    linear-gradient(180deg,rgba(26,51,78,0.992),rgba(13,29,49,0.985)) padding-box,
+    linear-gradient(135deg,rgba(255,220,150,0.30),rgba(255,121,42,0.18),rgba(116,157,188,0.08),rgba(202,73,30,0.16)) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,225,190,0.145),
+    0 0 0 0.5px rgba(255,120,42,0.060),
+    0 6px 14px rgba(0,0,0,0.25)!important;
+}
+body.dark-mode .ob-app-root .ob-quick-log-icon,
+body.dark-mode .ob-app-root .ob-day-mode-icon{
+  background:rgba(5,16,29,0.72)!important;
+  border-color:rgba(116,157,188,0.075)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.040),
+    0 0 0 0.5px rgba(255,112,42,0.025)!important;
+}
+
+/* Night log experiment: keep the navy glass face, but swap sheet/log rims from
+   amber candlelight to a soft violet edge so the logging windows feel cleaner. */
+body.dark-mode{
+  --ob-night-log-rim:linear-gradient(135deg,rgba(237,229,255,0.78),rgba(173,139,255,0.58),rgba(117,176,220,0.16),rgba(224,152,255,0.44));
+}
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-night-sheet-surface,
+body.dark-mode .ob-app-root .ob-sleep-coach-sheet,
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background: var(--picker-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--picker-bg)"][style*="border-radius"]{
+  background:
+    linear-gradient(180deg,rgba(9,21,37,0.994),rgba(5,15,28,0.990)) padding-box,
+    var(--ob-night-log-rim) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(229,220,255,0.14),
+    inset 0 -1px 0 rgba(151,126,255,0.07),
+    0 0 0 0.5px rgba(164,139,255,0.09),
+    0 -18px 46px rgba(0,0,0,0.48),
+    0 0 22px rgba(151,126,255,0.11)!important;
+}
+body.dark-mode .ob-app-root .ob-sheet-content input,
+body.dark-mode .ob-app-root .ob-sheet-content textarea,
+body.dark-mode .ob-app-root .ob-sheet-content select,
+body.dark-mode .ob-app-root .ob-night-sheet-surface input,
+body.dark-mode .ob-app-root .ob-night-sheet-surface textarea,
+body.dark-mode .ob-app-root .ob-night-sheet-surface select,
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"] input,
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"] textarea,
+body.dark-mode .ob-app-root div[style*="background: var(--picker-bg)"] input,
+body.dark-mode .ob-app-root div[style*="background: var(--picker-bg)"] textarea{
+  background:rgba(7,18,34,0.988)!important;
+  border-color:rgba(196,178,255,0.20)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.045),
+    0 0 0 0.5px rgba(151,126,255,0.055)!important;
+}
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root div[data-entry-id],
+body.dark-mode .ob-app-root .ob-entry-longpress > div:not([role="group"]),
+body.dark-mode .ob-app-root .ob-night-wakes-card,
+body.dark-mode .ob-app-root .ob-night-wake-entry{
+  border:1.45px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(18,38,63,0.992),rgba(7,19,36,0.988)) padding-box,
+    var(--ob-night-log-rim) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(237,229,255,0.20),
+    inset 0 -1px 0 rgba(151,126,255,0.10),
+    0 0 0 0.5px rgba(199,181,255,0.20),
+    0 8px 18px rgba(0,0,0,0.25),
+    0 0 26px rgba(151,126,255,0.22)!important;
+}
+body.dark-mode .ob-app-root div[data-entry-id]::after,
+body.dark-mode .ob-app-root .ob-night-wake-entry::after{
+  background:linear-gradient(180deg,rgba(237,229,255,0.16) 0%,rgba(151,126,255,0.05) 45%,transparent 100%)!important;
+}
+body.dark-mode .ob-app-root .ob-night-wake-tip{
+  background:
+    linear-gradient(180deg,rgba(18,38,63,0.994),rgba(7,19,36,0.990)) padding-box,
+    var(--ob-night-log-rim) border-box!important;
+  border:1.35px solid transparent!important;
+  box-shadow:
+    inset 0 1px 0 rgba(237,229,255,0.18),
+    0 0 22px rgba(151,126,255,0.18)!important;
+}
+.ob-global-toast{
+  background:rgba(255,255,255,0.998)!important;
+  -webkit-backdrop-filter:blur(5px) saturate(1.05)!important;
+  backdrop-filter:blur(5px) saturate(1.05)!important;
+}
+body.dark-mode .ob-global-toast{
+  background:rgba(6,14,27,0.998)!important;
+  border-color:rgba(213,198,255,0.72)!important;
+  color:#F4EEFF!important;
+  box-shadow:
+    0 14px 34px rgba(0,0,0,0.56),
+    0 0 18px rgba(151,126,255,0.22),
+    inset 0 1px 0 rgba(237,229,255,0.18)!important;
+}
+
+/* Today log rows: solid night face, purple edge light.
+   These are repeated scan rows, so keep them clearer than the frosted sheets. */
+body.dark-mode .ob-app-root .ob-today-log-entry,
+body.dark-mode .ob-app-root div[data-entry-id].ob-today-log-entry{
+  border:1.45px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(20,32,49,0.998),rgba(10,19,34,0.996)) padding-box,
+    linear-gradient(135deg,rgba(241,232,255,0.74),rgba(162,126,255,0.62),rgba(205,139,255,0.38),rgba(92,133,190,0.12)) border-box!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(244,236,255,0.16),
+    inset 0 -1px 0 rgba(125,103,255,0.08),
+    0 0 0 0.5px rgba(199,181,255,0.18),
+    0 8px 18px rgba(0,0,0,0.28),
+    0 0 18px rgba(154,119,255,0.18)!important;
+}
+body.dark-mode .ob-app-root .ob-today-log-entry::after,
+body.dark-mode .ob-app-root div[data-entry-id].ob-today-log-entry::after{
+  background:linear-gradient(180deg,rgba(241,232,255,0.09) 0%,rgba(154,119,255,0.035) 42%,transparent 100%)!important;
+}
+
+/* Night glow direction: keep OBubba's navy face, add passcode-style amber edge light. */
+body.dark-mode{
+  --ob-night-passcode-face:linear-gradient(180deg,rgba(18,39,65,0.992),rgba(8,21,39,0.988));
+  --ob-night-passcode-face-strong:linear-gradient(180deg,rgba(23,48,76,0.996),rgba(10,24,44,0.992));
+  --ob-night-passcode-rim:linear-gradient(135deg,rgba(255,210,166,0.76),rgba(255,139,86,0.50),rgba(255,236,214,0.18),rgba(255,108,62,0.28));
+}
+body.dark-mode .ob-app-root .glass-card:not(.ob-today-log-entry):not([data-entry-id]),
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root .ob-plan-today-shell,
+body.dark-mode .ob-app-root .ob-plan-current-card,
+body.dark-mode .ob-app-root .ob-plan-ahead-card,
+body.dark-mode .ob-app-root .ob-plan-next-card,
+body.dark-mode .ob-app-root .ob-weaning-plan-card{
+  border:1.25px solid transparent!important;
+  background:
+    var(--ob-night-passcode-face) padding-box,
+    var(--ob-night-passcode-rim) border-box!important;
+  -webkit-backdrop-filter:blur(5px) saturate(1.05)!important;
+  backdrop-filter:blur(5px) saturate(1.05)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,231,210,0.18),
+    inset 0 -1px 0 rgba(255,111,67,0.06),
+    0 0 0 0.5px rgba(255,160,105,0.10),
+    0 9px 22px rgba(0,0,0,0.28),
+    0 0 18px rgba(255,118,74,0.14)!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn,
+body.dark-mode .ob-app-root button.ob-main-tab-btn,
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
+  border:1.25px solid transparent!important;
+  background:
+    var(--ob-night-passcode-face) padding-box,
+    var(--ob-night-passcode-rim) border-box!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,230,208,0.20),
+    inset 0 -1px 0 rgba(255,96,58,0.09),
+    0 0 0 0.5px rgba(255,150,95,0.13),
+    0 7px 15px rgba(0,0,0,0.25),
+    0 0 17px rgba(255,118,74,0.16)!important;
+}
+
+/* Header nap/bed prediction pill: keep the text readable even when broad
+   frosted-glass button rules are active. */
+.ob-app-root button.ob-countdown-pill{
+  color:#5F9184!important;
+  border:1.5px solid rgba(133,202,187,0.52)!important;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,0.96),rgba(236,252,248,0.92)) padding-box,
+    linear-gradient(135deg,rgba(153,230,214,0.88),rgba(218,207,246,0.52)) border-box!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.82),
+    0 8px 18px rgba(111,168,152,0.14)!important;
+}
+.ob-app-root button.ob-countdown-pill.is-now,
+.ob-app-root button.ob-countdown-pill.is-overdue{
+  color:#fff!important;
+  border-color:rgba(255,255,255,0.78)!important;
+  background:linear-gradient(135deg,#79B2A5,#5F9B8E)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.42),
+    0 8px 18px rgba(95,155,142,0.28)!important;
+}
+.ob-app-root button.ob-countdown-pill.is-bed.is-now{
+  background:linear-gradient(135deg,#78AFC8,#568FAC)!important;
+}
+.ob-app-root button.ob-countdown-pill.is-overdue{
+  background:linear-gradient(135deg,#D8AF5E,#B98B38)!important;
+}
+.ob-app-root button.ob-countdown-pill span{
+  color:inherit!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+.ob-app-root button.ob-nap-refused-link{
+  background:transparent!important;
+  border:0!important;
+  color:#A7647A!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+body.dark-mode .ob-app-root button.ob-countdown-pill{
+  color:#FFE8CE!important;
+  border:1.35px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(18,39,65,0.996),rgba(8,21,39,0.992)) padding-box,
+    linear-gradient(135deg,rgba(255,210,166,0.76),rgba(255,139,86,0.50),rgba(255,236,214,0.18),rgba(255,108,62,0.28)) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,231,210,0.17),
+    0 8px 18px rgba(0,0,0,0.28),
+    0 0 18px rgba(255,118,74,0.14)!important;
+}
+body.dark-mode .ob-app-root button.ob-countdown-pill.is-now,
+body.dark-mode .ob-app-root button.ob-countdown-pill.is-overdue{
+  color:#fff!important;
+  background:
+    linear-gradient(180deg,rgba(82,142,127,0.96),rgba(46,105,94,0.98)) padding-box,
+    linear-gradient(135deg,rgba(255,226,196,0.78),rgba(255,143,88,0.56)) border-box!important;
+}
+body.dark-mode .ob-app-root button.ob-nap-refused-link{
+  color:#FFCFB2!important;
+}
+
+/* Widget colour swatches are colour samples, not glass buttons. Keep this at
+   the end so broad button polish cannot wash the swatches back to white/navy. */
+.ob-app-root button.ob-widget-theme-swatch{
+  background:var(--ob-swatch-bg)!important;
+  border:1.5px solid rgba(255,255,255,0.78)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  background-clip:border-box!important;
+  overflow:visible!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.68),
+    inset 0 -12px 20px rgba(32,20,38,0.16),
+    0 7px 15px rgba(71,45,58,0.13)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"]{background:linear-gradient(135deg,#FFF1D6 0%,#F0A18E 38%,#A18CF8 66%,#17243C 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"]{background:linear-gradient(135deg,#FFE1E7 0%,#EE7F9C 52%,#A94366 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"]{background:linear-gradient(135deg,#EFE4FF 0%,#9B7AF2 54%,#5D44B8 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"]{background:linear-gradient(135deg,#DFF9E9 0%,#55C895 54%,#217E5B 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"]{background:linear-gradient(135deg,#DDF5FF 0%,#63B5E4 54%,#2D6EAA 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"]{background:linear-gradient(135deg,#83758B 0%,#43364F 48%,#171B2E 100%)!important}
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
+  border-color:rgba(244,236,255,0.56)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.34),
+    inset 0 -12px 20px rgba(5,9,18,0.28),
+    0 0 0 0.5px rgba(199,181,255,0.20),
+    0 0 14px rgba(151,126,255,0.14)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch::after{
+  content:"";
+  position:absolute;
+  inset:5px;
+  border-radius:9px;
+  border:1px solid rgba(255,255,255,0.52);
+  pointer-events:none;
+}
+
+/* Widget colour chips must show their actual theme colour, even when
+   global night-mode button styling is making ordinary buttons uniform. */
+.ob-app-root button.ob-widget-theme-swatch{
+  background:var(--ob-swatch-bg)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.72),
+    inset 0 -10px 18px rgba(66,38,54,0.10),
+    0 6px 14px rgba(90,58,72,0.10)!important;
+}
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
+  background:var(--ob-swatch-bg)!important;
+  border-color:rgba(255,210,166,0.46)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.30),
+    inset 0 -10px 18px rgba(5,9,18,0.28),
+    0 0 0 0.5px rgba(255,160,105,0.18),
+    0 0 14px rgba(255,118,74,0.12)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch::after{
+  content:"";
+  position:absolute;
+  inset:5px;
+  border-radius:9px;
+  border:1px solid rgba(255,255,255,0.46);
+  pointer-events:none;
+}
+
+/* Final interaction polish: keyboard-safe forms, visible carousel affordance,
+   and clearer plan copy. Keep this at the very end so broad glass/button
+   rules above cannot override the narrow fixes. */
+.ob-plan-helper-copy{
+  margin-top:4px;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--text-mid);
+  max-width:28rem;
+}
+.ob-recovery-email-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(74px,auto);
+  gap:8px;
+  align-items:stretch;
+  width:100%;
+}
+.ob-recovery-email-row input{
+  min-width:0!important;
+}
+.ob-recovery-email-row button{
+  min-width:74px;
+}
+@media (max-width:380px){
+  .ob-recovery-email-row{
+    grid-template-columns:1fr;
+  }
+  .ob-recovery-email-row button{
+    width:100%;
+  }
+}
+body[data-kb-open="1"] .ob-family-modal-sheet,
+body[data-kb-open="1"] .ob-child-settings-sheet{
+  max-height:var(--ob-keyboard-sheet-max-h,58vh)!important;
+  padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))!important;
+}
+.ob-child-settings-sheet input:focus,
+.ob-family-modal-sheet input:focus{
+  scroll-margin-bottom:220px;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-more-arrow{
+  position:sticky;
+  right:-2px;
+  z-index:4;
+  flex:0 0 28px;
+  width:28px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  align-self:stretch;
+  margin-left:-18px;
+  border-radius:16px;
+  color:var(--text-deep);
+  font-size:24px;
+  font-weight:900;
+  line-height:1;
+  pointer-events:none;
+  background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,252,248,0.92) 44%,rgba(255,252,248,0.98));
+  text-shadow:0 1px 8px rgba(91,64,54,0.18);
+}
+body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-more-arrow{
+  color:#FFE8CE;
+  background:linear-gradient(90deg,rgba(8,21,39,0),rgba(9,22,39,0.88) 44%,rgba(9,22,39,0.98));
+  text-shadow:0 0 12px rgba(255,140,83,0.30);
+}
+.ob-global-toast{
+  opacity:1!important;
+}
+body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
+  background:
+    var(--ob-night-passcode-face-strong) padding-box,
+    linear-gradient(135deg,rgba(255,214,177,0.88),rgba(255,132,84,0.56),rgba(255,236,214,0.24)) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,240,225,0.24),
+    inset 0 -1px 0 rgba(255,101,64,0.12),
+    0 0 0 0.5px rgba(255,174,118,0.16),
+    0 8px 18px rgba(0,0,0,0.28),
+    0 0 20px rgba(255,128,78,0.18)!important;
+}
+
+/* Make Today's lower surfaces match the loved night style: navy body, amber rim. */
+body.dark-mode .ob-app-root .ob-today-log-entry,
+body.dark-mode .ob-app-root div[data-entry-id].ob-today-log-entry,
+body.dark-mode .ob-app-root .ob-entry-longpress > .ob-today-log-entry,
+body.dark-mode .ob-app-root .ob-today-nudge-card{
+  border:1.35px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(18,39,65,0.996),rgba(8,21,39,0.992)) padding-box,
+    linear-gradient(135deg,rgba(255,210,166,0.76),rgba(255,139,86,0.50),rgba(255,236,214,0.18),rgba(255,108,62,0.28)) border-box!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,231,210,0.17),
+    inset 0 -1px 0 rgba(255,111,67,0.06),
+    0 0 0 0.5px rgba(255,160,105,0.10),
+    0 8px 18px rgba(0,0,0,0.28),
+    0 0 18px rgba(255,118,74,0.14)!important;
+}
+body.dark-mode .ob-app-root .ob-today-log-entry::after,
+body.dark-mode .ob-app-root div[data-entry-id].ob-today-log-entry::after{
+  background:linear-gradient(180deg,rgba(255,232,210,0.08) 0%,rgba(255,139,86,0.03) 42%,transparent 100%)!important;
+}
+
+/* Final night-mode unifier.
+   Any repeated card/control should read as the same navy glass family:
+   navy face, warm amber edge, no milky grey frosting. */
+body.dark-mode{
+  --ob-night-unified-face:linear-gradient(180deg,rgba(18,39,65,0.996),rgba(8,21,39,0.992));
+  --ob-night-unified-face-soft:linear-gradient(180deg,rgba(22,45,70,0.988),rgba(10,25,44,0.982));
+  --ob-night-unified-rim:linear-gradient(135deg,rgba(255,210,166,0.76),rgba(255,139,86,0.50),rgba(255,236,214,0.18),rgba(255,108,62,0.28));
+}
+body.dark-mode .ob-app-root .glass-card,
+body.dark-mode .ob-app-root .glass-entry,
+body.dark-mode .ob-app-root .ob-premium-tile,
+body.dark-mode .ob-app-root .ob-header-glass,
+body.dark-mode .ob-app-root .ob-day-mode-switcher,
+body.dark-mode .ob-app-root .ob-plan-today-shell,
+body.dark-mode .ob-app-root .ob-plan-current-card,
+body.dark-mode .ob-app-root .ob-plan-ahead-card,
+body.dark-mode .ob-app-root .ob-plan-next-card,
+body.dark-mode .ob-app-root .ob-weaning-plan-card,
+body.dark-mode .ob-app-root .ob-plan-draft,
+body.dark-mode .ob-app-root .ob-plan-ahead-list,
+body.dark-mode .ob-app-root .ob-plan-timeline-tools,
+body.dark-mode .ob-app-root .ob-plan-task,
+body.dark-mode .ob-app-root .ob-night-wakes-card,
+body.dark-mode .ob-app-root .ob-night-wake-entry,
+body.dark-mode .ob-app-root .ob-today-nudge-card,
+body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body.dark-mode .ob-app-root div[data-entry-id],
+body.dark-mode .ob-app-root div[style*="background: var(--card-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--card-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background: var(--card-bg-alt)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--card-bg-alt)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background: var(--card-bg-solid)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--card-bg-solid)"][style*="border-radius"]{
+  border:1.35px solid transparent!important;
+  background:
+    var(--ob-night-unified-face) padding-box,
+    var(--ob-night-unified-rim) border-box!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,231,210,0.17),
+    inset 0 -1px 0 rgba(255,111,67,0.06),
+    0 0 0 0.5px rgba(255,160,105,0.10),
+    0 8px 18px rgba(0,0,0,0.28),
+    0 0 18px rgba(255,118,74,0.14)!important;
+}
+body.dark-mode .ob-app-root .ob-sheet-content,
+body.dark-mode .ob-app-root .ob-night-sheet-surface,
+body.dark-mode .ob-app-root .ob-sleep-coach-sheet,
+body.dark-mode .ob-app-root div[style*="background: var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--sheet-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background: var(--picker-bg)"][style*="border-radius"],
+body.dark-mode .ob-app-root div[style*="background:var(--picker-bg)"][style*="border-radius"]{
+  border:1.35px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(10,24,43,0.998),rgba(5,15,29,0.996)) padding-box,
+    var(--ob-night-unified-rim) border-box!important;
+  -webkit-backdrop-filter:blur(3px) saturate(1.02)!important;
+  backdrop-filter:blur(3px) saturate(1.02)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,231,210,0.16),
+    0 -18px 46px rgba(0,0,0,0.50),
+    0 0 18px rgba(255,118,74,0.14)!important;
+}
+body.dark-mode .ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-day-mode-btn,
+body.dark-mode .ob-app-root button.ob-main-tab-btn,
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
+  border:1.35px solid transparent!important;
+  background:
+    var(--ob-night-unified-face-soft) padding-box,
+    var(--ob-night-unified-rim) border-box!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,231,210,0.18),
+    inset 0 -1px 0 rgba(255,111,67,0.07),
+    0 0 0 0.5px rgba(255,160,105,0.11),
+    0 7px 15px rgba(0,0,0,0.25),
+    0 0 17px rgba(255,118,74,0.16)!important;
 }

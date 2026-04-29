@@ -150,6 +150,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setViewVisibility(R.id.tv_timer_dot, View.VISIBLE);
                     v.setTextViewText(R.id.tv_timer_dot, "\u25CF");
                     v.setViewVisibility(R.id.timer_chrono, View.VISIBLE);
+                    v.setViewVisibility(R.id.tv_timer_label, View.GONE);
                     v.setViewVisibility(R.id.tv_prediction, View.GONE);
                     long elapsed = System.currentTimeMillis() - startMs;
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -196,6 +197,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
 
                         v.setTextViewText(R.id.tv_status_hint, "In");
                         v.setTextViewText(R.id.tv_timer_label, lbl.isEmpty() ? "Next" : lbl);
+                        v.setViewVisibility(R.id.tv_timer_label, View.GONE);
                         v.setViewVisibility(R.id.timer_chrono, View.VISIBLE);
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                             v.setChronometerCountDown(R.id.timer_chrono, true);
@@ -211,10 +213,12 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     } else if (pred != null && !pred.isEmpty() && !pred.equals("null")) {
                         v.setTextViewText(R.id.tv_status_hint, "Next");
                         v.setViewVisibility(R.id.timer_chrono, View.GONE);
+                        v.setViewVisibility(R.id.tv_timer_label, View.VISIBLE);
                         v.setTextViewText(R.id.tv_timer_label, "");
                         v.setTextViewText(R.id.tv_prediction, cleanPrediction(pred));
                     } else {
                         v.setViewVisibility(R.id.timer_chrono, View.GONE);
+                        v.setViewVisibility(R.id.tv_timer_label, View.VISIBLE);
                         v.setTextViewText(R.id.tv_timer_label, "");
                         String feed = d.optString("lastFeedTime", "");
                         if (feed != null && !feed.isEmpty() && !feed.equals("null")) {

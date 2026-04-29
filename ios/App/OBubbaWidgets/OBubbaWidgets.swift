@@ -242,6 +242,34 @@ private let brandMint    = Color(hex: "#6FA898")
 private let brandPurple  = Color(hex: "#8B7EC8")
 private let brandSky     = Color(hex: "#7AABC4")
 private let brandGold    = Color(hex: "#D4A855")
+private let lockNightA    = Color(hex: "#151B2A")
+private let lockNightB    = Color(hex: "#211827")
+private let lockCreamText = Color(hex: "#FFF0D6")
+private let lockRoseGlow  = Color(hex: "#E5A0B2")
+
+private func obLockLabel(_ raw: String?, fallback: String = "Next") -> String {
+    let cleaned = (raw ?? "")
+        .replacingOccurrences(of: "·", with: " ")
+        .replacingOccurrences(of: "•", with: " ")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !cleaned.isEmpty else { return fallback }
+    let lower = cleaned.lowercased()
+    if lower.hasPrefix("bed") || lower.contains("bedtime") { return "Bedtime" }
+    if lower.hasPrefix("nap") {
+        let parts = cleaned.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+        if parts.count > 1, Int(parts[1]) != nil { return "Nap \(parts[1])" }
+        return "Nap"
+    }
+    if lower.contains("feed") { return "Feed" }
+    if lower.contains("sleep") { return "Sleep" }
+    return cleaned
+}
+
+private func obLockIcon(label: String, timerType: String? = nil) -> String {
+    if timerType == "feed" || label.lowercased().contains("feed") { return "drop.fill" }
+    if label.lowercased().contains("bed") { return "moon.stars.fill" }
+    return "moon.zzz.fill"
+}
 
 // SwiftUI helper: conditionally apply a modifier
 extension View {
@@ -559,6 +587,97 @@ struct ActionBtn: View {
     }
 }
 
+struct LockActivityBadge: View {
+    let icon: String
+    let title: String
+    let accent: Color
+
+    var body: some View {
+        VStack(spacing: 3) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [accent.opacity(0.30), lockNightB.opacity(0.92)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 38, height: 38)
+                    .overlay(Circle().stroke(lockCreamText.opacity(0.18), lineWidth: 0.8))
+                    .shadow(color: accent.opacity(0.28), radius: 8, x: 0, y: 3)
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(lockCreamText)
+            }
+            Text(title)
+                .font(.system(size: 9, weight: .heavy, design: .rounded))
+                .foregroundColor(lockCreamText.opacity(0.86))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+    }
+}
+
+struct LockActivityFace: View {
+    let accent: Color
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [lockNightA.opacity(0.98), lockNightB.opacity(0.96), Color(hex: "#120F18").opacity(0.98)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [lockCreamText.opacity(0.18), accent.opacity(0.28), Color.white.opacity(0.06)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.08), Color.clear, accent.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            )
+    }
+}
+
+struct LockActivityAction: View {
+    let icon: String
+    let accent: Color
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [accent.opacity(0.30), accent.opacity(0.13)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 38, height: 38)
+                .overlay(Circle().stroke(lockCreamText.opacity(0.14), lineWidth: 0.8))
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .heavy))
+                .foregroundColor(lockCreamText)
+        }
+    }
+}
+
 // ── Breast side button ───────────────────────────────────────────
 struct BreastBtn: View {
     let letter: String
@@ -666,10 +785,14 @@ struct OBubbaSmallWidgetView: View {
                     .minimumScaleFactor(0.7)
 
                 Text(startDate, style: .timer)
-                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .font(.system(size: 20, weight: .heavy, design: .rounded))
                     .foregroundColor(brandDeep)
                     .monospacedDigit()
-                    .minimumScaleFactor(0.75)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.45)
+                    .allowsTightening(true)
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(10)
 
                 if label.lowercased().contains("sleep") {
                     Text("since \(Self.formatBedtime(startDate))")
@@ -697,10 +820,14 @@ struct OBubbaSmallWidgetView: View {
                     .minimumScaleFactor(0.7)
 
                 Text(targetDate, style: .relative)
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .font(.system(size: 19, weight: .heavy, design: .rounded))
                     .foregroundColor(brandDeep)
                     .monospacedDigit()
-                    .minimumScaleFactor(0.74)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.45)
+                    .allowsTightening(true)
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(10)
 
                 if let pred = d.nextPrediction, !pred.isEmpty {
                     let timeOnly = pred.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
@@ -799,18 +926,24 @@ struct OBubbaMediumWidgetView: View {
 
                 if hasTimer, let startDate = d.timerStartDate {
                     VStack(alignment: .trailing, spacing: 2) {
-                        HStack(spacing: 6) {
-                            HStack(spacing: 4) {
-                                Circle().fill(brandRose).frame(width: 6, height: 6)
-                                Text(d.timerLabel ?? (d.activeTimer ?? "").capitalized)
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(brandRose)
-                            }
-                            Text(startDate, style: .timer)
-                                .font(.system(size: 22, weight: .heavy, design: .rounded))
-                                .foregroundColor(brandDeep)
-                                .monospacedDigit()
+                        HStack(spacing: 4) {
+                            Circle().fill(brandRose).frame(width: 6, height: 6)
+                            Text(d.timerLabel ?? (d.activeTimer ?? "").capitalized)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(brandRose)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .layoutPriority(0)
                         }
+                        Text(startDate, style: .timer)
+                            .font(.system(size: 21, weight: .heavy, design: .rounded))
+                            .foregroundColor(brandDeep)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.45)
+                            .allowsTightening(true)
+                            .frame(minWidth: 112, maxWidth: .infinity, alignment: .trailing)
+                            .layoutPriority(10)
                         // "since X:XX" line
                         if let startTime = d.timerStartTime, !startTime.isEmpty {
                             let parts = startTime.split(separator: ":").compactMap { Int($0) }
@@ -848,11 +981,17 @@ struct OBubbaMediumWidgetView: View {
                         Text(label)
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(brandPurple.opacity(0.7))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                         HStack(spacing: 4) {
                             Text(targetDate, style: .relative)
-                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .font(.system(size: 12, weight: .heavy, design: .rounded))
                                 .foregroundColor(brandPurple)
                                 .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.45)
+                                .allowsTightening(true)
+                                .layoutPriority(5)
                             // Show predicted time next to countdown
                             if let pred = d.nextPrediction, !pred.isEmpty {
                                 // Strip any leading label up to and including "~ "
@@ -862,6 +1001,8 @@ struct OBubbaMediumWidgetView: View {
                                     Text(timeOnly)
                                         .font(.system(size: 9, weight: .semibold))
                                         .foregroundColor(brandPurple.opacity(0.7))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.7)
                                 }
                             }
                         }
@@ -957,46 +1098,55 @@ struct OBubbaLockScreenRectangular: View {
     let entry: OBubbaEntry
     private var d: WidgetData { entry.data }
     private var predictionLabel: String {
-        let label = d.nextPredictionLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return label.isEmpty ? "Next" : label
+        obLockLabel(d.nextPredictionLabel)
     }
 
     var body: some View {
         if let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate {
             // Timer active
-            HStack(spacing: 8) {
-                Image(systemName: timer == "feed" ? "drop.fill" : "moon.zzz.fill")
-                    .font(.system(size: 13, weight: .semibold))
+            let label = obLockLabel(d.timerLabel, fallback: timer == "feed" ? "Feed" : "Bedtime")
+            HStack(spacing: 7) {
+                Image(systemName: obLockIcon(label: label, timerType: timer))
+                    .font(.system(size: 13, weight: .bold))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(d.babyName)
+                    Text(label)
                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                    if let s = d.breastSide {
-                        Text("\(s.capitalized) side")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
+                    Text(timer == "feed" ? (d.breastSide.map { "\($0.capitalized) side" } ?? d.babyName) : "\(d.babyName) asleep")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
                 Spacer()
                 Text(startDate, style: .timer)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.34)
+                    .allowsTightening(true)
+                    .frame(minWidth: 78, alignment: .trailing)
+                    .layoutPriority(10)
             }
         } else if let targetDate = d.predictionTargetDate {
             HStack(spacing: 8) {
-                Image(systemName: predictionLabel.lowercased().contains("bed") ? "moon.stars.fill" : "moon.zzz.fill")
-                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: obLockIcon(label: predictionLabel))
+                    .font(.system(size: 13, weight: .bold))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(d.babyName)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
                     Text(predictionLabel)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                    Text(d.babyName)
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
                 Spacer()
                 Text(targetDate, style: .relative)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.45)
+                    .allowsTightening(true)
+                    .frame(minWidth: 68, alignment: .trailing)
+                    .layoutPriority(10)
             }
         } else {
             // Stats
@@ -1030,25 +1180,34 @@ struct OBubbaLockScreenInline: View {
     let entry: OBubbaEntry
     private var d: WidgetData { entry.data }
     private var predictionLabel: String {
-        let label = d.nextPredictionLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return label.isEmpty ? "Next" : label
+        obLockLabel(d.nextPredictionLabel)
     }
 
     var body: some View {
         if let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate {
+            let label = obLockLabel(d.timerLabel, fallback: timer == "feed" ? "Feed" : "Bedtime")
             HStack(spacing: 4) {
-                Image(systemName: timer == "feed" ? "drop.fill" : "moon.zzz.fill").font(.caption2)
+                Image(systemName: obLockIcon(label: label, timerType: timer)).font(.caption2)
+                Text(label).font(.system(.caption, design: .rounded)).bold()
                 Text(startDate, style: .timer)
                     .font(.system(.caption, design: .rounded)).bold()
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.34)
+                    .allowsTightening(true)
+                    .layoutPriority(10)
             }
         } else if let targetDate = d.predictionTargetDate {
             HStack(spacing: 4) {
-                Image(systemName: predictionLabel.lowercased().contains("bed") ? "moon.stars.fill" : "moon.zzz.fill").font(.caption2)
+                Image(systemName: obLockIcon(label: predictionLabel)).font(.caption2)
                 Text(predictionLabel).font(.system(.caption, design: .rounded)).bold()
                 Text(targetDate, style: .relative)
                     .font(.system(.caption, design: .rounded)).bold()
                     .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.42)
+                    .allowsTightening(true)
+                    .layoutPriority(6)
             }
         } else {
             HStack(spacing: 4) {
@@ -1102,91 +1261,58 @@ struct OBubbaTimerLiveActivity: Widget {
 
     /// Smart label: use nextNap ("Nap 1 2:00pm" → "Nap 1") if available, else "Sleep"/"Feed"
     private func smartLabel(nextNap: String?, timerType: String) -> String {
-        if let nn = nextNap, !nn.isEmpty {
-            let parts = nn.components(separatedBy: " ")
-            if parts.count >= 2, parts[0] == "Nap" || parts[0] == "Bed" {
-                return parts.prefix(2).joined(separator: " ")
-            }
-            return nn
-        }
-        return timerLabel(timerType)
+        obLockLabel(nextNap, fallback: timerLabel(timerType))
     }
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: OBubbaTimerAttributes.self) { context in
             // ── Lock Screen / Notification Banner ──
+            let label = smartLabel(nextNap: context.state.nextNap, timerType: context.attributes.timerType)
+            let icon = obLockIcon(label: label, timerType: context.attributes.timerType)
             HStack(spacing: 0) {
                 // Left: icon circle + baby name below
-                VStack(spacing: 2) {
-                    ZStack {
-                        Circle()
-                            .fill(brandRose.opacity(0.15))
-                            .frame(width: 34, height: 34)
-                        Image(systemName: timerIcon(context.attributes.timerType))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(brandRose)
-                    }
-                    Text(context.attributes.babyName)
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.7))
-                        .lineLimit(1)
-                }
-                .frame(width: 48)
-                .padding(.trailing, 4)
+                LockActivityBadge(icon: icon, title: context.attributes.babyName, accent: lockRoseGlow)
+                    .frame(width: 54)
+                    .padding(.trailing, 2)
 
                 // Middle: label + timer (centered)
-                VStack(alignment: .center, spacing: 1) {
-                    Text(smartLabel(nextNap: context.state.nextNap, timerType: context.attributes.timerType))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(brandDeep.opacity(0.45))
+                VStack(alignment: .center, spacing: 0) {
+                    Text(label)
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundColor(lockCreamText.opacity(0.62))
+                        .lineLimit(1)
                     Text(context.state.startTime, style: .timer)
-                        .font(.system(size: 26, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandDeep)
+                        .font(.system(size: 25, weight: .black, design: .rounded))
+                        .foregroundColor(lockCreamText)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.42)
+                        .allowsTightening(true)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, alignment: .center)
+                        .layoutPriority(10)
                     if let side = context.state.side {
                         Text("\(side.capitalized) side")
                             .font(.system(size: 9, weight: .medium))
-                            .foregroundColor(brandDeep.opacity(0.35))
+                            .foregroundColor(lockCreamText.opacity(0.48))
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
 
                 // Right: stop button
                 Link(destination: URL(string: "obubba://?action=stop_timer")!) {
-                    ZStack {
-                        Circle()
-                            .fill(brandRose.opacity(0.12))
-                            .frame(width: 34, height: 34)
-                        Image(systemName: "stop.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(brandRose)
-                    }
+                    LockActivityAction(icon: "stop.fill", accent: lockRoseGlow)
                 }
-                .frame(width: 48)
-                .padding(.leading, 4)
+                .frame(width: 54)
+                .padding(.leading, 2)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.78), brandCream.opacity(0.72), brandBg.opacity(0.82)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.42), lineWidth: 0.8)
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(LockActivityFace(accent: lockRoseGlow))
             .activityBackgroundTint(
-                Color(light: "#FFFCF9", dark: "#211B24")
+                Color(light: "#211827", dark: "#151B2A")
             )
-            .activitySystemActionForegroundColor(brandRose)
+            .activitySystemActionForegroundColor(lockRoseGlow)
 
         } dynamicIsland: { context in
             DynamicIsland {
@@ -1213,9 +1339,14 @@ struct OBubbaTimerLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(context.state.startTime, style: .timer)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(brandRose)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.42)
+                        .allowsTightening(true)
+                        .frame(minWidth: 82, alignment: .trailing)
+                        .layoutPriority(10)
                 }
             } compactLeading: {
                 Image(systemName: timerIcon(context.attributes.timerType))
@@ -1223,11 +1354,13 @@ struct OBubbaTimerLiveActivity: Widget {
                     .font(.system(size: 12))
             } compactTrailing: {
                 Text(context.state.startTime, style: .timer)
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundColor(brandRose)
-                    .bold()
                     .monospacedDigit()
-                    .frame(maxWidth: 52)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.38)
+                    .allowsTightening(true)
+                    .frame(width: 64, alignment: .trailing)
             } minimal: {
                 Image(systemName: timerIcon(context.attributes.timerType))
                     .foregroundColor(brandRose)
@@ -1246,82 +1379,55 @@ struct OBubbaPredictionLiveActivity: Widget {
     let kind: String = "OBubbaPrediction"
 
     private func predIcon(_ label: String) -> String {
-        label.lowercased().contains("bed") ? "moon.stars.fill" : "moon.zzz.fill"
+        obLockIcon(label: label)
     }
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: OBubbaPredictionAttributes.self) { context in
             // ── Lock Screen / Notification Banner ──
+            let label = obLockLabel(context.state.label)
             HStack(spacing: 0) {
                 // Left: icon + baby name
-                VStack(spacing: 2) {
-                    ZStack {
-                        Circle()
-                            .fill(brandRose.opacity(0.15))
-                            .frame(width: 34, height: 34)
-                        Image(systemName: predIcon(context.state.label))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(brandRose)
-                    }
-                    Text(context.attributes.babyName)
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.7))
-                        .lineLimit(1)
-                }
-                .frame(width: 48)
-                .padding(.trailing, 4)
+                LockActivityBadge(icon: predIcon(label), title: context.attributes.babyName, accent: brandPurple)
+                    .frame(width: 54)
+                    .padding(.trailing, 2)
 
                 // Middle: label + time + countdown (centered)
-                VStack(alignment: .center, spacing: 1) {
-                    Text(context.state.label)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(brandDeep.opacity(0.45))
+                VStack(alignment: .center, spacing: 0) {
+                    Text(label)
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundColor(lockCreamText.opacity(0.62))
+                        .lineLimit(1)
                     Text(context.state.timeFormatted)
-                        .font(.system(size: 26, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandDeep)
+                        .font(.system(size: 27, weight: .black, design: .rounded))
+                        .foregroundColor(lockCreamText)
                     Text(context.state.targetTime, style: .timer)
                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(brandPurple)
+                        .foregroundColor(Color(hex: "#D6CCFF"))
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.42)
+                        .allowsTightening(true)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, alignment: .center)
+                        .layoutPriority(6)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
 
                 // Right: start button — begins the predicted nap/bedtime
-                Link(destination: URL(string: context.state.label.lowercased().contains("bed")
+                Link(destination: URL(string: label.lowercased().contains("bed")
                     ? "obubba://?action=start_bedtime"
                     : "obubba://?action=toggle_nap")!) {
-                    ZStack {
-                        Circle()
-                            .fill(brandPurple.opacity(0.12))
-                            .frame(width: 34, height: 34)
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(brandPurple)
-                    }
+                    LockActivityAction(icon: "play.fill", accent: brandPurple)
                 }
-                .frame(width: 48)
-                .padding(.leading, 4)
+                .frame(width: 54)
+                .padding(.leading, 2)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.78), brandCream.opacity(0.72), brandBg.opacity(0.82)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color.white.opacity(0.42), lineWidth: 0.8)
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(LockActivityFace(accent: brandPurple))
             .activityBackgroundTint(
-                Color(light: "#FFFCF9", dark: "#211B24")
+                Color(light: "#211827", dark: "#151B2A")
             )
             .activitySystemActionForegroundColor(brandPurple)
 
@@ -1348,9 +1454,14 @@ struct OBubbaPredictionLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(context.state.targetTime, style: .timer)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(brandPurple)
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.42)
+                        .allowsTightening(true)
+                        .frame(minWidth: 82, alignment: .trailing)
+                        .layoutPriority(10)
                 }
             } compactLeading: {
                 Image(systemName: predIcon(context.state.label))
@@ -1358,11 +1469,12 @@ struct OBubbaPredictionLiveActivity: Widget {
                     .font(.system(size: 12))
             } compactTrailing: {
                 Text(context.state.timeFormatted)
-                    .font(.system(.caption2, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundColor(brandPurple)
-                    .bold()
                     .monospacedDigit()
-                    .frame(maxWidth: 52)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .frame(width: 58, alignment: .trailing)
             } minimal: {
                 ZStack {
                     Circle()
