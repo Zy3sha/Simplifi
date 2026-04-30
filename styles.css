@@ -3968,8 +3968,8 @@ body.dark-mode .ob-app-root div[style*="background:var(--card-bg)"][style*="bord
 body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
-body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
-body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
   border:1.2px solid transparent!important;
   background:
     linear-gradient(180deg,rgba(21,43,68,0.985),rgba(12,27,46,0.976)) padding-box,
@@ -4136,8 +4136,8 @@ body.dark-mode .ob-app-root .ob-weaning-plan-card{
 body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
-body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
-body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
   border:1.25px solid transparent!important;
   background:
     var(--ob-night-passcode-face) padding-box,
@@ -4150,6 +4150,93 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="l
     0 0 0 0.5px rgba(255,150,95,0.13),
     0 7px 15px rgba(0,0,0,0.25),
     0 0 17px rgba(255,118,74,0.16)!important;
+}
+
+.ob-app-root button.ob-widget-theme-swatch,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
+  background:var(--ob-swatch-bg)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+
+/* 4am usability guard.
+   Buttons should feel like controls, not selectable text, and the quick-log
+   carousel arrow needs its own breathing room instead of sitting on a tile. */
+.ob-app-root button,
+.ob-app-root [role="button"],
+.ob-app-root .ob-quick-log-label,
+.ob-app-root .ob-day-mode-btn,
+.ob-app-root .ob-main-tab-btn{
+  -webkit-user-select:none!important;
+  user-select:none!important;
+  -webkit-touch-callout:none!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-right:68px!important;
+  scroll-padding-inline:12px 70px!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
+  right:8px!important;
+  margin-left:8px!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
+  left:8px!important;
+  margin-right:8px!important;
+}
+
+/* Quick-log action dock: keep the "more" arrow from covering the last visible
+   action on narrow phone WebViews. */
+div[data-testid="quick-log-row"].ob-quick-log-row{
+  gap:7px!important;
+  padding:12px 10px 14px 12px!important;
+  scroll-padding-inline:12px 48px!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row button.ob-quick-log-btn,
+body[data-screen-compact] .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row button.ob-quick-log-btn{
+  flex:0 0 60px!important;
+  width:60px!important;
+  min-width:60px!important;
+  max-width:60px!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
+  flex:0 0 34px!important;
+  width:34px!important;
+  min-width:34px!important;
+  height:76px!important;
+  min-height:76px!important;
+  border-radius:18px!important;
+  font-size:25px!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
+  margin-right:0!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
+  margin-left:0!important;
+}
+@media(max-width:374px){
+  .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row button.ob-quick-log-btn{
+    flex-basis:56px!important;
+    width:56px!important;
+    min-width:56px!important;
+    max-width:56px!important;
+  }
+  div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
+    flex-basis:30px!important;
+    width:30px!important;
+    min-width:30px!important;
+  }
+}
+body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
+  border-color:rgba(122,204,255,0.68)!important;
+  background:
+    radial-gradient(circle at 50% 24%,rgba(85,169,220,0.36),rgba(16,45,77,0.96) 58%,rgba(8,22,40,0.98) 100%) padding-box,
+    linear-gradient(135deg,rgba(166,228,255,0.72),rgba(74,153,219,0.78),rgba(29,65,104,0.64)) border-box!important;
+  color:#CBEFFF!important;
+  box-shadow:
+    inset 0 1px 0 rgba(219,248,255,0.28),
+    0 8px 18px rgba(0,0,0,0.26),
+    0 0 22px rgba(86,186,255,0.34)!important;
+  text-shadow:0 0 14px rgba(124,212,255,0.42)!important;
 }
 
 /* Header nap/bed prediction pill: keep the text readable even when broad
@@ -4294,18 +4381,23 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
 }
 .ob-recovery-email-row{
   display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(74px,auto);
+  grid-template-columns:minmax(0,1fr) 78px;
   gap:8px;
   align-items:stretch;
   width:100%;
+  max-width:100%;
+  overflow:hidden;
 }
 .ob-recovery-email-row input{
   min-width:0!important;
 }
 .ob-recovery-email-row button{
-  min-width:74px;
+  min-width:0!important;
+  width:78px;
+  padding-left:6px!important;
+  padding-right:6px!important;
 }
-@media (max-width:380px){
+@media (max-width:520px){
   .ob-recovery-email-row{
     grid-template-columns:1fr;
   }
@@ -4318,9 +4410,22 @@ body[data-kb-open="1"] .ob-child-settings-sheet{
   max-height:var(--ob-keyboard-sheet-max-h,58vh)!important;
   padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))!important;
 }
+.ob-family-modal-sheet,
+.ob-child-settings-sheet{
+  box-sizing:border-box!important;
+  max-width:min(480px, calc(100vw - 16px))!important;
+  overflow-x:hidden!important;
+}
+.ob-family-modal-sheet *,
+.ob-child-settings-sheet *{
+  box-sizing:border-box;
+}
 .ob-child-settings-sheet input:focus,
 .ob-family-modal-sheet input:focus{
   scroll-margin-bottom:220px;
+}
+body[data-kb-open="1"] .ob-keyboard-safe-sheet:focus-within{
+  scroll-padding-bottom:240px!important;
 }
 div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-more-arrow{
   position:sticky;
@@ -4346,6 +4451,62 @@ body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-mo
   color:#FFE8CE;
   background:linear-gradient(90deg,rgba(8,21,39,0),rgba(9,22,39,0.88) 44%,rgba(9,22,39,0.98));
   text-shadow:0 0 12px rgba(255,140,83,0.30);
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
+  position:sticky!important;
+  z-index:8!important;
+  flex:0 0 50px!important;
+  width:50px!important;
+  min-width:50px!important;
+  height:76px!important;
+  min-height:76px!important;
+  align-self:stretch!important;
+  display:grid!important;
+  place-items:center!important;
+  margin:0!important;
+  border:1.35px solid rgba(165,220,255,0.72)!important;
+  border-radius:22px!important;
+  background:
+    radial-gradient(circle at 50% 30%,rgba(216,246,255,0.96),rgba(183,228,255,0.48) 46%,rgba(255,255,255,0.74) 100%) padding-box,
+    linear-gradient(135deg,rgba(183,232,255,0.96),rgba(124,190,234,0.72),rgba(255,255,255,0.62)) border-box!important;
+  color:#407AA6!important;
+  font-size:30px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.86),
+    0 8px 22px rgba(80,148,200,0.18),
+    0 0 24px rgba(128,208,255,0.34)!important;
+  text-shadow:0 1px 10px rgba(99,178,230,0.34)!important;
+  -webkit-backdrop-filter:blur(8px) saturate(1.2)!important;
+  backdrop-filter:blur(8px) saturate(1.2)!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
+  left:0!important;
+  order:-1!important;
+  margin-right:-8px!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
+  right:0!important;
+  order:999!important;
+  margin-left:-8px!important;
+}
+div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav:active{
+  transform:scale(0.96)!important;
+}
+body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
+  border-color:rgba(122,204,255,0.68)!important;
+  background:
+    radial-gradient(circle at 50% 24%,rgba(85,169,220,0.36),rgba(16,45,77,0.96) 58%,rgba(8,22,40,0.98) 100%) padding-box,
+    linear-gradient(135deg,rgba(166,228,255,0.72),rgba(74,153,219,0.78),rgba(29,65,104,0.64)) border-box!important;
+  color:#CBEFFF!important;
+  box-shadow:
+    inset 0 1px 0 rgba(219,248,255,0.28),
+    0 8px 18px rgba(0,0,0,0.26),
+    0 0 22px rgba(86,186,255,0.34)!important;
+  text-shadow:0 0 14px rgba(124,212,255,0.42)!important;
 }
 .ob-global-toast{
   opacity:1!important;
@@ -4455,8 +4616,8 @@ body.dark-mode .ob-app-root div[style*="background:var(--picker-bg)"][style*="bo
 body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
-body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
-body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
+body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
+body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]){
   border:1.35px solid transparent!important;
   background:
     var(--ob-night-unified-face-soft) padding-box,
@@ -4469,4 +4630,11 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="l
     0 0 0 0.5px rgba(255,160,105,0.11),
     0 7px 15px rgba(0,0,0,0.25),
     0 0 17px rgba(255,118,74,0.16)!important;
+}
+
+.ob-app-root button.ob-widget-theme-swatch,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
+  background:var(--ob-swatch-bg)!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
 }

@@ -819,7 +819,7 @@ struct OBubbaSmallWidgetView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
-                Text(targetDate, style: .relative)
+                Text(targetDate, style: .timer)
                     .font(.system(size: 19, weight: .heavy, design: .rounded))
                     .foregroundColor(brandDeep)
                     .monospacedDigit()
@@ -984,7 +984,7 @@ struct OBubbaMediumWidgetView: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                         HStack(spacing: 4) {
-                            Text(targetDate, style: .relative)
+                            Text(targetDate, style: .timer)
                                 .font(.system(size: 12, weight: .heavy, design: .rounded))
                                 .foregroundColor(brandPurple)
                                 .monospacedDigit()
@@ -1139,7 +1139,7 @@ struct OBubbaLockScreenRectangular: View {
                         .lineLimit(1)
                 }
                 Spacer()
-                Text(targetDate, style: .relative)
+                Text(targetDate, style: .timer)
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
@@ -1201,7 +1201,7 @@ struct OBubbaLockScreenInline: View {
             HStack(spacing: 4) {
                 Image(systemName: obLockIcon(label: predictionLabel)).font(.caption2)
                 Text(predictionLabel).font(.system(.caption, design: .rounded)).bold()
-                Text(targetDate, style: .relative)
+                    Text(targetDate, style: .timer)
                     .font(.system(.caption, design: .rounded)).bold()
                     .monospacedDigit()
                     .lineLimit(1)

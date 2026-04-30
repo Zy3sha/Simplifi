@@ -146,8 +146,8 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
 
                 if (active) {
                     // Timer pill
-                    v.setTextViewText(R.id.tv_status_hint, "Now");
-                    v.setViewVisibility(R.id.tv_timer_dot, View.VISIBLE);
+                    v.setViewVisibility(R.id.tv_status_hint, View.GONE);
+                    v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
                     v.setTextViewText(R.id.tv_timer_dot, "\u25CF");
                     v.setViewVisibility(R.id.timer_chrono, View.VISIBLE);
                     v.setViewVisibility(R.id.tv_timer_label, View.GONE);
@@ -186,6 +186,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
 
                 } else {
                     // Prediction
+                    v.setViewVisibility(R.id.tv_status_hint, View.VISIBLE);
                     v.setViewVisibility(R.id.tv_timer_dot, View.GONE);
                     v.setViewVisibility(R.id.tv_prediction, View.VISIBLE);
                     v.setViewVisibility(R.id.tv_since, View.GONE);
