@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "./build-pwa.sh",
+    "build:seo": "node tools/render-seo.mjs",
+    "blog:build": "node tools/render-seo.mjs",
     "build:vite": "vite build",
     "preview": "vite preview",
     "cap:sync": "npx cap sync",
@@ -16,7 +18,9 @@
     "postinstall": "patch-package",
     "test:sleep": "node test/sleep-engine-audit.js",
     "test:day-boundary": "node test/day-boundary-audit.js",
-    "test": "npm run test:sleep && npm run test:day-boundary"
+    "test:imported-data": "node test/imported-data-safety-audit.js",
+    "test:bubba-hug": "node test/bubba-hug-audit.js",
+    "test": "npm run test:sleep && npm run test:day-boundary && npm run test:imported-data && npm run test:bubba-hug"
   },
   "dependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",

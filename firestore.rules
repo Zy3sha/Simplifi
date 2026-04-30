@@ -95,6 +95,38 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    // ── Bubba Hugs ──
+    // Anonymous, preset-only support pings. No names, location, text, baby data,
+    // usernames, or contact details should ever be stored here.
+    match /bubba_hugs/{hugId} {
+      allow get, list: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll([
+          'fromId', 'context', 'messageKey', 'createdAtMs',
+          'createdAtClient', 'expiresAtMs', 'app'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'fromId', 'context', 'messageKey', 'createdAtMs',
+          'createdAtClient', 'expiresAtMs', 'app'
+        ])
+        && request.resource.data.fromId == request.auth.uid
+        && request.resource.data.context in ['parent_room', 'night_wake', 'bedtime', 'nap_refused', 'rough_day', 'general']
+        && request.resource.data.messageKey in ['not_alone', 'keep_going', 'one_breath', 'tiny_step']
+        && request.resource.data.createdAtMs is int
+        && request.resource.data.createdAtClient is string
+        && request.resource.data.expiresAtMs is int
+        && request.resource.data.app == 'obubba';
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'claimedBy', 'claimedAtMs', 'claimedAtClient'
+        ])
+        && (!('claimedBy' in resource.data) || resource.data.claimedBy == request.resource.data.claimedBy)
+        && request.resource.data.claimedBy == request.auth.uid
+        && request.resource.data.claimedAtMs is int
+        && request.resource.data.claimedAtClient is string;
+      allow delete: if false;
+    }
+
     // ── Carer Logs ──
     // GET only on parent doc. Entries subcollection open for carers.
     match /carer_logs/{code} {

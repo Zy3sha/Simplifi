@@ -7554,6 +7554,7 @@ function App(){
     const headerCols = parseCSVRow(lines[0]).map(h => h.toLowerCase().trim());
     const header = lines[0].toLowerCase();
     let imported = 0, skipped = 0, duplicates = 0;
+    const quality = { missingTime:0, inferredWake:0, zeroDurationNaps:0, needsReview:0 };
     const newDays = {};
 
     // Dedup signature for an entry. Two entries with the same signature
@@ -7616,7 +7617,16 @@ function App(){
       const cleanEntry = normaliseLogEntryTime(entry);
       const _hadUsableTime = !!(clockStringFromAny(entry.time) || clockStringFromAny(entry.start));
       if (!_hadUsableTime) {
+        quality.missingTime++;
+        quality.needsReview++;
+        cleanEntry._importNeedsReview = true;
         cleanEntry.note = [cleanEntry.note, "Imported without a time"].filter(Boolean).join(" · ");
+      }
+      if (cleanEntry.type === "nap" && cleanEntry.start && cleanEntry.end && cleanEntry.start === cleanEntry.end) {
+        quality.zeroDurationNaps++;
+        quality.needsReview++;
+        cleanEntry._importNeedsReview = true;
+        cleanEntry.note = [cleanEntry.note, "Imported nap needs an end time"].filter(Boolean).join(" · ");
       }
       // Reject dates before baby was born (ancient imports), more than
       // 1 day in the future (typo), or before 2020 (unambiguous typo).
@@ -8091,22 +8101,24 @@ function App(){
         // Find the earliest daytime entry (not night)
         const daytime = entries.filter(e => {
           const t = e.time || e.start || "";
-          const h = parseInt(t.split(":")[0]);
+          const mins = clockMins(t);
+          if (mins === null) return false;
+          const h = Math.floor(mins / 60);
           return h >= 5 && h < 13; // 5am-12:59pm morning window
         }).sort((a,b) => {
-          const at = a.time || a.start || "23:59";
-          const bt = b.time || b.start || "23:59";
-          return at.localeCompare(bt);
+          const at = clockMins(a.time || a.start) ?? 1439;
+          const bt = clockMins(b.time || b.start) ?? 1439;
+          return at - bt;
         });
         if (daytime.length > 0) {
           const firstTime = daytime[0].time || daytime[0].start;
           // Infer wake 30 min before the first entry (baby was awake before the first feed/nap)
-          const [fh, fm] = firstTime.split(":").map(Number);
-          let wakeMin = fh * 60 + fm - 30;
+          let wakeMin = (clockMins(firstTime) ?? (7 * 60)) - 30;
           if (wakeMin < 5 * 60) wakeMin = 5 * 60; // no earlier than 5am
           const wH = String(Math.floor(wakeMin / 60)).padStart(2, "0");
           const wM = String(wakeMin % 60).padStart(2, "0");
           entries.unshift({ id: uid(), type: "wake", time: wH + ":" + wM, night: false, note: "Inferred from import", src: "import" });
+          quality.inferredWake++;
           imported++;
         }
       }
@@ -8157,7 +8169,7 @@ function App(){
       } else {
         previewMsg = `Hmm, no entries found. OBubba supports Huckleberry, OBubba and Glow Baby CSV exports. Make sure you export from the app (not a PDF or report), and that the file ends in .csv`;
       }
-      return {mode:"preview", imported, skipped, duplicates, breakdown, sample:_sample, dayCount:Object.keys(newDays).length, message: previewMsg};
+      return {mode:"preview", imported, skipped, duplicates, breakdown, quality, sample:_sample, dayCount:Object.keys(newDays).length, message: previewMsg};
     }
 
     // COMMIT MODE: stamp every entry with the import batch ID and apply.
@@ -8225,7 +8237,7 @@ function App(){
     } else {
       msg = `Hmm, no entries found. OBubba supports Huckleberry, OBubba and Glow Baby CSV exports. Make sure you export from the app (not a PDF or report), and that the file ends in .csv`;
     }
-    return {mode:"commit", imported, skipped, duplicates, breakdown, message: msg, batchId: _batchId};
+    return {mode:"commit", imported, skipped, duplicates, breakdown, quality, message: msg, batchId: _batchId};
   }
 
   // Revert the most recent CSV import. Pulls the batch ID from
@@ -9253,6 +9265,65 @@ function App(){
       return hardNights >= 5;
     }catch{return false;}
   },[days]);
+  const[bubbaHugSending,setBubbaHugSending]=useState(false);
+  const[bubbaHugStatus,setBubbaHugStatus]=useState("");
+  const[bubbaHugReceived,setBubbaHugReceived]=useState(null);
+  const bubbaHugSeenRef = React.useRef(null);
+  const bubbaHugListenerReadyRef = React.useRef(Date.now() - 2*60*1000);
+  const bubbaHugCopy = {
+    not_alone: "Another OBubba parent sent you a hug. You are not alone in this moment.",
+    keep_going: "A parent who gets it is sending you a little strength for this bit.",
+    one_breath: "Someone is here with you for one quiet breath. In, out, tiny step.",
+    tiny_step: "You do not have to solve the whole night. One small next step is enough."
+  };
+  function pickBubbaHugKey(context) {
+    const keys = context === "night_wake" || context === "bedtime"
+      ? ["not_alone","one_breath","tiny_step"]
+      : ["not_alone","keep_going","one_breath","tiny_step"];
+    return keys[Math.floor(Math.random() * keys.length)] || "not_alone";
+  }
+  async function sendBubbaHug(context="parent_room") {
+    haptic();
+    const now = Date.now();
+    try {
+      const last = parseInt(localStorage.getItem("ob_bubba_hug_last_sent_ms") || "0", 10);
+      if (last && now - last < 2*60*1000) {
+        setBubbaHugStatus("Your last Bubba Hug is still travelling.");
+        return;
+      }
+    } catch {}
+    if (!fbReady || !window._fb?.addDoc || !window._fb?.collection) {
+      setBubbaHugStatus("Bubba Hug needs a connection. Try again in a moment.");
+      return;
+    }
+    setBubbaHugSending(true);
+    setBubbaHugStatus("");
+    try {
+      if(window._fbAuthReady) await Promise.race([window._fbAuthReady, new Promise(r=>setTimeout(r,2500))]);
+      const actorId = window._fb?.auth?.currentUser?.uid;
+      if (!actorId) {
+        setBubbaHugStatus("Bubba Hug needs a connection. Try again in a moment.");
+        return;
+      }
+      const {db, collection, addDoc} = window._fb;
+      await addDoc(collection(db, "bubba_hugs"), {
+        fromId: actorId,
+        context: ["parent_room","night_wake","bedtime","nap_refused","rough_day","general"].includes(context) ? context : "general",
+        messageKey: pickBubbaHugKey(context),
+        createdAtMs: now,
+        createdAtClient: new Date(now).toISOString(),
+        expiresAtMs: now + 10*60*1000,
+        app: "obubba"
+      });
+      try { localStorage.setItem("ob_bubba_hug_last_sent_ms", String(now)); } catch {}
+      setBubbaHugStatus("Your hug is on its way to another parent awake somewhere too.");
+      trackEvent("bubba_hug_sent", { context });
+    } catch(e) {
+      setBubbaHugStatus("Bubba Hug is still warming up. Try again in a moment.");
+    } finally {
+      setBubbaHugSending(false);
+    }
+  }
   useEffect(()=>{try{localStorage.setItem("emergency_contacts_v1",JSON.stringify(emergencyContacts));}catch{}},[emergencyContacts]);
   // One-shot on mount: backfill stable IDs for contacts that don't have them
   // and remove any duplicates that slipped in from earlier additive-merge bug.
@@ -10844,6 +10915,54 @@ function App(){
   const[csDueDate,setCsDueDate]=useState("");
   const[csConfirmDelete,setCsConfirmDelete]=useState(false);
   const[fbReady,setFbReady]=useState(false);
+  useEffect(()=>{
+    if(!fbReady || !window._fb?.collection || !window._fb?.onSnapshot || !window._fb?.query || !window._fb?.orderBy || !window._fb?.limit) return;
+    let unsub = null;
+    let cancelled = false;
+    (async()=>{
+      try {
+        if(window._fbAuthReady) await Promise.race([window._fbAuthReady, new Promise(r=>setTimeout(r,5000))]);
+        if (cancelled || !window._fb?.auth?.currentUser?.uid) return;
+        const myId = window._fb.auth.currentUser.uid;
+        const seenRaw = localStorage.getItem("ob_bubba_hugs_seen") || "[]";
+        bubbaHugSeenRef.current = new Set(JSON.parse(seenRaw).slice(-50));
+        const {db, collection, query, orderBy, limit, onSnapshot, doc, setDoc} = window._fb;
+        const q = query(collection(db, "bubba_hugs"), orderBy("createdAtMs", "desc"), limit(25));
+        unsub = onSnapshot(q, snap => {
+          const now = Date.now();
+          let picked = null;
+          snap.forEach(d => {
+            if (picked) return;
+            const data = d.data() || {};
+            const created = Number(data.createdAtMs) || Date.parse(data.createdAtClient || "");
+            if (!created || created < bubbaHugListenerReadyRef.current || now - created > 10*60*1000) return;
+            if (data.fromId === myId) return;
+            if (data.claimedBy && data.claimedBy !== myId) return;
+            if (bubbaHugSeenRef.current?.has(d.id)) return;
+            picked = {id:d.id, key:data.messageKey || "not_alone", context:data.context || "general"};
+          });
+          if (!picked) return;
+          try {
+            bubbaHugSeenRef.current.add(picked.id);
+            localStorage.setItem("ob_bubba_hugs_seen", JSON.stringify(Array.from(bubbaHugSeenRef.current).slice(-50)));
+          } catch {}
+          try {
+            setDoc(doc(db, "bubba_hugs", picked.id), {
+              claimedBy: myId,
+              claimedAtMs: now,
+              claimedAtClient: new Date(now).toISOString()
+            }, {merge:true}).catch(()=>{});
+          } catch {}
+          setBubbaHugReceived({
+            message: bubbaHugCopy[picked.key] || bubbaHugCopy.not_alone,
+            context: picked.context
+          });
+          trackEvent("bubba_hug_received", { context: picked.context });
+        }, () => {});
+      } catch {}
+    })();
+    return ()=>{ cancelled = true; try { unsub && unsub(); } catch {} };
+  },[fbReady]);
   useEffect(() => {
     if(!STORE_READY || !fbReady || !trialStart) return;
     let alive = true;
@@ -38508,6 +38627,23 @@ function App(){
                         <button onClick={()=>{haptic();setShowBreathing(true);}} style={{padding:"12px 10px",borderRadius:16,border:"1.5px solid rgba(123,104,238,0.24)",background:"rgba(255,255,255,0.42)",color:"#6f57d8",fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>🫁 Breathe</button>
                         <button onClick={()=>{haptic();setShowSupportModal(true);}} style={{padding:"12px 10px",borderRadius:16,border:"1.5px solid rgba(192,112,136,0.28)",background:"rgba(192,112,136,0.10)",color:C.ter,fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>I need support now</button>
                       </div>
+                      <div style={{marginTop:10,padding:"12px 12px",borderRadius:18,background:"linear-gradient(135deg,rgba(255,255,255,0.52),rgba(255,255,255,0.24))",border:"1px solid rgba(123,104,238,0.16)",textAlign:"left"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                          <div style={{fontSize:24,lineHeight:1}}>🫶</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:900,color:C.deep,fontFamily:_fM}}>Bubba Hug</div>
+                            <div style={{fontSize:11,color:C.lt,lineHeight:1.45}}>Give another parent a hug to let them know they aren't alone. Someone else is awake somewhere holding their baby close, just like them. In solidarity, we find strength and comfort.</div>
+                          </div>
+                        </div>
+                        <button disabled={bubbaHugSending} onClick={()=>sendBubbaHug("parent_room")}
+                          style={{width:"100%",padding:"11px 12px",borderRadius:99,border:"1.5px solid rgba(123,104,238,0.22)",background:bubbaHugSending?"rgba(123,104,238,0.10)":"linear-gradient(135deg,rgba(123,104,238,0.18),rgba(192,112,136,0.12))",color:"#6f57d8",fontSize:13,fontWeight:900,cursor:bubbaHugSending?"wait":_cP,fontFamily:_fI}}>
+                          {bubbaHugSending ? "Sending..." : "Send a Bubba Hug"}
+                        </button>
+                        <div style={{fontSize:10.5,color:C.lt,lineHeight:1.4,marginTop:7,textAlign:"center"}}>
+                          No names, custom messages, location, or baby data.
+                        </div>
+                        {bubbaHugStatus && <div style={{fontSize:11,color:C.mid,lineHeight:1.45,marginTop:7,textAlign:"center",fontWeight:800}}>{bubbaHugStatus}</div>}
+                      </div>
                     </div>
                   </div>
 
@@ -49642,6 +49778,8 @@ function App(){
           triage: { title: "One tap. Whole-baby view.", body: "Tap this when baby is unsettled and you're not sure why. OBubba checks sleep, feed, weaning, and wellbeing patterns together, then ranks the most useful things to consider first." },
           tonights_focus: { title: "Tonight's plan", body: "Every morning, based on last night's pattern, OBubba gives you a gentle 4-step focus for tonight, with the reasoning explained so you know why." },
           sleep_coach: { title: "Your 14-day sleep coach", body: "Pick a style — no-cry, chair shuffle, or parent-led — and OBubba walks you through a gentle 14-day plan one day at a time, tailored to " + _bn + "'s age and recent sleep data." },
+          bedtime_resistance_options: { title: "When bedtime is not happening", body: "OBubba checks the final wake window, last nap, overstimulation, comfort cues, and tonight's rhythm, then gives a calm sleep-consultant style next step. It treats bedtime fighting differently from a missed nap." },
+          nap_refused_options: { title: "When nap is not happening", body: "Choose what you are seeing and OBubba helps you decide whether to retry, rescue with rest, bridge the day, or protect bedtime without turning the whole day into a battle." },
         };
         const _msg = _warmMessages[paywallContext] || { title: "Made by a tired mum, for tired parents", body: "I built OBubba at 3am because I was fed up juggling 5 different apps. Premium helps turn logs into calmer, more personal guidance, so you can enjoy your baby instead of worrying." };
         return (
@@ -50239,6 +50377,32 @@ function App(){
             <button onClick={()=>{setShow6moTransition(false);try{localStorage.setItem("transition_6mo_v1","1");}catch{};}}
               style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:16,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
               Let's grow together 🌱
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Bubba Hug. anonymous parent-to-parent support ═══ */}
+      {bubbaHugReceived&&(
+        <div role="dialog" aria-modal="true" onClick={()=>setBubbaHugReceived(null)} style={{position:"fixed",inset:0,background:"rgba(12,16,32,0.58)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",zIndex:9950,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:360,borderRadius:28,padding:"24px 20px 20px",background:isDark?"linear-gradient(145deg,rgba(10,19,36,0.96),rgba(20,28,48,0.92))":"linear-gradient(145deg,rgba(255,252,249,0.96),rgba(250,237,232,0.94))",border:"1.5px solid rgba(192,112,136,0.22)",boxShadow:isDark?"0 22px 70px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)":"0 22px 70px rgba(112,72,82,0.18), inset 0 1px 0 rgba(255,255,255,0.75)",textAlign:"center"}}>
+            <div style={{fontSize:42,marginBottom:8}}>🫶</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:850,color:C.deep,marginBottom:8,lineHeight:1.2}}>
+              Someone sent you a Bubba Hug
+            </div>
+            <div style={{fontSize:14,color:C.mid,lineHeight:1.65,margin:"0 auto 16px",maxWidth:285}}>
+              {bubbaHugReceived.message}
+            </div>
+            <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:16}}>
+              No names. no replies. just a tiny sign that another parent is awake with you.
+            </div>
+            <button onClick={()=>{setBubbaHugReceived(null);sendBubbaHug(bubbaHugReceived.context || "parent_room");}}
+              style={{width:"100%",padding:"13px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#C07088)",color:"white",fontSize:14,fontWeight:900,cursor:_cP,fontFamily:_fI,boxShadow:"0 8px 24px rgba(123,104,238,0.22)",marginBottom:8}}>
+              Send one back
+            </button>
+            <button onClick={()=>setBubbaHugReceived(null)}
+              style={{width:"100%",padding:"12px",borderRadius:99,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
+              Keep it with me
             </button>
           </div>
         </div>
@@ -53380,6 +53544,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     </div>
                   )}
                   {importResult.skipped > 0 && <div style={{fontSize:12,color:C.lt,marginTop:4}}>{importResult.skipped} rows skipped (unsupported type)</div>}
+                  {importResult.quality && importResult.quality.needsReview > 0 && (
+                    <div style={{marginTop:10,padding:"10px 12px",borderRadius:12,background:"rgba(212,168,85,0.12)",border:"1px solid rgba(212,168,85,0.28)",fontSize:12,color:C.mid,lineHeight:1.55}}>
+                      <strong style={{color:C.deep}}>Import health:</strong> {importResult.quality.needsReview} entries may need a quick check.
+                      {importResult.quality.missingTime > 0 && <div>{importResult.quality.missingTime} had no usable time, so OBubba kept them but marked them for review.</div>}
+                      {importResult.quality.zeroDurationNaps > 0 && <div>{importResult.quality.zeroDurationNaps} naps had no real end time.</div>}
+                      {importResult.quality.inferredWake > 0 && <div>{importResult.quality.inferredWake} morning wakes were inferred from the first daytime log.</div>}
+                    </div>
+                  )}
                 </div>
                 {importResult.imported > 0 && (
                   <button onClick={()=>{
@@ -53415,6 +53587,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     </div>
                   )}
                   {importResult.skipped > 0 && <div style={{fontSize:12,color:C.lt,marginTop:4}}>{importResult.skipped} rows skipped (unsupported type)</div>}
+                  {importResult.quality && importResult.quality.needsReview > 0 && (
+                    <div style={{marginTop:10,padding:"10px 12px",borderRadius:12,background:"rgba(212,168,85,0.12)",border:"1px solid rgba(212,168,85,0.28)",fontSize:12,color:C.mid,lineHeight:1.55}}>
+                      <strong style={{color:C.deep}}>Import health:</strong> {importResult.quality.needsReview} entries may need a quick check before relying on predictions.
+                      {importResult.quality.missingTime > 0 && <div>{importResult.quality.missingTime} had no usable time.</div>}
+                      {importResult.quality.zeroDurationNaps > 0 && <div>{importResult.quality.zeroDurationNaps} naps had no real end time.</div>}
+                      {importResult.quality.inferredWake > 0 && <div>{importResult.quality.inferredWake} morning wakes were inferred.</div>}
+                    </div>
+                  )}
                 </div>
                 {importResult.sample && importResult.sample.length > 0 && (
                   <div style={{background:"var(--card-bg-alt)",borderRadius:12,padding:"12px 14px",marginBottom:14,border:"1px solid "+C.blush}}>

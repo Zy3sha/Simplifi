@@ -238,18 +238,52 @@ function nowTime() {
   const d = new Date();
   return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
 }
+function clockParts(t) {
+  if (typeof t !== "string") return null;
+  const m = t.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return [h, min];
+}
+function clockMins(t) {
+  const p = clockParts(t);
+  return p ? p[0] * 60 + p[1] : null;
+}
+function minsBetween(start, end) {
+  const s = clockMins(start), e = clockMins(end);
+  if (s == null || e == null) return null;
+  let d = e - s;
+  if (d < 0) d += 1440;
+  return d;
+}
+function parseDisplayMins(t) {
+  if (!t) return null;
+  const raw = String(t).trim();
+  const p24 = clockMins(raw);
+  if (p24 != null) return p24;
+  const m = raw.match(/(\d{1,2}):(\d{2})\s*([ap])m?/i);
+  if (!m) return null;
+  let h = Number(m[1]), min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min) || min < 0 || min > 59) return null;
+  const pm = m[3].toLowerCase() === "p";
+  if (pm && h < 12) h += 12;
+  if (!pm && h === 12) h = 0;
+  return h >= 0 && h < 24 ? h * 60 + min : null;
+}
 function fmt12(t) {
-  const [h,m] = (t||"").split(":").map(Number);
-  if(isNaN(h)) return t;
+  const p = clockParts(t);
+  if(!p) return t || "";
+  const [h,m] = p;
   const ap = h >= 12 ? "pm" : "am";
   const h12 = (h % 12) || 12;
   return h12 + ":" + String(m).padStart(2,"0") + ap;
 }
 function agoMin(t) {
-  if(!t) return null;
-  const [h,m] = t.split(":").map(Number);
+  const mins = clockMins(t);
+  if(mins == null) return null;
   const now = new Date();
-  let d = (now.getHours()*60 + now.getMinutes()) - (h*60+m);
+  let d = (now.getHours()*60 + now.getMinutes()) - mins;
   if(d < 0) d += 1440;
   return d;
 }
@@ -645,10 +679,10 @@ function renderApp() {
       if (!_el) return;
       const _startTime = _el.getAttribute('data-timer-start');
       if (!_startTime) return;
-      const [_th,_tm] = _startTime.split(":").map(Number);
-      if (isNaN(_th)) return;
+      const _startMins = clockMins(_startTime);
+      if (_startMins == null) return;
       const _now2 = new Date();
-      let _elapsed = (_now2.getHours()*3600+_now2.getMinutes()*60+_now2.getSeconds()) - (_th*3600+_tm*60);
+      let _elapsed = (_now2.getHours()*3600+_now2.getMinutes()*60+_now2.getSeconds()) - (_startMins*60);
       if (_elapsed < 0) _elapsed += 86400;
       _el.textContent = fmtElapsed(_elapsed);
     } catch {}
@@ -673,25 +707,21 @@ function _renderHtml() {
         const _dks = Object.keys(_ch.days).sort().slice(-7);
         const _gaps = [];
         _dks.forEach(dk => {
-          const _de = (_ch.days[dk]||[]).filter(e=>!e.night).sort((a,b)=>{
-            const [ah,am]=(a.time||a.start||"00:00").split(":").map(Number);
-            const [bh,bm]=(b.time||b.start||"00:00").split(":").map(Number);
-            return (ah*60+am)-(bh*60+bm);
-          });
+          const _de = (_ch.days[dk]||[]).filter(e=>!e.night).sort((a,b)=>(clockMins(a.time||a.start)||0)-(clockMins(b.time||b.start)||0));
           const _wake = _de.find(e=>e.type==="wake");
           const _naps = _de.filter(e=>e.type==="nap"&&e.start&&e.end);
           if (_wake && _naps.length) {
             // Gap from wake to first nap
-            const [wh,wm]=_wake.time.split(":").map(Number);
-            const [nh,nm]=_naps[0].start.split(":").map(Number);
-            const g1 = (nh*60+nm)-(wh*60+wm);
+            const _wakeM = clockMins(_wake.time);
+            const _napStartM = clockMins(_naps[0].start);
+            const g1 = _wakeM == null || _napStartM == null ? null : _napStartM - _wakeM;
             if (g1 > 30 && g1 < 360) _gaps.push(g1);
           }
           // Gaps between consecutive naps
           for (let i=0; i<_naps.length-1; i++) {
-            const [eh,em]=_naps[i].end.split(":").map(Number);
-            const [sh,sm]=_naps[i+1].start.split(":").map(Number);
-            const g = (sh*60+sm)-(eh*60+em);
+            const _endM = clockMins(_naps[i].end);
+            const _startM = clockMins(_naps[i+1].start);
+            const g = _endM == null || _startM == null ? null : _startM - _endM;
             if (g > 30 && g < 360) _gaps.push(g);
           }
         });
@@ -721,23 +751,23 @@ function _renderHtml() {
     if(e.type!=="nap"||!e.start||e.night) return false;
     if(e._active===true) return true;
     if(!e.end||e.start===e.end) return true;
-    const [eh,em]=(e.end||"").split(":").map(Number);
-    if(isNaN(eh)) return false;
-    return (_nowMins-(eh*60+em)) >= 0 && (_nowMins-(eh*60+em)) <= 12;
+    const _endMins = clockMins(e.end);
+    if(_endMins == null) return false;
+    return (_nowMins-_endMins) >= 0 && (_nowMins-_endMins) <= 12;
   });
   // Prefer familyContext entries (parent-side, correct data), fall back to recentEntries
   const activeNap = _napEndedLocally ? null : (_findActiveNap(_t.entries || []) || _findActiveNap(recentEntries));
-  const _hasMorningWake = _allEntries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<12;})());
-  const _outerBedTimeMins = _bedEntry ? (parseInt((_bedEntry.time||"19:00").split(":")[0])*60+parseInt((_bedEntry.time||"19:00").split(":")[1]||0)) : 0;
+  const _hasMorningWake = _allEntries.some(e=>e.type==="wake"&&!e.night&&(()=>{const m=clockMins(e.time);if(m==null)return false;const h=Math.floor(m/60);return h>=5&&h<12;})());
+  const _outerBedTimeMins = _bedEntry ? (clockMins(_bedEntry.time) ?? 0) : 0;
   const _isNightSleep = _bedEntry && ((_outerBedTimeMins >= 16*60 && _nowMins >= _outerBedTimeMins) || _nowMins >= 18*60 || (_nowMins < 12*60 && !_hasMorningWake));
   const _bedtimeMins = 19*60; // 7pm, typical bedtime cutoff
   const _nightCutoff = 20*60; // 8pm, after this, baby is winding down; no more feed/nap suggestions
   const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
-  const _lastFeedTimeMins = _t.lastFeed ? (parseInt(_t.lastFeed.time.split(":")[0])*60 + parseInt(_t.lastFeed.time.split(":")[1])) : null;
+  const _lastFeedTimeMins = _t.lastFeed ? clockMins(_t.lastFeed.time) : null;
   // Parent prediction: is bedtime the next event?
   const _pred0 = familyContext.prediction || {};
   const _predIsBed = _pred0.nextPredictionLabel ? _pred0.nextPredictionLabel.toLowerCase().includes("bed") : false;
-  const _predBedMins = _predIsBed && _pred0.nextPrediction ? (()=>{try{const _p=_pred0.nextPrediction.replace(/[ap]m/i,"").split(":").map(Number);let h=_p[0];if(/pm/i.test(_pred0.nextPrediction)&&h<12)h+=12;if(/am/i.test(_pred0.nextPrediction)&&h===12)h=0;return h*60+(_p[1]||0);}catch{return null;}})() : null;
+  const _predBedMins = _predIsBed && _pred0.nextPrediction ? parseDisplayMins(_pred0.nextPrediction) : null;
   // Feed interval: 3h for babies under 6mo, 3.5h from 6mo
   const _feedInterval = _weeks==null ? 180 : (_weeks<26 ? 180 : 210);
   let _nextFeedMins = _lastFeedTimeMins!=null ? (_lastFeedTimeMins + _feedInterval) : null;
@@ -759,9 +789,8 @@ function _renderHtml() {
   const _lastNapForWindow = _allCompletedNaps.sort((a,b)=>(a.end||"").localeCompare(b.end||"")).pop() || _t.lastNap;
   let _napWindowStr = null;
   if (_lastNapForWindow && _lastNapForWindow.end && _ww && _nowMins <= _nightCutoff) {
-    const [eh,em] = (_lastNapForWindow.end||"").split(":").map(Number);
-    if(!isNaN(eh)) {
-      const endMins = eh*60+em;
+    const endMins = clockMins(_lastNapForWindow.end);
+    if(endMins != null) {
       const minStart = endMins + _ww.min;
       const maxStart = endMins + _ww.max;
       // Hide if already past, after bedtime, or nap would push past bedtime
@@ -834,7 +863,7 @@ function _renderHtml() {
   // ── Build care guide sections (matches the preview content) ──
   const _wakeEntry = (_t.entries||[]).find(e=>e.type==="wake"&&!e.night);
   const _lastNapStr = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? `${fmt12(_t.lastNap.start)} – ${fmt12(_t.lastNap.end)}` : null;
-  const _lastNapDur = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? (()=>{const [sh,sm]=_t.lastNap.start.split(":").map(Number);const [eh2,em2]=_t.lastNap.end.split(":").map(Number);let d2=(eh2*60+em2)-(sh*60+sm);if(d2<0)d2+=1440;return d2;})() : null;
+  const _lastNapDur = _t.lastNap && _t.lastNap.start && _t.lastNap.end ? minsBetween(_t.lastNap.start, _t.lastNap.end) : null;
   const _locale = (navigator.language||"en-GB").toLowerCase();
   const _tz = (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch{return "";}})();
   const _isUS = _locale.includes("en-us") || _tz.includes("America/");
@@ -882,9 +911,8 @@ function _renderHtml() {
         if(e.type!=="nap"||!e.start||e.night) return false;
         if(e._active===true) return true;
         if(!e.end||e.start===e.end) return true;
-        const [eh,em]=(e.end||"").split(":").map(Number);
-        if(isNaN(eh)) return false;
-        const endMins = eh*60+em;
+        const endMins = clockMins(e.end);
+        if(endMins == null) return false;
         const diff = nowM - endMins;
         return diff >= 0 && diff <= 12;
       });
@@ -895,8 +923,8 @@ function _renderHtml() {
       let nextAction = "";
 
       // Baby is sleeping if: bedtime logged AND (afternoon/evening OR early AM with no morning wake)
-      const _hasMorningWake = entries.some(e=>e.type==="wake"&&!e.night&&(()=>{const h=parseInt((e.time||"12:00").split(":")[0]);return h>=5&&h<12;})());
-      const _bedTimeMins = bedEntry ? (parseInt((bedEntry.time||"19:00").split(":")[0])*60+parseInt((bedEntry.time||"19:00").split(":")[1]||0)) : 0;
+      const _hasMorningWake = entries.some(e=>e.type==="wake"&&!e.night&&(()=>{const m=clockMins(e.time);if(m==null)return false;const h=Math.floor(m/60);return h>=5&&h<12;})());
+      const _bedTimeMins = bedEntry ? (clockMins(bedEntry.time) ?? 0) : 0;
       // Recognise bedtime from 4pm onwards (many babies bed at 5-6pm), or overnight
       const _isNightSleep = bedEntry && ((_bedTimeMins >= 16*60 && nowM >= _bedTimeMins) || nowM >= 18*60 || (nowM < 12*60 && !_hasMorningWake));
       if (_isNightSleep) {
@@ -904,8 +932,8 @@ function _renderHtml() {
         statusIcon="🌙"; statusText=_name+" is sleeping for the night"; statusColor="#7B68EE"; statusBg="rgba(123,104,238,0.08)";
         nextAction = "If "+_name+" wakes, keep it dark and quiet. Brief feed if needed, then straight back down. No play, no lights.";
       } else if (activeNap) {
-        const [sh,sm]=(activeNap.start||"").split(":").map(Number);
-        const napElapsed = isNaN(sh)?0:nowM-(sh*60+sm);
+        const _activeStartM = clockMins(activeNap.start);
+        const napElapsed = _activeStartM == null ? 0 : nowM-_activeStartM;
         statusIcon="😴"; statusText=_name+" is napping · started "+fmt12(activeNap.start); statusColor="#8B7EC8"; statusBg="rgba(139,126,200,0.08)";
         // Age-aware "long nap" threshold. Naps under 4mo cap around 90m; 4-8mo the
         // longest nap is typically 1.5-2h; older babies can happily do 2-2.5h naps.
@@ -926,8 +954,9 @@ function _renderHtml() {
         statusIcon="🌤️"; statusText=_name+" just woke up"; statusColor="#D4A855"; statusBg="rgba(212,168,85,0.08)";
         nextAction = "Offer a feed if it's been "+(_lastFeedAgo!==null?fmtAgo(_lastFeedAgo):"a while")+" since the last one. "+_name+" will be alert and ready to play for the next "+((_ww?_ww.label:"1-2h")||"1-2h")+".";
       } else if (wakeEntry && _ww) {
-        const wakeM = parseInt(wakeEntry.time.split(":")[0])*60+parseInt(wakeEntry.time.split(":")[1]);
-        const lastSleepEnd = lastCompletedNap ? parseInt(lastCompletedNap.end.split(":")[0])*60+parseInt(lastCompletedNap.end.split(":")[1]) : wakeM;
+        const wakeM = clockMins(wakeEntry.time);
+        const lastSleepEnd = (lastCompletedNap && clockMins(lastCompletedNap.end) != null) ? clockMins(lastCompletedNap.end) : wakeM;
+        if (wakeM == null || lastSleepEnd == null) return "";
         const awakeMin = nowM - lastSleepEnd;
         // Check if naps are done: parent prediction says bedtime, or nap count met
         const _allNaps2 = [...(_t.naps||[]), ...recentEntries.filter(e=>e.type==="nap"&&e.end&&e.start!==e.end)];
@@ -971,18 +1000,18 @@ function _renderHtml() {
       let _timerHtml = "";
       const _nowSec = _nowD.getHours()*3600 + _nowD.getMinutes()*60 + _nowD.getSeconds();
       if (activeNap) {
-        const [_sh2,_sm2]=(activeNap.start||"").split(":").map(Number);
-        if(!isNaN(_sh2)){
-          let _napElapSec = _nowSec - (_sh2*3600+_sm2*60);
+        const _activeStartM2 = clockMins(activeNap.start);
+        if(_activeStartM2 != null){
+          let _napElapSec = _nowSec - (_activeStartM2*60);
           if(_napElapSec<0) _napElapSec+=86400;
           const _m2=Math.floor(_napElapSec/60), _s2=_napElapSec%60;
           const _fmtNap = (()=>{ const h=Math.floor(_napElapSec/3600),m=Math.floor((_napElapSec%3600)/60),s=_napElapSec%60; return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0"); })();
           _timerHtml = `<div class="status-timer" data-timer-start="${activeNap.start}" data-timer-type="nap" style="color:${statusColor}">${_fmtNap}</div>`;
         }
       } else if (_isNightSleep && _bedEntry) {
-        const [_bh,_bm]=(_bedEntry.time||"").split(":").map(Number);
-        if(!isNaN(_bh)){
-          let _bedElapSec = _nowSec - (_bh*3600+_bm*60);
+        const _bedStartM = clockMins(_bedEntry.time);
+        if(_bedStartM != null){
+          let _bedElapSec = _nowSec - (_bedStartM*60);
           if(_bedElapSec<0) _bedElapSec+=86400;
           const _fmtBed = (()=>{ const h=Math.floor(_bedElapSec/3600),m=Math.floor((_bedElapSec%3600)/60),s=_bedElapSec%60; return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0"); })();
           _timerHtml = `<div class="status-timer" data-timer-start="${_bedEntry.time}" data-timer-type="bed" style="color:${statusColor}">${_fmtBed}</div>
@@ -1143,9 +1172,11 @@ function _renderHtml() {
         var _minH = _isI ? 6 : _isP ? 4 : 0;
         var _nextSafe = "";
         if (_minH && m.time) {
-          var _p = m.time.split(":").map(Number);
-          var _nh = (_p[0] + _minH) % 24;
-          _nextSafe = " · next safe dose after " + (String(_nh).padStart(2,"0")) + ":" + String(_p[1]||0).padStart(2,"0");
+          var _p = clockParts(m.time);
+          if (_p) {
+            var _nh = (_p[0] + _minH) % 24;
+            _nextSafe = " · next safe dose after " + (String(_nh).padStart(2,"0")) + ":" + String(_p[1]||0).padStart(2,"0");
+          }
         }
         return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(212,168,85,0.1);font-size:13px">' +
           '<span style="font-weight:700;color:#4A3B35">' + fmt12(m.time||"") + '</span>' +

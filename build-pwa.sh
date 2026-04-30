@@ -22,6 +22,7 @@ cp app.jsx public/app.jsx
 cp -f styles.css public/styles.css
 cp -f loader.js public/loader.js
 cp -f native-plugins.js public/native-plugins.js
+cp -f firebase.js public/firebase.js
 
 echo "Copying vendored runtime..."
 mkdir -p public/vendor dist/vendor
@@ -37,6 +38,7 @@ cp -f app.jsx dist/app.jsx
 cp -f styles.css dist/styles.css
 cp -f loader.js dist/loader.js
 cp -f native-plugins.js dist/native-plugins.js
+cp -f firebase.js dist/firebase.js
 # Ensure font is in dist so cap copy includes it
 cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || true
 
@@ -60,5 +62,10 @@ if [ -f sw.js ]; then
 fi
 # Copy sw.js to public/ so it's always in sync
 cp -f sw.js public/sw.js
+
+if [ -f tools/render-seo.mjs ]; then
+  echo "Rendering SEO pages, blog, sitemap, robots and llms.txt..."
+  node tools/render-seo.mjs
+fi
 
 echo "Build complete. Cache version: $CACHE_V"
