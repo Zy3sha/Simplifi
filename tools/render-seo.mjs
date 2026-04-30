@@ -394,6 +394,7 @@ function markdownToHtml(markdown) {
   const html = [];
   let paragraph = [];
   let list = [];
+  let listType = 'ul';
 
   const flushParagraph = () => {
     if (!paragraph.length) return;
@@ -403,8 +404,9 @@ function markdownToHtml(markdown) {
 
   const flushList = () => {
     if (!list.length) return;
-    html.push(`<ul>${list.map((item) => `<li>${inlineMarkdown(item)}</li>`).join('')}</ul>`);
+    html.push(`<${listType}>${list.map((item) => `<li>${inlineMarkdown(item)}</li>`).join('')}</${listType}>`);
     list = [];
+    listType = 'ul';
   };
 
   for (const rawLine of lines) {
@@ -424,10 +426,29 @@ function markdownToHtml(markdown) {
       continue;
     }
 
+    const image = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)$/);
+    if (image) {
+      flushParagraph();
+      flushList();
+      html.push(`<figure><img src="${escapeAttr(image[2])}" alt="${escapeAttr(image[1])}" loading="lazy"/></figure>`);
+      continue;
+    }
+
     const bullet = line.match(/^[-*]\s+(.+)$/);
     if (bullet) {
       flushParagraph();
+      if (list.length && listType !== 'ul') flushList();
+      listType = 'ul';
       list.push(bullet[1]);
+      continue;
+    }
+
+    const ordered = line.match(/^\d+\.\s+(.+)$/);
+    if (ordered) {
+      flushParagraph();
+      if (list.length && listType !== 'ol') flushList();
+      listType = 'ol';
+      list.push(ordered[1]);
       continue;
     }
 
@@ -797,6 +818,16 @@ function siteCss() {
   .rich-text h2 { font-size: 34px; }
   .rich-text h3 { font-size: 26px; }
   .rich-text a { color: var(--rose-dark); font-weight: 800; }
+  .rich-text figure {
+    margin: 30px 0;
+  }
+  .rich-text figure img {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: white;
+    box-shadow: 0 16px 42px rgba(55, 38, 56, 0.1);
+  }
   .tags {
     display: flex;
     flex-wrap: wrap;
