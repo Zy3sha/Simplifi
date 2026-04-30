@@ -27005,16 +27005,18 @@ function App(){
       _drawSheenBand(stageX - 70, stageY + 28, stageW + 140, 132, -0.10, theme.accent + "1F", "rgba(255,255,255,0.04)");
       let textY;
       if (profileImg) {
-        const profileSize = 360;
-        _drawHeroPhoto(profileImg, W/2 - profileSize/2, stageY + 36, profileSize, profileSize, 42);
-        _glassPanel(stageX + 82, stageY + 340, stageW - 164, 210, 38, 0.68, 0.86, 0.10);
+        const profileSize = 330;
+        const photoY = stageY + 34;
+        const panelY = photoY + profileSize + 30;
+        _drawHeroPhoto(profileImg, W/2 - profileSize/2, photoY, profileSize, profileSize, 42);
+        _glassPanel(stageX + 82, panelY, stageW - 164, 190, 38, 0.68, 0.86, 0.10);
         ctx.font = "800 13px -apple-system, BlinkMacSystemFont, sans-serif";
-        ctx.fillStyle = theme.accent; _drawSpaced("today's keepsake", W/2, stageY + 386, 2.5);
+        ctx.fillStyle = theme.accent; _drawSpaced("today's keepsake", W/2, panelY + 38, 2.5);
         const titleSize = _fitFont(titleText, stageW - 230, 60, 34, s => "700 " + s + "px Georgia, 'Spectral', serif");
-        textY = stageY + 444;
+        textY = panelY + 92;
         textY = _drawWrapped(titleText, W/2, textY, stageW - 230, titleSize, titleSize + 10, theme.ink, s => "700 " + s + "px Georgia, 'Spectral', serif", 2);
-        textY += 10;
-        _drawWrapped(body, W/2, textY, stageW - 250, 27, 37, theme.sub, s => "400 " + s + "px -apple-system, BlinkMacSystemFont, sans-serif", 2);
+        textY += 8;
+        _drawWrapped(body, W/2, textY, stageW - 250, 25, 34, theme.sub, s => "400 " + s + "px -apple-system, BlinkMacSystemFont, sans-serif", 2);
       } else {
         const portraitY = stageY + 158;
         _drawInitialMark(W/2, portraitY, 108);
@@ -30431,7 +30433,7 @@ function App(){
       .trim();
   }
   function _voiceSplit(raw) {
-    const eventStart = String.raw`(?:at\s+)?(?:${_voiceTimeToken}\s+)?(?:woke|wake|fed|feed|bottle|breast|breastfed|nursed|nursing|nap|napped|slept|sleep|bedtime|ate|solids|food|pump|pumped|bath|walk|tummy|play|reading|story|massage|swimming|music|medicine|temperature)`;
+    const eventStart = String.raw`(?:at\s+)?(?:${_voiceTimeToken}\s+)?(?:woke|wake|fed|feed|bottle|breast|breastfed|nursed|nursing|nap|napped|slept|sleep|bedtime|ate|solids|food|pump|pumped|poo|poop|pooey|dirty|wet|wee|nappy|nappies|diaper|bath|walk|tummy|play|reading|story|massage|swimming|music|medicine|meds|calpol|paracetamol|ibuprofen|nurofen|tylenol|acetaminophen|temperature|temp|fever)`;
     return _voiceNormalise(raw)
       .replace(/\b(and then|then|after that|afterwards|later|next)\b/g, "|")
       .replace(new RegExp("\\s+and\\s+(?=" + eventStart + ")", "g"), " | ")
@@ -30494,6 +30496,11 @@ function App(){
       return "Bottle/feed " + fmt12(d.time) + (d.amount ? " · " + d.amount + "ml" : "");
     }
     if (d.type === "poop") return "Nappy " + fmt12(d.time) + " · " + (d.poopType || "wet");
+    if (ev.type === "medicine") {
+      const unit = String(d.tempUnit || "").toLowerCase();
+      const tempLabel = d.temp ? (unit === "f" || unit === "fahrenheit" ? "°F" : "°C") : "";
+      return (d.temp ? "Temperature" : "Medicine") + " " + fmt12(d.time) + (d.name ? " · " + d.name : "") + (d.dose ? " · " + d.dose : "") + (d.temp ? " · " + d.temp + tempLabel : "");
+    }
     if (d.type === "wake") return (d.night ? "Night wake " : "Wake ") + fmt12(d.time);
     if (d.type === "sleep") return "Bedtime " + fmt12(d.time);
     return (NAMES[d.type] || d.type || "Log") + (d.time ? " " + fmt12(d.time) : "");
@@ -30537,6 +30544,29 @@ function App(){
       const t = _voiceFindTime(s, "wake") || {time:nowTime()};
       const hour = parseInt((t.time||"00:00").split(":")[0],10);
       return { type:"wake", data:{type:"wake", time:t.time, night:hour < 5, note:_note}, label:null };
+    }
+    if (/\b(temperature|temp|fever)\b/.test(s)) {
+      const t = _voiceFindTime(s, "medicine") || {time:nowTime()};
+      const temp = (() => {
+        const withoutTime = s.replace(new RegExp(_voiceTimeToken, "ig"), "");
+        const m = withoutTime.match(/(\d+(?:\.\d+)?)\s*(?:degrees?|°)?\s*(c|f|celsius|fahrenheit)?\b/i);
+        return m ? {value:m[1], unit:(m[2]||"").toLowerCase()} : {value:"", unit:""};
+      })();
+      return { type:"medicine", data:{time:t.time, name:"", dose:"", temp:temp.value, tempUnit:temp.unit, note:_note, schedule:"none"}, label:null };
+    }
+    if (/\b(medicine|meds|calpol|paracetamol|ibuprofen|nurofen|tylenol|acetaminophen)\b/.test(s)) {
+      const t = _voiceFindTime(s, "medicine") || {time:nowTime()};
+      const name = (() => {
+        if (/\b(calpol|paracetamol|tylenol|acetaminophen)\b/.test(s)) return "Paracetamol";
+        if (/\b(ibuprofen|nurofen|advil|motrin)\b/.test(s)) return "Ibuprofen";
+        const cleaned = s.replace(new RegExp(_voiceTimeToken, "ig"), "").replace(/\b(medicine|meds|gave|had|at|dose)\b/g, "").replace(/\d+(?:\.\d+)?\s*(?:ml|mg)\b/ig, "").trim();
+        return cleaned || "Medicine";
+      })();
+      const dose = (() => {
+        const m = s.match(/(\d+(?:\.\d+)?)\s*(ml|mg)\b/i);
+        return m ? (m[1] + m[2].toLowerCase()) : "";
+      })();
+      return { type:"medicine", data:{time:t.time, name, dose, temp:"", note:_note, schedule:"none"}, label:null };
     }
     if (/\b(pump|pumped|expressed)\b/.test(s)) {
       const t = _voiceFindTime(s, "feed") || {time:nowTime()};
@@ -50413,6 +50443,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             setTimeout(() => {
               if (ev.type === "breast-timer") { try { startBreastTimer("L"); timers++; } catch {} }
               else if (ev.type === "start-nap") { try { startNap(); timers++; } catch {} }
+              else if (ev.type === "medicine" && ev.data) {
+                const entry = {id:uid(), date:selDay, modifiedAt:Date.now(), schedule:"none", ...ev.data, time:ev.data.time || nowTime()};
+                if (entry.temp) {
+                  const unit = String(entry.tempUnit || "").toLowerCase();
+                  entry.temp = String(unit === "f" || unit === "fahrenheit" ? fToC(parseFloat(entry.temp) || 0) : tempToC(entry.temp));
+                }
+                delete entry.tempUnit;
+                setMeds(prev => ({...prev, [selDay]: [...(prev[selDay] || []), entry]}));
+                saved++;
+              }
               else if (ev.data) { quickAddLog(ev.type, ev.data); saved++; }
             }, idx * 120);
           });
