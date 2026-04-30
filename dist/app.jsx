@@ -9533,6 +9533,7 @@ function App(){
   const[showBedChecklist,setShowBedChecklist]=useState(false);
   const[bedCheckDone,setBedCheckDone]=useState({});
   const[showBedtimeResistanceSheet,setShowBedtimeResistanceSheet]=useState(false);
+  const[bedtimeResistanceRead,setBedtimeResistanceRead]=useState(null); // {icon,title,reason,now,tomorrow,avoid,priority}
   const[showQuickStart,setShowQuickStart]=useState(false);
   const[qsNaps,setQsNaps]=useState("3");
   const[qsBedtime,setQsBedtime]=useState("19:00");
@@ -10603,9 +10604,10 @@ function App(){
     }
     setConfirmDialog(null);
     setShowNapRefusedSheet(false);
+    setBedtimeResistanceRead(null);
     setShowBedtimeResistanceSheet(true);
   }
-  function recordBedtimeResistance(choice, label, guidance) {
+  function recordBedtimeResistance(choice, label, guidance, read) {
     try {
       addObservation(
         "🌙",
@@ -10615,7 +10617,7 @@ function App(){
         choice === "unwell" ? 1 : 2
       );
     } catch {}
-    setShowBedtimeResistanceSheet(false);
+    if (read) setBedtimeResistanceRead(read);
   }
   const[deleteConfirmShow,setDeleteConfirmShow]=useState(false);
   const[deleteConfirmText,setDeleteConfirmText]=useState("");
@@ -44709,6 +44711,146 @@ function App(){
           }, {});
           // Category colors for milestone cards
           const catColors = {social:"#e8729a",language:"#5090e0",motor:"#40b878",cognitive:"#9070c0"};
+          const buildMilestoneAnalysis = () => {
+            if (ageWeeks === null || ageWeeks === undefined) return null;
+            const _bn = babyName || "Baby";
+            const _parseDate = (d) => {
+              if (!d || typeof d !== "string") return null;
+              const dt = new Date(d + "T12:00:00");
+              return Number.isNaN(dt.getTime()) ? null : dt;
+            };
+            const _daysAgo = (d) => {
+              const dt = _parseDate(d);
+              if (!dt) return null;
+              const now = new Date(todayStr() + "T12:00:00");
+              return Math.round((now - dt) / 86400000);
+            };
+            const allAchieved = MILESTONES.filter(m => milestones[m.id]?.date);
+            const allDueNow = MILESTONES.filter(m => ageWeeks >= m.weeks[0] && ageWeeks <= m.weeks[2] && !milestones[m.id]?.date);
+            const allPractising = allDueNow.filter(m => ageWeeks > m.weeks[1] + 4);
+            const allOnTrack = allDueNow.filter(m => Math.abs(ageWeeks - m.weeks[1]) <= 4);
+            const allComingSoon = allDueNow.filter(m => ageWeeks < m.weeks[1] - 4);
+            const allUpcoming = MILESTONES.filter(m => !milestones[m.id]?.date && ageWeeks < m.weeks[0] && m.weeks[0] <= ageWeeks + 8);
+            const recent = [...allAchieved]
+              .map(m => ({...m, achievedDate: milestones[m.id]?.date || "", ageDays: _daysAgo(milestones[m.id]?.date)}))
+              .filter(m => m.achievedDate)
+              .sort((a,b) => (b.achievedDate || "").localeCompare(a.achievedDate || ""))[0] || null;
+            const categoryRows = MILESTONE_CATS.map(c => ({
+              ...c,
+              due: allDueNow.filter(m => m.cat === c.key).length,
+              achieved: allAchieved.filter(m => m.cat === c.key).length,
+              upcoming: allUpcoming.filter(m => m.cat === c.key).length,
+            }));
+            const focusCat = [...categoryRows].sort((a,b) => (b.due - a.due) || (b.upcoming - a.upcoming) || (a.achieved - b.achieved))[0];
+            const watchList = (allPractising.length ? allPractising : allOnTrack.length ? allOnTrack : allComingSoon.length ? allComingSoon : allUpcoming)
+              .slice()
+              .sort((a,b) => a.weeks[1] - b.weeks[1])
+              .slice(0,3);
+            const recentIsFresh = recent && recent.ageDays !== null && recent.ageDays >= 0 && recent.ageDays <= 14;
+            const sleepLinked = recentIsFresh && (recent.cat === "motor" || recent.cat === "cognitive");
+            const confidence = allAchieved.length >= 5 ? "Good context" : allAchieved.length >= 2 ? "Pattern forming" : "Gentle guide";
+            let title = "Nothing to chase today";
+            let body = `OBubba will use ${_bn}'s age and saved milestones as gentle context. Milestones are not a pass/fail list.`;
+            let tone = C.mint;
+            if (recentIsFresh && recent) {
+              title = `${_bn} recently reached ${recent.label}`;
+              body = `That new skill may be part of this week's rhythm. OBubba can treat it as context if sleep, feeds, or mood feel a bit different.`;
+              tone = C.mint;
+            } else if (allPractising.length) {
+              title = `${allPractising.length} skill${allPractising.length===1?" is":"s are"} still in the practising window`;
+              body = `This may simply mean ${_bn} is working on them in their own order. A few playful repetitions are enough.`;
+              tone = C.gold;
+            } else if (allOnTrack.length || allComingSoon.length) {
+              title = `Watch for tiny signs of ${focusCat?.label?.toLowerCase?.() || "new skills"}`;
+              body = `Around this age, these often appear as small repeated moments before they look obvious enough to tick off.`;
+              tone = focusCat ? (catColors[focusCat.key] || C.ter) : C.ter;
+            } else if (allUpcoming.length) {
+              title = "The next little firsts are coming";
+              body = `There may not be much to tick today. OBubba is lining up what to notice over the next few weeks.`;
+              tone = "#9878d0";
+            }
+            return {
+              title,
+              body,
+              tone,
+              confidence,
+              recent,
+              recentIsFresh,
+              sleepLinked,
+              watchList,
+              chips: [
+                {label:"Read", value:confidence, icon:"🔎"},
+                {label:"Now", value:allDueNow.length, icon:"🌱"},
+                {label:"Practising", value:allPractising.length, icon:"💛"},
+                {label:"Saved", value:allAchieved.length, icon:"✨"},
+              ],
+            };
+          };
+
+          const renderMilestoneAnalysisCard = () => {
+            const analysis = buildMilestoneAnalysis();
+            if (!analysis) return null;
+            const _bn = babyName || "Baby";
+            return (
+              <div className="glass-card" style={{...card,marginBottom:14,padding:"16px 16px",border:`1.5px solid ${analysis.tone}45`,background:"linear-gradient(135deg,var(--card-bg-solid),var(--card-bg-alt))"}}>
+                <div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:10}}>
+                  <div>
+                    <div style={{fontSize:10,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls1,color:analysis.tone,fontWeight:900,marginBottom:5}}>Milestone analysis</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:800,color:C.deep,lineHeight:1.15}}>
+                      {analysis.title}
+                    </div>
+                  </div>
+                  <div style={{width:42,height:42,borderRadius:16,background:`linear-gradient(135deg,${analysis.tone}26,rgba(255,255,255,0.42))`,border:`1px solid ${analysis.tone}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🔎</div>
+                </div>
+                <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:12}}>
+                  {analysis.body}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:7,marginBottom:12}}>
+                  {analysis.chips.map(ch=>(
+                    <div key={ch.label} style={{background:"var(--chip-bg)",border:"1px solid var(--card-border)",borderRadius:12,padding:"8px 6px",textAlign:"center",minWidth:0}}>
+                      <div style={{fontSize:15,marginBottom:2}}>{ch.icon}</div>
+                      <div style={{fontSize:13,fontWeight:900,color:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ch.value}</div>
+                      <div style={{fontSize:8,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08,marginTop:2}}>{ch.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {analysis.watchList.length > 0 && (
+                  <div style={{background:"var(--card-bg-alt)",border:"1px solid var(--card-border)",borderRadius:14,padding:"11px 12px",marginBottom:10}}>
+                    <div style={{fontSize:11,fontWeight:900,color:C.deep,marginBottom:7}}>What to watch for next</div>
+                    {analysis.watchList.map((m,i)=>{
+                      const catInfo = MILESTONE_CATS.find(c=>c.key===m.cat);
+                      return (
+                        <div key={m.id} style={{display:"flex",gap:8,alignItems:"flex-start",padding:i?"7px 0 0":"0",borderTop:i?"1px solid var(--card-border)":"none",marginTop:i?7:0}}>
+                          <span style={{fontSize:15,lineHeight:1}}>{catInfo?.icon || "✨"}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:800,color:C.deep,lineHeight:1.35}}>{m.label}</div>
+                            <div style={{fontSize:10,color:C.lt,marginTop:2}}>usually around {Math.round(m.weeks[1]/4.33)} months. tiny attempts count.</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {analysis.sleepLinked && (
+                  <div style={{background:`${catColors[analysis.recent.cat] || C.ter}12`,border:`1px solid ${(catColors[analysis.recent.cat] || C.ter)}35`,borderRadius:12,padding:"9px 11px",fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:10}}>
+                    New movement or play skills can temporarily show up around naps and bedtime while {_bn} practises. OBubba will treat this as context, not as something you did wrong.
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                  <button onClick={()=>{haptic();setDevFilter("activities");}} style={{flex:"1 1 130px",padding:"10px 12px",borderRadius:99,border:"none",background:C.mint,color:"white",fontSize:12,fontWeight:900,cursor:_cP}}>
+                    Try one activity
+                  </button>
+                  <button onClick={()=>{haptic();setDevFilter("phases");}} style={{flex:"1 1 130px",padding:"10px 12px",borderRadius:99,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.mid,fontSize:12,fontWeight:900,cursor:_cP}}>
+                    View phases
+                  </button>
+                </div>
+                <div style={{fontSize:10,color:C.lt,lineHeight:1.55}}>
+                  If {_bn} loses a skill they had, or something worries you, speak to your {_healthContact}. This is gentle pattern-reading, not a diagnosis.
+                </div>
+              </div>
+            );
+          };
+
           const markMilestoneReached = (m) => {
             openMilestoneDatePicker(m);
           };
@@ -46966,6 +47108,8 @@ function App(){
 	                  </div>
 	                </div>
 
+                {renderMilestoneAnalysisCard()}
+
                 {/* Category filter pills. horizontal scroll with count badges */}
                 <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:14,WebkitOverflowScrolling:"touch"}}>
                   {[{key:"all",label:"All",icon:"✨"},...MILESTONE_CATS].map(c=>{
@@ -48307,11 +48451,17 @@ function App(){
               "If wired, do a 10-15 minute calm reset, then restart the same short routine.",
               "If frantic, shorten the routine and comfort first. tomorrow, try a slightly shorter final wake window.",
             ];
-            const _option = (icon,title,body,choice,label,guidance,toast) => (
+            const _timingClue = _ww && typeof _finalWakeMins === "number"
+              ? (_finalWakeMins < Math.max(20, _ww.min - 15)
+                ? "The final wake window looks short for this age, so low sleep pressure may be part of it."
+                : _finalWakeMins > _ww.max + 15
+                  ? "The final wake window looks long for this age, so overtired adrenaline may be part of it."
+                  : "The final wake window is close to the expected range, so stimulation, routine length, or comfort needs may matter more tonight.")
+              : "OBubba does not have enough final-wake data tonight, so this read is based on what you noticed.";
+            const _option = (icon,title,body,choice,label,guidance,read) => (
               <button onClick={()=>{
                 haptic();
-                recordBedtimeResistance(choice, label, guidance);
-                showToast(toast || "🌙 Bedtime plan adjusted", 2400, 1);
+                recordBedtimeResistance(choice, label, guidance, {icon,title,label,choice,...read});
               }} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 14px",borderRadius:16,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",boxShadow:"var(--card-shadow-soft)",textAlign:"left",cursor:_cP,marginBottom:9}}>
                 <span style={{fontSize:24,width:34,textAlign:"center",flexShrink:0}}>{icon}</span>
                 <span style={{flex:1,minWidth:0}}>
@@ -48320,6 +48470,56 @@ function App(){
                 </span>
               </button>
             );
+            if (bedtimeResistanceRead) {
+              const r = bedtimeResistanceRead;
+              return (
+                <div>
+                  <div style={{textAlign:"center",marginBottom:16}}>
+                    <div style={{fontSize:36,marginBottom:8}}>{r.icon || "🌙"}</div>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:23,fontWeight:800,color:C.deep,marginBottom:6}}>
+                      {r.title}
+                    </div>
+                    <div style={{fontSize:13,color:C.mid,lineHeight:1.45,padding:"0 8px"}}>
+                      Here’s OBubba’s gentle sleep-consultant style read for right now.
+                    </div>
+                  </div>
+                  {[
+                    ["What this may mean", r.reason],
+                    ["What to do now", r.now],
+                    ["Next time if it repeats", r.tomorrow],
+                    ["Try not to", r.avoid],
+                  ].filter(x=>x[1]).map(([title,body],i)=>(
+                    <div key={title} style={{padding:"12px 14px",borderRadius:16,background:i===1?"linear-gradient(135deg,rgba(111,168,152,0.14),rgba(123,104,238,0.06))":"var(--card-bg-solid)",border:i===1?"1px solid rgba(111,168,152,0.22)":"1px solid var(--card-border)",marginBottom:10}}>
+                      <div style={{fontSize:11,fontWeight:900,color:i===1?C.mint:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>{title}</div>
+                      <div style={{fontSize:13,color:C.mid,lineHeight:1.58}}>{body}</div>
+                    </div>
+                  ))}
+                  <div style={{fontSize:11,color:C.lt,lineHeight:1.45,marginBottom:12,padding:"0 4px"}}>
+                    This context has been saved, so OBubba can treat tonight as bedtime resistance rather than a missed nap.
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:4}}>
+                    <button onClick={()=>{haptic();setShowBedtimeResistanceSheet(false);setBedtimeResistanceRead(null);setShowBedRoutine(true);setBedRoutineStep(0);setBedRoutineStart(null);}}
+                      style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:13,fontWeight:800,cursor:_cP}}>
+                      Start routine
+                    </button>
+                    <button onClick={()=>{haptic();setShowBedtimeResistanceSheet(false);setBedtimeResistanceRead(null);logBedtimeNow();}}
+                      style={{flex:1,padding:"12px",borderRadius:99,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:800,cursor:_cP}}>
+                      Start bed timer
+                    </button>
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:8}}>
+                    <button onClick={()=>{haptic();setBedtimeResistanceRead(null);}}
+                      style={{flex:1,padding:"11px",borderRadius:99,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:800,cursor:_cP}}>
+                      Choose another
+                    </button>
+                    <button onClick={()=>{setShowBedtimeResistanceSheet(false);setBedtimeResistanceRead(null);}}
+                      style={{flex:1,padding:"11px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:13,fontWeight:700,cursor:_cP}}>
+                      Close
+                    </button>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div>
                 <div style={{textAlign:"center",marginBottom:16}}>
@@ -48364,7 +48564,12 @@ function App(){
                   "wired",
                   "wired or playful",
                   _name + " seemed wired at bedtime. This may suggest low sleep pressure or too much stimulation. Keep lights low, do a calm reset, and try again without turning bedtime into playtime.",
-                  "🌙 Try a calm 10-15 min reset"
+                  {
+                    reason: _timingClue + " Wired-but-playful bedtime often comes from low sleep pressure, a second wind, or too much input right before bed.",
+                    now: "Do a boring 10-15 minute reset: dim lights, quiet voice, cuddle, calm book, or slow walk. Then restart the same short bedtime routine from the same point. Keep it warm, but not playful.",
+                    tomorrow: "If this repeats, look at the last nap and final wake window. A sleep consultant would usually try either a slightly later bedtime if undertired, or capping/moving the last nap earlier if the nap is stealing bedtime pressure.",
+                    avoid: "Avoid bright lights, screens, chasing, extra toys, or restarting the whole routine again and again. That can teach bedtime = playtime.",
+                  }
                 )}
                 {_option(
                   "😣",
@@ -48373,7 +48578,12 @@ function App(){
                   "frantic",
                   "crying hard",
                   _name + " was very upset at bedtime. This may fit an overtired or discomfort pattern. Keep stimulation low, offer comfort, and bring tomorrow's final wake window slightly shorter if the pattern repeats.",
-                  "💛 Keep it short and comfort-led"
+                  {
+                    reason: _timingClue + " Frantic crying at bedtime often fits overtiredness, discomfort, separation, hunger, wind, teething, or illness.",
+                    now: "Pause the plan and comfort first. Do a quick nappy, temperature, pain/teething, hunger and wind check. Then settle in the darkest, calmest way you can without adding new stimulation.",
+                    tomorrow: "If it happens again, a sleep consultant would usually shorten the final wake window by 10-20 minutes and protect the last nap, especially after a short-nap day.",
+                    avoid: "Avoid pushing through a long routine while baby is escalating. Tonight is not the night to practise independence if they seem genuinely distressed.",
+                  }
                 )}
                 {_option(
                   "🥱",
@@ -48382,7 +48592,12 @@ function App(){
                   "sleepy",
                   "sleepy but resisting",
                   _name + " looked sleepy but resisted bedtime. This often means the sleep window is open but settling needs consistency. Keep the routine predictable and avoid adding new stimulation.",
-                  "🌙 Stay steady. same routine"
+                  {
+                    reason: _timingClue + " Sleepy-but-resisting can mean the window is open, but baby needs a predictable, low-input landing rather than a bigger routine.",
+                    now: "Keep the room dark, use the same phrase, same cuddle, same song, and same settling response. Give it a steady 10 minutes before changing strategy.",
+                    tomorrow: "If this is common, make the last 20 minutes before bed more predictable. Same order, fewer steps, and bedtime within a small 15-minute band can help the body clock.",
+                    avoid: "Avoid adding new tricks every few minutes. Too many changes can keep baby alert and make settling take longer.",
+                  }
                 )}
                 {_option(
                   "🦷",
@@ -48391,7 +48606,12 @@ function App(){
                   "unwell",
                   "teething or unwell",
                   _name + " may be uncomfortable tonight. OBubba will treat this as an off-night context, not a routine failure. If symptoms worry you, contact your health professional.",
-                  "🤍 Off-night context saved"
+                  {
+                    reason: "If baby is teething, unwell, windy, too hot/cold, or off their feeds, bedtime resistance is often comfort-seeking rather than a schedule problem.",
+                    now: "Go comfort-first. Check symptoms, temperature, feed/hydration, nappy, wind, and pain cues. Follow safe sleep and your local guidance for medicine if needed.",
+                    tomorrow: "A sleep consultant would not judge sleep progress from an off-night. Once baby is well, return to the normal rhythm gently rather than trying to fix everything at once.",
+                    avoid: "Avoid treating illness or pain like a behaviour problem. If you are worried, speak to your health professional.",
+                  }
                 )}
                 {_option(
                   "⏰",
@@ -48400,7 +48620,12 @@ function App(){
                   "late_nap",
                   "late or long nap",
                   _name + "'s bedtime resistance may be linked to the last nap. If this repeats, try protecting the final wake window by capping late naps or nudging bedtime slightly later.",
-                  "⏰ Last-nap context saved"
+                  {
+                    reason: "A late or long final nap can leave too little sleep pressure for bedtime, even when baby looks tired.",
+                    now: "Keep bedtime calm now. If baby is happily awake, do a short dark-room reset and try again. If upset, comfort first and avoid turning the wait into play.",
+                    tomorrow: "If this repeats, a sleep consultant would usually protect the last wake window: cap the late nap, move it earlier, or shift bedtime 10-15 minutes later only when baby is calm and undertired.",
+                    avoid: "Avoid letting a very late catnap drift long unless bedtime is also moving later. It can push the first stretch of night sleep out.",
+                  }
                 )}
 
                 <div style={{display:"flex",gap:8,marginTop:4}}>
