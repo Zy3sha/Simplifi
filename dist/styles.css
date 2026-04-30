@@ -4159,6 +4159,36 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   backdrop-filter:none!important;
 }
 
+/* True final guard: night-mode swatch buttons must remain transparent while
+   their inner dots keep the actual nappy colour. */
+.ob-app-root button.ob-poop-colour-swatch,
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch{
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+.ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot,
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
+  background:var(--ob-poop-gradient,var(--ob-poop-colour,#ccc))!important;
+}
+
+/* Last-word guard: the night-mode unifier above intentionally repaints normal
+   buttons navy. Poop swatches are not normal buttons, they are samples. */
+.ob-app-root button.ob-poop-colour-swatch,
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch{
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+.ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot,
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
+  background:var(--ob-poop-gradient,var(--ob-poop-colour,#ccc))!important;
+}
+
 /* 4am usability guard.
    Buttons should feel like controls, not selectable text, and the quick-log
    carousel arrow needs its own breathing room instead of sitting on a tile. */
@@ -4367,6 +4397,105 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   border-radius:9px;
   border:1px solid rgba(255,255,255,0.46);
   pointer-events:none;
+}
+
+/* Nappy colour chips are true colour samples. Keep them out of the global
+   glass button treatment so parents can actually see the selected colour. */
+.ob-app-root button.ob-poop-colour-swatch,
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:3px!important;
+  min-height:auto!important;
+  padding:3px!important;
+  border:0!important;
+  border-radius:12px!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  color:var(--text-mid)!important;
+}
+.ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
+  width:30px!important;
+  height:30px!important;
+  border-radius:999px!important;
+  background:var(--ob-poop-gradient,var(--ob-poop-colour,#ccc))!important;
+  border:2px solid rgba(255,255,255,0.82)!important;
+  box-sizing:border-box!important;
+  position:relative!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.62),
+    inset 0 -9px 13px rgba(44,26,16,0.18),
+    0 5px 12px rgba(70,48,40,0.16)!important;
+}
+.ob-app-root button.ob-poop-colour-swatch.is-selected .ob-poop-colour-dot{
+  border:3px solid #C07088!important;
+  outline:2px solid rgba(192,112,136,0.22)!important;
+  outline-offset:2px!important;
+}
+.ob-app-root button.ob-poop-colour-swatch.is-flagged .ob-poop-colour-dot{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.62),
+    inset 0 -9px 13px rgba(44,26,16,0.18),
+    0 0 0 2px rgba(232,87,74,0.18),
+    0 5px 12px rgba(70,48,40,0.16)!important;
+}
+.ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-label{
+  display:block!important;
+  max-width:52px!important;
+  font-size:9px!important;
+  line-height:1.15!important;
+  font-weight:650!important;
+  text-align:center!important;
+  color:var(--text-mid)!important;
+}
+.ob-app-root button.ob-poop-colour-swatch.is-selected .ob-poop-colour-label{
+  color:#B06178!important;
+  font-weight:800!important;
+}
+.ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-label.is-long{
+  max-width:58px!important;
+}
+.ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-warning{
+  position:absolute!important;
+  top:-6px!important;
+  right:-6px!important;
+  width:15px!important;
+  height:15px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:999px!important;
+  background:#FFE8E5!important;
+  border:1px solid rgba(199,80,80,0.35)!important;
+  color:#B33737!important;
+  font-size:9px!important;
+  line-height:1!important;
+  box-shadow:0 3px 8px rgba(199,80,80,0.18)!important;
+}
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
+  border-color:rgba(255,221,188,0.64)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.36),
+    inset 0 -9px 14px rgba(3,8,18,0.32),
+    0 0 0 1px rgba(255,154,94,0.10),
+    0 0 12px rgba(255,126,70,0.16)!important;
+}
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-label{
+  color:#F1DCC5!important;
+}
+body.dark-mode .ob-app-root button.ob-poop-colour-swatch.is-selected .ob-poop-colour-label{
+  color:#FFD0A8!important;
+}
+
+.ob-app-root .ob-main-content.ob-settings-main{
+  padding-top:clamp(8px, env(safe-area-inset-top, 0px), 22px)!important;
+}
+body[data-screen-compact] .ob-app-root .ob-main-content.ob-settings-main,
+body[data-screen-short] .ob-app-root .ob-main-content.ob-settings-main{
+  padding-top:8px!important;
 }
 
 /* Final interaction polish: keyboard-safe forms, visible carousel affordance,

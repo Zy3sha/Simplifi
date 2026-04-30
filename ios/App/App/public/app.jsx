@@ -1535,6 +1535,15 @@ const NAMES={feed:"Feed",nap:"Nap",wake:"Wake Up",sleep:"Bedtime",poop:"Nappy",t
 const POOP_TYPES=["Seedy","Mucousy","Paste-like","Watery","Formed/solid","Pellet-like","Frothy","Bloody/streaked","Meconium","Other"];
 const POOP_TYPE_INFO={"Seedy":{normal:true,desc:"Small seed-like bits are completely normal, especially in breastfed babies. Shows your baby is digesting milk well."},"Green":{normal:true,desc:"Usually nothing to worry about — can happen with formula, dietary changes, or more foremilk. If baby seems well, no action needed."},"Brown":{normal:true,desc:"Perfectly normal and very common, especially once your baby starts solid foods."},"Dark green":{normal:true,desc:"Usually normal — can be caused by iron in formula or supplements. If baby seems well and is feeding normally, no need to worry."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Black/tarry":{normal:false,desc:`Only normal in the first few days of life (meconium). After that, contact your ${_healthContact} promptly as it may indicate blood in the stool.`},"White/pale":{normal:false,desc:`Needs urgent medical attention. Contact your ${_healthContact} the same day — it can be a sign of a liver problem that needs checking.`},"Mucousy":{normal:true,desc:`A small amount of mucus is common and often linked to teething, a cold, or drooling. If it persists, mention it to your ${_healthContact}.`},"Paste-like":{normal:true,desc:"Soft, paste-like poo is usually normal, especially around weaning or formula changes. It should still be easy for baby to pass."},"Watery":{normal:false,desc:`Can be a sign of diarrhoea. Keep baby hydrated and contact your ${_healthContact} if it lasts more than 24 hours, or sooner if baby is under 3 months.`},"Formed/solid":{normal:true,desc:"Soft, formed poo is normal once your baby starts solids. It should be easy to pass and not hard or dry."},"Pellet-like":{normal:false,desc:`Small, hard pellets can be a sign of constipation. Try extra fluids and speak to your ${_healthContact} if it continues.`},"Frothy":{normal:true,desc:"Usually harmless — can happen if a breastfed baby gets more foremilk than hindmilk. Not a concern if baby is gaining weight well."},"Bloody/streaked":{normal:false,desc:`Blood in baby's nappy should always be checked. Small streaks can sometimes be from straining, but contact your ${_healthContact} to be safe.`},"Meconium":{normal:true,desc:"The thick, dark, sticky poo in baby's first day or two. Completely normal — shows bowels are working. Should clear within a few days."},"Other":{normal:true,desc:`Baby poo varies a lot day to day. If something doesn't seem right, your ${_healthContact} can help.`}};
 const POOP_COLOUR_INFO={"Yellow/Mustard":{normal:true,desc:"The most common colour for breastfed babies — perfectly healthy. Often soft or seedy in texture."},"Brown/Tan":{normal:true,desc:"Completely normal, especially in formula-fed babies and once solids are introduced."},"Orange":{normal:true,desc:"Normal and often seen in breastfed babies. Can also appear with orange-coloured foods like carrots or sweet potato."},"Green":{normal:true,desc:"Usually normal — can be caused by formula, green vegetables, or a passing tummy bug. Fine if baby is feeding well."},"Dark/Black":{normal:false,desc:`Only normal in the first couple of days (meconium). After that, speak to your ${_healthContact} promptly as it could indicate bleeding.`},"Pale/White":{normal:false,desc:"Needs same-day medical attention. Can be a sign that the liver isn't producing enough bile."},"Red-tinged":{normal:false,desc:`Can sometimes come from foods like beetroot, but any unexplained redness should be seen by your ${_healthContact}. Keep the nappy to show them.`}};
+const POOP_COLOUR_SWATCHES=[
+  {short:"Yellow",label:"Yellow/Mustard",hex:"#D4A855",bg:"linear-gradient(135deg,#F8E39A 0%,#D4A855 58%,#9A6F1B 100%)"},
+  {short:"Brown",label:"Brown/Tan",hex:"#8B6914",bg:"linear-gradient(135deg,#C8A45A 0%,#8B6914 58%,#4E340E 100%)"},
+  {short:"Orange",label:"Orange",hex:"#D4872E",bg:"linear-gradient(135deg,#F6B86C 0%,#D4872E 58%,#994915 100%)"},
+  {short:"Green",label:"Green",hex:"#6B8E23",bg:"linear-gradient(135deg,#A5BD54 0%,#6B8E23 58%,#334910 100%)"},
+  {short:"Dark",label:"Dark/Black",hex:"#2C1F1A",bg:"linear-gradient(135deg,#5D4A3F 0%,#2C1F1A 58%,#0D0908 100%)"},
+  {short:"Pale",label:"Pale/White",hex:"#F5E6D3",bg:"linear-gradient(135deg,#FFF9EF 0%,#F5E6D3 58%,#C9B79F 100%)"},
+  {short:"Red",label:"Red-tinged",hex:"#C75050",bg:"linear-gradient(135deg,#F08A82 0%,#C75050 58%,#84302F 100%)"}
+];
 const POOP_SAFETY_FLAGS={"Black/tarry":`Black or tarry stools after the first few days may need medical attention. contact your ${_healthContact}.`,"White/pale":`Persistently pale or chalky stools can indicate a liver condition. mention this to your ${_healthContact} promptly.`,"Bloody/streaked":`Blood in stools can have many causes, but if new or persistent, contact your ${_healthContact}.`,"Meconium":`Meconium (dark, sticky first stools) is normal in the first 48-72 hours. If still passing meconium after day 3-4, mention it to your ${_guide.newbornContact}.`};
 function isWetPoopType(value) {
   const pt = String(value || "").toLowerCase().trim();
@@ -35811,7 +35820,7 @@ function App(){
         </div>
       )}
 
-      <div className="ob-main-content" style={{padding:tab==="settings"?`0 ${_rs(14)}px calc(88px + env(safe-area-inset-bottom, 0px))`:`${_rs(16)}px ${_rs(14)}px calc(88px + env(safe-area-inset-bottom, 0px))`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
+      <div className={`ob-main-content${tab==="settings"?" ob-settings-main":""}`} style={{padding:tab==="settings"?`0 ${_rs(14)}px calc(88px + env(safe-area-inset-bottom, 0px))`:`${_rs(16)}px ${_rs(14)}px calc(88px + env(safe-area-inset-bottom, 0px))`,maxWidth:_maxW,margin:"0 auto",animation:"fadeIn 0.3s ease"}}>
         {tab==="day"&&(
           // Only show the "No day selected" fallback when selDay itself is
           // missing (which should basically never happen, useState initialises
@@ -48317,21 +48326,19 @@ function App(){
                 {/* ── Poop colour picker ── */}
                 <div style={{marginTop:8,marginBottom:6}}>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
-                    {[["Yellow","#D4A855"],["Brown","#8B6914"],["Orange","#D4872E"],["Green","#6B8E23"],["Dark","#2C1F1A"],["Pale","#F5E6D3"],["Red","#C75050"]].map(([shortLabel,hex])=>{
-                      const _labelMap={"Yellow":"Yellow/Mustard","Brown":"Brown/Tan","Orange":"Orange","Green":"Green","Dark":"Dark/Black","Pale":"Pale/White","Red":"Red-tinged"};
-                      const label = _labelMap[shortLabel];
-                      const isSel = selectedPoopColour === hex;
-                      const _flagged = POOP_COLOUR_INFO[label] && !POOP_COLOUR_INFO[label].normal;
+                    {POOP_COLOUR_SWATCHES.map(sw=>{
+                      const isSel = selectedPoopColour === sw.hex;
+                      const _flagged = POOP_COLOUR_INFO[sw.label] && !POOP_COLOUR_INFO[sw.label].normal;
                       return (
-                        <button key={hex} onClick={()=>setSelectedPoopColour(isSel?"":hex)}
-                          onTouchStart={e=>{const _t=setTimeout(()=>{e.preventDefault();const info=POOP_COLOUR_INFO[label];if(info) showToast((info.normal?"✅ Normal: ":"⚠️ Flag: ")+info.desc,6000,info.normal?1:2);},500);e.currentTarget._lp=_t;}}
+                        <button key={sw.hex} type="button" className={`ob-poop-colour-swatch${isSel?" is-selected":""}${_flagged?" is-flagged":""}`} aria-label={`Poop colour ${sw.label}${isSel?" selected":""}`} onClick={()=>setSelectedPoopColour(isSel?"":sw.hex)}
+                          onTouchStart={e=>{const _t=setTimeout(()=>{e.preventDefault();const info=POOP_COLOUR_INFO[sw.label];if(info) showToast((info.normal?"✅ Normal: ":"⚠️ Flag: ")+info.desc,6000,info.normal?1:2);},500);e.currentTarget._lp=_t;}}
                           onTouchEnd={e=>{if(e.currentTarget._lp) clearTimeout(e.currentTarget._lp);}}
                           onTouchMove={e=>{if(e.currentTarget._lp) clearTimeout(e.currentTarget._lp);}}
-                          style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,background:"none",border:"none",cursor:_cP,padding:2}}>
-                          <div style={{width:26,height:26,borderRadius:99,background:hex,border:isSel?`3px solid ${C.ter}`:_flagged?`2px solid rgba(232,87,74,0.5)`:`2px solid ${C.blush}`,boxSizing:"border-box",position:"relative"}}>
-                            {_flagged&&<span style={{position:"absolute",top:-4,right:-4,fontSize:8,lineHeight:1}}>⚠</span>}
+                          style={{"--ob-poop-colour":sw.hex,"--ob-poop-gradient":sw.bg,cursor:_cP}}>
+                          <div className="ob-poop-colour-dot">
+                            {_flagged&&<span className="ob-poop-colour-warning">⚠</span>}
                           </div>
-                          <span style={{fontSize:9,color:isSel?C.ter:C.deep,fontWeight:isSel?700:500,fontFamily:_fI,textAlign:"center",lineHeight:1.1}}>{shortLabel}</span>
+                          <span className="ob-poop-colour-label">{sw.short}</span>
                         </button>
                       );
                     })}
@@ -48678,12 +48685,15 @@ function App(){
                 <div style={{marginBottom:12}}>
                   <label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:6}}>Colour</label>
                   <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                    {[["Yellow/Mustard","#D4A855"],["Brown/Tan","#8B6914"],["Orange","#D4872E"],["Green","#6B8E23"],["Dark/Black","#2C1F1A"],["Pale/White","#F5E6D3"],["Red-tinged","#C75050"]].map(([label,hex])=>{
-                      const isSel = form.poopColour === hex;
+                    {POOP_COLOUR_SWATCHES.map(sw=>{
+                      const isSel = form.poopColour === sw.hex;
+                      const _flagged = POOP_COLOUR_INFO[sw.label] && !POOP_COLOUR_INFO[sw.label].normal;
                       return (
-                        <button key={hex} onClick={()=>setForm(f=>({...f,poopColour:isSel?"":hex}))} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"none",border:"none",cursor:_cP,padding:4}}>
-                          <div style={{width:28,height:28,borderRadius:99,background:hex,border:isSel?`3px solid ${C.ter}`:`2px solid ${C.blush}`,boxSizing:"border-box"}}/>
-                          <span style={{fontSize:9,color:isSel?C.ter:C.lt,fontWeight:isSel?700:400,fontFamily:_fI,maxWidth:48,textAlign:"center",lineHeight:1.2}}>{label}</span>
+                        <button key={sw.hex} type="button" className={`ob-poop-colour-swatch${isSel?" is-selected":""}${_flagged?" is-flagged":""}`} aria-label={`Poop colour ${sw.label}${isSel?" selected":""}`} onClick={()=>setForm(f=>({...f,poopColour:isSel?"":sw.hex}))} style={{"--ob-poop-colour":sw.hex,"--ob-poop-gradient":sw.bg,cursor:_cP}}>
+                          <div className="ob-poop-colour-dot">
+                            {_flagged&&<span className="ob-poop-colour-warning">⚠</span>}
+                          </div>
+                          <span className="ob-poop-colour-label is-long">{sw.label}</span>
                         </button>
                       );
                     })}
