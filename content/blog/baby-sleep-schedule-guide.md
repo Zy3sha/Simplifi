@@ -107,8 +107,6 @@ Parenthood is loud. There are so many voices telling you what to do. At OBubba, 
 
 Your baby's sleep will change. There will be teething, regressions and growth spurts. There will be days when the "schedule" goes completely out the window. That is okay. That is life.
 
-![Illustration of OBubba app features like feed and sleep tracking, highlighting its friendly parenting support.](https://cdn.marblism.com/kn6Zoi-TM28.webp)
-
 ## Let us do this together
 
 You do not have to navigate these early stages alone. Whether you are trying to figure out a **baby sleep schedule** for the first time or you are deep in the four-month sleep regression, we are here to help.
