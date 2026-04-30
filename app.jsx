@@ -232,6 +232,64 @@ function hasValidTime(e) {
   if (!e) return false;
   return clockMins(e.time || e.start) !== null;
 }
+function clockStringFromAny(value) {
+  try {
+    if (value === undefined || value === null || value === "") return null;
+    if (typeof value === "string") {
+      const direct = clockParts(value.trim());
+      if (direct) return mtp24h(direct[0] * 60 + direct[1]);
+      const dateMs = Date.parse(value);
+      if (Number.isFinite(dateMs)) {
+        const d = new Date(dateMs);
+        return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      }
+      return null;
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      const ms = value > 100000000000 ? value : value > 1000000000 ? value * 1000 : null;
+      if (!ms) return null;
+      const d = new Date(ms);
+      return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    }
+  } catch {}
+  return null;
+}
+function normaliseLogEntryTime(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry;
+  const next = {...entry};
+  const fallback =
+    clockStringFromAny(next.time) ||
+    clockStringFromAny(next.start) ||
+    clockStringFromAny(next.end) ||
+    clockStringFromAny(next.loggedAt) ||
+    clockStringFromAny(next.createdAt) ||
+    clockStringFromAny(next.modifiedAt) ||
+    "00:00";
+  if (clockMins(next.time) === null) next.time = fallback;
+  if (next.type === "nap" && clockMins(next.start) === null) next.start = fallback;
+  if (next.type === "nap" && next.end && clockMins(next.end) === null) next.end = fallback;
+  return next;
+}
+function normaliseDayEntries(entries) {
+  return Array.isArray(entries) ? entries.map(normaliseLogEntryTime).filter(Boolean) : [];
+}
+function normaliseDaysPayload(dayMap) {
+  if (!dayMap || typeof dayMap !== "object" || Array.isArray(dayMap)) return {};
+  const out = {};
+  Object.entries(dayMap).forEach(([dayKey, entries]) => {
+    out[dayKey] = normaliseDayEntries(entries);
+  });
+  return out;
+}
+function normaliseChildrenPayload(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return {};
+  const out = {};
+  Object.entries(payload).forEach(([id, child]) => {
+    if (!child || typeof child !== "object") return;
+    out[id] = {...child, days: normaliseDaysPayload(child.days || {})};
+  });
+  return out;
+}
 
 // ═══ Breast-side balance (last 7 days) ═══
 // Many breastfeeding mothers don't realise their baby has drifted to one side
@@ -7211,7 +7269,7 @@ function App(){
     // show a recovery banner. Only THEN do we fall through to a blank child.
     const saved = localStorage.getItem("children_v1");
     if (saved) {
-      try { const parsed = JSON.parse(saved); if (parsed && typeof parsed === "object") return parsed; } catch(_) {
+      try { const parsed = JSON.parse(saved); if (parsed && typeof parsed === "object") return normaliseChildrenPayload(parsed); } catch(_) {
         try {
           const stashKey = "children_v1_corrupt_" + Date.now();
           localStorage.setItem(stashKey, saved);
@@ -7234,6 +7292,7 @@ function App(){
       try { daysData = oldDays ? JSON.parse(oldDays) : {}; } catch(_) {}
       try { weightsData = oldWeights ? JSON.parse(oldWeights) : []; } catch(_) {}
       try { milestonesData = oldMilestones ? JSON.parse(oldMilestones) : {}; } catch(_) {}
+      daysData = normaliseDaysPayload(daysData);
       if(!daysData[todayStr()]) daysData[todayStr()] = [];
       return { [cid]: {
         id: cid,
@@ -7271,7 +7330,7 @@ function App(){
   const babyDob     = activeChild.dob || _legacyBabyDob;
   const babySex     = activeChild.sex;
   const babyUnborn  = activeChild.unborn;
-  const days        = activeChild.days || {};
+  const days        = React.useMemo(() => normaliseDaysPayload(activeChild.days || {}), [activeChild.days]);
   const weights     = activeChild.weights || [];
   const heights     = activeChild.heights || [];
   const headCircs   = activeChild.headCircs || [];
@@ -7308,7 +7367,7 @@ function App(){
   // if user switches children between call and React batch processing
   const setDays        = (fn) => { const _id = resolvedActiveId; setChildren(prev => {
     const cur = prev[_id]; if(!cur) return prev;
-    const next = typeof fn === "function" ? fn(cur.days) : fn;
+    const next = normaliseDaysPayload(typeof fn === "function" ? fn(cur.days) : fn);
     return {...prev, [_id]: {...cur, days: next}};
   }); };
   const setWeights     = (fn) => { const _id = resolvedActiveId; setChildren(prev => {
@@ -8105,7 +8164,7 @@ function App(){
       setDays(prev => {
         const merged = {...prev};
         Object.keys(newDays).forEach(d => {
-          const tagged = newDays[d].map(e => ({...e, src: _batchId}));
+          const tagged = normaliseDayEntries(newDays[d]).map(e => ({...e, src: _batchId}));
           merged[d] = [...(merged[d]||[]), ...tagged];
         });
         // Post-import dedup: remove existing duplicates from previous
@@ -10886,11 +10945,11 @@ function App(){
         if (!alive || !raw) return;
         let mirror = null;
         try { mirror = JSON.parse(raw); } catch { return; }
-        const nativeChildren = mirror && mirror.children;
+        const nativeChildren = normaliseChildrenPayload(mirror && mirror.children);
         if (!nativeChildren || typeof nativeChildren !== "object" || !_hasRecoverableChild(nativeChildren)) return;
 
         let localChildren = {};
-        try { localChildren = JSON.parse(localStorage.getItem("children_v1") || "{}"); } catch {}
+        try { localChildren = normaliseChildrenPayload(JSON.parse(localStorage.getItem("children_v1") || "{}")); } catch {}
         const localHasChild = _hasRecoverableChild(localChildren);
         const localCount = countAllEntries(localChildren || {});
         const nativeCount = countAllEntries(nativeChildren || {});
@@ -11433,7 +11492,7 @@ function App(){
           // the snapshot and stay on local state rather than crashing
           // the onSnapshot handler.
           let incoming;
-          try { incoming = JSON.parse(d.children); } catch { return; }
+          try { incoming = normaliseChildrenPayload(JSON.parse(d.children)); } catch { return; }
           if (!incoming || typeof incoming !== "object") return;
           // Absorb partner's deleted entry/day IDs so deletions propagate
           let _remoteDeletedIds = new Set();
@@ -12046,7 +12105,7 @@ function App(){
               const d = snap.data();
               if(d.children) {
                 let cloud;
-                try { cloud = JSON.parse(d.children); } catch(e) { cloud = null; }
+                try { cloud = normaliseChildrenPayload(JSON.parse(d.children)); } catch(e) { cloud = null; }
                 if(cloud) {
                   const cloudIds = Object.keys(cloud);
                   if(cloudIds.length) {
@@ -12394,7 +12453,7 @@ function App(){
       const d = snap.data();
       if(d.children) {
         let cloud;
-        try { cloud = JSON.parse(d.children); } catch(e) { return false; }
+        try { cloud = normaliseChildrenPayload(JSON.parse(d.children)); } catch(e) { return false; }
         setChildren(cloud);
         try{ localStorage.setItem("children_v1", JSON.stringify(cloud)); }catch{}
         const cloudIds = Object.keys(cloud);
@@ -12775,7 +12834,7 @@ function App(){
             const d = fSnap.data();
             if(d.children) {
               let cloud;
-              try { cloud = JSON.parse(d.children); } catch(e) { cloud = null; }
+              try { cloud = normaliseChildrenPayload(JSON.parse(d.children)); } catch(e) { cloud = null; }
               if(cloud) {
                 const cloudIds = Object.keys(cloud);
                 setChildren(prev => {
@@ -13657,6 +13716,8 @@ function App(){
     showToast(nextMode === "wake" ? "Day now runs morning wake to morning wake" : "Day now runs midnight to midnight", 2200, 1);
   }
   function mergeChildren(localCh, remoteCh) {
+    localCh = normaliseChildrenPayload(localCh);
+    remoteCh = normaliseChildrenPayload(remoteCh);
     // SECURITY: filter remote children through the removal blacklist BEFORE
     // merging. Without this, a family-sync snapshot or verifyLogin hydration
     // can silently re-add a child the user has explicitly removed. This was
@@ -14143,7 +14204,7 @@ function App(){
           // throws, silently drop the snapshot instead of taking the
           // whole handler down and leaving the user with stale state.
           let remoteChild;
-          try { remoteChild = JSON.parse(d.child); } catch { return; }
+          try { remoteChild = JSON.parse(d.child); remoteChild = normaliseChildrenPayload({[childId]: remoteChild})[childId] || {}; } catch { return; }
           if (!remoteChild || typeof remoteChild !== "object") return;
           setChildren(prev => {
             const existing = prev[childId];
@@ -14171,7 +14232,7 @@ function App(){
               const _cleanedDays = {};
               Object.entries(remoteChild.days||{}).forEach(([date, entries]) => {
                 if (_isDayDeleted(date)) return;
-                _cleanedDays[date] = (entries||[]).filter(e =>
+                _cleanedDays[date] = normaliseDayEntries(entries).filter(e =>
                   e && e.id && !deletedEntryIdsRef.current.has(e.id)
                 );
               });
@@ -14192,7 +14253,7 @@ function App(){
               // only applied in the "merge extras" branch, so a day whose only
               // entry had been deleted locally (leaving local empty) would
               // silently re-absorb every cloud entry for that day.
-              const filteredRemote = (entries||[]).filter(e =>
+              const filteredRemote = normaliseDayEntries(entries).filter(e =>
                 e && e.id && !deletedEntryIdsRef.current.has(e.id)
               );
               const local = mergedDays[date] || [];
@@ -14252,7 +14313,7 @@ function App(){
       setChildren(prev => {
         if(prev[childId]) return prev;
         let remoteChild = {};
-        try{ remoteChild = d.child ? JSON.parse(d.child) : {}; }catch{}
+        try{ remoteChild = d.child ? JSON.parse(d.child) : {}; remoteChild = normaliseChildrenPayload({[childId]: remoteChild})[childId] || {}; }catch{}
         return {...prev, [childId]: {...remoteChild, id: childId}};
       });
       setChildSyncCodes(prev => ({...prev, [childId]: clean}));
@@ -34451,10 +34512,11 @@ function App(){
               ..._patch
             }
           };
-          childrenRef.current = _nextChildren;
-          setChildren(_nextChildren);
+          const _safeNextChildren = normaliseChildrenPayload(_nextChildren);
+          childrenRef.current = _safeNextChildren;
+          setChildren(_safeNextChildren);
           setActiveChildId(_targetId);
-          localStorage.setItem("children_v1", JSON.stringify(_nextChildren));
+          localStorage.setItem("children_v1", JSON.stringify(_safeNextChildren));
           localStorage.setItem("active_child", _targetId);
         } catch {}
         // Save to legacy keys too (some code paths read these)
@@ -34506,7 +34568,7 @@ function App(){
             if (!_curChild) return prev;
             const _nextDays = {...(_curChild.days || {})};
             _nextDays[_obToday] = [...(_nextDays[_obToday] || []), ..._preparedEntries];
-            const _next = {...prev, [_onboardTargetId]: {..._curChild, days:_nextDays}};
+            const _next = normaliseChildrenPayload({...prev, [_onboardTargetId]: {..._curChild, days:_nextDays}});
             try { childrenRef.current = _next; localStorage.setItem("children_v1", JSON.stringify(_next)); } catch {}
             return _next;
           });
