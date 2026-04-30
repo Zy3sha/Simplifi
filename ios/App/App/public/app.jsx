@@ -9516,6 +9516,7 @@ function App(){
   const[prefBedMode,setPrefBedMode]=usePersistedState("ob_pref_bed_mode_v1","gradual"); // "gradual" or "instant"
   const[showBedChecklist,setShowBedChecklist]=useState(false);
   const[bedCheckDone,setBedCheckDone]=useState({});
+  const[showBedtimeResistanceSheet,setShowBedtimeResistanceSheet]=useState(false);
   const[showQuickStart,setShowQuickStart]=useState(false);
   const[qsNaps,setQsNaps]=useState("3");
   const[qsBedtime,setQsBedtime]=useState("19:00");
@@ -9573,6 +9574,7 @@ function App(){
       if(showEndNapConfirm){setShowEndNapConfirm(false);return;}
       if(showPaywall){setShowPaywall(false);return;}
       if(showSleepCoach){setShowSleepCoach(false);return;}
+      if(showBedtimeResistanceSheet){setShowBedtimeResistanceSheet(false);return;}
       if(showNightFeedAmount){setShowNightFeedAmount(false);return;}
       if(showNightWake){setShowNightWake(false);setNightEditId(null);return;}
       if(showCryingHelper){setShowCryingHelper(false);return;}
@@ -9590,7 +9592,7 @@ function App(){
     }
     window.addEventListener("ob-back-button",_handleBack);
     return ()=>window.removeEventListener("ob-back-button",_handleBack);
-  },[showEndNapConfirm,showPaywall,showSleepCoach,showNightFeedAmount,showNightWake,showCryingHelper,showSoundMachine,showCalendar,showMedForm,modal,logPanel,showTeethingForm,showWeaningForm,showBfHub,daySubScreen,tab]);
+  },[showEndNapConfirm,showPaywall,showSleepCoach,showBedtimeResistanceSheet,showNightFeedAmount,showNightWake,showCryingHelper,showSoundMachine,showCalendar,showMedForm,modal,logPanel,showTeethingForm,showWeaningForm,showBfHub,daySubScreen,tab]);
   // Weekly shopping list for weaning foods. User plans next N days of foods
   // and can add recipe ingredients. Once saved, the "today/tomorrow" food
   // suggestion algorithm prefers items from the active plan.
@@ -10576,6 +10578,28 @@ function App(){
         if (el) el.scrollIntoView({ behavior:"smooth", block:"center" });
       } catch {}
     }, 80);
+  }
+  function openBedtimeResistanceOptions() {
+    haptic();
+    if (typeof hasAccess === "function" && !hasAccess()) {
+      triggerPaywall("bedtime_resistance_options", true);
+      return;
+    }
+    setConfirmDialog(null);
+    setShowNapRefusedSheet(false);
+    setShowBedtimeResistanceSheet(true);
+  }
+  function recordBedtimeResistance(choice, label, guidance) {
+    try {
+      addObservation(
+        "🌙",
+        "Bedtime not settling: " + label,
+        guidance,
+        "OBubba treated this as a bedtime-settling context, not a missed nap.",
+        choice === "unwell" ? 1 : 2
+      );
+    } catch {}
+    setShowBedtimeResistanceSheet(false);
   }
   const[deleteConfirmShow,setDeleteConfirmShow]=useState(false);
   const[deleteConfirmText,setDeleteConfirmText]=useState("");
@@ -15641,7 +15665,7 @@ function App(){
         : bedMins
         ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), targetMs: _bedTargetMs(bedMins), countdown: Math.max(0, bedMins - _nowMinsTC) }
         : null;
-      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile, nextEvent: _nextEvent };
+      tickDataRef.current = { hasBedtime, bedEntryTime, nextDayHasWake, lastNightEvent, nightWakeCount: nightWakes.length, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, bridgeNapNeeded, lastAwakeMins, isFragmented: _isFragmented, shortNapCount: _shortNapCount, totalNapMins, napProfile, napBedConflict: _napBedConflict, nextEvent: _nextEvent };
       // Bad Night Badge. solidarity after rough nights
       try {
         const _bnKey = "ob_bad_night_" + selDay;
@@ -15667,11 +15691,11 @@ function App(){
         : bedMins
         ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), targetMs: _bedTargetMs2(bedMins), countdown: Math.max(0, bedMins - _nowMinsTC) }
         : null;
-      tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins, nextEvent: _nextEvent2 };
+      tickDataRef.current = { hasBedtime: false, napsDone, expectedNaps, napsComplete, nextNapMins, bedMins, nextDayHasWake, bridgeNapNeeded, lastAwakeMins, napBedConflict: _napBedConflict, nextEvent: _nextEvent2 };
     }
     // Keep pred/bed for other consumers (premium/trial only for personal predictions)
     // pred/bed cached for Plan view and detailed displays
-    try { tickDataRef.current.pred = predictNextNap(); } catch {}
+    try { tickDataRef.current.pred = _planPred; } catch {}
     try { tickDataRef.current.bed = bedtimePrediction(); } catch {}
     try { tickDataRef.current.bridgeInfo = earlyBedtimeRisk(); } catch {}
 
@@ -16350,6 +16374,27 @@ function App(){
       _pred = { napStart_min: _td2.nextNapMins, napStart_max: _td2.nextNapMins, sourceLabel: "OBubba Sleep Engine", isOverdue: _nowMins2 > _td2.nextNapMins };
     }
     let _bed = null; _bed = tickDataRef.current.bed;
+    const _bedMinsForDecision = _bed && _bed.time ? clockMins(_bed.time) : null;
+    const _minsToBedForDecision = typeof _bedMinsForDecision === "number" ? (_bedMinsForDecision - _nowM) : null;
+    const _bedtimeShouldLead = !!(_bed && !_hasBed && (
+      _napsComplete ||
+      td.napBedConflict ||
+      (typeof _minsToBedForDecision === "number" && _minsToBedForDecision <= 60 && _minsToBedForDecision > -120)
+    ));
+    const _bedtimeActionButtons = (showRoutine = true) => (
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:6}}>
+        {showRoutine && (
+          <button onClick={()=>{haptic();setShowBedRoutine(true);setBedRoutineStep(0);setBedRoutineStart(null);}}
+            style={{padding:"8px 14px",minHeight:38,borderRadius:99,border:"1px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.08)",color:"#7B68EE",fontSize:12,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
+            🌙 Start routine
+          </button>
+        )}
+        <button onClick={openBedtimeResistanceOptions}
+          style={{padding:"8px 14px",minHeight:38,borderRadius:99,border:"1px solid rgba(212,168,85,0.35)",background:"rgba(212,168,85,0.08)",color:"#B8872F",fontSize:12,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
+          Bedtime not settling?
+        </button>
+      </div>
+    );
 
     // ── Night feed hint (newborns need scheduled feeds) ──
     // Compare latest weight to second-to-last (not birth weight) to detect recent weight loss
@@ -16522,13 +16567,13 @@ function App(){
     } catch {}
 
     // Priority 1: Nap/Bed imminent (within ~30 min) or overdue
-    if (_pred && typeof _pred.napStart_min === "number" && !_napsComplete) {
+    if (_pred && typeof _pred.napStart_min === "number" && !_napsComplete && !_bedtimeShouldLead) {
       const _napDelta = _pred.napStart_min - _nowMinsSel;
       if (_napDelta <= 0 && _napDelta > -60) _nextEvent = { icon: "😴", text: _name + " looks ready for a nap. about " + hm(-_napDelta) + " past their usual window" };
       else if (_napDelta <= -60) _nextEvent = { icon: "😴", text: _name + " is well past their nap window (" + hm(-_napDelta) + " overdue). settle now if you can, or consider an earlier bedtime tonight" };
       else if (_napDelta > 0 && _napDelta <= 30) _nextEvent = { icon: "😴", text: "Next nap in ~" + hm(_napDelta) + " (around " + mtp24h(_pred.napStart_min).replace(/:00/,":00") + ")" };
     }
-    if (!_nextEvent && _bed && _bed.time && _napsComplete) {
+    if (!_nextEvent && _bed && _bed.time && _bedtimeShouldLead) {
       const _bedMins = timeVal(_bed.time);
       const _bedDelta = _bedMins - _nowMinsSel;
       if (_bedDelta > 0 && _bedDelta <= 120) _nextEvent = { icon: "🌙", text: "Bedtime in ~" + hm(_bedDelta) + " (around " + fmt12(_bed.time) + ")" };
@@ -16551,7 +16596,7 @@ function App(){
       _nextEvent = { icon: "💧💩", text: "Nappy check. " + hm(_nappyGapM) + " since last change" };
     }
     // Priority 4: Next nap coming up (beyond 30min)
-    if (!_nextEvent && _pred && typeof _pred.napStart_min === "number" && !_napsComplete) {
+    if (!_nextEvent && _pred && typeof _pred.napStart_min === "number" && !_napsComplete && !_bedtimeShouldLead) {
       const _napDelta = _pred.napStart_min - _nowMinsSel;
       if (_napDelta > 30) _nextEvent = { icon: "😴", text: "Next nap around " + mtp24h(_pred.napStart_min) + " (~" + hm(_napDelta) + ")" };
     }
@@ -16890,7 +16935,7 @@ function App(){
       _rightNow = _name + " has had " + (td.shortNapCount||0) + " short naps (" + hm(td.totalNapMins||0) + " total, target around " + hm(td.napProfile?td.napProfile.idealTotalMin:120) + "+). Try a contact nap, dark room, or white noise for a longer stretch. A rescue nap may help soften bedtime.";
     }
     // ── PRIORITY 5: Nap approaching / overdue ──
-    else if (_dayStarted && _pred && !_hasBed && !_napsComplete) {
+    else if (_dayStarted && _pred && !_hasBed && !_napsComplete && !_bedtimeShouldLead) {
       const _napMins = typeof _pred.napStart_min === "number" ? _pred.napStart_min : 0;
       const _napTimeStr = fmt12(String(Math.floor(_napMins/60)%24).padStart(2,"0")+":"+String(Math.round(_napMins%60)).padStart(2,"0"));
       const _minsUntilNap = Math.max(0, _napMins - _nowM);
@@ -16950,7 +16995,7 @@ function App(){
       }
     }
     // ── PRIORITY 5a-bridge: Bridge nap needed but no prediction available (fallback) ──
-    else if (_dayStarted && !_hasBed && _bridgeNapNeeded && !_pred) {
+    else if (_dayStarted && !_hasBed && _bridgeNapNeeded && !_pred && !_bedtimeShouldLead) {
       // Use 75% of normal WW for the bridge nap timing
       const _bridgeWW = _ww.min;
       const _bridgeStart = _lastSleep !== null ? _lastSleep + _bridgeWW : null;
@@ -16971,7 +17016,7 @@ function App(){
     // disagreeing about the bedtime target — the countdown chip used the
     // bedtimePrediction() result, and this block was producing its own different
     // number using the WW midpoint.
-    else if (_dayStarted && !_hasBed && !_napsComplete && !_bridgeNapNeeded && _napsDone >= 1) {
+    else if (_dayStarted && !_hasBed && !_napsComplete && !_bridgeNapNeeded && _napsDone >= 1 && !_bedtimeShouldLead) {
       if (napRefusedChoice === "skip") {
         let _earlyBedStr = null;
         try {
@@ -17010,8 +17055,8 @@ function App(){
         }
       }
     }
-    // ── PRIORITY 5c: All naps done. bedtime context ──
-    else if (_dayStarted && _napsComplete && _bed && !_hasBed) {
+    // ── PRIORITY 5c: Bedtime context ──
+    else if (_dayStarted && _bedtimeShouldLead) {
       const _bedMinsForNow = _bed.time ? clockMins(_bed.time) : null;
       const _minsUntilBed = Math.max(0, (_bedMinsForNow ?? 19*60) - _nowM);
       let _bridgeInfo = null;
@@ -17021,9 +17066,16 @@ function App(){
         _dot = "#6B5B95"; _label = "Start bedtime routine";
         _timing = "Bedtime in ~" + _minsUntilBed + " min · Bath, book, feed, bed";
         _rightNow = "Dim the lights and keep things calm. " + _name + "'s sleep pressure is building nicely. a consistent routine signals it's time for sleep.";
+        _secondary = _bedtimeActionButtons(true);
       } else if (_minsUntilBed <= 30) {
         _dot = "#6B5B95"; _label = "Winding down for bed";
         _timing = "Bedtime in ~" + _minsUntilBed + " min · Start the routine soon";
+        _secondary = _bedtimeActionButtons(true);
+      } else if (!_napsComplete && td.napBedConflict) {
+        _dot = "#6B5B95"; _label = "Bedtime is the kinder path";
+        _timing = "A late nap no longer fits well · aim for bedtime around " + fmt12(_bed.time);
+        _rightNow = "If " + _name + " seems wired, keep lights low and do a calm reset. If they seem upset or frantic, keep the routine short and settle now.";
+        _secondary = _bedtimeActionButtons(true);
       } else if (_bridgeInfo && _bridgeInfo.suggestBridge) {
         const _bStart = _bridgeInfo.bridgeStart;
         const _mUntilBridge = _bStart - _nowM;
@@ -17054,7 +17106,7 @@ function App(){
         // Show bedtime routine button when within 1h of predicted bedtime
         const _bedPredMins3 = _bed && _bed.time ? clockMins(_bed.time) : null;
         if (_bedPredMins3 && (_bedPredMins3 - _nowM) <= 60 && (_bedPredMins3 - _nowM) > -15) {
-          _secondary = (<button onClick={()=>{haptic();setShowBedRoutine(true);setBedRoutineStep(0);setBedRoutineStart(null);}} style={{marginTop:6,padding:"8px 16px",borderRadius:99,border:`1px solid rgba(123,104,238,0.3)`,background:"rgba(123,104,238,0.06)",color:"#7B68EE",fontSize:12,fontWeight:700,cursor:_cP}}>🌙 Start bedtime routine</button>);
+          _secondary = _bedtimeActionButtons(true);
         }
         // Split night warning: if recent pattern shows split nights, add actionable guidance
         try {
@@ -17334,7 +17386,7 @@ function App(){
         })()}
 
 	        {/* Nap refused path. Opens the full premium decision card; no fake zero-minute nap entry. */}
-	        {_nextEvent && _nextEvent.icon === "😴" && td && !td.napsComplete && !td.hasBedtime && (()=>{
+	        {_nextEvent && _nextEvent.icon === "😴" && td && !td.napsComplete && !td.hasBedtime && !_bedtimeShouldLead && (()=>{
 	          const _napPred = tickDataRef.current?.pred;
 	          const _isOverdue = _napPred && _napPred.isOverdue;
 	          if (!_isOverdue) return null;
@@ -35765,7 +35817,7 @@ function App(){
               }
               // If countdown is null but naps aren't done, show an overdue nap pill
               if(countdown === null) {
-                if (!_td.napsComplete && !napRefusedChoice && _todayE2.length > 0 && !napOn && !bedTimerDay) {
+                if (!_td.napsComplete && !_td.napBedConflict && !napRefusedChoice && _todayE2.length > 0 && !napOn && !bedTimerDay) {
                   const _wwL3 = age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks) : null;
                   const _awM3 = _awakeMins2;
                   const _isOverdue3 = _wwL3 && _awM3 > _wwL3.max;
@@ -35825,10 +35877,14 @@ function App(){
                   </button>
                 );
               }
-              // If bed is showing but naps aren't actually complete and parent hasn't
-              // chosen to skip, show nap pill with "not happening?" prompt instead
+              // If a bed prediction is showing, keep it as bedtime once the engine
+              // has identified a bedtime conflict/window. Previously this coerced
+              // that bed prediction back into "Nap not happening?", which is wrong
+              // when the real problem is bedtime resistance.
               const _napsNotDone = !_td.napsComplete && !napRefusedChoice;
-              const _showAsNap = isBed && _napsNotDone && !isBedNow;
+              const _bedTargetMs = _ne2 && typeof _ne2.targetMs === "number" ? _ne2.targetMs : null;
+              const _bedWindowActive = isBed && (_td.napBedConflict || (_bedTargetMs && _bedTargetMs - Date.now() <= 60*60*1000));
+              const _showAsNap = isBed && _napsNotDone && !isBedNow && !_bedWindowActive;
               const isNapTappable = (!isBed || _showAsNap) && !isNeutral && napCountdown !== null;
               const handleTap = () => {
                 haptic(20);
@@ -35864,6 +35920,11 @@ function App(){
                   {(_showAsNap || ((isNapNow || isOverdue) && !isBed)) && (
                     <button className="ob-nap-refused-link" onClick={openNapRefusedOptions} style={{background:"none",border:"none",fontSize:10,color:C.ter,fontWeight:600,cursor:_cP,fontFamily:_fM,padding:"2px 8px"}}>
                       Nap not happening?
+                    </button>
+                  )}
+                  {isBed && !_showAsNap && !bedTimerDay && (
+                    <button className="ob-nap-refused-link" onClick={openBedtimeResistanceOptions} style={{background:"none",border:"none",fontSize:10,color:C.ter,fontWeight:600,cursor:_cP,fontFamily:_fM,padding:"2px 8px"}}>
+                      Bedtime not settling?
                     </button>
                   )}
                 </div>
@@ -36103,7 +36164,7 @@ function App(){
                   consultant practice: rescue nap (motion), rest time (cot with no
                   pressure), or skip to early bedtime. After the parent picks,
                   downstream engine behaviour adapts — we don't silently choose. */}
-              {hasAccess() && !daySubScreen && selDay===todayStr() && (forceNapRefusedCard || napRefusedChoice==null) && !napOn && !bedTimerDay && !(days[selDay]||[]).some(e => e.type==="sleep" && !e.night) && (()=>{
+              {hasAccess() && !daySubScreen && selDay===todayStr() && !(tickDataRef.current||{}).napBedConflict && (forceNapRefusedCard || napRefusedChoice==null) && !napOn && !bedTimerDay && !(days[selDay]||[]).some(e => e.type==="sleep" && !e.night) && (()=>{
                 try {
                   const _todayArr = days[selDay]||[];
                   const _completed = _todayArr.filter(e => e.type==="nap" && !e.night && e.start && e.end && e.start !== e.end && !e._active && minDiff(e.start,e.end) > 0 && minDiff(e.start,e.end) < 480);
@@ -48142,6 +48203,117 @@ function App(){
                 </button>
                 <div style={{fontSize:11,color:C.lt,lineHeight:1.45,textAlign:"center",marginTop:10,padding:"0 12px"}}>
                   This is guidance, not a rule. If {_name} seems unwell or unusually hard to settle, follow your parent instinct.
+                </div>
+              </div>
+            );
+          })()}
+        </Sheet>
+      )}
+
+      {showBedtimeResistanceSheet && (
+        <Sheet onClose={()=>setShowBedtimeResistanceSheet(false)} title="">
+          {(()=>{
+            const _name = babyName || "baby";
+            const _td = tickDataRef.current || {};
+            const _bed = _td.bed || (typeof bedtimePrediction === "function" ? bedtimePrediction() : null);
+            const _bedStr = _bed && _bed.time ? fmt12(_bed.time) : "tonight";
+            const _lastNap = (() => {
+              try {
+                const _naps = (days[selDay]||[]).filter(isValidCompletedNap).sort((a,b)=>timeVal({time:b.end||b.start})-timeVal({time:a.end||a.start}));
+                return _naps[0] || null;
+              } catch { return null; }
+            })();
+            const _lastNapLine = _lastNap && _lastNap.end
+              ? "Last nap ended " + fmt12(_lastNap.end) + ". target bedtime is around " + _bedStr + "."
+              : "Target bedtime is around " + _bedStr + ".";
+            const _option = (icon,title,body,choice,label,guidance,toast) => (
+              <button onClick={()=>{
+                haptic();
+                recordBedtimeResistance(choice, label, guidance);
+                showToast(toast || "🌙 Bedtime plan adjusted", 2400, 1);
+              }} style={{width:"100%",display:"flex",alignItems:"center",gap:12,padding:"13px 14px",borderRadius:16,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",boxShadow:"var(--card-shadow-soft)",textAlign:"left",cursor:_cP,marginBottom:9}}>
+                <span style={{fontSize:24,width:34,textAlign:"center",flexShrink:0}}>{icon}</span>
+                <span style={{flex:1,minWidth:0}}>
+                  <span style={{display:"block",fontSize:15,fontWeight:800,color:C.deep,fontFamily:_fM,marginBottom:3}}>{title}</span>
+                  <span style={{display:"block",fontSize:12,color:C.lt,lineHeight:1.35}}>{body}</span>
+                </span>
+              </button>
+            );
+            return (
+              <div>
+                <div style={{textAlign:"center",marginBottom:16}}>
+                  <div style={{fontSize:34,marginBottom:8}}>🌙</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:24,fontWeight:800,color:C.deep,marginBottom:6}}>Bedtime not settling?</div>
+                  <div style={{fontSize:13,color:C.mid,lineHeight:1.45,padding:"0 8px"}}>
+                    Bedtime fighting is different from a missed nap. Let’s work out whether this looks overtired, undertired, or a comfort check.
+                  </div>
+                  <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginTop:8}}>{_lastNapLine}</div>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:10,padding:"6px 10px",borderRadius:99,background:"rgba(123,104,238,0.10)",color:C.ter,fontSize:11,fontWeight:800}}>
+                    ✨ Premium bedtime support
+                  </div>
+                </div>
+
+                {_option(
+                  "⚡",
+                  "Wired / playful",
+                  "May be undertired or overstimulated. Try 10-15 minutes of quiet play, dim lights, then restart the same short routine.",
+                  "wired",
+                  "wired or playful",
+                  _name + " seemed wired at bedtime. This may suggest low sleep pressure or too much stimulation. Keep lights low, do a calm reset, and try again without turning bedtime into playtime.",
+                  "🌙 Try a calm 10-15 min reset"
+                )}
+                {_option(
+                  "😣",
+                  "Crying hard / frantic",
+                  "May be overtired or uncomfortable. Keep the routine short, check nappy/temperature/pain cues, and settle with extra comfort.",
+                  "frantic",
+                  "crying hard",
+                  _name + " was very upset at bedtime. This may fit an overtired or discomfort pattern. Keep stimulation low, offer comfort, and bring tomorrow's final wake window slightly shorter if the pattern repeats.",
+                  "💛 Keep it short and comfort-led"
+                )}
+                {_option(
+                  "🥱",
+                  "Sleepy but resisting",
+                  "Looks like the window is open. Keep the room dark and boring. same phrase, same cuddle, same calm sequence.",
+                  "sleepy",
+                  "sleepy but resisting",
+                  _name + " looked sleepy but resisted bedtime. This often means the sleep window is open but settling needs consistency. Keep the routine predictable and avoid adding new stimulation.",
+                  "🌙 Stay steady. same routine"
+                )}
+                {_option(
+                  "🦷",
+                  "Teething / unwell / off day",
+                  "Treat tonight as comfort-first. Follow safe sleep, check temperature, and speak to your health professional if you're worried.",
+                  "unwell",
+                  "teething or unwell",
+                  _name + " may be uncomfortable tonight. OBubba will treat this as an off-night context, not a routine failure. If symptoms worry you, contact your health professional.",
+                  "🤍 Off-night context saved"
+                )}
+                {_option(
+                  "⏰",
+                  "Late or long last nap",
+                  "May be low sleep pressure. Keep bedtime calm now, then consider capping late naps or nudging bedtime 10-15 minutes later next time.",
+                  "late_nap",
+                  "late or long nap",
+                  _name + "'s bedtime resistance may be linked to the last nap. If this repeats, try protecting the final wake window by capping late naps or nudging bedtime slightly later.",
+                  "⏰ Last-nap context saved"
+                )}
+
+                <div style={{display:"flex",gap:8,marginTop:4}}>
+                  <button onClick={()=>{haptic();setShowBedtimeResistanceSheet(false);setShowBedRoutine(true);setBedRoutineStep(0);setBedRoutineStart(null);}}
+                    style={{flex:1,padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#7B68EE,#6B5B95)",color:"white",fontSize:13,fontWeight:800,cursor:_cP}}>
+                    Start routine
+                  </button>
+                  <button onClick={()=>{haptic();setShowBedtimeResistanceSheet(false);logBedtimeNow();}}
+                    style={{flex:1,padding:"12px",borderRadius:99,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:800,cursor:_cP}}>
+                    Start bed timer
+                  </button>
+                </div>
+                <button onClick={()=>setShowBedtimeResistanceSheet(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:13,fontWeight:700,cursor:_cP,marginTop:6}}>
+                  Close
+                </button>
+                <div style={{fontSize:11,color:C.lt,lineHeight:1.45,textAlign:"center",marginTop:8,padding:"0 12px"}}>
+                  This is gentle pattern support, not medical advice. Use a clear cot, back-to-sleep positioning, and follow your instincts if {_name} seems unwell.
                 </div>
               </div>
             );
