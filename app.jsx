@@ -44953,7 +44953,7 @@ function App(){
                   borderLeft:`4px solid ${done ? C.mint : borderColor}`,
                   borderRadius:14,
                   padding:"12px 14px",
-                  opacity:(isFuture && !done)?0.5:1,
+                  opacity:(isFuture && !done)?0.82:1,
                   transition:"all 0.15s",
                 }}>
                   <div style={{display:"flex",alignItems:"flex-start",gap:11,touchAction:"pan-y"}}>
@@ -45001,10 +45001,10 @@ function App(){
                           <button onClick={e=>{e.stopPropagation();haptic();showConfirm("Remove milestone", `Remove "${m.label}" from ${babyName||"baby"}'s achieved milestones?`, ()=>{setMilestones(ms=>({...ms,[m.id]:{}}));setConfirmDialog(null);showToast("Removed",1400,1);}, "Remove", true);}} style={{background:"var(--chip-bg)",border:"none",borderRadius:99,padding:"3px 10px",fontSize:11,color:C.lt,cursor:_cP}}>✕ Remove</button>
                         </div>
                       )}
-                      {!done && !isFuture && (
+                      {!done && (
                         <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
                           <button onClick={e=>{e.stopPropagation();markMilestoneReached(m);}} style={{background:C.mint,border:"none",borderRadius:99,padding:"5px 11px",fontSize:11,color:"white",fontWeight:800,cursor:_cP}}>
-                            Reached today
+                            {isFuture ? "Reached early" : "Reached today"}
                           </button>
                           <button onClick={e=>{e.stopPropagation();markMilestoneMaybe(m);}} style={{background:"var(--chip-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 11px",fontSize:11,color:"#9878d0",fontWeight:700,cursor:_cP}}>
                             Not sure yet
@@ -45014,13 +45014,16 @@ function App(){
                     </div>
                     {/* Action button */}
                     <div style={{flexShrink:0,paddingTop:4}}>
-                      {!done && isNow && (
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",width:32,height:32,borderRadius:"50%",border:`2px solid ${borderColor}`,background:"transparent"}}>
-                          <span style={{fontSize:10,color:borderColor,fontWeight:700}}>?</span>
-                        </div>
+                      {!done && (
+                        <button
+                          aria-label={`Mark ${m.label} achieved today`}
+                          onClick={e=>{e.stopPropagation();markMilestoneReached(m);}}
+                          style={{display:"flex",alignItems:"center",justifyContent:"center",width:34,height:34,borderRadius:"50%",border:`2px solid ${isFuture ? C.lt : borderColor}`,background:isFuture?"rgba(255,255,255,0.36)":"transparent",color:isFuture?C.lt:borderColor,cursor:_cP,boxShadow:isFuture?"none":`0 0 0 3px ${borderColor}10`}}>
+                          <span style={{fontSize:15,fontWeight:900,lineHeight:1}}>✓</span>
+                        </button>
                       )}
-                      {!done && isPast && <span style={{fontSize:11,background:"rgba(212,168,85,0.12)",color:C.gold,borderRadius:99,padding:"4px 10px",fontWeight:700}}>Practising</span>}
-                      {!done && isFuture && <span style={{fontSize:10,color:"#bbb",fontFamily:_fM}}>wk {m.weeks[0]}+</span>}
+                      {!done && isPast && <div style={{fontSize:10,background:"rgba(212,168,85,0.12)",color:C.gold,borderRadius:99,padding:"3px 8px",fontWeight:700,marginTop:5,textAlign:"center"}}>Practising</div>}
+                      {!done && isFuture && <div style={{fontSize:10,color:C.lt,fontFamily:_fM,marginTop:5,textAlign:"center"}}>wk {m.weeks[0]}+</div>}
                       {done && (
                         <div style={{width:28,height:28,borderRadius:"50%",background:C.mint,display:"flex",alignItems:"center",justifyContent:"center"}}>
                           <span style={{color:"white",fontSize:13,fontWeight:700}}>✓</span>
