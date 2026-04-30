@@ -7613,6 +7613,11 @@ function App(){
       if (!dateStr || !entry.type) { skipped++; return; }
       const d = normDate(dateStr);
       if (!d) { skipped++; return; }
+      const cleanEntry = normaliseLogEntryTime(entry);
+      const _hadUsableTime = !!(clockStringFromAny(entry.time) || clockStringFromAny(entry.start));
+      if (!_hadUsableTime) {
+        cleanEntry.note = [cleanEntry.note, "Imported without a time"].filter(Boolean).join(" · ");
+      }
       // Reject dates before baby was born (ancient imports), more than
       // 1 day in the future (typo), or before 2020 (unambiguous typo).
       // These used to pollute the 7-day / 14-day analyser baselines.
@@ -7628,22 +7633,22 @@ function App(){
       } catch {}
       // DEDUP: skip anything we've already logged (either on an earlier
       // import, via manual logging, or earlier in the same CSV).
-      const _sig = entrySignature(d, entry);
+      const _sig = entrySignature(d, cleanEntry);
       if (_existingSigs.has(_sig)) { duplicates++; return; }
       // Cross-type dedup: a previous import with the old night-chain code
       // may have created "sleep" entries for morning naps (firstHour <= 10
       // bug). The new code correctly creates "nap" entries. Check if any
       // entry at the same time already exists regardless of type.
-      const _timeKey = d + "|" + (entry.time || entry.start || "");
-      if (_existingSigs.has("_t|" + _timeKey)) { duplicates++; return; }
+      const _timeKey = d + "|" + (cleanEntry.time || cleanEntry.start || "");
+      if (_hadUsableTime && _existingSigs.has("_t|" + _timeKey)) { duplicates++; return; }
       _existingSigs.add(_sig);
-      _existingSigs.add("_t|" + _timeKey);
+      if (_hadUsableTime) _existingSigs.add("_t|" + _timeKey);
       if (!newDays[d]) newDays[d] = [];
       // CRITICAL: preserve entry.night if the caller set it. The old
       // version hardcoded night:false AFTER the spread, which meant night
       // wakes extracted from Huckleberry sleep chains lost their night
       // flag and the engine couldn't tell them apart from morning wakes.
-      const out = {...entry, id: uid()};
+      const out = {...cleanEntry, id: uid()};
       if (out.night === undefined) out.night = false;
       newDays[d].push(out);
       imported++;
@@ -10764,6 +10769,14 @@ function App(){
   const[backupCode,setBackupCode]=useState(()=>{try{return localStorage.getItem("backup_code")||null;}catch{return null;}});
   const backupCodeRef = useRef(backupCode);
   useEffect(()=>{backupCodeRef.current=backupCode;},[backupCode]);
+  const _carerSessionKey = (code)=>code ? "ob_carer_session_ended_" + code : "";
+  const[carerSessionEnded,setCarerSessionEnded]=useState(()=>{try{const _code=localStorage.getItem("backup_code");return !!(_code&&localStorage.getItem("ob_carer_session_ended_"+_code)==="1");}catch{return false;}});
+  useEffect(()=>{
+    try {
+      const _key = _carerSessionKey(backupCode);
+      setCarerSessionEnded(!!(_key && localStorage.getItem(_key)==="1"));
+    } catch { setCarerSessionEnded(false); }
+  },[backupCode]);
   const[syncStatus,setSyncStatus]=useState("idle");
   const[showFamilyModal,setShowFamilyModal]=useState(false);
   const[showPwaMovePrompt,setShowPwaMovePrompt]=useState(false);
@@ -11973,6 +11986,8 @@ function App(){
         endedAt: serverTimestamp(),
         endedBy: window._fbUid || "parent"
       }).then(() => {
+        try { localStorage.setItem(_carerSessionKey(_code), "1"); } catch {}
+        setCarerSessionEnded(true);
         showToast("🔒 Bubba Care session ended", 2000, 1);
       }).catch(e => {
         console.error("End session error:", e);
@@ -11987,6 +12002,8 @@ function App(){
     try {
       const {db, doc, deleteDoc} = window._fb;
       deleteDoc(doc(db, "carer_logs", _code, "_meta", "session")).then(() => {
+        try { localStorage.removeItem(_carerSessionKey(_code)); } catch {}
+        setCarerSessionEnded(false);
         showToast("✓ Carer portal is open again", 2000, 1);
       }).catch(() => {});
     } catch(e) {}
@@ -17201,6 +17218,14 @@ function App(){
       _secondary = null;
     }
 
+    if (_wakeMissing && (_label === "All good right now" || _label === "Ready to start")) {
+      _dot = "#D4A855";
+      _label = "Wake time missing";
+      _timing = "Log the morning wake to line up today's rhythm";
+      _rightNow = null;
+      _secondary = null;
+    }
+
     // ══════════════════════════════════════════════════════
     // RENDER
     // ══════════════════════════════════════════════════════
@@ -17277,7 +17302,7 @@ function App(){
             <BubbaIcon name="sun" size={22}/>
             <div>
               <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Wake not logged</div>
-              <div style={{fontSize:11,color:C.mid}}>Tap to log {_name}'s morning wake. this unlocks nap predictions</div>
+              <div style={{fontSize:11,color:C.mid}}>Tap to log {_name}'s morning wake. this helps OBubba line up naps and feeds</div>
             </div>
           </button>
         )}
@@ -22260,7 +22285,7 @@ function App(){
     const sleepBudget = { required: requiredDayMins, projected: projectedTotalNap, nightEst: avgNightMins, target24h, deficitBoost };
     // If naps were dropped due to bedtime constraint, flag it so UI can inform the user
     const napDropNote = droppedNapReason === "bedtime_constraint" && napsDone < napCount
-      ? `Showing ${napsDone} nap${napsDone!==1?"s":""} instead of ${napCount}. ${babyName||"baby"}'s recent nap lengths don't leave enough awake time for ${napCount} naps before bedtime. Try capping the longest nap by 10–15 min to fit ${napCount} naps in.`
+      ? `OBubba is only fitting ${napsDone} nap${napsDone!==1?"s":""} into this draft instead of ${napCount}. Recent naps may be running long for the remaining wake time, so treat this as a starting plan and adjust gently once the day unfolds.`
       : null;
     return { schedule: sanitizeSchedule(schedule, w), napCount: napsDone, expectedNapCount: napCount, hasBridge, napDropNote, source: _guide.sleepSource + " + personal rhythm + sleep budget", dataQuality, sleepBudget };
   }
@@ -26993,8 +27018,10 @@ function App(){
 
     let cursor;
     if (heroImg) {
-      _drawHeroPhoto(heroImg, cardX + 72, cardY + 198, cardW - 144, 408, 42);
-      cursor = cardY + 664;
+      const heroPhotoY = cardY + 198;
+      const heroPhotoH = 388;
+      _drawHeroPhoto(heroImg, cardX + 72, heroPhotoY, cardW - 144, heroPhotoH, 42);
+      cursor = heroPhotoY + heroPhotoH + 68;
       const titleSize = _fitFont(titleText, cardW - 150, 58, 34, s => "700 " + s + "px Georgia, 'Spectral', serif");
       cursor = _drawWrapped(titleText, W/2, cursor, cardW - 150, titleSize, titleSize + 12, theme.ink, s => "700 " + s + "px Georgia, 'Spectral', serif", 2);
       cursor += 10;
@@ -27005,16 +27032,18 @@ function App(){
       _drawSheenBand(stageX - 70, stageY + 28, stageW + 140, 132, -0.10, theme.accent + "1F", "rgba(255,255,255,0.04)");
       let textY;
       if (profileImg) {
-        const profileSize = 360;
-        _drawHeroPhoto(profileImg, W/2 - profileSize/2, stageY + 36, profileSize, profileSize, 42);
-        _glassPanel(stageX + 82, stageY + 340, stageW - 164, 210, 38, 0.68, 0.86, 0.10);
+        const profileSize = 330;
+        const photoY = stageY + 34;
+        const panelY = photoY + profileSize + 30;
+        _drawHeroPhoto(profileImg, W/2 - profileSize/2, photoY, profileSize, profileSize, 42);
+        _glassPanel(stageX + 82, panelY, stageW - 164, 190, 38, 0.68, 0.86, 0.10);
         ctx.font = "800 13px -apple-system, BlinkMacSystemFont, sans-serif";
-        ctx.fillStyle = theme.accent; _drawSpaced("today's keepsake", W/2, stageY + 386, 2.5);
+        ctx.fillStyle = theme.accent; _drawSpaced("today's keepsake", W/2, panelY + 38, 2.5);
         const titleSize = _fitFont(titleText, stageW - 230, 60, 34, s => "700 " + s + "px Georgia, 'Spectral', serif");
-        textY = stageY + 444;
+        textY = panelY + 92;
         textY = _drawWrapped(titleText, W/2, textY, stageW - 230, titleSize, titleSize + 10, theme.ink, s => "700 " + s + "px Georgia, 'Spectral', serif", 2);
-        textY += 10;
-        _drawWrapped(body, W/2, textY, stageW - 250, 27, 37, theme.sub, s => "400 " + s + "px -apple-system, BlinkMacSystemFont, sans-serif", 2);
+        textY += 8;
+        _drawWrapped(body, W/2, textY, stageW - 250, 25, 34, theme.sub, s => "400 " + s + "px -apple-system, BlinkMacSystemFont, sans-serif", 2);
       } else {
         const portraitY = stageY + 158;
         _drawInitialMark(W/2, portraitY, 108);
@@ -29112,6 +29141,78 @@ function App(){
     return notifications.length;
   }
 
+  function buildMedicineEntry(raw, opts = {}) {
+    const m = raw || {};
+    const _dayKey = opts.dayKey || selDay;
+    const _toast = opts.showToast === false ? function(){} : showToast;
+    const _name = String(m.name || "").trim();
+    const _dose = String(m.dose || "").trim();
+    const _tempRaw = m.temp === undefined || m.temp === null ? "" : String(m.temp).trim();
+    const _unit = String(opts.tempUnit || m.tempUnit || TU || "c").toLowerCase();
+    if (!_name && !_tempRaw) return null;
+
+    if (_name) {
+      const _mNameLower = _name.toLowerCase().trim();
+      const _isParacetamol = _mNameLower.includes("paracetamol") || _mNameLower.includes("calpol") || _mNameLower.includes("tylenol") || _mNameLower.includes("acetaminophen");
+      const _isIbuprofen = _mNameLower.includes("ibuprofen") || _mNameLower.includes("nurofen") || _mNameLower.includes("advil") || _mNameLower.includes("motrin");
+      const _minIntervalH = _isIbuprofen ? 6 : 4;
+      const _maxDailyDoses = _isIbuprofen ? 3 : 4;
+      const _medLabel = _isParacetamol ? "Paracetamol" : _isIbuprofen ? "Ibuprofen" : _name;
+      const _recentDays = [_dayKey, prevCalDay(_dayKey)];
+      const _recentDoses = [];
+      _recentDays.forEach(dk => {
+        (meds[dk] || []).forEach(e => {
+          if (e && e.name && String(e.name).toLowerCase().trim() === _mNameLower) {
+            const _mins = clockMins(e.time || "");
+            if (_mins !== null) {
+              const doseDate = new Date(dk + "T" + (e.time || "00:00") + ":00");
+              _recentDoses.push({ time: e.time, date: dk, ts: doseDate.getTime() });
+            }
+          }
+        });
+      });
+      _recentDoses.sort((a, b) => b.ts - a.ts);
+      if (_recentDoses.length > 0) {
+        const _lastDoseTs = _recentDoses[0].ts;
+        const _nowEntryTime = m.time || nowTime();
+        const _nowEntryDate = m.time ? new Date(_dayKey + "T" + _nowEntryTime + ":00") : new Date();
+        const _hoursSinceLast = Math.abs(_nowEntryDate.getTime() - _lastDoseTs) / (1000 * 60 * 60);
+        if (_hoursSinceLast < _minIntervalH) {
+          const _minsLeft = Math.ceil((_minIntervalH - _hoursSinceLast) * 60);
+          const _hLeft = Math.floor(_minsLeft / 60);
+          const _mLeft = _minsLeft % 60;
+          const _waitStr = _hLeft > 0 ? `${_hLeft}h ${_mLeft}m` : `${_mLeft}m`;
+          _toast(`⚠️ ${_medLabel}: last dose was ${_recentDoses[0].time} (${Math.floor(_hoursSinceLast * 60)}m ago). Minimum ${_minIntervalH}h between doses. Wait ${_waitStr}. Always check packaging.`, 8000, 3);
+          return null;
+        }
+      }
+      const _todayDoses = (meds[_dayKey] || []).filter(e => e && e.name && String(e.name).toLowerCase().trim() === _mNameLower).length;
+      if (_todayDoses >= _maxDailyDoses) {
+        _toast(`⚠️ ${_medLabel}: ${_todayDoses} doses already logged today. Max recommended is ${_maxDailyDoses} per day. Please check with your pharmacist.`, 8000, 3);
+        return null;
+      }
+    }
+
+    let _storedTemp = "";
+    let _tempC = null;
+    if (_tempRaw) {
+      const _tNum = parseFloat(_tempRaw);
+      const _isF = _unit === "f" || _unit === "fahrenheit";
+      const _minT = _isF ? 95 : 35;
+      const _maxT = _isF ? 107.6 : 42;
+      if (isNaN(_tNum) || _tNum < _minT || _tNum > _maxT) {
+        _toast(_isF ? "Temperature must be between 95 and 107.6°F" : "Temperature must be between 35 and 42°C",3500,2);
+        return null;
+      }
+      _tempC = _isF ? fToC(_tNum) : _tNum;
+      _storedTemp = String(_tempC);
+    }
+    return {
+      entry: { id: opts.id || uid(), time: m.time || nowTime(), name: _name, dose: _dose, temp: _storedTemp, note: m.note || "", date: _dayKey, schedule: m.schedule || "none", modifiedAt: Date.now() },
+      tempC: _tempC
+    };
+  }
+
   function saveMedicine() {
     const m = medForm;
     if (!m.name && !m.temp) return;
@@ -29120,106 +29221,37 @@ function App(){
     const _mNow = Date.now();
     if (_saveMedTsRef.current && _mNow - _saveMedTsRef.current < 800) return;
     _saveMedTsRef.current = _mNow;
-
-    // ── Dosing interval safety check ──
-    // Look back at recent doses of the same medicine and warn if too soon.
-    // Minimum intervals: paracetamol/calpol = 4h, ibuprofen/nurofen = 6h, default = 4h.
-    // Max daily doses: paracetamol = 4, ibuprofen = 3, default = 4.
-    if (m.name) {
-      const _mNameLower = m.name.toLowerCase().trim();
-      const _isParacetamol = _mNameLower.includes("paracetamol") || _mNameLower.includes("calpol") || _mNameLower.includes("tylenol") || _mNameLower.includes("acetaminophen");
-      const _isIbuprofen = _mNameLower.includes("ibuprofen") || _mNameLower.includes("nurofen") || _mNameLower.includes("advil") || _mNameLower.includes("motrin");
-      const _minIntervalH = _isIbuprofen ? 6 : 4;
-      const _maxDailyDoses = _isIbuprofen ? 3 : 4;
-      const _medLabel = _isParacetamol ? "Paracetamol" : _isIbuprofen ? "Ibuprofen" : m.name;
-
-      // Collect recent doses of the same medicine (today + yesterday)
-      const _recentDays = [selDay, prevCalDay(selDay)];
-      const _recentDoses = [];
-      _recentDays.forEach(dk => {
-        (meds[dk] || []).forEach(e => {
-          if (e.name && e.name.toLowerCase().trim() === _mNameLower) {
-            const [eh, em2] = (e.time || "").split(":").map(Number);
-            if (!isNaN(eh)) {
-              const doseDate = new Date(dk + "T" + (e.time || "00:00") + ":00");
-              _recentDoses.push({ time: e.time, date: dk, ts: doseDate.getTime() });
-            }
-          }
-        });
-      });
-      _recentDoses.sort((a, b) => b.ts - a.ts);
-
-      // Check interval since last dose
-      if (_recentDoses.length > 0) {
-        const _lastDoseTs = _recentDoses[0].ts;
-        const _nowEntryTime = m.time || nowTime();
-        // Use actual current time for interval calculation (not selDay which may be stale in wake-boundary mode)
-        const _nowEntryDate = m.time ? new Date(selDay + "T" + _nowEntryTime + ":00") : new Date();
-        const _hoursSinceLast = Math.abs(_nowEntryDate.getTime() - _lastDoseTs) / (1000 * 60 * 60);
-
-        if (_hoursSinceLast < _minIntervalH) {
-          const _minsLeft = Math.ceil((_minIntervalH - _hoursSinceLast) * 60);
-          const _hLeft = Math.floor(_minsLeft / 60);
-          const _mLeft = _minsLeft % 60;
-          const _waitStr = _hLeft > 0 ? `${_hLeft}h ${_mLeft}m` : `${_mLeft}m`;
-          showToast(`⚠️ ${_medLabel}: last dose was ${_recentDoses[0].time} (${Math.floor(_hoursSinceLast * 60)}m ago). Minimum ${_minIntervalH}h between doses. Wait ${_waitStr}. Always check packaging.`, 8000, 3);
-          return;
-        }
-      }
-
-      // Check daily dose count
-      const _todayDoses = (meds[selDay] || []).filter(e => e.name && e.name.toLowerCase().trim() === _mNameLower).length;
-      if (_todayDoses >= _maxDailyDoses) {
-        showToast(`⚠️ ${_medLabel}: ${_todayDoses} doses already logged today. Max recommended is ${_maxDailyDoses} per day. Please check with your pharmacist.`, 8000, 3);
-        return;
-      }
-    }
-
-    // Sanity-check temperature range. 35–42°C is the physiological
-    // window; anything outside is a typo (US user entering Fahrenheit,
-    // decimal slip like "378" for 37.8, or a thermometer misread).
-    // Warn the parent instead of silently saving garbage that would
-    // then trip the engine's fever detection.
-    if (m.temp) {
-      const _tNum = parseFloat(m.temp);
-      const _minT = TU==="f" ? 95 : 35;
-      const _maxT = TU==="f" ? 107.6 : 42;
-      if (isNaN(_tNum) || _tNum < _minT || _tNum > _maxT) {
-        showToast(TU==="f"?"Temperature must be between 95 and 107.6°F":"Temperature must be between 35 and 42°C",3500,2);
-        return;
-      }
-    }
-    // Always store temperature in °C internally
-    const _storedTemp = m.temp ? String(tempToC(m.temp)) : "";
-    const entry = { id: uid(), time: m.time || nowTime(), name: m.name, dose: m.dose, temp: _storedTemp, note: m.note, date: selDay, schedule: m.schedule || "none", modifiedAt: Date.now() };
+    const built = buildMedicineEntry(m, {dayKey:selDay, showToast:true});
+    if (!built) return;
+    const entry = built.entry;
     setMeds(prev => ({ ...prev, [selDay]: [...(prev[selDay] || []), entry] }));
     setShowMedForm(false);
     setMedForm({ name: "", dose: "", time: "", temp: "", note: "", schedule: "none" });
 
     // Auto-save to saved medications if it has a name and isn't already saved
-    if(m.name && !savedMeds.some(s=>s.name.toLowerCase()===m.name.toLowerCase())){
-      setSavedMeds(prev=>[...prev,{id:uid(),name:m.name,dose:m.dose||"",schedule:m.schedule||"none",createdAt:new Date().toISOString()}]);
+    if(entry.name && !savedMeds.some(s=>s.name.toLowerCase()===entry.name.toLowerCase())){
+      setSavedMeds(prev=>[...prev,{id:uid(),name:entry.name,dose:entry.dose||"",schedule:entry.schedule||"none",createdAt:new Date().toISOString()}]);
     }
 
     // Schedule local notification for recurring meds
-    if (m.schedule && m.schedule !== "none" && m.name && _isNative) {
-      const timeStr = m.time || nowTime();
+    if (entry.schedule && entry.schedule !== "none" && entry.name && _isNative) {
+      const timeStr = entry.time || nowTime();
       const schedId = "med_" + entry.id;
       const title = `💊 ${babyName || "Baby"}'s Medicine`;
-      const body = `Time for ${m.name}${m.dose ? " (" + m.dose + ")" : ""}`;
-      scheduleMedicineReminderSet({seed:schedId,title,body,scheduleKey:m.schedule,timeStr})
-        .then(count=>{ if(count>0) showToast(`💊 Logged + reminder set (${medicineReminderLabel(m.schedule)})`, 3000, 1); })
+      const body = `Time for ${entry.name}${entry.dose ? " (" + entry.dose + ")" : ""}`;
+      scheduleMedicineReminderSet({seed:schedId,title,body,scheduleKey:entry.schedule,timeStr})
+        .then(count=>{ if(count>0) showToast(`💊 Logged + reminder set (${medicineReminderLabel(entry.schedule)})`, 3000, 1); })
         .catch(()=>showToast("💊 Logged. Reminder could not be scheduled",3000,2));
-    } else if (m.temp && parseFloat(m.temp) >= 38 && age && age.totalWeeks < 13) {
+    } else if (built.tempC !== null && built.tempC >= 38 && age && age.totalWeeks < 13) {
       // Safety: fever in under 3 months — urgent
       setTimeout(() => showToast(`🌡️ ${cToDisplay(38)}${tempLabel}+ under 3 months. please call ${_helpLine} immediately`, 8000, 3), 300);
-    } else if (m.temp && parseFloat(m.temp) >= 38 && age && age.totalWeeks < 26) {
+    } else if (built.tempC !== null && built.tempC >= 38 && age && age.totalWeeks < 26) {
       // Safety: fever in under 6 months — seek advice
       setTimeout(() => showToast(`🌡️ ${cToDisplay(38)}${tempLabel}+ under 6 months. please call ${_helpLine} for guidance`, 8000, 3), 300);
-    } else if (m.temp && parseFloat(m.temp) >= 38) {
+    } else if (built.tempC !== null && built.tempC >= 38) {
       setTimeout(() => showToast(`🌡️ Temperature logged. Keep baby comfortable and hydrated. You can always call ${_helpLine} if you'd like advice.`, 5000, 2), 300);
     } else {
-      showToast(m.name ? "💊 Logged. Always follow dosing instructions on the packaging or from your pharmacist." : "💊 Logged", m.name ? 3000 : 1200, 1);
+      showToast(entry.name ? "💊 Logged. Always follow dosing instructions on the packaging or from your pharmacist." : "💊 Logged", entry.name ? 3000 : 1200, 1);
     }
   }
 
@@ -30431,7 +30463,7 @@ function App(){
       .trim();
   }
   function _voiceSplit(raw) {
-    const eventStart = String.raw`(?:at\s+)?(?:${_voiceTimeToken}\s+)?(?:woke|wake|fed|feed|bottle|breast|breastfed|nursed|nursing|nap|napped|slept|sleep|bedtime|ate|solids|food|pump|pumped|bath|walk|tummy|play|reading|story|massage|swimming|music|medicine|temperature)`;
+    const eventStart = String.raw`(?:at\s+)?(?:${_voiceTimeToken}\s+)?(?:woke|wake|fed|feed|bottle|breast|breastfed|nursed|nursing|nap|napped|slept|sleep|bedtime|ate|solids|food|pump|pumped|poo|poop|pooey|dirty|wet|wee|nappy|nappies|diaper|bath|walk|tummy|play|reading|story|massage|swimming|music|medicine|meds|calpol|paracetamol|ibuprofen|nurofen|tylenol|acetaminophen|temperature|temp|fever)`;
     return _voiceNormalise(raw)
       .replace(/\b(and then|then|after that|afterwards|later|next)\b/g, "|")
       .replace(new RegExp("\\s+and\\s+(?=" + eventStart + ")", "g"), " | ")
@@ -30494,6 +30526,11 @@ function App(){
       return "Bottle/feed " + fmt12(d.time) + (d.amount ? " · " + d.amount + "ml" : "");
     }
     if (d.type === "poop") return "Nappy " + fmt12(d.time) + " · " + (d.poopType || "wet");
+    if (ev.type === "medicine") {
+      const unit = String(d.tempUnit || "").toLowerCase();
+      const tempLabel = d.temp ? (unit === "f" || unit === "fahrenheit" ? "°F" : "°C") : "";
+      return (d.temp ? "Temperature" : "Medicine") + " " + fmt12(d.time) + (d.name ? " · " + d.name : "") + (d.dose ? " · " + d.dose : "") + (d.temp ? " · " + d.temp + tempLabel : "");
+    }
     if (d.type === "wake") return (d.night ? "Night wake " : "Wake ") + fmt12(d.time);
     if (d.type === "sleep") return "Bedtime " + fmt12(d.time);
     return (NAMES[d.type] || d.type || "Log") + (d.time ? " " + fmt12(d.time) : "");
@@ -30537,6 +30574,29 @@ function App(){
       const t = _voiceFindTime(s, "wake") || {time:nowTime()};
       const hour = parseInt((t.time||"00:00").split(":")[0],10);
       return { type:"wake", data:{type:"wake", time:t.time, night:hour < 5, note:_note}, label:null };
+    }
+    if (/\b(temperature|temp|fever)\b/.test(s)) {
+      const t = _voiceFindTime(s, "medicine") || {time:nowTime()};
+      const temp = (() => {
+        const withoutTime = s.replace(new RegExp(_voiceTimeToken, "ig"), "");
+        const m = withoutTime.match(/(\d+(?:\.\d+)?)\s*(?:degrees?|°)?\s*(c|f|celsius|fahrenheit)?\b/i);
+        return m ? {value:m[1], unit:(m[2]||"").toLowerCase()} : {value:"", unit:""};
+      })();
+      return { type:"medicine", data:{time:t.time, name:"", dose:"", temp:temp.value, tempUnit:temp.unit, note:_note, schedule:"none"}, label:null };
+    }
+    if (/\b(medicine|meds|calpol|paracetamol|ibuprofen|nurofen|tylenol|acetaminophen)\b/.test(s)) {
+      const t = _voiceFindTime(s, "medicine") || {time:nowTime()};
+      const name = (() => {
+        if (/\b(calpol|paracetamol|tylenol|acetaminophen)\b/.test(s)) return "Paracetamol";
+        if (/\b(ibuprofen|nurofen|advil|motrin)\b/.test(s)) return "Ibuprofen";
+        const cleaned = s.replace(new RegExp(_voiceTimeToken, "ig"), "").replace(/\b(medicine|meds|gave|had|at|dose)\b/g, "").replace(/\d+(?:\.\d+)?\s*(?:ml|mg)\b/ig, "").trim();
+        return cleaned || "Medicine";
+      })();
+      const dose = (() => {
+        const m = s.match(/(\d+(?:\.\d+)?)\s*(ml|mg)\b/i);
+        return m ? (m[1] + m[2].toLowerCase()) : "";
+      })();
+      return { type:"medicine", data:{time:t.time, name, dose, temp:"", note:_note, schedule:"none"}, label:null };
     }
     if (/\b(pump|pumped|expressed)\b/.test(s)) {
       const t = _voiceFindTime(s, "feed") || {time:nowTime()};
@@ -36189,41 +36249,6 @@ function App(){
               })()}
 
               {/* Morning wellbeing popup rendered as fixed overlay below */}
-
-              {/* WHAT'S NEW. shows once after app update */}
-              {!daySubScreen && (()=>{
-                const _currentVersion = "1.1.2";
-                const _lastSeen = localStorage.getItem("ob_whats_new_v");
-                if (_lastSeen === _currentVersion) return null;
-                // Only show for existing users (have data)
-                const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
-                if (_daysLogged < 2) return null;
-                return (
-                  <div className="glass-card" style={{padding:"16px",marginBottom:10,border:`1.5px solid ${C.gold}30`,background:`linear-gradient(135deg,${C.gold}08,${C.ter}04)`}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <BubbaIcon name="sparkle" size={24}/>
-                        <div style={{fontSize:14,fontWeight:700,color:C.deep}}>What's new in OBubba</div>
-                      </div>
-                      <button onClick={()=>{try{localStorage.setItem("ob_whats_new_v",_currentVersion);}catch{}haptic();setPartnerTick(t=>t+1);}} style={{background:"none",border:"none",fontSize:11,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {[
-                        ["💧💩","Bubba Care. share a care guide with carers via QR. They can log feeds, naps, nappies in real-time."],
-                        ["🧠","Smarter predictions. confidence indicator, illness mode, fragmented nap rescue"],
-                        ["📸","Share cards. Weekly Wrapped, milestone celebrations, auto-copy captions with hashtags"],
-	                        ["🤒","Not a normal day? Teething/illness mode shortens wake windows automatically."],
-                        ["📡","Offline resilience. logs save locally when you lose signal"],
-                      ].map(([icon,text],i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:12,color:C.mid,lineHeight:1.5}}>
-                          <BubbaIcon icon={icon} size={16}/>
-                          <span>{text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* FIRST WEEK GUIDE. age-specific "what's normal" for new users */}
               {!daySubScreen && (()=>{
@@ -47169,7 +47194,7 @@ function App(){
 	              {(()=>{
 	                const _cloudLifetime = _cachedComplimentaryPremiumActive();
 	                const _plan = _cloudLifetime ? "Lifetime" : isPremium ? "Premium" : trialActive ? "Trial" : "Free";
-	                const _care = carerEntries.length ? carerEntries.length+" waiting" : backupCode ? "Ready" : "Set up";
+	                const _care = carerSessionEnded ? "Locked" : carerEntries.length ? carerEntries.length+" waiting" : backupCode ? "Ready" : "Set up";
 	                const _sync = syncStatus==="syncing" ? "Syncing" : syncStatus==="error" ? "Check" : familyUsername ? "Connected" : "Local";
 	                return [
 	                  {label:"Cloud",value:_sync,tone:syncStatus==="error"?C.gold:C.mint},
@@ -47336,16 +47361,22 @@ function App(){
             </div>
             {backupCode&&(
               <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`,display:"grid",gap:8}}>
-                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,whiteSpace:"nowrap"}}>Bubba Care session</div>
-                <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:8,width:"100%"}}>
-                  <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(224,96,112,0.18)",background:"rgba(224,96,112,0.04)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
-                    <BubbaIcon name="check" size={15}/>
-                    End session
-                  </button>
-                  <button onClick={()=>{haptic();restartCarerSession();}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(155,184,168,0.24)",background:"rgba(155,184,168,0.06)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
-                    <span style={{fontSize:13}}>🔓</span>
-                    Reopen session
-                  </button>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,whiteSpace:"nowrap"}}>Bubba Care session</div>
+                  <div style={{fontSize:10,color:carerSessionEnded?C.gold:C.mint,fontWeight:800}}>{carerSessionEnded?"Locked":"Open"}</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:8,width:"100%"}}>
+                  {!carerSessionEnded ? (
+                    <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(224,96,112,0.18)",background:"rgba(224,96,112,0.04)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
+                      <BubbaIcon name="check" size={15}/>
+                      End session
+                    </button>
+                  ) : (
+                    <button onClick={()=>{haptic();restartCarerSession();}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(155,184,168,0.24)",background:"rgba(155,184,168,0.06)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
+                      <span style={{fontSize:13}}>🔓</span>
+                      Reopen session
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -50413,6 +50444,13 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             setTimeout(() => {
               if (ev.type === "breast-timer") { try { startBreastTimer("L"); timers++; } catch {} }
               else if (ev.type === "start-nap") { try { startNap(); timers++; } catch {} }
+              else if (ev.type === "medicine" && ev.data) {
+                const built = buildMedicineEntry({...ev.data, schedule:"none"}, {dayKey:selDay, tempUnit:ev.data.tempUnit, showToast:true});
+                if (!built) return;
+                const entry = built.entry;
+                setMeds(prev => ({...prev, [selDay]: [...(prev[selDay] || []), entry]}));
+                saved++;
+              }
               else if (ev.data) { quickAddLog(ev.type, ev.data); saved++; }
             }, idx * 120);
           });

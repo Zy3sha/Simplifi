@@ -36250,41 +36250,6 @@ function App(){
 
               {/* Morning wellbeing popup rendered as fixed overlay below */}
 
-              {/* WHAT'S NEW. shows once after app update */}
-              {!daySubScreen && (()=>{
-                const _currentVersion = "1.1.2";
-                const _lastSeen = localStorage.getItem("ob_whats_new_v");
-                if (_lastSeen === _currentVersion) return null;
-                // Only show for existing users (have data)
-                const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
-                if (_daysLogged < 2) return null;
-                return (
-                  <div className="glass-card" style={{padding:"16px",marginBottom:10,border:`1.5px solid ${C.gold}30`,background:`linear-gradient(135deg,${C.gold}08,${C.ter}04)`}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <BubbaIcon name="sparkle" size={24}/>
-                        <div style={{fontSize:14,fontWeight:700,color:C.deep}}>What's new in OBubba</div>
-                      </div>
-                      <button onClick={()=>{try{localStorage.setItem("ob_whats_new_v",_currentVersion);}catch{}haptic();setPartnerTick(t=>t+1);}} style={{background:"none",border:"none",fontSize:11,color:C.lt,cursor:_cP,padding:"12px",minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                      {[
-                        ["💧💩","Bubba Care. share a care guide with carers via QR. They can log feeds, naps, nappies in real-time."],
-                        ["🧠","Smarter predictions. confidence indicator, illness mode, fragmented nap rescue"],
-                        ["📸","Share cards. Weekly Wrapped, milestone celebrations, auto-copy captions with hashtags"],
-	                        ["🤒","Not a normal day? Teething/illness mode shortens wake windows automatically."],
-                        ["📡","Offline resilience. logs save locally when you lose signal"],
-                      ].map(([icon,text],i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:12,color:C.mid,lineHeight:1.5}}>
-                          <BubbaIcon icon={icon} size={16}/>
-                          <span>{text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
               {/* FIRST WEEK GUIDE. age-specific "what's normal" for new users */}
               {!daySubScreen && (()=>{
                 const _daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
