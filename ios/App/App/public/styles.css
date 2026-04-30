@@ -4159,6 +4159,208 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   backdrop-filter:none!important;
 }
 
+/* Absolute final guard: the Account picker previews the native widget themes.
+   Keep this last so day/night glass styles cannot wash the swatches out. */
+.ob-app-root button.ob-widget-theme-swatch,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:visible!important;
+  border:1.5px solid var(--ob-swatch-rim,rgba(192,112,136,0.34))!important;
+  background:transparent!important;
+  background-image:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.78),
+    0 6px 14px rgba(40,24,35,0.10)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
+  position:absolute!important;
+  inset:3px!important;
+  z-index:1!important;
+  display:block!important;
+  border-radius:9px!important;
+  background:var(--ob-swatch-bg)!important;
+  background-clip:border-box!important;
+  pointer-events:none!important;
+  opacity:1!important;
+  mix-blend-mode:normal!important;
+  filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.68),
+    inset 0 -10px 16px rgba(20,16,28,0.16)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"]{--ob-swatch-rim:rgba(192,112,136,0.32);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"]{--ob-swatch-rim:rgba(192,112,136,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"]{--ob-swatch-rim:rgba(139,126,200,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"]{--ob-swatch-rim:rgba(111,168,152,0.40);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"]{--ob-swatch-rim:rgba(122,171,196,0.42);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"]{--ob-swatch-rim:rgba(247,221,230,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCF9 0%,#F7ECEB 34%,#ECE7F6 66%,#2A2433 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFAF8 0%,#F6E8E4 52%,#F2DCE5 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EDEAF7 52%,#E6F3F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFDF9 0%,#EAF6F0 52%,#F2ECE8 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EAF1F7 52%,#F2F5F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#2C2430 0%,#211B24 52%,#302A3D 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch::after,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch::after,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch::after{
+  z-index:2!important;
+  background:transparent!important;
+  border:1px solid rgba(255,255,255,0.56)!important;
+}
+
+/* Final guard: widget colour samples must stay visible in both day and night
+   mode. Broad glass/button rules live above this and can otherwise repaint
+   these buttons into plain white or navy. */
+.ob-app-root button.ob-widget-theme-swatch,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:visible!important;
+  border:1.5px solid var(--ob-swatch-rim,rgba(192,112,136,0.34))!important;
+  background:transparent!important;
+  background-image:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.78),
+    0 6px 14px rgba(40,24,35,0.10)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
+  position:absolute!important;
+  inset:3px!important;
+  z-index:1!important;
+  display:block!important;
+  border-radius:9px!important;
+  background:var(--ob-swatch-bg)!important;
+  background-clip:border-box!important;
+  pointer-events:none!important;
+  opacity:1!important;
+  mix-blend-mode:normal!important;
+  filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.68),
+    inset 0 -10px 16px rgba(20,16,28,0.16)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCF9 0%,#F7ECEB 34%,#ECE7F6 66%,#2A2433 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"]{--ob-swatch-rim:rgba(192,112,136,0.32);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFAF8 0%,#F6E8E4 52%,#F2DCE5 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"]{--ob-swatch-rim:rgba(192,112,136,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EDEAF7 52%,#E6F3F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"]{--ob-swatch-rim:rgba(139,126,200,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFDF9 0%,#EAF6F0 52%,#F2ECE8 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"]{--ob-swatch-rim:rgba(111,168,152,0.40);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EAF1F7 52%,#F2F5F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"]{--ob-swatch-rim:rgba(122,171,196,0.42);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#2C2430 0%,#211B24 52%,#302A3D 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"]{--ob-swatch-rim:rgba(247,221,230,0.38);}
+.ob-app-root button.ob-widget-theme-swatch::after,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch::after,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch::after{
+  z-index:2!important;
+  background:transparent!important;
+  border:1px solid rgba(255,255,255,0.56)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
+  position:absolute!important;
+  inset:3px!important;
+  z-index:1!important;
+  display:block!important;
+  border-radius:9px!important;
+  background:var(--ob-swatch-bg)!important;
+  pointer-events:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.66),
+    inset 0 -10px 16px rgba(20,16,28,0.18)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCF9 0%,#F7ECEB 34%,#ECE7F6 66%,#2A2433 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFAF8 0%,#F6E8E4 52%,#F2DCE5 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EDEAF7 52%,#E6F3F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFDF9 0%,#EAF6F0 52%,#F2ECE8 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EAF1F7 52%,#F2F5F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#2C2430 0%,#211B24 52%,#302A3D 100%)!important;
+}
+
 /* True final guard: night-mode swatch buttons must remain transparent while
    their inner dots keep the actual nappy colour. */
 .ob-app-root button.ob-poop-colour-swatch,
@@ -4347,12 +4549,12 @@ body.dark-mode .ob-app-root button.ob-nap-refused-link{
     inset 0 -12px 20px rgba(32,20,38,0.16),
     0 7px 15px rgba(71,45,58,0.13)!important;
 }
-.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"]{background:linear-gradient(135deg,#FFF1D6 0%,#F0A18E 38%,#A18CF8 66%,#17243C 100%)!important}
-.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"]{background:linear-gradient(135deg,#FFE1E7 0%,#EE7F9C 52%,#A94366 100%)!important}
-.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"]{background:linear-gradient(135deg,#EFE4FF 0%,#9B7AF2 54%,#5D44B8 100%)!important}
-.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"]{background:linear-gradient(135deg,#DFF9E9 0%,#55C895 54%,#217E5B 100%)!important}
-.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"]{background:linear-gradient(135deg,#DDF5FF 0%,#63B5E4 54%,#2D6EAA 100%)!important}
-.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"]{background:linear-gradient(135deg,#83758B 0%,#43364F 48%,#171B2E 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"]{background:linear-gradient(135deg,#FFFCF9 0%,#F7ECEB 34%,#ECE7F6 66%,#2A2433 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"]{background:linear-gradient(135deg,#FFFAF8 0%,#F6E8E4 52%,#F2DCE5 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"]{background:linear-gradient(135deg,#FFFCFA 0%,#EDEAF7 52%,#E6F3F7 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"]{background:linear-gradient(135deg,#FFFDF9 0%,#EAF6F0 52%,#F2ECE8 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"]{background:linear-gradient(135deg,#FFFCFA 0%,#EAF1F7 52%,#F2F5F7 100%)!important}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"]{background:linear-gradient(135deg,#2C2430 0%,#211B24 52%,#302A3D 100%)!important}
 body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   border-color:rgba(244,236,255,0.56)!important;
   box-shadow:
@@ -4766,4 +4968,85 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   background:var(--ob-swatch-bg)!important;
   -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
+}
+
+/* Absolute final guard: the Account picker previews the native widget themes.
+   Keep this last so day/night glass styles cannot wash the swatches out. */
+.ob-app-root button.ob-widget-theme-swatch,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:visible!important;
+  border:1.5px solid var(--ob-swatch-rim,rgba(192,112,136,0.34))!important;
+  background:transparent!important;
+  background-image:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.78),
+    0 6px 14px rgba(40,24,35,0.10)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
+  position:absolute!important;
+  inset:3px!important;
+  z-index:1!important;
+  display:block!important;
+  border-radius:9px!important;
+  background:var(--ob-swatch-bg)!important;
+  background-clip:border-box!important;
+  pointer-events:none!important;
+  opacity:1!important;
+  mix-blend-mode:normal!important;
+  filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.68),
+    inset 0 -10px 16px rgba(20,16,28,0.16)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"]{--ob-swatch-rim:rgba(192,112,136,0.32);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"]{--ob-swatch-rim:rgba(192,112,136,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"]{--ob-swatch-rim:rgba(139,126,200,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"]{--ob-swatch-rim:rgba(111,168,152,0.40);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"]{--ob-swatch-rim:rgba(122,171,196,0.42);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"]{--ob-swatch-rim:rgba(247,221,230,0.38);}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="auto"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCF9 0%,#F7ECEB 34%,#ECE7F6 66%,#2A2433 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="rose"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFAF8 0%,#F6E8E4 52%,#F2DCE5 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="lavender"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EDEAF7 52%,#E6F3F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="mint"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFDF9 0%,#EAF6F0 52%,#F2ECE8 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="sky"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#FFFCFA 0%,#EAF1F7 52%,#F2F5F7 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch[data-widget-theme="dark"] .ob-widget-theme-face{
+  background:linear-gradient(135deg,#2C2430 0%,#211B24 52%,#302A3D 100%)!important;
+}
+.ob-app-root button.ob-widget-theme-swatch::after,
+body:not(.dark-mode) .ob-app-root button.ob-widget-theme-swatch::after,
+body.dark-mode .ob-app-root button.ob-widget-theme-swatch::after{
+  z-index:2!important;
+  background:transparent!important;
+  border:1px solid rgba(255,255,255,0.56)!important;
 }

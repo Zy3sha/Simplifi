@@ -47791,12 +47791,12 @@ function App(){
               </div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {[
-                  {id:"auto",label:"Auto",color:"linear-gradient(135deg,#FFF1D6 0%,#F0A18E 38%,#A18CF8 66%,#17243C 100%)"},
-                  {id:"rose",label:"Rose",color:"linear-gradient(135deg,#FFE1E7 0%,#EE7F9C 52%,#A94366 100%)"},
-                  {id:"lavender",label:"Lavender",color:"linear-gradient(135deg,#EFE4FF 0%,#9B7AF2 54%,#5D44B8 100%)"},
-                  {id:"mint",label:"Mint",color:"linear-gradient(135deg,#DFF9E9 0%,#55C895 54%,#217E5B 100%)"},
-                  {id:"sky",label:"Sky",color:"linear-gradient(135deg,#DDF5FF 0%,#63B5E4 54%,#2D6EAA 100%)"},
-                  {id:"dark",label:"Dark",color:"linear-gradient(135deg,#83758B 0%,#43364F 48%,#171B2E 100%)"},
+                  {id:"auto",label:"Auto",color:"linear-gradient(135deg,#FFFCF9 0%,#F7ECEB 34%,#ECE7F6 66%,#2A2433 100%)"},
+                  {id:"rose",label:"Rose",color:"linear-gradient(135deg,#FFFAF8 0%,#F6E8E4 52%,#F2DCE5 100%)"},
+                  {id:"lavender",label:"Lavender",color:"linear-gradient(135deg,#FFFCFA 0%,#EDEAF7 52%,#E6F3F7 100%)"},
+                  {id:"mint",label:"Mint",color:"linear-gradient(135deg,#FFFDF9 0%,#EAF6F0 52%,#F2ECE8 100%)"},
+                  {id:"sky",label:"Sky",color:"linear-gradient(135deg,#FFFCFA 0%,#EAF1F7 52%,#F2F5F7 100%)"},
+                  {id:"dark",label:"Dark",color:"linear-gradient(135deg,#2C2430 0%,#211B24 52%,#302A3D 100%)"},
                 ].map(t=>{
                   const _wt = localStorage.getItem("ob_widget_theme")||"auto";
                   const _active = _wt === t.id;
@@ -47818,8 +47818,9 @@ function App(){
                       background:t.color,cursor:_cP,position:"relative",
                       boxShadow:_active?"0 0 8px rgba(192,112,136,0.3)":"none"
                     }}>
-                      {_active && <span aria-hidden="true" style={{position:"absolute",inset:0,display:"grid",placeItems:"center",fontSize:17,color:"white",fontWeight:900,textShadow:"0 1px 5px rgba(0,0,0,0.45)"}}>✓</span>}
-                      {_active && <span style={{position:"absolute",bottom:-14,left:"50%",transform:"translateX(-50%)",fontSize:8,color:C.ter,fontWeight:700,fontFamily:_fM,whiteSpace:"nowrap"}}>{t.label}</span>}
+                      <span className="ob-widget-theme-face" aria-hidden="true" style={{background:t.color}} />
+                      {_active && <span aria-hidden="true" style={{position:"absolute",inset:0,display:"grid",placeItems:"center",fontSize:17,color:"white",fontWeight:900,textShadow:"0 1px 5px rgba(0,0,0,0.45)",zIndex:3}}>✓</span>}
+                      {_active && <span style={{position:"absolute",bottom:-14,left:"50%",transform:"translateX(-50%)",fontSize:8,color:C.ter,fontWeight:700,fontFamily:_fM,whiteSpace:"nowrap",zIndex:3}}>{t.label}</span>}
                     </button>
                   );
                 })}
