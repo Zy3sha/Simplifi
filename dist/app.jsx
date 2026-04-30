@@ -9081,7 +9081,23 @@ function App(){
   const microReassureRef=useRef(false); // once-per-session micro-reassurance
   const[recapExtraPhoto,setRecapExtraPhoto]=useState(null); // base64 data URL
   const[msSharePrompt,setMsSharePrompt]=useState(null); // {milestoneId, label}
+  const[milestoneDatePick,setMilestoneDatePick]=useState(null); // {id,label,date}
   const[scoreDetail,setScoreDetail]=useState(null); // {key, val, max, components}
+  const openMilestoneDatePicker = (m) => {
+    if (!m) return;
+    haptic();
+    const existing = (milestones && milestones[m.id] && milestones[m.id].date) || todayStr();
+    setMilestoneDatePick({ id: m.id, label: m.label, date: existing });
+  };
+  const saveMilestoneReached = (m, achievedDate) => {
+    if (!m || !m.id) return;
+    const safeDate = achievedDate || todayStr();
+    haptic("success");
+    setMilestones(ms=>({...ms,[m.id]:{...(ms[m.id]||{}),date:safeDate,maybeDate:undefined}}));
+    setMilestoneDatePick(null);
+    showMascot("celebration", `🎉 ${m.label}. memory saved!`, 2400);
+    setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2200);
+  };
   const makeApptForm = (overrides={}) => ({date:"",time:"",endDate:"",endTime:"",allDay:false,title:"",note:"",repeat:"none",repeatUntil:"",travelMins:0,location:"",reminders:["1d","1h","travel"],...overrides});
   const[apptForm,setApptForm]=useState(()=>makeApptForm());
   const[editApptId,setEditApptId]=useState(null);
@@ -44694,10 +44710,7 @@ function App(){
           // Category colors for milestone cards
           const catColors = {social:"#e8729a",language:"#5090e0",motor:"#40b878",cognitive:"#9070c0"};
           const markMilestoneReached = (m) => {
-            haptic("success");
-            setMilestones(ms=>({...ms,[m.id]:{...(ms[m.id]||{}),date:todayStr(),maybeDate:undefined}}));
-            showMascot("celebration", `🎉 ${m.label}. memory saved!`, 2400);
-            setTimeout(()=>setMsSharePrompt({milestoneId:m.id,label:m.label}),2200);
+            openMilestoneDatePicker(m);
           };
           const markMilestoneMaybe = (m) => {
             haptic(8);
@@ -44971,15 +44984,9 @@ function App(){
                           </span>
                         )}
                         {done && (
-                          <label onClick={e=>e.stopPropagation()} style={{fontSize:10,color:C.mint,fontWeight:600,cursor:"pointer",position:"relative",display:"inline-flex",alignItems:"center",gap:3}}>
+                          <button onClick={e=>{e.stopPropagation();openMilestoneDatePicker(m);}} style={{fontSize:10,color:C.mint,fontWeight:600,cursor:_cP,display:"inline-flex",alignItems:"center",gap:3,background:"none",border:"none",padding:0,fontFamily:_fI}}>
                             Achieved {fmtLong(milestones[m.id].date)} ✎
-                            <input type="date" value={milestones[m.id].date} max={todayStr()} onChange={ev=>{
-                              const _newDate = ev.target.value;
-                              if (!_newDate) return;
-                              setMilestones(ms=>({...ms,[m.id]:{...(ms[m.id]||{}),date:_newDate}}));
-                              showToast("Date updated ✓",1200,1);
-                            }} style={{position:"absolute",inset:0,opacity:0,cursor:"pointer",width:"100%",height:"100%"}}/>
-                          </label>
+                          </button>
                         )}
                       </div>
                       {done && (
@@ -48213,6 +48220,54 @@ function App(){
         </Sheet>
       )}
 
+      {milestoneDatePick && (
+        <Sheet onClose={()=>setMilestoneDatePick(null)} title="">
+          {(()=>{
+            const _m = (typeof MILESTONES !== "undefined" ? MILESTONES : []).find(ms=>ms.id===milestoneDatePick.id) || milestoneDatePick;
+            const _date = milestoneDatePick.date || todayStr();
+            const _minDate = activeChild && activeChild.dob ? activeChild.dob : "";
+            const _alreadyDone = !!(milestones && milestones[_m.id] && milestones[_m.id].date);
+            return (
+              <div>
+                <div style={{textAlign:"center",marginBottom:16}}>
+                  <div style={{fontSize:36,marginBottom:8}}>🏆</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:800,color:C.deep,marginBottom:6}}>
+                    When did this happen?
+                  </div>
+                  <div style={{fontSize:14,color:C.mid,lineHeight:1.45,padding:"0 8px"}}>
+                    {_m.label}
+                  </div>
+                  <div style={{fontSize:12,color:C.lt,lineHeight:1.45,marginTop:6}}>
+                    Milestones do not always happen on the day you remember to log them. Pick the real date so {babyName||"baby"}'s story stays accurate.
+                  </div>
+                </div>
+                <Inp
+                  label="Date achieved"
+                  type="date"
+                  min={_minDate || undefined}
+                  max={todayStr()}
+                  value={_date}
+                  onChange={ev=>setMilestoneDatePick(p=>({...p,date:ev.target.value||todayStr()}))}
+                />
+                <div style={{display:"flex",gap:8,marginTop:4}}>
+                  <button onClick={()=>saveMilestoneReached(_m, _date)}
+                    style={{flex:1,padding:"13px 16px",borderRadius:99,border:"none",background:C.mint,color:"white",fontSize:14,fontWeight:900,cursor:_cP}}>
+                    {_alreadyDone ? "Save date" : "Save milestone"}
+                  </button>
+                  <button onClick={()=>saveMilestoneReached(_m, todayStr())}
+                    style={{flex:1,padding:"13px 16px",borderRadius:99,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.mid,fontSize:14,fontWeight:800,cursor:_cP}}>
+                    Today
+                  </button>
+                </div>
+                <button onClick={()=>setMilestoneDatePick(null)} style={{width:"100%",padding:"11px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:13,fontWeight:700,cursor:_cP,marginTop:6}}>
+                  Cancel
+                </button>
+              </div>
+            );
+          })()}
+        </Sheet>
+      )}
+
       {showBedtimeResistanceSheet && (
         <Sheet onClose={()=>setShowBedtimeResistanceSheet(false)} title="">
           {(()=>{
@@ -48229,6 +48284,29 @@ function App(){
             const _lastNapLine = _lastNap && _lastNap.end
               ? "Last nap ended " + fmt12(_lastNap.end) + ". target bedtime is around " + _bedStr + "."
               : "Target bedtime is around " + _bedStr + ".";
+            const _nowMins = new Date().getHours()*60 + new Date().getMinutes();
+            const _lastNapEndMins = _lastNap && _lastNap.end ? clockMins(_lastNap.end) : null;
+            const _finalWakeMins = typeof _lastNapEndMins === "number" ? Math.max(0, _nowMins - _lastNapEndMins) : null;
+            const _ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+            const _ww = typeof _ageWeeks === "number" ? getWakeWindow(_ageWeeks) : null;
+            const _reasonCards = [];
+            if (_ww && typeof _finalWakeMins === "number" && _finalWakeMins > _ww.max + 15) {
+              _reasonCards.push({icon:"😣",title:"Possibly overtired",body:"Final wake window is about " + hm(_finalWakeMins) + ". For this age, the comfortable window is usually around " + hm(_ww.min) + "-" + hm(_ww.max) + "."});
+            }
+            if (_ww && typeof _finalWakeMins === "number" && _finalWakeMins < Math.max(20, _ww.min - 15)) {
+              _reasonCards.push({icon:"⚡",title:"Possibly undertired",body:"The last wake window may still be short, so " + _name + " might not have enough sleep pressure yet."});
+            }
+            if (_lastNapEndMins !== null && _lastNapEndMins >= 16*60) {
+              _reasonCards.push({icon:"⏰",title:"Late nap pressure",body:"A late nap can make bedtime feel harder because it borrows from the first part of night sleep."});
+            }
+            _reasonCards.push({icon:"💡",title:"Overstimulation",body:"Bright lights, active play, visitors, screens, or a long routine can give babies a second wind."});
+            _reasonCards.push({icon:"🤍",title:"Comfort or off-day needs",body:"Teething, wind, hunger, separation anxiety, temperature, or illness can make bedtime need more support."});
+            const _fixSteps = [
+              "Do one quick comfort check: nappy, temperature, hunger, wind, pain or teething cues.",
+              "Keep the room dark and boring. no new games, screens, or bright lights.",
+              "If wired, do a 10-15 minute calm reset, then restart the same short routine.",
+              "If frantic, shorten the routine and comfort first. tomorrow, try a slightly shorter final wake window.",
+            ];
             const _option = (icon,title,body,choice,label,guidance,toast) => (
               <button onClick={()=>{
                 haptic();
@@ -48254,6 +48332,29 @@ function App(){
                   <div style={{display:"inline-flex",alignItems:"center",gap:6,marginTop:10,padding:"6px 10px",borderRadius:99,background:"rgba(123,104,238,0.10)",color:C.ter,fontSize:11,fontWeight:800}}>
                     ✨ Premium bedtime support
                   </div>
+                </div>
+
+                <div style={{padding:"12px 14px",borderRadius:16,background:"var(--card-bg-solid)",border:"1px solid var(--card-border)",marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>What this may suggest</div>
+                  {_reasonCards.slice(0,4).map((r,i)=>(
+                    <div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:i?"7px 0 0":"0 0 0",borderTop:i?"1px solid rgba(255,255,255,0.08)":"none"}}>
+                      <span style={{fontSize:18,width:24,textAlign:"center",flexShrink:0}}>{r.icon}</span>
+                      <span style={{flex:1,minWidth:0}}>
+                        <span style={{display:"block",fontSize:13,fontWeight:850,color:C.deep,lineHeight:1.25}}>{r.title}</span>
+                        <span style={{display:"block",fontSize:12,color:C.mid,lineHeight:1.4,marginTop:2}}>{r.body}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{padding:"12px 14px",borderRadius:16,background:"linear-gradient(135deg,rgba(111,168,152,0.12),rgba(123,104,238,0.06))",border:"1px solid rgba(111,168,152,0.18)",marginBottom:12}}>
+                  <div style={{fontSize:11,fontWeight:900,color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:7}}>Try this now</div>
+                  {_fixSteps.map((step,i)=>(
+                    <div key={i} style={{display:"flex",gap:8,fontSize:12,color:C.mid,lineHeight:1.45,marginTop:i?5:0}}>
+                      <span style={{color:C.mint,fontWeight:900}}>{i+1}</span>
+                      <span>{step}</span>
+                    </div>
+                  ))}
                 </div>
 
                 {_option(
