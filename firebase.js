@@ -6,6 +6,20 @@ import { getAuth, signInAnonymously, onAuthStateChanged, indexedDBLocalPersisten
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getAnalytics, logEvent }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+import { getFunctions, httpsCallable }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
+const OB_FIREBASE_DEBUG = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("debug") === "1" ||
+      localStorage.getItem("ob_debug") === "1" ||
+      /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname || "");
+  } catch { return false; }
+})();
+if (!OB_FIREBASE_DEBUG) {
+  try { ["log","info","debug","warn","error"].forEach(method => { console[method] = function(){}; }); } catch {}
+}
 
 const firebaseConfig = {
   apiKey: "AIzaSyCdHzmheQRbtzP_JI1FuWcZLeW8yVja5-0",
@@ -28,6 +42,7 @@ try {
 }
 let analytics;
 try { analytics = getAnalytics(app); } catch(e) { console.warn("Analytics init failed", e); }
+const functions = getFunctions(app);
 
 // Auth-ready promise — resolves once anonymous sign-in completes
 window._fbAuthReady = new Promise((resolve) => {
@@ -39,4 +54,4 @@ window._fbAuthReady = new Promise((resolve) => {
   setTimeout(() => resolve(null), 5000);
 });
 
-window._fb = { db, auth, analytics, doc, setDoc, getDoc, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged, logEvent, collection, addDoc, getDocs, deleteDoc, query, orderBy, limit };
+window._fb = { db, auth, analytics, functions, httpsCallable, doc, setDoc, getDoc, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged, logEvent, collection, addDoc, getDocs, deleteDoc, query, orderBy, limit };

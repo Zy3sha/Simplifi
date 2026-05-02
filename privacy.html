@@ -21,7 +21,7 @@
 <h2>1. Data We Collect</h2>
 <p><strong>Baby tracking data:</strong> Feeds, naps, nappies, weight, milestones, activities, and notes you log. This data is stored on your device and optionally synced to our cloud backup (Firebase/Firestore) if you create an account.</p>
 <p><strong>Account information:</strong> If you sign up, we store your display name, email (if provided), and a family backup code. We use Firebase Authentication.</p>
-<p><strong>Location data (optional):</strong> If you grant permission, we use your location solely to calculate travel time to appointments you've added (e.g. GP visits, health visitor appointments). We use Apple MapKit for route calculation. Your location is used in real-time only and is never stored, shared, or transmitted to any third party. You can deny location access and manually set travel times instead.</p>
+<p><strong>Location data (optional):</strong> If you grant permission, we use your location solely to calculate travel time to appointments you've added (e.g. GP visits, health visitor appointments). We use Apple MapKit for route calculation. Your location is used in real time only, sent to Apple's routing services for that calculation, and never stored or sent to OBubba servers. You can deny location access and manually set travel times instead.</p>
 <p><strong>Photos (optional):</strong> Photos you add (e.g. milestone photos, care guide profile picture) are stored on your device. If you generate a share card with a photo, the card image is created locally and only shared if you explicitly tap Share.</p>
 <p><strong>Usage analytics:</strong> We use Firebase Analytics to understand how the app is used (e.g. which features are popular). This data is anonymous and aggregated. No personal baby data is included in analytics.</p>
 
@@ -46,7 +46,7 @@
 <p>Your data is stored locally on your device using SQLite and localStorage. If you enable cloud backup, data is encrypted in transit (TLS) and stored in Firebase's secure infrastructure. We do not have access to your passwords.</p>
 
 <h2>5. Location Services</h2>
-<p>OBubba requests "When In Use" location permission only. We use your location exclusively to calculate driving time to appointments using Apple MapKit. Your coordinates are sent to Apple's routing API and are subject to <a href="https://www.apple.com/legal/privacy/">Apple's Privacy Policy</a>. We never store, log, or transmit your location to our servers or any third party.</p>
+<p>OBubba requests "When In Use" location permission only. We use your location exclusively to calculate driving time to appointments using Apple MapKit. Your coordinates are sent to Apple's routing API and are subject to <a href="https://www.apple.com/legal/privacy/">Apple's Privacy Policy</a>. We never store or log your location, and we do not send it to OBubba servers.</p>
 
 <h2>6. Children's Privacy</h2>
 <p>OBubba is designed for parents/carers to track their baby's care. We do not knowingly collect data from children. All data is entered by the parent/carer. Baby names, dates of birth, and tracking data are stored solely for the parent's use.</p>

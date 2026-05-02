@@ -4073,6 +4073,45 @@ body.dark-mode .ob-app-root .ob-night-wake-tip{
   -webkit-backdrop-filter:blur(5px) saturate(1.05)!important;
   backdrop-filter:blur(5px) saturate(1.05)!important;
 }
+@keyframes obBubbaHugFlash{
+  0%{opacity:0;transform:scale(0.55)}
+  18%{opacity:1;transform:scale(1.12)}
+  38%{opacity:0.72;transform:scale(0.96)}
+  58%{opacity:1;transform:scale(1.08)}
+  100%{opacity:0;transform:scale(1.34)}
+}
+.ob-bubba-hug-pulse{
+  position:fixed;
+  inset:0;
+  z-index:9996;
+  pointer-events:none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.ob-bubba-hug-heart{
+  width:92px;
+  height:92px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#ff5f9f;
+  font-size:68px;
+  line-height:1;
+  background:rgba(255,240,247,0.92);
+  box-shadow:0 16px 46px rgba(255,95,159,0.28), 0 0 0 10px rgba(255,95,159,0.10);
+  animation:obBubbaHugFlash 1.65s cubic-bezier(0.18,0.84,0.28,1) both;
+}
+.ob-bubba-hug-card-heart{
+  text-shadow:0 10px 26px rgba(255,95,159,0.22);
+}
+@media(prefers-reduced-motion:reduce){
+  .ob-bubba-hug-heart{
+    animation:none;
+    opacity:1;
+  }
+}
 body.dark-mode .ob-global-toast{
   background:rgba(6,14,27,0.998)!important;
   border-color:rgba(213,198,255,0.72)!important;
@@ -4240,6 +4279,360 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch::after{
   border:1px solid rgba(255,255,255,0.56)!important;
 }
 
+/* Absolute final Today navigation guard.
+   This sits after the night-mode unifier and swatch guards so bottom tabs stay
+   lightweight tools, not four competing amber cards. */
+.ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn{
+  border:1px solid transparent!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+.ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"]{
+  border-color:var(--ob-calm-tool-border)!important;
+  background:var(--ob-calm-tool-active)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.30)!important;
+}
+
+/* Final quick-log overlay guard.
+   Keep the carousel at full width and let the arrow float on top of the edge,
+   matching the earlier carousel feel. */
+.ob-app-root .ob-quick-log-shell{
+  position:relative!important;
+  isolation:isolate!important;
+}
+.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
+  width:100%!important;
+  margin:0!important;
+  padding:8px 10px 9px 10px!important;
+  scroll-padding-inline:10px 42px!important;
+}
+.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-right:10px!important;
+}
+.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-left:10px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
+  position:absolute!important;
+  top:50%!important;
+  bottom:auto!important;
+  transform:translateY(-50%)!important;
+  z-index:12!important;
+  width:38px!important;
+  min-width:38px!important;
+  max-width:38px!important;
+  height:64px!important;
+  min-height:64px!important;
+  margin:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:20px!important;
+  pointer-events:auto!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
+  left:4px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
+  right:4px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav:active{
+  transform:translateY(-50%) scale(0.96)!important;
+}
+
+/* Account hierarchy pass: keep essential controls visible, tuck low-frequency
+   settings into compact rows so Account opens calm instead of crowded. */
+.ob-app-root details.ob-account-collapse{
+  overflow:hidden;
+}
+.ob-app-root details.ob-account-collapse > summary{
+  list-style:none;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:44px;
+  cursor:pointer;
+  touch-action:manipulation;
+  user-select:none;
+}
+.ob-app-root details.ob-account-collapse > summary::-webkit-details-marker{
+  display:none;
+}
+.ob-app-root .ob-account-collapse-copy{
+  min-width:0;
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.ob-app-root .ob-account-collapse-copy > span:last-child{
+  font-size:11px;
+  line-height:1.35;
+  color:var(--text-light);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.ob-app-root .ob-account-collapse-chevron{
+  flex:0 0 auto;
+  font-size:18px;
+  line-height:1;
+  color:var(--text-light);
+  transform-origin:center;
+  transition:transform 0.16s ease;
+}
+.ob-app-root details.ob-account-collapse[open] > summary{
+  padding-bottom:12px;
+  margin-bottom:12px;
+  border-bottom:1px solid var(--card-border);
+}
+.ob-app-root details.ob-account-collapse[open] .ob-account-collapse-chevron{
+  transform:rotate(90deg);
+}
+.ob-app-root .ob-account-collapse-body{
+  min-width:0;
+}
+
+/* Absolute final quick-log carousel guard.
+   Sticky arrows need a real empty lane so they signal "more" without covering
+   the next sleepy-parent tap target. */
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding:12px 64px 14px 12px!important;
+  gap:8px!important;
+  scroll-padding-inline:12px 64px!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
+  flex:0 0 40px!important;
+  width:40px!important;
+  min-width:40px!important;
+  max-width:40px!important;
+  height:72px!important;
+  min-height:72px!important;
+  border-radius:19px!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
+  left:10px!important;
+  margin-right:10px!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
+  right:10px!important;
+  margin-left:10px!important;
+}
+@media(max-width:374px){
+  .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
+    padding-right:56px!important;
+    scroll-padding-inline:10px 56px!important;
+  }
+  .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
+    flex-basis:34px!important;
+    width:34px!important;
+    min-width:34px!important;
+    max-width:34px!important;
+  }
+}
+
+/* Overlay arrow hint for the quick-log shell.
+   The carousel keeps its full width while the arrow floats over the edge. */
+.ob-app-root .ob-quick-log-shell{
+  position:relative!important;
+  isolation:isolate!important;
+}
+.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
+  width:100%!important;
+  margin:0!important;
+  padding:12px 14px 14px 12px!important;
+  scroll-padding-inline:12px 48px!important;
+}
+.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-right:46px!important;
+}
+.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-left:46px!important;
+}
+.ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-left:46px!important;
+  padding-right:46px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
+  position:absolute!important;
+  top:50%!important;
+  bottom:auto!important;
+  transform:translateY(-50%)!important;
+  z-index:8!important;
+  width:38px!important;
+  min-width:38px!important;
+  max-width:38px!important;
+  height:64px!important;
+  min-height:64px!important;
+  margin:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:20px!important;
+  border:1.35px solid rgba(165,220,255,0.72)!important;
+  background:
+    radial-gradient(circle at 50% 30%,rgba(216,246,255,0.96),rgba(183,228,255,0.48) 46%,rgba(255,255,255,0.74) 100%) padding-box,
+    linear-gradient(135deg,rgba(183,232,255,0.96),rgba(124,190,234,0.72),rgba(255,255,255,0.62)) border-box!important;
+  color:#407AA6!important;
+  font-size:30px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  box-shadow:0 10px 22px rgba(74,135,175,0.18),0 3px 10px rgba(74,135,175,0.12),inset 0 1px 0 rgba(255,255,255,0.82)!important;
+  text-shadow:0 1px 0 rgba(255,255,255,0.72)!important;
+  -webkit-backdrop-filter:blur(8px) saturate(1.2)!important;
+  backdrop-filter:blur(8px) saturate(1.2)!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
+  left:4px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
+  right:4px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav:active{
+  transform:translateY(-50%) scale(0.96)!important;
+}
+body.dark-mode .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
+  border-color:rgba(135,207,255,0.55)!important;
+  background:
+    radial-gradient(circle at 50% 30%,rgba(52,79,99,0.92),rgba(25,43,58,0.76) 50%,rgba(12,23,32,0.9) 100%) padding-box,
+    linear-gradient(135deg,rgba(126,205,255,0.74),rgba(80,137,181,0.56),rgba(255,255,255,0.16)) border-box!important;
+  color:#C7EDFF!important;
+  box-shadow:0 12px 24px rgba(0,0,0,0.34),inset 0 1px 0 rgba(255,255,255,0.16)!important;
+  text-shadow:0 1px 0 rgba(0,0,0,0.34)!important;
+}
+@media(max-width:374px){
+  .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
+    padding-right:40px!important;
+  }
+  .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
+    padding-left:40px!important;
+  }
+  .ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
+    padding-left:40px!important;
+    padding-right:40px!important;
+  }
+  .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
+    width:34px!important;
+    min-width:34px!important;
+    max-width:34px!important;
+    height:58px!important;
+    min-height:58px!important;
+    border-radius:18px!important;
+  }
+}
+
+/* Absolute final Today navigation guard.
+   This sits after the night-mode unifier so bottom tabs stay lightweight tools,
+   not four competing amber cards. */
+.ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn{
+  border:1px solid transparent!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+.ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"]{
+  border-color:var(--ob-calm-tool-border)!important;
+  background:var(--ob-calm-tool-active)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.30)!important;
+}
+
+/* Visual hierarchy audit pass.
+   Today should read as one calm answer plus lightweight tools. Keep the quick
+   log and bottom tabs available, but remove decorative button chrome from
+   inactive controls so the screen no longer looks like dozens of equal CTAs. */
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-calm-tool-fill:rgba(255,255,255,0.18);
+  --ob-calm-tool-active:rgba(255,255,255,0.58);
+  --ob-calm-tool-border:rgba(192,112,136,0.14);
+  --ob-calm-nav-fill:rgba(255,252,248,0.86);
+  --ob-calm-nav-shadow:0 -4px 18px rgba(74,54,48,0.075);
+  --ob-calm-icon-fill:rgba(255,255,255,0.30);
+}
+body.dark-mode{
+  --ob-calm-tool-fill:rgba(255,255,255,0.030);
+  --ob-calm-tool-active:rgba(255,255,255,0.092);
+  --ob-calm-tool-border:rgba(255,214,150,0.12);
+  --ob-calm-nav-fill:rgba(10,21,36,0.78);
+  --ob-calm-nav-shadow:0 -6px 22px rgba(0,0,0,0.28);
+  --ob-calm-icon-fill:rgba(255,255,255,0.045);
+}
+.ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  background:var(--ob-calm-nav-fill)!important;
+  border:1px solid var(--ob-calm-tool-border)!important;
+  box-shadow:var(--ob-calm-nav-shadow)!important;
+  padding:5px 10px calc(env(safe-area-inset-bottom,0px) + 7px)!important;
+}
+.ob-app-root button.ob-main-tab-btn,
+body.dark-mode .ob-app-root button.ob-main-tab-btn{
+  flex:1 1 0!important;
+  max-width:92px!important;
+  min-height:48px!important;
+  padding:7px 6px 5px!important;
+  border:1px solid transparent!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+.ob-app-root button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"]{
+  background:var(--ob-calm-tool-active)!important;
+  border-color:var(--ob-calm-tool-border)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.34)!important;
+}
+.ob-app-root button.ob-main-tab-btn .ob-main-tab-label{
+  font-size:10px!important;
+  line-height:1.1!important;
+  font-weight:750!important;
+  letter-spacing:0!important;
+}
+.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
+  background:var(--ob-calm-tool-fill)!important;
+  border:1px solid var(--ob-calm-tool-border)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.20)!important;
+  padding:8px 16px 9px 10px!important;
+  margin-bottom:10px!important;
+  border-radius:20px!important;
+  gap:6px!important;
+}
+.ob-app-root button.ob-quick-log-btn,
+body.dark-mode .ob-app-root button.ob-quick-log-btn{
+  background:transparent!important;
+  border-color:transparent!important;
+  box-shadow:none!important;
+  min-height:68px!important;
+  width:64px!important;
+  min-width:64px!important;
+  max-width:64px!important;
+  padding:6px 4px!important;
+}
+.ob-app-root button.ob-quick-log-btn .ob-quick-log-icon,
+body.dark-mode .ob-app-root button.ob-quick-log-btn .ob-quick-log-icon{
+  width:38px!important;
+  height:38px!important;
+  border-radius:13px!important;
+  background:var(--ob-calm-icon-fill)!important;
+  border:1px solid var(--ob-calm-tool-border)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.16)!important;
+}
+.ob-app-root button.ob-quick-log-btn .ob-quick-log-label{
+  font-size:10px!important;
+  line-height:1.08!important;
+  font-weight:760!important;
+  letter-spacing:0!important;
+}
+
 /* Final guard: widget colour samples must stay visible in both day and night
    mode. Broad glass/button rules live above this and can otherwise repaint
    these buttons into plain white or navy. */
@@ -4392,8 +4785,8 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
 }
 
 /* 4am usability guard.
-   Buttons should feel like controls, not selectable text, and the quick-log
-   carousel arrow needs its own breathing room instead of sitting on a tile. */
+   Buttons should feel like controls, not selectable text. The quick-log shell
+   overlay guard at the end of the file owns the carousel arrow placement. */
 .ob-app-root button,
 .ob-app-root [role="button"],
 .ob-app-root .ob-quick-log-label,
@@ -4416,9 +4809,15 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
   margin-right:8px!important;
 }
 
-/* Quick-log action dock: keep the "more" arrow from covering the last visible
-   action on narrow phone WebViews. */
+/* Quick-log action dock baseline. The final shell overlay guard below restores
+   the floating arrow treatment when the arrow is rendered outside the row. */
 div[data-testid="quick-log-row"].ob-quick-log-row{
+  flex-wrap:nowrap!important;
+  justify-content:flex-start!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  scroll-snap-type:x proximity!important;
   gap:7px!important;
   padding:12px 10px 14px 12px!important;
   scroll-padding-inline:12px 48px!important;
@@ -4741,10 +5140,47 @@ body[data-kb-open="1"] .ob-child-settings-sheet{
   max-height:var(--ob-keyboard-sheet-max-h,58vh)!important;
   padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))!important;
 }
+/* Global horizontal viewport guard */
+html,
+body,
+#root,
+.ob-app-root{
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+}
+.ob-app-root{
+  min-width:0!important;
+}
+.ob-app-root :where(div,section,main,article,header,footer,form,label,ul,ol,li){
+  min-width:0;
+  max-width:100%;
+}
+.ob-app-root :where(img,video,canvas){
+  max-width:100%;
+}
+.ob-app-root :where(.ob-keyboard-safe-overlay){
+  left:0!important;
+  right:0!important;
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+  box-sizing:border-box!important;
+}
+.ob-app-root :where(.ob-keyboard-safe-sheet,.ob-responsive-dialog){
+  max-width:min(var(--ob-app-max-w,520px), calc(var(--ob-vw,100vw) - var(--ob-modal-pad,16px) - var(--ob-modal-pad,16px)))!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+  box-sizing:border-box!important;
+  overflow-x:hidden!important;
+}
 .ob-family-modal-sheet,
 .ob-child-settings-sheet{
   box-sizing:border-box!important;
-  max-width:min(480px, calc(100vw - 16px))!important;
+  width:calc(var(--ob-vw,100vw) - var(--ob-modal-pad,16px) - var(--ob-modal-pad,16px))!important;
+  max-width:min(480px, calc(var(--ob-vw,100vw) - var(--ob-modal-pad,16px) - var(--ob-modal-pad,16px)))!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
   overflow-x:hidden!important;
 }
 .ob-family-modal-sheet *,
@@ -5049,4 +5485,72 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch::after{
   z-index:2!important;
   background:transparent!important;
   border:1px solid rgba(255,255,255,0.56)!important;
+}
+
+/* Absolute final Today navigation guard.
+   This sits after the night-mode unifier and swatch guards so bottom tabs stay
+   lightweight tools, not four competing amber cards. */
+.ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn{
+  border:1px solid transparent!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+}
+.ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"],
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"]{
+  border-color:var(--ob-calm-tool-border)!important;
+  background:var(--ob-calm-tool-active)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.30)!important;
+}
+
+/* Last-word quick-log overlay guard.
+   Keep the carousel at full width and let the arrow float on top of the edge,
+   matching the earlier carousel feel. */
+.ob-app-root .ob-quick-log-shell{
+  position:relative!important;
+  isolation:isolate!important;
+}
+.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
+  width:100%!important;
+  margin:0!important;
+  padding:8px 10px 9px 10px!important;
+  scroll-padding-inline:10px 42px!important;
+}
+.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-right:10px!important;
+}
+.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
+  padding-left:10px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav,
+body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
+  position:absolute!important;
+  top:50%!important;
+  bottom:auto!important;
+  transform:translateY(-50%)!important;
+  z-index:12!important;
+  width:38px!important;
+  min-width:38px!important;
+  max-width:38px!important;
+  height:64px!important;
+  min-height:64px!important;
+  margin:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:20px!important;
+  pointer-events:auto!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
+  left:4px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
+  right:4px!important;
+}
+.ob-app-root .ob-quick-log-shell > .ob-carousel-nav:active{
+  transform:translateY(-50%) scale(0.96)!important;
 }
